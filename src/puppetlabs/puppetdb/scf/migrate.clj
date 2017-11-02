@@ -1471,6 +1471,21 @@
 
    "alter table fact_paths add column path_array text[]"
    "update fact_paths set path_array = regexp_split_to_array(path, '#~')"
+
+;;   "alter table fact_paths add column value_type_id int"
+;;
+;;   "create table fact_paths2 like fact_paths"
+;;   "insert into fact_paths2
+;;    (path_array, name, path, value_type_id)
+;;    select distinct regexp_split_to_array(path, '#~') path_array, name, path, value_type_id
+;;    from facts inner join fact_paths on facts.fact_path_id=fact_paths.id
+;;    inner join fact_values on facts.fact_value_id=fact_values.id"
+;;   "update table fact_paths2 set depth=(array_length(path) - 1)"
+;;
+;;   "alter table fact_paths2 add constraint fact_paths_path_type_unique unique(path, value_type_id)"
+;;   "drop table fact_paths"
+;;   "alter table fact_paths2 rename to fact_paths"
+
    )
 
   {::vacuum-analyze #{"factsets"}})

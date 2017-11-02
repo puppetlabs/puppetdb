@@ -500,13 +500,16 @@
                                         :queryable? true
                                         :field :value}}
                  :selection {:from [[(hcore/raw "(select certname,
-                                                         jsonb_extract_path(stable||volatile, variadic path_array) as value,
+                                                         jsonb_extract_path(stable||volatile,
+                                                                            variadic path_array) as value,
                                                          path,
                                                          name,
                                                          environment_id
                                                   from factsets
                                                  cross join fact_paths
-                                                 where jsonb_extract_path(stable||volatile, variadic path_array) is not null)") :fs]]
+                                                 where jsonb_extract_path(stable||volatile,
+                                                                          variadic path_array) is not null)")
+                                     :fs]]
                              :left-join [[:environments :env]
                                          [:= :fs.environment_id :env.id]]}
 
@@ -518,9 +521,6 @@
                  :alias "fact_nodes"
                  :source-table "factsets"
                  :subquery? false})
-
-
-
 
     (map->Query {:projections {"path" {:type :path
                                        :queryable? true
