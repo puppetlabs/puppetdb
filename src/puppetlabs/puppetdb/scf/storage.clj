@@ -1003,6 +1003,10 @@
                       {:hash (sutils/munge-hash-for-storage
                               (shash/fact-identity-hash fact-data))})))
 
+     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+           pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)]
+       (realize-paths! pathstrs))
+
      (when (seq package_inventory)
        (insert-packages certname package_inventory)))))
 
@@ -1047,6 +1051,10 @@
 
       (when (or package_hash (seq package_inventory))
         (update-packages certname_id package_hash package_inventory))
+
+     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+           pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)]
+       (realize-paths! pathstrs))
 
       (jdbc/update! :factsets
                     (merge
@@ -1307,7 +1315,6 @@
 
      (when (seq package_inventory)
        (insert-packages certname package_inventory)))))
-
 
 (s/defn update-facts-classic
   "Given a certname, querys the DB for existing facts for that
