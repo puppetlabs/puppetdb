@@ -1409,10 +1409,15 @@
   NullExpression
   (-plan->sql [{:keys [column] :as expr}]
     (s/validate column-schema column)
-    (let [lhs (-plan->sql (:field column))]
+    (let [lhs (-plan->sql (:field column))
+          json? (= :jsonb-scalar (:type column))]
       (if (:null? expr)
-        [:is lhs nil]
-        [:is-not lhs nil])))
+        (if json?
+          (su/jsonb-nullity-check lhs "=")
+          [:is lhs nil])
+        (if json?
+          (su/jsonb-nullity-check lhs "<>")
+          [:is-not lhs nil]))))
 
   AndExpression
   (-plan->sql [expr]
