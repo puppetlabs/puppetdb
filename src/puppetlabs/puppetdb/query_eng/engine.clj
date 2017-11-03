@@ -1261,7 +1261,6 @@
 
   BinaryExpression
   (-plan->sql [{:keys [column operator value] :as foo}]
-    (println "FOO IS" foo)
     (apply vector
            :or
            (map #(vector operator (-plan->sql %1) (-plan->sql %2))
@@ -1887,10 +1886,9 @@
                                        :column cinfo
                                        :value (su/munge-jsonb-for-storage value)})
 
-               (do (println "YOO THERE" cinfo value)
                (map->BinaryExpression {:operator :=
                                        :column cinfo
-                                       :value value}))))
+                                       :value value})))
 
             [["in" column-name ["array" value]]]
             (let [cinfo (get-in query-rec [:projections column-name])]
