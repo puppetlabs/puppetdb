@@ -248,10 +248,10 @@ The data Puppet collects provides just one of many methods we use for learning a
 
 ### `facts-blacklist`
 
-Optional. Set by delacring `facts-blacklist` in the PuppetDB configuration file. Providing a comma seperated string of fact names in the case of an INI config file or a list of fact names in the case of a HOCON config file will cause PuppetDB to ignore those facts on ingestion. See examples below.
+Optional. Set by declaring `facts-blacklist` in the PuppetDB configuration file. If you provide a comma-separated string of fact names (in the case of an INI config file) or a list of fact names (in the case of a HOCON config file), PuppetDB ignores those facts on ingestion.
 
-* INI: "fact1, fact2, fact3"
-* HOCON: ["fact1", "fact2", "fact3"]
+* INI: `"fact1, fact2, fact3"`
+* HOCON: `["fact1", "fact2", "fact3"]`
 
 
 `[database]` settings
