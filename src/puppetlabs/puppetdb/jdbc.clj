@@ -190,6 +190,7 @@
   ([[sql & params]
     {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
     f]
+   (println "SQL IS" sql)
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
