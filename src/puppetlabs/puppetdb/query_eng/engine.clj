@@ -1490,8 +1490,8 @@
             ;;           ["~>" "path" (utils/split-indexing path)]
             ;;           [op value-column value]]]]])))
 
-            [[(op :guard (classic-facts-pred #{"=" "<" ">" "<=" ">="})) "value" (value :guard #(number? %))]]
-            [op "value" value] ;; TODO add coercion support here
+            [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
 
 
             [[(op :guard (classic-facts-pred #{"="})) "value"
@@ -1791,10 +1791,6 @@
                :params (vec params)
                :args (vec qmarks)}
         compiled-fn (first (compile-fnexpression fnmap))]
-    (println
-      "COMPILED"
-      (compile-fnexpression fnmap)
-      )
     (map->FnExpression (-> fnmap
                            (assoc :statement compiled-fn)))))
 
@@ -1860,7 +1856,6 @@
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
-  (println "NODE IS" node)
   (cm/match [node]
             [[op ["function" f & args] value]]
             (map->FnBinaryExpression {:operator op
