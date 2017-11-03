@@ -1434,14 +1434,6 @@
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
 
-(defn classic-facts-pred
-  "Wrap the given predicate function to make a predicate that
-   always returns false when not using classic-facts"
-  [pred]
-  (fn [x]
-    (and (not @scf-store/enable-json-facts)
-         (pred x))))
-
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
@@ -1452,12 +1444,11 @@
             ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
 
 
-            [[(op :guard (classic-facts-pred #{"="})) "value"
-              (value :guard #(or (string? %) (ks/boolean? %)))]]
+            [["=" "value" (value :guard #(or (string? %) (ks/boolean? %)))]]
             (let [value-column (if (string? value) "value_string" "value_boolean")]
-            [op value-column value])
+            ["=" value-column value])
 
-            [[(op :guard (classic-facts-pred #{"=" "~" ">" "<" "<=" ">="})) "value" value]]
+            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
             (when (= :facts (get-in (meta node) [:query-context :entity]))
               ["and" ["=" "depth" 0] [op "value" value]])
 
