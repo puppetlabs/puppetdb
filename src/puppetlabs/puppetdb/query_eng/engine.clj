@@ -1467,12 +1467,6 @@
             [["=" "value" (value :guard #(ks/boolean? %))]]
             ["and" ["=" ["function" "jsonb_typeof" "value"] "boolean"] ["=" "value" value]]
 
-            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
-            (when (= :facts (get-in (meta node) [:query-context :entity]))
-              ["and" ["=" "depth" 0] [op "value" value]])
-
-
-
             [["=" ["node" "active"] value]]
             (expand-query-node ["=" "node_state" (if value "active" "inactive")])
 
