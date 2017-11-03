@@ -684,7 +684,8 @@
   [:v4])
 
 (defn query-factsets [& cols]
-  (->> (query-to-vec "select certname, (stable||volatile) as facts, environment, producer_timestamp from factsets")
+  (->> (query-to-vec "select certname, (stable||volatile) as facts,
+                      environment_id, producer_timestamp from factsets")
        (map #(update % :facts (comp json/parse-string str)))
        (map #(select-keys % cols))))
 
