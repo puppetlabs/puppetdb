@@ -1466,8 +1466,8 @@
   [node]
   (cm/match [node]
 
-            [[(op :guard (classic-facts-pred #{"=" "<" ">" "<=" ">="})) "value" (value :guard #(number? %))]]
-            [op "value" value] ;; TODO add coercion support here
+            [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
 
 
             [[(op :guard (classic-facts-pred #{"="})) "value"
