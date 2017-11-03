@@ -123,7 +123,8 @@
    "min" "min"
    "max" "max"
    "count" "count"
-   "to_string" "to_char"})
+   "to_string" "to_char"
+   "jsonb_typeof" "jsonb_typeof"})
 
 (def pg-fns->pdb-fns
   (map-invert pdb-fns->pg-fns))
