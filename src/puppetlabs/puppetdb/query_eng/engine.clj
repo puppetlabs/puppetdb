@@ -64,6 +64,13 @@
      alias where subquery? entity call
      group-by limit offset order-by])
 
+
+(s/defrecord FnBinaryExpression
+  [operator :- s/Keyword
+   args :- [s/Str]
+   function
+   value])
+
 (s/defrecord BinaryExpression
     [operator :- s/Keyword
      column :- column-schema
@@ -1229,6 +1236,10 @@
                         (-> column-data :field :s)
                         field)))
 
+  FnBinaryExpression
+  (-plan->sql [{:keys [value function args operator]}]
+    (su/fn-binary-expression operator function args))
+
   JsonbPathBinaryExpression
   (-plan->sql [{:keys [field value column-data operator]}]
     (su/jsonb-path-binary-expression operator
@@ -1378,6 +1389,10 @@
     (instance? JsonbPathBinaryExpression node)
     (parse-dot-query-with-array-elements node state)
 
+    (instance? FnBinaryExpression node)
+    {:node (assoc node :value "?")
+     :state (conj state (:value node))}
+
     ;; (instance? JsonbRegexExpression node)
     ;; (parse-json-regex-query node state)
 
@@ -1477,6 +1492,7 @@
 
             [[(op :guard (classic-facts-pred #{"=" "<" ">" "<=" ">="})) "value" (value :guard #(number? %))]]
             [op "value" value] ;; TODO add coercion support here
+
 
             [[(op :guard (classic-facts-pred #{"="})) "value"
               (value :guard #(or (string? %) (ks/boolean? %)))]]
@@ -1775,6 +1791,10 @@
                :params (vec params)
                :args (vec qmarks)}
         compiled-fn (first (compile-fnexpression fnmap))]
+    (println
+      "COMPILED"
+      (compile-fnexpression fnmap)
+      )
     (map->FnExpression (-> fnmap
                            (assoc :statement compiled-fn)))))
 
@@ -1840,7 +1860,14 @@
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
+  (println "NODE IS" node)
   (cm/match [node]
+            [[op ["function" f & args] value]]
+            (map->FnBinaryExpression {:operator op
+                                      :function f
+                                      :args args
+                                      :value value})
+
             [["=" column-name value]]
             (let [colname (first (str/split column-name #"\."))
                   cinfo (get-in query-rec [:projections colname])]
