@@ -381,216 +381,85 @@
 
 (def facts-query
   "Query structured facts."
-  (if @scf-store/enable-json-facts
-    (map->Query {:projections {"certname" {:type :string
-                                           :queryable? true
-                                           :field :fs.certname}
-                               "environment" {:type :string
-                                              :queryable? true
-                                              :field :env.environment}
-                               "name" {:type :string
-                                       :queryable? true
-                                       :field :fs.key}
-                               "value" {:type :jsonb-scalar
-                                        :queryable? true
-                                        :field :fs.value}}
-                 :selection {:from [[(hcore/raw
-                                      (str "(select certname,"
-                                           "        environment_id,"
-                                           "        (jsonb_each((stable||volatile))).*"
-                                           "   from factsets)"))
-                                     :fs]]
-                             :left-join [[:environments :env]
-                                         [:= :fs.environment_id :env.id]]}
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :fs.certname}
+                             "environment" {:type :string
+                                            :queryable? true
+                                            :field :env.environment}
+                             "name" {:type :string
+                                     :queryable? true
+                                     :field :fs.key}
+                             "value" {:type :jsonb-scalar
+                                      :queryable? true
+                                      :field :fs.value}}
+               :selection {:from [[(hcore/raw
+                                    (str "(select certname,"
+                                         "        environment_id,"
+                                         "        (jsonb_each((stable||volatile))).*"
+                                         "  from factsets)"))
+                                   :fs]]
+                           :left-join [[:environments :env]
+                                       [:= :fs.environment_id :env.id]]}
 
-                 :relationships (merge certname-relations
-                                       {"environments" {:local-columns ["environment"]
-                                                        :foreign-columns ["name"]}
-                                        "fact_contents" {:columns ["certname" "name"]}})
+               :relationships (merge certname-relations
+                                     {"environments" {:local-columns ["environment"]
+                                                      :foreign-columns ["name"]}
+                                      "fact_contents" {:columns ["certname" "name"]}})
 
-                 :alias "facts"
-                 :source-table "factsets"
-                 :entity :facts
-                 :subquery? false})
-    (map->Query {:projections {"path" {:type :string
-                                       :queryable? false
-                                       :query-only? true
-                                       :field :fp.path}
-                               "value" {:type :multi
-                                        :queryable? true
-                                        :field :fv.value}
-                               "depth" {:type :integer
-                                        :queryable? false
-                                        :query-only? true
-                                        :field :fp.depth}
-                               "certname" {:type :string
-                                           :queryable? true
-                                           :field :fs.certname}
-                               "environment" {:type :string
-                                              :queryable? true
-                                              :field :env.environment}
-                               "value_integer" {:type :integer
-                                                :query-only? true
-                                                :queryable? false
-                                                :field :fv.value_integer}
-                               "value_float" {:type :float
-                                              :query-only? true
-                                              :queryable? false
-                                              :field :fv.value_float}
-                               "value_string" {:type :string
-                                               :query-only? true
-                                               :queryable? false
-                                               :field :fv.value_string}
-                               "value_boolean" {:type :boolean
-                                                :query-only? true
-                                                :queryable? false
-                                                :field :fv.value_boolean}
-                               "name" {:type :string
-                                       :queryable? true
-                                       :field :fp.name}
-                               "type" {:type  :string
-                                       :query-only? true
-                                       :queryable? false
-                                       :field :vt.type}}
-
-                 :selection {:from [[:factsets :fs]]
-                             :join [[:facts :f]
-                                    [:= :fs.id :f.factset_id]
-
-                                    [:fact_values :fv]
-                                    [:= :f.fact_value_id :fv.id]
-
-                                    [:fact_paths :fp]
-                                    [:= :f.fact_path_id :fp.id]
-
-                                    [:value_types :vt]
-                                    [:= :vt.id :fv.value_type_id]]
-                             :left-join [[:environments :env]
-                                         [:= :fs.environment_id :env.id]]
-                             :where [:= :fp.depth 0]}
-
-                 :relationships (merge certname-relations
-                                       {"environments" {:local-columns ["environment"]
-                                                        :foreign-columns ["name"]}
-                                        "fact_contents" {:columns ["certname" "name"]}})
-
-                 :alias "facts"
-                 :source-table "facts"
-                 :entity :facts
-                 :subquery? false})))
+               :alias "facts"
+               :source-table "factsets"
+               :entity :facts
+               :subquery? false}))
 
 (def fact-contents-query
   "Query for fact nodes"
-  (if @scf-store/enable-json-facts
-    (map->Query {:projections {"certname" {:type :string
-                                           :queryable? true
-                                           :field :fs.certname}
-                               "environment" {:type :string
-                                              :queryable? true
-                                              :field :env.environment}
-                               "path" {:type :path
-                                       :queryable? true
-                                       :field :fs.path}
-                               "name" {:type :string
-                                       :queryable? true
-                                       :field :fs.name}
-                               "value" {:type :jsonb-scalar
-                                        :queryable? true
-                                        :field :value}}
-                 :selection {:from [[(hcore/raw
-                                      (str "(select certname,"
-                                           "        jsonb_extract_path(stable||volatile,"
-                                           "                           variadic path_array)"
-                                           "          as value,"
-                                           "        path,"
-                                           "        name,"
-                                           "        environment_id"
-                                           "   from factsets"
-                                           "     cross join (select distinct on (path)"
-                                           "                        path,"
-                                           "                        path_array,"
-                                           "                        name"
-                                           "                   from fact_paths) distinct_paths"
-                                           "   where jsonb_extract_path(stable||volatile,"
-                                           "                            variadic path_array)"
-                                           "           is not null"
-                                           "         and jsonb_typeof(jsonb_extract_path(stable||volatile,
-                                                                                         variadic path_array))"
-                                           "               <> 'object')"))
-                                     :fs]]
-                             :left-join [[:environments :env]
-                                         [:= :fs.environment_id :env.id]]}
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :fs.certname}
+                             "environment" {:type :string
+                                            :queryable? true
+                                            :field :env.environment}
+                             "path" {:type :path
+                                     :queryable? true
+                                     :field :fs.path}
+                             "name" {:type :string
+                                     :queryable? true
+                                     :field :fs.name}
+                             "value" {:type :jsonb-scalar
+                                      :queryable? true
+                                      :field :value}}
+               :selection {:from [[(hcore/raw
+                                    (str "(select certname,"
+                                         "        jsonb_extract_path(stable||volatile,"
+                                         "                           variadic path_array)"
+                                         "          as value,"
+                                         "        path,"
+                                         "        name,"
+                                         "        environment_id"
+                                         "   from factsets"
+                                         "     cross join (select distinct on (path)"
+                                         "                        path,"
+                                         "                        path_array,"
+                                         "                        name from fact_paths) distinct_paths"
+                                         "   where jsonb_extract_path(stable||volatile,"
+                                         "                            variadic path_array)"
+                                         "           is not null"
+                                         "         and jsonb_typeof(jsonb_extract_path(stable||volatile,"
+                                         "                                             variadic path_array))"
+                                         "               <> 'object')"))
+                                   :fs]]
+                           :left-join [[:environments :env]
+                                       [:= :fs.environment_id :env.id]]}
 
-                 :relationships (merge certname-relations
-                                       {"facts" {:columns ["certname" "name"]}
-                                        "environments" {:local-columns ["environment"]
-                                                        :foreign-columns ["name"]}})
+               :relationships (merge certname-relations
+                                     {"facts" {:columns ["certname" "name"]}
+                                      "environments" {:local-columns ["environment"]
+                                                      :foreign-columns ["name"]}})
 
-                 :alias "fact_nodes"
-                 :source-table "factsets"
-                 :subquery? false})
-
-    (map->Query {:projections {"path" {:type :path
-                                       :queryable? true
-                                       :field :fp.path}
-                               "value" {:type :multi
-                                        :queryable? true
-                                        :field :fv.value}
-                               "certname" {:type :string
-                                           :queryable? true
-                                           :field :fs.certname}
-                               "name" {:type :string
-                                       :queryable? true
-                                       :field :fp.name}
-                               "environment" {:type :string
-                                              :queryable? true
-                                              :field :env.environment}
-                               "value_integer" {:type :integer
-                                                :queryable? false
-                                                :field :fv.value_integer
-                                                :query-only? true}
-                               "value_float" {:type :float
-                                              :queryable? false
-                                              :field :fv.value_float
-                                              :query-only? true}
-                               "value_string" {:type :string
-                                               :query-only? true
-                                               :queryable? false
-                                               :field :fv.value_string}
-                               "value_boolean" {:type :boolean
-                                                :query-only? true
-                                                :queryable? false
-                                                :field :fv.value_boolean}
-                               "type" {:type :string
-                                       :queryable? false
-                                       :field :vt.type
-                                       :query-only? true}}
-
-
-                 :selection {:from [[:factsets :fs]]
-                             :join [[:facts :f]
-                                    [:= :fs.id :f.factset_id]
-
-                                    [:fact_values :fv]
-                                    [:= :f.fact_value_id :fv.id]
-
-                                    [:fact_paths :fp]
-                                    [:= :f.fact_path_id :fp.id]
-
-                                    [:value_types :vt]
-                                    [:= :fv.value_type_id :vt.id]]
-                             :left-join [[:environments :env]
-                                         [:= :fs.environment_id :env.id]]
-                             :where [:!= :vt.id 5]}
-
-                 :relationships (merge certname-relations
-                                       {"facts" {:columns ["certname" "name"]}
-                                        "environments" {:local-columns ["environment"]
-                                                        :foreign-columns ["name"]}})
-
-                 :alias "fact_nodes"
-                 :source-table "facts"
-                 :subquery? false})))
+               :alias "fact_nodes"
+               :source-table "factsets"
+               :subquery? false}))
 
 (def report-logs-query
   "Query intended to be used by the `/reports/<hash>/logs` endpoint
@@ -1565,7 +1434,7 @@
   (cm/match [node]
 
             [[(op :guard (classic-facts-pred #{"=" "<" ">" "<=" ">="})) "value" (value :guard #(number? %))]]
-            ["or" [op "value_integer" value] [op "value_float" value]]
+            [op "value" value] ;; TODO add coercion support here
 
             [[(op :guard (classic-facts-pred #{"="})) "value"
               (value :guard #(or (string? %) (ks/boolean? %)))]]
@@ -1609,47 +1478,34 @@
 
             [[(op :guard #{"=" "~"}) ["fact" fact-name]
               (fact-value :guard #(or (string? %) (instance? Boolean %)))]]
-            (let [value-column (if (string? fact-value) "value_string" "value_boolean")]
               ["in" "certname"
                ["extract" "certname"
                 ["select_facts"
                  ["and"
                   ["=" "name" fact-name]
-                  [op value-column fact-value]]]]])
+                  [op "value" fact-value]]]]]
 
-            [["in" ["fact" fact-name] ["array" fact-values]]]
-            (let [clause (cond
-                           (every? string? fact-values)
-                           ["in" "value_string" ["array" fact-values]]
+              [["in" ["fact" fact-name] ["array" fact-values]]]
+              (if-not (= (count (map type fact-values)) 1)
+                (throw (IllegalArgumentException.
+                         (tru "All values in 'array' must be the same type.")))
+                ["in" "certname"
+                 ["extract" "certname"
+                  ["select_facts"
+                   ["and"
+                    ["=" "name" fact-name]
+                    ["in" "value" ["array" fact-values]]]]]])
 
-                           (every? ks/boolean? fact-values)
-                           ["in" "value_boolean" ["array" fact-values]]
-
-                           (every? number? fact-values)
-                           ["or"
-                            ["in" "value_float" ["array" fact-values]]
-                            ["in" "value_integer" ["array" fact-values]]]
-
-                           :else (throw (IllegalArgumentException.
-                                         (tru "All values in 'array' must be the same type."))))]
-              ["in" "certname"
-               ["extract" "certname"
-                ["select_facts"
-                 ["and"
-                  ["=" "name" fact-name]
-                  clause]]]])
-
-            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
-            (if-not (number? fact-value)
-              (throw (IllegalArgumentException. (tru "Operator ''{0}'' not allowed on value ''{1}''" op fact-value)))
-              ["in" "certname"
-               ["extract" "certname"
-                ["select_facts"
-                 ["and"
-                  ["=" "name" fact-name]
-                  ["or"
-                   [op "value_float" fact-value]
-                   [op "value_integer" fact-value]]]]]])
+              [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
+              (if-not (number? fact-value)
+                (throw (IllegalArgumentException.
+                         (tru "Operator ''{0}'' not allowed on value ''{1}''" op fact-value)))
+                ["in" "certname"
+                 ["extract" "certname"
+                  ["select_facts"
+                   ["and"
+                    ["=" "name" fact-name]
+                    [op "value" fact-value]]]]])
 
             [["subquery" sub-entity expr]]
             (let [relationships (get-in (meta node) [:query-context :relationships sub-entity])]
