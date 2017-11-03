@@ -1443,10 +1443,11 @@
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
 
+            [["=" "value" (value :guard #(string? %))]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "string"] ["=" "value" value]]
 
-            [["=" "value" (value :guard #(or (string? %) (ks/boolean? %)))]]
-            (let [value-column (if (string? value) "value_string" "value_boolean")]
-            ["=" value-column value])
+            [["=" "value" (value :guard #(ks/boolean? %))]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "boolean"] ["=" "value" value]]
 
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
             (when (= :facts (get-in (meta node) [:query-context :entity]))
