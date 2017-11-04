@@ -684,10 +684,28 @@
   [:v4])
 
 (defn query-factsets [& cols]
-  (->> (query-to-vec "select certname, (stable||volatile) as facts,
-                      environment_id, producer_timestamp from factsets")
+  (->> (query-to-vec "select certname, (stable||volatile) as facts, environment, producer_timestamp
+                      from factsets
+                      inner join environments on factsets.environment_id=environments.id")
        (map #(update % :facts (comp json/parse-string str)))
        (map #(select-keys % cols))))
+
+(defn query-facts
+	[& cols]
+	(->> (query-to-vec "select certname,
+										 environment,
+										 value #>> '{}' as value,
+										 key as name,
+										 producer_timestamp
+										 from
+										 (select certname,
+										 producer_timestamp,
+										 environment_id,
+										 (jsonb_each((stable||volatile))).*
+										 from factsets) fs
+										 left join environments env on fs.environment_id = env.id
+										 order by fs.key")
+			 (map #(select-keys % cols))))
 
 (let [certname  "foo.example.com"
       facts     {:certname certname
@@ -709,20 +727,7 @@
       (testing "should ignore the blacklisted fact"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+          (is (= (query-facts :certname :name :value)
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))))))
@@ -792,24 +797,11 @@
           (is (= [{:certname certname
                    :facts {"x" "24", "y" "25", "z" "26"}}]
                  (query-factsets :certname :facts)))
-          #_(is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "x" :value "24"}
-                  {:certname certname :name "y" :value "25"}
-                  {:certname certname :name "z" :value "26"}]))
-          (is (= 0 (task-count delay-pool)))
+					(is (= (query-facts :certname :name :value)
+								 [{:certname certname :name "x" :value "24"}
+									{:certname certname :name "y" :value "25"}
+									{:certname certname :name "z" :value "26"}]))
+					(is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))))))
 
   (deftest replace-facts-deactivated-node-facts
@@ -825,24 +817,11 @@
                  [{:certname certname :deactivated nil}]))
           (is (= [{:certname certname
                    :facts {"a" "1", "b" "2", "c" "3"}}]
-                 (query-factsets)))
-         #_ (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+                 (query-factsets :certname :facts)))
+					(is (= (query-facts :certname :name :value)
+								 [{:certname certname :name "a" :value "1"}
+									{:certname certname :name "b" :value "2"}
+									{:certname certname :name "c" :value "3"}]))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))))
 
@@ -859,23 +838,10 @@
           (is (= [{:certname certname
                    :facts {"a" "1", "b" "2", "c" "3"}}]
                  (query-factsets :certname :facts)))
-          #_ (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+					(is (= (query-facts :certname :name :value)
+								 [{:certname certname :name "a" :value "1"}
+									{:certname certname :name "b" :value "2"}
+									{:certname certname :name "c" :value "3"}]))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo)))))))))
 
@@ -899,26 +865,23 @@
 
       (is (= [{:certname certname
                :facts {"a" "1", "b" "2", "c" "3"}
-               :producer-timestamp producer-time
+               :producer_timestamp producer-time
                :environment "DEV"}]
-             (query-factsets :certnames :facts :producer-timestamp :environment)))
+             (query-factsets :certname :facts :producer_timestamp :environment)))
       #_(is (= (query-to-vec
-              "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname,
-                          e.environment,
-                          fs.producer_timestamp
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                     INNER JOIN environments as e on fs.environment_id = e.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+								 "select certname,
+                         environment,
+                         value,
+                         key as name,
+                         producer_timestamp
+                         from
+                         (select certname,
+                                 producer_timestamp,
+					                       environment_id,
+					                       (jsonb_each((stable||volatile))).*
+					                       from factsets) fs
+                         left join environments env on fs.environment_id = env.id
+                         order by fs.key")
              [{:certname certname :name "a" :value "1" :producer_timestamp producer-time :environment "DEV"}
               {:certname certname :name "b" :value "2" :producer_timestamp producer-time :environment "DEV"}
               {:certname certname :name "c" :value "3" :producer_timestamp producer-time :environment "DEV"}]))
@@ -941,26 +904,11 @@
 
       (is (= [{:certname certname
                :facts {"a" "1", "b" "2", "c" "3"}}]
-             (query-factsets)))
-     #_ (is (= (query-to-vec
-              "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname,
-                          e.environment
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                     INNER JOIN environments as e on fs.environment_id = e.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-             [{:certname certname :name "a" :value "1" :environment "DEV"}
-              {:certname certname :name "b" :value "2" :environment "DEV"}
-              {:certname certname :name "c" :value "3" :environment "DEV"}]))
+             (query-factsets :certname :facts)))
+			(is (= (query-facts :certname :name :value :environment)
+						 [{:certname certname :name "a" :value "1" :environment "DEV"}
+							{:certname certname :name "b" :value "2" :environment "DEV"}
+							{:certname certname :name "c" :value "3" :environment "DEV"}]))
 
       (is (every? (comp #(t/before? before-test-starts-time %)
                         to-date-time
