@@ -58,7 +58,7 @@
    :jsonb-scalar {:numeric (comp (su/sql-cast "numeric") (su/sql-cast "text"))
                   :jsonb-scalar hcore/raw
                   :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
-                  :string (su/sql-cast "text")}
+                  :string (su/jsonb-scalar-cast "text")}
    :path {:path hcore/raw}
    :json {:json hcore/raw}
    :boolean {:string (su/sql-cast "text")
