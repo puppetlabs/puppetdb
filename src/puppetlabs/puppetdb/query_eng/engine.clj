@@ -49,6 +49,31 @@
    "edges" {:columns ["certname"]}
    "resources" {:columns ["certname"]}})
 
+(def type-coercion-matrix
+  {:string {:numeric (su/sql-cast "int")
+            :boolean (su/sql-cast "bool")
+            :string hcore/raw
+            :jsonb-scalar (su/sql-cast "jsonb")
+            :timestamp (su/sql-cast "timestamptz")}
+   :jsonb-scalar {:numeric (comp (su/sql-cast "numeric") (su/sql-cast "text"))
+                  :jsonb-scalar hcore/raw
+                  :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
+                  :string (su/sql-cast "text")}
+   :path {:path hcore/raw}
+   :json {:json hcore/raw}
+   :boolean {:string (su/sql-cast "text")
+             :boolean hcore/raw}
+   :numeric {:string (su/sql-cast "text")
+             :numeric hcore/raw}
+   :timestamp {:string (su/sql-cast "text")
+               :timestamp hcore/raw}
+   :array {:array hcore/raw}
+   :queryable-json {:queryable-json hcore/raw}})
+
+(defn convert-type
+  [column from to]
+  ((-> type-coercion-matrix from to) column))
+
 (def column-schema
   "Column information: [\"value\" {:type :string :field fv.value_string ...}]"
   {:type s/Keyword :field field-schema s/Any s/Any})
@@ -362,7 +387,7 @@
                              "name" {:type :string
                                      :queryable? true
                                      :field :name}
-                             "depth" {:type :integer
+                             "depth" {:type :numeric
                                       :queryable? true
                                       :query-only? true
                                       :field :fp.depth}}
@@ -523,7 +548,7 @@
       "puppet_version" {:type :string
                         :queryable? true
                         :field :reports.puppet_version}
-      "report_format" {:type :integer
+      "report_format" {:type :numeric
                        :queryable? true
                        :field :reports.report_format}
       "configuration_version" {:type :string
@@ -794,7 +819,7 @@
                              "file" {:type :string
                                      :queryable? true
                                      :field :file}
-                             "line" {:type :integer
+                             "line" {:type :numeric
                                      :queryable? true
                                      :field :line}
                              "parameters" {:type :queryable-json
@@ -876,7 +901,7 @@
                              "file" {:type :string
                                      :queryable? true
                                      :field :file}
-                             "line" {:type :integer
+                             "line" {:type :numeric
                                      :queryable? true
                                      :field :line}
                              "containment_path" {:type :array
@@ -1239,19 +1264,17 @@
   InExpression
   (-plan->sql [{:keys [column subquery] :as this}]
     ;; 'column' is actually a vector of columns.
-
     (s/validate [column-schema] column)
     ;; if a field has type jsonb, cast that field in the subquery to jsonb
-    (let [fields (mapv :field column)]
+    (let [fields (mapv :field column)
+          outer-types (mapv :type column)
+          projected-fields (:projected-fields subquery)
+          inner-columns (map first projected-fields)
+          inner-types (map (comp :type second) projected-fields)
+          coercions (mapv convert-type inner-columns inner-types outer-types)]
       [:in fields
-       (if (contains? (set (map :type column)) :jsonb-scalar)
-         {:select (map (fn [col]
-                         (if (= :jsonb-scalar (:type col))
-                           (hcore/call "jsonb" (:field col))
-                           (:field col)))
-                       column)
-          :from [[(-plan->sql subquery) :sub]]}
-         (-plan->sql subquery))]))
+       {:select coercions
+        :from [[(-plan->sql subquery) :sub]]}]))
 
   JsonContainsExpression
   (-plan->sql [{:keys [field column-data]}]
@@ -1313,10 +1336,10 @@
           json? (= :jsonb-scalar (:type column))]
       (if (:null? expr)
         (if json?
-          (su/jsonb-nullity-check lhs "=")
+          (su/jsonb-null? lhs true)
           [:is lhs nil])
         (if json?
-          (su/jsonb-nullity-check lhs "<>")
+          (su/jsonb-null? lhs false)
           [:is-not lhs nil]))))
 
   AndExpression
@@ -1532,7 +1555,8 @@
               (if relationships
                 (let [{:keys [columns local-columns foreign-columns]} relationships]
                   (when-not (or columns (and local-columns foreign-columns))
-                    (throw (IllegalArgumentException. (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
+                    (throw (IllegalArgumentException.
+                             (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
                   (do
                     ["in" (or local-columns columns)
                      ["extract" (or foreign-columns columns)
@@ -1596,8 +1620,8 @@
 
               [["=" field value]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when (and (or (= :integer col-type)
-                               (= :float col-type)) (string? value))
+                (when (and (or (= :numeric col-type)
+                               (= :numeric col-type)) (string? value))
                   (throw
                    (IllegalArgumentException.
                     (tru
@@ -1607,7 +1631,7 @@
               [[(:or ">" ">=" "<" "<=")  (field :guard #(not (str/includes? %  "."))) _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
-                              (contains? #{:float :integer :timestamp :multi :jsonb-scalar}
+                              (contains? #{:numeric :timestamp :jsonb-scalar}
                                          col-type))
                   (throw (IllegalArgumentException. (tru "Query operators >,>=,<,<= are not allowed on field {0}" field)))))
 
@@ -1895,7 +1919,7 @@
                                                                    String
                                                                    (map facts/factpath-to-string value))})
 
-                (:multi :jsonb-scalar)
+                :jsonb-scalar
                 (map->InArrayExpression
                   {:column cinfo
                    :value (su/array-to-param "jsonb"
@@ -1916,7 +1940,7 @@
                                         :column cinfo
                                         :value (to-timestamp value)})
 
-                (and (number? value) (#{:float :integer} type))
+                (and (number? value) (#{:numeric} type))
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
                                         :value  value})

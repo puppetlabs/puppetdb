@@ -206,10 +206,18 @@
   (hcore/raw
    (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" (name column))))
 
-(defn jsonb-nullity-check
-  "Check that a jsonb column is null"
-  [column op]
-  (hcore/raw (format "jsonb_typeof(%s) %s 'null'" (name column) op)))
+(defn sql-cast
+  [type]
+  (fn [column]
+    (if (= type "jsonb")
+      (hcore/raw (format "to_jsonb(%s)" column))
+      (hcore/raw (format "CAST(%s AS %s)" column type)))))
+
+(defn jsonb-null?
+  "A predicate determining whether the json types of a jsonb column are null."
+  [column null?]
+  (let [op (if null? "=" "<>")]
+    (hcore/raw (format "jsonb_typeof(%s) %s 'null'" (name column) op))))
 
 (defn sql-in-array
   [column]
