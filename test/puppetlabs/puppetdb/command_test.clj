@@ -148,6 +148,29 @@
   {:pre [(integer? x)]}
   x)
 
+(defn query-factsets [& cols]
+  (->> (query-to-vec "select certname, (stable||volatile) as facts, environment, producer_timestamp
+                      from factsets
+                      inner join environments on factsets.environment_id=environments.id")
+       (map #(update % :facts (comp json/parse-string str)))
+       (map #(select-keys % cols))))
+
+(defn query-facts
+	[& cols]
+	(->> (query-to-vec "select certname,
+										 environment,
+										 value #>> '{}' as value,
+										 key as name,
+										 producer_timestamp
+										 from
+										 (select certname,
+										 producer_timestamp,
+										 environment_id,
+										 (jsonb_each((stable||volatile))).*
+										 from factsets) fs
+										 left join environments env on fs.environment_id = env.id
+										 order by fs.key")
+			 (map #(select-keys % cols))))
 
 (deftest command-processor-integration
   (let [v5-catalog (get-in wire-catalogs [5 :empty])]
@@ -682,30 +705,6 @@
 (def fact-versions
   "Support fact command versions"
   [:v4])
-
-(defn query-factsets [& cols]
-  (->> (query-to-vec "select certname, (stable||volatile) as facts, environment, producer_timestamp
-                      from factsets
-                      inner join environments on factsets.environment_id=environments.id")
-       (map #(update % :facts (comp json/parse-string str)))
-       (map #(select-keys % cols))))
-
-(defn query-facts
-	[& cols]
-	(->> (query-to-vec "select certname,
-										 environment,
-										 value #>> '{}' as value,
-										 key as name,
-										 producer_timestamp
-										 from
-										 (select certname,
-										 producer_timestamp,
-										 environment_id,
-										 (jsonb_each((stable||volatile))).*
-										 from factsets) fs
-										 left join environments env on fs.environment_id = env.id
-										 order by fs.key")
-			 (map #(select-keys % cols))))
 
 (let [certname  "foo.example.com"
       facts     {:certname certname
