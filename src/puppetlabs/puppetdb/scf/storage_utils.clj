@@ -246,8 +246,14 @@
     (hcore/raw (string/join \space
                             [(str "(" column "->" delimited-qmarks ")" (when re? "::text"))
                              (name op)
-                             (str "?" (when re? "::text"))
+                             (if re? "(?#>>'{}')::text" "?")
                              "and" column "??" "?"]))))
+
+(defn jsonb-scalar-cast
+  [typ]
+  (fn
+    [column]
+    (hcore/raw (format "(%s#>>'{}')::%s" column typ))))
 
 (defn jsonb-scalar-regex
   "Produce a predicate that matches a regex against a scalar jsonb value "
