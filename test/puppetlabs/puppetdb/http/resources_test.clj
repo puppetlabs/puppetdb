@@ -86,7 +86,8 @@ to the result of the form supplied to this method."
     (testing "dot-style querying for regex resource parameters"
       (doseq [[query result] [[["~" "parameters.owner" "oot"] #{foo1 bar1}]
                               [["~" "parameters.nested.foo" "ar"] #{foo1 bar1}]]]
-        (is (= (query-result (query-response method endpoint query)) result))))
+(testing query
+        (is (= (query-result (query-response method endpoint query)) result)))))
 
     (testing "fact subqueries are supported"
       (let [{:keys [body status]}
@@ -102,12 +103,12 @@ to the result of the form supplied to this method."
         (is (= status http/status-ok))
         (is (= (set (json/parse-string (slurp body) true)) #{foo1})))
 
-      ;; Using the value of a fact as the title of a resource
-      (let [{:keys [body status]} (query-response method endpoint
-                                                ["in" "title" ["extract" "value" ["select_facts"
-                                                                                  ["=" "name" "message"]]]])]
-        (is (= status http/status-ok))
-        (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2}))))
+      (testing "using the value of a fact as the title of a resource"
+        (let [{:keys [body status]} (query-response method endpoint
+                                                    ["in" "title" ["extract" "value" ["select_facts"
+                                                                                      ["=" "name" "message"]]]])]
+          (is (= status http/status-ok))
+          (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2})))))
 
     (testing "resource subqueries are supported"
       ;; Fetch exported resources and their corresponding collected versions
