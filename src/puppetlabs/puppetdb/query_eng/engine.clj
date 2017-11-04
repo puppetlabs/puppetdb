@@ -1828,17 +1828,6 @@
               (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
 
-(defn- fv-variant [x]
-  (case x
-    :integer {:type :integer
-              :field :fv.value_integer}
-    :float {:type :float
-            :field :fv.value_float}
-    :string {:type :string
-             :field :fv.value_string}
-    :boolean {:type :boolean
-              :field :fv.value_boolean}))
-
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -1901,12 +1890,6 @@
                                          :value (su/array-to-param "timestamp"
                                                                    java.sql.Timestamp
                                                                    (map to-timestamp value))})
-
-                :float
-                (map->InArrayExpression {:column cinfo
-                                         :value (su/array-to-param "float4"
-                                                                   java.lang.Double
-                                                                   (map double value))})
                 :integer
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "bigint"
@@ -1972,11 +1955,6 @@
               (case (:type cinfo)
                 :array
                 (map->ArrayRegexExpression {:column cinfo :value value})
-
-                :multi
-                (map->RegexExpression {:column (merge cinfo
-                                                      (fv-variant :string))
-                                       :value value})
 
                 :queryable-json
                 (map->JsonbPathBinaryExpression {:operator (keyword "~")
@@ -2290,70 +2268,6 @@
                    " "
                    (trs "Check your query and try again."))))))
 
-(pls/defn-validated ^:private fix-in-expr-multi-comparison
-  "Returns [column projection] after adjusting the type of one of them
-  to match the other if that one is of type :multi and the other
-  isn't."
-  [column :- column-schema
-   projection :- projection-schema]
-  ;; For now we have to assume it's fv.*, etc.
-  (let [[proj-name proj-info] projection
-        multi-col? (= :multi (:type column))
-        multi-proj? (= :multi (:type proj-info))]
-    (cond
-      (and multi-col? multi-proj?)
-      (do
-        (assert (= (:field column) :fv.value))
-        (assert (= (:field proj-info) :fv.value))
-        [column projection])
-      multi-col?
-      (do
-        (assert (= (:field column) :fv.value))
-        [(merge column (fv-variant (:type proj-info)))
-         projection])
-      multi-proj?
-      (do
-        (assert (= (:field proj-info) :fv.value))
-        [column
-         [proj-name (merge proj-info (fv-variant (:type column)))]])
-      :else
-      [column projection])))
-
-(defn- fix-in-expr-multi-comparisons
-  [node]
-  (let [columns (:column node)
-        projected-fields (get-in node [:subquery :projected-fields])]
-    (assert (= (count columns) (count projected-fields)))
-    (loop [cols columns
-           fields projected-fields
-           fixed-cols []
-           fixed-fields []]
-      (if (seq cols)
-        (let [[fixed-col fixed-field]
-              (fix-in-expr-multi-comparison (first cols) (first fields))]
-          (recur (rest cols) (rest fields)
-                 (conj fixed-cols fixed-col)
-                 (conj fixed-fields fixed-field)))
-        (-> node
-            (assoc :column fixed-cols)
-            (assoc-in [:subquery :projected-fields] fixed-fields))))))
-
-(defn- fix-plan-in-expr-multi-comparisons
-  "Returns the plan after changing any :multi types in :multi to
-  non-:multi comparisons to match the type of their non-:multi
-  counterpart.  Currently only affects field to subquery column
-  comparisons in [\"in\" fields subquery] (InExpression) nodes."
-  [plan]
-  (let [fix-node (fn [node]
-                   (if (instance? InExpression node)
-                     (fix-in-expr-multi-comparisons node)
-                     node))]
-    (update plan
-            :where
-            (fn [x]
-              (:node (zip/post-order-transform (zip/tree-zipper x)
-                                               [fix-node]))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -2373,7 +2287,7 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
-        sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql)
+        sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
