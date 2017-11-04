@@ -57,53 +57,6 @@
     group by fact_value_id, name
     having count(*) = 1) as f"
 
-   :num_times_paths_values_shared_given_sharing
-   "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
-    0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
-    0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1])
-    within group (order by c) quantiles
-    from
-    (select fv.id, vt.type, f.c
-    from fact_values fv inner join value_types vt on fv.value_type_id = vt.id
-    inner join
-    (select fact_value_id, count(*) as c
-    from facts
-    group by fact_path_id, fact_value_id
-    having count(*) > 1
-    order by c desc) as f on f.fact_value_id = fv.id
-    order by f.c) foo"
-
-   :num_unique_fact_values_over_nodes
-   "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
-    0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
-    0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1])
-    within group (order by c) quantiles
-    from
-    (select count(*) as c, factset_id from
-    (select factset_id, f.fact_value_id, f.fact_path_id from facts f
-    inner join (select fact_value_id, fact_path_id from facts
-    group by fact_path_id, fact_value_id having count(*) = 1) foo
-    on f.fact_value_id=foo.fact_value_id and f.fact_path_id=foo.fact_path_id) bar
-    group by factset_id) baz"
-
-   :string_fact_value_bytes
-   "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
-    0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
-    0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1])
-    within group (order by length) quantiles
-    from
-    (select pg_column_size(value_string) as length from fact_values
-    where value_type_id = 0) foo"
-
-   :structured_fact_value_bytes
-   "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
-    0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
-    0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1])
-    within group (order by length) quantiles
-    from
-    (select pg_column_size(value) as length from fact_values
-    where value_type_id = 5) foo"
-
    :report_metric_size_dist
    "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
     0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
@@ -121,11 +74,6 @@
     from
     (select pg_column_size(logs) as length from reports
     where logs is not null) foo"
-
-   :fact_values_by_type
-   "select vt.type, count(*)
-    from fact_values fv inner join value_types vt on fv.value_type_id = vt.id
-    group by vt.type"
 
    :num_associated_factsets_over_fact_paths
    "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,

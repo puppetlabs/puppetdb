@@ -59,9 +59,7 @@
    (map fact-query->wire-v5 (:data facts))))
 
 (defn facts-expanded->wire-v5 [facts]
-  (if @scf-store/enable-json-facts
-    facts
-    (facts-expanded->wire-v5-classic facts)))
+  (facts-expanded->wire-v5-classic facts))
 
 (defn factsets-query->wire-v5 [factsets]
   (map
