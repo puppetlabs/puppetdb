@@ -23,6 +23,8 @@
 
 (def pathmap-schema
   {:path s/Str
+   :path_array fact-path
+   :value_type_id s/Int
    :name s/Str
    :depth s/Int})
 
@@ -189,19 +191,21 @@
          (conj mem (leaf-fn path data))))))
 
 (pls/defn-validated path->pathmap :- pathmap-schema
-  [path :- fact-path]
+  [path :- fact-path
+   leaf]
   ;; Used by migration-legacy, so copy this function there before
   ;; making backward-incompatible changes.
   {:path (factpath-to-string path)
+   :value_type_id (value-type-id leaf)
+   :path_array path
    :name (first path)
    :depth (dec (count path))})
 
-(pls/defn-validated facts->paths-and-valuemaps
-  :- [(s/pair fact-path "path" valuemap-schema "valuemap")]
+(pls/defn-validated facts->pathmaps :- [pathmap-schema]
   "Returns [path valuemap] pairs for all
   facts. i.e. ([\"foo#~bar\" vm] ...)"
   [facts :- fact-set-schema]
-  (flatten-facts-with (fn [fp leaf] [fp (value->valuemap leaf)]) facts))
+  (flatten-facts-with path->pathmap facts))
 
 (pls/defn-validated unstringify-value
   "Converts a stringified value from the database into its real value and type.

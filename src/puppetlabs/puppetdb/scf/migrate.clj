@@ -1470,7 +1470,9 @@
    "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops);"
 
    "alter table fact_paths add column path_array text[]"
-   "update fact_paths set path_array = regexp_split_to_array(path, '#~')")
+   "update fact_paths set path_array = regexp_split_to_array(path, '#~')"
+
+   "alter table fact_paths add column value_type_id int")
 
   {::vacuum-analyze #{"factsets"}})
 

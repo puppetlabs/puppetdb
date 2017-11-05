@@ -40,7 +40,7 @@
     (testing "test to see if an index doesn't exists"
       (is (false? (index-exists? "somerandomname"))))
     (testing "test to see if an index does exist"
-      (jdbc/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
+      (jdbc/do-commands "CREATE INDEX foobar ON catalog_resources(line)")
       (is (true? (index-exists? "foobar"))))))
 
 (deftest dotted-query-to-path
