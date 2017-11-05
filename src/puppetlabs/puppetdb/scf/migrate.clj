@@ -1472,7 +1472,8 @@
    "alter table fact_paths add column path_array text[]"
    "update fact_paths set path_array = regexp_split_to_array(path, '#~')"
 
-;;   "alter table fact_paths add column value_type_id int"
+   "alter table fact_paths add column value_type_id int"
+
 ;;
 ;;   "create table fact_paths2 like fact_paths"
 ;;   "insert into fact_paths2

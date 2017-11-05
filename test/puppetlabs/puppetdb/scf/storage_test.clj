@@ -155,10 +155,11 @@
 
   (alter-var-root #'*db*
                   (constantly jdbc/*db*))
-
   )
 
-
+(defn delete-certname-facts!
+  [certname]
+  (jdbc/do-prepared "delete from factsets where certname = ?" [certname]))
 
 (deftest fact-persistence
   (with-test-db
@@ -786,6 +787,7 @@
       (replace-catalog! (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :line] 20) (now))
       (is (= 2 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
       (is (= 1 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num))))))
+
 
 (deftest-db fact-delete-deletes-facts
   (add-certname! certname)
