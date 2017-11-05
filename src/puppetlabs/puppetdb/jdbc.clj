@@ -67,20 +67,112 @@
   ([table columns values]
    (sql/insert! *db* table columns values {})))
 
+(defn- insert-multi-row
+  "Given a table and a list of columns, followed by a list of column
+  value sequences, return a vector of the SQL needed for the insert
+  followed by the list of column value sequences. The entities
+  function specifies how column names are transformed."
+  [table columns values {:keys [on-conflict] :as opts}]
+  (let [nc (count columns)
+        vcs (map count values)]
+    (if (not (and (or (zero? nc) (= nc (first vcs))) (apply = vcs)))
+      (throw (IllegalArgumentException.
+              "insert! called with inconsistent number of columns / values"))
+      (into [(str "INSERT INTO " (name table)
+                  (when (seq columns)
+                    (str " ( "
+                         (str/join ", " (map (fn [col] (name col)) columns))
+                         " )"))
+                  " VALUES ( "
+                  (str/join ", " (repeat (first vcs) "?"))
+                  " ) "
+                  (when on-conflict
+                    (str "on conflict " on-conflict)))]
+            values))))
+
+(defn- insert-single-row-on-conflict
+  "Given a table and a map representing a row, return a vector of the
+  SQL needed for the insert followed by the list of column values. The
+  entities function specifies how column names are transformed."
+  [table row entities {:keys [on-conflict] :as opts}]
+  (let [ks (keys row)]
+    (into [(str "INSERT INTO " (name table) " ( "
+                (str/join ", " (map (fn [col] (name col)) ks))
+                " ) VALUES ( "
+                (str/join ", " (repeat (count ks) "?"))
+                " ) "
+                (when on-conflict
+                  (str "ON CONFLICT " on-conflict)))]
+          (vals row))))
+
+(defn- insert-cols!
+  "Given a database connection, a table name, a sequence of columns
+  names, a sequence of vectors of column values, one per row, and an
+  options map, insert the rows into the database."
+  [db table cols values opts]
+  (let [{:keys [entities transaction?]} (merge {:entities identity :transaction? true}
+                                               (when (map? db) db)
+                                               opts)
+        sql-params (insert-multi-row table cols values opts)]
+    (if-let [con (sql/db-find-connection db)]
+      (sql/db-do-prepared db transaction? sql-params {:multi? true})
+      (with-open [con (sql/get-connection db)]
+        (sql/db-do-prepared (sql/add-connection db con) transaction?
+                            sql-params {:multi? true})))))
+
+(defn- multi-insert-helper
+  "Given a (connected) database connection and some SQL
+  statements (for multiple inserts), run a prepared statement on each
+  and return any generated keys.  Note: we are eager so an unrealized
+  lazy-seq cannot escape from the connection."
+  [db stmts opts]
+  (doall (map (fn [row] (sql/db-do-prepared-return-keys db false row opts))
+              stmts)))
+
+(defn- insert-helper
+  "Given a (connected) database connection, a transaction flag and some SQL statements
+  (for one or more inserts), run a prepared statement or a sequence of
+  them."
+  [db transaction? stmts opts]
+  (if transaction?
+    (sql/with-db-transaction [t-db db] (multi-insert-helper t-db stmts opts))
+    (multi-insert-helper db stmts opts)))
+
+(defn- insert-rows!
+  "Given a database connection, a table name, a sequence of rows, and
+  an options map, insert the rows into the database."
+  [db table rows {:keys [on-conflict] :as opts}]
+  (let [{:keys [entities identifiers qualifier transaction?]}
+        (merge {:entities identity :identifiers str/lower-case :transaction? true}
+               (when (map? db) db)
+               opts)
+        sql-params (map (fn [row]
+                          (when-not (map? row)
+                            (throw (IllegalArgumentException.
+                                    "insert / insert-multi! called with a non-map row")))
+                          (insert-single-row-on-conflict table row entities opts))
+                        rows)]
+    (if-let [con (sql/db-find-connection db)]
+      (insert-helper db transaction? sql-params
+                     {:identifiers identifiers :qualifier qualifier})
+      (with-open [con (sql/get-connection db)]
+        (insert-helper (sql/add-connection db con) transaction? sql-params
+                       {:identifiers identifiers :qualifier qualifier})))))
+
 (defn insert-multi!
-  "Inserts multiple rows in either map form or lists of columns & values form. The
-  database to use is given by (jdbc/db). Returns a sequence with every inserted
-  row as returned by the database."
+  "Inserts multiple rows in either map form or lists of columns &
+  values form. The database to use is given by (jdbc/db). Returns a
+  sequence with every inserted row as returned by the database."
   ;; since clojure.java.jdbc will open a connection even when given an empty
   ;; rows or values sequence, bypass it here if either of those are empty
   ([table rows]
-   (if (seq rows)
-     (sql/insert-multi! *db* table rows {})
-     ()))
-  ([table columns values]
-   (if (seq values)
-     (sql/insert-multi! *db* table columns values {})
-     ())))
+   (sql/insert-multi! *db* table rows))
+  ([table cols-or-rows values-or-opts]
+   (if (map? values-or-opts)
+     (insert-rows! *db* table cols-or-rows values-or-opts)
+     (insert-cols! *db* table cols-or-rows values-or-opts {})))
+  ([table cols values opts]
+   (sql/insert-multi! *db* table cols values opts)))
 
 (defn update!
   "Calls clojure.jdbc/update! after adding (jdbc/db) as the first argument."
