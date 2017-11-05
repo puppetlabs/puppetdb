@@ -187,98 +187,38 @@
 ;;; Queryable Entities
 (def inventory-query
   "Query for inventory"
-  (if @scf-store/enable-json-facts
-    (map->Query {:projections {"certname" {:type :string
-                                           :queryable? true
-                                           :field :certnames.certname}
-                               "timestamp" {:type :timestamp
-                                            :queryable? true
-                                            :field :fs.timestamp}
-                               "environment" {:type :string
-                                              :queryable? true
-                                              :field :environments.environment}
-                               "facts" {:type :queryable-json
-                                        :queryable? true
-                                        :field (hcore/raw "(fs.stable||fs.volatile)")}
-                               "trusted" {:type :queryable-json
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :certnames.certname}
+                             "timestamp" {:type :timestamp
                                           :queryable? true
-                                          :field (hcore/raw "(fs.stable||fs.volatile)->'trusted'")}}
-
-                 :selection {:from [[:factsets :fs]]
-                             :left-join [:environments
-                                         [:= :fs.environment_id :environments.id]
-
-                                         :producers
-                                         [:= :fs.producer_id :producers.id]
-
-                                         :certnames
-                                         [:= :fs.certname :certnames.certname]]}
-
-                 :alias "inventory"
-                 :relationships certname-relations
-
-                 :dotted-fields ["facts\\..*" "trusted\\..*"]
-                 :entity :inventory
-                 :subquery? false})
-    (map->Query {:projections {"certname" {:type :string
-                                           :queryable? true
-                                           :field :certnames.certname}
-                               "timestamp" {:type :timestamp
+                                          :field :fs.timestamp}
+                             "environment" {:type :string
                                             :queryable? true
-                                            :field :fs.timestamp}
-                               "environment" {:type :string
-                                              :queryable? true
-                                              :field :environments.environment}
-                               "facts" {:type :json
+                                            :field :environments.environment}
+                             "facts" {:type :queryable-json
+                                      :queryable? true
+                                      :field (hcore/raw "(fs.stable||fs.volatile)")}
+                             "trusted" {:type :queryable-json
                                         :queryable? true
-                                        :field {:select [[(h/json-object-agg :name :value) :facts]]
-                                                :from [[{:select [:fp.name  :fv.value]
-                                                         :from [[:facts :f]]
-                                                         :join [[:fact_values :fv]
-                                                                [:= :fv.id :f.fact_value_id]
+                                        :field (hcore/raw "(fs.stable||fs.volatile)->'trusted'")}}
 
-                                                                [:fact_paths :fp]
-                                                                [:= :fp.id :f.fact_path_id]
+               :selection {:from [[:factsets :fs]]
+                           :left-join [:environments
+                                       [:= :fs.environment_id :environments.id]
 
-                                                                [:value_types :vt]
-                                                                [:= :vt.id :fv.value_type_id]]
-                                                         :where [:and
-                                                                 [:= :fp.depth 0]
-                                                                 [:= :f.factset_id :fs.id]]}
-                                                        :facts_data]]}}
-                               "trusted" {:type :queryable-json
-                                          :queryable? true
-                                          :field  {:select [[:fv.value :trusted]]
-                                                   :from [[:facts :f]]
-                                                   :join [[:fact_values :fv]
-                                                          [:= :fv.id :f.fact_value_id]
+                                       :producers
+                                       [:= :fs.producer_id :producers.id]
 
-                                                          [:fact_paths :fp]
-                                                          [:= :fp.id :f.fact_path_id]
+                                       :certnames
+                                       [:= :fs.certname :certnames.certname]]}
 
-                                                          [:value_types :vt]
-                                                          [:= :vt.id :fv.value_type_id]]
-                                                   :where [:and
-                                                           [:= :fp.depth 0]
-                                                           [:= :f.factset_id :fs.id]
-                                                           [:= :fp.name (hcore/raw "'trusted'")]]}}}
+               :alias "inventory"
+               :relationships certname-relations
 
-                 :selection {:from [[:factsets :fs]]
-                             :left-join [:environments
-                                         [:= :fs.environment_id :environments.id]
-
-                                         :producers
-                                         [:= :fs.producer_id :producers.id]
-
-                                         :certnames
-                                         [:= :fs.certname :certnames.certname]]}
-
-                 :alias "inventory"
-                 :relationships certname-relations
-
-                 :dotted-fields ["facts\\..*" "trusted\\..*"]
-                 :entity :inventory
-                 :subquery? false})))
+               :dotted-fields ["facts\\..*" "trusted\\..*"]
+               :entity :inventory
+               :subquery? false}))
 
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
@@ -380,7 +320,7 @@
   "Query for the resource-params query, mostly used as a subquery"
   (map->Query {:projections {"type" {:type :string
                                      :queryable? true
-                                     :field :type}
+                                     :field :vt.type}
                              "path" {:type :path
                                      :queryable? true
                                      :field :path}
@@ -392,8 +332,8 @@
                                       :query-only? true
                                       :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
-                                  [:value_types :vt]
-                                  [:= :fp.value_type_id :vt.id]
+                           :join [[:value_types :vt]
+                                  [:= :fp.value_type_id :vt.id]]
                            :where [:!= :fp.value_type_id 5]}
 
                :relationships {;; Children - direct
@@ -1053,105 +993,54 @@
 
 (def factsets-query
   "Query for the top level facts query"
-  (if @scf-store/enable-json-facts
-    (map->Query
-     {:projections
-      {"timestamp" {:type :timestamp
-                    :queryable? true
-                    :field :timestamp}
-       "facts" {:type :queryable-json
-                :queryable? true
-                :field {:select [(h/row-to-json :facts_data)]
-                        :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))")
-                                           :data]
-                                          [(hsql-hash-as-href "fs.certname" :factsets :facts)
-                                           :href]]
-                                 :from [[{:select [[:key :name] :value :certname]
-                                          :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
-                                         :t]]}
-                                :facts_data]]}}
-       "certname" {:type :string
+  (map->Query
+    {:projections
+     {"timestamp" {:type :timestamp
                    :queryable? true
-                   :field :fs.certname}
-       "hash" {:type :string
+                   :field :timestamp}
+      "facts" {:type :queryable-json
                :queryable? true
-               :field (hsql-hash-as-str :fs.hash)}
-       "producer_timestamp" {:type :timestamp
-                             :queryable? true
-                             :field :fs.producer_timestamp}
-       "producer" {:type :string
-                   :queryable? true
-                   :field :producers.name}
-       "environment" {:type :string
-                      :queryable? true
-                      :field :environments.environment}}
+               :field {:select [(h/row-to-json :facts_data)]
+                       :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))")
+                                          :data]
+                                         [(hsql-hash-as-href "fs.certname" :factsets :facts)
+                                          :href]]
+                                :from [[{:select [[:key :name] :value :certname]
+                                         :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
+                                        :t]]}
+                               :facts_data]]}}
+      "certname" {:type :string
+                  :queryable? true
+                  :field :fs.certname}
+      "hash" {:type :string
+              :queryable? true
+              :field (hsql-hash-as-str :fs.hash)}
+      "producer_timestamp" {:type :timestamp
+                            :queryable? true
+                            :field :fs.producer_timestamp}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :producers.name}
+      "environment" {:type :string
+                     :queryable? true
+                     :field :environments.environment}}
 
-      :selection {:from [[:factsets :fs]]
-                  :left-join [:environments
-                              [:= :fs.environment_id :environments.id]
-                              :producers
-                              [:= :producers.id :fs.producer_id]]}
+     :selection {:from [[:factsets :fs]]
+                 :left-join [:environments
+                             [:= :fs.environment_id :environments.id]
+                             :producers
+                             [:= :producers.id :fs.producer_id]]}
 
-      :relationships (merge certname-relations
-                            {"environments" {:local-columns ["environment"]
-                                             :foreign-columns ["name"]}
-                             "producers" {:local-columns ["producer"]
-                                          :foreign-columns ["name"]}})
+     :relationships (merge certname-relations
+                           {"environments" {:local-columns ["environment"]
+                                            :foreign-columns ["name"]}
+                            "producers" {:local-columns ["producer"]
+                                         :foreign-columns ["name"]}})
 
-      :alias "factsets"
-      :entity :factsets
-      :source-table "factsets"
-      :subquery? false})
-    (map->Query
-     {:projections
-      {"timestamp" {:type :timestamp
-                    :queryable? true
-                    :field :timestamp}
-       "facts" {:type :json
-                :queryable? true
-                :field {:select [(h/row-to-json :facts_data)]
-                        :from [[{:select [[(json-agg-row :t) :data]
-                                          [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
-                                 :from [[{:select [:fp.name (h/scast :fv.value :jsonb)]
-                                          :from [[:facts :f]]
-                                          :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
-                                                 [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
-                                                 [:value_types :vt] [:= :vt.id :fv.value_type_id]]
-                                          :where [:and [:= :depth 0] [:= :f.factset_id :factsets.id]]}
-                                         :t]]}
-                                :facts_data]]}}
-       "certname" {:type :string
-                   :queryable? true
-                   :field :factsets.certname}
-       "hash" {:type :string
-               :queryable? true
-               :field (hsql-hash-as-str :factsets.hash)}
-       "producer_timestamp" {:type :timestamp
-                             :queryable? true
-                             :field :factsets.producer_timestamp}
-       "producer" {:type :string
-                   :queryable? true
-                   :field :producers.name}
-       "environment" {:type :string
-                      :queryable? true
-                      :field :environments.environment}}
-
-      :selection {:from [:factsets]
-                  :left-join [:environments
-                              [:= :factsets.environment_id :environments.id]
-                              :producers
-                              [:= :producers.id :factsets.producer_id]]}
-
-      :relationships (merge certname-relations
-                            {"environments" {:local-columns ["environment"]
-                                             :foreign-columns ["name"]}
-                             "producers" {:local-columns ["producer"]
-                                          :foreign-columns ["name"]}})
-
-      :alias "factsets"
-      :entity :factsets
-      :source-table "factsets"
-      :subquery? false})))
+     :alias "factsets"
+     :entity :factsets
+     :source-table "factsets"
+     :subquery? false}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
