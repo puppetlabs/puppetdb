@@ -846,24 +846,6 @@
             (clojure.pprint/pprint unex))))
       (is (= expected diff)))))
 
-(deftest trgm-indexes-as-expected
-  ;; Assume the current *db* supports trgm
-  (clear-db-for-testing!)
-  (migrate! *db*)
-  (indexes! (:database *db*))
-  (let [idxs (:indexes (schema-info-map *db*))]
-    (is (= {:schema "public"
-            :table "fact_values"
-            :index "fact_values_string_trgm"
-            :index_keys ["value_string"]
-            :type "gin"
-            :unique? false
-            :functional? false
-            :is_partial false
-            :primary? false
-            :user "pdb_test"}
-           (get idxs ["fact_values" ["value_string"]])))))
-
 (deftest migration-60-fix-missing-edges-fk-constraint
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
