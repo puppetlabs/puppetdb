@@ -1599,7 +1599,7 @@
       {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
@@ -1634,7 +1634,7 @@
       {:value {:b 3.14 :a 1 :d {:n ""} :c ["a" "b" "c"] :e "1"} :name "my_structured_fact" :environment "PROD" :certname "foo3"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
