@@ -955,7 +955,7 @@
 (defn-validated certname-factset-metadata :- {:package_hash (s/maybe s/Str)
                                               :factset_id s/Int
                                               :certname_id s/Int
-                                              :stable_hash s/Int}
+                                              :stable_hash (s/maybe s/Int)}
   "Given a certname, return the factset id, hash and certname id."
   [certname :- s/Str]
   (jdbc/query-with-resultset

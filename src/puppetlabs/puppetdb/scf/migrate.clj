@@ -1480,9 +1480,11 @@
     volatile = jsonb('{}')"
 
    "drop table facts"
-   "truncate table fact_paths"
 
-   ;; TODO consider migrating fact paths - maybe not worth it
+   ;; TODO consider migrating fact paths - maybe not worth it. This table will
+   ;; be mostly repopulated on reception of first factset, and fully
+   ;; repopulated by the time runinterval has elasped. It also only matters to
+   ;; the fact-paths endpoint now.
    "truncate table fact_paths"
 
    "alter table fact_paths add column path_array text[]"
