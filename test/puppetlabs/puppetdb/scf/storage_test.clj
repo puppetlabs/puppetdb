@@ -158,7 +158,9 @@
 
   )
 
-
+(defn delete-certname-facts!
+  [certname]
+  (jdbc/do-prepared "delete from factsets where certname = ?" [certname]))
 
 (deftest fact-persistence
   (with-test-db
