@@ -55,7 +55,7 @@
             :string hcore/raw
             :jsonb-scalar (su/sql-cast "jsonb")
             :timestamp (su/sql-cast "timestamptz")}
-   :jsonb-scalar {:numeric (comp (su/sql-cast "numeric") (su/sql-cast "text"))
+   :jsonb-scalar {:numeric (su/jsonb-scalar-cast "numeric")
                   :jsonb-scalar hcore/raw
                   :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
                   :string (su/jsonb-scalar-cast "text")}
@@ -153,6 +153,9 @@
 (defrecord FnExpression [function column params args statement])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
+
+(def numeric-functions
+  #{"sum" "avg" "min" "max"})
 
 (def pdb-fns->pg-fns
   {"sum" "sum"
@@ -1472,6 +1475,37 @@
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
 
+(defn strip-function-calls
+  [column-or-columns]
+  (let [{functions true
+         nonfunctions false} (->> column-or-columns
+                                  utils/vector-maybe
+                                  (group-by (comp #(= "function" %) first)))]
+    [(vec (map rest functions))
+     (vec nonfunctions)]))
+
+(defn no-type-restriction?
+  "Determine whether an expression already contains a restriction of values to
+   numbers."
+  [expr]
+  (let [r ["=" ["function" "jsonb_typeof" "value"] "number"]]
+    (->> expr
+         (tree-seq vector? identity)
+         (not-any? #(= % r)))))
+
+(defn numeric-fact-functions?
+  "Determine whether an extract clause contains numeric aggregate functions,
+   implying that the query must be restricted for successful type coercion."
+  [clauses]
+  (->> clauses
+       strip-function-calls
+       first
+       (map first)
+       (some numeric-functions)))
+
+(def non-predicate-clause
+  #{"group_by" "limit" "offset"})
+
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
@@ -1504,6 +1538,10 @@
             ;;          ["and"
             ;;           ["~>" "path" (utils/split-indexing path)]
             ;;           [op value-column value]]]]])))
+
+            [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
+            (when (= :facts (get-in meta node [:query-context :entity]))
+            ["extract" columns ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] expr]])
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
@@ -1823,26 +1861,16 @@
        (sort-by #(if (string? %) % (:column %)))
        (mapv (partial alias-columns query-rec))))
 
-(defn strip-function-calls
-  [column-or-columns]
-  (let [{functions true
-         nonfunctions false} (->> column-or-columns
-                                  utils/vector-maybe
-                                  (group-by (comp #(= "function" %) first)))]
-    [(vec (map rest functions))
-     (vec nonfunctions)]))
-
 (pls/defn-validated create-extract-node
   :- {(s/optional-key :projected-fields) [projection-schema]
       s/Any s/Any}
   [query-rec column expr]
   (let [[fcols cols] (strip-function-calls column)
         coalesce-fact-values (fn [col]
-                               (if (and (= "facts" (:source-table query-rec))
+                               (if (and (= "factsets" (:source-table query-rec))
                                         (= "value" col))
-                                 (h/coalesce :fv.value_integer :fv.value_float)
-                                 (or (get-in query-rec [:projections col :field])
-                                     col)))]
+                                 (convert-type "value" :jsonb-scalar :numeric)
+                                 (or (get-in query-rec [:projections col :field]) col)))]
     (if-let [calls (seq
                      (map (fn [[name & args]]
                             (apply vector
@@ -1851,16 +1879,16 @@
                                      [:*]
                                      (map coalesce-fact-values args))))
                           fcols))]
-          (-> query-rec
-              (assoc :call (map create-fnexpression calls))
-              (create-extract-node* cols expr))
+      (-> query-rec
+          (assoc :call (map create-fnexpression calls))
+          (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
-            [[op ["function" f & args] value]]
+            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["function" f & args] value]]
             (map->FnBinaryExpression {:operator op
                                       :function f
                                       :args args
