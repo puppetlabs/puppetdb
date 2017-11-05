@@ -1462,32 +1462,32 @@
      alter column file type text"))
 
 (defn jsonb-facts []
-  ;; TODO data migration
   (jdbc/do-commands
    "alter table factsets add column stable jsonb"
    "alter table factsets add column stable_hash bigint"
    "alter table factsets add column volatile jsonb"
-   "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops);"
+   "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops)"
+
+   "update factsets fs
+    set stable = (select json_object_agg(name, value)
+                 from (
+                 select f.factset_id, fp.name, fv.value from facts f
+                 inner join fact_values fv on fv.id = f.fact_value_id
+                 inner join fact_paths fp on fp.id = f.fact_path_id
+                 inner join value_types vt on vt.id = fv.value_type_id
+                 where fp.depth = 0
+                 ) s where fs.id = s.factset_id),
+    volatile = jsonb('{}')"
+
+   "drop table facts"
+   "truncate table fact_paths"
+
+   ;; TODO consider migrating fact paths - maybe not worth it
+   "truncate table fact_paths"
 
    "alter table fact_paths add column path_array text[]"
-   "update fact_paths set path_array = regexp_split_to_array(path, '#~')"
-
    "alter table fact_paths add column value_type_id int"
-
-;;
-;;   "create table fact_paths2 like fact_paths"
-;;   "insert into fact_paths2
-;;    (path_array, name, path, value_type_id)
-;;    select distinct regexp_split_to_array(path, '#~') path_array, name, path, value_type_id
-;;    from facts inner join fact_paths on facts.fact_path_id=fact_paths.id
-;;    inner join fact_values on facts.fact_value_id=fact_values.id"
-;;   "update table fact_paths2 set depth=(array_length(path) - 1)"
-;;
-;;   "alter table fact_paths2 add constraint fact_paths_path_type_unique unique(path, value_type_id)"
-;;   "drop table fact_paths"
-;;   "alter table fact_paths2 rename to fact_paths"
-
-   )
+   "alter table fact_paths add constraint fact_paths_path_type_unique unique(path, value_type_id)")
 
   {::vacuum-analyze #{"factsets"}})
 
@@ -1652,9 +1652,6 @@
                                      (apply set/union small-tables)
                                      sort))]
         (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables-to-analyze)))
-        (->> tables-to-analyze
-             (map #(str "vacuum analyze " %))
-             (apply jdbc/do-commands-outside-txn))
         true)
       (do
         (log/info (trs "There are no pending migrations"))
@@ -1669,11 +1666,6 @@
     (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-
-  (when-not (sutils/index-exists? "fact_values_string_trgm")
-    (log/info (trs "Creating additional index `fact_values_string_trgm`"))
-    (jdbc/do-commands
-      "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)"))
 
   (when-not (sutils/index-exists? "packages_name_trgm")
     (log/info (trs "Creating additional index `packages_name_trgm`"))
