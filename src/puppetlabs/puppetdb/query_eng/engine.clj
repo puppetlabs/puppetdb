@@ -896,7 +896,11 @@
                                             :field :environments.environment}
                              "latest_report?" {:type :boolean
                                                :queryable? true
-                                               :query-only? true}}
+                                               :query-only? true}
+                             "report_id" {:type :bigint
+                                          :queryable? false
+                                          :query-only? true
+                                          :field :events.report_id}}
                :selection {:from [[:resource_events :events]]
                            :join [:reports
                                   [:= :events.report_id :reports.id]]
@@ -937,6 +941,16 @@
                :alias "latest_report"
                :subquery? false
                :source-table "latest_report"}))
+
+(def latest-report-id-query
+  "Usually used as a subquery of reports"
+  (map->Query {:projections {"latest_report_id" {:type :bigint
+                                                 :queryable? true
+                                                 :field :certnames.latest_report_id}}
+               :selection {:from [:certnames]}
+               :alias "latest_report_id"
+               :subquery? false
+               :source-table "latest_report_id"}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
@@ -1335,6 +1349,7 @@
    "select_nodes" nodes-query
    "select_inactive_nodes" inactive-nodes-query
    "select_latest_report" latest-report-query
+   "select_latest_report_id" latest-report-id-query
    "select_params" resource-params-query
    "select_reports" reports-query
    "select_inventory" inventory-query
@@ -1489,9 +1504,9 @@
                                       ["select_latest_report"]]]
 
                                     :events
-                                    ["in" "report"
-                                     ["extract" "latest_report_hash"
-                                      ["select_latest_report"]]]
+                                    ["in" "report_id"
+                                     ["extract" "latest_report_id"
+                                      ["select_latest_report_id"]]]
 
                                     (throw (IllegalArgumentException.
                                             (tru "Field 'latest_report?' not supported on endpoint ''{0}''" entity))))]
