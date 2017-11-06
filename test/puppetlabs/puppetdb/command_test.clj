@@ -933,7 +933,7 @@
                                                                            ""
                                                                            identity
                                                                            (tqueue/coerce-to-stream "bad stuff"))))
-          (is (empty? (query-to-vec "SELECT * FROM facts")))
+          (is (empty? (query-to-vec "SELECT * FROM factsets")))
           (is (= 0 (task-count delay-pool)))
           (is (seq (fs/list-dir (:path dlo)))))))))
 
@@ -947,7 +947,7 @@
                                                                        ""
                                                                        identity
                                                                        (tqueue/coerce-to-stream "bad stuff"))))
-      (is (empty? (query-to-vec "SELECT * FROM facts")))
+      (is (empty? (query-to-vec "SELECT * FROM factsets")))
       (is (= 0 (task-count delay-pool)))
       (is (seq (fs/list-dir (:path dlo)))))))
 
