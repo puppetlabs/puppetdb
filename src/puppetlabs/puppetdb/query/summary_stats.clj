@@ -27,36 +27,6 @@
     group by depth
     order by depth"
 
-   :num_shared_value_path_combos
-   "select count(f.fact_value_id)
-    from (select fact_value_id
-    from facts
-    group by fact_path_id, fact_value_id
-    having count(*) > 1) as f"
-
-   :num_shared_name_value_combos
-   "select count(f.name)
-    from (select name, fact_value_id
-    from facts
-    inner join fact_paths fp on facts.fact_path_id = fp.id
-    group by fact_value_id, name
-    having count(*) > 1) as f"
-
-   :num_unshared_value_path_combos
-   "select count(f.fact_value_id)
-    from (select fact_value_id
-    from facts
-    group by fact_path_id, fact_value_id
-    having count(*) = 1) as f"
-
-   :num_unshared_name_value_combos
-   "select count(f.name)
-    from (select name, fact_value_id
-    from facts
-    inner join fact_paths fp on facts.fact_path_id = fp.id
-    group by fact_value_id, name
-    having count(*) = 1) as f"
-
    :report_metric_size_dist
    "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
     0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
@@ -74,17 +44,6 @@
     from
     (select pg_column_size(logs) as length from reports
     where logs is not null) foo"
-
-   :num_associated_factsets_over_fact_paths
-   "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
-    0.35, 0.40, 0.45, 0.50, 0.55, 0.60,
-    0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1])
-    within group (order by c) quantiles
-    from
-    (select fact_path_id, count(*) as c
-    from facts
-    group by fact_path_id
-    order by c) foo"
 
    :num_resources_per_node
    "select percentile_cont(Array[0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
