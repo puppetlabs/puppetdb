@@ -950,8 +950,6 @@
 
 ;;; JSONB facts
 
-(def enable-json-facts (atom true))
-
 (defn-validated certname-factset-metadata :- {:package_hash (s/maybe s/Str)
                                               :factset_id s/Int
                                               :certname_id s/Int
