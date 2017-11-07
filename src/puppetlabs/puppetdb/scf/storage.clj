@@ -1068,22 +1068,6 @@
 
 ;;; Classic Facts
 
-(defn-validated select-pid-vid-pairs-for-factset
-  :- [(s/pair s/Int "path-id" s/Int "value-id")]
-  "Return a collection of pairs of [path-id value-id] for the indicated factset."
-  [factset-id :- s/Int]
-  (for [{:keys [fact_path_id fact_value_id]}
-        (query-to-vec "SELECT fact_path_id, fact_value_id FROM facts
-                         WHERE factset_id = ?" factset-id)]
-    [fact_path_id fact_value_id]))
-
-(defn-validated certname-to-factset-id :- s/Int
-  "Given a certname, returns the factset id."
-  [certname :- String]
-  (jdbc/query-with-resultset
-   ["SELECT id from factsets WHERE certname = ?" certname]
-   (comp :id first sql/result-set-seq)))
-
 (def ps-chunksize 6000)
 
 (defn realize-paths!
