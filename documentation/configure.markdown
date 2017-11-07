@@ -246,14 +246,6 @@ If `disable-update-checking` is set to `false`, PuppetDB checks for updates upon
 
 The data Puppet collects provides just one of many methods we use for learning about our community of users. The more we know about how you use Puppet, the better we can address your needs. No personally identifiable information is collected, and the data we collect is never used or shared outside Puppet.
 
-### `facts-blacklist`
-
-Optional. Set by delacring `facts-blacklist` in the PuppetDB configuration file. Providing a comma seperated string of fact names in the case of an INI config file or a list of fact names in the case of a HOCON config file will cause PuppetDB to ignore those facts on ingestion. See examples below.
-
-* INI: "fact1, fact2, fact3"
-* HOCON: ["fact1", "fact2", "fact3"]
-
-
 `[database]` settings
 -----
 
@@ -265,6 +257,13 @@ PuppetDB stores its data in PostgreSQL.
 > MySQL lacks several features that PuppetDB relies on, most notably including recursive queries. We have no plans to ever support MySQL.
 >
 > Depending on demand, Oracle support may be forthcoming in a future version of PuppetDB. This hasn't been decided yet.
+
+### Facts Blacklist
+
+Optional. Set by declaring `facts-blacklist` in the PuppetDB configuration file. If you provide a comma-separated string of fact names (in the case of an INI config file) or a list of fact names (in the case of a HOCON config file), PuppetDB ignores those facts on ingestion.
+
+ * INI: `"fact1, fact2, fact3"`
+ * HOCON: `["fact1", "fact2", "fact3"]`
 
 ### Using PostgreSQL
 
