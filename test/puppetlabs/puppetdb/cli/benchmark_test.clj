@@ -42,7 +42,7 @@
                   ;; we'd rather have the exception.
                   utils/try+-process-cli! (fn [body] (body))
                   benchmark/benchmark-shutdown-timeout tu/default-timeout-ms]
-      (f submitted-records (benchmark/benchmark cli-args)))))
+      (f submitted-records (benchmark/benchmark-wrapper cli-args)))))
 
 (defn benchmark-nummsgs
   [config & cli-args]
