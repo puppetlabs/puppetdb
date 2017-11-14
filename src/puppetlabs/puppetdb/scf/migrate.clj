@@ -1364,6 +1364,18 @@
           "  ADD CONSTRAINT edges_certname_source_target_type_unique_key"
           "  UNIQUE (certname, source, target, type)"))))
 
+(defn ensure-report-id-index []
+  (when-not (sutils/index-exists? "idx_reports_compound_id")
+    (log/info "Indexing reports for id queries")
+
+    (jdbc/do-commands
+     "create index idx_reports_compound_id on reports
+        (producer_timestamp, certname, hash)
+        where start_time is not null")
+
+    (jdbc/do-commands-outside-txn
+     "vacuum analyze reports")))
+
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   [config]
@@ -1378,4 +1390,5 @@
         "    CREATE EXTENSION pg_trgm;\n\n"
         "as the database super user on the PuppetDB database to correct\n"
         "this, then restart PuppetDB.\n")))
-    (fix-missing-edges-fk-constraint)))
+    (fix-missing-edges-fk-constraint))
+  (ensure-report-id-index))
