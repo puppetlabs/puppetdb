@@ -1650,6 +1650,18 @@
      ["create index packages_name_trgm on packages"
       "  using gin (name gin_trgm_ops)"])))
 
+(defn ensure-report-id-index []
+  (when-not (sutils/index-exists? "idx_reports_compound_id")
+    (log/info "Indexing reports for id queries")
+
+    (jdbc/do-commands
+     "create index idx_reports_compound_id on reports
+        (producer_timestamp, certname, hash)
+        where start_time is not null")
+
+    (jdbc/do-commands-outside-txn
+     "vacuum analyze reports")))
+
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   [config]
@@ -1662,4 +1674,5 @@
         "\n\n"
         (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
         " "
-        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n"))))))
+        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n")))))
+  (ensure-report-id-index))
