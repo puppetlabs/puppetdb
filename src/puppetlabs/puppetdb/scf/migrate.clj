@@ -1480,14 +1480,17 @@
     volatile = jsonb('{}')"
 
    "drop table facts"
+   "drop table fact_values"
+   "alter table fact_paths drop constraint fact_paths_path_key"
 
    ;; TODO consider migrating fact paths - maybe not worth it. This table will
    ;; be mostly repopulated on reception of first factset, and fully
    ;; repopulated by the time runinterval has elasped. It also only matters to
    ;; the fact-paths endpoint now.
    "truncate table fact_paths"
-   "alter table fact_paths add column path_array text[]"
-   "alter table fact_paths add column value_type_id int"
+
+   "alter table fact_paths add column path_array text[] not null"
+   "alter table fact_paths add column value_type_id int not null"
    "alter table fact_paths add constraint fact_paths_path_type_unique unique(path, value_type_id)")
 
   {::vacuum-analyze #{"factsets"}})
