@@ -12,7 +12,8 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db* clear-db-for-testing! init-db with-test-db]]
             [metrics.histograms :refer [sample histogram]]
             [metrics.counters :as counters]
             [schema.core :as s]
@@ -319,6 +320,175 @@
                              :producer producer})
             (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
               (is (not= old-hash new-hash)))))))))
+
+(deftest fact-path-gc
+  (letfn [(facts-now [c v]
+            {:certname c :values v
+             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
+          (paths-and-types []
+            (query-to-vec "select path, value_type_id from fact_paths"))
+          (check-gc [factset-changes
+                     expected-before
+                     expected-after]
+            (clear-db-for-testing!)
+            (init-db *db* false)
+            (doseq [cert (set (map first factset-changes))]
+              (add-certname! cert))
+            (doseq [[cert factset] factset-changes]
+              (replace-facts! (facts-now cert factset)))
+            (let [obs (paths-and-types)]
+              (is (= (count expected-before) (count obs)))
+              (is (= expected-before (set obs))))
+            (delete-unused-fact-paths)
+            (let [obs (paths-and-types)]
+              (is (= (count expected-after) (count obs)))
+              (is (= expected-after (set obs)))))]
+    (let [type-id {:int (facts/value-type-id 0)
+                   :str (facts/value-type-id "0")
+                   :obj (facts/value-type-id [])}]
+      (with-test-db
+
+        (testing "works when there are no paths"
+          (check-gc [] #{} #{}))
+
+        (testing "doesn't do anything if nothing changes"
+          (let [before #{{:path "a" :value_type_id (type-id :int)}
+                         {:path "b" :value_type_id (type-id :obj)}
+                         {:path "b#~foo" :value_type_id (type-id :str)}}]
+            (check-gc [["c-x" {"a" 1}]
+                       ["c-y" {"b" {"foo" "two"}}]]
+                      before
+                      before)))
+
+        (testing "orphaning of a simple scalar"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"b" 2}]
+                     ["c-y" {"c" 3}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}))
+
+        (testing "orphaning of a structured fact"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"b" {"foo" "bar"}}]
+                     ["c-y" {"c" 3}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}
+                      {:path "c" :value_type_id (type-id :int)}}
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}))
+
+        (testing "orphaning of an array"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"b" ["x" "y"]}]
+                     ["c-y" {"c" 3}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}
+                      {:path "c" :value_type_id (type-id :int)}}
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}))
+
+        ;; In these type change tests, orphaned types linger because
+        ;; the current gc only operates on (removes) paths that have
+        ;; no references at all.  It leaves any existing entries for a
+        ;; given path alone.
+
+        (testing "structured fact changing to simple"
+          (check-gc [["c-x" {"b" {"foo" "bar"}}]
+                     ["c-x" {"b" 1}]]
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}
+                      {:path "b" :value_type_id (type-id :int)}}
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b" :value_type_id (type-id :int)}}))
+
+        (testing "simple fact changing to structured"
+          (check-gc [["c-x" {"b" 1}]
+                     ["c-x" {"b" {"foo" "bar"}}]]
+                    #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}}
+                   #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}}))
+
+        (testing "array changes to scalar"
+          (check-gc [["c-x" {"b" ["x" "y"]}]
+                     ["c-x" {"b" 1}]]
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}
+                      {:path "b" :value_type_id (type-id :int)}}
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b" :value_type_id (type-id :int)}}))
+
+        (testing "scalar changes to array"
+          (check-gc [["c-x" {"b" 1}]
+                     ["c-x" {"b" ["x" "y"]}]]
+                    #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}}
+                    #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}}))
+
+        (testing "multiple types for path and all disappear"
+          (check-gc [["c-w" {"a" 1}]
+                     ["c-x" {"a" "two"}]
+                     ["c-y" {"a" {"foo" "bar"}}]
+                     ["c-z" {"a" [3]}]
+                     ["c-w" {}]
+                     ["c-x" {}]
+                     ["c-y" {}]
+                     ["c-z" {}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :str)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}
+                      {:path "a#~0" :value_type_id (type-id :int)}}
+                    #{}))
+
+        (testing "multiple types for path and all types change"
+          (let [expected #{{:path "a" :value_type_id (type-id :int)}
+                           {:path "a" :value_type_id (type-id :obj)}
+                           {:path "a#~0" :value_type_id (type-id :int)}
+                           {:path "a#~foo" :value_type_id (type-id :str)}
+                           {:path "a" :value_type_id (type-id :str)}}]
+            (check-gc [["c-x" {"a" 1}]
+                       ["c-y" {"a" [0]}]
+                       ["c-x" {"a" {"foo" "bar"}}]
+                       ["c-y" {"a" "two"}]]
+                      #{{:path "a" :value_type_id (type-id :int)}
+                        {:path "a" :value_type_id (type-id :obj)}
+                        {:path "a#~0" :value_type_id (type-id :int)}
+                        {:path "a#~foo" :value_type_id (type-id :str)}
+                        {:path "a" :value_type_id (type-id :str)}}
+                      ;; Q: Why didn't "a" :int stick around?
+                      #{{:path "a" :value_type_id (type-id :int)}
+                        {:path "a" :value_type_id (type-id :obj)}
+                        {:path "a#~foo" :value_type_id (type-id :str)}
+                        {:path "a" :value_type_id (type-id :str)}})))
+
+        (testing "everything to nothing"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"a" ["x" "y"]}]
+                     ["c-z" {"a" {"foo" "bar"}}]
+                     ["c-x" {}]
+                     ["c-y" {}]
+                     ["c-z" {}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~0" :value_type_id (type-id :str)}
+                      {:path "a#~1" :value_type_id (type-id :str)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}}
+                    #{}))))))
 
 (deftest-db fact-persistance-with-environment
   (testing "Persisted facts"
