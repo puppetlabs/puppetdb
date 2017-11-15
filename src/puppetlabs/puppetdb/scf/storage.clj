@@ -1077,6 +1077,42 @@
                      fact-json-updates)
                     ["id=?" factset_id]))))
 
+(defn delete-unused-fact-paths []
+  "Deletes paths from fact_paths that are no longer needed by any
+  factset.  In the unusual case where a path changes type, the
+  previous version will linger."
+  (jdbc/do-commands
+   ["with recursive live_paths(key, path, value) as"
+    "  (select key, key as path, value"
+    "     from (select (jsonb_each(stable||volatile)).*"
+    "             from factsets) as base_case"
+    "   union all"
+    "   select sub_path as key,"
+    "          sub_paths.path||'#~'||sub_path as path,"
+    "          sub_value as value"
+    "     from (select *"
+    "             from (select path,"
+    "                          case jsonb_typeof(value)"
+    "                            when 'object'"
+    "                              then (jsonb_each(value)).key"
+    "                            when 'array'"
+    "                              then generate_series(0, jsonb_array_length(value - 1))::text"
+    "                            end"
+    "                            as sub_path,"
+    "                          case jsonb_typeof(value)"
+    "                            when 'object'"
+    "                              then (jsonb_each(value)).value"
+    "                            when 'array'"
+    "                              then jsonb_array_elements(value)"
+    "                          end"
+    "                          as sub_value"
+    "                     from live_paths) as candidates"
+    "             where candidates.sub_path is not null)"
+    "               as sub_paths)"
+    "  delete from fact_paths fp"
+    "    where not exists (select 1 from live_paths"
+    "                        where live_paths.path = fp.path)"]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
 
@@ -1352,6 +1388,9 @@
   [db]
   (time!
    (:gc performance-metrics)
-   (jdbc/with-transacted-connection db
-     (delete-unassociated-params!)
-     (delete-unassociated-environments!))))
+   (do
+     (jdbc/with-transacted-connection db
+       (delete-unassociated-params!)
+       (delete-unassociated-environments!))
+     (jdbc/with-transacted-connection db
+       (delete-unused-fact-paths)))))
