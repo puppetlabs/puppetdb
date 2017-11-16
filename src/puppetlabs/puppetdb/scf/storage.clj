@@ -46,7 +46,8 @@
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
             [puppetlabs.puppetdb.cheshire :as json])
-  (:import [org.postgresql.util PGobject]
+  (:import [java.security MessageDigest]
+           [org.postgresql.util PGobject]
            [org.joda.time Period]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -980,18 +981,22 @@
 
 (def ps-chunksize 6000)
 
-(defn realize-paths!
-  "Ensures that all paths exist in the database and returns a map of
-   paths to ids."
+(defn realize-and-hash-paths
+  "Ensures that every path in the pathmap has a corresponding row in
+  fact_paths, and returns either nil, if pathmaps is empty, or a
+  fingerprint of the paths."
   [pathmaps]
-  (let [path-array-conversion #(->> (map str %)
+  (let [digest (MessageDigest/getInstance "SHA-1")
+        path-array-conversion #(->> (map str %)
                                     (sutils/array-to-param "text" String))]
     (when (seq pathmaps)
       (->> pathmaps
+           (map #(do (.update digest (-> % :path (.getBytes "UTF-8"))) %))
            (map #(update % :path_array path-array-conversion))
            (partition-all ps-chunksize)
            (map #(jdbc/insert-multi! :fact_paths % {:on-conflict "do nothing"}))
-           dorun))))
+           dorun)
+      (.digest digest))))
 
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
@@ -1001,22 +1006,22 @@
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
    (jdbc/with-db-transaction []
-     (jdbc/insert! :factsets
-                   (merge
-                    {:certname certname
-                     :timestamp (to-timestamp timestamp)
-                     :environment_id (ensure-environment environment)
-                     :producer_timestamp (to-timestamp producer_timestamp)
-                     :producer_id (ensure-producer producer)
-                     :stable (sutils/munge-jsonb-for-storage values)
-                     :stable_hash (hash values)
-                     ;; need at least an empty map for the jsonb || operator
-                     :volatile (sutils/munge-jsonb-for-storage {})}
-                    (when include-hash?
-                      {:hash (sutils/munge-hash-for-storage
-                              (shash/fact-identity-hash fact-data))})))
-
-     (realize-paths! (facts/facts->pathmaps values))
+     (let [paths-hash (realize-and-hash-paths (facts/facts->pathmaps values))]
+       (jdbc/insert! :factsets
+                     (merge
+                      {:certname certname
+                       :timestamp (to-timestamp timestamp)
+                       :environment_id (ensure-environment environment)
+                       :producer_timestamp (to-timestamp producer_timestamp)
+                       :producer_id (ensure-producer producer)
+                       :stable (sutils/munge-jsonb-for-storage values)
+                       :stable_hash (hash values)
+                       ;; need at least an empty map for the jsonb || operator
+                       :volatile (sutils/munge-jsonb-for-storage {})
+                       :paths_hash paths-hash}
+                      (when include-hash?
+                        {:hash (sutils/munge-hash-for-storage
+                                (shash/fact-identity-hash fact-data))}))))
 
      (when (seq package_inventory)
        (insert-packages certname package_inventory)))))
@@ -1063,19 +1068,19 @@
       (when (or package_hash (seq package_inventory))
         (update-packages certname_id package_hash package_inventory))
 
-      (realize-paths! (facts/facts->pathmaps values))
-
-      (jdbc/update! :factsets
-                    (merge
-                     {:timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)
-                      :producer_timestamp (to-timestamp producer_timestamp)
-                      :hash (-> fact-data
-                                shash/fact-identity-hash
-                                sutils/munge-hash-for-storage)
-                      :producer_id (ensure-producer producer)}
-                     fact-json-updates)
-                    ["id=?" factset_id]))))
+      (let [paths-hash (realize-and-hash-paths (facts/facts->pathmaps values))]
+        (jdbc/update! :factsets
+                      (merge
+                       {:timestamp (to-timestamp timestamp)
+                        :environment_id (ensure-environment environment)
+                        :producer_timestamp (to-timestamp producer_timestamp)
+                        :hash (-> fact-data
+                                  shash/fact-identity-hash
+                                  sutils/munge-hash-for-storage)
+                        :producer_id (ensure-producer producer)
+                        :paths_hash paths-hash}
+                       fact-json-updates)
+                      ["id=?" factset_id])))))
 
 (defn delete-unused-fact-paths []
   "Deletes paths from fact_paths that are no longer needed by any

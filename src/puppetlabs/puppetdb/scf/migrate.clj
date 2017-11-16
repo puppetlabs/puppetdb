@@ -1463,6 +1463,7 @@
 
 (defn jsonb-facts []
   (jdbc/do-commands
+   "alter table factsets add column paths_hash bytea"  ;; Can be null atm
    "alter table factsets add column stable jsonb"
    "alter table factsets add column stable_hash bigint"
    "alter table factsets add column volatile jsonb"
