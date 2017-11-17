@@ -477,8 +477,8 @@
   pass nummsgs), and :stop, function to request termination of the benchmark
   process and and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
-  [args]
-  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
+  [options]
+  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
@@ -544,7 +544,12 @@
     {:stop stop-fn
      :join join-fn}))
 
+(defn benchmark-wrapper [args]
+  (->  args
+       validate-cli!
+       benchmark))
+
 (defn -main [& args]
-  (when-let [{:keys [join]} (benchmark args)]
+  (when-let [{:keys [join]} (benchmark-wrapper args)]
     (println-err (trs "Press ctrl-c to stop"))
     (join)))
