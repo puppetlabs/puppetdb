@@ -490,6 +490,79 @@
                       {:path "a#~foo" :value_type_id (type-id :str)}}
                     #{}))))))
 
+(deftest factset-paths-write-minimization
+  (letfn [(facts-now [c v]
+            {:certname c :values v
+             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
+          (certname-paths-hash [certname]
+            (-> "select paths_hash from factsets where certname = ?"
+                (query-to-vec certname)
+                first
+                :paths_hash))
+          (reset-db []
+            (clear-db-for-testing!)
+            (init-db *db* false))
+          (set-cert-facts-causes-update [cert factset]
+            (let [real-realize-paths realize-paths
+                  called? (atom false)]
+              (with-redefs [realize-paths (fn [& args]
+                                            (reset! called? true)
+                                            (apply real-realize-paths args))]
+                (replace-facts! (facts-now cert factset)))
+              @called?))]
+    (with-test-db
+
+      (testing "with no hash, establishing no facts establishes a hash"
+        (reset-db)
+        (add-certname! "foo")
+        (is (= nil (certname-paths-hash "foo")))
+        (set-cert-facts-causes-update "foo" {})
+        (let [hash (certname-paths-hash "foo")]
+          (is (= 20 (count hash)))
+          (is (= (class (byte-array 0)) (class hash)))))
+
+      (testing "with hash for no paths, establishing no paths causes no update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {})
+        (is (= false (set-cert-facts-causes-update "foo" {}))))
+
+      (testing "with hash for no paths, establishing paths causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {})
+        (is (= true (set-cert-facts-causes-update "foo" {"a" 1}))))
+
+      (testing "with paths, replacing with same paths causes no update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= false (set-cert-facts-causes-update "foo" {"a" 1}))))
+
+      (testing "with paths, changing fact values causes no update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= false (set-cert-facts-causes-update "foo" {"a" 2}))))
+
+      (testing "with paths, changing paths causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= true (set-cert-facts-causes-update "foo" {"b" 1}))))
+
+      (testing "with paths, adding path causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= true (set-cert-facts-causes-update "foo" {"a" 1 "b" 1}))))
+
+      (testing "with paths, removing path causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1 "b" 1})
+        (is (= true (set-cert-facts-causes-update "foo" {"b" 1})))))))
+
 (deftest-db fact-persistance-with-environment
   (testing "Persisted facts"
     (let [certname "some_certname"

@@ -47,6 +47,7 @@
             [puppetlabs.puppetdb.package-util :as pkg-util]
             [puppetlabs.puppetdb.cheshire :as json])
   (:import [java.security MessageDigest]
+           [java.util Arrays]
            [org.postgresql.util PGobject]
            [org.joda.time Period]))
 
@@ -981,22 +982,40 @@
 
 (def ps-chunksize 6000)
 
-(defn realize-and-hash-paths
-  "Ensures that every path in the pathmap has a corresponding row in
+(defn pathmap-digestor [digest]
+  (fn [{:keys [path value_type_id] :as pathmap}]
+    (.update digest (-> (str path value_type_id)
+                        (.getBytes "UTF-8")))
+    pathmap))
+
+(defn realize-paths
+  "Ensures that every path in the pathmaps has a corresponding row in
   fact_paths, and returns either nil, if pathmaps is empty, or a
-  fingerprint of the paths."
-  [pathmaps]
-  (let [digest (MessageDigest/getInstance "SHA-1")
-        path-array-conversion #(->> (map str %)
-                                    (sutils/array-to-param "text" String))]
-    (when (seq pathmaps)
-      (->> pathmaps
-           (map #(do (.update digest (-> % :path (.getBytes "UTF-8"))) %))
-           (map #(update % :path_array path-array-conversion))
-           (partition-all ps-chunksize)
-           (map #(jdbc/insert-multi! :fact_paths % {:on-conflict "do nothing"}))
-           dorun)
-      (.digest digest))))
+  fingerprint of the paths if hash? is true."
+  ([pathmaps] (realize-paths pathmaps identity))
+  ([pathmaps notice-pathmap]
+   (let [path-array-conversion #(->> (map str %)
+                                     (sutils/array-to-param "text" String))]
+     (when (seq pathmaps)
+       (->> pathmaps
+            (map notice-pathmap)
+            (map #(update % :path_array path-array-conversion))
+            (partition-all ps-chunksize)
+            (map #(jdbc/insert-multi! :fact_paths % {:on-conflict "do nothing"}))
+            dorun)))))
+
+(defn hash-pathmaps-paths [pathmaps]
+  (let [digest (MessageDigest/getInstance "SHA-1")]
+    (->> pathmaps
+         (map (pathmap-digestor digest))
+         dorun)
+    (.digest digest)))
+
+(defn factset-paths-hash [factset_id]
+  (-> "select paths_hash from factsets where id = ?"
+      (query-to-vec factset_id)
+      first
+      :paths_hash))
 
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
@@ -1006,7 +1025,10 @@
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
    (jdbc/with-db-transaction []
-     (let [paths-hash (realize-and-hash-paths (facts/facts->pathmaps values))]
+     (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
+                        (realize-paths (facts/facts->pathmaps values)
+                                       (pathmap-digestor digest))
+                        (.digest digest))]
        (jdbc/insert! :factsets
                      (merge
                       {:certname certname
@@ -1022,7 +1044,6 @@
                       (when include-hash?
                         {:hash (sutils/munge-hash-for-storage
                                 (shash/fact-identity-hash fact-data))}))))
-
      (when (seq package_inventory)
        (insert-packages certname package_inventory)))))
 
@@ -1068,7 +1089,22 @@
       (when (or package_hash (seq package_inventory))
         (update-packages certname_id package_hash package_inventory))
 
-      (let [paths-hash (realize-and-hash-paths (facts/facts->pathmaps values))]
+      ;; Only update the paths if any existing paths_hash doesn't
+      ;; match the incoming paths.
+      (let [paths-hash (if-let [existing-hash (factset-paths-hash factset_id)]
+                         (let [incoming-hash (-> (facts/facts->pathmaps values)
+                                                 hash-pathmaps-paths)]
+                           (if (Arrays/equals existing-hash incoming-hash)
+                             existing-hash
+                             (do
+                               (realize-paths (facts/facts->pathmaps values))
+                               incoming-hash)))
+                         ;; No existing hash
+                         (let [digest (MessageDigest/getInstance "SHA-1")]
+                           (realize-paths (facts/facts->pathmaps values)
+                                          (pathmap-digestor digest))
+                           (.digest digest)))]
+
         (jdbc/update! :factsets
                       (merge
                        {:timestamp (to-timestamp timestamp)
