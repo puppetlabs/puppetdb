@@ -3,7 +3,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
                                                       package-tuple-hash]]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import [java.security MessageDigest]))
 
 (defn generic-identity-string
   "Serialize a data structure into a format that can be hashed for uniqueness
@@ -22,6 +23,21 @@
   (-> data
       (generic-identity-string)
       (kitchensink/utf8-string->sha1)))
+
+(def ^{:doc "Returns true if x is a 20 byte array."}
+  sha1-bytes?
+  (let [c (class (byte-array []))]
+    (fn [x]
+      (and (instance? c x)
+           (= 20 (count x))))))
+
+(defn generic-identity-sha1-bytes
+  "Returns a SHA1 fingerprint for the provided data structure as a 20
+  byte array."
+  [data]
+  (let [digest (MessageDigest/getInstance "SHA-1")]
+    (.update digest (-> data generic-identity-string (.getBytes "UTF-8")))
+    (.digest digest)))
 
 (defn resource-identity-hash*
   "Compute a hash for a given resource that will uniquely identify it
