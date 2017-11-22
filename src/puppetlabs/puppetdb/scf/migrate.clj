@@ -1465,7 +1465,7 @@
   (jdbc/do-commands
    "alter table factsets add column paths_hash bytea"  ;; Can be null atm
    "alter table factsets add column stable jsonb"
-   "alter table factsets add column stable_hash bigint"
+   "alter table factsets add column stable_hash bytea"
    "alter table factsets add column volatile jsonb"
    "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops)"
 

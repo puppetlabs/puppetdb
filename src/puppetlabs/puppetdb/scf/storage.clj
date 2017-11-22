@@ -952,10 +952,11 @@
 
 ;;; JSONB facts
 
-(defn-validated certname-factset-metadata :- {:package_hash (s/maybe s/Str)
-                                              :factset_id s/Int
-                                              :certname_id s/Int
-                                              :stable_hash (s/maybe s/Int)}
+(defn-validated certname-factset-metadata
+  :- {:package_hash (s/maybe s/Str)
+      :factset_id s/Int
+      :certname_id s/Int
+      :stable_hash (s/maybe (s/pred shash/sha1-bytes?))}
   "Given a certname, return the factset id, hash and certname id."
   [certname :- s/Str]
   (jdbc/query-with-resultset
@@ -1037,7 +1038,7 @@
                        :producer_timestamp (to-timestamp producer_timestamp)
                        :producer_id (ensure-producer producer)
                        :stable (sutils/munge-jsonb-for-storage values)
-                       :stable_hash (hash values)
+                       :stable_hash (shash/generic-identity-sha1-bytes values)
                        ;; need at least an empty map for the jsonb || operator
                        :volatile (sutils/munge-jsonb-for-storage {})
                        :paths_hash paths-hash}
@@ -1064,8 +1065,8 @@
           current-volatile-fact-keys (volatile-fact-keys-for-factset factset_id)
           incoming-volatile-facts (select-keys values current-volatile-fact-keys)
           incoming-stable-facts (apply dissoc values current-volatile-fact-keys)
-          incoming-stable-fact-hash (hash incoming-stable-facts)
-          fact-json-updates (if (not= stable_hash incoming-stable-fact-hash)
+          incoming-stable-fact-hash (shash/generic-identity-sha1-bytes incoming-stable-facts)
+          fact-json-updates (if-not (Arrays/equals stable_hash incoming-stable-fact-hash)
                               ;; stable facts are different; load the json and move the ones that
                               ;; changed into volatile
                               (let [current-stable-facts (load-stable-facts factset_id)
@@ -1080,7 +1081,7 @@
                                     new-volatile-facts (merge incoming-volatile-facts
                                                               changed-facts)]
                                 {:stable (sutils/munge-jsonb-for-storage new-stable-facts)
-                                 :stable_hash (hash new-stable-facts)
+                                 :stable_hash (shash/generic-identity-sha1-bytes new-stable-facts)
                                  :volatile (sutils/munge-jsonb-for-storage new-volatile-facts)})
 
                               ;; no change to stable facts, so just update volatile
