@@ -859,7 +859,7 @@
                              "latest_report?" {:type :boolean
                                                :queryable? true
                                                :query-only? true}
-                             "report_id" {:type :bigint
+                             "report_id" {:type :numeric
                                           :queryable? false
                                           :query-only? true
                                           :field :events.report_id}}
@@ -906,7 +906,7 @@
 
 (def latest-report-id-query
   "Usually used as a subquery of reports"
-  (map->Query {:projections {"latest_report_id" {:type :bigint
+  (map->Query {:projections {"latest_report_id" {:type :numeric
                                                  :queryable? true
                                                  :field :certnames.latest_report_id}}
                :selection {:from [:certnames]}
