@@ -2,6 +2,7 @@
   (:require [puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
             [clojure.test :refer :all]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [clj-time.core :refer [now]]
             [clj-time.coerce :as coerce]
@@ -89,10 +90,21 @@
                     :failures 1
                     :noops 0
                     :total 3
-                    :summarize_by "resource"}}]
+                    :summarize_by "resource"}}
+        facts {"domain" "testing.com"
+                "hostname" "foo.local"
+                "kernel" "Linux"
+                "operatingsystem" "RedHat"
+                "uptime_seconds" 6000}]
     (without-corrective-change
       (store-example-report! (:basic reports) current-time)
       (store-example-report! (:basic3 reports) current-time)
+      (scf-store/add-facts! {:certname "foo.local"
+                             :values facts
+                             :timestamp (now)
+                             :producer_timestamp (now)
+                             :environment "DEV"
+                             :producer "kings of wildcat"})
       (are [query] (= expected
                       (query-result method endpoint query
                                     {:summarize_by "resource"
@@ -120,6 +132,15 @@
               :skips 0
               :total 3}}
            ["=" "latest_report?" true]
+
+           #{{:summarize_by "resource"
+              :successes 3
+              :failures 0
+              :noops 0
+              :skips 0
+              :total 3}}
+           ["and" ["=" "latest_report?" true]
+            ["in" "certname" ["extract" "certname" ["select_facts" ["=" "certname" "foo.local"]]]]]
 
            #{{:summarize_by "resource"
               :successes 4

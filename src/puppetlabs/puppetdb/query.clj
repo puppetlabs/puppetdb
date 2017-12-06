@@ -437,16 +437,18 @@
   {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM (
-                      SELECT fs.certname,
-                             fp.name as name,
-                             fv.value,
-                             env.environment
-                      FROM factsets fs
-                        INNER JOIN facts as f on fs.id = f.factset_id
-                        INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                        INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                        LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-                      WHERE depth = 0) AS facts
+                     SELECT certname,
+                            environment,
+                            value #>> '{}' AS value,
+                            producer_timestamp,
+                            key AS name
+                     FROM (SELECT certname,
+                                  producer_timestamp,
+                                  environment_id,
+                                  (jsonb_each((stable||volatile))).*
+                           FROM factsets) fs
+                           LEFT JOIN environments env ON fs.environment_id = env.id
+                     ) AS facts
                     WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
 
