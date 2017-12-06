@@ -578,7 +578,7 @@
                             (get-request endpoint (json/generate-string query))
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
-              (is (= status http/status-ok))
+              (is (= http/status-ok status))
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true))))))))
@@ -1147,12 +1147,6 @@
                              :producer "bar4"})
       (scf-store/deactivate-node! "foo4"))))
 
-(def db {:classname "org.postgresql.Driver"
-         :subprotocol "postgresql"
-         :subname "//localhost:5432/puppetdb"
-         :username "puppetdb"
-         :password "puppetdb"})
-
 ;; FACTSETS TRANSFORMATION
 
 (defn munge-factset-response
@@ -1605,7 +1599,7 @@
       {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
@@ -1640,7 +1634,7 @@
       {:value {:b 3.14 :a 1 :d {:n ""} :c ["a" "b" "c"] :e "1"} :name "my_structured_fact" :environment "PROD" :certname "foo3"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]

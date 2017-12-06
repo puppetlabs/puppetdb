@@ -132,12 +132,7 @@
         (sutils/vacuum-analyze *db*)
 
         (let [summary-stats (get-summary-stats)
-              quantile-fields [:string_fact_value_bytes
-                               :structured_fact_value_bytes
-                               :num_associated_factsets_over_fact_paths
-                               :num_resources_per_file
-                               :num_times_paths_values_shared_given_sharing
-                               :num_unique_fact_values_over_nodes
+              quantile-fields [:num_resources_per_file
                                :report_log_size_dist
                                :report_metric_size_dist
                                :file_resources_per_catalog

@@ -40,7 +40,7 @@
     (testing "test to see if an index doesn't exists"
       (is (false? (index-exists? "somerandomname"))))
     (testing "test to see if an index does exist"
-      (jdbc/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
+      (jdbc/do-commands "CREATE INDEX foobar ON catalog_resources(line)")
       (is (true? (index-exists? "foobar"))))))
 
 (deftest dotted-query-to-path
@@ -66,6 +66,13 @@
   (testing "dotted path with quote"
     (is (= (dotted-query->path "facts.\"foo.bar\"baz\".biz")
            ["facts" "\"foo.bar\"baz\"" "biz"]))))
+
+(deftest expand-array-access-in-path-test
+  (are [in out] (= out (expand-array-access-in-path in))
+    ["a" "b[0]" "c"] ["a" "b" 0 "c"]
+    ["a" "b" "c"] ["a" "b" "c"]
+    ["a[0]"] ["a" 0]
+    ["a[0]foo"] ["a[0]foo"]))
 
 (deftest json-adjustments-for-pg
   (are [db-value src] (= db-value (-> src munge-jsonb-for-storage .getValue))

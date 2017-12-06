@@ -12,7 +12,8 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]])
+            [puppetlabs.i18n.core :refer [trs]]
+            [clojure.string :as string])
   (:import [java.sql Connection]
            [java.util UUID]
            [org.postgresql.util PGobject]))
@@ -205,6 +206,19 @@
   (hcore/raw
    (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" (name column))))
 
+(defn sql-cast
+  [type]
+  (fn [column]
+    (if (= type "jsonb")
+      (hcore/raw (format "to_jsonb(%s)" column))
+      (hcore/raw (format "CAST(%s AS %s)" column type)))))
+
+(defn jsonb-null?
+  "A predicate determining whether the json types of a jsonb column are null."
+  [column null?]
+  (let [op (if null? "=" "<>")]
+    (hcore/raw (format "jsonb_typeof(%s) %s 'null'" (name column) op))))
+
 (defn sql-in-array
   [column]
   (hcore/raw
@@ -214,15 +228,38 @@
   [field]
   (hcore/raw (format "%s @> ?" field)))
 
-(defn jsonb-regex
-  "Produce a predicate that matches a regex against a nested value and checks
-   the existence of a (presumably) top-level value. The existence check is
-   necessary because -> is not indexable but ?? is. Assumes a GIN index on the
-   column supplied."
-  [column qmarks]
-  (let [delimited-qmarks (str/join "->" qmarks)]
-    (hcore/raw (format "(%s->%s)::text ~ ?::text and %s ?? ?"
-                       column delimited-qmarks column))))
+(defn fn-binary-expression
+  "Produce a predicate that compares the result of a function against a
+   provided value."
+  [op function args]
+  (let [fargs (str/join ", " args)]
+    (hcore/raw (format "%s(%s) %s ?" function fargs op))))
+
+(defn jsonb-path-binary-expression
+  "Produce a predicate that compares agains4t nested value with op and checks the
+  existence of a (presumably) top-level value. The existence check is necessary
+  because -> is not indexable (with GIN) but ?? is. Assumes a GIN index on the
+  column supplied."
+  [op column qmarks]
+  (let [delimited-qmarks (str/join "->" qmarks)
+        re? (= "~" (name op))]
+    (hcore/raw (string/join \space
+                            [(str "(" column "->" delimited-qmarks ")" (when re? "::text"))
+                             (name op)
+                             (if re? "(?#>>'{}')::text" "?")
+                             "and" column "??" "?"]))))
+
+(defn jsonb-scalar-cast
+  [typ]
+  (fn
+    [column]
+    (hcore/raw (format "(%s#>>'{}')::%s" column typ))))
+
+(defn jsonb-scalar-regex
+  "Produce a predicate that matches a regex against a scalar jsonb value "
+  [column]
+  ;; This gets the unwrapped json value as text
+  (hcore/raw (format "(%s#>>'{}')::text ~ ?" column)))
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a
@@ -343,3 +380,14 @@
           (let [[x xs] (handle-quoted-path-segment v)]
             (recur xs (conj result x)))
           (recur splits (conj result s)))))))
+
+(defn expand-array-access-in-path
+  "Given a path like [\"a\" \"b[0]\" \"c\"], expand the [0] to get
+   [\"a\" \"b\" 0 \"c\"]"
+  [path]
+  (mapcat (fn [el]
+            (let [[[_ field index-str]] (re-seq #"^(.*)\[(\d+)\]$" el)]
+              (if index-str
+                [field (Integer/parseInt index-str)]
+                [el])))
+          path))

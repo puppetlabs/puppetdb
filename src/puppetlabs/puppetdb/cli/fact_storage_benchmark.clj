@@ -22,7 +22,12 @@
                (for [n (range unique-static-facts)]
                  [(str "unique-static-" n) (str "unique-static-" certname "-" n)])
                (for [n (range unique-changing-facts)]
-                 [(str "changing-" n) (str "changing-static-" certname "-" n "-" generation-num)]))]
+                 [(str "changing-" n) (str "changing-static-" certname "-" n "-" generation-num)])
+               ;; some facts with various degrees of selectivity for testing query perf.
+               [["two-values" (mod (hash certname) 2)]
+                ["three-values" (mod (hash certname) 3)]
+                ["four-values" (mod (hash certname) 4)]
+                ["hundred-values" (mod (hash certname) 100)]])]
     {:certname certname
      :environment "production"
      :producer_timestamp (t/now)
@@ -91,10 +96,10 @@
    {:name "medium"
     :num-threads 5
     :num-nodes 1000
-    :num-generations 5
-    :shared-static-facts 100
-    :unique-static-facts 100
-    :unique-changing-facts 50}
+    :num-generations 20
+    :shared-static-facts 200
+    :unique-static-facts 780
+    :unique-changing-facts 20}
 
    {:name "large"
     :num-threads 5
@@ -102,7 +107,8 @@
     :num-generations 2
     :shared-static-facts 100
     :unique-static-facts 100
-    :unique-changing-facts 50}])
+    :unique-changing-facts 50}
+   ])
 
 (defn unique-index-by [rel k]
   (->> rel
