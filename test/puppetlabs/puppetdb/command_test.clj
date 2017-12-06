@@ -148,6 +148,29 @@
   {:pre [(integer? x)]}
   x)
 
+(defn query-factsets [& cols]
+  (->> (query-to-vec "select certname, (stable||volatile) as facts, environment, producer_timestamp
+                      from factsets
+                      inner join environments on factsets.environment_id=environments.id")
+       (map #(update % :facts (comp json/parse-string str)))
+       (map #(select-keys % cols))))
+
+(defn query-facts
+	[& cols]
+	(->> (query-to-vec "select certname,
+										 environment,
+										 value #>> '{}' as value,
+										 key as name,
+										 producer_timestamp
+										 from
+										 (select certname,
+										 producer_timestamp,
+										 environment_id,
+										 (jsonb_each((stable||volatile))).*
+										 from factsets) fs
+										 left join environments env on fs.environment_id = env.id
+										 order by fs.key")
+			 (map #(select-keys % cols))))
 
 (deftest command-processor-integration
   (let [v5-catalog (get-in wire-catalogs [5 :empty])]
@@ -703,20 +726,7 @@
       (testing "should ignore the blacklisted fact"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+          (is (= (query-facts :certname :name :value)
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))))))
@@ -727,23 +737,9 @@
       (testing "should store the facts"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+          (is (= [{:certname certname
+                   :facts {"a" "1", "b" "2", "c" "3"}}]
+                 (query-factsets :certname :facts)))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))
           (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
@@ -773,23 +769,9 @@
                         yesterday))
               (is (= (scf-store/environment-id "DEV") (:environment_id result))))
 
-            (is (= (query-to-vec
-                    "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY fp.path ASC")
-                   [{:certname certname :name "a" :value "1"}
-                    {:certname certname :name "b" :value "2"}
-                    {:certname certname :name "c" :value "3"}]))
+            (is (= [{:certname certname
+                     :facts {"a" "1", "b" "2", "c" "3"}}]
+                   (query-factsets :certname :facts)))
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo)))))))))
 
@@ -811,24 +793,14 @@
 
           (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
                  [(with-env {:certname certname :timestamp tomorrow})]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "x" :value "24"}
-                  {:certname certname :name "y" :value "25"}
-                  {:certname certname :name "z" :value "26"}]))
-          (is (= 0 (task-count delay-pool)))
+          (is (= [{:certname certname
+                   :facts {"x" "24", "y" "25", "z" "26"}}]
+                 (query-factsets :certname :facts)))
+					(is (= (query-facts :certname :name :value)
+								 [{:certname certname :name "x" :value "24"}
+									{:certname certname :name "y" :value "25"}
+									{:certname certname :name "z" :value "26"}]))
+					(is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))))))
 
   (deftest replace-facts-deactivated-node-facts
@@ -842,23 +814,13 @@
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+          (is (= [{:certname certname
+                   :facts {"a" "1", "b" "2", "c" "3"}}]
+                 (query-factsets :certname :facts)))
+					(is (= (query-facts :certname :name :value)
+								 [{:certname certname :name "a" :value "1"}
+									{:certname certname :name "b" :value "2"}
+									{:certname certname :name "c" :value "3"}]))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))))
 
@@ -872,23 +834,13 @@
 
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+          (is (= [{:certname certname
+                   :facts {"a" "1", "b" "2", "c" "3"}}]
+                 (query-factsets :certname :facts)))
+					(is (= (query-facts :certname :name :value)
+								 [{:certname certname :name "a" :value "1"}
+									{:certname certname :name "b" :value "2"}
+									{:certname certname :name "c" :value "3"}]))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo)))))))))
 
@@ -910,23 +862,25 @@
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
       (handle-message (queue/store-command q (facts->command-req 3 facts-cmd)))
 
-      (is (= (query-to-vec
-              "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname,
-                          e.environment,
-                          fs.producer_timestamp
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                     INNER JOIN environments as e on fs.environment_id = e.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+      (is (= [{:certname certname
+               :facts {"a" "1", "b" "2", "c" "3"}
+               :producer_timestamp producer-time
+               :environment "DEV"}]
+             (query-factsets :certname :facts :producer_timestamp :environment)))
+      #_(is (= (query-to-vec
+								 "select certname,
+                         environment,
+                         value,
+                         key as name,
+                         producer_timestamp
+                         from
+                         (select certname,
+                                 producer_timestamp,
+					                       environment_id,
+					                       (jsonb_each((stable||volatile))).*
+					                       from factsets) fs
+                         left join environments env on fs.environment_id = env.id
+                         order by fs.key")
              [{:certname certname :name "a" :value "1" :producer_timestamp producer-time :environment "DEV"}
               {:certname certname :name "b" :value "2" :producer_timestamp producer-time :environment "DEV"}
               {:certname certname :name "c" :value "3" :producer_timestamp producer-time :environment "DEV"}]))
@@ -947,25 +901,13 @@
 
       (handle-message (queue/store-command q (facts->command-req 2 facts-cmd)))
 
-      (is (= (query-to-vec
-              "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname,
-                          e.environment
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                     INNER JOIN environments as e on fs.environment_id = e.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-             [{:certname certname :name "a" :value "1" :environment "DEV"}
-              {:certname certname :name "b" :value "2" :environment "DEV"}
-              {:certname certname :name "c" :value "3" :environment "DEV"}]))
+      (is (= [{:certname certname
+               :facts {"a" "1", "b" "2", "c" "3"}}]
+             (query-factsets :certname :facts)))
+			(is (= (query-facts :certname :name :value :environment)
+						 [{:certname certname :name "a" :value "1" :environment "DEV"}
+							{:certname certname :name "b" :value "2" :environment "DEV"}
+							{:certname certname :name "c" :value "3" :environment "DEV"}]))
 
       (is (every? (comp #(t/before? before-test-starts-time %)
                         to-date-time
@@ -991,7 +933,7 @@
                                                                            ""
                                                                            identity
                                                                            (tqueue/coerce-to-stream "bad stuff"))))
-          (is (empty? (query-to-vec "SELECT * FROM facts")))
+          (is (empty? (query-to-vec "SELECT * FROM factsets")))
           (is (= 0 (task-count delay-pool)))
           (is (seq (fs/list-dir (:path dlo)))))))))
 
@@ -1005,7 +947,7 @@
                                                                        ""
                                                                        identity
                                                                        (tqueue/coerce-to-stream "bad stuff"))))
-      (is (empty? (query-to-vec "SELECT * FROM facts")))
+      (is (empty? (query-to-vec "SELECT * FROM factsets")))
       (is (= 0 (task-count delay-pool)))
       (is (seq (fs/list-dir (:path dlo)))))))
 
@@ -1092,156 +1034,6 @@
 
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
-
-(defn thread-id []
-  (.getId (Thread/currentThread)))
-
-(deftest fact-path-update-race
-  ;; Simulates two update commands being processed for two different
-  ;; machines at the same time.  Before we lifted fact paths into
-  ;; facts, the race tested here could result in a constraint
-  ;; violation when the two updates left behind an orphaned row.
-  (let [certname-1 "some_certname1"
-        certname-2 "some_certname2"
-        producer-1 "some_producer1"
-        producer-2 "some_producer2"
-        ;; facts for server 1, has the same "mytimestamp" value as the
-        ;; facts for server 2
-        facts-1a {:certname certname-1
-                  :environment nil
-                  :values {"domain" "mydomain1.com"
-                           "operatingsystem" "Debian"
-                           "mytimestamp" "1"}
-                  :producer_timestamp (-> 2 days ago)
-                  :producer producer-1}
-        facts-2a {:certname certname-2
-                  :environment nil
-                  :values {"domain" "mydomain2.com"
-                           "operatingsystem" "Debian"
-                           "mytimestamp" "1"}
-                  :producer_timestamp (-> 2 days ago)
-                  :producer producer-2}
-
-        ;; same facts as before, but now certname-1 has a different
-        ;; fact value for mytimestamp (this will force a new fact_value
-        ;; that is only used for certname-1
-        facts-1b {:certname certname-1
-                  :environment nil
-                  :values {"domain" "mydomain1.com"
-                           "operatingsystem" "Debian"
-                           "mytimestamp" "1b"}
-                  :producer_timestamp (-> 1 days ago)
-                  :producer producer-1}
-
-        ;; with this, certname-1 and certname-2 now have their own
-        ;; fact_value for mytimestamp that is different from the
-        ;; original mytimestamp that they originally shared
-        facts-2b {:certname certname-2
-                  :environment nil
-                  :values {"domain" "mydomain2.com"
-                           "operatingsystem" "Debian"
-                           "mytimestamp" "2b"}
-                  :producer_timestamp (-> 1 days ago)
-                  :producer producer-2}
-
-        ;; this fact set will disassociate mytimestamp from the facts
-        ;; associated to certname-1, it will do the same thing for
-        ;; certname-2
-        facts-1c {:certname certname-1
-                  :environment nil
-                  :values {"domain" "mydomain1.com"
-                           "operatingsystem" "Debian"}
-                  :producer_timestamp (now)
-                  :producer producer-1}
-        facts-2c {:certname certname-2
-                  :environment nil
-                  :values {"domain" "mydomain2.com"
-                           "operatingsystem" "Debian"}
-                  :producer_timestamp (now)
-                  :producer producer-2}
-
-        ;; Wait for two threads to countdown before proceeding
-        latch (java.util.concurrent.CountDownLatch. 2)
-
-        ;; I'm modifying delete-pending-path-id-orphans! so that I can
-        ;; coordinate access between the two threads, I'm storing the
-        ;; reference to the original delete-pending-path-id-orphans!
-        ;; here, so that I can delegate to it once I'm done
-        ;; coordinating
-        storage-delete-pending-path-id-orphans!
-        scf-store/delete-pending-path-id-orphans!]
-
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (jdbc/with-db-transaction []
-        (scf-store/add-certname! certname-1)
-        (scf-store/add-certname! certname-2)
-        (scf-store/add-facts! {:certname certname-1
-                               :values (:values facts-1a)
-                               :timestamp (now)
-                               :environment nil
-                               :producer_timestamp (:producer_timestamp facts-1a)
-                               :producer producer-1})
-        (scf-store/add-facts! {:certname certname-2
-                               :values (:values facts-2a)
-                               :timestamp (now)
-                               :environment nil
-                               :producer_timestamp (:producer_timestamp facts-2a)
-                               :producer producer-2}))
-      ;; At this point, there will be 4 fact_value rows, 1 for
-      ;; mytimestamp, 1 for the operatingsystem, 2 for domain
-      (with-redefs [scf-store/delete-pending-path-id-orphans!
-                    (fn [& args]
-                      ;; Once this has been called, it will countdown
-                      ;; the latch and block
-                      (.countDown latch)
-                      ;; After the second command has been executed and
-                      ;; it has decremented the latch, the await will no
-                      ;; longer block and both threads will begin
-                      ;; running again
-                      (.await latch)
-                      ;; Execute the normal delete-pending-path-id-orphans!
-                      ;; function (unchanged)
-                      (apply storage-delete-pending-path-id-orphans! args))]
-        (let [first-message? (atom false)
-              second-message? (atom false)
-              fut-1 (future
-                      (handle-message (queue/store-command q (facts->command-req 4 facts-1b)))
-                      (reset! first-message? true))
-              fut-2 (future
-                      (handle-message (queue/store-command q (facts->command-req 4 facts-2b)))
-                      (reset! second-message? true))]
-          ;; The two commands are being submitted in future, ensure they
-          ;; have both completed before proceeding
-          @fut-2
-          @fut-1
-          ;; At this point there are 6 fact values, the original
-          ;; mytimestamp, the two new mytimestamps, operating system and
-          ;; the two domains
-          (is (true? @first-message?))
-          (is (true? @second-message?))
-          ;; Submit another factset that does NOT include mytimestamp,
-          ;; this disassociates certname-1's fact_value (which is 1b)
-          (handle-message (queue/store-command q (facts->command-req 4 facts-1c)))
-          (reset! first-message? true)
-
-          ;; Do the same thing with certname-2. Since the reference to 1b
-          ;; and 2b has been removed, mytimestamp's path is no longer
-          ;; connected to any fact values. The original mytimestamp value
-          ;; of 1 is still in the table. It's now attempting to delete
-          ;; that fact path, when the mytimestamp 1 value is still in
-          ;; there.
-          (handle-message (queue/store-command q (facts->command-req 4 facts-2c)))
-          (is (= 0 (task-count delay-pool)))
-
-          ;; Can we see the orphaned value '1', and does the global gc remove it.
-          (is (= 1 (count
-                    (query-to-vec
-                     "select id from fact_values where value_string = '1'"))))
-          (scf-store/garbage-collect! *db*)
-          (is (zero?
-               (count
-                (query-to-vec
-                 "select id from fact_values where value_string = '1'")))))))))
 
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"

@@ -1461,6 +1461,38 @@
      alter column containing_class type text,
      alter column file type text"))
 
+(defn jsonb-facts []
+  (jdbc/do-commands
+   "alter table factsets add column stable jsonb"
+   "alter table factsets add column stable_hash bigint"
+   "alter table factsets add column volatile jsonb"
+   "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops)"
+
+   "update factsets fs
+    set stable = (select json_object_agg(name, value)
+                 from (
+                 select f.factset_id, fp.name, fv.value from facts f
+                 inner join fact_values fv on fv.id = f.fact_value_id
+                 inner join fact_paths fp on fp.id = f.fact_path_id
+                 inner join value_types vt on vt.id = fv.value_type_id
+                 where fp.depth = 0
+                 ) s where fs.id = s.factset_id),
+    volatile = jsonb('{}')"
+
+   "drop table facts"
+
+   ;; TODO consider migrating fact paths - maybe not worth it. This table will
+   ;; be mostly repopulated on reception of first factset, and fully
+   ;; repopulated by the time runinterval has elasped. It also only matters to
+   ;; the fact-paths endpoint now.
+   "truncate table fact_paths"
+
+   "alter table fact_paths add column path_array text[]"
+   "alter table fact_paths add column value_type_id int"
+   "alter table fact_paths add constraint fact_paths_path_type_unique unique(path, value_type_id)")
+
+  {::vacuum-analyze #{"factsets"}})
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1503,7 +1535,8 @@
    62 reports-partial-indices
    63 add-job-id
    64 rededuplicate-facts
-   65 varchar-columns-to-text})
+   65 varchar-columns-to-text
+   66 jsonb-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1621,9 +1654,6 @@
                                      (apply set/union small-tables)
                                      sort))]
         (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables-to-analyze)))
-        (->> tables-to-analyze
-             (map #(str "vacuum analyze " %))
-             (apply jdbc/do-commands-outside-txn))
         true)
       (do
         (log/info (trs "There are no pending migrations"))
@@ -1638,11 +1668,6 @@
     (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-
-  (when-not (sutils/index-exists? "fact_values_string_trgm")
-    (log/info (trs "Creating additional index `fact_values_string_trgm`"))
-    (jdbc/do-commands
-      "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)"))
 
   (when-not (sutils/index-exists? "packages_name_trgm")
     (log/info (trs "Creating additional index `packages_name_trgm`"))
