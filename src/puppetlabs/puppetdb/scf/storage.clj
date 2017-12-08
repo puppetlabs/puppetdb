@@ -534,7 +534,8 @@
 (s/defn insert-records*
   "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
   [table :- s/Keyword
-   record-coll :- [{s/Keyword s/Any}]]
+   record-coll]
+  (s/validate [{s/Keyword s/Any}] (vec (take 3 record-coll)))
   (jdbc/insert-multi! table record-coll))
 
 (s/defn add-params!
