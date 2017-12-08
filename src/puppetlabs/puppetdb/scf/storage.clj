@@ -43,6 +43,7 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [honeysql.core :as hcore]
+            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
             [puppetlabs.puppetdb.cheshire :as json])
@@ -482,7 +483,7 @@
 (s/defn insert-records*
   "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
   [table :- s/Keyword
-   record-coll :- [{s/Keyword s/Any}]]
+   record-coll]
   (jdbc/insert-multi! table record-coll))
 
 (s/defn add-params!
@@ -522,30 +523,51 @@
     (update-in resource [:tags] sutils/to-jdbc-varchar-array)
     resource))
 
+(s/defn id->certname :- String
+  [certname-id :- Long]
+  (->> (query-to-vec "select certname from certnames where id=?" certname-id)
+       first
+       :certname))
+
+(defn handle-resource-insert-exception
+  "Handle a java.sql.SQLException from insertion of a resource. This may occur
+   when the inserted resource has a value too big for a postgres btree index."
+  [e certname file line]
+  (case (.getSQLState e)
+    "54000" (do (log/errorf "Failed to insert resource for %s (file: %s, line: %s): value too large for btree index. This usually results from a code error where $facts['my_fact'] is used instead of ${facts['my_fact']}"
+                            certname file line)
+                (throw+ (utils/fatality "value too large")))
+    :else (throw+ e)))
+
 (s/defn insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
   [certname-id :- Long
+   certname :- String
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources :- resource-ref->resource-schema]
   (fn [refs-to-insert]
-    {:pre [(every? resource-ref? refs-to-insert)]}
-
-    (update! (:catalog-volatility performance-metrics) (count refs-to-insert))
-
-    (insert-records*
-     :catalog_resources
-     (map (fn [resource-ref]
-            (let [{:keys [type title exported parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
-              (convert-tags-array
-               {:certname_id certname-id
-                :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
-                :type type
-                :title title
-                :tags tags
-                :exported exported
-                :file file
-                :line line})))
-          refs-to-insert))))
+    (let [last-record (atom nil)]
+      {:pre [(every? resource-ref? refs-to-insert)]}
+      (update! (:catalog-volatility performance-metrics) (count refs-to-insert))
+      (try
+        (insert-records*
+          :catalog_resources
+          (map (fn [resource-ref]
+                 (let [{:keys [type title exported
+                               parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
+                   (reset! last-record resource)
+                   (convert-tags-array
+                     {:certname_id certname-id
+                      :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
+                      :type type
+                      :title title
+                      :tags tags
+                      :exported exported
+                      :file file
+                      :line line})))
+               refs-to-insert))
+        (catch java.sql.SQLException e
+          (handle-resource-insert-exception e certname (:file @last-record) (:line @last-record)))))))
 
 (s/defn delete-catalog-resources!
   "Returns a function accepts old catalog resources that should be deleted."
@@ -593,10 +615,10 @@
 (s/defn update-catalog-resources!
   "Returns a function accepting keys that were the same from the old resources and the new resources."
   [certname-id :- Long
+   certname :- String
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources
    old-resources]
-
   (fn [maybe-updated-refs]
     {:pre [(every? resource-ref? maybe-updated-refs)]}
     (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
@@ -605,11 +627,14 @@
 
       (update! (:catalog-volatility performance-metrics) (count updated-resources))
 
-      (doseq [[{:keys [type title]} updated-cols] updated-resources]
-        (jdbc/update! :catalog_resources
-                      (convert-tags-array updated-cols)
-                      ["certname_id = ? and type = ? and title = ?"
-                       certname-id type title])))))
+      (doseq [[{:keys [type title file line]} updated-cols] updated-resources]
+        (try
+          (jdbc/update! :catalog_resources
+                        (convert-tags-array updated-cols)
+                        ["certname_id = ? and type = ? and title = ?"
+                         certname-id type title])
+          (catch java.sql.SQLException e
+            (handle-resource-insert-exception e certname file line)))))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
@@ -620,6 +645,7 @@
 (s/defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [certname-id :- Long
+   certname :- String
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (let [old-resources (catalog-resources certname-id)
@@ -629,8 +655,8 @@
      (utils/diff-fn old-resources
                     diffable-resources
                     (delete-catalog-resources! certname-id)
-                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
-                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
+                    (insert-catalog-resources! certname-id certname refs-to-hashes diffable-resources)
+                    (update-catalog-resources! certname-id certname refs-to-hashes diffable-resources old-resources)))))
 
 (s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -736,7 +762,7 @@
    {:keys [resources edges certname]} :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (time! (:add-resources performance-metrics)
-         (add-resources! certname-id resources refs-to-hashes))
+         (add-resources! certname-id certname resources refs-to-hashes))
   (time! (:add-edges performance-metrics)
          (replace-edges! certname edges refs-to-hashes)))
 
@@ -1297,11 +1323,18 @@
                                                          :certname_id certname-id)
                                                   maybe-corrective-change)]
                    (when-not (empty? resource_events)
-                     (->> resource_events
-                          (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                          (map adjust-event-metadata)
-                          (jdbc/insert-multi! :resource_events)
-                          dorun))
+                     (let [last-record (atom nil)
+                           set-last-record! #(reset! last-record %)]
+                       (try
+                         (->> resource_events
+                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                              (map adjust-event-metadata)
+                              (map set-last-record!)
+                              (jdbc/insert-multi! :resource_events)
+                              dorun)
+                         (catch java.sql.SQLException e
+                           (handle-resource-insert-exception
+                             e certname (:file @last-record) (:line @last-record))))))
                    (when update-latest-report?
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 

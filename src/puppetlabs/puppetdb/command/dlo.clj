@@ -79,7 +79,9 @@
                                    (into-array Object [(if (zero? i) "" "\n")
                                                        (- n i)
                                                        time]))
-                          (.printStackTrace exception out))
+                          (if (string? exception)
+                            (.print out exception)
+                            (.printStackTrace exception out)))
                         attempts))))
 
 (defn- strip-metadata-suffix

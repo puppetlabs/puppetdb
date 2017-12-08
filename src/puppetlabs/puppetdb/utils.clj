@@ -470,3 +470,24 @@
   "remove all nil-valued keys from a map"
   [m]
   (into {} (filter val m)))
+
+(defn fatality
+  "Create an object representing a fatal exception cause - object representing
+   the cause of the failure, indicating that retries should not be attempted"
+  [cause]
+  {:fatal true :cause cause})
+
+(defmacro upon-error-throw-fatality
+  [& body]
+  `(try
+    ~@body
+    (catch Exception e1#
+      (throw+ (fatality e1#)))
+    (catch AssertionError e2#
+      (throw+ (fatality e2#)))))
+
+(defn fatal?
+  "Tests if the supplied exception is a fatal command-processing
+  exception or not."
+  [exception]
+  (:fatal exception))

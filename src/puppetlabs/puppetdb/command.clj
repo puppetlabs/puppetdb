@@ -217,29 +217,6 @@
   (mark! (global-metric k))
   (mark! (cmd-metric command version k)))
 
-(defn fatality
-  "Create an object representing a fatal command-processing exception
-
-  cause - object representing the cause of the failure
-  "
-  [cause]
-  {:fatal true :cause cause})
-
-(defn fatal?
-  "Tests if the supplied exception is a fatal command-processing
-  exception or not."
-  [exception]
-  (:fatal exception))
-
-(defmacro upon-error-throw-fatality
-  [& body]
-  `(try
-    ~@body
-    (catch Exception e1#
-      (throw+ (fatality e1#)))
-    (catch AssertionError e2#
-      (throw+ (fatality e2#)))))
-
 ;; ## Command submission
 
 (defn-validated do-enqueue-command
@@ -288,7 +265,7 @@
     (log-command-processed-messsage id received start-time :replace-catalog certname)))
 
 (defn replace-catalog [{:keys [payload received version] :as command} start-time db]
-  (let [validated-payload (upon-error-throw-fatality
+  (let [validated-payload (utils/upon-error-throw-fatality
                            (cat/parse-catalog payload version received))]
     (-> command
         (assoc :payload validated-payload)
@@ -310,7 +287,7 @@
 
 (defn replace-facts
   [{:keys [payload version received] :as command} start-time db facts-blacklist]
-  (replace-facts* (upon-error-throw-fatality
+  (replace-facts* (utils/upon-error-throw-fatality
                     (assoc command :payload (fact/normalize-facts version received payload)))
                   start-time
                   db
@@ -324,7 +301,7 @@
 (defn deactivate-node-wire-v1->wire-3 [deactive-node]
   (-> deactive-node
       (json/parse-string true)
-      upon-error-throw-fatality
+      utils/upon-error-throw-fatality
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
@@ -358,7 +335,7 @@
                                     {:puppet-version puppet_version})))
 
 (defn store-report [{:keys [payload version received] :as command} start-time db]
-  (let [validated-payload (upon-error-throw-fatality
+  (let [validated-payload (utils/upon-error-throw-fatality
                            (s/validate report/report-wireformat-schema
                                        (case version
                                          3 (report/wire-v3->wire-v8 payload received)
@@ -425,10 +402,13 @@
    (when ex
      [:exception ex])))
 
+
 (defn call-with-quick-retry [num-retries f]
   (loop [n num-retries]
     (let [result (try+
                   (f)
+                  (catch utils/fatal? ob
+                    (throw+ ob))
                   (catch Throwable e
                     (if (zero? n)
                       (throw e)
@@ -557,7 +537,7 @@
        (let [retries (count (:attempts cmdref))]
          (try+
           (process-cmdref cmdref q scf-write-db response-chan stats facts-blacklist)
-          (catch fatal? obj
+          (catch utils/fatal? obj
             (mark! (global-metric :fatal))
             (let [ex (:cause obj)]
               (log/error

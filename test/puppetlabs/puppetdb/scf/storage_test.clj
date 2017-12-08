@@ -3,8 +3,10 @@
             [clojure.set :as set]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.reports :as report]
+            [slingshot.test]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.facts :as facts]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [clojure.walk :as walk]
@@ -828,6 +830,23 @@
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
 (def current-time (str (now)))
+
+(deftest-db program-limit-exceeded-behavior
+  (add-certname! certname)
+  (let [bad-resource {:type "Class"
+                      :title (str/join "" (repeat 1000000 "yo"))
+                      :line 1337
+                      :exported false
+                      :file "badfile.txt"}]
+    (pllog/with-log-output log
+      (testing "program limit exceeded error thrown appropriately"
+        (is (thrown+-with-msg?
+              utils/fatal?
+              #"too large"
+              (replace-catalog!
+                (update catalog :resources assoc {:type "Class" :title "updog"} bad-resource)))))
+      (testing "logs identify the correct file"
+        (is (= 1 (count (pllog/logs-matching #"badfile" @log))))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
