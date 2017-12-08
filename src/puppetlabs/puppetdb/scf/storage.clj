@@ -836,7 +836,7 @@
    (:gc-packages performance-metrics)
    (jdbc/delete!
     :packages
-    ["id NOT IN (SELECT package_id from certname_packages)"])))
+    ["not exists (select * from certname_packages cp where cp.package_id = packages.id)"])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
