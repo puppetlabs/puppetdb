@@ -55,15 +55,17 @@
 
 (pls/defn-validated root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (cmdi/ANY "" []
-            (-> (comp (http-q/query-handler version)
-                      (fn [req]
-                        (cond
-                          (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
-                          (= ["from" "packages"] (some->> req :puppetdb-query :query (take 2))) req
-                          :else (http-q/restrict-query-to-active-nodes req))))
-                (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
-                                           :required ["query"]}))))
+  (let [no-certname-entities #{"fact_paths" "environments" "packages"}
+        get-entity #(some-> % :puppetdb-query :query second)]
+    (cmdi/ANY "" []
+              (-> (comp (http-q/query-handler version)
+                        (fn [req]
+                          (cond
+                            (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
+                            (no-certname-entities (get-entity req)) req
+                            :else (http-q/restrict-query-to-active-nodes req))))
+                  (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
+                                             :required ["query"]})))))
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.

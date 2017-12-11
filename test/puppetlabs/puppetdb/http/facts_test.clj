@@ -1951,6 +1951,10 @@
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about factset foo"} (json/parse-string body true)))))
 
+(deftest-http-app no-certname-entity-test
+  []
+  (is-query-result "/v4" ["from" "fact_paths"] #{}))
+
 (deftest developer-pretty-print
   (let [facts-body (fn [pretty?]
                      (with-test-db
