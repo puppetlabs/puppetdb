@@ -981,7 +981,8 @@
       str
       json/parse-string))
 
-(def ps-chunksize 6000)
+;; Chunk size for path insertion to avoid blowing prepared statement size limit
+(def path-insertion-chunk-size 6000)
 
 (defn pathmap-digestor [digest]
   (fn [{:keys [path value_type_id] :as pathmap}]
@@ -1001,7 +1002,7 @@
        (->> pathmaps
             (map notice-pathmap)
             (map #(update % :path_array path-array-conversion))
-            (partition-all ps-chunksize)
+            (partition-all path-insertion-chunk-size)
             (map #(jdbc/insert-multi! :fact_paths % {:on-conflict "do nothing"}))
             dorun)))))
 

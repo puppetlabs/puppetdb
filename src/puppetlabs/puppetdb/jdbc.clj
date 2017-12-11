@@ -67,6 +67,8 @@
   ([table columns values]
    (sql/insert! *db* table columns values {})))
 
+;; STOLEN: clojure JDBC functions modified to support an ON CONFLICT clause
+
 (defn- insert-multi-row
   "Given a table and a list of columns, followed by a list of column
   value sequences, return a vector of the SQL needed for the insert
@@ -158,6 +160,8 @@
       (with-open [con (sql/get-connection db)]
         (insert-helper (sql/add-connection db con) transaction? sql-params
                        {:identifiers identifiers :qualifier qualifier})))))
+
+;; END STOLEN FUNCTIONS
 
 (defn insert-multi!
   "Inserts multiple rows in either map form or lists of columns &

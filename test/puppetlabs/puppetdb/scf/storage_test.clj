@@ -4,8 +4,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.facts :as facts
-             :refer [path->pathmap string-to-factpath value->valuemap]]
+            [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [clojure.walk :as walk]
