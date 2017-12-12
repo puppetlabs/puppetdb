@@ -59,7 +59,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clj-time.core :refer [now]]
+            [clj-time.core :refer [now interval in-millis]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]
@@ -1612,10 +1612,13 @@
       (let [tables-to-analyze (jdbc/with-db-transaction []
                                 (->> pending
                                      (map (fn [[version migration]]
+                                            (let [t0 (now)]
                                             (log/info (trs "Applying database migration version {0}" version))
                                             (sql-or-die (fn [] (let [result (migration)]
                                                                     (record-migration! version)
-                                                                    result)))))
+                                                                    result)))
+                                            (log/info (trs "Applied database migration version {0} in {1} ms"
+                                                           version (in-millis (interval t0 (now))))))))
                                      (filter map?)
                                      (map ::vacuum-analyze)
                                      (apply set/union small-tables)
