@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 581d1dae555448273a79463371d565044045855a\n"
+"X-Git-Ref: 087d2139a246ce8a17e9dad34c26a39f93fa702d\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1099,6 +1099,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Applying database migration version {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Applied database migration version {0} in {1} ms"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
