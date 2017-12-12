@@ -107,6 +107,9 @@ See [the AST query language page][ast] for the full list of available operators.
 
 * `containment_path` (array of strings, where each string is a containment path element): the containment path associated with the event, as an ordered array that ends with the most specific containing element.
 
+* `corrective_change` (boolean): whether or not the event represents a
+  "corrective change", meaning the event rectified configuration drift.
+
 ### Subquery relationships
 
 The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
@@ -134,6 +137,7 @@ The response is a JSON array of events that match the input parameters. The arra
         "line": 6,
         "containment_path": [ "Stage[main]", "Foo", "File[/tmp/reportingfoo]" ],
         "containing_class": "Foo",
+        "corrective_change": true,
         "run_start_time": "2012-10-30T19:00:00.000Z",
         "run_end_time": "2012-10-30T19:05:00.000Z",
         "report_receive_time": "2012-10-30T19:06:00.000Z"
@@ -153,6 +157,7 @@ The response is a JSON array of events that match the input parameters. The arra
         "line": 10,
         "containment_path": [ "Stage[main]", "", "Node[default]", "Notify[notify, yo]" ],
         "containing_class": null,
+        "corrective_change": true,
         "run_start_time": "2012-10-30T19:00:00.000Z",
         "run_end_time": "2012-10-30T19:05:00.000Z",
         "report_receive_time": "2012-10-30T19:06:00.000Z"
