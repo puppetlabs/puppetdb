@@ -65,7 +65,7 @@ condexpression  = (condexpregexp | condexpregexparray | condexpinequality | cond
 <condexpregexp> = field, [<whitespace>], condregexp, [<whitespace>], valueregexp;
 <condexpregexparray> = field, [<whitespace>], condregexparray, [<whitespace>], valueregexparray;
 <condexpinequality> = field, [<whitespace>], condinequality, [<whitespace>], valueordered;
-<condexpmatch>  = field, [<whitespace>], condmatch, [<whitespace>], valuematch;
+<condexpmatch>  = field, [<whitespace>], condmatch, [<whitespace>], literal;
 <condexpin>     = (field | groupedfieldlist), [<whitespace>], condin, [<whitespace>], valuein;
 
 (* Special is null/is not null expression *)
@@ -100,7 +100,6 @@ field = #'[a-zA-Z0-9_]+\??' | (dottedfield, fieldpath);
 <valueregexp>      = string;
 <valueregexparray> = groupedregexplist;
 <valueordered>      = integer | real | string; (* Dates are parsed as strings *)
-<valuematch>       = string | integer | real | boolean;
 <valuein>          = query | groupedliterallist;
 
 groupedregexplist = <lbracket>, [<whitespace>], regexplist, [<whitespace>], <rbracket>;
@@ -108,7 +107,6 @@ groupedregexplist = <lbracket>, [<whitespace>], regexplist, [<whitespace>], <rbr
 
 groupedliterallist = <lbracket>, [<whitespace>], literallist, [<whitespace>], <rbracket>;
 <literallist>      = literal, [ [<whitespace>], <','>, [<whitespace>], literallist ];
-<literal>          = string | integer | real | boolean;
 
 (* Boolean operators *)
 <and> = <'and'>;
@@ -157,6 +155,12 @@ orderparam = !('asc' | 'desc') field, [<whitespace> direction], [<whitespace>];
 boolean = true | false;
 true = <"true">;
 false = <"false">;
+
+(* Arrays *)
+array = lbracket, [<whitespace>], literallist, [<whitespace>] rbracket
+
+(* literal *)
+<literal> = string | integer | real | boolean | array ;
 
 (* Numbers *)
 integer    = [negative], digits;

@@ -24,6 +24,35 @@
     ["from" "nodes"
      ["and" ["=" "a" 1] ["=" "b" 2]]]
 
+
+    "fact_contents {path = [\"foo\",\"bar\"]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" "bar"]]]
+
+    "fact_contents {path = [\"foo\",\"bar\" ]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" "bar"]]]
+
+    "fact_contents {path = [ \"foo\",\"bar\" ]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" "bar"]]]
+
+    "fact_contents {path = [ \"foo\", \"bar\" ]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" "bar"]]]
+
+    "fact_contents {path = [ \"foo\", \"bar\"]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" "bar"]]]
+
+    "fact_contents {path = [\"foo\", \"bar\" ]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" "bar"]]]
+
+    "fact_contents {path = [\"foo\", 1 ]}"
+    ["from" "fact_contents"
+     ["=" "path" ["foo" 1]]]
+
     ;; Not
 
     "nodes { !(a = 1) }"

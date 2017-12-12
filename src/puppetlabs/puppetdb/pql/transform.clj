@@ -115,6 +115,11 @@
   [arg]
   ["offset" arg])
 
+(defn transform-array
+  "strip the brackets from an array and cast to a vec"
+  [& args]
+  (-> args rest butlast vec))
+
 (defn transform-orderby
   [& args]
   ["order_by"
@@ -145,6 +150,7 @@
    :dqstring           transform-dqstring
    :boolean            transform-boolean
    :integer            transform-integer
+   :array              transform-array
    :real               transform-real
    :exp                transform-exp
    :groupby            transform-groupby

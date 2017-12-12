@@ -636,13 +636,14 @@
       "/asdf/"
       ""))
 
-  (testing "valuematch"
-    (are [in expected] (= (parse in :start :valuematch) expected)
+  (testing "literal"
+    (are [in expected] (= (parse in :start :literal) expected)
       "'asdf'" [[:sqstring "asdf"]]
       "1" [[:integer "1"]]
-      "1.1" [[:real "1" "." "1"]])
+      "1.1" [[:real "1" "." "1"]]
+      "[\"foo\", \"bar\"]" [[:array "[" [:dqstring "foo"] [:dqstring "bar"] "]"]])
 
-    (are [in] (insta/failure? (insta/parse parse in :start :valuematch))
+    (are [in] (insta/failure? (insta/parse parse in :start :literal))
       "asdf"
       ""))
 
