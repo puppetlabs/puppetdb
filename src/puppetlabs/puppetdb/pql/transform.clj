@@ -54,8 +54,9 @@
 
 (defn transform-condexpression
   [a b c]
-  (if (= "!=" b)
-    ["not" ["=" a c]]
+  (case b
+    "!=" ["not" ["=" a c]]
+    "!~" ["not" ["~" a c]]
     [b a c]))
 
 (defn transform-condexpnull
