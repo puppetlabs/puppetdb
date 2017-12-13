@@ -19,7 +19,9 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.zip :as zip]
-            [schema.core :as s])
+            [schema.core :as s]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [clojure.string :as string])
   (:import [honeysql.types SqlCall SqlRaw]
            [org.postgresql.util PGobject]))
 
@@ -47,6 +49,31 @@
    "edges" {:columns ["certname"]}
    "resources" {:columns ["certname"]}})
 
+(def type-coercion-matrix
+  {:string {:numeric (su/sql-cast "int")
+            :boolean (su/sql-cast "bool")
+            :string hcore/raw
+            :jsonb-scalar (su/sql-cast "jsonb")
+            :timestamp (su/sql-cast "timestamptz")}
+   :jsonb-scalar {:numeric (su/jsonb-scalar-cast "numeric")
+                  :jsonb-scalar hcore/raw
+                  :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
+                  :string (su/jsonb-scalar-cast "text")}
+   :path {:path hcore/raw}
+   :json {:json hcore/raw}
+   :boolean {:string (su/sql-cast "text")
+             :boolean hcore/raw}
+   :numeric {:string (su/sql-cast "text")
+             :numeric hcore/raw}
+   :timestamp {:string (su/sql-cast "text")
+               :timestamp hcore/raw}
+   :array {:array hcore/raw}
+   :queryable-json {:queryable-json hcore/raw}})
+
+(defn convert-type
+  [column from to]
+  ((-> type-coercion-matrix from to) column))
+
 (def column-schema
   "Column information: [\"value\" {:type :string :field fv.value_string ...}]"
   {:type s/Keyword :field field-schema s/Any s/Any})
@@ -61,6 +88,13 @@
      source-table :- s/Str
      alias where subquery? entity call
      group-by limit offset order-by])
+
+
+(s/defrecord FnBinaryExpression
+  [operator :- s/Keyword
+   args :- [s/Str]
+   function
+   value])
 
 (s/defrecord BinaryExpression
     [operator :- s/Keyword
@@ -92,7 +126,13 @@
    column-data :- column-schema
    value])
 
-(s/defrecord JsonbRegexExpression
+(s/defrecord JsonbPathBinaryExpression
+    [field :- s/Str
+     column-data :- column-schema
+     value
+     operator :- s/Keyword])
+
+(s/defrecord JsonbScalarRegexExpression
   [field :- s/Str
    column-data :- column-schema
    value])
@@ -109,13 +149,17 @@
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
 
+(def numeric-functions
+  #{"sum" "avg" "min" "max"})
+
 (def pdb-fns->pg-fns
   {"sum" "sum"
    "avg" "avg"
    "min" "min"
    "max" "max"
    "count" "count"
-   "to_string" "to_char"})
+   "to_string" "to_char"
+   "jsonb_typeof" "jsonb_typeof"})
 
 (def pg-fns->pdb-fns
   (map-invert pdb-fns->pg-fns))
@@ -141,7 +185,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
-
 (def inventory-query
   "Query for inventory"
   (map->Query {:projections {"certname" {:type :string
@@ -153,39 +196,12 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :environments.environment}
-                             "facts" {:type :json
+                             "facts" {:type :queryable-json
                                       :queryable? true
-                                      :field {:select [[(h/json-object-agg :name :value) :facts]]
-                                              :from [[{:select [:fp.name  :fv.value]
-                                                       :from [[:facts :f]]
-                                                       :join [[:fact_values :fv]
-                                                              [:= :fv.id :f.fact_value_id]
-
-                                                              [:fact_paths :fp]
-                                                              [:= :fp.id :f.fact_path_id]
-
-                                                              [:value_types :vt]
-                                                              [:= :vt.id :fv.value_type_id]]
-                                                       :where [:and
-                                                               [:= :fp.depth 0]
-                                                               [:= :f.factset_id :fs.id]]}
-                                                      :facts_data]]}}
+                                      :field (hcore/raw "(fs.stable||fs.volatile)")}
                              "trusted" {:type :queryable-json
                                         :queryable? true
-                                        :field  {:select [[:fv.value :trusted]]
-                                                 :from [[:facts :f]]
-                                                 :join [[:fact_values :fv]
-                                                        [:= :fv.id :f.fact_value_id]
-
-                                                        [:fact_paths :fp]
-                                                        [:= :fp.id :f.fact_path_id]
-
-                                                        [:value_types :vt]
-                                                        [:= :vt.id :fv.value_type_id]]
-                                                 :where [:and
-                                                         [:= :fp.depth 0]
-                                                         [:= :f.factset_id :fs.id]
-                                                         [:= :fp.name (hcore/raw "'trusted'")]]}}}
+                                        :field (hcore/raw "(fs.stable||fs.volatile)->'trusted'")}}
 
                :selection {:from [[:factsets :fs]]
                            :left-join [:environments
@@ -197,12 +213,12 @@
                                        :certnames
                                        [:= :fs.certname :certnames.certname]]}
 
-              :alias "inventory"
-              :relationships certname-relations
+               :alias "inventory"
+               :relationships certname-relations
 
-              :dotted-fields ["facts\\..*" "trusted\\..*"]
-              :entity :inventory
-              :subquery? false}))
+               :dotted-fields ["facts\\..*" "trusted\\..*"]
+               :entity :inventory
+               :subquery? false}))
 
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
@@ -307,25 +323,21 @@
   "Query for the resource-params query, mostly used as a subquery"
   (map->Query {:projections {"type" {:type :string
                                      :queryable? true
-                                     :field :type}
+                                     :field :vt.type}
                              "path" {:type :path
                                      :queryable? true
                                      :field :path}
-                             "depth" {:type :integer
+                             "name" {:type :string
+                                     :queryable? true
+                                     :field :name}
+                             "depth" {:type :numeric
                                       :queryable? true
                                       :query-only? true
                                       :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
-                           :join [[:facts :f]
-                                  [:= :f.fact_path_id :fp.id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
-                                  [:value_types :vt]
-                                  [:= :fv.value_type_id :vt.id]]
-                           :modifiers [:distinct]
-                           :where [:!= :fv.value_type_id 5]}
+                           :join [[:value_types :vt]
+                                  [:= :fp.value_type_id :vt.id]]
+                           :where [:!= :fp.value_type_id 5]}
 
                :relationships {;; Children - direct
                                "facts" {:columns ["name"]}
@@ -347,62 +359,26 @@
 
 (def facts-query
   "Query structured facts."
-  (map->Query {:projections {"path" {:type :string
-                                     :queryable? false
-                                     :query-only? true
-                                     :field :fp.path}
-                             "value" {:type :multi
-                                      :queryable? true
-                                      :field :fv.value}
-                             "depth" {:type :integer
-                                      :queryable? false
-                                      :query-only? true
-                                      :field :fp.depth}
-                             "certname" {:type :string
+  (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :fs.certname}
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment}
-                             "value_integer" {:type :integer
-                                              :query-only? true
-                                              :queryable? false
-                                              :field :fv.value_integer}
-                             "value_float" {:type :float
-                                            :query-only? true
-                                            :queryable? false
-                                            :field :fv.value_float}
-                             "value_string" {:type :string
-                                            :query-only? true
-                                            :queryable? false
-                                            :field :fv.value_string}
-                             "value_boolean" {:type :boolean
-                                              :query-only? true
-                                              :queryable? false
-                                              :field :fv.value_boolean}
                              "name" {:type :string
                                      :queryable? true
-                                     :field :fp.name}
-                             "type" {:type  :string
-                                     :query-only? true
-                                     :queryable? false
-                                     :field :vt.type}}
-
-               :selection {:from [[:factsets :fs]]
-                           :join [[:facts :f]
-                                  [:= :fs.id :f.factset_id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
-                                  [:fact_paths :fp]
-                                  [:= :f.fact_path_id :fp.id]
-
-                                  [:value_types :vt]
-                                  [:= :vt.id :fv.value_type_id]]
+                                     :field :fs.key}
+                             "value" {:type :jsonb-scalar
+                                      :queryable? true
+                                      :field :fs.value}}
+               :selection {:from [[(hcore/raw
+                                    (str "(select certname,"
+                                         "        environment_id,"
+                                         "        (jsonb_each((stable||volatile))).*"
+                                         "  from factsets)"))
+                                   :fs]]
                            :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]
-                           :where [:= :fp.depth 0]}
+                                       [:= :fs.environment_id :env.id]]}
 
                :relationships (merge certname-relations
                                      {"environments" {:local-columns ["environment"]
@@ -410,63 +386,49 @@
                                       "fact_contents" {:columns ["certname" "name"]}})
 
                :alias "facts"
-               :source-table "facts"
+               :source-table "factsets"
                :entity :facts
                :subquery? false}))
 
 (def fact-contents-query
   "Query for fact nodes"
-  (map->Query {:projections {"path" {:type :path
-                                     :queryable? true
-                                     :field :fp.path}
-                             "value" {:type :multi
-                                      :queryable? true
-                                      :field :fv.value}
-                             "certname" {:type :string
+  (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :fs.certname}
-                             "name" {:type :string
-                                     :queryable? true
-                                     :field :fp.name}
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment}
-                             "value_integer" {:type :integer
-                                              :queryable? false
-                                              :field :fv.value_integer
-                                              :query-only? true}
-                             "value_float" {:type :float
-                                            :queryable? false
-                                            :field :fv.value_float
-                                            :query-only? true}
-                             "value_string" {:type :string
-                                            :query-only? true
-                                            :queryable? false
-                                            :field :fv.value_string}
-                             "value_boolean" {:type :boolean
-                                              :query-only? true
-                                              :queryable? false
-                                              :field :fv.value_boolean}
-                             "type" {:type :string
-                                     :queryable? false
-                                     :field :vt.type
-                                     :query-only? true}}
-
-               :selection {:from [[:factsets :fs]]
-                           :join [[:facts :f]
-                                  [:= :fs.id :f.factset_id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
-                                  [:fact_paths :fp]
-                                  [:= :f.fact_path_id :fp.id]
-
-                                  [:value_types :vt]
-                                  [:= :fv.value_type_id :vt.id]]
+                             "path" {:type :path
+                                     :queryable? true
+                                     :field :fs.path}
+                             "name" {:type :string
+                                     :queryable? true
+                                     :field :fs.name}
+                             "value" {:type :jsonb-scalar
+                                      :queryable? true
+                                      :field :value}}
+               :selection {:from [[(hcore/raw
+                                    (str "(select certname,"
+                                         "        jsonb_extract_path(stable||volatile,"
+                                         "                           variadic path_array)"
+                                         "          as value,"
+                                         "        path,"
+                                         "        name,"
+                                         "        environment_id"
+                                         "   from factsets"
+                                         "     cross join (select distinct on (path)"
+                                         "                        path,"
+                                         "                        path_array,"
+                                         "                        name from fact_paths) distinct_paths"
+                                         "   where jsonb_extract_path(stable||volatile,"
+                                         "                            variadic path_array)"
+                                         "           is not null"
+                                         "         and jsonb_typeof(jsonb_extract_path(stable||volatile,"
+                                         "                                             variadic path_array))"
+                                         "               <> 'object')"))
+                                   :fs]]
                            :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]
-                           :where [:!= :vt.id 5]}
+                                       [:= :fs.environment_id :env.id]]}
 
                :relationships (merge certname-relations
                                      {"facts" {:columns ["certname" "name"]}
@@ -474,7 +436,7 @@
                                                       :foreign-columns ["name"]}})
 
                :alias "fact_nodes"
-               :source-table "facts"
+               :source-table "factsets"
                :subquery? false}))
 
 (def report-logs-query
@@ -529,7 +491,7 @@
       "puppet_version" {:type :string
                         :queryable? true
                         :field :reports.puppet_version}
-      "report_format" {:type :integer
+      "report_format" {:type :numeric
                        :queryable? true
                        :field :reports.report_format}
       "configuration_version" {:type :string
@@ -800,7 +762,7 @@
                              "file" {:type :string
                                      :queryable? true
                                      :field :file}
-                             "line" {:type :integer
+                             "line" {:type :numeric
                                      :queryable? true
                                      :field :line}
                              "parameters" {:type :queryable-json
@@ -882,7 +844,7 @@
                              "file" {:type :string
                                      :queryable? true
                                      :field :file}
-                             "line" {:type :integer
+                             "line" {:type :numeric
                                      :queryable? true
                                      :field :line}
                              "containment_path" {:type :array
@@ -897,7 +859,7 @@
                              "latest_report?" {:type :boolean
                                                :queryable? true
                                                :query-only? true}
-                             "report_id" {:type :bigint
+                             "report_id" {:type :numeric
                                           :queryable? false
                                           :query-only? true
                                           :field :events.report_id}}
@@ -944,7 +906,7 @@
 
 (def latest-report-id-query
   "Usually used as a subquery of reports"
-  (map->Query {:projections {"latest_report_id" {:type :bigint
+  (map->Query {:projections {"latest_report_id" {:type :numeric
                                                  :queryable? true
                                                  :field :certnames.latest_report_id}}
                :selection {:from [:certnames]}
@@ -1042,9 +1004,9 @@
 
                :relationships certname-relations
 
-               :alias "package_inventory"
+               :alias "package_inventory
                :subquery? false
-               :source-table "packages"}))
+               :source-table packages"}))
 
 (def factsets-query
   "Query for the top level facts query"
@@ -1053,28 +1015,26 @@
      {"timestamp" {:type :timestamp
                    :queryable? true
                    :field :timestamp}
-      "facts" {:type :json
+      "facts" {:type :queryable-json
                :queryable? true
                :field {:select [(h/row-to-json :facts_data)]
-                       :from [[{:select [[(json-agg-row :t) :data]
-                                         [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
-                                :from [[{:select [:fp.name (h/scast :fv.value :jsonb)]
-                                         :from [[:facts :f]]
-                                         :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
-                                                [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
-                                                [:value_types :vt] [:= :vt.id :fv.value_type_id]]
-                                         :where [:and [:= :depth 0] [:= :f.factset_id :factsets.id]]}
+                       :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))")
+                                          :data]
+                                         [(hsql-hash-as-href "fs.certname" :factsets :facts)
+                                          :href]]
+                                :from [[{:select [[:key :name] :value :certname]
+                                         :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
                                         :t]]}
                                :facts_data]]}}
       "certname" {:type :string
                   :queryable? true
-                  :field :factsets.certname}
+                  :field :fs.certname}
       "hash" {:type :string
               :queryable? true
-              :field (hsql-hash-as-str :factsets.hash)}
+              :field (hsql-hash-as-str :fs.hash)}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
-                            :field :factsets.producer_timestamp}
+                            :field :fs.producer_timestamp}
       "producer" {:type :string
                   :queryable? true
                   :field :producers.name}
@@ -1082,11 +1042,11 @@
                      :queryable? true
                      :field :environments.environment}}
 
-     :selection {:from [:factsets]
+     :selection {:from [[:factsets :fs]]
                  :left-join [:environments
-                             [:= :factsets.environment_id :environments.id]
+                             [:= :fs.environment_id :environments.id]
                              :producers
-                             [:= :producers.id :factsets.producer_id]]}
+                             [:= :producers.id :fs.producer_id]]}
 
      :relationships (merge certname-relations
                            {"environments" {:local-columns ["environment"]
@@ -1194,20 +1154,43 @@
         sql)))
 
   InExpression
-  (-plan->sql [{:keys [column subquery]}]
+  (-plan->sql [{:keys [column subquery] :as this}]
+    ;; 'column' is actually a vector of columns.
     (s/validate [column-schema] column)
-    [:in (mapv :field column)
-     (-plan->sql subquery)])
+    ;; if a field has type jsonb, cast that field in the subquery to jsonb
+    (let [fields (mapv :field column)
+          outer-types (mapv :type column)
+          projected-fields (:projected-fields subquery)
+          inner-columns (map first projected-fields)
+          inner-types (map (comp :type second) projected-fields)
+          coercions (mapv convert-type inner-columns inner-types outer-types)]
+      [:in fields
+       {:select coercions
+        :from [[(-plan->sql subquery) :sub]]}]))
 
   JsonContainsExpression
+  (-plan->sql [{:keys [field column-data]}]
+    (su/json-contains (if (instance? SqlRaw (:field column-data))
+                        (-> column-data :field :s)
+                        field)))
+
+  FnBinaryExpression
+  (-plan->sql [{:keys [value function args operator]}]
+    (su/fn-binary-expression operator function args))
+
+  JsonbPathBinaryExpression
+  (-plan->sql [{:keys [field value column-data operator]}]
+    (su/jsonb-path-binary-expression operator
+                                     (if (instance? SqlRaw (:field column-data))
+                                       (-> column-data :field :s)
+                                       field)
+                                     value))
+
+  JsonbScalarRegexExpression
   (-plan->sql [{:keys [field]}]
-    (su/json-contains field))
+    (su/jsonb-scalar-regex field))
 
-  JsonbRegexExpression
-  (-plan->sql [{:keys [field value]}]
-    (su/jsonb-regex field value))
-
- BinaryExpression
+  BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
     (apply vector
            :or
@@ -1241,10 +1224,15 @@
   NullExpression
   (-plan->sql [{:keys [column] :as expr}]
     (s/validate column-schema column)
-    (let [lhs (-plan->sql (:field column))]
+    (let [lhs (-plan->sql (:field column))
+          json? (= :jsonb-scalar (:type column))]
       (if (:null? expr)
-        [:is lhs nil]
-        [:is-not lhs nil])))
+        (if json?
+          (su/jsonb-null? lhs true)
+          [:is lhs nil])
+        (if json?
+          (su/jsonb-null? lhs false)
+          [:is-not lhs nil]))))
 
   AndExpression
   (-plan->sql [expr]
@@ -1292,12 +1280,17 @@
      :state (conj state (su/munge-jsonb-for-storage
                           (path->nested-map path value)))}))
 
-(defn parse-json-regex-query
+(defn parse-dot-query-with-array-elements
+  "Transforms a dotted query into a JSON structure appropriate
+   for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (map utils/maybe-strip-escaped-quotes
-                             (su/dotted-query->path field))
-        qmarks (repeat (count path) "?" )
-        parameters (concat path [value (first path)])]
+  (let [[column & path] (->> field
+                             su/dotted-query->path
+                             (map utils/maybe-strip-escaped-quotes)
+                             (su/expand-array-access-in-path))
+        qmarks (repeat (count path) "?")
+        parameters (concat path [(su/munge-jsonb-for-storage value)
+                                 (first path)])]
     {:node (assoc node :value qmarks :field column)
      :state (reduce conj state parameters)}))
 
@@ -1313,11 +1306,20 @@
     (instance? JsonContainsExpression node)
     (parse-dot-query node state)
 
-    (instance? JsonbRegexExpression node)
-    (parse-json-regex-query node state)
+    (instance? JsonbPathBinaryExpression node)
+    (parse-dot-query-with-array-elements node state)
+
+    (instance? FnBinaryExpression node)
+    {:node (assoc node :value "?")
+     :state (conj state (:value node))}
+
+    (instance? JsonbScalarRegexExpression node)
+    {:node (assoc node :value "?")
+     :state (conj state (:value node))}
 
     (instance? FnExpression node)
-    {:state (apply conj (:params node) state)}))
+    {:node (assoc node :value "?")
+     :state (apply conj (:params node) state)}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
@@ -1365,50 +1367,55 @@
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
 
+(defn strip-function-calls
+  [column-or-columns]
+  (let [{functions true
+         nonfunctions false} (->> column-or-columns
+                                  utils/vector-maybe
+                                  (group-by (comp #(= "function" %) first)))]
+    [(vec (map rest functions))
+     (vec nonfunctions)]))
+
+(defn no-type-restriction?
+  "Determine whether an expression already contains a restriction of values to
+   numbers."
+  [expr]
+  (let [r ["=" ["function" "jsonb_typeof" "value"] "number"]]
+    (->> expr
+         (tree-seq vector? identity)
+         (not-any? #(= % r)))))
+
+(defn numeric-fact-functions?
+  "Determine whether an extract clause contains numeric aggregate functions,
+   implying that the query must be restricted for successful type coercion."
+  [clauses]
+  (->> clauses
+       strip-function-calls
+       first
+       (map first)
+       (some numeric-functions)))
+
+(def non-predicate-clause
+  #{"group_by" "limit" "offset"})
+
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
   [node]
   (cm/match [node]
 
-            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
-            (when (= :inventory (get-in (meta node) [:query-context :entity]))
-              (let [[head & path] (->> column
-                                       utils/parse-matchfields
-                                       su/dotted-query->path
-                                       (map utils/maybe-strip-escaped-quotes))
-                    path (if (= head "trusted")
-                           (cons head path)
-                           path)
-                    value-column (cond
-                                   (string? value) "value_string"
-                                   (ks/boolean? value) "value_boolean"
-                                   (integer? value) "value_integer"
-                                   (float? value) "value_float"
-                                   :else (throw (IllegalArgumentException.
-                                                 (tru "Value {0} of type {1} unsupported." value (type value)))))]
-
-                (if (or (and (or (ks/boolean? value) (number? value)) (= op "~"))
-                        (and (or (ks/boolean? value) (string? value)) (contains? #{"<=" "<" ">" ">="} op)))
-                  (throw (tru "Operator ''{0}'' not allowed on value ''{1}''" op value))
-                  ["in" "certname"
-                   ["extract" "certname"
-                    ["select_fact_contents"
-                     ["and"
-                      ["~>" "path" (utils/split-indexing path)]
-                      [op value-column value]]]]])))
+            [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
+            (when (= :facts (get-in meta node [:query-context :entity]))
+            ["extract" columns ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] expr]])
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
-            ["or" [op "value_integer" value] [op "value_float" value]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
 
-            [[(op :guard #{"="}) "value"
-              (value :guard #(or (string? %) (ks/boolean? %)))]]
-            (let [value-column (if (string? value) "value_string" "value_boolean")]
-            [op value-column value])
+            [["=" "value" (value :guard #(string? %))]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "string"] ["=" "value" value]]
 
-            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
-            (when (= :facts (get-in (meta node) [:query-context :entity]))
-              ["and" ["=" "depth" 0] [op "value" value]])
+            [["=" "value" (value :guard #(ks/boolean? %))]]
+            ["and" ["=" ["function" "jsonb_typeof" "value"] "boolean"] ["=" "value" value]]
 
             [["=" ["node" "active"] value]]
             (expand-query-node ["=" "node_state" (if value "active" "inactive")])
@@ -1441,54 +1448,42 @@
 
             [[(op :guard #{"=" "~"}) ["fact" fact-name]
               (fact-value :guard #(or (string? %) (instance? Boolean %)))]]
-            (let [value-column (if (string? fact-value) "value_string" "value_boolean")]
               ["in" "certname"
                ["extract" "certname"
                 ["select_facts"
                  ["and"
                   ["=" "name" fact-name]
-                  [op value-column fact-value]]]]])
+                  [op "value" fact-value]]]]]
 
-            [["in" ["fact" fact-name] ["array" fact-values]]]
-            (let [clause (cond
-                           (every? string? fact-values)
-                           ["in" "value_string" ["array" fact-values]]
+              [["in" ["fact" fact-name] ["array" fact-values]]]
+              (if-not (= (count (map type fact-values)) 1)
+                (throw (IllegalArgumentException.
+                         (tru "All values in 'array' must be the same type.")))
+                ["in" "certname"
+                 ["extract" "certname"
+                  ["select_facts"
+                   ["and"
+                    ["=" "name" fact-name]
+                    ["in" "value" ["array" fact-values]]]]]])
 
-                           (every? ks/boolean? fact-values)
-                           ["in" "value_boolean" ["array" fact-values]]
-
-                           (every? number? fact-values)
-                           ["or"
-                            ["in" "value_float" ["array" fact-values]]
-                            ["in" "value_integer" ["array" fact-values]]]
-
-                           :else (throw (IllegalArgumentException.
-                                         (tru "All values in 'array' must be the same type."))))]
-              ["in" "certname"
-               ["extract" "certname"
-                ["select_facts"
-                 ["and"
-                  ["=" "name" fact-name]
-                  clause]]]])
-
-            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
-            (if-not (number? fact-value)
-              (throw (IllegalArgumentException. (tru "Operator ''{0}'' not allowed on value ''{1}''" op fact-value)))
-              ["in" "certname"
-               ["extract" "certname"
-                ["select_facts"
-                 ["and"
-                  ["=" "name" fact-name]
-                  ["or"
-                   [op "value_float" fact-value]
-                   [op "value_integer" fact-value]]]]]])
+              [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
+              (if-not (number? fact-value)
+                (throw (IllegalArgumentException.
+                         (tru "Operator ''{0}'' not allowed on value ''{1}''" op fact-value)))
+                ["in" "certname"
+                 ["extract" "certname"
+                  ["select_facts"
+                   ["and"
+                    ["=" "name" fact-name]
+                    [op "value" fact-value]]]]])
 
             [["subquery" sub-entity expr]]
             (let [relationships (get-in (meta node) [:query-context :relationships sub-entity])]
               (if relationships
                 (let [{:keys [columns local-columns foreign-columns]} relationships]
                   (when-not (or columns (and local-columns foreign-columns))
-                    (throw (IllegalArgumentException. (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
+                    (throw (IllegalArgumentException.
+                             (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
                   (do
                     ["in" (or local-columns columns)
                      ["extract" (or foreign-columns columns)
@@ -1552,18 +1547,18 @@
 
               [["=" field value]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when (and (or (= :integer col-type)
-                               (= :float col-type)) (string? value))
+                (when (and (or (= :numeric col-type)
+                               (= :numeric col-type)) (string? value))
                   (throw
                    (IllegalArgumentException.
                     (tru
                      "Argument \"{0}\" is incompatible with numeric field \"{1}\"."
                      value (name field))))))
 
-              [[(:or ">" ">=" "<" "<=") field _]]
+              [[(:or ">" ">=" "<" "<=")  (field :guard #(not (str/includes? %  "."))) _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
-                              (contains? #{:float :integer :timestamp :multi}
+                              (contains? #{:numeric :timestamp :jsonb-scalar}
                                          col-type))
                   (throw (IllegalArgumentException. (tru "Query operators >,>=,<,<= are not allowed on field {0}" field)))))
 
@@ -1727,26 +1722,16 @@
        (sort-by #(if (string? %) % (:column %)))
        (mapv (partial alias-columns query-rec))))
 
-(defn strip-function-calls
-  [column-or-columns]
-  (let [{functions true
-         nonfunctions false} (->> column-or-columns
-                                  utils/vector-maybe
-                                  (group-by (comp #(= "function" %) first)))]
-    [(vec (map rest functions))
-     (vec nonfunctions)]))
-
 (pls/defn-validated create-extract-node
   :- {(s/optional-key :projected-fields) [projection-schema]
       s/Any s/Any}
   [query-rec column expr]
   (let [[fcols cols] (strip-function-calls column)
         coalesce-fact-values (fn [col]
-                               (if (and (= "facts" (:source-table query-rec))
+                               (if (and (= "factsets" (:source-table query-rec))
                                         (= "value" col))
-                                 (h/coalesce :fv.value_integer :fv.value_float)
-                                 (or (get-in query-rec [:projections col :field])
-                                     col)))]
+                                 (convert-type "value" :jsonb-scalar :numeric)
+                                 (or (get-in query-rec [:projections col :field]) col)))]
     (if-let [calls (seq
                      (map (fn [[name & args]]
                             (apply vector
@@ -1755,26 +1740,21 @@
                                      [:*]
                                      (map coalesce-fact-values args))))
                           fcols))]
-          (-> query-rec
-              (assoc :call (map create-fnexpression calls))
-              (create-extract-node* cols expr))
+      (-> query-rec
+          (assoc :call (map create-fnexpression calls))
+          (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
-
-(defn- fv-variant [x]
-  (case x
-    :integer {:type :integer
-              :field :fv.value_integer}
-    :float {:type :float
-            :field :fv.value_float}
-    :string {:type :string
-             :field :fv.value_string}
-    :boolean {:type :boolean
-              :field :fv.value_boolean}))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
+            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["function" f & args] value]]
+            (map->FnBinaryExpression {:operator op
+                                      :function f
+                                      :args args
+                                      :value value})
+
             [["=" column-name value]]
             (let [colname (first (str/split column-name #"\."))
                   cinfo (get-in query-rec [:projections colname])]
@@ -1794,9 +1774,19 @@
                                        :value (facts/factpath-to-string value)})
 
                :queryable-json
-               (map->JsonContainsExpression {:field column-name
-                                             :column-data cinfo
-                                             :value value})
+               (if (string/includes? column-name "[")
+                 (map->JsonbPathBinaryExpression {:field column-name
+                                                  :column-data cinfo
+                                                  :value value
+                                                  :operator :=})
+                 (map->JsonContainsExpression {:field column-name
+                                               :column-data cinfo
+                                               :value value}))
+
+               :jsonb-scalar
+               (map->BinaryExpression {:operator :=
+                                       :column cinfo
+                                       :value (su/munge-jsonb-for-storage value)})
 
                (map->BinaryExpression {:operator :=
                                        :column cinfo
@@ -1817,12 +1807,6 @@
                                          :value (su/array-to-param "timestamp"
                                                                    java.sql.Timestamp
                                                                    (map to-timestamp value))})
-
-                :float
-                (map->InArrayExpression {:column cinfo
-                                         :value (su/array-to-param "float4"
-                                                                   java.lang.Double
-                                                                   (map double value))})
                 :integer
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "bigint"
@@ -1835,7 +1819,7 @@
                                                                    String
                                                                    (map facts/factpath-to-string value))})
 
-                :multi
+                :jsonb-scalar
                 (map->InArrayExpression
                   {:column cinfo
                    :value (su/array-to-param "jsonb"
@@ -1848,15 +1832,31 @@
                                                                    (map str value))})))
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
-            (let [{:keys [type] :as cinfo} (get-in query-rec
-                                                   [:projections column-name])]
-              (if (or (= :timestamp type)
-                      (and (number? value) (#{:float :integer} type)))
+            (let [colname (first (str/split column-name #"\."))
+                  {:keys [type] :as cinfo} (get-in query-rec [:projections colname])]
+              (cond
+                (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
-                                        :value  (if (= :timestamp type)
-                                                  (to-timestamp value)
-                                                  value)})
+                                        :value (to-timestamp value)})
+
+                (and (number? value) (#{:numeric} type))
+                (map->BinaryExpression {:operator (keyword op)
+                                        :column cinfo
+                                        :value  value})
+
+                (and (number? value) (= :jsonb-scalar type))
+                (map->BinaryExpression {:operator (keyword op)
+                                        :column cinfo
+                                        :value (su/munge-jsonb-for-storage value)})
+
+                (= :queryable-json type)
+                (map->JsonbPathBinaryExpression {:field column-name
+                                                 :column-data cinfo
+                                                 :value (su/munge-jsonb-for-storage value)
+                                                 :operator (keyword op)})
+
+                :else
                 (throw
                  (IllegalArgumentException.
                   (tru "Argument \"{0}\" and operator \"{1}\" have incompatible types."
@@ -1873,15 +1873,16 @@
                 :array
                 (map->ArrayRegexExpression {:column cinfo :value value})
 
-                :multi
-                (map->RegexExpression {:column (merge cinfo
-                                                      (fv-variant :string))
-                                       :value value})
-
                 :queryable-json
-                (map->JsonbRegexExpression {:field column-name
-                                            :column-data cinfo
-                                            :value value})
+                (map->JsonbPathBinaryExpression {:operator (keyword "~")
+                                                 :field column-name
+                                                 :column-data cinfo
+                                                 :value value})
+
+                :jsonb-scalar
+                (map->JsonbScalarRegexExpression {:field column-name
+                                                  :column-data cinfo
+                                                  :value value})
 
                 (map->RegexExpression {:column cinfo :value value})))
 
@@ -2184,70 +2185,6 @@
                    " "
                    (trs "Check your query and try again."))))))
 
-(pls/defn-validated ^:private fix-in-expr-multi-comparison
-  "Returns [column projection] after adjusting the type of one of them
-  to match the other if that one is of type :multi and the other
-  isn't."
-  [column :- column-schema
-   projection :- projection-schema]
-  ;; For now we have to assume it's fv.*, etc.
-  (let [[proj-name proj-info] projection
-        multi-col? (= :multi (:type column))
-        multi-proj? (= :multi (:type proj-info))]
-    (cond
-      (and multi-col? multi-proj?)
-      (do
-        (assert (= (:field column) :fv.value))
-        (assert (= (:field proj-info) :fv.value))
-        [column projection])
-      multi-col?
-      (do
-        (assert (= (:field column) :fv.value))
-        [(merge column (fv-variant (:type proj-info)))
-         projection])
-      multi-proj?
-      (do
-        (assert (= (:field proj-info) :fv.value))
-        [column
-         [proj-name (merge proj-info (fv-variant (:type column)))]])
-      :else
-      [column projection])))
-
-(defn- fix-in-expr-multi-comparisons
-  [node]
-  (let [columns (:column node)
-        projected-fields (get-in node [:subquery :projected-fields])]
-    (assert (= (count columns) (count projected-fields)))
-    (loop [cols columns
-           fields projected-fields
-           fixed-cols []
-           fixed-fields []]
-      (if (seq cols)
-        (let [[fixed-col fixed-field]
-              (fix-in-expr-multi-comparison (first cols) (first fields))]
-          (recur (rest cols) (rest fields)
-                 (conj fixed-cols fixed-col)
-                 (conj fixed-fields fixed-field)))
-        (-> node
-            (assoc :column fixed-cols)
-            (assoc-in [:subquery :projected-fields] fixed-fields))))))
-
-(defn- fix-plan-in-expr-multi-comparisons
-  "Returns the plan after changing any :multi types in :multi to
-  non-:multi comparisons to match the type of their non-:multi
-  counterpart.  Currently only affects field to subquery column
-  comparisons in [\"in\" fields subquery] (InExpression) nodes."
-  [plan]
-  (let [fix-node (fn [node]
-                   (if (instance? InExpression node)
-                     (fix-in-expr-multi-comparisons node)
-                     node))]
-    (update plan
-            :where
-            (fn [x]
-              (:node (zip/post-order-transform (zip/tree-zipper x)
-                                               [fix-node]))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -2267,7 +2204,7 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
-        sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql)
+        sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

@@ -16,6 +16,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+5.2.0
+-----
+
+PuppetDB 5.2.0 is a performance and feature release. Performance improvements
+are focused primarily on improvements to the storage model for facts.
+
+### Upgrading
+Upgrading is expected to be straightforward, but in light of the recent changes
+to facts storage users may expect some quirks:
+* The initial fact submission for each node post-upgrade will trigger a full
+  rewrite of fact data for that node, meaning facts processing may slow down
+  for a short while. This could cause the queue size to increase temporarily
+  for users operating near capacity. This should fix itself after Puppet's
+  runinterval (default: 30 minutes) has elapsed.
+
+
 5.1.3
 -----
 

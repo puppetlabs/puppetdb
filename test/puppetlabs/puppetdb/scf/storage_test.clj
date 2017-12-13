@@ -4,15 +4,15 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.facts :as facts
-             :refer [path->pathmap string-to-factpath value->valuemap]]
+            [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db* clear-db-for-testing! init-db with-test-db]]
             [metrics.histograms :refer [sample histogram]]
             [metrics.counters :as counters]
             [schema.core :as s]
@@ -55,24 +55,37 @@
     (testing "creates new row for non-existing producer"
       (is (= 2 (ensure-producer prod2))))))
 
-(defn-validated factset-map :- {s/Str s/Str}
+(defn-validated factset-map :- {s/Str s/Any}
   "Return all facts and their values for a given certname as a map"
   [certname :- String]
-  (let [result (jdbc/query
-                ["SELECT fp.path as name,
-                    COALESCE(fv.value_string,
-                             cast(fv.value_integer as text),
-                             cast(fv.value_boolean as text),
-                             cast(fv.value_float as text),
-                             '') as value
-                    FROM factsets fs
-                    INNER JOIN facts as f on fs.id = f.factset_id
-                    INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                    INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                    WHERE fp.depth = 0 AND fs.certname = ?"
-                 certname])]
-    (zipmap (map :name result)
-            (map :value result))))
+  (or (-> (jdbc/query ["select (stable||volatile) as facts from factsets where certname=?"
+                       certname])
+          first
+          :facts
+          str
+          json/parse-string)
+      {}))
+
+(defn stable-facts [certname]
+  (-> (query-to-vec "select stable from factsets where certname=?" certname)
+      first
+      :stable
+      str
+      json/parse-string))
+
+(defn volatile-facts [certname]
+  (-> (query-to-vec "select volatile from factsets where certname=?" certname)
+      first
+      :volatile
+      str
+      json/parse-string))
+
+(defn count-facts
+  []
+  (-> "select count(*) c from (select jsonb_each(stable||volatile) from factsets) fs"
+      query-to-vec
+      first
+      :c))
 
 (deftest-db large-fact-update
   (testing "updating lots of facts"
@@ -93,10 +106,7 @@
                    :producer producer})
 
       (testing "10000 facts stored"
-        (is (= 10000
-               (->> (query-to-vec "SELECT count(*) as c from fact_values")
-                    first
-                    :c))))
+        (is (= 10000 (count-facts))))
 
       (update-facts! {:certname certname
                       :values facts2
@@ -106,10 +116,7 @@
                       :producer producer})
 
       (testing "11000 facts stored"
-        (is (= 11000
-               (->> (query-to-vec "SELECT count(*) as c from fact_values")
-                    first
-                    :c)))))))
+        (is (= 11000 (count-facts)))))))
 
 (deftest-db escaped-string-factnames
   (testing "should work with escaped strings"
@@ -128,190 +135,432 @@
                    :environment nil
                    :producer_timestamp previous-time
                    :producer producer})
-      (let [stored-names (->> (jdbc/query ["SELECT name from fact_paths"])
-                              (map :name)
-                              set)]
-        (is (= stored-names (set (keys facts))))))))
+      (is (= facts (factset-map "some_certname"))))))
 
-(deftest-db fact-persistence
-  (testing "Persisted facts"
-    (let [certname "some_certname"
-          facts {"domain" "mydomain.com"
-                 "fqdn" "myhost.mydomain.com"
-                 "hostname" "myhost"
-                 "kernel" "Linux"
-                 "operatingsystem" "Debian"}
-          producer "bar.com"]
-      (add-certname! certname)
+(comment
+  (def certname "some_certname")
+  (def facts {"domain" "mydomain.com"
+              "fqdn" "myhost.mydomain.com"
+              "hostname" "myhost"
+              "kernel" "Linux"
+              "operatingsystem" "Debian"})
 
-      (is (nil?
-           (jdbc/with-db-transaction []
-             (timestamp-of-newest-record :factsets "some_certname"))))
-      (is (empty? (factset-map "some_certname")))
+  (def new-facts {"domain" "mynewdomain.com"
+                  "fqdn" "myhost.mynewdomain.com"
+                  "hostname" "myhost"
+                  "kernel" "Linux"
+                  "uptime_seconds" 3600})
 
-      (add-facts! {:certname certname
-                   :values facts
-                   :timestamp previous-time
-                   :environment nil
-                   :producer_timestamp previous-time
-                   :producer producer})
-      (testing "should have entries for each fact"
-        (is (= (query-to-vec
-                "SELECT fp.path as name,
-                        COALESCE(fv.value_string,
-                                 cast(fv.value_integer as text),
-                                 cast(fv.value_boolean as text),
-                                 cast(fv.value_float as text),
-                                 '') as value,
-                        fs.certname
-                 FROM factsets fs
-                   INNER JOIN facts as f on fs.id = f.factset_id
-                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                   INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                 WHERE fp.depth = 0
-                 ORDER BY name")
-               [{:certname certname :name "domain" :value "mydomain.com"}
-                {:certname certname :name "fqdn" :value "myhost.mydomain.com"}
-                {:certname certname :name "hostname" :value "myhost"}
-                {:certname certname :name "kernel" :value "Linux"}
-                {:certname certname :name "operatingsystem" :value "Debian"}])))
+  (def producer "bar.com")
 
-      (testing "should have entries for each fact"
-        (is (= facts (factset-map certname)))
-        (is (jdbc/with-db-transaction []
-              (timestamp-of-newest-record :factsets  "some_certname")))
-        (is (= facts (factset-map "some_certname"))))
+  (alter-var-root #'*db*
+                  (constantly jdbc/*db*))
 
-      (testing "should add the certname if necessary"
-        (is (= (query-to-vec "SELECT certname FROM certnames")
-               [{:certname certname}])))
-      (testing "replacing facts"
-        ;;Ensuring here that new records are inserted, updated
-        ;;facts are updated (not deleted and inserted) and that
-        ;;the necessary deletes happen
-        (tu/with-wrapped-fn-args [updates jdbc/update!]
-          (let [fact-path-set #(->> (query-to-vec "select * from fact_paths")
-                                    (map :path)
-                                    set)
-                initial-paths (fact-path-set)
-                new-facts {"domain" "mynewdomain.com"
-                           "fqdn" "myhost.mynewdomain.com"
-                           "hostname" "myhost"
-                           "kernel" "Linux"
-                           "uptime_seconds" 3600}]
-            (replace-facts! {:certname certname
-                             :values new-facts
-                             :environment "DEV"
-                             :producer_timestamp reference-time
-                             :timestamp reference-time
-                             :producer producer})
-            (testing "should have only the new facts"
-              (is (= (query-to-vec
-                      "SELECT fp.path as name,
-                              COALESCE(fv.value_string,
-                                       cast(fv.value_integer as text),
-                                       cast(fv.value_boolean as text),
-                                       cast(fv.value_float as text),
-                                       '') as value
-                       FROM factsets fs
-                         INNER JOIN facts as f on fs.id = f.factset_id
-                         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                         INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                       WHERE fp.depth = 0
-                       ORDER BY name")
-                     [{:name "domain" :value "mynewdomain.com"}
-                      {:name "fqdn" :value "myhost.mynewdomain.com"}
-                      {:name "hostname" :value "myhost"}
-                      {:name "kernel" :value "Linux"}
-                      {:name "uptime_seconds" :value "3600"}])))
-            (testing "producer_timestamp should store current time"
-              (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
-                     [{:producer_timestamp (to-timestamp reference-time)}])))
-            (testing "should update existing keys"
-              (is (some #{{:timestamp (to-timestamp reference-time)
-                           :environment_id 1
-                           :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
-                           :producer_timestamp (to-timestamp reference-time)
-                           :producer_id 1}}
-                        ;; Again we grab the pertinent non-id bits
-                        (map (fn [itm]
-                               (-> (second itm)
-                                   (update-in [:hash] sutils/parse-db-hash)))
-                             @updates)))
-              (is (some (fn [update-call]
-                          (and (= :factsets (first update-call))
-                               (:timestamp (second update-call))))
-                        @updates)))
-            (testing "only new path is uptime_seconds"
-              (is (= #{"uptime_seconds"}
-                     (set/difference (fact-path-set) initial-paths)))))))
+  )
 
-      (testing "replacing all new facts"
-        (delete-certname-facts! certname)
-        (replace-facts! {:certname certname
-                         :values facts
-                         :environment "DEV"
-                         :producer_timestamp (now)
-                         :timestamp (now)
-                         :producer producer})
-        (is (= facts (factset-map "some_certname"))))
+(defn delete-certname-facts!
+  [certname]
+  (jdbc/do-prepared "delete from factsets where certname = ?" [certname]))
 
-      (testing "replacing all facts with new ones"
-        (delete-certname-facts! certname)
+(deftest fact-persistence
+  (with-test-db
+    (testing "Persisted facts"
+      (let [certname "some_certname"
+            facts {"domain" "mydomain.com"
+                   "fqdn" "myhost.mydomain.com"
+                   "hostname" "myhost"
+                   "kernel" "Linux"
+                   "operatingsystem" "Debian"}
+            producer "bar.com"]
+        (add-certname! certname)
+
+        (is (nil?
+             (jdbc/with-db-transaction []
+               (timestamp-of-newest-record :factsets "some_certname"))))
+        (is (empty? (factset-map "some_certname")))
+
         (add-facts! {:certname certname
                      :values facts
                      :timestamp previous-time
                      :environment nil
                      :producer_timestamp previous-time
-                     :producer nil})
-        (replace-facts! {:certname certname
-                         :values {"foo" "bar"}
-                         :environment "DEV"
-                         :producer_timestamp (now)
-                         :timestamp (now)
-                         :producer producer})
-        (is (= {"foo" "bar"} (factset-map "some_certname"))))
+                     :producer producer})
 
-      (testing "replace-facts with only additions"
-        (let [fact-map (factset-map "some_certname")]
-          (replace-facts! {:certname certname
-                           :values (assoc fact-map "one more" "here")
-                           :environment "DEV"
-                           :producer_timestamp (now)
-                           :timestamp (now)
-                           :producer producer})
-          (is (= (assoc fact-map  "one more" "here")
-                 (factset-map "some_certname")))))
+        (testing "should have entries for each fact"
+          (is (= facts (factset-map "some_certname"))))
 
-      (testing "replace-facts with no change"
-        (let [fact-map (factset-map "some_certname")]
+        (testing "should have entries for each fact"
+          (is (= facts (factset-map certname)))
+          (is (jdbc/with-db-transaction []
+                (timestamp-of-newest-record :factsets  "some_certname")))
+          (is (= facts (factset-map "some_certname"))))
+
+        (testing "should add the certname if necessary"
+          (is (= (query-to-vec "SELECT certname FROM certnames")
+                 [{:certname certname}])))
+
+        (testing "should start with no volatile facts"
+          (is (= facts (stable-facts certname)))
+          (is (= {} (volatile-facts certname))))
+
+        (testing "replacing facts"
+          ;; Ensuring here that new records are inserted, updated
+          ;; facts are updated (not deleted and inserted) and that
+          ;; the necessary deletes happen
+          (tu/with-wrapped-fn-args [updates jdbc/update!]
+            (let [new-facts {"domain" "mynewdomain.com"
+                             "fqdn" "myhost.mynewdomain.com"
+                             "hostname" "myhost"
+                             "kernel" "Linux"
+                             "uptime_seconds" 3600}]
+              (replace-facts! {:certname certname
+                               :values new-facts
+                               :environment "DEV"
+                               :producer_timestamp reference-time
+                               :timestamp reference-time
+                               :producer producer})
+
+              (testing "should have only the new facts"
+                (is (= {"domain" "mynewdomain.com"
+                        "fqdn" "myhost.mynewdomain.com"
+                        "hostname" "myhost"
+                        "kernel" "Linux"
+                        "uptime_seconds" 3600}
+                       (factset-map certname))))
+
+              (testing "producer_timestamp should store current time"
+                (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
+                       [{:producer_timestamp (to-timestamp reference-time)}])))
+
+              (testing "changed facts should now be volatile"
+                (is (= #{"domain" "fqdn"}
+                       (set (keys (volatile-facts certname))))))
+
+              #_(testing "should update existing keys"
+                (is (= 1 (count @updates)))
+                (is (some #{{:timestamp (to-timestamp reference-time)
+                             :environment_id 1
+                             :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
+                             :producer_timestamp (to-timestamp reference-time)
+                             :producer_id 1}}
+                          ;; Again we grab the pertinent non-id bits
+                          (map (fn [itm]
+                                 (-> (second itm)
+                                     (update-in [:hash] sutils/parse-db-hash)))
+                               @updates)))
+                (is (some (fn [update-call]
+                            (and (= :factsets (first update-call))
+                                 (:timestamp (second update-call))))
+                          @updates))))))
+
+        (testing "replacing all new facts"
+          (delete-certname-facts! certname)
           (replace-facts! {:certname certname
-                           :values fact-map
+                           :values facts
                            :environment "DEV"
                            :producer_timestamp (now)
                            :timestamp (now)
                            :producer producer})
-          (is (= fact-map
-                 (factset-map "some_certname")))))
-      (testing "stable hash when no facts change"
-        (let [fact-map (factset-map "some_certname")
-              {old-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
+          (is (= facts (factset-map "some_certname"))))
+
+        (testing "replacing all facts with new ones"
+          (delete-certname-facts! certname)
+          (add-facts! {:certname certname
+                       :values facts
+                       :timestamp previous-time
+                       :environment nil
+                       :producer_timestamp previous-time
+                       :producer nil})
           (replace-facts! {:certname certname
-                           :values fact-map
+                           :values {"foo" "bar"}
                            :environment "DEV"
                            :producer_timestamp (now)
                            :timestamp (now)
                            :producer producer})
-          (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
-            (is (= old-hash new-hash)))
-          (replace-facts! {:certname certname
-                           :values (assoc fact-map "another thing" "goes here")
-                           :environment "DEV"
-                           :producer_timestamp (now)
-                           :timestamp (now)
-                           :producer producer})
-          (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
-            (is (not= old-hash new-hash))))))))
+          (is (= {"foo" "bar"} (factset-map "some_certname"))))
+
+        (testing "replace-facts with only additions"
+          (let [fact-map (factset-map "some_certname")]
+            (replace-facts! {:certname certname
+                             :values (assoc fact-map "one more" "here")
+                             :environment "DEV"
+                             :producer_timestamp (now)
+                             :timestamp (now)
+                             :producer producer})
+            (is (= (assoc fact-map  "one more" "here")
+                   (factset-map "some_certname")))))
+
+        (testing "replace-facts with no change"
+          (let [fact-map (factset-map "some_certname")]
+            (replace-facts! {:certname certname
+                             :values fact-map
+                             :environment "DEV"
+                             :producer_timestamp (now)
+                             :timestamp (now)
+                             :producer producer})
+            (is (= fact-map
+                   (factset-map "some_certname")))))
+        (testing "stable hash when no facts change"
+          (let [fact-map (factset-map "some_certname")
+                {old-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
+            (replace-facts! {:certname certname
+                             :values fact-map
+                             :environment "DEV"
+                             :producer_timestamp (now)
+                             :timestamp (now)
+                             :producer producer})
+            (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
+              (is (= old-hash new-hash)))
+            (replace-facts! {:certname certname
+                             :values (assoc fact-map "another thing" "goes here")
+                             :environment "DEV"
+                             :producer_timestamp (now)
+                             :timestamp (now)
+                             :producer producer})
+            (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
+              (is (not= old-hash new-hash)))))))))
+
+(deftest fact-path-gc
+  (letfn [(facts-now [c v]
+            {:certname c :values v
+             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
+          (paths-and-types []
+            (query-to-vec "select path, value_type_id from fact_paths"))
+          (check-gc [factset-changes
+                     expected-before
+                     expected-after]
+            (clear-db-for-testing!)
+            (init-db *db* false)
+            (doseq [cert (set (map first factset-changes))]
+              (add-certname! cert))
+            (doseq [[cert factset] factset-changes]
+              (replace-facts! (facts-now cert factset)))
+            (let [obs (paths-and-types)]
+              (is (= (count expected-before) (count obs)))
+              (is (= expected-before (set obs))))
+            (delete-unused-fact-paths)
+            (let [obs (paths-and-types)]
+              (is (= (count expected-after) (count obs)))
+              (is (= expected-after (set obs)))))]
+    (let [type-id {:int (facts/value-type-id 0)
+                   :str (facts/value-type-id "0")
+                   :obj (facts/value-type-id [])}]
+      (with-test-db
+
+        (testing "works when there are no paths"
+          (check-gc [] #{} #{}))
+
+        (testing "doesn't do anything if nothing changes"
+          (let [before #{{:path "a" :value_type_id (type-id :int)}
+                         {:path "b" :value_type_id (type-id :obj)}
+                         {:path "b#~foo" :value_type_id (type-id :str)}}]
+            (check-gc [["c-x" {"a" 1}]
+                       ["c-y" {"b" {"foo" "two"}}]]
+                      before
+                      before)))
+
+        (testing "orphaning of a simple scalar"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"b" 2}]
+                     ["c-y" {"c" 3}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}))
+
+        (testing "orphaning of a structured fact"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"b" {"foo" "bar"}}]
+                     ["c-y" {"c" 3}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}
+                      {:path "c" :value_type_id (type-id :int)}}
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}))
+
+        (testing "orphaning of an array"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"b" ["x" "y"]}]
+                     ["c-y" {"c" 3}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}
+                      {:path "c" :value_type_id (type-id :int)}}
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "c" :value_type_id (type-id :int)}}))
+
+        ;; In these type change tests, orphaned types linger because
+        ;; the current gc only operates on (removes) paths that have
+        ;; no references at all.  It leaves any existing entries for a
+        ;; given path alone.
+
+        (testing "structured fact changing to simple"
+          (check-gc [["c-x" {"b" {"foo" "bar"}}]
+                     ["c-x" {"b" 1}]]
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}
+                      {:path "b" :value_type_id (type-id :int)}}
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b" :value_type_id (type-id :int)}}))
+
+        (testing "simple fact changing to structured"
+          (check-gc [["c-x" {"b" 1}]
+                     ["c-x" {"b" {"foo" "bar"}}]]
+                    #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}}
+                   #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~foo" :value_type_id (type-id :str)}}))
+
+        (testing "array changes to scalar"
+          (check-gc [["c-x" {"b" ["x" "y"]}]
+                     ["c-x" {"b" 1}]]
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}
+                      {:path "b" :value_type_id (type-id :int)}}
+                    #{{:path "b" :value_type_id (type-id :obj)}
+                      {:path "b" :value_type_id (type-id :int)}}))
+
+        (testing "scalar changes to array"
+          (check-gc [["c-x" {"b" 1}]
+                     ["c-x" {"b" ["x" "y"]}]]
+                    #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}}
+                    #{{:path "b" :value_type_id (type-id :int)}
+                      {:path "b" :value_type_id (type-id :obj)}
+                      {:path "b#~0" :value_type_id (type-id :str)}
+                      {:path "b#~1" :value_type_id (type-id :str)}}))
+
+        (testing "multiple types for path and all disappear"
+          (check-gc [["c-w" {"a" 1}]
+                     ["c-x" {"a" "two"}]
+                     ["c-y" {"a" {"foo" "bar"}}]
+                     ["c-z" {"a" [3]}]
+                     ["c-w" {}]
+                     ["c-x" {}]
+                     ["c-y" {}]
+                     ["c-z" {}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :str)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}
+                      {:path "a#~0" :value_type_id (type-id :int)}}
+                    #{}))
+
+        (testing "multiple types for path and all types change"
+          (let [expected #{{:path "a" :value_type_id (type-id :int)}
+                           {:path "a" :value_type_id (type-id :obj)}
+                           {:path "a#~0" :value_type_id (type-id :int)}
+                           {:path "a#~foo" :value_type_id (type-id :str)}
+                           {:path "a" :value_type_id (type-id :str)}}]
+            (check-gc [["c-x" {"a" 1}]
+                       ["c-y" {"a" [0]}]
+                       ["c-x" {"a" {"foo" "bar"}}]
+                       ["c-y" {"a" "two"}]]
+                      #{{:path "a" :value_type_id (type-id :int)}
+                        {:path "a" :value_type_id (type-id :obj)}
+                        {:path "a#~0" :value_type_id (type-id :int)}
+                        {:path "a#~foo" :value_type_id (type-id :str)}
+                        {:path "a" :value_type_id (type-id :str)}}
+                      ;; Q: Why didn't "a" :int stick around?
+                      #{{:path "a" :value_type_id (type-id :int)}
+                        {:path "a" :value_type_id (type-id :obj)}
+                        {:path "a#~foo" :value_type_id (type-id :str)}
+                        {:path "a" :value_type_id (type-id :str)}})))
+
+        (testing "everything to nothing"
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"a" ["x" "y"]}]
+                     ["c-z" {"a" {"foo" "bar"}}]
+                     ["c-x" {}]
+                     ["c-y" {}]
+                     ["c-z" {}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~0" :value_type_id (type-id :str)}
+                      {:path "a#~1" :value_type_id (type-id :str)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}}
+                    #{}))))))
+
+(deftest factset-paths-write-minimization
+  (letfn [(facts-now [c v]
+            {:certname c :values v
+             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
+          (certname-paths-hash [certname]
+            (-> "select paths_hash from factsets where certname = ?"
+                (query-to-vec certname)
+                first
+                :paths_hash))
+          (reset-db []
+            (clear-db-for-testing!)
+            (init-db *db* false))
+          (set-cert-facts-causes-update [cert factset]
+            (let [real-realize-paths realize-paths
+                  called? (atom false)]
+              (with-redefs [realize-paths (fn [& args]
+                                            (reset! called? true)
+                                            (apply real-realize-paths args))]
+                (replace-facts! (facts-now cert factset)))
+              @called?))]
+    (with-test-db
+
+      (testing "with no hash, establishing no facts establishes a hash"
+        (reset-db)
+        (add-certname! "foo")
+        (is (= nil (certname-paths-hash "foo")))
+        (set-cert-facts-causes-update "foo" {})
+        (let [hash (certname-paths-hash "foo")]
+          (is (= 20 (count hash)))
+          (is (= (class (byte-array 0)) (class hash)))))
+
+      (testing "with hash for no paths, establishing no paths causes no update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {})
+        (is (= false (set-cert-facts-causes-update "foo" {}))))
+
+      (testing "with hash for no paths, establishing paths causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {})
+        (is (= true (set-cert-facts-causes-update "foo" {"a" 1}))))
+
+      (testing "with paths, replacing with same paths causes no update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= false (set-cert-facts-causes-update "foo" {"a" 1}))))
+
+      (testing "with paths, changing fact values causes no update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= false (set-cert-facts-causes-update "foo" {"a" 2}))))
+
+      (testing "with paths, changing paths causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= true (set-cert-facts-causes-update "foo" {"b" 1}))))
+
+      (testing "with paths, adding path causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1})
+        (is (= true (set-cert-facts-causes-update "foo" {"a" 1 "b" 1}))))
+
+      (testing "with paths, removing path causes update"
+        (reset-db)
+        (add-certname! "foo")
+        (set-cert-facts-causes-update "foo" {"a" 1 "b" 1})
+        (is (= true (set-cert-facts-causes-update "foo" {"b" 1})))))))
 
 (deftest-db fact-persistance-with-environment
   (testing "Persisted facts"
@@ -338,21 +587,7 @@
                    :producer producer})
 
       (testing "should have entries for each fact"
-        (is (= facts
-               (into {} (map (juxt :name :value)
-                             (query-to-vec
-                              "SELECT fp.path as name,
-                                      COALESCE(fv.value_string,
-                                               cast(fv.value_integer as text),
-                                               cast(fv.value_boolean as text),
-                                               cast(fv.value_float as text),
-                                               '') as value
-                               FROM factsets fs
-                                 INNER JOIN facts as f on fs.id = f.factset_id
-                                 INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                                 INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                               WHERE fp.depth = 0
-                               ORDER BY name")))))
+        (is (= facts (factset-map "some_certname")))
 
         (is (= [{:certname "some_certname"
                  :environment_id (environment-id "PROD")}]
@@ -369,132 +604,10 @@
         :producer producer})
 
       (testing "should have the same entries for each fact"
-        (is (= facts
-               (into {} (map (juxt :name :value)
-                             (query-to-vec
-                              "SELECT fp.path as name,
-                                      COALESCE(fv.value_string,
-                                               cast(fv.value_integer as text),
-                                               cast(fv.value_boolean as text),
-                                               cast(fv.value_float as text),
-                                               '') as value
-                               FROM factsets fs
-                                 INNER JOIN facts as f on fs.id = f.factset_id
-                                 INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                                 INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                               WHERE fp.depth = 0
-                               ORDER BY name")))))
-
+        (is (= facts (factset-map "some_certname")))
         (is (= [{:certname "some_certname"
                  :environment_id (environment-id "DEV")}]
                (query-to-vec "SELECT certname, environment_id FROM factsets")))))))
-
-(deftest fact-path-value-gc
-  (letfn [(facts-now [c v]
-            {:certname c :values v
-             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
-          (paths [& fact-sets]
-            (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
-          (values [& fact-sets] (set (mapcat vals fact-sets)))
-          (db-paths []
-            (set (query-to-vec "SELECT path, name, depth FROM fact_paths")))
-          (db-vals []
-            (set (mapv :value (query-to-vec
-                               ;; Note: currently can't distinguish 10 from "10".
-                               "SELECT COALESCE(fv.value_string,
-                                                cast(fv.value_integer as text),
-                                                cast(fv.value_boolean as text),
-                                                cast(fv.value_float as text),
-                                                '') as value
-                                  FROM fact_values fv"))))]
-    (testing "during add/replace (generally)"
-      (with-test-db
-        ;; Keep resetting the db facts to match the current state of
-        ;; @fact-x and @facts-y, and then verify that fact_paths always
-        ;; contains exactly the set of keys across both, and fact_values
-        ;; contains exactly the set of values across both.
-        (let [facts-x (atom  {"a" "1" "b" "2" "c" "3"})
-              facts-y (atom  {})]
-          (add-certname! "c-x")
-          (add-certname! "c-y")
-          (add-facts! (facts-now "c-x" @facts-x))
-          (is (= (db-paths) (paths @facts-x @facts-y)))
-          (is (= (db-vals) (values @facts-x @facts-y)))
-          (reset! facts-y {"d" "4"})
-          (add-facts! (facts-now "c-y" @facts-y))
-          (is (= (db-paths) (paths @facts-x @facts-y)))
-          (is (= (db-vals) (values @facts-x @facts-y)))
-          ;; Check that setting c-y to match c-x drops d and 4.
-          (reset! facts-y @facts-x)
-          (update-facts! (facts-now "c-y" @facts-x))
-          (is (= (db-paths) (paths @facts-x @facts-y)))
-          (is (= (db-vals) (values @facts-x @facts-y)))
-          ;; Check that changing c-y's c to 2 does nothing.
-          (swap! facts-y assoc "c" "2")
-          (update-facts! (facts-now "c-y" @facts-y))
-          (is (= (db-paths) (paths @facts-x @facts-y)))
-          (is (= (db-vals) (values @facts-x @facts-y)))
-          ;; Check that changing c-x's c to 2 drops 3.
-          (swap! facts-x assoc "c" "2")
-          (update-facts! (facts-now "c-x" @facts-x))
-          (is (= (db-paths) (paths @facts-x @facts-y)))
-          (is (= (db-vals) (values @facts-x @facts-y)))
-          ;; CLEAR ALL THE FACTS!?
-          (replace-facts! (facts-now "c-y" {})))))
-    (testing "during replace, when value is only referred to by the same factset"
-      (with-test-db
-        (let [facts {"a" "1" "b" "1"}]
-          (add-certname! "c-x")
-          (replace-facts! (facts-now "c-x" facts))
-          (replace-facts! (facts-now "c-x" (assoc facts "b" "2"))))))
-    (testing "during replace - values only in one factset, and all paths change"
-      (with-test-db
-        (let [facts {"a" "1" "b" "2"}
-              facts-swapped {"a" "2" "b" "1"}]
-          (add-certname! "c-x")
-          (replace-facts! (facts-now "c-x" facts))
-          (replace-facts! (facts-now "c-x" facts-swapped)))))
-    (testing "paths - globally, incrementally"
-      (with-test-db
-        (letfn [(str->pathmap [s] (-> s string-to-factpath path->pathmap))]
-          (jdbc/insert! :fact_paths (str->pathmap "foo"))
-          (delete-orphaned-paths! 0)
-          (is (= (map #(dissoc % :id) (db-paths)) [(str->pathmap "foo")]))
-          (delete-orphaned-paths! 1)
-          (is (empty? (map #(dissoc % :id) (db-paths))))
-          (jdbc/insert! :fact_paths (str->pathmap "foo"))
-          (delete-orphaned-paths! 11)
-          (is (empty? (map #(dissoc % :id) (db-paths))))
-          (jdbc/insert-multi!
-            :fact_paths
-            (for [x (range 10)] (str->pathmap (str "foo-" x))))
-          (delete-orphaned-paths! 3)
-          (is (= 7 (:c (first
-                        (query-to-vec
-                         "select count(id) as c from fact_paths"))))))))
-    (testing "values - globally, incrementally"
-      (with-test-db
-        (jdbc/insert! :fact_values
-                      (update-in (value->valuemap "foo")
-                                 [:value_hash] sutils/munge-hash-for-storage))
-        (delete-orphaned-values! 0)
-        (is (= (db-vals) #{"foo"}))
-        (delete-orphaned-values! 1)
-        (is (empty? (db-vals)))
-        (jdbc/insert! :fact_values
-                      (update-in (value->valuemap "foo")
-                                 [:value_hash] sutils/munge-hash-for-storage))
-        (delete-orphaned-values! 11)
-        (is (empty? (db-vals)))
-        (jdbc/insert-multi!
-               :fact_values
-               (for [x (range 10)] (update-in (value->valuemap (str "foo-" x))
-                                              [:value_hash]
-                                              sutils/munge-hash-for-storage)))
-        (delete-orphaned-values! 3)
-        (is (= 7 (:c (first
-                      (query-to-vec
-                       "select count(id) as c from fact_values")))))))))
 
 (defn package-seq
   "Return all facts and their values for a given certname as a map"
@@ -918,9 +1031,8 @@
       (is (= 2 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
       (is (= 1 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num))))))
 
-(deftest-db fact-delete-should-prune-paths-and-values
+(deftest-db fact-delete-deletes-facts
   (add-certname! certname)
-
   ;; Add some facts
   (let [facts {"domain" "mydomain.com"
                "fqdn" "myhost.mydomain.com"
@@ -934,14 +1046,11 @@
                  :environment "ENV3"
                  :producer_timestamp (-> 2 days ago)
                  :producer "bar.com"}))
-  (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
-        fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
-
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 7))
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 7))
-    (delete-certname-facts! certname)
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
+  (is (= 6 (count-facts)))
+  (is (= 6 (count-facts)))
+  (delete-certname-facts! certname)
+  (is (= 0 (count-facts)))
+  (is (= 0 (count-facts))))
 
 (deftest-db catalog-bad-input
   (testing "should noop"

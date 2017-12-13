@@ -23,6 +23,8 @@
 
 (def pathmap-schema
   {:path s/Str
+   :path_array fact-path
+   :value_type_id s/Int
    :name s/Str
    :depth s/Int})
 
@@ -37,15 +39,6 @@
    :producer_timestamp (s/cond-pre s/Str pls/Timestamp)
    :producer (s/maybe s/Str)
    (s/optional-key :package_inventory) [package-tuple]})
-
-(def valuemap-schema
-  {:value_hash s/Str
-   :value_float (s/maybe Double)
-   :value_string (s/maybe s/Str)
-   :value_integer (s/maybe s/Int)
-   :value_boolean (s/maybe s/Bool)
-   :value (s/maybe s/Any)
-   :value_type_id s/Int})
 
 ;; GLOBALS
 
@@ -134,27 +127,6 @@
    (nil? data) 4
    (coll? data) 5))
 
-(defn value->valuemap
-  [value]
-  (let [type-id (value-type-id value)
-        initial-map {:value_type_id type-id
-                     :value_hash (hash/generic-identity-hash value)
-                     :value_string nil
-                     :value_integer nil
-                     :value_float nil
-                     :value_boolean nil
-                     :value nil}]
-    (if (nil? value)
-      initial-map
-      (let [value-keyword (case type-id
-                            0 :value_string
-                            1 :value_integer
-                            2 :value_float
-                            3 :value_boolean
-                            5 :value)]
-        (assoc initial-map value-keyword value
-          :value (sutils/munge-jsonb-for-storage value))))))
-
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
   represented by facts."
@@ -189,19 +161,21 @@
          (conj mem (leaf-fn path data))))))
 
 (pls/defn-validated path->pathmap :- pathmap-schema
-  [path :- fact-path]
+  [path :- fact-path
+   leaf]
   ;; Used by migration-legacy, so copy this function there before
   ;; making backward-incompatible changes.
   {:path (factpath-to-string path)
+   :value_type_id (value-type-id leaf)
+   :path_array path
    :name (first path)
    :depth (dec (count path))})
 
-(pls/defn-validated facts->paths-and-valuemaps
-  :- [(s/pair fact-path "path" valuemap-schema "valuemap")]
+(pls/defn-validated facts->pathmaps :- [pathmap-schema]
   "Returns [path valuemap] pairs for all
   facts. i.e. ([\"foo#~bar\" vm] ...)"
   [facts :- fact-set-schema]
-  (flatten-facts-with (fn [fp leaf] [fp (value->valuemap leaf)]) facts))
+  (flatten-facts-with path->pathmap facts))
 
 (pls/defn-validated unstringify-value
   "Converts a stringified value from the database into its real value and type.
