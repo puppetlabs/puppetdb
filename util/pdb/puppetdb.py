@@ -6,22 +6,9 @@ from commands import CommandPipe
 import asyncio
 import sys
 import json
+import ijson
+import grequests
 from datetime import datetime
-
-def import_or_die(modules):
-    missing = []
-    for module in modules:
-        try:
-            import module
-        except ImportError as ex:
-            missing.append(module)
-    for module in missing:
-        print('error: %r module does not appear to be installed' % module,
-              file=sys.stderr)
-    if missing:
-        sys.exit(1)
-
-import_or_die(('grequests', 'ijson'))
 
 
 DEFAULT_MUTATION_OPTS = {
