@@ -1,3 +1,4 @@
 ---
 packaging_url: 'git://github.com/puppetlabs/packaging.git --branch=master'
 packaging_repo: 'packaging'
+build_tar: FALSE
