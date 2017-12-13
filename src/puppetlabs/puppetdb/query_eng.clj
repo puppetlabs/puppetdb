@@ -78,8 +78,7 @@
   [query-rec]
   (vec
    (for [[projection-key projection-value] (:projections query-rec)
-         :when (and (not= projection-key "value")
-                    (:queryable? projection-value))]
+         :when (:queryable? projection-value)]
      (keyword projection-key))))
 
 (defn query->sql

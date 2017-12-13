@@ -219,7 +219,6 @@ this route.
 
 ## Paging
 
-The v4 `/facts` endpoint does not allow ordering by fact value, but otherwise
-supports the common PuppetDB paging URL parameters. For more information,
-please see the documentation on [paging][paging]. Ordering by value is
-supported on the fact-contents endpoint.
+The v4 `/facts` endpoint supports all the common PuppetDB paging URL
+parameters. For more information, please see the documentation on
+[paging][paging].
