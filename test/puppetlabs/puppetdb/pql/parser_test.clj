@@ -345,6 +345,9 @@
       "certname > 4"
       [:condexpression [:field "certname"] ">" [:integer "4"]]
 
+      "certname != 4"
+      [:condexpression [:field "certname"] "!=" [:integer "4"]]
+
       "a in nodes [a] {}"
       [:condexpression [:field "a"] "in" [:from "nodes" [:extract [:field "a"]]]])
 
