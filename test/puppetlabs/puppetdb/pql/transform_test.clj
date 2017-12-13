@@ -59,6 +59,9 @@
       ["from" "nodes"
        ["=" "a" 1]]
 
+      [:condexpression [:field "certname"] "!=" [:integer "4"]]
+      ["not" ["=" "certname" 4]]
+
       [:from "nodes"
        [:extract "a" "b" "c"]]
       ["from" "nodes"

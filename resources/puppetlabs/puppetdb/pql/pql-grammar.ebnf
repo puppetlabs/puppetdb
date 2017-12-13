@@ -61,11 +61,12 @@ expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;
 subquery = entity, [<whitespace>], where;
 
 (* Conditional expression *)
-condexpression  = (condexpregexp | condexpregexparray | condexpinequality | condexpmatch | condexpin);
+condexpression  = (condexpregexp | condexpregexparray | condexpinequality | condexpmatch | condexpnotmatch| condexpin);
 <condexpregexp> = field, [<whitespace>], condregexp, [<whitespace>], valueregexp;
 <condexpregexparray> = field, [<whitespace>], condregexparray, [<whitespace>], valueregexparray;
 <condexpinequality> = field, [<whitespace>], condinequality, [<whitespace>], valueordered;
 <condexpmatch>  = field, [<whitespace>], condmatch, [<whitespace>], literal;
+<condexpnotmatch>  = field, [<whitespace>], condnotmatch, [<whitespace>], literal;
 <condexpin>     = (field | groupedfieldlist), [<whitespace>], condin, [<whitespace>], valuein;
 
 (* Special is null/is not null expression *)
@@ -95,6 +96,7 @@ field = #'[a-zA-Z0-9_]+\??' | (dottedfield, fieldpath);
 <condregexparray> = '~>';
 <condinequality>  = '>=' | '<=' | '<' | '>';
 <condmatch>       = '=';
+<condnotmatch>    = '!=';
 <condin>          = 'in';
 
 <valueregexp>      = string;
