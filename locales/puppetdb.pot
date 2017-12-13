@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 087d2139a246ce8a17e9dad34c26a39f93fa702d\n"
+"X-Git-Ref: 38d0acbadd7ad18579463776b82c4cdeec8410d3\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -885,15 +885,11 @@ msgid "Caught PSQL processing exception"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "Value {0} of type {1} unsupported."
+msgid "All values in 'array' must be the same type."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Operator ''{0}'' not allowed on value ''{1}''"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "All values in 'array' must be the same type."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
@@ -1115,10 +1111,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Creating additional index `fact_paths_path_trgm`"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Creating additional index `fact_values_string_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
