@@ -121,7 +121,8 @@
                        :build-type "foss"
                        :main-namespace "puppetlabs.puppetdb.main"
                        :start-timeout 14400
-                       :repo-target "PC1"
+                       :repo-target "puppet5"
+                       :nonfinal-repo-target "puppet5-nightly"
                        :logrotate-enabled false}
                 :config-dir "ext/config/foss"
                 }
@@ -179,7 +180,7 @@
                                                [puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.7.3"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.7.4"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}
              :test {:jvm-opts ~(if need-permgen?
