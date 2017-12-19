@@ -121,7 +121,8 @@
                        :build-type "foss"
                        :main-namespace "puppetlabs.puppetdb.main"
                        :start-timeout 14400
-                       :repo-target "PC1"
+                       :repo-target "puppet5"
+                       :nonfinal-repo-target "puppet5-nightly"
                        :logrotate-enabled false}
                 :config-dir "ext/config/foss"
                 }
