@@ -594,7 +594,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
         error = Gem::Version.new(Puppet.version) < Gem::Version.new("5.0.0") ?
           "Invalid relationship: Notify[anyone] { before => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog" :
-          "Could not find resource 'Notify[non-existent]' in parameter 'before' at line 2 on node node"
+          "Could not find resource 'Notify[non-existent]' in parameter 'before' (line: 2) on node node"
 
         expect {
           resource[:before] = 'Notify[non-existent]'
