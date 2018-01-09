@@ -6,7 +6,7 @@ set -x
 ulimit -u 4096
 
 export PDB_TEST_DUMP_LOG_ON_FAILURE=true
-export GEM_SOURCE="http://rubygems.delivery.puppetlabs.net"
+export GEM_SOURCE="https://artifactory.delivery.puppetlabs.net/artifactory/api/gems/rubygems/"
 
 pghost=fixture-pg94.delivery.puppetlabs.net
 pgport=5432
