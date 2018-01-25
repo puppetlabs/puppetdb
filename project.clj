@@ -35,7 +35,10 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [puppetlabs/i18n ~i18n-version]
-                 [cheshire "5.7.1"]
+                 [cheshire "5.8.0"
+                  :excludes [com.fasterxml.jackson.core/jackson-core
+                             com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                             com.fasterxml.jackson.dataformat/jackson-dataformat-cbor]]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
@@ -92,7 +95,13 @@
                  [puppetlabs/http-client "0.5.0" :exclusions [org.slf4j/slf4j-api]]
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
-                 [puppetlabs/comidi "0.3.1"]]
+                 [puppetlabs/comidi "0.3.1"]
+
+                 ;; Pin version for PDB-3809
+                 [com.fasterxml.jackson.core/jackson-core "2.9.1"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.1"]
+                 [com.fasterxml.jackson.dataformat/jackson-dataformat-smile "2.9.1"]
+                 [com.fasterxml.jackson.dataformat/jackson-dataformat-cbor "2.9.1"]]
 
   :jvm-opts ~pdb-jvm-opts
 
