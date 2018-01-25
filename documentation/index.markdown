@@ -77,7 +77,9 @@ setup of its SSL certificates and init scripts. The packages are
 available for the following operating systems:
 
 * Red Hat Enterprise Linux 6.6+ and 7
-* Debian 7 (Wheezy) and 8 (Jessie)
+* Fedora 25 and 26
+* SuSE Enterprise Linux 11 and 12
+* Debian 7 (Wheezy), 8 (Jessie), and 9 (Stretch)
 * 14.04 (Trusty) LTS and 16.04 (Xenial) LTS
 
 [See here for instructions for installing via the PuppetDB module.][install_via_module]
