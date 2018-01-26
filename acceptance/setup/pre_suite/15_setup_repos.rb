@@ -1,4 +1,7 @@
 def initialize_repo_on_host(host, os, nightly)
+  apt_base = 'http://apt.puppetlabs.com'
+  yum_base = 'http://yum.puppetlabs.com'
+  nightlies_base = 'http://nightlies.puppet.com'
   case os
   when :debian
 
@@ -12,18 +15,18 @@ def initialize_repo_on_host(host, os, nightly)
     if options[:type] == 'aio' then
       if nightly
         ## PC1 repos
-        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
+        on host, "curl -O #{apt_base}/puppetlabs-release-pc1-$(lsb_release -sc).deb"
         on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
 
         ## Nightly repos
-        on host, "curl -O http://nightlies.puppet.com/apt/puppet-nightly-release-$(lsb_release -sc).deb"
+        on host, "curl -O #{nightlies_base}/apt/puppet-nightly-release-$(lsb_release -sc).deb"
         on host, "dpkg -i puppet-nightly-release-$(lsb_release -sc).deb"
       else
-        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
+        on host, "curl -O #{apt_base}.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
         on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
       end
     else
-      on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
+      on host, "curl -O #{apt_base}.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
       on host, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
     end
     on host, "apt-get update"
@@ -37,14 +40,14 @@ def initialize_repo_on_host(host, os, nightly)
 
       if nightly
         ## PC1 repos
-        on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+        on host, "curl -O #{yum_base}/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
         on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
 
         ## Nightly repos
-        on host, "curl -O http://nightlies.puppet.com/yum/puppet-nightly-release-#{variant}-#{version}.noarch.rpm"
+        on host, "curl -O #{nightlies_base}/yum/puppet-nightly-release-#{variant}-#{version}.noarch.rpm"
         on host, "rpm -i puppet-nightly-release-#{variant}-#{version}.noarch.rpm"
       else
-        on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+        on host, "curl -O #{yum_base}/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
         on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
       end
     else
@@ -53,8 +56,8 @@ def initialize_repo_on_host(host, os, nightly)
       create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
 [puppetlabs-dependencies]
 name=Puppet Labs Dependencies - $basearch
-baseurl=http://yum.puppetlabs.com/el/$releasever/dependencies/$basearch
-gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+baseurl=#{yum_base}/el/$releasever/dependencies/$basearch
+gpgkey=#{yum_base}/RPM-GPG-KEY-puppetlabs
 enabled=1
 gpgcheck=1
       REPO
@@ -62,8 +65,8 @@ gpgcheck=1
       create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
 [puppetlabs-products]
 name=Puppet Labs Products - $basearch
-baseurl=http://yum.puppetlabs.com/el/$releasever/products/$basearch
-gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+baseurl=#{yum_base}.com/el/$releasever/products/$basearch
+gpgkey=#{yum_base}/RPM-GPG-KEY-puppetlabs
 enabled=1
 gpgcheck=1
       REPO
@@ -82,8 +85,8 @@ gpgcheck=0
     create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
 [puppetlabs-dependencies]
 name=Puppet Labs Dependencies - $basearch
-baseurl=http://yum.puppetlabs.com/fedora/f$releasever/dependencies/$basearch
-gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+baseurl=#{yum_base}/fedora/f$releasever/dependencies/$basearch
+gpgkey=#{yum_base}/RPM-GPG-KEY-puppetlabs
 enabled=1
 gpgcheck=1
     REPO
@@ -91,8 +94,8 @@ gpgcheck=1
     create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
 [puppetlabs-products]
 name=Puppet Labs Products - $basearch
-baseurl=http://yum.puppetlabs.com/fedora/f$releasever/products/$basearch
-gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+baseurl=#{yum_base}/fedora/f$releasever/products/$basearch
+gpgkey=#{yum_base}/RPM-GPG-KEY-puppetlabs
 enabled=1
 gpgcheck=1
     REPO
