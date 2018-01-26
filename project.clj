@@ -1,4 +1,4 @@
-(def pdb-version "5.1.4")
+(def pdb-version "5.1.5-SNAPSHOT")
 (def puppetserver-version "5.1.0")
 (def clj-parent-version "1.4.3")
 
