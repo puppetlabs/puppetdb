@@ -98,7 +98,10 @@
                  [com.novemberain/pantomime "2.1.0"]
                  [compojure]
                  [org.apache.commons/commons-compress "1.10"]
-                 [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]]
+                 [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
+
+                 ;; Pin version for PDB-3809
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.1"]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
