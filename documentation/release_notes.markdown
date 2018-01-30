@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## 5.1.4
 
-PuppetDB 5.1.4 is a bug-fix release.
+PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
 
 ### Bug fixes
 
