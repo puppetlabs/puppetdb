@@ -644,11 +644,11 @@ handling, and improves the speed of removing old reports and node expiration and
 
 * Allow configuration of AciveMQ Broker's memoryLimit. For PuppetDB instances
   with larger amount of memory and heavy load, this can improve performance.
-  More information in the [config docs][./configure.html#memory-usage]
+  More information in the [config docs](./configure.html#memory-usage)
   ([PDB-2726](https://tickets.puppetlabs.com/browse/PDB-2726)).
 
 * Preliminary support for HUP signal handling. Note that due to
-  [AMQ-5263][https://issues.apache.org/jira/browse/AMQ-5263] there is
+  [AMQ-5263](https://issues.apache.org/jira/browse/AMQ-5263) there is
   a possibility of a crash when HUPed. We've observed this race
   condition when under heavy load and repeatedly HUPed. This will be
   fixed and more robust in a future release

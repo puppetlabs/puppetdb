@@ -21,6 +21,7 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 [pql]: ./pql.html
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
 [to-char]: http://www.postgresql.org/docs/9.6/static/functions-formatting.html
+[prefix]: 
 
 ## Summary
 
@@ -37,7 +38,7 @@ largely based on the AST query language.
 
 An AST query string passed to the `query` URL parameter of a REST endpoint must be a [URL-encoded][urlencode]
 JSON array, which may contain scalar data types (usually strings) and additional arrays, that describes a
-complex _comparison operation_ in [_prefix notation_][prefix] with an **operator** first and its **arguments** following.
+complex _comparison operation_ in _prefix notation_ with an **operator** first and its **arguments** following.
 
 That is, before being URL-encoded, all AST query strings follow this form:
 

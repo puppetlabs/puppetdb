@@ -16,6 +16,8 @@ canonical: "/puppetdb/latest/api/query/v4/inventory.html"
 [edges]: ./edges.html
 [resources]: ./resources.html
 [nodes]: ./nodes.html
+[query]: ./query.html
+[ast]: ./ast.html
 
 The `/inventory` endpoint enables an alternative query syntax for digging into
 structured facts, and can be used instead of the `facts`, `fact-contents`, and
@@ -33,12 +35,11 @@ Inventories for deactivated nodes are not included in the response.
   supported operators and fields. For general information about queries, see
   [our guide to query structure.][query]
 
-
 ### Query operators
 
 See [the AST query language page][ast] for the full list of available operators.
 
-Note: This endpoint supports [dot notation][dotted] on the `facts` and
+> **Note:** This endpoint supports [dot notation][dotted] on the `facts` and
 `trusted` response fields.
 
 ### Query fields
@@ -55,6 +56,7 @@ Note: This endpoint supports [dot notation][dotted] on the `facts` and
 * `trusted` (json): a JSON hash of trusted data for the node.
 
 ### Response format
+
 Successful responses will be in `application/json`.
 
 The result will be a JSON array with one entry per certname. Each entry is of
