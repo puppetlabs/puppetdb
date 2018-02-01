@@ -22,22 +22,22 @@ The maintenance operations must be triggered by a POST.
 The POST request should specify `Content-Type: application/json` and
 the request body should look like this:
 
-  ``` json
-  {"version" : 1, "payload" : [REQUESTED_OPERATION, ...]}
-  ```
+``` json
+{"version" : 1, "payload" : [REQUESTED_OPERATION, ...]}
+```
 
 where valid `REQUESTED_OPERATION`s are `"expire_nodes"`,
 `"purge_nodes"`, `"purge_reports"`, `"gc_packages"`, and `"other"`.
 In addition, a purge_nodes operation can be structured like this to
 specify a batch_limit:
 
-  ``` json
-  ["purge_nodes" {"batch_limit" : 50}]
-  ```
+``` json
+["purge_nodes" {"batch_limit" : 50}]
+```
 
 When specified, the `batch_limit` restricts the maximum number of
 nodes purged to the value specified, and if not specified, the limit
-will be the [`node-purge-gc-batch-limit`][config-purge-batch-limit].
+will be the [`node-purge-gc-batch-limit`][config-purge-limit].
 
 An empty payload vector requests all maintenance operations.
 
@@ -50,18 +50,18 @@ An empty payload vector requests all maintenance operations.
 The response type will be `application/json`, and upon success will
 include this JSON map:
 
-  ``` json
-  {"ok": true}
-  ```
+``` json
+{"ok": true}
+```
 
 If any other maintenance operation is already in progress the HTTP
 response status will be 409 (conflict), will include a map like this
 
-  ``` json
-  {"kind": "conflict",
-   "msg": "Another cleanup is already in progress",
-   "details": null}
-  ```
+``` json
+{"kind": "conflict",
+ "msg": "Another cleanup is already in progress",
+ "details": null}
+```
 
 and no additional maintenance will be performed.  The `msg` and
 `details` may or may not vary, but the `kind` will always be
@@ -71,12 +71,12 @@ and no additional maintenance will be performed.  The `msg` and
 
 [Using `curl` from localhost][curl]:
 
-  ``` sh
-  $ curl -X POST http://localhost:8080/pdb/admin/v1/cmd \
-        -H 'Accept: application/json' \
-        -H 'Content-Type: application/json' \
-        -d '{"command": "clean",
-             "version": 1,
-             "payload": ["expire_nodes", "purge_nodes"]}'
-  {"ok": true}
-  ```
+``` sh
+$ curl -X POST http://localhost:8080/pdb/admin/v1/cmd \
+       -H 'Accept: application/json' \
+       -H 'Content-Type: application/json' \
+       -d '{"command": "clean",
+            "version": 1,
+            "payload": ["expire_nodes", "purge_nodes"]}'
+{"ok": true}
+```

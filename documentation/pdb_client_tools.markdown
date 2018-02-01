@@ -4,11 +4,9 @@ layout: default
 ---
 
 [installpuppet]: {{puppet}}/install_pre.html
-[repos]: {{puppet}}/puppet_collections.html
+[repos]: {{puppet}}/puppet_platform.html
 [export]: ./anonymization.html
 [installpeclienttools]: {{pe}}/install_pe_client_tools.html
-
-# PuppetDB CLI
 
 ## Installation
 
@@ -28,20 +26,22 @@ your Puppet master server. If you run `puppet agent --test`, it should
 successfully complete a run, ending with `Notice: Applied catalog in X.XX
 seconds`.
 
-**Note:** it is helpful to add the Puppet bin, `/opt/puppetlabs/bin`, and man,
+> **Note:** It is helpful to add the Puppet bin, `/opt/puppetlabs/bin`, and man,
 `/opt/puppetlabs/client/tools/share/man`, directories to your `PATH` and
 `MANPATH` directories respectively. For example,
-
-    $ export PATH=/opt/puppetlabs/bin:$PATH
-    $ export MANPATH=/opt/puppetlabs/client/tools/share/man:$MANPATH
-
-The rest of this documentation assumes that these two directories have been
+>
+> ```bash
+> $ export PATH=/opt/puppetlabs/bin:$PATH
+> $ export MANPATH=/opt/puppetlabs/client/tools/share/man:$MANPATH
+> ```
+>
+> The rest of this documentation assumes that these two directories have been
 added to their proper path configurations.
 
-### Step 2: Enable the Puppet Collection package repository
+### Step 2: Enable the Puppet Platform package repository
 
 If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Collection package repository][repos] for your system.
+[enable the Puppet Platform package repository][repos] for your system.
 
 ### Step 3: Install and configure the PuppetDB CLI
 

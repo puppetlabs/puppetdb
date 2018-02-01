@@ -15,9 +15,6 @@ canonical: "/puppetdb/latest/configure.html"
 [node-ttl]: #node-ttl
 [admin-cmd]: api/admin/v1/cmd.html
 
-Summary
------
-
 PuppetDB has three main groups of settings:
 
 * The init script's configuration file, which sets the JVM heap size and the location of PuppetDB's main config file.

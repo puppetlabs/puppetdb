@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/query.html"
 [paging]: ./paging.html
 [entities]: ./entities.html
 [root]: ./index.html
+[pql]: ./pql.html
 
 ## Summary
 
