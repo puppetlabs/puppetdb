@@ -56,7 +56,13 @@ matrix:
         PUPPETSERVER_VERSION=2.7.2
       jdk: openjdk8
 
-before_install: ext/travisci/install_puppetserver.sh
+before_install: |
+  set -e
+  if test "$PDB_TEST_SELECTOR" = :integration
+  then
+      ext/travisci/install_puppetserver.sh
+  fi
+
 script: ext/travisci/test.sh
 
 notifications:
