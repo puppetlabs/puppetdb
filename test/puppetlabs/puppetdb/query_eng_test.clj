@@ -169,6 +169,53 @@
   (is (not (nil? (:results-query (compile-user-query->sql reports-query ["extract", ["hash"],
                                                                          ["or", ["=", "certname", "host-3"]]]))))))
 
+
+(defn check-query-doesnt-generate-jsonb-each [query-rec user-query]
+  (is (not (re-matches #".*jsonb_each.*"
+                    (-> (compile-user-query->sql query-rec user-query)
+                        :results-query
+                        first)))))
+
+(deftest no-jsonb-each-for-short-nodes-fact-query
+  (check-query-doesnt-generate-jsonb-each
+   nodes-query
+   ["=" ["fact" "osfamily"] "Linux"]))
+
+(deftest no-jsonb-each-for-long-nodes-fact-query
+  (check-query-doesnt-generate-jsonb-each
+   nodes-query
+   ["in" "certname" ["extract" "certname"
+                     ["select_facts"
+                      ["and"
+                       ["=" "name" "osfamily"]
+                       ["=" "value" "Linux"]]]]]))
+
+;; this test fails because jsonb strings are less than numbers, and we can't
+;; currently do a type check in the inventory endpoint (which this optimizes
+;; into)
+;; (deftest no-jsonb-each-for-long-nodes-fact-inequality
+;;   (check-query-doesnt-generate-jsonb-each
+;;    nodes-query
+;;    ["in" "certname" ["extract" "certname"
+;;                      ["select_facts"
+;;                       ["and"
+;;                        ["=" "name" "foobar"]
+;;                        ["<" "value" 2]]]]]))
+
+(deftest no-jsonb-each-for-nested-nodes-fact-condition
+  (check-query-doesnt-generate-jsonb-each
+   nodes-query
+   ["and"
+    ["~" "certname" ".*test.*"]
+    ["=" ["fact" "osfamily"] "Linux"]]))
+
+(deftest no-jsonb-each-for-nested-inventory-fact-condition
+  (check-query-doesnt-generate-jsonb-each
+   inventory-query
+   ["and"
+    ["~" "certname" ".*test.*"]
+    ["=" ["fact" "osfamily"] "Linux"]]))
+
 (deftest-http-app query-recs-are-swappable
   [version [:v4]
    endpoint ["/v4/fact-names"]

@@ -21,7 +21,8 @@
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [clojure.walk :as walk])
   (:import [honeysql.types SqlCall SqlRaw]
            [org.postgresql.util PGobject]))
 
@@ -2127,6 +2128,41 @@
 
     annotated-query))
 
+(defn optimize-user-query-node [user-query-node]
+  (cm/match
+   [user-query-node]
+
+   ;; fact name-and-value query
+   [["extract" (extract-col :guard #{"certname" "environment"})
+     ["select_facts"
+      ["and"
+       ["=" "name" fact-name]
+       [op "value" (fact-value :guard (complement vector?))]]]]]
+   ["extract" extract-col
+    ["select_inventory"
+     [op (str "facts." fact-name) fact-value]]]
+
+   ;; fact name-and-value query with type restriction
+   [["extract" (extract-col :guard #{"certname" "environment"})
+     ["select_facts"
+      ["and"
+       ["=" "name" fact-name]
+       ["and"
+        ["=" ["function" "jsonb_typeof" "value"] _]
+        [op "value" (fact-value :guard (complement vector?))]]]]]]
+   ;; type restrictions don't work on the inventory endpoint; favor better perf
+   ;; here over slightly strange behavior in the corner case where a fact has
+   ;; string data on one host and numeric on another.
+   ["extract" extract-col
+    ["select_inventory"
+     [op (str "facts." fact-name) fact-value]]]
+
+   :else
+   user-query-node))
+
+(defn optimize-user-query [user-query]
+  (walk/prewalk optimize-user-query-node user-query))
+
 ;; Top-level parsing
 
 (def experimental-entities
@@ -2202,6 +2238,7 @@
         {:keys [plan params]} (->> user-query
                                    (push-down-context query-rec)
                                    expand-user-query
+                                   optimize-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
         sql (plan->sql plan)
