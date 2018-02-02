@@ -21,32 +21,32 @@ matrix:
         PDB_TEST_SELECTOR=:unit
       jdk: openjdk8
 
-    - env: >
-        NAME=unit-openjdk7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: openjdk7
+    # - env: >
+    #     NAME=unit-openjdk7
+    #     PDB_TEST_LANG=clojure
+    #     PDB_TEST_SELECTOR=:unit
+    #   jdk: openjdk7
 
-    - env: >
-        NAME=unit-oracle8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: oraclejdk8
+    # - env: >
+    #     NAME=unit-oracle8
+    #     PDB_TEST_LANG=clojure
+    #     PDB_TEST_SELECTOR=:unit
+    #   jdk: oraclejdk8
 
-    - env: >
-        NAME=unit-oracle7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: oraclejdk7
+    # - env: >
+    #     NAME=unit-oracle7
+    #     PDB_TEST_LANG=clojure
+    #     PDB_TEST_SELECTOR=:unit
+    #   jdk: oraclejdk7
 
     # pdb + terminus + puppetserver + puppet integration tests
-    - env: >
-        NAME=integration-puppet4-openjdk7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=4.10.4
-        PUPPETSERVER_VERSION=2.7.2
-      jdk: openjdk7
+    # - env: >
+    #     NAME=integration-puppet4-openjdk7
+    #     PDB_TEST_LANG=clojure
+    #     PDB_TEST_SELECTOR=:integration
+    #     PUPPET_VERSION=4.10.4
+    #     PUPPETSERVER_VERSION=2.7.2
+    #   jdk: openjdk7
 
     - env: >
         NAME=integration-puppet4-openjdk8
@@ -56,12 +56,7 @@ matrix:
         PUPPETSERVER_VERSION=2.7.2
       jdk: openjdk8
 
-before_install: |
-  set -e
-  if test "$PDB_TEST_SELECTOR" = :integration
-  then
-      ext/travisci/install_puppetserver.sh
-  fi
+before_install: ext/travisci/install_puppetserver.sh
 
 script: ext/travisci/test.sh
 

@@ -1,5 +1,5 @@
 (def pdb-version "4.4.3-SNAPSHOT")
-(def puppetserver-version "2.7.2")
+(def puppetserver-test-version "2.7.2")
 (def clj-parent-version "0.6.0")
 
 (defn deploy-info
@@ -23,6 +23,8 @@
             :url "http://www.apache.org/licenses/LICENSE-2.0.html"}
 
   :url "https://docs.puppetlabs.com/puppetdb/"
+
+  :pdb-puppetserver-test-version ~puppetserver-test-version
 
   :min-lein-version "2.7.1"
 
@@ -140,8 +142,8 @@
                                   [puppetlabs/trapperkeeper :classifier "test"]
                                   [puppetlabs/kitchensink :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
-                                  [puppetlabs/puppetserver ~puppetserver-version]
-                                  [puppetlabs/puppetserver ~puppetserver-version :classifier "test"]
+                                  [puppetlabs/puppetserver ~puppetserver-test-version]
+                                  [puppetlabs/puppetserver ~puppetserver-test-version :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
                                   [org.clojure/test.check "0.9.0"]
                                   [com.gfredericks/test.chuck "0.2.7" :exclusions

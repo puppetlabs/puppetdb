@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
-set -o pipefail
+set -exo pipefail
 
 export PUPPETSERVER_HEAP_SIZE=1G
 
@@ -24,13 +23,19 @@ lein-pprint() {
     lein with-profile dev,ci pprint "$@" | sed -e 's/^"//' -e 's/"$//'
 }
 
+if test -n "$PUPPETSERVER_VERSION"
+then
+    PUPPETSERVER_VERSION="$(lein-pprint :pdb-puppetserver-test-version)"
+fi
+
 git clone https://github.com/puppetlabs/puppetserver
 
 cd puppetserver
 git checkout "$PUPPETSERVER_VERSION"
 lein install
-MAVEN_VER="$(lein-pprint :version)"
-echo "$MAVEN_VER"
+maven_ver="$(lein-pprint :version)"
+echo "$maven_ver"
+test -n "$maven_ver"
 cd ..
 
-update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
+update_dependency_var project.clj puppetserver-version "$maven_ver"
