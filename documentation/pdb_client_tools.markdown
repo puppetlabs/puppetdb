@@ -98,7 +98,7 @@ certicate authentication takes precendence over token authentication).
 {
   "puppetdb": {
     "server_urls": "https://<PUPPETDB_HOST>:8081",
-    "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem",
+    "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem"
   }
 }
 ```
