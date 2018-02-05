@@ -103,6 +103,17 @@ certicate authentication takes precendence over token authentication).
 }
 ```
 
+On Windows, escape slashes in the CA certificate path.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "C:\\ProgramData\\PuppetLabs\\puppet\\etc\\ssl\\certs\\ca.pem"
+  }
+}
+```
+
 #### Example configuration file (puppet-client-tools)
 
 The open source version of the PuppetDB CLI requires certificate authentication
@@ -116,6 +127,19 @@ for SSL connections to PuppetDB. To configure certificate authentication set
     "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem",
     "cert": "/etc/puppetlabs/puppet/ssl/certs/<WORKSTATION_HOST>.pem",
     "key": "/etc/puppetlabs/puppet/ssl/private_keys/<WORKSTATION_HOST>.pem"
+  }
+}
+```
+
+On Windows, escape slashes in paths.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\certs\\ca.pem",
+    "cert": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\certs\\<WORKSTATION_HOST>.pem",
+    "key": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\private_keys\\<WORKSTATION_HOST>.pem"
   }
 }
 ```
