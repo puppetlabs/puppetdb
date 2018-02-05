@@ -91,8 +91,8 @@ necessary configuration items are `server_urls` and `cacert`.
 
 **Note:** You can still use certificate authentication with the PE version (see
 below for an example configuration) but setting `cert` and `key` in the PuppetDB
-CLI configuration will prevent you from using token authentication (i.e.
-certicate authentication takes precendence over token authentication).
+CLI configuration will prevent you from using token authentication (for example,
+certificate authentication takes precendence over token authentication).
 
 ```json
 {
