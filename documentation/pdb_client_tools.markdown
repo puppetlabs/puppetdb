@@ -74,6 +74,7 @@ take the following settings:
 - `cacert` The path for the CA cert.
 
   *nix sytems - /etc/puppetlabs/puppet/ssl/certs/ca.pem
+
   Windows - C:\ProgramData\PuppetLabs\puppet\etc\ssl\certs\ca.pem
 
 - `cert` An SSL certificate signed by your site's Puppet CA. Note that the PE
@@ -89,7 +90,7 @@ take the following settings:
 The PE version of the PuppetDB CLI supports token auth so the only
 necessary configuration items are `server_urls` and `cacert`.
 
-**Note:** You can still use certificate authentication with the PE version (see
+> **Note:** You can still use certificate authentication with the PE version (see
 below for an example configuration) but setting `cert` and `key` in the PuppetDB
 CLI configuration will prevent you from using token authentication (i.e.
 certicate authentication takes precendence over token authentication).
