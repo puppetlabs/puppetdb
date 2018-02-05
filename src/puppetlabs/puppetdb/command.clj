@@ -473,7 +473,9 @@
   (-> cmdref
       (queue/cons-attempt ex)
       (dlo/discard-cmdref q dlo))
-  (mark-both-metrics! (:command cmdref) (:version cmdref) :discarded))
+  (let [{:keys [command version]} cmdref]
+    (mark-both-metrics! command version :discarded)
+    (update-counter! :depth command version dec!)))
 
 (defn process-delete-cmdref
   "Processes a command ref marked for deletion. This is similar to
