@@ -74,6 +74,7 @@ take the following settings:
 - `cacert` The path for the CA cert.
 
   *nix sytems - /etc/puppetlabs/puppet/ssl/certs/ca.pem
+
   Windows - C:\ProgramData\PuppetLabs\puppet\etc\ssl\certs\ca.pem
 
 - `cert` An SSL certificate signed by your site's Puppet CA. Note that the PE
@@ -89,7 +90,7 @@ take the following settings:
 The PE version of the PuppetDB CLI supports token auth so the only
 necessary configuration items are `server_urls` and `cacert`.
 
-**Note:** You can still use certificate authentication with the PE version (see
+> **Note:** You can still use certificate authentication with the PE version (see
 below for an example configuration) but setting `cert` and `key` in the PuppetDB
 CLI configuration will prevent you from using token authentication (for example,
 certificate authentication takes precendence over token authentication).
@@ -99,6 +100,17 @@ certificate authentication takes precendence over token authentication).
   "puppetdb": {
     "server_urls": "https://<PUPPETDB_HOST>:8081",
     "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem"
+  }
+}
+```
+
+On Windows, escape slashes in the CA certificate path.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "C:\\ProgramData\\PuppetLabs\\puppet\\etc\\ssl\\certs\\ca.pem"
   }
 }
 ```
@@ -116,6 +128,19 @@ for SSL connections to PuppetDB. To configure certificate authentication set
     "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem",
     "cert": "/etc/puppetlabs/puppet/ssl/certs/<WORKSTATION_HOST>.pem",
     "key": "/etc/puppetlabs/puppet/ssl/private_keys/<WORKSTATION_HOST>.pem"
+  }
+}
+```
+
+On Windows, escape slashes in paths.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\certs\\ca.pem",
+    "cert": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\certs\\<WORKSTATION_HOST>.pem",
+    "key": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\private_keys\\<WORKSTATION_HOST>.pem"
   }
 }
 ```
