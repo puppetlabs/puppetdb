@@ -11,9 +11,6 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet master to it][connect_to_puppetdb].
 
-Summary
------
-
 The Puppet master makes HTTPS connections to PuppetDB to store catalogs, facts, and new reports. It also uses PuppetDB to answer queries, such as those necessary to support exported resources. If the PuppetDB instance is down, depending on the configuration of the Puppet master, it could cause the Puppet run to fail. This document discusses configuration options for the `puppetdb.conf` file, including settings to make the PuppetDB terminus more tolerant of failures.
 
 ## Location
@@ -89,7 +86,7 @@ The default value in PE is true.
 
 #### `sticky_read_failover`
 
-**Note: For use with Puppet Enterprise only.**
+> **Note:** For use with Puppet Enterprise only.
 
 When using multiple `server_urls`, this flag can be set to `true` to cause queries to be made to the last PuppetDB instance that was successfully contacted.
 
@@ -97,7 +94,7 @@ The default value is false.
 
 #### `command_broadcast`
 
-**Note: For use with Puppet Enterprise only.**
+> **Note:** For use with Puppet Enterprise only.
 
 When set to `true` in installations using multiple `server_urls`, commands are sent to all configured PuppetDB instances. 
 
@@ -106,7 +103,7 @@ In open source Puppet and PE versions earlier than 2016.5, the default setting i
 
 #### `min_successful_submissions`
 
-**Note: For use with Puppet Enterprise only.**
+> **Note:** For use with Puppet Enterprise only.
 
 When writing data (submitting commands) to PuppetDB, this is the minimum number of machines to which the command must be successfully sent to consider the write successful. If the configured number of machines cannot be reached, Puppet runs will fail.
 

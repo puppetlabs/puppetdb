@@ -1,7 +1,7 @@
 ---
 packaging_url: 'git://github.com/puppetlabs/packaging.git --branch=1.0.x'
 packaging_repo: 'packaging'
-
+project: 'puppetdb'
 repo_name: 'puppet5'
 nonfinal_repo_name: 'puppet5-nightly'
 repo_link_target: 'puppet'

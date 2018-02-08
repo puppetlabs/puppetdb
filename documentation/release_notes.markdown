@@ -31,6 +31,13 @@ to facts storage users may expect some quirks:
   for users operating near capacity. This should fix itself after Puppet's
   runinterval (default: 30 minutes) has elapsed.
 
+## 5.1.4
+
+PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
+
+### Bug fixes
+
+-   PuppetDB's `jackson-databind` dependency is updated to 2.9.1, which contains a fix to a security issue. This library is only used in the structured logging module, so most users should be unaffected.
 
 5.1.3
 -----
@@ -38,12 +45,12 @@ to facts storage users may expect some quirks:
 PuppetDB 5.1.3 includes bugfixes and performance improvements.
 
 ### Bug Fixes
-* A recent fact data migration should no longer crash when the existing 
+* A recent fact data migration should no longer crash when the existing
   data has unexpected null value representations.
   ([PDB-3692](https://tickets.puppetlabs.com/browse/PDB-3692))
 
 ### Improvements
-* An optional facts blacklist feature has been added to the PDB config file 
+* An optional facts blacklist feature has been added to the PDB config file
   that allows users to specify facts that will be ignored during ingestion.
   ([PDB-3630](https://tickets.puppetlabs.com/browse/PDB-3630))
 
@@ -364,7 +371,7 @@ encouraged to upgrade to this release.
 * When storing reports, PuppetDB first queries the database to see if a report
   with the same hashcode is already present. This database query was erroneously
   not using the index on the hash column, resulting in increased report storage
-  time. It has been updated so that the index will take effect as intended. 
+  time. It has been updated so that the index will take effect as intended.
   ([PDB-3323](https://tickets.puppetlabs.com/browse/PDB-3323))
 
 ### Contributors
@@ -374,7 +381,7 @@ Jessykah Bird, Russell Mull
 4.3.1
 -----
 
-PuppetDB 4.3.1 was a PE-only bugfix release. 
+PuppetDB 4.3.1 was a PE-only bugfix release.
 
 4.3.0
 -----
@@ -652,11 +659,11 @@ handling, and improves the speed of removing old reports and node expiration and
 
 * Allow configuration of AciveMQ Broker's memoryLimit. For PuppetDB instances
   with larger amount of memory and heavy load, this can improve performance.
-  More information in the [config docs][./configure.html#memory-usage]
+  More information in the [config docs](./configure.html#memory-usage)
   ([PDB-2726](https://tickets.puppetlabs.com/browse/PDB-2726)).
 
 * Preliminary support for HUP signal handling. Note that due to
-  [AMQ-5263][https://issues.apache.org/jira/browse/AMQ-5263] there is
+  [AMQ-5263](https://issues.apache.org/jira/browse/AMQ-5263) there is
   a possibility of a crash when HUPed. We've observed this race
   condition when under heavy load and repeatedly HUPed. This will be
   fixed and more robust in a future release

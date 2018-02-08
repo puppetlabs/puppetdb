@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/connect_puppet_apply.html"
 [settings_namespace]: {{puppet}}/lang_facts_and_builtin_vars.html#puppet-master-variables
 [package_repos]: {{puppet}}/puppet_collections.html
 
-> Note: To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
+> **Note:** To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 
 PuppetDB can be used with standalone Puppet deployments where each node runs `puppet apply`. Once connected to PuppetDB, `puppet apply` will do the following:
 
@@ -53,7 +53,7 @@ Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike cust
 
 * First, ensure that the appropriate [Puppet Collection repository][package_repos]
   repository is enabled. You can use a [package][] resource to do this or the
-  `apt::source` (from the [puppetlabs-apt][apt] module) and [`yumrepo`][] types.
+  `apt::source` (from the [puppetlabs-apt][apt] module) and [`yumrepo`][yumrepo] types.
 * Next, use Puppet to ensure that the `puppetdb-termini` package is installed:
 
 ~~~ ruby

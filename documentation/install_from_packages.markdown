@@ -12,6 +12,7 @@ layout: default
 [requirements]: ./index.html#standard-install-rhel-centos-debian-and-ubuntu
 [install_module]: ./install_via_module.html
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
+[keystore_instructions]: ./postgres_ssl.html
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.

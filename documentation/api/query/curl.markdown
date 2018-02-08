@@ -37,15 +37,16 @@ Any node managed by Puppet agent will already have all of these, and you can
 reuse them for contacting PuppetDB. You can also generate a new cert on the CA
 Puppet master with the `puppet cert generate` command.
 
-**Note:** If you have turned on [certificate whitelisting][whitelist], you must
+> **Note:** If you have turned on [certificate whitelisting][whitelist], you must
 make sure to authorize the certificate you are using:
-
-    curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
-      --tlsv1 \
-      --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
-      --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
-      --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
-
+>
+> ```
+> curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
+>   --tlsv1 \
+>   --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
+>   --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
+>   --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
+> ```
 
 ### Using an RBAC token (PE only)
 
@@ -60,7 +61,7 @@ can reuse the CA certificate for contacting PuppetDB. You can read more about
 generating RBAC tokens and how they work in the
 [PE documention]({{pe}}/rbac_token_auth.html).
 
-**Note:** The token the user is for must have the correct permissions for
+> **Note:** The token the user is for must have the correct permissions for
 viewing (`nodes:view_data:*`) or editing (`nodes:edit_data:*`) node data
 depending on the operation.
 
