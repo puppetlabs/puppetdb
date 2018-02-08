@@ -4,11 +4,9 @@ layout: default
 ---
 
 [installpuppet]: {{puppet}}/install_pre.html
-[repos]: {{puppet}}/puppet_collections.html
+[repos]: {{puppet}}/puppet_platform.html
 [export]: ./anonymization.html
 [installpeclienttools]: {{pe}}/install_pe_client_tools.html
-
-# PuppetDB CLI
 
 ## Installation
 
@@ -28,20 +26,22 @@ your Puppet master server. If you run `puppet agent --test`, it should
 successfully complete a run, ending with `Notice: Applied catalog in X.XX
 seconds`.
 
-**Note:** it is helpful to add the Puppet bin, `/opt/puppetlabs/bin`, and man,
+> **Note:** It is helpful to add the Puppet bin, `/opt/puppetlabs/bin`, and man,
 `/opt/puppetlabs/client/tools/share/man`, directories to your `PATH` and
 `MANPATH` directories respectively. For example,
-
-    $ export PATH=/opt/puppetlabs/bin:$PATH
-    $ export MANPATH=/opt/puppetlabs/client/tools/share/man:$MANPATH
-
-The rest of this documentation assumes that these two directories have been
+>
+> ```bash
+> $ export PATH=/opt/puppetlabs/bin:$PATH
+> $ export MANPATH=/opt/puppetlabs/client/tools/share/man:$MANPATH
+> ```
+>
+> The rest of this documentation assumes that these two directories have been
 added to their proper path configurations.
 
-### Step 2: Enable the Puppet Collection package repository
+### Step 2: Enable the Puppet Platform package repository
 
 If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Collection package repository][repos] for your system.
+[enable the Puppet Platform package repository][repos] for your system.
 
 ### Step 3: Install and configure the PuppetDB CLI
 
@@ -74,6 +74,7 @@ take the following settings:
 - `cacert` The path for the CA cert.
 
   *nix sytems - /etc/puppetlabs/puppet/ssl/certs/ca.pem
+
   Windows - C:\ProgramData\PuppetLabs\puppet\etc\ssl\certs\ca.pem
 
 - `cert` An SSL certificate signed by your site's Puppet CA. Note that the PE
@@ -89,16 +90,27 @@ take the following settings:
 The PE version of the PuppetDB CLI supports token auth so the only
 necessary configuration items are `server_urls` and `cacert`.
 
-**Note:** You can still use certificate authentication with the PE version (see
+> **Note:** You can still use certificate authentication with the PE version (see
 below for an example configuration) but setting `cert` and `key` in the PuppetDB
-CLI configuration will prevent you from using token authentication (i.e.
-certicate authentication takes precendence over token authentication).
+CLI configuration will prevent you from using token authentication (for example,
+certificate authentication takes precendence over token authentication).
 
 ```json
 {
   "puppetdb": {
     "server_urls": "https://<PUPPETDB_HOST>:8081",
     "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem"
+  }
+}
+```
+
+On Windows, escape slashes in the CA certificate path.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "C:\\ProgramData\\PuppetLabs\\puppet\\etc\\ssl\\certs\\ca.pem"
   }
 }
 ```
@@ -116,6 +128,19 @@ for SSL connections to PuppetDB. To configure certificate authentication set
     "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem",
     "cert": "/etc/puppetlabs/puppet/ssl/certs/<WORKSTATION_HOST>.pem",
     "key": "/etc/puppetlabs/puppet/ssl/private_keys/<WORKSTATION_HOST>.pem"
+  }
+}
+```
+
+On Windows, escape slashes in paths.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\certs\\ca.pem",
+    "cert": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\certs\\<WORKSTATION_HOST>.pem",
+    "key": "C:\\ProgramData\\PuppetLabs\\puppet\\ssl\\private_keys\\<WORKSTATION_HOST>.pem"
   }
 }
 ```

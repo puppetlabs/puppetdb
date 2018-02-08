@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 ---
 
 
-**None of the following projects are published by or endorsed by Puppet Labs.** They are linked to here for informational purposes only.
+**None of the following projects are published by or endorsed by Puppet.** They are linked to here for informational purposes only.
 
 [nagios]: https://github.com/jasonhancock/nagios-puppetdb
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard

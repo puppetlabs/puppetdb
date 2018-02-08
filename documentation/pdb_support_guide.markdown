@@ -12,8 +12,6 @@ layout: default
 [dbvis]: https://www.dbvis.com/
 [stockpile]: https://github.com/puppetlabs/stockpile
 
-## Support and Troubleshooting for PuppetDB
-
 This is a technical guide for troubleshooting PuppetDB (PDB) and understanding
 its internals.
 
@@ -206,8 +204,8 @@ prior to log examination:
 
 Check the postgres logs for:
 
-    * Postgres errors (marked "ERROR") coming from the puppetdb database
-    * Slow queries
+* Postgres errors (marked "ERROR") coming from the puppetdb database
+* Slow queries
 
 Slow queries are the main concern here, since most errors here have already
 been seen in the PDB logs. Slow queries frequently occur on deletes related to
@@ -240,7 +238,7 @@ meaningful options to look at are typically `work_mem`, `shared_buffers`, and
 `effective_cache_size`. Consult the [PostgreSQL documentation][postgres-config]
 for information on these settings.
 
-### PDB dashboard screenshot
+### PDB dashboard
 
 There are a few things to watch for in the PDB dashboard:
 

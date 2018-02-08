@@ -10,7 +10,7 @@ Bugs and feature requests
 
 [tracker]: https://tickets.puppetlabs.com/browse/PDB
 
-PuppetDB's bugs and feature requests are managed in [Puppet Labs' issue tracker][tracker]. Search this database if you're having problems and please report any new issues to us!
+PuppetDB's bugs and feature requests are managed in [Puppet's issue tracker][tracker]. Search this database if you're having problems and please report any new issues to us!
 
 Broader issues
 -----

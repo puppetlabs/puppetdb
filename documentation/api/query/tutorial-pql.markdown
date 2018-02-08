@@ -58,7 +58,7 @@ only accept unencrypted traffic from `localhost`.
 This requires that you specify a certificate (issued by the same CA PuppetDB
 trusts), a private key, and a CA certificate.
 
-**Note**: The PuppetDB CLI can be configured using a config file at
+> **Note**: The PuppetDB CLI can be configured using a config file at
 `$HOME/.puppetlabs/client-tools/puppetdb.conf` with default values for the
 server urls and SSL credentials.
 
@@ -97,8 +97,8 @@ The PuppetDB terminus includes the `puppetdb_query` function, which can be used
 to query PuppetDB from within a Puppet manifest. For example,
 
     $debian_nodes_query = 'nodes[certname]{facts{name = "operatingsystem" and value = "Debian"}}'
-    $debian_nodes = puppetdb_query($debian_nodes_query).each |$value| { $value["certname"] }
-    Notify {"Debian nodes":
+    $debian_nodes = puppetdb_query($debian_nodes_query).map |$value| { $value["certname"] }
+    notify {"Debian nodes":
         message => "Your debian nodes are ${join($debian_nodes, ', ')}",
     }
 

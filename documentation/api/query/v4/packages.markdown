@@ -97,12 +97,11 @@ The array is unsorted by default.
 
     puppet query "package_inventory[certname]{ package_name ~ 'openssl' and version ~ '1\.0\.1[\-a-f]' }"
 
-## `/pdb/query/v4/package-inventory/<CERTNAME>
+## `/pdb/query/v4/package-inventory/<CERTNAME>`
 
 This will return all packages installed on the provided certname. It behaves
 exactly like a call to `/pdb/query/v4/packages` with a query string of `["=",
 "certname", <CERTNAME>]`.
-
 
 ## Paging
 
