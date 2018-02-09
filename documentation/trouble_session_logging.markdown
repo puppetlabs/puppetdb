@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.1 » Troubleshooting » Session Logging"
+title: "PuppetDB 5.2 » Troubleshooting » Session Logging"
 layout: default
 canonical: "/puppetdb/latest/trouble_session_logging.html"
 ---

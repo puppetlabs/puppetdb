@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.1: Reports endpoint"
+title: "PuppetDB 5.2: Reports endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/reports.html"
 ---

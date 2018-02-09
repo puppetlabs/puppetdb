@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.1: Events endpoint"
+title: "PuppetDB 5.2: Events endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/events.html"
 ---
