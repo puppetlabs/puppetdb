@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.1: Scaling recommendations"
+title: "PuppetDB 5.2: Scaling recommendations"
 layout: default
 canonical: "/puppetdb/latest/scaling_recommendations.html"
 ---
