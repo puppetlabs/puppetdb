@@ -16,20 +16,25 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
-5.2.0
------
+## 5.2.0
 
-PuppetDB 5.2.0 is a performance and feature release. Performance improvements
-are focused primarily on improvements to the storage model for facts.
+PuppetDB 5.2.0 is a performance and feature release. Performance improvements are focused primarily on improvements to the storage model for facts.
 
 ### Upgrading
-Upgrading is expected to be straightforward, but in light of the recent changes
-to facts storage users may expect some quirks:
-* The initial fact submission for each node post-upgrade will trigger a full
-  rewrite of fact data for that node, meaning facts processing may slow down
-  for a short while. This could cause the queue size to increase temporarily
-  for users operating near capacity. This should fix itself after Puppet's
-  runinterval (default: 30 minutes) has elapsed.
+
+Upgrading is expected to be straightforward, but in light of the recent changes to facts storage users might expect some quirks:
+
+-   PuppetDB 5.2.0 replaces the existing facts storage schema with a new one based on JSONB. This change doesn't result in any breaking API changes.
+
+    This improvement provides multiple benefits and some incidental new features:
+
+    -   Greatly improved garbage collection performance when large structured facts are updated.
+    -   Improved performance of conjunction queries, such as where users request a list of hosts with facts meeting multiple criteria.
+    -   Makes future development on facts querying more amenable to the type of descendence queries currently possible with the inventory endpoint.
+
+-   The initial fact submission for each node post-upgrade triggers a full rewrite of fact data for that node, meaning facts processing might slow down for a short while. This could cause the queue size to increase temporarily for users operating near capacity. This should fix itself after Puppet's runinterval (30 minutes by default) has elapsed.
+
+-   This version of PuppetDB prevents the query engine from limiting queries against the v4 endpoint to active nodes, in cases where the relevant entity has no certname field. This facilitates PQL queries against fact_paths and environments.
 
 ## 5.1.4
 
