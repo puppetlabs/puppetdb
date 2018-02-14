@@ -16,20 +16,60 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
-5.2.0
------
+## 5.2.0
 
-PuppetDB 5.2.0 is a performance and feature release. Performance improvements
-are focused primarily on improvements to the storage model for facts.
+PuppetDB 5.2.0 is a performance and feature release. Performance improvements are focused primarily on improvements to the storage model for facts.
 
 ### Upgrading
-Upgrading is expected to be straightforward, but in light of the recent changes
-to facts storage users may expect some quirks:
-* The initial fact submission for each node post-upgrade will trigger a full
-  rewrite of fact data for that node, meaning facts processing may slow down
-  for a short while. This could cause the queue size to increase temporarily
-  for users operating near capacity. This should fix itself after Puppet's
-  runinterval (default: 30 minutes) has elapsed.
+
+Upgrading is expected to be straightforward, but in light of the recent changes to facts storage users might expect some quirks:
+
+-   The initial fact submission for each node post-upgrade triggers a full rewrite of fact data for that node, meaning facts processing might slow down for a short while. This could cause the queue size to increase temporarily for users operating near capacity. This should fix itself after Puppet's runinterval (30 minutes by default) has elapsed.
+
+### Bug fixes
+
+-   In previous versions of PuppetDB, resource types were passed to `Resource#new` in string form. This was problematic because it could result in the load of a Ruby resource type which then is in conflict with genereated Pcore resource type.
+
+    PuppetDB 5.2.0 ensures that the indirection uses the same logic as Puppet when creating new resources.
+
+### New features
+
+-   PuppetDB 5.2.0 replaces the existing facts storage schema with a new one based on JSONB. This change doesn't result in any breaking API changes.
+
+    This improvement provides multiple benefits and some incidental new features:
+
+    -   Greatly improved garbage collection performance when large structured facts are updated.
+    -   Improved performance of conjunction queries, such as where users request a list of hosts with facts meeting multiple criteria.
+    -   Makes future development on facts querying more amenable to the type of descendence queries currently possible with the inventory endpoint.
+
+-   This version of PuppetDB prevents the query engine from limiting queries against the v4 endpoint to active nodes, in cases where the relevant entity has no certname field. This facilitates PQL queries against fact_paths and environments.
+
+-   When using the benchmark tool in PuppetDB 5.2.0, every host in enqueued once before starting the simulation loop.
+
+-   PuppetDB 5.2.0 tracks how long a migration takes and logs them to improve testing and support awareness.
+
+-   This version of PuppetDB adds support for equality conditions on arrays in PQL.
+
+### Improvements
+
+-   If PuppetDB is out of sync, the two most important datasets to reconcile are catalogs and facts, because catalogs are used for exported resource queries and facts are used to select groups of nodes for orchestration operations.
+
+    However, previous versions of PuppetDB started a sync by transferring reports, which can be a significantly large dataset if two instances are out of sync by several days. This would delay reconciliation of catalogs and facts.
+
+    PuppetDB 5.2.0 reorders the sync configuration so that entities are synced in the following order:
+
+    -   catalogs
+    -   facts
+    -   reports
+    -   nodes
+
+    Catalogs and reports have switched priorities, and catalogs are now the highest priority.
+
+-   PuppetDB 5.2.0 improves a query used to target packages for deletion.
+
+-   This version of PuppetDB adds optimization for event queries with the `latest_report?` parameter.
+
+-   PuppetDB 5.2.0 adds the latest report's `job_id` to the nodes endpoint. The `job_id` isn't present if the run wasn't part of a job.
 
 ## 5.1.4
 
