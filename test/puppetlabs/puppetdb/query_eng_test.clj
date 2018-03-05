@@ -169,52 +169,59 @@
   (is (not (nil? (:results-query (compile-user-query->sql reports-query ["extract", ["hash"],
                                                                          ["or", ["=", "certname", "host-3"]]]))))))
 
+(deftest no-jsonb-test
+  (are [query-rec user-query] (not (re-matches
+                                    #".*jsonb_each.*"
+                                    (-> (compile-user-query->sql query-rec user-query)
+                                        :results-query
+                                        first)))
+    nodes-query
+    ["=" ["fact" "osfamily"] "Linux"]
 
-(defn check-query-doesnt-generate-jsonb-each [query-rec user-query]
-  (is (not (re-matches #".*jsonb_each.*"
-                    (-> (compile-user-query->sql query-rec user-query)
-                        :results-query
-                        first)))))
+    nodes-query
+    ["in" "certname" ["extract" "certname"
+                      ["select_facts"
+                       ["and"
+                        ["=" "name" "osfamily"]
+                        ["=" "value" "Linux"]]]]]
 
-(deftest no-jsonb-each-for-short-nodes-fact-query
-  (check-query-doesnt-generate-jsonb-each
-   nodes-query
-   ["=" ["fact" "osfamily"] "Linux"]))
+    nodes-query
+    ["in" "certname" ["extract" "certname"
+                      ["select_facts"
+                       ["and"
+                        ["=" "name" "foobar"]
+                        ["<" "value" 2]]]]]
 
-(deftest no-jsonb-each-for-long-nodes-fact-query
-  (check-query-doesnt-generate-jsonb-each
-   nodes-query
-   ["in" "certname" ["extract" "certname"
-                     ["select_facts"
-                      ["and"
-                       ["=" "name" "osfamily"]
-                       ["=" "value" "Linux"]]]]]))
+    nodes-query
+    ["and"
+     ["~" "certname" ".*test.*"]
+     ["=" ["fact" "osfamily"] "Linux"]]
 
-;; this test fails because jsonb strings are less than numbers, and we can't
-;; currently do a type check in the inventory endpoint (which this optimizes
-;; into)
-;; (deftest no-jsonb-each-for-long-nodes-fact-inequality
-;;   (check-query-doesnt-generate-jsonb-each
-;;    nodes-query
-;;    ["in" "certname" ["extract" "certname"
-;;                      ["select_facts"
-;;                       ["and"
-;;                        ["=" "name" "foobar"]
-;;                        ["<" "value" 2]]]]]))
+    inventory-query
+    ["and"
+     ["~" "certname" ".*test.*"]
+     ["=" ["fact" "osfamily"] "Linux"]]
 
-(deftest no-jsonb-each-for-nested-nodes-fact-condition
-  (check-query-doesnt-generate-jsonb-each
-   nodes-query
-   ["and"
-    ["~" "certname" ".*test.*"]
-    ["=" ["fact" "osfamily"] "Linux"]]))
+    facts-query
+    ["extract" ["name" "value"]
+     ["=" "name" "foo"]]
 
-(deftest no-jsonb-each-for-nested-inventory-fact-condition
-  (check-query-doesnt-generate-jsonb-each
-   inventory-query
-   ["and"
-    ["~" "certname" ".*test.*"]
-    ["=" ["fact" "osfamily"] "Linux"]]))
+    facts-query
+    ["and"
+     ["=" "name" "foo"]
+     ["~" "certname" "abc.*"]]
+
+    facts-query
+    ["extract" ["name" "value"]
+     ["and"
+      ["=" "name" "foo"]
+      ["~" "certname" "abc.*"]]]
+
+    facts-query
+    ["extract" ["value" ["function" "count"]]
+     ["=" "name" "foo"]
+     ["group_by" "value"]]))
+
 
 (deftest-http-app query-recs-are-swappable
   [version [:v4]
