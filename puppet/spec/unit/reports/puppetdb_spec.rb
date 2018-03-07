@@ -57,8 +57,9 @@ describe processor do
           :file => "foo",
           :line => 1,
           :tags => [],
-          :title => "foo",
-          :type => "foo" })
+          :provider => "foo",
+          :type => "foo",
+          :title => "foo" })
     }
 
     let (:status) {
@@ -331,6 +332,7 @@ describe processor do
                    :file => "foo",
                    :line => "foo",
                    :tags => [],
+                   :provider => "foo",
                    :type => "Notify",
                    :title => "Hello there" })
           notify_status = Puppet::Resource::Status.new(notify_resource)
