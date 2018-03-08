@@ -34,7 +34,7 @@ def initialize_repo_on_host(host, os, nightly)
 
       if nightly
         ## puppet5 repos
-        on host, "curl -O http://yum.puppetlabs.com/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+        on host, "curl -O http://yum.puppetlabs.com/puppet5/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
         on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
       else
