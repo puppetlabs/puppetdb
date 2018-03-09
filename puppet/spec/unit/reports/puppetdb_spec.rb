@@ -59,7 +59,8 @@ describe processor do
           :tags => [],
           :provider => "foo",
           :type => "foo",
-          :title => "foo" })
+          :title => "foo",
+          :merge_into => nil})
     }
 
     let (:status) {
@@ -334,7 +335,8 @@ describe processor do
                    :tags => [],
                    :provider => "foo",
                    :type => "Notify",
-                   :title => "Hello there" })
+                   :title => "Hello there",
+                   :merge_into => nil})
           notify_status = Puppet::Resource::Status.new(notify_resource)
           notify_status.changed = false
           subject.add_resource_status(notify_status)
