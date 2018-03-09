@@ -183,7 +183,7 @@
                                                [puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.7.4"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.8.1"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}
              :test {:jvm-opts ~(if need-permgen?

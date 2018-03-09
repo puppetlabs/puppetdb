@@ -57,9 +57,9 @@
   (let [request (get-request endpoint (json/generate-string query))
         {:keys [status body]} (*app* request)
         actual-result (parse-result body)]
-    (is (= (count actual-result) (count expected-results)))
-    (is (= (set actual-result) expected-results))
-    (is (= status http/status-ok))))
+    (is (= (count expected-results) (count actual-result)))
+    (is (= expected-results (set actual-result)))
+    (is (= http/status-ok status))))
 
 (defn compare-structured-response
   "compare maps that may have been stringified differently."
