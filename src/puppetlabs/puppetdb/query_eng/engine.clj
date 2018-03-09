@@ -1295,6 +1295,14 @@
     {:node (assoc node :value qmarks :field column)
      :state (reduce conj state parameters)}))
 
+
+;; Note to future query engine hackers: the parameter extraction mechanism
+;; relies on the order in which the query is traversed here being *exactly* the
+;; same as the order honeysql traverses its tree. This is tricky, and hard to
+;; keep working correctly. A much better mechanism would be to rely on honeysql
+;; to do parameter extraction itself; i.e. instead of replacing things with
+;; question marks here, just pass strings to honeysql. But getting there is a
+;; very large change.
 (defn extract-params
   "Extracts the node's expression value, puts it in state
    replacing it with `?`, used in a prepared statement"
@@ -1320,7 +1328,16 @@
 
     (instance? FnExpression node)
     {:node (assoc node :value "?")
-     :state (apply conj (:params node) state)}))
+     :state (apply conj (:params node) state)}
+
+    ;; Handle a parameterized :selection -- the query's :selection
+    ;; must already have question marks in all the right places, and
+    ;; have the corresponding parameter values in :selection-params.
+    ;; See rewrite-fact-query for an example.
+    (and (instance? Query node)
+         (-> node :selection :selection-params))
+    {:node node
+     :state (apply conj (-> node :selection :selection-params) state)}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
@@ -2163,6 +2180,48 @@
 (defn optimize-user-query [user-query]
   (walk/prewalk optimize-user-query-node user-query))
 
+
+(defn name-constraint
+  "If the query clause is either a simple constraint on 'name' or a pure
+  conjunction containing such a constraint, return the first fact name."
+  [user-query-clause]
+  (or
+   (and (= (take 2 user-query-clause) ["=" "name"])
+        (nth user-query-clause 2))
+   (and (= (first user-query-clause) "and")
+        (some name-constraint (rest user-query-clause)))))
+
+(defn rewrite-fact-query
+  "Rewrite fact queries that constrain the fact name to directly
+  extract the value using the json -> operator, by changing
+  the :selection field of the query-rec."
+  [query-rec user-query]
+  (if-not (= query-rec facts-query)
+    [query-rec user-query]
+    (cm/match
+     [user-query]
+     [(:or (clause :guard name-constraint)
+           ["extract" _ (clause :guard name-constraint) & _])]
+     ;; If there are multiple fact-names used in a conjunction inside of
+     ;; 'clause', fact-name will just choose one of them. But the query is
+     ;; degenerate anyway. We'll end up with a query that says "where 'foo'='foo' and 'foo'='bar'",
+     ;; and thus still have no results.
+     (let [fact-name (name-constraint clause)]
+       [(update facts-query :selection assoc
+                :from [[(hcore/raw (str "(select certname,"
+                                        "        environment_id, "
+                                        "        ?::text as key, "
+                                        "        (stable||volatile)->? as value"
+                                        " from factsets"
+                                        " where (stable||volatile) ?? ?"
+                                        ")"))
+                        :fs]]
+                :selection-params [fact-name fact-name fact-name])
+        user-query])
+     :else
+     [query-rec user-query])))
+
+
 ;; Top-level parsing
 
 (def experimental-entities
@@ -2235,6 +2294,7 @@
         paging-options (some->> paging-options
                                 (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))
+        [query-rec user-query] (rewrite-fact-query query-rec user-query)
         {:keys [plan params]} (->> user-query
                                    (push-down-context query-rec)
                                    expand-user-query
