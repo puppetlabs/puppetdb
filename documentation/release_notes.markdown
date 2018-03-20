@@ -16,6 +16,16 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+## 5.2.1
+
+PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and improves command queue management.
+
+### Bug fixes
+
+-   PuppetDB 5.2.1 significantly improves the performance of facts queries that constrain 'name' to a single value, such as `facts [value, count()] { name = 'osFamily' group by value }`. ([PDB-3838](https://tickets.puppetlabs.com/browse/PDB-3838))
+
+-   If you submitted a malformed message to the command queue in previous versions of PuppetDB, the command queue would grow upon receiving the message but would not reduce in size when the message was discarded. PuppetDB 5.2.1 correctly reduces the command queue size when a malformed message is submitted to the queue. ([PDB-3830](https://tickets.puppetlabs.com/browse/PDB-3830))
+
 ## 5.2.0
 
 PuppetDB 5.2.0 is a performance and feature release. Performance improvements are focused primarily on improvements to the storage model for facts.
