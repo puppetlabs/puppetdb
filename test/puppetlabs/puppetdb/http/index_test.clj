@@ -217,6 +217,15 @@
           (is (= (set (mapv :certname (query-result method endpoint query {})))
                  #{"host1" "host2" "host3" "host4"}))))
 
+      (testing "query with 'and' and node_state = 'any' should work"
+        (doseq [query [["from" "nodes" ["or"
+                                        ["=" ["node" "active"] true]
+                                        ["=" ["node" "active"] false]]]
+                       ["from" "nodes" ["=" "node_state" "any"]]
+                       "nodes { certname ~ '^host\\d' and node_state = 'any' }"]]
+          (is (= (set (mapv :certname (query-result method endpoint query {})))
+                 #{"host1" "host2" "host3" "host4"}))))
+
       (testing "broad regexp query should return all active nodes"
         (doseq [query [["from" "nodes" ["~" "certname" "^host"]]
                        "nodes { certname ~ '^host' }"]]
