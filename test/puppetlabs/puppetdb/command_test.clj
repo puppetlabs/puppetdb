@@ -690,12 +690,34 @@
                           "b" "2"
                           "c" "3"}
                  :producer_timestamp (to-timestamp (now))}
-      v4-command {:command (command-names :replace-facts)
-                  :version 4
-                  :payload facts}
       one-day   (* 24 60 60 1000)
       yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
       tomorrow  (to-timestamp (+ (System/currentTimeMillis) one-day))]
+
+  (deftest facts-package-deduplication
+    (let [version :v5
+          command (assoc facts
+                         :producer "node0"
+                         :package_inventory [["foo" "1.2.3" "apt"]
+                                             ["bar" "2.3.4" "apt"]
+                                             ["bar" "2.3.4" "apt"]
+                                             ["baz" "3.4.5" "apt"]])]
+      (testing "should deduplicate package_inventory on facts v5"
+        (with-message-handler {:keys [handle-message dlo delay-pool q]}
+          (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
+          (is (= [["bar" "2.3.4" "apt"]
+                  ["baz" "3.4.5" "apt"]
+                  ["foo" "1.2.3" "apt"]]
+                 (rest
+                  (jdbc/query
+                   ["SELECT p.name as package_name, p.version, p.provider
+                     FROM certname_packages cp
+                          inner join packages p on cp.package_id = p.id
+                          inner join certnames c on cp.certname_id = c.id
+                     WHERE c.certname = ?
+                     ORDER BY package_name, version, provider"
+                    certname]
+                   {:as-arrays? true}))))))))
 
   (deftest facts-blacklist
     (dotestseq [version fact-versions
