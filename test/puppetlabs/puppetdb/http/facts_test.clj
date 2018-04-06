@@ -1786,6 +1786,89 @@
                  (set (get (structured-fact-results version endpoint)
                            query)))))))))
 
+(deftest-http-app structured-fact-queries-part-2
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
+  (let [facts1 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "uptime_seconds" 4000
+                "test#~delimiter" "foo"}
+        facts2 {"my_structured_fact" {"a" 1
+                                      "b2" 3.14
+                                      "c" ["b" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "uptime_seconds" 6000}
+        facts3 {"my_structured_fact" {"a" 2
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "operatingsystem" "Darwin"}
+        facts4 {"my_structured_fact" {"a" 1
+                                      "b" 2.71
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "hostname" "foo4"
+                "uptime_seconds" 6000}]
+    (jdbc/with-transacted-connection *db*
+      (scf-store/add-certname! "foo1")
+      (scf-store/add-certname! "foo2")
+      (scf-store/add-certname! "foo3")
+      (scf-store/add-certname! "foo4")
+      (scf-store/add-facts! {:certname "foo1"
+                             :values facts1
+                             :timestamp reference-time
+                             :environment "DEV"
+                             :producer_timestamp reference-time
+                             :producer "bar1"})
+      (scf-store/add-facts! {:certname  "foo2"
+                             :values facts2
+                             :timestamp (to-timestamp "2013-01-01")
+                             :environment "DEV"
+                             :producer_timestamp reference-time
+                             :producer "bar2"})
+      (scf-store/add-facts! {:certname "foo3"
+                             :values facts3
+                             :timestamp reference-time
+                             :environment "PROD"
+                             :producer_timestamp reference-time
+                             :producer "bar3"})
+      (scf-store/add-facts! {:certname "foo4"
+                             :values facts4
+                             :timestamp reference-time
+                             :environment "PROD"
+                             :producer_timestamp reference-time
+                             :producer "bar4"})
+      (scf-store/deactivate-node! "foo4"))
+
+    (testing "pql query with regex and array paths should not fail"
+      (let [response (query-response method "/v4" "inventory[certname] { facts.my_structured_fact.c.match(\"\\d+\") = 'a' }")]
+        (is (= ["foo1" "foo3"]
+               (map :certname (parse-result (:body response)))))))
+
+    (testing "pql query with regex and non-array paths with numbers in the strings should not fail"
+      (let [response (query-response method "/v4" "inventory[certname] { facts.my_structured_fact.b2 = 3.14 }")]
+        (is (= ["foo2"]
+               (map :certname (parse-result (:body response)))))))
+
+    (testing "simple pql structured facts queries should not fail"
+      (let [response (query-response method "/v4" "inventory[certname] { facts.my_structured_fact.a = 1 }")]
+        (is (= ["foo1" "foo2"]
+               (map :certname (parse-result (:body response)))))))))
+
 ;; FACT-CONTENTS TESTS
 (deftest-http-app fact-contents-result-munging
   [[version endpoint] fact-contents-endpoints
