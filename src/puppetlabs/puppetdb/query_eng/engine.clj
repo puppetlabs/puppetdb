@@ -1478,7 +1478,7 @@
               "inactive" ["in" "certname"
                           ["extract" "certname"
                            ["select_inactive_nodes"]]]
-              "any" [])
+              "any" ::elide)
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"
@@ -1581,6 +1581,16 @@
   [x]
   (instance? clojure.lang.IPersistentVector x))
 
+(defn remove-elided-nodes
+  "This step removes elided nodes (marked with ::elide by expand-user-query) from
+  `and` and `or` clauses."
+  [node]
+  (cm/match [node]
+            [[& clauses]]
+            (into [] (remove #(= ::elide %) clauses))
+
+            :else nil))
+
 (defn validate-binary-operators
   "Validation of the user provided query"
   [node]
@@ -1617,7 +1627,7 @@
               ;;pass the test, but better validation for all clauses
               ;;needs to be added
               [["and" & clauses]]
-              (when (some (complement seq) clauses)
+              (when (some (fn [clause] (and (not= ::elide clause) (empty? clause))) clauses)
                 (throw (IllegalArgumentException. (tru "[] is not well-formed: queries must contain at least one operator"))))
 
               ;;Facts is doing validation against nots only having 1
@@ -1641,7 +1651,7 @@
   subquery (via the `in` and `extract` operators)"
   [user-query]
   (:node (zip/post-order-transform (zip/tree-zipper user-query)
-                                   [expand-query-node validate-binary-operators])))
+                                   [expand-query-node validate-binary-operators remove-elided-nodes])))
 
 (declare user-node->plan-node)
 
