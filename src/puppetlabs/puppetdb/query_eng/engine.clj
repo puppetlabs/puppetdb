@@ -1170,10 +1170,11 @@
         :from [[(-plan->sql subquery) :sub]]}]))
 
   JsonContainsExpression
-  (-plan->sql [{:keys [field column-data]}]
+  (-plan->sql [{:keys [field column-data array-in-path]}]
     (su/json-contains (if (instance? SqlRaw (:field column-data))
                         (-> column-data :field :s)
-                        field)))
+                        field)
+                      array-in-path))
 
   FnBinaryExpression
   (-plan->sql [{:keys [value function args operator]}]
@@ -1277,9 +1278,15 @@
   [{:keys [field value] :as node} state]
   (let [[column & path] (map utils/maybe-strip-escaped-quotes
                              (su/dotted-query->path field))]
-    {:node (assoc node :value "?" :field column)
-     :state (conj state (su/munge-jsonb-for-storage
-                          (path->nested-map path value)))}))
+    (if (some #(re-matches #"^\d+$" %) path)
+      {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
+       :state (reduce conj state [(doto (PGobject.)
+                                    (.setType "text[]")
+                                    (.setValue (str "{" (string/join "," (map #(string/replace % "'" "''") path)) "}")))
+                                  (su/munge-jsonb-for-storage value)])}
+      {:node (assoc node :value "?" :field column :array-in-path false)
+       :state (conj state (su/munge-jsonb-for-storage
+                           (path->nested-map path value)))})))
 
 (defn parse-dot-query-with-array-elements
   "Transforms a dotted query into a JSON structure appropriate
@@ -1288,7 +1295,7 @@
   (let [[column & path] (->> field
                              su/dotted-query->path
                              (map utils/maybe-strip-escaped-quotes)
-                             (su/expand-array-access-in-path))
+                             su/expand-array-access-in-path)
         qmarks (repeat (count path) "?")
         parameters (concat path [(su/munge-jsonb-for-storage value)
                                  (first path)])]
@@ -1422,9 +1429,26 @@
   [node]
   (cm/match [node]
 
+            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
+            ;; (= :inventory (get-in (meta node) [:query-context :entity]))
+            (when (string/includes? column "match(")
+              (let [[head & path] (->> column
+                                       utils/parse-matchfields
+                                       su/dotted-query->path
+                                       (map utils/maybe-strip-escaped-quotes))
+                    path (if (= head "trusted") (cons head path) path)
+                    fact_paths (->> (jdbc/query-to-vec "SELECT path_array FROM fact_paths WHERE (path ~ ? AND path IS NOT NULL)"
+                                                       (doto (PGobject.)
+                                                         (.setType "text")
+                                                         (.setValue (string/join "#~" (utils/split-indexing path)))))
+                                    (map :path_array)
+                                    (map (fn [path] (if (= (first path) "trusted") path (cons "facts" path))))
+                                    (map #(string/join "." %)))]
+                (into ["or"] (map #(vector op % value) fact_paths))))
+
             [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
             (when (= :facts (get-in meta node [:query-context :entity]))
-            ["extract" columns ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] expr]])
+              ["extract" columns ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] expr]])
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] [op "value" value]]
@@ -1454,7 +1478,7 @@
               "inactive" ["in" "certname"
                           ["extract" "certname"
                            ["select_inactive_nodes"]]]
-              "any" [])
+              "any" ::elide)
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"
@@ -1557,6 +1581,16 @@
   [x]
   (instance? clojure.lang.IPersistentVector x))
 
+(defn remove-elided-nodes
+  "This step removes elided nodes (marked with ::elide by expand-user-query) from
+  `and` and `or` clauses."
+  [node]
+  (cm/match [node]
+            [[& clauses]]
+            (into [] (remove #(= ::elide %) clauses))
+
+            :else nil))
+
 (defn validate-binary-operators
   "Validation of the user provided query"
   [node]
@@ -1593,7 +1627,7 @@
               ;;pass the test, but better validation for all clauses
               ;;needs to be added
               [["and" & clauses]]
-              (when (some (complement seq) clauses)
+              (when (some (fn [clause] (and (not= ::elide clause) (empty? clause))) clauses)
                 (throw (IllegalArgumentException. (tru "[] is not well-formed: queries must contain at least one operator"))))
 
               ;;Facts is doing validation against nots only having 1
@@ -1617,7 +1651,7 @@
   subquery (via the `in` and `extract` operators)"
   [user-query]
   (:node (zip/post-order-transform (zip/tree-zipper user-query)
-                                   [expand-query-node validate-binary-operators])))
+                                   [expand-query-node validate-binary-operators remove-elided-nodes])))
 
 (declare user-node->plan-node)
 

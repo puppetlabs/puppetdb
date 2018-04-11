@@ -298,11 +298,11 @@
 
 (defn replace-facts*
   [{:keys [payload id received] :as command} start-time db facts-blacklist]
-  (let [{:keys [certname values] :as fact-data} payload
+  (let [{:keys [certname package_inventory] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)
-        trimmed-facts (if (seq facts-blacklist)
-                        (update fact-data :values #(apply dissoc % facts-blacklist))
-                        fact-data)]
+        trimmed-facts (cond-> fact-data
+                        (seq facts-blacklist) (update :values #(apply dissoc % facts-blacklist))
+                        (seq package_inventory) (update :package_inventory distinct))]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! trimmed-facts))

@@ -225,8 +225,10 @@
    (format "%s = ANY(?)" (first (hfmt/format column)))))
 
 (defn json-contains
-  [field]
-  (hcore/raw (format "%s @> ?" field)))
+  [field array-in-path]
+  (if array-in-path
+    (hcore/raw (format "%s #> ? = ?" field))
+    (hcore/raw (format "%s @> ?" field))))
 
 (defn fn-binary-expression
   "Produce a predicate that compares the result of a function against a
@@ -236,7 +238,7 @@
     (hcore/raw (format "%s(%s) %s ?" function fargs op))))
 
 (defn jsonb-path-binary-expression
-  "Produce a predicate that compares agains4t nested value with op and checks the
+  "Produce a predicate that compares against nested value with op and checks the
   existence of a (presumably) top-level value. The existence check is necessary
   because -> is not indexable (with GIN) but ?? is. Assumes a GIN index on the
   column supplied."
