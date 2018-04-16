@@ -55,7 +55,7 @@ In both examples, `<filename>` should be a file that contains the query to execu
 The PuppetDB terminus includes the `puppetdb_query` function, which can be used
 to query PuppetDB from within a Puppet manifest. For example,
 
-    $debian_nodes_query = ["from", "nodes", ["=", ["fact", "operatingsystem"], "Debian"]]
+    $debian_nodes_query = '["from", "nodes", ["=", ["fact", "operatingsystem"], "Debian"]]'
     $debian_nodes = puppetdb_query($debian_nodes_query).each |$value| { $value["certname"] }
     Notify {"Debian nodes":
         message => "Your debian nodes are ${join($debian_nodes, ', ')}",
