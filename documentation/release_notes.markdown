@@ -16,6 +16,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+## 5.1.5
+
+PuppetDB 5.1.5 is a bug-fix release.
+
+### Bug fixes
+
+-   Passing the `node_state` filter criteria as part of a conjuction operator (`and` and `or`) didn't work in previous versions of PuppetDB. PuppetDB 5.1.5 resolves this issue. ([PDB-3808](https://tickets.puppetlabs.com/browse/PDB-3808))
+
+-   If you submitted a malformed message to the command queue in previous versions of PuppetDB, the command queue would grow upon receiving the message but would not reduce in size when the message was discarded. PuppetDB 5.1.5 correctly reduces the command queue size when a malformed message is submitted to the queue. ([PDB-3830](https://tickets.puppetlabs.com/browse/PDB-3830))
+
+-   When the PE package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.1.5 now removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
+
 ## 5.1.4
 
 PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
