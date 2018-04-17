@@ -16,6 +16,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+## 5.2.2
+
+PuppetDB 5.2.2 is a bug-fix release.
+
+### Bug fixes
+
+-   In previous versions of PuppetDB, passing the `node_state` filter criteria as part of a conjuction operator (`and` and `or`) didn't work. PuppetDB 5.2.2 resolves this issue. ([PDB-3808](https://tickets.puppetlabs.com/browse/PDB-3808))
+
+-   PuppetDB 5.2.2 fixes a regression in previous versions of PuppetDB 5.2.x that caused path queries against structured facts to fail when the path included a regular expression component or an array index. ([PDB-3852](https://tickets.puppetlabs.com/browse/PDB-3852))
+
+-   When the Puppet Enterprise (PE) package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.2.2 removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
+
 ## 5.2.1
 
 PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and improves command queue management.
