@@ -367,6 +367,8 @@
     "CREATE INDEX idx_latest_reports_report ON latest_reports USING btree (report)"
 
     "CREATE INDEX idx_reports_certname ON reports USING btree (certname)"
+    
+    "CREATE INDEX idx_reports_start_time ON reports USING btree (start_time)"
 
     "CREATE INDEX idx_reports_end_time ON reports USING btree (end_time)"
 
