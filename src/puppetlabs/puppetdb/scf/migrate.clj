@@ -1496,6 +1496,11 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+(defn add-reports-start-time-index
+  []
+  (jdbc/do-commands
+    "CREATE INDEX reports_start_time_idx ON reports (start_time)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1539,7 +1544,8 @@
    63 add-job-id
    64 rededuplicate-facts
    65 varchar-columns-to-text
-   66 jsonb-facts})
+   66 jsonb-facts
+   67 add-reports-start-time-index})
 
 (def desired-schema-version (apply max (keys migrations)))
 
