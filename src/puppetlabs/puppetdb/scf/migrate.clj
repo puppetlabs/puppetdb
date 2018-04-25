@@ -1496,6 +1496,14 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+ (defn add-primary-key-to-resource-events []
+   (jdbc/do-commands
+    ;;As far as we can tell property should never be null but if it is it would
+    ;;cause creating the primary key to fail so we make sure property isn't null
+    "UPDATE resource_events SET property ='' WHERE property is null;"
+    "ALTER TABLE resource_events ADD PRIMARY KEY (report_id, resource_type, resource_title, property);"
+    "ALTER TABLE resource_events DROP CONSTRAINT IF EXISTS resource_events_unique;"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1539,7 +1547,8 @@
    63 add-job-id
    64 rededuplicate-facts
    65 varchar-columns-to-text
-   66 jsonb-facts})
+   66 jsonb-facts
+   67 add-primary-key-to-resource-events})
 
 (def desired-schema-version (apply max (keys migrations)))
 
