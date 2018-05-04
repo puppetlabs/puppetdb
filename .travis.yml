@@ -10,9 +10,9 @@ matrix:
   include:
     # terminus unit tests (spec tests)
     - env: >
-        NAME=rspec-puppet-master
+        NAME=rspec
         PDB_TEST_LANG=ruby
-        PUPPET_VERSION=master
+        PUPPET_VERSION=5.3.x
 
     # pdb unit tests
     - env: >
@@ -30,19 +30,19 @@ matrix:
 
     # pdb + terminus + puppetserver + puppet integration tests
     - env: >
-        NAME=integration-master-puppet-openjdk8
+        NAME=integration-openjdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=master
-        PUPPETSERVER_VERSION=master
+        PUPPET_VERSION=5.3.x
+        PUPPETSERVER_VERSION=5.1.x
       jdk: openjdk8
 
     - env: >
-        NAME=integration-master-puppet-oraclejdk8
+        NAME=integration-oraclejdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=master
-        PUPPETSERVER_VERSION=master
+        PUPPET_VERSION=5.3.x
+        PUPPETSERVER_VERSION=5.1.x
       jdk: oraclejdk8
 
 before_install: ext/travisci/install_puppetserver.sh
