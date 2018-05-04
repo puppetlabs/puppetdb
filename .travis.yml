@@ -10,9 +10,19 @@ matrix:
   include:
     # terminus unit tests (spec tests)
     - env: >
-        NAME=rspec-puppet-master
+        NAME=rspec/pup-master
         PDB_TEST_LANG=ruby
         PUPPET_VERSION=master
+
+    - env: >
+        NAME=rspec/pup-5.5
+        PDB_TEST_LANG=ruby
+        PUPPET_VERSION=5.5.x
+
+    - env: >
+        NAME=rspec/pup-5.3
+        PDB_TEST_LANG=ruby
+        PUPPET_VERSION=5.3.x
 
     # pdb unit tests
     - env: >
@@ -30,7 +40,7 @@ matrix:
 
     # pdb + terminus + puppetserver + puppet integration tests
     - env: >
-        NAME=integration-master-puppet-openjdk8
+        NAME=int/srv-master/pup-master/openjdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=master
@@ -38,11 +48,43 @@ matrix:
       jdk: openjdk8
 
     - env: >
-        NAME=integration-master-puppet-oraclejdk8
+        NAME=int/srv-master/pup-master/oraclejdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=master
         PUPPETSERVER_VERSION=master
+      jdk: oraclejdk8
+
+    - env: >
+        NAME=int/srv-5.3/pup-5.5/openjdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=5.5.x
+        PUPPETSERVER_VERSION=5.3.x
+      jdk: openjdk8
+
+    - env: >
+        NAME=int/srv-5.3/pup-5.5/oraclejdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=5.5.x
+        PUPPETSERVER_VERSION=5.3.x
+      jdk: oraclejdk8
+
+    - env: >
+        NAME=int/srv-5.1/pup-5.3/openjdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=5.3.x
+        PUPPETSERVER_VERSION=5.1.x
+      jdk: openjdk8
+
+    - env: >
+        NAME=int/srv-5.1/pup-5.3/oraclejdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=5.3.x
+        PUPPETSERVER_VERSION=5.1.x
       jdk: oraclejdk8
 
 before_install: ext/travisci/install_puppetserver.sh

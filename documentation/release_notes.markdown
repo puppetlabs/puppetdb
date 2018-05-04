@@ -16,6 +16,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+## 5.2.2
+
+PuppetDB 5.2.2 is a bug-fix release.
+
+### Bug fixes
+
+-   In previous versions of PuppetDB, passing the `node_state` filter criteria as part of a conjuction operator (`and` and `or`) didn't work. PuppetDB 5.2.2 resolves this issue. ([PDB-3808](https://tickets.puppetlabs.com/browse/PDB-3808))
+
+-   PuppetDB 5.2.2 fixes a regression in previous versions of PuppetDB 5.2.x that caused path queries against structured facts to fail when the path included a regular expression component or an array index. ([PDB-3852](https://tickets.puppetlabs.com/browse/PDB-3852))
+
+-   When the Puppet Enterprise (PE) package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.2.2 removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
+
 ## 5.2.1
 
 PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and improves command queue management.
@@ -80,6 +92,18 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 -   This version of PuppetDB adds optimization for event queries with the `latest_report?` parameter.
 
 -   PuppetDB 5.2.0 adds the latest report's `job_id` to the nodes endpoint. The `job_id` isn't present if the run wasn't part of a job.
+
+## 5.1.5
+
+PuppetDB 5.1.5 is a bug-fix release.
+
+### Bug fixes
+
+-   Passing the `node_state` filter criteria as part of a conjuction operator (`and` and `or`) didn't work in previous versions of PuppetDB. PuppetDB 5.1.5 resolves this issue. ([PDB-3808](https://tickets.puppetlabs.com/browse/PDB-3808))
+
+-   If you submitted a malformed message to the command queue in previous versions of PuppetDB, the command queue would grow upon receiving the message but would not reduce in size when the message was discarded. PuppetDB 5.1.5 correctly reduces the command queue size when a malformed message is submitted to the queue. ([PDB-3830](https://tickets.puppetlabs.com/browse/PDB-3830))
+
+-   When the PE package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.1.5 now removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
 
 ## 5.1.4
 
