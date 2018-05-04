@@ -10,7 +10,12 @@ matrix:
   include:
     # terminus unit tests (spec tests)
     - env: >
-        NAME=rspec
+        NAME=rspec/pup-5.5
+        PDB_TEST_LANG=ruby
+        PUPPET_VERSION=5.5.x
+
+    - env: >
+        NAME=rspec/pup-5.3
         PDB_TEST_LANG=ruby
         PUPPET_VERSION=5.3.x
 
@@ -30,7 +35,23 @@ matrix:
 
     # pdb + terminus + puppetserver + puppet integration tests
     - env: >
-        NAME=integration-openjdk8
+        NAME=int/srv-5.3/pup-5.5/openjdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=5.5.x
+        PUPPETSERVER_VERSION=5.3.x
+      jdk: openjdk8
+
+    - env: >
+        NAME=int/srv-5.3/pup-5.5/oraclejdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=5.5.x
+        PUPPETSERVER_VERSION=5.3.x
+      jdk: oraclejdk8
+
+    - env: >
+        NAME=int/srv-5.1/pup-5.3/openjdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=5.3.x
@@ -38,7 +59,7 @@ matrix:
       jdk: openjdk8
 
     - env: >
-        NAME=integration-oraclejdk8
+        NAME=int/srv-5.1/pup-5.3/oraclejdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=5.3.x
