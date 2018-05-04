@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+":"; # -*-clojure-*-
+":"; set -exo pipefail
+":"; clj="$(find ~/.m2 -name "clojure-1.8.0.jar" | head -1)"
+":"; if test "$clj"; then exec java -cp "$clj" clojure.main "$0" "$@"; fi
+":"; echo "error: can't find ~/.m2/.../clojure-1.8.0.jar" 1>&2
+":"; exit 2
+
+(require '[clojure.edn :as edn])
+(require '[clojure.java.io :as io])
+(require '[clojure.pprint :refer [pprint]])
+(require '[clojure.set :as set])
+(require '[clojure.string :as str])
+(import '(clojure.lang ExceptionInfo))
+(import '(java.io PushbackReader))
+
+(defmacro >> [stream & body]
+  (let [wrapped-forms (for [form body]
+                        `(binding [*out* ~stream]
+                           ~form))]
+    `(do ~@wrapped-forms)))
+
+(defn usage [stream]
+  (>> stream println (str/trim "
+Usage:
+  dep-diff --help
+  dep-diff [--mismatches] [--ignore-exclusions] [--] OLD_TREE_PATH NEW_TREE_PATH
+")))
+
+(defn exit [rc]
+  (throw (ex-info "" {:kind ::exit ::rc 1})))
+
+(defn tree->dep-seq [stream]
+  (with-open [r (io/reader stream)
+              pbr (PushbackReader. r)]
+    (doall
+     (let [eof (Object.)]
+       (take-while #(not= % eof)
+                   (repeatedly #(edn/read {:eof eof} pbr)))))))
+
+(defn validate-dep-seq [ds]
+  (doseq [dep ds]
+    (when-not (> (count ds) 1)
+      (>> *err* (println "dependency seq len < 2:" (pr-str dep)))
+      (exit 2))
+    (when-not (symbol? (first dep))
+      (>> *err* (println "dependency name is not a symbol:" (pr-str dep)))
+      (exit 2))
+    (when-not (string? (second dep))
+      (>> *err* (println "dependency version is not a string: " (pr-str dep)))
+      (exit 2)))
+  (doseq [[name deps-for-name] (group-by first ds)
+          :when (not= 1 (count deps-for-name))]
+    (let [versions (map second deps-for-name)]
+      (when (not= 1 (count (distinct versions)))
+        (>> *err* (println "unexpected duplicates:" (pr-str deps-for-name)))
+        (exit 2))))
+  ds)
+
+(defn strip-exclusions [dep]
+  (letfn [(strip [remainder]
+            (when (seq remainder)
+              (if (= :exclusions (first remainder))
+                (strip (drop 2 remainder))
+                (cons (first remainder)
+                      (strip (rest remainder))))))]
+    (vec (strip dep))))
+
+(defn display-diff [{:keys [ignore-exclusions? mismatches-only? out]
+                     :or {out *out*} :as opts}
+                    deps-1 deps-2]
+  (doseq [name (-> (concat (keys deps-1) (keys deps-2)) distinct sort)
+          :let [old (get deps-1 name)
+                new (get deps-2 name)]]
+    (if (and (seq old) (seq new))
+      (let [relevant-set (if ignore-exclusions?
+                           #(->> % (map strip-exclusions) set)
+                           set)
+            relevant-old (relevant-set old)
+            relevant-new (relevant-set new)]
+        (when (not= relevant-old relevant-new)
+          (doseq [dep (sort-by second (set/difference relevant-old relevant-new))]
+            (>> out (prn '- dep)))
+          (doseq [dep (sort-by second (set/difference relevant-new relevant-old))]
+            (>> out (prn '+ dep)))))
+      ;; We only have old or new
+      (if-not mismatches-only?
+        (if (seq old)
+          (doseq [dep (sort-by second old)]
+            (>> out (prn '- dep)))
+          (doseq [dep (sort-by second new)]
+            (>> out (prn '+ dep))))))))
+
+(defn dispatch-diff [opts old new]
+  (apply display-diff opts
+         (map (fn [path]
+                (with-open [r (io/input-stream path)]
+                  (group-by first (-> r tree->dep-seq validate-dep-seq))))
+              [old new]))
+  0)
+
+(defn args->opts [args]
+  (loop [args args
+         opts {:positional []}]
+    (if-not (seq args)
+      opts
+      (case (first args)
+        "--help" (recur (rest args) (assoc opts :help? true))
+        "--mismatches" (recur (rest args) (assoc opts :mismatches-only? true))
+        "--ignore-exclusions" (recur (rest args)
+                                     (assoc opts :ignore-exclusions? true))
+        (cond
+          (= "--" (first args)) (update opts :positional conj (rest args))
+
+          (str/starts-with? (first args) "-")
+          (do
+            (>> *err* (println "dep-diff: unknown argument" (pr-str (first args))))
+            (exit 2))
+
+          :else (recur (rest args) (update opts :positional conj (first args))))))))
+
+(defn validate-opts [opts]
+  (if (:help? opts)
+    (when (seq (dissoc :help? opts))
+      (usage *err*)
+      (exit 2))
+    (when (not= 2 (count (:positional opts)))
+      (>> *err* (println "dep-diff: please specify two comparison paths"))
+      (usage *err*)
+      (exit 2)))
+  opts)
+
+(defn run-cmd [args]
+  (let [opts (-> args args->opts validate-opts)]
+    (if (:help? opts)
+      (do (usage *out*) 0)
+      (apply dispatch-diff
+             (merge {:out *out*} (select-keys opts [:mismatches-only?]))
+             (:positional opts)))))
+
+(defn main [args]
+  (let [rc (try
+             (run-cmd args)
+             (catch ExceptionInfo ex
+               (let [data (ex-data ex)]
+                 (when-not (= ::exit (:kind data))
+                   (throw ex))
+                 (::rc data))))]
+    (shutdown-agents)
+    (flush)
+    (binding [*out* *err*] (flush))
+    (System/exit rc)))
+
+(main *command-line-args*)
