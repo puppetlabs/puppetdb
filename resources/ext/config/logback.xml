@@ -1,7 +1,7 @@
 <configuration scan="true" scanPeriod="60 seconds">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d %-5p [%c{2}] %m%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5p [%c{2}] %m%n</pattern>
         </encoder>
     </appender>
 
@@ -16,7 +16,7 @@
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>%d %-5p [%c{2}] %m%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5p [%c{2}] %m%n</pattern>
         </encoder>
     </appender>
 
