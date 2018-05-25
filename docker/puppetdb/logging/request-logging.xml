@@ -1,0 +1,9 @@
+<configuration debug="false">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+          <pattern>combined</pattern>
+        </encoder>
+    </appender>
+
+    <appender-ref ref="STDOUT"/>
+</configuration>
