@@ -1,0 +1,4 @@
+release-engineering/puppetdb:
+  Build:
+    - docker login -u "$DISTELLI_DOCKER_USERNAME" -p "$DISTELLI_DOCKER_PW" "$DISTELLI_DOCKER_ENDPOINT"
+    - '(cd docker && /bin/bash -x ./ci/build)'
