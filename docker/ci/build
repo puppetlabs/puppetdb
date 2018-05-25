@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -eux
+
+BUNDLER_PATH=.bundle/gems
+
+: ===
+: === bundle install to get ready
+: ===
+bundle install --path $BUNDLER_PATH
+
+: ===
+: === pull updated base images
+: ===
+bundle exec puppet-docker update-base-images ubuntu:16.04 postgres:9.6.8
+
+# Haven't yet figured out how to run a container with a mounted file in pipelines
+# will probably end up adding an image with hadolint preloaded and update the
+# lint commands to optionally use a local installation if I don't hear back that
+# this is possible.
+#: ===
+#: === run linter on the docker files
+#: ===
+#bundle exec puppet-docker lint puppetdb
+#bundle exec puppet-docker lint puppetdb-postgres
+
+: ===
+: === build and test puppetdb
+: ===
+bundle exec puppet-docker rev-labels puppetdb
+bundle exec puppet-docker build puppetdb --repository pcr-internal.puppet.net/release-engineering
+bundle exec puppet-docker spec puppetdb
+
+: ===
+: === build and test puppetdb-postgres
+: ==
+bundle exec puppet-docker rev-labels puppetdb-postgres
+bundle exec puppet-docker build puppetdb-postgres --repository pcr-internal.puppet.net/release-engineering
+bundle exec puppet-docker spec puppetdb-postgres
+
+: ==
+: == push containers
+: ==
+bundle exec puppet-docker push puppetdb --repository pcr-internal.puppet.net/release-engineering
+bundle exec puppet-docker push puppetdb-postgres --repository pcr-internal.puppet.net/release-engineering
+
+: ===
+: === SUCCESS
+: ===
