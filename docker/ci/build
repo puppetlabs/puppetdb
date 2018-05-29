@@ -4,6 +4,34 @@ set -eux
 
 BUNDLER_PATH=.bundle/gems
 
+function build_and_test_image() {
+  container_name=$1
+
+  # Haven't yet figured out how to run a container with a mounted file in pipelines
+  # will probably end up adding an image with hadolint preloaded and update the
+  # lint commands to optionally use a local installation if I don't hear back that
+  # this is possible.
+  #: ===
+  #: === run linter on the docker files
+  #: ===
+  # bundle exec puppet-docker lint $container_name
+
+  : ===
+  : === build and test $container_name
+  : ===
+  bundle exec puppet-docker rev-labels $container_name
+  bundle exec puppet-docker build $container_name --repository pcr-internal.puppet.net/release-engineering
+  bundle exec puppet-docker spec $container_name
+}
+
+function push_image() {
+  container_name=$1
+  : ===
+  : === push $container_name
+  : ===
+  bundle exec puppet-docker push $container_name --repository pcr-internal.puppet.net/release-engineering
+}
+
 : ===
 : === bundle install to get ready
 : ===
@@ -14,35 +42,21 @@ bundle install --path $BUNDLER_PATH
 : ===
 bundle exec puppet-docker update-base-images ubuntu:16.04 postgres:9.6.8
 
-# Haven't yet figured out how to run a container with a mounted file in pipelines
-# will probably end up adding an image with hadolint preloaded and update the
-# lint commands to optionally use a local installation if I don't hear back that
-# this is possible.
-#: ===
-#: === run linter on the docker files
-#: ===
-#bundle exec puppet-docker lint puppetdb
-#bundle exec puppet-docker lint puppetdb-postgres
+container_list=(puppetdb puppetdb-postgres)
 
 : ===
-: === build and test puppetdb
+: === build and test all the images before we push anything
 : ===
-bundle exec puppet-docker rev-labels puppetdb
-bundle exec puppet-docker build puppetdb --repository pcr-internal.puppet.net/release-engineering
-bundle exec puppet-docker spec puppetdb
+for container in ${container_list[@]}; do
+  build_and_test_image $container
+done
 
 : ===
-: === build and test puppetdb-postgres
-: ==
-bundle exec puppet-docker rev-labels puppetdb-postgres
-bundle exec puppet-docker build puppetdb-postgres --repository pcr-internal.puppet.net/release-engineering
-bundle exec puppet-docker spec puppetdb-postgres
-
-: ==
-: == push containers
-: ==
-bundle exec puppet-docker push puppetdb --repository pcr-internal.puppet.net/release-engineering
-bundle exec puppet-docker push puppetdb-postgres --repository pcr-internal.puppet.net/release-engineering
+: === push all the images
+: ===
+for container in ${container_list[@]}; do
+  push_image $container
+done
 
 : ===
 : === SUCCESS
