@@ -50,5 +50,8 @@ update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
 bundle install --without acceptance --path "$(pwd)/vendor"
 lein install-gems
 
-echo "Getting puppet source, using branch ${PUPPET_VERSION}"
-git clone https://github.com/puppetlabs/puppet vendor/puppet -b "$PUPPET_VERSION"
+# Symlink vendor/puppet to the git tree bundler checked out.  Use a
+# relative path so that moving the pdb tree around won't break things.
+cd vendor
+puppet_path="$(bundle show puppet)"
+ln -srf "$puppet_path" puppet
