@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
+
+if test -z "$(type -t bundler)"; then
+    cat 2>&1 <<-EOS
+	Ruby bundler does not appear to be available.
+	Please install it via "gem install --user-install bundler" or similar.
+	EOS
+    exit 2
+fi
+
+set -x
 
 export PUPPETSERVER_HEAP_SIZE=1G
 
@@ -36,10 +46,6 @@ echo "$MAVEN_VER"
 cd ..
 
 update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
-
-if test -z "$(type -t bundler)"; then
-    gem install bundler
-fi
 
 bundle install --without acceptance
 lein install-gems
