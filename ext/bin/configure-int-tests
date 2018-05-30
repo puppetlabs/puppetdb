@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-set -e
-set -o pipefail
+set -euxo pipefail
 
 export PUPPETSERVER_HEAP_SIZE=1G
 
 PUPPET_VERSION="${PUPPET_VERSION:-master}"
+PUPPETSERVER_VERSION="${PUPPETSERVER_VERSION:-master}"
 
 # Update a single dependency in a leiningen project.clj file.
 update_dependency_var() {
