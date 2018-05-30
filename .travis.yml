@@ -45,7 +45,7 @@ matrix:
         PUPPETSERVER_VERSION=5.1.x
       jdk: oraclejdk8
 
-before_install: ext/travisci/install_puppetserver.sh
+before_install: ext/bin/configure-int-tests
 script: ext/travisci/test.sh
 on_success: ext/travisci/on-success
 
