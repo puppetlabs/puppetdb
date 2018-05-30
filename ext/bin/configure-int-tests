@@ -47,7 +47,7 @@ cd ..
 
 update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
 
-bundle install --without acceptance
+bundle install --without acceptance --path "$(pwd)/vendor"
 lein install-gems
 
 echo "Getting puppet source, using branch ${PUPPET_VERSION}"
