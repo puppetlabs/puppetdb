@@ -82,6 +82,9 @@
         [".bundle"
          ".lein-failures"
          "Gemfile.lock"
+         "ext/test-conf/puppet-requested"
+         "ext/test-conf/puppetserver-dep"
+         "ext/test-conf/puppetserver-requested"
          "puppetserver"
          "vendor"]))
 

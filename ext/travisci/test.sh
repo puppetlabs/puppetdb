@@ -16,7 +16,14 @@ run-unit-tests()
   export PGHOST=127.0.0.1
   export PGPORT=5432
   ext/bin/setup-pdb-pg "$pgdir"
-  ext/bin/pdb-test-env "$pgdir" lein test "$PDB_TEST_SELECTOR"
+  case "$PDB_TEST_SELECTOR" in
+      :integration)
+          ext/bin/pdb-test-env "$pgdir" lein test :integration
+          ;;
+      *)
+          ext/bin/pdb-test-env "$pgdir" lein test "$PDB_TEST_SELECTOR"
+          ;;
+  esac
 )
 
 case "$PDB_TEST_LANG" in
@@ -26,10 +33,8 @@ case "$PDB_TEST_LANG" in
     ;;
   ruby)
     ruby -v
-    gem install bundler
-    bundle install --without acceptance
     cd puppet
-    bundle exec rspec spec/
+    bundle exec rspec spec
     ;;
   *)
     echo "Invalid language: $PDB_TEST_LANG" 1>&2

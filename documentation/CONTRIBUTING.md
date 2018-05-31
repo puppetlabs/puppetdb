@@ -82,30 +82,37 @@ set `PDB_TEST_PRESERVE_DB_ON_FAIL` to true:
     $ PDB_TEST_KEEP_DB_ON_FAIL=true lein test
 
 To run the integration tests, you'll need to ensure you have a
-suitable version of Ruby and Bundler available, and then run:
+suitable version of Ruby and Bundler available, and then run
 
-    $ ext/bin/configure-int-tests
+    $ ext/bin/config-puppet-test-ref
+    $ ext/bin/config-puppetserver-test-ref
 
-You can request specific versions of puppet or puppetserver with the
-`PUPPET_VERSION` and `PUPPETSERVER_VERSION` environment variables:
+The default puppet and puppetserver versions are recorded in
+`ext/test-conf/`.  You can request specific versions of puppet or
+puppetserver by specifying arguments to the config tools like this:
 
-    $ PUPPET_VERSION=5.3.x PUPPETSERVER_VERSION=5.1.x \
-      ext/bin/configure-int-tests
+    $ ext/bin/config-puppet-test-ref 5.3.x
+    $ ext/bin/config-puppetserver-test-ref 5.1.x
 
-After configuration, you should be able to run the tests by specifying
+Run the tools again to change the requested versions, and `lein
+distclean` will completely undo the configurations.
+
+After configuration you should be able to run the tests by specifying
 the `:integration` selector:
 
     $ lein test :integration
 
 To run the local rspec tests (e.g. for the PuppetDB terminus code),
-first run `bundle install`, as described above, from the top of the
-source tree:
+you must have run `config-puppet-test-ref` as described above, and
+then from within the `puppet/` directory run:
 
-    $ bundle install --path "$(pwd)/vendor"
+    $ bundle exec rspec spec
 
-and then from within the `puppet/` directory:
+### Cleaning up
 
-    $ bundle exec rspec
+Running `lein clean` will clean up the relevant items related to
+Clojure, but won't affect some other things, including the integration
+test configuration.  To clean up "everything", run `lein distclean`.
 
 ## Making Trivial Changes
 

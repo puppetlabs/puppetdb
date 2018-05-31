@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_home="$(cd "$(dirname "$0")" && pwd)"
+top="$script_home/../.."
+cd "$top"  # Always run from the top level of the tree
+
+usage() {
+    echo "Usage: $(basename "$0") [REF]"
+}
+
+if test -z "$(type -t bundler)"; then
+    cat 2>&1 <<-EOS
+	Ruby bundler does not appear to be available.
+	Please install it via "gem install --user-install bundler" or similar.
+	EOS
+    exit 2
+fi
+
+set -x
+
+rm -f ext/test-conf/puppet-requested
+
+case "$#" in
+    0)
+        puppet_ref="$(cat ext/test-conf/puppet-default)"
+        ;;
+    1)
+        puppet_ref="$1"
+        echo "$puppet_ref" > ext/test-conf/puppet-requested
+        ;;
+    *)
+        usage 1>&2
+        exit 2
+esac
+
+bundle install --without acceptance --path vendor/bundle
+bundle update
+
+# Symlink vendor/puppet to the git tree bundler checked out.  Use a
+# relative path so that moving the pdb tree around won't break things.
+cd vendor
+puppet_path="$(bundle show puppet)"
+ln -srf "$puppet_path" puppet

@@ -1,7 +1,14 @@
+gemfile_home = File.dirname(__FILE__)
+
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
-puppet_ref = ENV['PUPPET_VERSION'] || "master"
 oldest_supported_puppet = "5.0.0"
 beaker_version = ENV['BEAKER_VERSION']
+
+begin
+  puppet_ref = File.read(gemfile_home + '/ext/test-conf/puppet-requested').strip
+rescue Errno::ENOENT
+  puppet_ref = File.read(gemfile_home + '/ext/test-conf/puppet-default').strip
+end
 
 def location_for(place, fake_version = nil)
   if place =~ /^(git:[^#]*)#(.*)/
