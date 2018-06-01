@@ -2,6 +2,13 @@
 (def puppetserver-version "5.1.0")
 (def clj-parent-version "1.4.3")
 
+(defn pdb-run-sh [& args]
+  (apply vector
+         ["run" "-m" "puppetlabs.puppetdb.dev.lein/run-sh" (pr-str args)]))
+
+(defn pdb-run-clean [paths]
+  (apply pdb-run-sh {:argc #{0} :echo true} "rm" "-rf" paths))
+
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
    password for Nexus supplied as environment variables."
@@ -15,6 +22,34 @@
 
 (def need-permgen?
   (= "1.7" (System/getProperty "java.specification.version")))
+
+;; Don't use lein :clean-targets so that we don't have to repeat
+;; ourselves, given that we need to remove some protected files, and
+;; in addition, metadata like {:protect false} doesn't appear to
+;; survive profile merges.
+
+(def pdb-clean-paths
+  ["puppet/client_data"
+   "puppet/client_yaml"
+   "puppet/clientbucket"
+   "puppet/facts.d"
+   "puppet/locales"
+   "puppet/preview"
+   "puppet/state"
+   "resources/locales.clj"
+   "resources/puppetlabs/puppetdb/Messages_eo$1.class"
+   "resources/puppetlabs/puppetdb/Messages_eo.class"
+   "target"
+   "test-resources/puppetserver/ssl/certificate_requests"
+   "test-resources/puppetserver/ssl/private"])
+
+(def pdb-distclean-paths
+  (into pdb-clean-paths
+        [".bundle"
+         ".lein-failures"
+         "Gemfile.lock"
+         "puppetserver"
+         "vendor"]))
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
@@ -211,4 +246,6 @@
   :aliases {"gem" ["trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
                    "--config" "./test-resources/puppetserver/puppetserver.conf"]
             "install-gems" ["trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
-                            "--config" "./test-resources/puppetserver/puppetserver.conf"]})
+                            "--config" "./test-resources/puppetserver/puppetserver.conf"]
+            "clean" ~(pdb-run-clean pdb-clean-paths)
+            "distclean" ~(pdb-run-clean pdb-distclean-paths)})
