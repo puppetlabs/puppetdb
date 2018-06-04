@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -uxeo pipefail
+
+ulimit -u 4096
+java -version
+lein version
+
+test $# -eq 0
+
+pgdir="$(pwd)/test-resources/var/pg"
+export PGHOST=127.0.0.1
+export PGPORT=5432
+ext/bin/setup-pdb-pg "$pgdir"
+ext/bin/pdb-test-env "$pgdir" lein test
