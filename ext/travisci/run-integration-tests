@@ -15,6 +15,13 @@ pup_ref="$1"
 pupsrv_ref="$2"
 
 ulimit -u 4096
+
+tmpdir="$(mktemp -d "int-test-XXXXXX")"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+mkdir "$tmpdir/bin"
+export PATH="$tmpdir/bin:$PATH"
+
+ext/bin/require-leiningen 2.8.1 "$tmpdir/bin"
 java -version
 lein version
 
