@@ -21,12 +21,12 @@ and the PuppetDB-termini for your Puppet master) using
   follow our guide to
   [installing PuppetDB from packages](./install_from_packages.html).
 
-Step 1: Enable the Puppet Collection package repository
+Step 1: Enable the Puppet Platform package repository
 -----
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet Collection package repository]({{puppet}}/puppet_collections.html)
+* [Enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
   on your PuppetDB server and Puppet master server.
 * Grab the PuppetDB and PuppetDB-termini packages, and import them into your
   site's local package repos.
@@ -63,6 +63,6 @@ adjust additional settings (to change the `node_ttl`, for example), see
 "Configuring PuppetDB" page.
 
 For full details on how to use the module, see the
-[PuppetDB module documentation](http://forge.puppetlabs.com/puppetlabs/puppetdb)
+[PuppetDB module documentation][module]
 on Puppet Forge. The module also includes some sample manifests in the `tests`
 directory that demonstrate its basic usage.
