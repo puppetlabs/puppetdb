@@ -99,6 +99,10 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 
 -   PuppetDB 5.2.0 adds the latest report's `job_id` to the nodes endpoint. The `job_id` isn't present if the run wasn't part of a job.
 
+### Contributors
+Karel Březina, Katie Lawhorn, Mike Eller, Rob Browning, Russell Mull,
+Scott Walker, Thomas Hallgren, Wyatt Alt, and Zachary Kent
+
 ## 5.1.5
 
 PuppetDB 5.1.5 is a bug-fix release.
