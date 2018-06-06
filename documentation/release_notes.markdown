@@ -119,6 +119,9 @@ PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
 
 -   PuppetDB's `jackson-databind` dependency is updated to 2.9.1, which contains a fix to a security issue. This library is only used in the structured logging module, so most users should be unaffected.
 
+### Contributors
+Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zachary Kent
+
 5.1.3
 -----
 
