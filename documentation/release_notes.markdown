@@ -22,6 +22,9 @@ PuppetDB 5.2.3 is a minor bug-fix release.
 
 -   [All issues resolved in PuppetDB 5.2.3](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.3%27)
 
+### Contributors
+Garrett Guillotte, Rob Browning, and Zachary Kent
+
 ## 5.2.2
 
 PuppetDB 5.2.2 is a bug-fix release.
