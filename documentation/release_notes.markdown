@@ -16,6 +16,15 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+## 5.2.3
+
+PuppetDB 5.2.3 is a minor bug-fix release.
+
+-   [All issues resolved in PuppetDB 5.2.3](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.3%27)
+
+### Contributors
+Garrett Guillotte, Rob Browning, and Zachary Kent
+
 ## 5.2.2
 
 PuppetDB 5.2.2 is a bug-fix release.
@@ -28,6 +37,9 @@ PuppetDB 5.2.2 is a bug-fix release.
 
 -   When the Puppet Enterprise (PE) package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.2.2 removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
 
+### Contributors
+Andrew Roetker, Garrett Guillotte, and Zachary Kent
+
 ## 5.2.1
 
 PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and improves command queue management.
@@ -37,6 +49,10 @@ PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and im
 -   PuppetDB 5.2.1 significantly improves the performance of facts queries that constrain 'name' to a single value, such as `facts [value, count()] { name = 'osFamily' group by value }`. ([PDB-3838](https://tickets.puppetlabs.com/browse/PDB-3838))
 
 -   If you submitted a malformed message to the command queue in previous versions of PuppetDB, the command queue would grow upon receiving the message but would not reduce in size when the message was discarded. PuppetDB 5.2.1 correctly reduces the command queue size when a malformed message is submitted to the queue. ([PDB-3830](https://tickets.puppetlabs.com/browse/PDB-3830))
+
+### Contributors
+Garrett Guillotte, Morgan Rhodes, Nick Walker, Rob Browning, Russell
+Mull, and Zachary Kent
 
 ## 5.2.0
 
@@ -93,6 +109,10 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 
 -   PuppetDB 5.2.0 adds the latest report's `job_id` to the nodes endpoint. The `job_id` isn't present if the run wasn't part of a job.
 
+### Contributors
+Karel Březina, Katie Lawhorn, Mike Eller, Rob Browning, Russell Mull,
+Scott Walker, Thomas Hallgren, Wyatt Alt, and Zachary Kent
+
 ## 5.1.5
 
 PuppetDB 5.1.5 is a bug-fix release.
@@ -105,6 +125,10 @@ PuppetDB 5.1.5 is a bug-fix release.
 
 -   When the PE package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.1.5 now removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
 
+### Contributors
+Andrew Roetker, Garrett Guillotte, Molly Waggett, Morgan Rhodes,
+Nekototori, Nick Walker, Rob Browning, Russell Mull, and Zachary Kent
+
 ## 5.1.4
 
 PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
@@ -112,6 +136,9 @@ PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
 ### Bug fixes
 
 -   PuppetDB's `jackson-databind` dependency is updated to 2.9.1, which contains a fix to a security issue. This library is only used in the structured logging module, so most users should be unaffected.
+
+### Contributors
+Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zachary Kent
 
 5.1.3
 -----
