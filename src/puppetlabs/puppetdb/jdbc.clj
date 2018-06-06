@@ -529,8 +529,13 @@
    (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
          conn-max-age-ms (some-> conn-lifetime pl-time/to-millis)
          config (HikariConfig.)]
+     ;; For filesystem socket set subname to:
+     ;; //:0/puppetdb?socketFactory=puppetlabs.puppetdb.FixedDestUnixSockets"&socketFactoryArg=PATH"
      (doto config
        (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
+       ;; We could also set properties directly...
+       ;;(.addDataSourceProperty "socketFactory" "puppetlabs.puppetdb...")
+       ;;(.addDataSourceProperty "socketFactoryArg" "/home/foo/...")
        (.setAutoCommit false)
        (.setInitializationFailFast false)
        (.setTransactionIsolation "TRANSACTION_READ_COMMITTED"))

@@ -34,7 +34,9 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [;; Clojure org
+  :dependencies [[com.github.jnr/jnr-unixsocket "0.19"]
+
+                 ;; Clojure org
                  [org.clojure/clojure "1.8.0"]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
@@ -101,7 +103,10 @@
                  [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
 
                  ;; Pin version for PDB-3809
-                 [com.fasterxml.jackson.core/jackson-databind "2.9.1"]]
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.1"]
+
+                 ;; Conflict resolution
+                 [com.github.jnr/jnr-ffi "2.1.8"]] ; jnr-unixsocket and jnr-posix
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
@@ -196,6 +201,7 @@
   :resource-paths ["resources" "puppet/lib" "resources/puppetlabs/puppetdb" "resources/ext/docs"]
 
   :main ^:skip-aot puppetlabs.puppetdb.core
+  :aot [puppetlabs.puppetdb.FixedDestUnixSockets]
 
   :test-selectors {:default (complement :integration)
                    :unit (complement :integration)
