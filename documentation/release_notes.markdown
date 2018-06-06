@@ -44,6 +44,10 @@ PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and im
 
 -   If you submitted a malformed message to the command queue in previous versions of PuppetDB, the command queue would grow upon receiving the message but would not reduce in size when the message was discarded. PuppetDB 5.2.1 correctly reduces the command queue size when a malformed message is submitted to the queue. ([PDB-3830](https://tickets.puppetlabs.com/browse/PDB-3830))
 
+### Contributors
+Garrett Guillotte, Morgan Rhodes, Nick Walker, Rob Browning, Russell
+Mull, and Zachary Kent
+
 ## 5.2.0
 
 PuppetDB 5.2.0 is a performance and feature release. Performance improvements are focused primarily on improvements to the storage model for facts.
