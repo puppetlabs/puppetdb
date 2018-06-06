@@ -111,6 +111,10 @@ PuppetDB 5.1.5 is a bug-fix release.
 
 -   When the PE package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.1.5 now removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
 
+### Contributors
+Andrew Roetker, Garrett Guillotte, Molly Waggett, Morgan Rhodes,
+Nekototori, Nick Walker, Rob Browning, Russell Mull, and Zachary Kent
+
 ## 5.1.4
 
 PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
