@@ -34,6 +34,9 @@ PuppetDB 5.2.2 is a bug-fix release.
 
 -   When the Puppet Enterprise (PE) package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.2.2 removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
 
+### Contributors
+Andrew Roetker, Garrett Guillotte, and Zachary Kent
+
 ## 5.2.1
 
 PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and improves command queue management.
