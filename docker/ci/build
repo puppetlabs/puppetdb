@@ -7,19 +7,14 @@ BUNDLER_PATH=.bundle/gems
 function build_and_test_image() {
   container_name=$1
 
-  # Haven't yet figured out how to run a container with a mounted file in pipelines
-  # will probably end up adding an image with hadolint preloaded and update the
-  # lint commands to optionally use a local installation if I don't hear back that
-  # this is possible.
-  #: ===
-  #: === run linter on the docker files
-  #: ===
-  # bundle exec puppet-docker lint $container_name
+  : ===
+  : === run linter on the docker files
+  : ===
+   bundle exec puppet-docker local-lint $container_name
 
   : ===
   : === build and test $container_name
   : ===
-  bundle exec puppet-docker rev-labels $container_name
   bundle exec puppet-docker build $container_name --repository pcr-internal.puppet.net/release-engineering
   bundle exec puppet-docker spec $container_name
 }
