@@ -1,5 +1,7 @@
 FROM ubuntu:16.04
 
+ARG vcs_ref
+ARG build_date
 ENV PUPPETDB_VERSION="5.2.2"
 ENV PUPPET_AGENT_VERSION="5.5.1"
 ENV DUMB_INIT_VERSION="1.2.1"
@@ -17,8 +19,8 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.license="Apache-2.0" \
       org.label-schema.version=$PUPPETDB_VERSION \
       org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
-      org.label-schema.vcs-ref="b75674e1fbf52f7821f7900ab22a19f1a10cafdb" \
-      org.label-schema.build-date="2018-05-09T20:10:37Z" \
+      org.label-schema.vcs-ref=$vcs_ref \
+      org.label-schema.build-date=$build_date \
       org.label-schema.schema-version="1.0" \
       org.label-schema.dockerfile="/Dockerfile"
 
