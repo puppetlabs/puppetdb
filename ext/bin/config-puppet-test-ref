@@ -42,4 +42,4 @@ bundle update
 # relative path so that moving the pdb tree around won't break things.
 cd vendor
 puppet_path="$(bundle show puppet)"
-ln -srf "$puppet_path" puppet
+"$top/ext/bin/symlink-relative-to" "$puppet_path" puppet
