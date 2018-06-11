@@ -32,8 +32,6 @@ lein --version
 lein clean
 lein test
 
-# We're going to run the integration tests, so we need both flavors of gems installed
-NO_ACCEPTANCE=true bundle install --path vendor/bundle --without acceptance
-lein install-gems
-
-NO_ACCEPTANCE=true exec lein test :integration
+export NO_ACCEPTANCE=true
+PDB_NO_PUPPETSERVER_INSTALL=true ext/bin/configure-int-tests
+exec lein test :integration

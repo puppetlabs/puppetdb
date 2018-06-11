@@ -82,22 +82,18 @@ set `PDB_TEST_PRESERVE_DB_ON_FAIL` to true:
     $ PDB_TEST_KEEP_DB_ON_FAIL=true lein test
 
 To run the integration tests, you'll need to ensure you have a
-suitable version of Ruby available, and then install the relevant gems
-by running something like this from the top level of the source tree:
+suitable version of Ruby and Bundler available, and then run:
 
-    $ bundle install --path "$(pwd)/vendor"
+    $ ext/bin/configure-int-tests
 
-`bundle` will store the gems in `vendor/` and will remember that
-location for future invocations.  You're welcome to choose a different
-`--path`, but note that the current integration tests will adulterate
-the content, so you may not want to share it.
+You can request specific versions of puppet or puppetserver with the
+`PUPPET_VERSION` and `PUPPETSERVER_VERSION` environment variables:
 
-To finish setting up the integration tests, invoke:
+    $ PUPPET_VERSION=5.3.x PUPPETSERVER_VERSION=5.1.x \
+      ext/bin/configure-int-tests
 
-    $ lein install-gems
-
-at which point you should be able to run the tests by specifying the
-`:integration` selector:
+After configuration, you should be able to run the tests by specifying
+the `:integration` selector:
 
     $ lein test :integration
 

@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+script_home="$(cd "$(dirname "$0")" && pwd)"
+top="$script_home/../.."
+cd "$top"  # Always run from the top level of the tree
+
 if test -z "$(type -t bundler)"; then
     cat 2>&1 <<-EOS
 	Ruby bundler does not appear to be available.
@@ -14,40 +18,30 @@ set -x
 
 export PUPPETSERVER_HEAP_SIZE=1G
 
+PDB_NO_PUPPETSERVER_INSTALL="${PDB_NO_PUPPETSERVER_INSTALL:-}"
 PUPPET_VERSION="${PUPPET_VERSION:-master}"
 PUPPETSERVER_VERSION="${PUPPETSERVER_VERSION:-master}"
-
-# Update a single dependency in a leiningen project.clj file.
-update_dependency_var() {
-    local file="$1"
-    local varname="$2"
-    local new_version="$3"
-
-    SED_ADDRESS="(def $varname"
-    SED_REGEX="\".*\""
-    SED_REPLACEMENT="\"$new_version\""
-    SED_COMMAND="s|$SED_REGEX|$SED_REPLACEMENT|"
-
-    set -x
-    sed -i -e "/$SED_ADDRESS/ $SED_COMMAND" "$file"
-}
 
 lein-pprint() {
     lein with-profile dev,ci pprint "$@" | sed -e 's/^"//' -e 's/"$//'
 }
 
-git clone https://github.com/puppetlabs/puppetserver
+if test -d puppetserver; then
+   git -C puppetserver checkout "$PUPPETSERVER_VERSION"
+   git -C puppetserver clean -fdx
+else
+   git clone --depth 10 -b "$PUPPETSERVER_VERSION" https://github.com/puppetlabs/puppetserver
+fi
 
-cd puppetserver
-git checkout "$PUPPETSERVER_VERSION"
-lein install
-MAVEN_VER="$(lein-pprint :version)"
-echo "$MAVEN_VER"
-cd ..
+(cd puppetserver
+ if test -z "$PDB_NO_PUPPETSERVER_INSTALL"; then
+     lein install
+ fi
+ dep_ver="$(lein-pprint :version)"
+ mkdir -p "$top/ext/test-conf"
+ echo "$dep_ver" > "$top/ext/test-conf/puppetserver-dep")
 
-update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
-
-bundle install --without acceptance --path "$(pwd)/vendor"
+bundle install --without acceptance --path vendor/bundle
 lein install-gems
 
 # Symlink vendor/puppet to the git tree bundler checked out.  Use a
