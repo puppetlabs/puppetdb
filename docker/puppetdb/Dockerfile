@@ -10,17 +10,17 @@ ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
 ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
-ENV PATH=/opt/puppetlabs/server/bin:/opt/puppetlabs/puppet/bin:/opt/puppetlabs/bin:$PATH
+ENV PATH="/opt/puppetlabs/server/bin:/opt/puppetlabs/puppet/bin:/opt/puppetlabs/bin:$PATH"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
       org.label-schema.url="https://github.com/puppetlabs/puppetdb" \
       org.label-schema.name="PuppetDB" \
       org.label-schema.license="Apache-2.0" \
-      org.label-schema.version=$PUPPETDB_VERSION \
+      org.label-schema.version="$PUPPETDB_VERSION" \
       org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
-      org.label-schema.vcs-ref=$vcs_ref \
-      org.label-schema.build-date=$build_date \
+      org.label-schema.vcs-ref="$vcs_ref" \
+      org.label-schema.build-date="$build_date" \
       org.label-schema.schema-version="1.0" \
       org.label-schema.dockerfile="/Dockerfile"
 
