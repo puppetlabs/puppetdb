@@ -3,8 +3,7 @@
             [puppetlabs.puppetserver.cli.subcommand :as cli]
             [puppetlabs.services.jruby.jruby-puppet-core :as jruby-puppet-core]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
-            [clojure.string :as string]
-            [environ.core :refer [env]]))
+            [clojure.string :as string]))
 
 (defn gem-run!
   [config & args]

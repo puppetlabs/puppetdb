@@ -1,6 +1,7 @@
 
 # Leiningen
 /target/
+/target-gems/
 /pom.xml
 
 # Acceptance tests

@@ -1,7 +1,14 @@
+gemfile_home = File.dirname(__FILE__)
+
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
-puppet_branch = ENV['PUPPET_VERSION'] || "master"
 oldest_supported_puppet = "5.0.0"
 beaker_version = ENV['BEAKER_VERSION']
+
+begin
+  puppet_ref = File.read(gemfile_home + '/ext/test-conf/puppet-requested').strip
+rescue Errno::ENOENT
+  puppet_ref = File.read(gemfile_home + '/ext/test-conf/puppet-default').strip
+end
 
 def location_for(place, fake_version = nil)
   if place =~ /^(git:[^#]*)#(.*)/
@@ -35,14 +42,14 @@ group :test do
   # docker-api 1.32.0 requires ruby 2.0.0
   gem 'docker-api', '1.31.0'
 
-  case puppet_branch
+  case puppet_ref
   when "latest"
     gem 'puppet', ">= #{oldest_supported_puppet}", :require => false
   when "oldest"
     gem 'puppet', oldest_supported_puppet, :require => false
   else
     gem 'puppet', :git => 'https://github.com/puppetlabs/puppet.git',
-      :branch => puppet_branch, :require => false
+      :ref => puppet_ref, :require => false
   end
 
   gem 'mocha', '~> 1.0'
