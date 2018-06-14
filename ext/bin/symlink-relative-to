@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+target="$1"
+link_name="$2"
+
+case "$OSTYPE" in
+    darwin*)
+        if test -z "$(type -t realpath)"; then
+            echo "$script_name: realpath missing; please install coreutils" 1>&2
+            exit 2
+        fi
+        target="$(realpath --relative-to "$(dirname "$link_name")" "$target")"
+        ln -sf "$target" "$link_name"
+        ;;
+    *)
+        ln -srf "$target" "$link_name"
+        ;;
+esac
