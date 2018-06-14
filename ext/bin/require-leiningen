@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+cmdname="$(basename "$0")"
+
+usage() {
+    ehcho "Usage: $cmdname VERSION INSTALLDIR_IF_NEEDED"
+}
+
+declare -A known_hash
+known_hash[2.8.1]=b7f9c70341d638022c1c2d74867c50aeb608d2d9e7cd2a94b8f191bf6a9e1a6e
+
+if test "$#" -ne 2; then
+    usage 1>&2
+    exit 2
+fi
+
+ver="$1"
+bin="$2"
+hash="${known_hash[$ver]}"
+
+if ! test "$hash"; then
+    echo "$cmdname: don't know sha256sum for $ver" 1>&2
+    exit 2
+fi
+
+if command -v lein; then
+    curver="$(lein version | cut -d' ' -f2)"
+    if test "$curver" = "$ver"; then
+        exit 0
+    fi
+fi
+
+tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+cd "$tmpdir"
+curl -O "https://raw.githubusercontent.com/technomancy/leiningen/$ver/bin/lein"
+obshash="$(sha256sum < lein | cut -d' ' -f1)"
+cd ..
+
+if test "$obshash" != "$hash"; then
+    echo "$cmdname: sha256sum $obshash != $hash" 1>&2
+    exit 2
+fi
+
+mv -i "$tmpdir/lein" "$bin/"
+chmod +x "$bin/lein"

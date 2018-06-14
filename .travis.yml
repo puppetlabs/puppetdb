@@ -1,73 +1,79 @@
-language: clojure
-lein: 2.7.1
+language: generic
 dist: trusty
 
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.
 sudo: required
 
-matrix:
+aliases:
+  - &pg-ver 9.6
+
+jobs:
   include:
-    # terminus unit tests (spec tests)
-    - env: >
-        NAME=rspec/pup-5.5
-        PDB_TEST_LANG=ruby
-        PUPPET_VERSION=5.5.x
 
-    - env: >
-        NAME=rspec/pup-5.3
-        PDB_TEST_LANG=ruby
-        PUPPET_VERSION=5.3.x
+    # === core tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core/openjdk8
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: jdk_switcher use openjdk8 && ext/travisci/run-core-tests
 
-    # pdb unit tests
-    - env: >
-        NAME=unit-openjdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: openjdk8
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core/oraclejdk8
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: jdk_switcher use oraclejdk8 && ext/travisci/run-core-tests
 
-    - env: >
-        NAME=unit-oracle8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: oraclejdk8
+    # === integration tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk8/pup-5.5.x/srv-5.3.x
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk8
+        && ext/travisci/run-integration-tests 5.5.x 5.3.x
 
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/oraclejdk8/pup-5.5.x/srv-5.3.x
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use oraclejdk8
+        && ext/travisci/run-integration-tests 5.5.x 5.3.x
 
-    # pdb + terminus + puppetserver + puppet integration tests
-    - env: >
-        NAME=int/srv-5.3/pup-5.5/openjdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=5.5.x
-        PUPPETSERVER_VERSION=5.3.x
-      jdk: openjdk8
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk8
+        && ext/travisci/run-integration-tests 5.3.x 5.1.x
 
-    - env: >
-        NAME=int/srv-5.3/pup-5.5/oraclejdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=5.5.x
-        PUPPETSERVER_VERSION=5.3.x
-      jdk: oraclejdk8
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.x
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use oraclejdk8
+        && ext/travisci/run-integration-tests 5.3.x 5.1.x
 
-    - env: >
-        NAME=int/srv-5.1/pup-5.3/openjdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=5.3.x
-        PUPPETSERVER_VERSION=5.1.x
-      jdk: openjdk8
+    # === rspec tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=rspec/pup-5.5.x
+      script: ext/travisci/run-rspec-tests 5.5.x
 
-    - env: >
-        NAME=int/srv-5.1/pup-5.3/oraclejdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=5.3.x
-        PUPPETSERVER_VERSION=5.1.x
-      jdk: oraclejdk8
+    - stage: ❧ pdb tests
+      env: PDB_TEST=rspec/pup-5.3.x
+      script: ext/travisci/run-rspec-tests 5.3.x
 
-before_install: ext/travisci/install_puppetserver.sh
-script: ext/travisci/test.sh
+before_install: ext/bin/host-info
+
 on_success: ext/travisci/on-success
 
 notifications:
@@ -75,11 +81,8 @@ notifications:
   hipchat:
     rooms:
       secure: gZpfMrGsUEHKzHfDaq8S00Xd35gzwEzcAy5/VV7JOGcmXLyWlx7ojh/Ke4rJ1vOa59OlazyCt5o8uDhB0CcQnZ2Aa6ncoOyLpLLjO8/Ak8qsxPLgC4Ov/zuRA4oTvxqZtaR7Juwbeobp5lB1OSFb7o4G747tC2Ihd1Nhx717tdQ=
-    template:
-      - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
+    template: >-
+      %{commit_subject}
+      / %{repository} %{branch} <a href="%{compare_url}">%{commit}</a> %{author}
+      / <a href="%{build_url}">#%{build_number}</a> %{result} in %{elapsed_time}
     format: html
-
-addons:
-  postgresql: "9.6"
-
-services: postgresql

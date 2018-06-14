@@ -1,6 +1,12 @@
 (def pdb-version "5.2.3-SNAPSHOT")
-(def puppetserver-version "5.1.0")
 (def clj-parent-version "1.4.3")
+
+(defn pdb-run-sh [& args]
+  (apply vector
+         ["run" "-m" "puppetlabs.puppetdb.dev.lein/run-sh" (pr-str args)]))
+
+(defn pdb-run-clean [paths]
+  (apply pdb-run-sh {:argc #{0} :echo true} "rm" "-rf" paths))
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -15,6 +21,72 @@
 
 (def need-permgen?
   (= "1.7" (System/getProperty "java.specification.version")))
+
+;; See the integration tests section in documentation/CONTRIBUTING.md.
+(def puppetserver-test-dep-ver
+  (some-> (try
+            (slurp (str "ext/test-conf/puppetserver-dep"))
+            (catch java.io.FileNotFoundException ex
+              (binding [*out* *err*]
+                (println "puppetserver test depdency unconfigured (ignoring)"))
+              nil))
+          clojure.string/trim))
+
+(def puppetserver-test-deps
+  (when puppetserver-test-dep-ver
+    `[[puppetlabs/puppetserver ~puppetserver-test-dep-ver]
+      [puppetlabs/puppetserver ~puppetserver-test-dep-ver :classifier "test"]]))
+
+(def pdb-dev-deps
+  (concat
+   '[[ring-mock]
+     [puppetlabs/trapperkeeper :classifier "test"]
+     [puppetlabs/kitchensink :classifier "test"]
+     [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
+     [org.flatland/ordered "1.5.3"]
+     [org.clojure/test.check "0.9.0"]
+     [com.gfredericks/test.chuck "0.2.7" :exclusions
+      [clj-time com.andrewmcveigh/cljs-time instaparse joda-time org.clojure/clojure]]
+     [environ "1.0.2"]
+     [riddley "0.1.12"]
+     [io.forward/yaml "1.0.5"]
+
+     ;; Only needed for :integration tests
+     [puppetlabs/trapperkeeper-authorization nil]
+     [puppetlabs/trapperkeeper-filesystem-watcher nil]]
+   puppetserver-test-deps))
+
+;; Don't use lein :clean-targets so that we don't have to repeat
+;; ourselves, given that we need to remove some protected files, and
+;; in addition, metadata like {:protect false} doesn't appear to
+;; survive profile merges.
+
+(def pdb-clean-paths
+  ["puppet/client_data"
+   "puppet/client_yaml"
+   "puppet/clientbucket"
+   "puppet/facts.d"
+   "puppet/locales"
+   "puppet/preview"
+   "puppet/state"
+   "resources/locales.clj"
+   "resources/puppetlabs/puppetdb/Messages_eo$1.class"
+   "resources/puppetlabs/puppetdb/Messages_eo.class"
+   "target"
+   "target-gems"
+   "test-resources/puppetserver/ssl/certificate_requests"
+   "test-resources/puppetserver/ssl/private"])
+
+(def pdb-distclean-paths
+  (into pdb-clean-paths
+        [".bundle"
+         ".lein-failures"
+         "Gemfile.lock"
+         "ext/test-conf/puppet-requested"
+         "ext/test-conf/puppetserver-dep"
+         "ext/test-conf/puppetserver-requested"
+         "puppetserver"
+         "vendor"]))
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
@@ -140,23 +212,7 @@
   :classifiers  [["test" :testutils]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock]
-                                  [puppetlabs/trapperkeeper :classifier "test"]
-                                  [puppetlabs/kitchensink :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
-                                  [puppetlabs/puppetserver ~puppetserver-version]
-                                  [puppetlabs/puppetserver ~puppetserver-version :classifier "test"]
-                                  [org.flatland/ordered "1.5.3"]
-                                  [org.clojure/test.check "0.9.0"]
-                                  [com.gfredericks/test.chuck "0.2.7" :exclusions
-                                   [clj-time com.andrewmcveigh/cljs-time instaparse joda-time org.clojure/clojure]]
-                                  [environ "1.0.2"]
-                                  [riddley "0.1.12"]
-                                  [io.forward/yaml "1.0.5"]
-
-                                  ;; Only needed for :integration tests
-                                  [puppetlabs/trapperkeeper-authorization nil]
-                                  [puppetlabs/trapperkeeper-filesystem-watcher nil]]
+                   :dependencies ~pdb-dev-deps
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
@@ -185,6 +241,9 @@
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.8.1"]]}
              :testutils {:source-paths ^:replace ["test"]}
+             :install-gems {:source-paths ^:replace ["src-gems"]
+                            :target-path "target-gems"
+                            :dependencies ~puppetserver-test-deps}
              :ci {:plugins [[lein-pprint "1.1.1"]]}
              :test {:jvm-opts ~(if need-permgen?
                                  ;; integration tests cycle jruby a lot, which chews through permgen
@@ -208,7 +267,11 @@
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
 
-  :aliases {"gem" ["trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
+  :aliases {"gem" ["with-profie" "install-gems"
+                   "trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
                    "--config" "./test-resources/puppetserver/puppetserver.conf"]
-            "install-gems" ["trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
-                            "--config" "./test-resources/puppetserver/puppetserver.conf"]})
+            "install-gems" ["with-profile" "install-gems"
+                            "trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
+                            "--config" "./test-resources/puppetserver/puppetserver.conf"]
+            "clean" ~(pdb-run-clean pdb-clean-paths)
+            "distclean" ~(pdb-run-clean pdb-distclean-paths)})

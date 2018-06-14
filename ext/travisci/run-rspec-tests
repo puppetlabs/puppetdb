@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -uxeo pipefail
+
+test "$#" -eq 1
+puppet_ref="$1"
+
+ulimit -u 4096
+ruby -v
+ext/bin/config-puppet-test-ref "$puppet_ref"
+cd puppet
+bundle exec rspec spec
