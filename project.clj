@@ -153,7 +153,7 @@
                  [overtone/at-at "1.2.0"]
 
                  ;; Database connectivity
-                 [com.zaxxer/HikariCP "2.4.3" :exclusions [org.slf4j/slf4j-api]]
+                 [com.zaxxer/HikariCP "2.7.4" :exclusions [org.slf4j/slf4j-api]]
                  [honeysql "0.6.3"]
                  [org.postgresql/postgresql "9.4.1208.jre7"]
 
