@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.anonymizer
   (:require [clojure.string :as str]
-            [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?]]
+            [puppetlabs.kitchensink.core :refer [regexp? uuid string-contains?]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.random :refer :all]
             [puppetlabs.puppetdb.reports :as reports]

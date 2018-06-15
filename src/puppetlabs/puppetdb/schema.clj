@@ -75,13 +75,6 @@
   "Schema type for JSONable objects"
   (s/protocol json/JSONable))
 
-(defn boolean?
-  "Predicate for finding true and false values, not
-   truthy or falsey values but real true/false values."
-  [x]
-  (or (true? x)
-      (false? x)))
-
 (defn schema-key->data-key
   "Returns the key from the `schema` map used for retrieving
    that schemas value from it's data map."

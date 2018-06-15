@@ -123,7 +123,7 @@
    (string? data) 0
    (integer? data) 1
    (float? data) 2
-   (kitchensink/boolean? data) 3
+   (boolean? data) 3
    (nil? data) 4
    (coll? data) 5))
 

@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.random-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.random :refer :all]
-            [puppetlabs.kitchensink.core :refer [boolean?]]))
+            [puppetlabs.puppetdb.random :refer :all]))
 
 (deftest test-random-string
   (testing "should return a string of specified length"

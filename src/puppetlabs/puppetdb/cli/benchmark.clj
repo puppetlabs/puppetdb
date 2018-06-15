@@ -165,7 +165,7 @@
     (string? leaf) (random-string (inc (rand-int 100)))
     (integer? leaf) (rand-int 100000)
     (float? leaf) (* (rand) (rand-int 100000))
-    (kitchensink/boolean? leaf) (random-bool)))
+    (boolean? leaf) (random-bool)))
 
 (defn randomize-map-leaves
   "Runs through a map and randomizes and random percentage of leaves."
