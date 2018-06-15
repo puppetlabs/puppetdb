@@ -155,7 +155,7 @@
                  ;; Database connectivity
                  [com.zaxxer/HikariCP "2.7.4" :exclusions [org.slf4j/slf4j-api]]
                  [honeysql "0.6.3"]
-                 [org.postgresql/postgresql "9.4.1208.jre7"]
+                 [org.postgresql/postgresql "42.2.2.jre7"]
 
                  ;; MQ connectivity
                  [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]
