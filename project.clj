@@ -110,8 +110,8 @@
                  [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
-                 [org.clojure/core.memoize "0.7.1"]
-                 [org.clojure/java.jdbc "0.7.5"]
+                 [org.clojure/core.memoize]
+                 [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
@@ -135,26 +135,26 @@
                  [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
-                 [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
+                 [com.taoensso/nippy :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.3"]
                  [fast-zip-visit "1.0.2"]
-                 [instaparse "1.4.1"]
+                 [instaparse]
                  [me.raynes/fs]
-                 [metrics-clojure "2.6.1" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
+                 [metrics-clojure :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [prismatic/schema "1.1.2"]
                  [robert/hooke "1.3.0"]
                  [slingshot]
                  [trptcolin/versioneer]
 
                  ;; Filesystem utilities
-                 [org.apache.commons/commons-lang3 "3.4"]
+                 [org.apache.commons/commons-lang3]
                  ;; Version information
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
 
                  ;; Database connectivity
-                 [com.zaxxer/HikariCP "2.7.4" :exclusions [org.slf4j/slf4j-api]]
-                 [honeysql "0.6.3"]
+                 [com.zaxxer/HikariCP :exclusions [org.slf4j/slf4j-api]]
+                 [honeysql]
                  [org.postgresql/postgresql "42.2.2.jre7"]
 
                  ;; MQ connectivity
@@ -165,7 +165,7 @@
                  [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
 
                  ;; WebAPI support libraries.
-                 [bidi "2.1.3" :exclusions [org.clojure/clojurescript]]
+                 [bidi :exclusions [org.clojure/clojurescript]]
                  [clj-http "2.0.1" :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
                  [com.novemberain/pantomime "2.1.0"]
                  [compojure]
@@ -173,7 +173,7 @@
                  [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
 
                  ;; Pin version for PDB-3809
-                 [com.fasterxml.jackson.core/jackson-databind "2.9.4"]
+                 [com.fasterxml.jackson.core/jackson-databind]
 
                  ;; conflict resolution
                  [org.clojure/tools.nrepl "0.2.13"]]
