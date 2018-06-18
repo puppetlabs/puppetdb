@@ -106,7 +106,11 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [;; Clojure org
+  :dependencies [;; clj-parent overrides
+                 [org.apache.commons/commons-compress "1.10"] ; legacy
+                 [org.postgresql/postgresql "42.2.2.jre7"] ; until we drop 7
+                 [prismatic/schema "1.1.2"] ; legacy
+
                  [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
@@ -141,7 +145,6 @@
                  [instaparse]
                  [me.raynes/fs]
                  [metrics-clojure :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
-                 [prismatic/schema "1.1.2"]
                  [robert/hooke "1.3.0"]
                  [slingshot]
                  [trptcolin/versioneer]
@@ -155,7 +158,6 @@
                  ;; Database connectivity
                  [com.zaxxer/HikariCP :exclusions [org.slf4j/slf4j-api]]
                  [honeysql]
-                 [org.postgresql/postgresql "42.2.2.jre7"]
 
                  ;; MQ connectivity
                  [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]
@@ -169,7 +171,6 @@
                  [clj-http "2.0.1" :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
                  [com.novemberain/pantomime "2.1.0"]
                  [compojure]
-                 [org.apache.commons/commons-compress "1.10"]
                  [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
 
                  ;; Pin version for PDB-3809
