@@ -1,5 +1,5 @@
 (def pdb-version "5.3.0-SNAPSHOT")
-(def clj-parent-version "1.4.3")
+(def clj-parent-version "2.0.1")
 
 (defn pdb-run-sh [& args]
   (apply vector
@@ -39,7 +39,7 @@
 
 (def pdb-dev-deps
   (concat
-   '[[ring-mock]
+   '[[ring/ring-mock]
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
@@ -107,7 +107,7 @@
   :pedantic? :abort
 
   :dependencies [;; Clojure org
-                 [org.clojure/clojure "1.8.0"]
+                 [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/core.memoize "0.7.1"]
@@ -173,7 +173,10 @@
                  [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
 
                  ;; Pin version for PDB-3809
-                 [com.fasterxml.jackson.core/jackson-databind "2.9.4"]]
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.4"]
+
+                 ;; conflict resolution
+                 [org.clojure/tools.nrepl "0.2.13"]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
@@ -236,8 +239,7 @@
                                                ;; This circular dependency is required because of a bug in
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
                                                ;; in the final package.
-                                               [puppetlabs/puppetdb ~pdb-version]
-                                               [org.clojure/tools.nrepl nil]]
+                                               [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.8.1"]]}
              :testutils {:source-paths ^:replace ["test"]}
