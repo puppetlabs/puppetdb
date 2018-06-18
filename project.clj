@@ -164,7 +164,7 @@
                  [org.apache.activemq/activemq-kahadb-store "5.13.2" :exclusions [org.slf4j/slf4j-api]]
                  [org.apache.activemq/activemq-pool "5.13.2" :exclusions [org.slf4j/slf4j-api]]
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
-                 [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
+                 [org.slf4j/jcl-over-slf4j "1.7.20" :exclusions [org.slf4j/slf4j-api]]
 
                  ;; WebAPI support libraries.
                  [bidi :exclusions [org.clojure/clojurescript]]
