@@ -22,6 +22,25 @@ PuppetDB 5.2.3 is a minor bug-fix release.
 
 -   [All issues resolved in PuppetDB 5.2.3](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.3%27)
 
+### Known issues
+
+-   In this and previous versions of PuppetDB, the `~` operator of a PQL query treats
+    dotted variables, such as `parameters.ensure` and `facts.fqdn`, as if their values
+    were wrapped in double quotes. This can lead to queries unexpectedly returning no
+    results. ([PDB-3930](https://tickets.puppetlabs.com/browse/PDB-3930))
+
+    For example, this query returns records of file resources:
+
+    ```
+    resources { type = 'File' and parameters.ensure ~ '^"file"$' }
+    ```
+
+    However, this query unexpectedly does not:
+
+    ```
+    resources { type = 'File' and parameters.ensure ~ '^file$' }
+    ```
+
 ### Contributors
 Garrett Guillotte, Rob Browning, and Zachary Kent
 
