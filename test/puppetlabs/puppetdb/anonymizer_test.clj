@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.anonymizer-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.anonymizer :refer :all]
-            [puppetlabs.kitchensink.core :refer [boolean?]]
             [puppetlabs.kitchensink.core :as ks]))
 
 (def anon-true {"context" {} "anonymize" true})

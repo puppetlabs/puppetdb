@@ -1,5 +1,5 @@
 (def pdb-version "5.3.0-SNAPSHOT")
-(def clj-parent-version "1.4.3")
+(def clj-parent-version "2.0.1")
 
 (defn pdb-run-sh [& args]
   (apply vector
@@ -39,14 +39,14 @@
 
 (def pdb-dev-deps
   (concat
-   '[[ring-mock]
+   '[[ring/ring-mock]
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
      [org.flatland/ordered "1.5.3"]
      [org.clojure/test.check "0.9.0"]
-     [com.gfredericks/test.chuck "0.2.7" :exclusions
-      [clj-time com.andrewmcveigh/cljs-time instaparse joda-time org.clojure/clojure]]
+     [com.gfredericks/test.chuck "0.2.7"
+      :exclusions [com.andrewmcveigh/cljs-time]]
      [environ "1.0.2"]
      [riddley "0.1.12"]
      [io.forward/yaml "1.0.5"]
@@ -106,12 +106,16 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [;; Clojure org
-                 [org.clojure/clojure "1.8.0"]
+  :dependencies [;; clj-parent overrides
+                 [org.apache.commons/commons-compress "1.10"] ; legacy
+                 [org.postgresql/postgresql "42.2.2.jre7"] ; until we drop 7
+                 [prismatic/schema "1.1.2"] ; legacy
+
+                 [org.clojure/clojure]
                  [org.clojure/core.async]
-                 [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
-                 [org.clojure/core.memoize "0.5.9"]
-                 [org.clojure/java.jdbc "0.6.1"]
+                 [org.clojure/core.match "0.3.0-alpha4"]
+                 [org.clojure/core.memoize]
+                 [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
@@ -127,7 +131,7 @@
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
-                 [puppetlabs/trapperkeeper-metrics :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
+                 [puppetlabs/trapperkeeper-metrics]
                  [puppetlabs/trapperkeeper-status]
 
                  ;; Various
@@ -135,45 +139,45 @@
                  [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
-                 [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
+                 [com.taoensso/nippy]
                  [digest "1.4.3"]
                  [fast-zip-visit "1.0.2"]
-                 [instaparse "1.4.1"]
+                 [instaparse]
                  [me.raynes/fs]
-                 [metrics-clojure "2.6.1" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
-                 [prismatic/schema "1.1.2"]
+                 [metrics-clojure]
                  [robert/hooke "1.3.0"]
                  [slingshot]
                  [trptcolin/versioneer]
 
                  ;; Filesystem utilities
-                 [org.apache.commons/commons-lang3 "3.4"]
+                 [org.apache.commons/commons-lang3]
                  ;; Version information
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
 
                  ;; Database connectivity
-                 [com.zaxxer/HikariCP "2.4.3" :exclusions [org.slf4j/slf4j-api]]
-                 [honeysql "0.6.3"]
-                 [org.postgresql/postgresql "9.4.1208.jre7"]
+                 [com.zaxxer/HikariCP]
+                 [honeysql]
 
                  ;; MQ connectivity
-                 [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]
-                 [org.apache.activemq/activemq-kahadb-store "5.13.2" :exclusions [org.slf4j/slf4j-api]]
-                 [org.apache.activemq/activemq-pool "5.13.2" :exclusions [org.slf4j/slf4j-api]]
+                 [org.apache.activemq/activemq-broker "5.13.2"]
+                 [org.apache.activemq/activemq-kahadb-store "5.13.2"]
+                 [org.apache.activemq/activemq-pool "5.13.2"]
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
-                 [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
+                 [org.slf4j/jcl-over-slf4j "1.7.20"]
 
                  ;; WebAPI support libraries.
-                 [bidi "2.0.12" :exclusions [org.clojure/clojurescript]]
-                 [clj-http "2.0.1" :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
+                 [bidi]
+                 [clj-http "2.0.1"]
                  [com.novemberain/pantomime "2.1.0"]
                  [compojure]
-                 [org.apache.commons/commons-compress "1.10"]
-                 [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
+                 [ring/ring-core]
 
                  ;; Pin version for PDB-3809
-                 [com.fasterxml.jackson.core/jackson-databind "2.9.1"]]
+                 [com.fasterxml.jackson.core/jackson-databind]
+
+                 ;; conflict resolution
+                 [org.clojure/tools.nrepl "0.2.13"]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
@@ -183,8 +187,8 @@
                  ["snapshots" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-snapshots__local/"]]
 
   :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
-            [lein-cloverage "1.0.6" :exclusions [org.clojure/clojure]]
-            [lein-parent "0.3.1"]
+            [lein-cloverage "1.0.6"]
+            [lein-parent "0.3.4"]
             [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
@@ -236,8 +240,7 @@
                                                ;; This circular dependency is required because of a bug in
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
                                                ;; in the final package.
-                                               [puppetlabs/puppetdb ~pdb-version]
-                                               [org.clojure/tools.nrepl nil]]
+                                               [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.8.1"]]}
              :testutils {:source-paths ^:replace ["test"]}

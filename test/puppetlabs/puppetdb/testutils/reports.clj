@@ -163,7 +163,7 @@
   [node report-hash]
   {:pre  [(string? node)
           (string? report-hash)]
-   :post [(kitchensink/boolean? %)]}
+   :post [(boolean? %)]}
   (= 1 (count (jdbc/query-to-vec
                 [(format "SELECT %s as latest_report_hash
                           FROM certnames
