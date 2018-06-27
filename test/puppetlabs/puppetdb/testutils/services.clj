@@ -5,8 +5,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.testutils.log
-             :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
+            [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [metrics.counters :refer [clear!]]
             [clojure.walk :as walk]
