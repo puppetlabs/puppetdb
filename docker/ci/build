@@ -6,6 +6,8 @@ BUNDLER_PATH=.bundle/gems
 
 function build_and_test_image() {
   container_name="$1"
+  git_describe=`git describe`
+  version="${git_describe%%-*}"
 
   : ===
   : === run linter on the docker files
@@ -15,7 +17,7 @@ function build_and_test_image() {
   : ===
   : === build and test $container_name
   : ===
-  bundle exec puppet-docker build "$container_name" --repository pcr-internal.puppet.net/release-engineering
+  bundle exec puppet-docker build "$container_name" --repository pcr-internal.puppet.net/release-engineering --version "$version" --no-latest
   bundle exec puppet-docker spec "$container_name"
 }
 
@@ -24,7 +26,7 @@ function push_image() {
   : ===
   : === push $container_name
   : ===
-  bundle exec puppet-docker push "$container_name" --repository pcr-internal.puppet.net/release-engineering
+  bundle exec puppet-docker push "$container_name" --repository pcr-internal.puppet.net/release-engineering --no-latest
 }
 
 : ===

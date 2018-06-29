@@ -2,8 +2,11 @@ FROM ubuntu:16.04
 
 ARG vcs_ref
 ARG build_date
-ENV PUPPETDB_VERSION="5.2.2"
-ENV PUPPET_AGENT_VERSION="5.5.1"
+ARG version="5.1.5"
+ARG puppet_agent_version="5.5.1"
+
+ENV PUPPETDB_VERSION="$version"
+ENV PUPPET_AGENT_VERSION="$puppet_agent_version"
 ENV DUMB_INIT_VERSION="1.2.1"
 ENV UBUNTU_CODENAME="xenial"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
@@ -32,7 +35,7 @@ RUN apt-get update && \
     dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
     rm puppet5-release-"$UBUNTU_CODENAME".deb dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
     apt-get update && \
-    apt-get install --no-install-recommends -y puppet-agent="$PUPPET_AGENT_VERSION"-1"$UBUNTU_CODENAME" puppetdb="$PUPPETDB_VERSION"-1xenial && \
+    apt-get install --no-install-recommends -y puppet-agent="$PUPPET_AGENT_VERSION"-1"$UBUNTU_CODENAME" puppetdb="$PUPPETDB_VERSION"-1"$UBUNTU_CODENAME" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
