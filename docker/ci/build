@@ -35,6 +35,14 @@ function push_image() {
 bundle install --path "$BUNDLER_PATH"
 
 : ===
+: === make sure we fetch tags for versioning
+: ===
+git fetch origin 'refs/tags/*:refs/tags/*'
+git_describe=`git describe`
+version="${git_describe%%-*}"
+postgres_version="9.6.8"
+
+: ===
 : === pull updated base images
 : ===
 bundle exec puppet-docker update-base-images ubuntu:16.04 postgres:9.6.8
