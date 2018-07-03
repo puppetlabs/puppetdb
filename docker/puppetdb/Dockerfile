@@ -26,7 +26,7 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.dockerfile="/Dockerfile"
 
 RUN apt-get update && \
-    apt-get install -y wget netcat lsb-release && \
+    apt-get install --no-install-recommends -y wget netcat lsb-release ca-certificates && \
     wget https://apt.puppetlabs.com/puppet5-release-"$UBUNTU_CODENAME".deb && \
     wget https://github.com/Yelp/dumb-init/releases/download/v"$DUMB_INIT_VERSION"/dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
     dpkg -i puppet5-release-"$UBUNTU_CODENAME".deb && \
