@@ -35,6 +35,11 @@ function push_image() {
 bundle install --path "$BUNDLER_PATH"
 
 : ===
+: === If we do not git pull --unshallow we get really weird results with git describe
+: ===
+git pull --unshallow
+
+: ===
 : === make sure we fetch tags for versioning
 : ===
 git fetch origin 'refs/tags/*:refs/tags/*'
