@@ -24,7 +24,9 @@
                         "numeric" 1337
                         "double" 3.14
                         "group"  "root"
-                        "acl"    ["john:rwx" "fred:rwx"]})}
+                        "acl"    ["john:rwx" "fred:rwx"]
+                        "backslash" "foo\\bar"
+                        "double_quote" "foo\"bar"})}
         {:resource (sutils/munge-hash-for-storage "02")
          :parameters nil}])
      (jdbc/insert-multi!
@@ -44,7 +46,11 @@
         {:resource (sutils/munge-hash-for-storage "01") :name "numeric"
          :value (sutils/db-serialize 1337)}
         {:resource (sutils/munge-hash-for-storage "01") :name "double"
-         :value (sutils/db-serialize 3.14)}])
+         :value (sutils/db-serialize 3.14)}
+        {:resource (sutils/munge-hash-for-storage "01") :name "backslash"
+         :value (sutils/db-serialize "foo\\bar")}
+        {:resource (sutils/munge-hash-for-storage "01") :name "double_quote"
+         :value (sutils/db-serialize "foo\"bar")}])
        (jdbc/insert-multi!
         :certnames
          [{:id 1 :certname "one.local"}
@@ -115,7 +121,9 @@
                           :numeric 1337
                           :double 3.14
                           :group  "root"
-                          :acl    ["john:rwx" "fred:rwx"]}}
+                          :acl    ["john:rwx" "fred:rwx"]
+                          :backslash "foo\\bar"
+                          :double_quote "foo\"bar"}}
       :foo2 {:certname   "one.local"
              :resource   "02"
              :type       "Notify"
@@ -142,7 +150,9 @@
                           :numeric 1337
                           :double 3.14
                           :group  "root"
-                          :acl    ["john:rwx" "fred:rwx"]}}
+                          :acl    ["john:rwx" "fred:rwx"]
+                          :backslash "foo\\bar"
+                          :double_quote "foo\"bar"}}
       :bar2 {:certname   "two.local"
              :resource   "02"
              :type       "Notify"
