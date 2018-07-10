@@ -249,7 +249,7 @@
                       (str/join "->" (butlast path-elts))
                       (when-let [x (last path-elts)] ["->>" x]))]
       (hcore/raw (string/join \space
-                              [(str "(" path ")") (name op) "(?#>>'{}')::text"
+                              [(str "(" path ")") (name op) "(?#>>'{}')"
                                "and" column "??" "?"])))
     (let [delimited-qmarks (str/join "->" qmarks)]
       (hcore/raw (string/join \space
