@@ -240,16 +240,22 @@
 (defn jsonb-path-binary-expression
   "Produce a predicate that compares against nested value with op and checks the
   existence of a (presumably) top-level value. The existence check is necessary
-  because -> is not indexable (with GIN) but ?? is. Assumes a GIN index on the
+  because -> is not indexable (with GIN) but ? is. Assumes a GIN index on the
   column supplied."
   [op column qmarks]
-  (let [delimited-qmarks (str/join "->" qmarks)
-        re? (= "~" (name op))]
-    (hcore/raw (string/join \space
-                            [(str "(" column "->" delimited-qmarks ")" (when re? "::text"))
-                             (name op)
-                             (if re? "(?#>>'{}')::text" "?")
-                             "and" column "??" "?"]))))
+  (if (= "~" (name op))
+    (let [path-elts (cons column qmarks)
+          path (apply str
+                      (str/join "->" (butlast path-elts))
+                      (when-let [x (last path-elts)] ["->>" x]))]
+      (hcore/raw (string/join \space
+                              [(str "(" path ")") (name op) "(?#>>'{}')::text"
+                               "and" column "??" "?"])))
+    (let [delimited-qmarks (str/join "->" qmarks)]
+      (hcore/raw (string/join \space
+                              [(str "(" column "->" delimited-qmarks ")")
+                               (name op) "?"
+                               "and" column "??" "?"])))))
 
 (defn jsonb-scalar-cast
   [typ]
