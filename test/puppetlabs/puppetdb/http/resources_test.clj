@@ -85,7 +85,12 @@ to the result of the form supplied to this method."
 
     (testing "dot-style querying for regex resource parameters"
       (doseq [[query result] [[["~" "parameters.owner" "oot"] #{foo1 bar1}]
-                              [["~" "parameters.nested.foo" "ar"] #{foo1 bar1}]]]
+                              [["~" "parameters.owner" "^root"] #{foo1 bar1}]
+                              [["~" "parameters.owner" "oot$"] #{foo1 bar1}]
+                              [["~" "parameters.nested.foo" "ar"] #{foo1 bar1}]
+                              [["~" "parameters.nested.foo" "^bar$"] #{foo1 bar1}]
+                              [["~" "parameters.double_quote" "^foo\"bar$"] #{foo1 bar1}]
+                              [["~" "parameters.backslash" "^foo\\\\bar$"] #{foo1 bar1}]]]
         (testing query
           (is (= (query-result (query-response method endpoint query)) result)))))
 
