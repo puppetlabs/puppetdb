@@ -32,7 +32,9 @@
            :operatingsystem "Debian"
            :some_version "1.3.7+build.11.e0f985a"
            :uptime_seconds 4000
-           :my_weird_fact {:blah {:dotted.thing {:dashed-thing {(keyword "quoted\"thing") "foo"}}}}}})
+           :my_weird_fact {:blah {:dotted.thing {:dashed-thing {(keyword "quoted\"thing") "foo"}}}}
+           :double_quote "foo\"bar"
+           :backslash "foo\\bar"}})
 
 (def inventory2
   {:certname "foo.com"
@@ -49,13 +51,22 @@
            :some_version "1.3.7+build.11.e0f985a"
            :uptime_seconds 4000}})
 
+(def inventory3
+  {:certname "baz.com"
+   :timestamp nil
+   :environment "DEV"
+   :trusted {:foo {:baz "qbiz"}}
+   :facts {:trusted {:foo {:baz "qbiz"}}}})
+
 (defn queries-and-results
   [timestamp]
   (let [response1 (assoc inventory1 :timestamp (to-string timestamp))
-        response2 (assoc inventory2 :timestamp (to-string timestamp))]
+        response2 (assoc inventory2 :timestamp (to-string timestamp))
+        response3 (assoc inventory3 :timestamp (to-string timestamp))]
+
     (omap/ordered-map
      nil
-     #{response1 response2}
+     #{response1 response2 response3}
 
      ["=" "certname" "bar.com"]
      #{response1}
@@ -91,6 +102,27 @@
      #{response1}
 
      ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"" "foo"]
+     #{response1}
+
+     ["~" "facts.kernel" "^Linux$"]
+     #{response1}
+
+     ["~" "facts.trusted.foo.baz" "^biz"]
+     #{response2}
+
+     ["~" "facts.trusted.foo.baz" "biz$"]
+     #{response2 response3}
+
+     ["~" "facts.domain" "^test.*"]
+     #{response1 response2}
+
+     ["~" "facts.domain" "com$"]
+     #{response1 response2}
+
+     ["~" "facts.double_quote" "^foo\"bar$"]
+     #{response1}
+
+     ["~" "facts.backslash" "^foo\\\\bar$"]
      #{response1})))
 
 (deftest-http-app inventory-queries
@@ -99,10 +131,12 @@
 
   (let [facts1 (:facts inventory1)
         facts2 (:facts inventory2)
+        facts3 (:facts inventory3)
         timestamp (now)]
     (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo.com")
       (scf-store/add-certname! "bar.com")
+      (scf-store/add-certname! "baz.com")
       (scf-store/add-facts! {:certname "bar.com"
                              :values (stringify-keys facts1)
                              :timestamp timestamp
@@ -111,6 +145,12 @@
                              :producer "bar1"})
       (scf-store/add-facts! {:certname "foo.com"
                              :values (stringify-keys facts2)
+                             :timestamp timestamp
+                             :environment "DEV"
+                             :producer_timestamp timestamp
+                             :producer "bar1"})
+      (scf-store/add-facts! {:certname "baz.com"
+                             :values (stringify-keys facts3)
                              :timestamp timestamp
                              :environment "DEV"
                              :producer_timestamp timestamp
