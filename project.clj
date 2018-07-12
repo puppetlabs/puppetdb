@@ -1,4 +1,4 @@
-(def pdb-version "5.2.3-SNAPSHOT")
+(def pdb-version "5.2.3")
 (def clj-parent-version "1.4.3")
 
 (defn pdb-run-sh [& args]
