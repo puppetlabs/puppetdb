@@ -242,7 +242,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.8.1"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.8.5"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
