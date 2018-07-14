@@ -12,7 +12,7 @@ def initialize_repo_on_host(host, os, nightly)
     if options[:type] == 'aio' then
       if nightly
         ## puppet5 repos
-        on host, "curl -O http://apt.puppetlabs.com/puppet5-nightly/puppet5-nightly-release-$(lsb_release -sc).deb"
+        on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
         on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
       else
