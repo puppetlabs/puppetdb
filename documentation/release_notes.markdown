@@ -22,7 +22,27 @@ PuppetDB 5.2.4 is a minor bug-fix release.
 
 -   [All issues resolved in PuppetDB 5.2.4](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.4%27)
 
+### Bug fixes
+
+-   In previous versions of PuppetDB (starting with 5.2.0), the `~` operator would match
+    the JSON-encoded representation of a fact value rather than the value itself. For
+    example, this query would unexpectedly fail to match a fact that started with `file`:
+
+    ```
+    ~ ^file
+    ```
+
+    However, this query would unexpectedly match the fact:
+
+    ```
+    ~ ^"file
+    ```
+
+    PuppetDB 5.2.4 resolves this issue by correctly matching regular expresions against
+    fact values. ([PDB-3930](https://tickets.puppetlabs.com/browse/PDB-3930))
+
 ### Contributors
+
 Garrett Guillotte, Morgan Rhodes, Rob Browning, and Zachary Kent
 
 ## 5.2.3
