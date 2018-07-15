@@ -16,14 +16,20 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
-## 5.2.3
+## 5.2.4
 
-PuppetDB 5.2.3 is a minor bug-fix release.
+PuppetDB 5.2.4 is a minor bug-fix release.
 
--   [All issues resolved in PuppetDB 5.2.3](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.3%27)
+-   [All issues resolved in PuppetDB 5.2.4](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.4%27)
 
 ### Contributors
-Garrett Guillotte, Rob Browning, and Zachary Kent
+Garrett Guillotte, Morgan Rhodes, Rob Browning, and Zachary Kent
+
+## 5.2.3
+
+NOTE: This version was not officially released, as additional fixes
+came in between the time we tagged this and the time we were going to
+publish release artifacts.
 
 ## 5.2.2
 
