@@ -32,6 +32,15 @@
               nil))
           clojure.string/trim))
 
+(def puppetserver-test-dep-gem-list
+  (when puppetserver-test-dep-ver
+    (let [maj-ver (-> (re-matches #"^([0-9]+)\..*" puppetserver-test-dep-ver)
+                      second
+                      Integer/parseInt)]
+      (if (>= maj-ver 6)
+        "jruby-gem-list.txt"
+        "gem-list.txt"))))
+
 (def puppetserver-test-deps
   (when puppetserver-test-dep-ver
     `[[puppetlabs/puppetserver ~puppetserver-test-dep-ver]
@@ -272,6 +281,7 @@
                    "--config" "./test-resources/puppetserver/puppetserver.conf"]
             "install-gems" ["with-profile" "install-gems"
                             "trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
+                            ~puppetserver-test-dep-gem-list
                             "--config" "./test-resources/puppetserver/puppetserver.conf"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
             "distclean" ~(pdb-run-clean pdb-distclean-paths)})
