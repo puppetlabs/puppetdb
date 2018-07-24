@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+clojure_ver=1.9.0
+spec_ver=0.1.143  # spec.alpha
+specs_ver=0.1.24  # core.specs.alpha
+
+script_home="$(cd "$(dirname "$0")" && pwd)"
+
+find_jar_or_die()
+{
+    local name="$1" ver="$2"
+    jar="$(find ~/.m2 -name "$name-$ver.jar" | head -1)"
+    if ! test "$jar"; then
+        echo "error: can't find $name $ver in ~/.m2" 1>&2
+        exit 2
+    fi
+    echo "$jar"
+}
+
+clj_jar="$(find_jar_or_die clojure "$clojure_ver")"
+spec_jar="$(find_jar_or_die spec.alpha "$spec_ver")"
+specs_jar="$(find_jar_or_die core.specs.alpha "$specs_ver")"
+
+exec java -cp "$clj_jar:$spec_jar:$specs_jar" clojure.main "$@"
