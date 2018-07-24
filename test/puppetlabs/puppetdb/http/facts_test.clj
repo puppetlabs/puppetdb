@@ -1960,9 +1960,9 @@
                             (assoc-in [:developer :pretty-print] (str pretty?)))
                         (fn []
                           (let [facts {:certname "foo"
-                                       :timestamp reference-time
+                                       :timestamp (now)
                                        :environment "DEV"
-                                       :producer_timestamp reference-time
+                                       :producer_timestamp (now)
                                        :producer "bar"
                                        :values{"foo" "bar"
                                                "baz" "bax"}}]
