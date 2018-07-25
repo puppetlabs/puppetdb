@@ -174,6 +174,8 @@
             :storeconfigs_backend "puppetdb"
             :reports "puppetdb"
             :autosign true
+            ;; cf. test-resources/puppetserver/puppet.conf
+            :vendormoduledir "target/test/int/puppet/vendor_modules"
             :node_name_value node-name}})
 
 (defn write-puppetdb-terminus-config [pdb-servers path overrides]
@@ -197,6 +199,7 @@
     (spit (.getAbsolutePath puppet-conf) "")
     (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
     (fs/mkdirs (str env-dir "/modules"))
+    (fs/mkdirs "target/test/int/puppet/vendor_modules")
 
     ;; copy our custom puppet functions into the code-dir, since puppet can't
     ;; find them in the ruby load path
@@ -328,8 +331,11 @@
                              :storeconfigs true
                              :storeconfigs_backend "puppetdb"
                              :report true
-                             :reports "puppetdb"}}
+                             :reports "puppetdb"
+                             ;; cf. test-resources/puppetserver/puppet.conf
+                             :vendormoduledir "target/test/int/puppet/vendor_modules"}}
                      (ks/deep-merge puppet-conf)))
+    (fs/mkdirs "target/test/int/puppet/vendor_modules")
 
     (spit (str agent-conf-dir "/routes.yaml")
           (-> {:apply {:catalog {:terminus "compiler"
