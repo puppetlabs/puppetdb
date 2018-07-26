@@ -21,8 +21,6 @@
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]))
 
-(def default-mq-endpoint "puppetlabs.puppetdb.commands")
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
@@ -338,15 +336,18 @@
   "Warns about configuration retirements.  Abruptly exits the entire
   process if a [global] url-prefix is found."
   [config-data]
-  (doseq [param [:classname :subprotocol]]
-    (when (get-in config-data [:database param])
+
+  (doseq [[section opt :as path] [[:command-processing :max-frame-size]
+                                  [:command-processing :memory-usage]
+                                  [:command-processing :store-usage]
+                                  [:command-processing :temp-usage]
+                                  [:database :classname]
+                                  [:database :subprotocol]
+                                  [:global :catalog-hash-conflict-debugging]]]
+    (when (get-in config-data path)
       (utils/println-err
-       (trs "The [database] {0} setting has been retired and will be ignored."
-            (name param)))))
-  (when (get-in config-data [:global :catalog-hash-conflict-debugging])
-    (utils/println-err (format "%s %s"
-                               (trs "The configuration item `catalog-hash-conflict-debugging` in the [global] section is retired, lease remove this item from your config.")
-                               (trs"Consult the documentation for more details."))))
+       (trs "The [{0}] {1} config option has been retired and will be ignored."
+            (name section) (name opt)))))
 
   (when (get-in config-data [:repl])
     (utils/println-err (format "%s %s %s"
@@ -401,14 +402,6 @@
         (assoc-in [:metrics :reporters :jmx :enabled] true)
         (update :web-router-service merge filtered-web-router-config))))
 
-(defn- add-mq-defaults
-  [config-data]
-  (-> config-data
-      (update-in [:command-processing :mq :address]
-                 #(or % "vm://localhost?jms.prefetchPolicy.all=1&create=false"))
-      (update-in [:command-processing :mq :endpoint]
-                 #(or % default-mq-endpoint))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -432,8 +425,7 @@
       configure-globals
       configure-developer
       validate-vardir
-      convert-config
-      add-mq-defaults))
+      convert-config))
 
 (defn foss? [config]
   (= "puppetdb" (get-in config [:global :product-name])))
@@ -443,16 +435,6 @@
 
 (defn update-server [config]
   (get-in config [:global :update-server]))
-
-(defn mq-endpoint [config]
-  (get-in config [:command-processing :mq :endpoint]))
-
-(defn mq-broker-url
-  "Returns an appropriate ActiveMQ broker URL."
-  [config]
-  (format "%s&wireFormat.maxFrameSize=%s&marshal=true"
-          (get-in config [:command-processing :mq :address])
-          (get-in config [:command-processing :max-frame-size])))
 
 (defn mq-thread-count
   "Returns the desired number of MQ listener threads."

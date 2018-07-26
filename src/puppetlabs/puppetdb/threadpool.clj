@@ -1,13 +1,13 @@
 (ns puppetlabs.puppetdb.threadpool
-  (:import [javax.jms ExceptionListener JMSException MessageListener Session
-            ConnectionFactory Connection Queue Message]
-           [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
-            RejectedExecutionException ExecutorService]
-           [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.core.async :as async]
             [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs tru]]
-            [slingshot.slingshot :refer [throw+]]))
+            [slingshot.slingshot :refer [throw+]])
+  (:import
+   (java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
+                         RejectedExecutionException ExecutorService)
+   (org.apache.commons.lang3.concurrent BasicThreadFactory
+                                        BasicThreadFactory$Builder)))
 
 (def logging-exception-handler
   "Exception handler that ensures any uncaught exception that occurs

@@ -82,7 +82,6 @@
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [clj-time.coerce :as tcoerce]
-            [puppetlabs.puppetdb.amq-migration :as mig]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool! after]]
             [puppetlabs.puppetdb.threadpool :as gtp]
@@ -243,8 +242,7 @@
 ;; ## Command submission
 
 (defn-validated do-enqueue-command
-  "Submits command to the mq-endpoint of mq-connection and returns
-  its id."
+  "Stores command in the q and returns its id."
   [q
    command-chan
    ^Semaphore write-semaphore
@@ -459,11 +457,6 @@
                  (make-cmd-processed-message cmd ex))
       (throw ex))))
 
-(defn upgrade-activemq [config enqueue-fn dlo]
-  (when (mig/needs-upgrade? config)
-    (when (mig/activemq->stockpile config enqueue-fn dlo)
-      (mig/lock-upgrade config))))
-
 ;; The number of times a message can be retried before we discard it
 (def maximum-allowable-retries 5)
 
@@ -643,10 +636,6 @@
                              (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
         (.setDaemon false)
         (.start))
-
-      (upgrade-activemq (get-config)
-                        (partial enqueue-command this)
-                        dlo)
 
       (assoc context
              :command-chan command-chan

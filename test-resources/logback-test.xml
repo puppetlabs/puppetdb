@@ -6,10 +6,8 @@
     </appender>
 
     <!-- Silence particularly noisy packages -->
-    <logger name="org.apache.activemq" level="warn"/>
     <logger name="org.springframework.jms.connection" level="warn"/>
     <logger name="org.eclipse.jetty.server" level="warn"/>
-    <logger name="org.apache.kahadb.journal" level="warn"/>
 
     <root level="error">
         <appender-ref ref="STDOUT" />

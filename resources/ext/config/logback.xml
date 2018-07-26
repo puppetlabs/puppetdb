@@ -20,15 +20,8 @@
         </encoder>
     </appender>
 
-    <!-- Supress internal ActiveMQ logging -->
-    <logger name="org.apache.activemq" level="warn"/>
-
     <!-- Supress internal Spring Framework logging -->
     <logger name="org.springframework.jms.connection" level="warn"/>
-
-    <!-- Lower the log level for ActiveMQ KahaDB MessageDatabase -->
-    <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
-        level="info"/>
 
     <appender name="STATUS" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>/var/log/puppetlabs/puppetdb/puppetdb-status.log</file>
