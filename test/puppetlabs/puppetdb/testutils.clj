@@ -1,13 +1,7 @@
 (ns puppetlabs.puppetdb.testutils
-  (:import [java.io ByteArrayInputStream]
-           [org.apache.activemq.broker BrokerService]
-           [java.util.concurrent Semaphore])
-  (:require [puppetlabs.puppetdb.config :refer [default-mq-endpoint]]
-            [puppetlabs.puppetdb.command :as dispatch]
+  (:require [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
-            [puppetlabs.puppetdb.mq :as mq]
-            [puppetlabs.puppetdb.amq-migration :as amq]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.command :refer [command-app]]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -27,7 +21,10 @@
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
-            [puppetlabs.puppetdb.queue :as queue]))
+            [puppetlabs.puppetdb.queue :as queue])
+  (:import
+   (java.io ByteArrayInputStream)
+   (java.util.concurrent Semaphore)))
 
 (defn ordered-matches?
   "Returns a false value if there isn't a match in items for each
@@ -51,51 +48,10 @@
            ~@body)))))
 
 (defmacro without-jmx
-  "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in
-  the same instance, their JMX beans will collide. Disabling JMX will
-  allow them both to be started."
+  "Disables JMX, making it possible to avoid JMX bean collisions when
+  running multiple puppetdb instances in the same JVM."
   [& body]
   `(with-redefs [puppetlabs.puppetdb.jdbc/enable-jmx (fn [config# _#] nil)]
-     (do ~@body)))
-
-(defmacro with-test-broker
-  "Evaluates body with a connection to an embedded MQ broker with the
-  given name.  The broker and connection will only exist for the
-  duration of the call.  Wrap with without-jmx to disable JMX."
-  [name conn-var & body]
-  `(with-log-output broker-logs#
-     (let [dir#                   (absolute-path (fs/temp-dir "test-broker"))
-           broker-name#           ~name
-           conn-str#              (str "vm://" ~name)
-           size-megs#              50
-           ^BrokerService broker# (amq/build-embedded-broker
-                                   broker-name#
-                                   dir#
-                                   {:store-usage size-megs#
-                                    :temp-usage  size-megs#})]
-       (.setPersistent broker# false)
-       (amq/start-broker! broker#)
-       (try
-         (with-open [factory# (amq/activemq-connection-factory conn-str#)
-                     ~conn-var (doto (.createConnection factory#) .start)]
-           ~@body)
-         (finally
-           (amq/stop-broker! broker#)
-           (fs/delete-dir dir#))))))
-
-(def ^:dynamic *mq* nil)
-
-(defn call-with-test-mq
-  "Calls f after starting an embedded MQ broker that will be available
-  for the duration of the call via *mq*.  JMX will be disabled."
-  [f]
-  (without-jmx
-   (with-test-broker "test" connection
-     (binding [*mq* {:connection connection}]
-       (f)))))
-
-(defmacro with-alt-mq [mq-name & body]
-  `(with-redefs [default-mq-endpoint ~mq-name]
      (do ~@body)))
 
 (defn call-counter
@@ -441,8 +397,7 @@
 
 (defn test-command-app
   "A fixture to build a Command app and make it available as
-  *command-app* within tests. This call should be nested within
-  with-test-mq."
+  *command-app* within tests."
   [q command-chan]
   (wrap-with-puppetdb-middleware
    (command-app

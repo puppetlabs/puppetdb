@@ -42,11 +42,6 @@ message as a normal file inside `vardir`/stockpile/cmd/q, and while
 it's unlikely to be necessary, it's safe to manually remove queue
 commands when PDB is not running.
 
-Whenever PDB starts up it checks to see if it has already migrated
-older messages from ActiveMQ to stockpile by looking for the file
-`vardir`/mq-migrated.  If that file doesn't exist, then it migrates
-any older messages, and creates mq-migrated.
-
 The message names are designed to provide some information about their
 content.  For example:
 

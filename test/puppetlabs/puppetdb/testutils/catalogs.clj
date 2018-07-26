@@ -14,9 +14,9 @@
 (defn replace-catalog
   "Convenience function for simulating a `replace catalog` command during testing.
 
-  Accepts a catalog payload string (in exactly the format that the command accepts),
-  and synchronously executes the logic that the command would (without needing
-  to drag ActiveMQ into the test stack)."
+  Accepts a catalog payload string (in exactly the format that the
+  command accepts), and synchronously executes the logic that the
+  command would (without involving the queue)."
   [catalog-payload]
   (command/process-command!
    {:command     (command-names :replace-catalog)

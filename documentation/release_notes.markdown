@@ -15,6 +15,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 [pqltutorial]: ./api/query/tutorial-pql.html
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
+[upgrade_policy]: ./versioning_policy.html#upgrades
+
+## 6.0.0
+
+## Upgrading
+
+-  Support for ActiveMQ has been completely removed, meaning that
+   PuppetDB can no longer convert an existing queue to the new format
+   when upgrading from versions older than 4.3.0, but since PuppetDB's
+   [upgrade policy][upgrade_policy] forbids skipping major versions,
+   this should not present a problem since any version 5 release will
+   perform the conversion at startup.
+
+   As a result of the removal, these ActiveMQ specific configuration
+   options have been retired: `store-usage`, `temp-usage`,
+   `memory-usage`, and `max-frame-size`,
 
 ## 5.2.4
 

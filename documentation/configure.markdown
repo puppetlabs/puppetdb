@@ -662,48 +662,6 @@ aren't being processed quickly enough, then you could increasing this
 value in order to alleviate that, but this is unlikely to be the
 bottleneck for command processing.
 
-### `store-usage`
-
-**Note**: This setting is deprecated and is ignored by PuppetDB,
-except when migrating away from ActiveMQ.  It will be removed from
-PuppetDB in a future release.
-
-Sets the maximum amount of space in megabytes that
-PuppetDB's ActiveMQ can use for persistent message storage.
-
-### `temp-usage`
-
-**Note**: This setting is deprecated and ignored by PuppetDB, except
-when migrating away from ActiveMQ.  It will be removed from PuppetDB
-in a future release.
-
-Sets the maximum amount of space in megabytes that
-PuppetDB's ActiveMQ can use for temporary message storage.
-
-### `memory-usage`
-
-**Note**: This setting is deprecated and ignored by PuppetDB, except
-when migrating away from ActiveMQ.  It will be removed in a future
-release.
-
-This setting sets the maximum amount of memory in megabytes available for
-PuppetDB's ActiveMQ Broker.
-
-**Warning** Setting this value too high (such that memory-usage exceeds the size
-of the heap) can cause out of memory (OOM) errors. ActiveMQ does not treat this
-as a hard limit. In testing, we've seen it use up to `125%` of the specified
-value, and overall memory usage will also be affected by the `max-command-size`
-and `threads` parameters.
-
-### `max-frame-size`
-
-**Note**: This setting is deprecated and ignored by PuppetDB, except
-when migrating away from ActiveMQ.  It will be removed from PuppetDB
-in a future release.
-
-Sets the maximum frame size for persisted ActiveMQ messages
-supplied in bytes. Default value is 209715200 (or 200MB).
-
 ### `reject-large-commands`
 
 This is a Boolean that enables rejecting (returning an HTTP 413 error)

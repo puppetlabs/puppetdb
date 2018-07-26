@@ -256,7 +256,7 @@
       (is (.contains out-str "[repl] is now retired"))))
   (testing "[database] config deprecations"
     (doseq [param [:classname :subprotocol]]
-      (is (= (format "The [database] %s setting has been retired and will be ignored.\n"
+      (is (= (format "The [database] %s config option has been retired and will be ignored.\n"
                      (name param))
              (with-out-str
                (binding [*err* *out*]

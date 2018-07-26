@@ -373,68 +373,6 @@
 (defn url-encode [s]
   (java.net.URLEncoder/encode s "UTF-8"))
 
-(defn command-mbean-name
-  "The full mbean name of the MQ destination used for commands"
-  [host]
-  (str "org.apache.activemq:type=Broker,brokerName=" (url-encode host)
-       ",destinationType=Queue"
-       ",destinationName=" conf/default-mq-endpoint))
-
-(defn mq-mbeans-found?
-  "Returns true if the ActiveMQ mbeans and the discarded command
-  mbeans are found in `mbean-map`"
-  [mbean-map]
-  (let [mbean-names (map utils/kwd->str (keys mbean-map))]
-    (and (some #(.startsWith % "org.apache.activemq") mbean-names)
-         (some #(.startsWith % "puppetlabs.puppetdb.command") mbean-names)
-         (some #(.startsWith % (command-mbean-name (:host *base-url*))) mbean-names))))
-
-(defn metrics-up?
-  "Returns true if the metrics endpoint (and associated jmx beans) are
-  up, otherwise will continue to retry. Will fail after trying for
-  roughly 5 seconds."
-  []
-  (loop [attempts 0]
-    (let [{:keys [status body] :as response}
-          (get (pdb-metrics-url "/mbeans"))]
-      (cond
-        (and (= 200 status)
-             (mq-mbeans-found? body))
-        true
-
-        (<= max-attempts attempts)
-        (throw+ response "JMX not up after %s attempts" attempts)
-
-        :else
-        (do (Thread/sleep 100)
-            (recur (inc attempts)))))))
-
-(defn queue-metadata
-  "Return command queue metadata from the current PuppetDB instance as
-  a map:
-
-  EnqueueCount - total number of messages sent to the queue since startup
-  DequeueCount - total number of messages dequeued (ack'd by consumer) since startup
-  InflightCount - number of messages sent to a consumer session but unacknowledged
-  DispatchCount - total number of messages sent to consumer sessions (Dequeue + Inflight)
-  ExpiredCount - number of messages that were not delivered because they were expired
-
-  http://activemq.apache.org/how-do-i-find-the-size-of-a-queue.html"
-  []
-  ;; When starting up an instance via call-with-puppetdb-instance
-  ;; there seems to be a brief period of time that the server is up,
-  ;; the broker has been started, but the JMX beans have not been
-  ;; initialized, so querying for queue metrics fails.  This check
-  ;; ensures it has started.
-  (-> (metrics-url-str (str "/mbeans/" (command-mbean-name (:host *base-url*))))
-      get-or-throw
-      :body))
-
-(defn current-queue-depth
-  "Returns current PuppetDB instance's queue depth."
-  []
-  (:QueueSize (queue-metadata)))
-
 (defn discard-count
   "Returns the number of messages discarded from the command queue by
   the current PuppetDB instance."
@@ -442,68 +380,6 @@
   (-> (pdb-metrics-url "/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
       get-or-throw
       (get-in [:body :Count])))
-
-(defn until-consumed
-  "Invokes `f` and blocks until the `num-messages` have been consumed
-  from the commands queue. `num-messages` defaults to 1 if not
-  provided. Returns the result of `f` if successful. Requires JMX to
-  be enabled in ActiveMQ (the default, but `without-jmx` will cause
-  this to fail).
-
-  Exceptions thrown in the following cases:
-
-  timeout - if the message isn't consumed in approximately 5 seconds
-  new message in the DLO - if any message is discarded"
-  ([f] (until-consumed 1 f))
-  ([num-messages f]
-   (metrics-up?)
-   (let [{start-queue-depth :QueueSize
-          start-committed-msgs :DequeueCount
-          :as start-queue-metadata} (queue-metadata)
-          start-discarded-count (discard-count)
-          result (f)
-          start-time (System/currentTimeMillis)]
-
-     (loop [{curr-queue-depth :QueueSize
-             curr-committed-msgs :DequeueCount
-             :as curr-queue-metadata} (queue-metadata)
-             curr-discarded-count (discard-count)
-             attempts 0]
-
-       (cond
-
-        (< start-discarded-count curr-discarded-count)
-        (throw+ {:original-queue-metadata start-queue-metadata
-                 :original-discarded-count start-discarded-count
-                 :current-queue-metadata curr-queue-metadata
-                 :current-discarded-count curr-discarded-count}
-                "Found %s new message(s) in the DLO"
-                (- curr-discarded-count start-discarded-count))
-
-        (= attempts max-attempts)
-        (let [fail-time (System/currentTimeMillis)]
-          (throw+ {:attempts max-attempts
-                   :start-time start-time
-                   :end-time fail-time}
-                  "Failing after %s attempts and %s milliseconds"
-                  max-attempts (- fail-time start-time)))
-
-        (or (< 0 curr-queue-depth)
-            (< curr-committed-msgs
-               (+ start-committed-msgs num-messages)))
-        (do
-          (Thread/sleep 100)
-          (recur (queue-metadata) (discard-count) (inc attempts)))
-
-        :else
-        result)))))
-
-(defn dispatch-count
-  "Returns the dispatch count for the currently running PuppetDB instance."
-  [dest-name]
-  (-> (pdb-metrics-url (str "/mbeans" (command-mbean-name (:host *base-url*))))
-      get-or-throw
-      (get-in [:body "DispatchCount"])))
 
 (defn sync-command-post
   "Syncronously post a command to PDB by blocking until the message is consumed

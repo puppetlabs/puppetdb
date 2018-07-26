@@ -8,8 +8,7 @@
              :refer [min-supported-commands valid-commands-str]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils
-             :refer [*mq*
-                     get-request post-request
+             :refer [get-request post-request
                      content-type uuid-in-response?
                      assert-success!
                      test-command-app

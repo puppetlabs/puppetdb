@@ -78,8 +78,7 @@
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.i18n.core :refer [trs tru]])
-  (:import [javax.jms ExceptionListener]
-           [java.util.concurrent.locks ReentrantLock]
+  (:import [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
 
 (def cli-description "Main PuppetDB daemon")

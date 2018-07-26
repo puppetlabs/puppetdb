@@ -168,13 +168,6 @@
                  [com.zaxxer/HikariCP]
                  [honeysql]
 
-                 ;; MQ connectivity
-                 [org.apache.activemq/activemq-broker "5.13.2"]
-                 [org.apache.activemq/activemq-kahadb-store "5.13.2"]
-                 [org.apache.activemq/activemq-pool "5.13.2"]
-                 ;; bridge to allow some spring/activemq stuff to log over slf4j
-                 [org.slf4j/jcl-over-slf4j "1.7.20"]
-
                  ;; WebAPI support libraries.
                  [bidi]
                  [clj-http "2.0.1"]
