@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 ":"; # -*-clojure-*-
-":"; set -exo pipefail
-":"; clj="$(find ~/.m2 -name "clojure-1.8.0.jar" | head -1)"
-":"; if test "$clj"; then exec java -cp "$clj" clojure.main "$0" "$@"; fi
-":"; echo "error: can't find ~/.m2/.../clojure-1.8.0.jar" 1>&2
-":"; exit 2
+":"; set -ueo pipefail
+":"; script_home="$(cd "$(dirname "$0")" && pwd)"
+":"; exec "$script_home/clj-1.9" "$0" "$@"
 
 (require
  '[clojure.edn :as edn]
