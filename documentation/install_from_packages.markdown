@@ -43,6 +43,13 @@ module.
 >   installing. You should ensure that your PuppetDB server will be able to
 >   comfortably handle your site's load.
 
+Platform specific install notes
+-----
+
+**Ubuntu 18.04**
+* Enable the [universe repository](https://help.ubuntu.com/community/Repositories/Ubuntu), which contains packages necessary for PuppetDB
+* Ensure Java 8 is installed
+
 Step 1: Install and configure Puppet
 -----
 
