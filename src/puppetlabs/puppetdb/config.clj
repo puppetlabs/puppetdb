@@ -203,8 +203,8 @@
   [{db-config :database :or {db-config {}} :as config}]
   (when (str/blank? (:subname db-config))
     (throw+
-     {:kind ::cli-error
-      :msg
+     {:type ::cli-error
+      :message
       (str "PuppetDB requires PostgreSQL."
            "  The [database] section must contain an appropriate"
            " \"//host:port/database\" subname setting.")}))
@@ -420,7 +420,7 @@
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept
    trapperkeeper configuration before it is used, so that we may munge &
-   customize it.  It may throw {:kind ::cli-error :msg m}."
+   customize it.  It may throw {:type ::cli-error :message m}."
   [f args]
   (adjust-and-validate-tk-config (f args)))
 
