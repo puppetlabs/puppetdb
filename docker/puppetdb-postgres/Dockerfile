@@ -1,14 +1,17 @@
-FROM postgres:9.6.8
+ARG postgres_version="9.6.8"
+FROM postgres:"$postgres_version"
 
 ARG vcs_ref
 ARG build_date
+
+ARG postgres_version="9.6.8"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
       org.label-schema.url="https://github.com/puppetlabs/puppetdb" \
       org.label-schema.name="PostgreSQL instance for PuppetDB" \
       org.label-schema.license="Apache-2.0" \
-      org.label-schema.version="9.6.8" \
+      org.label-schema.version="$postgres_version" \
       org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
       org.label-schema.vcs-ref="$vcs_ref" \
       org.label-schema.build-date="$build_date" \
