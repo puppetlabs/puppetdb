@@ -2,7 +2,7 @@
 
 set -eux
 
-PATH=$PATH:/usr/local/bin
+PATH="$PATH":/usr/local/bin
 BUNDLER_PATH=.bundle/gems
 
 function build_and_test_image() {
