@@ -666,6 +666,33 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['edges'].should include(edge)
       end
 
+      context "when rich_data is enabled" do
+        before :each do
+          Puppet[:rich_data] = true
+        end
+
+        after :each do
+          Puppet[:rich_data] = false
+        end
+
+        it "should compile json with extra rich data keys" do
+          Puppet[:code] = <<-MANIFEST
+          notify { 'foo':
+            message => /[a-z]+/
+          }
+          MANIFEST
+          json_catalog = subject.munge_catalog(catalog, Time.now)
+
+          result = json_catalog["resources"].select do |r|
+            message = r["parameters"]["message"]
+            message&.has_key?("__pcore_type__") || message&.has_key?("__ptype")
+          end
+
+          result.size.should == 1
+        end
+      end
+
+
       context "when dealing with file resources and trailing slashes in their titles" do
 
         def test_file_require(resource_title, require_title)
