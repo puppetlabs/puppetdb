@@ -15,6 +15,7 @@ end
 
 gem 'facter'
 gem 'rake'
+gem 'packaging', *location_for(ENV['PACKAGING_VERSION'] || '~> 0.99')
 
 group :test do
   # Add test-unit for ruby 2.2+ support (has been removed from stdlib)
