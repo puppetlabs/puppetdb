@@ -318,6 +318,7 @@ module PuppetDBExtensions
     }
     class { 'puppetdb::server':
       manage_firewall => false,
+      disable_update_checking => true,
     }
     #{postgres_manifest}
     Postgresql::Server::Db['puppetdb'] -> Class['puppetdb::server']
