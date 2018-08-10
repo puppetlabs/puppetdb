@@ -190,13 +190,17 @@
   (let [puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")
         puppet-conf (io/file "target/puppetserver/master-conf/puppet.conf")
         {puppetserver-config-overrides :puppetserver
-         terminus-config-overrides :terminus} config-overrides
+         terminus-config-overrides :terminus
+         agent-config :agent} config-overrides
         env-dir "target/puppetserver/master-code/environments/production"]
     (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
     (-> puppet-conf .getParentFile .mkdirs)
     (spit (.getAbsolutePath puppet-conf) "")
     (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
     (fs/mkdirs (str env-dir "/modules"))
+
+    (when (:rich-data agent-config)
+      (fs/copy "test-resources/puppetserver/rich_data_environment.conf" (str env-dir "/environment.conf")))
 
     ;; copy our custom puppet functions into the code-dir, since puppet can't
     ;; find them in the ruby load path
@@ -247,10 +251,11 @@
    (run-puppet puppet-server pdb-server manifest-content {}))
 
   ([puppet-server pdb-server manifest-content
-    {:keys [certname timeout extra-puppet-args env]
+    {:keys [certname timeout extra-puppet-args rich-data env]
      :or {certname "default-agent"
           timeout tu/default-timeout-ms
           extra-puppet-args []
+          rich-data false
           env {}}
      :as opts}]
    (let [{:keys [code-dir conf-dir hostname port]} (server-info puppet-server)
@@ -260,6 +265,8 @@
      (spit site-pp manifest-content)
 
      (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
+     (when rich-data
+       (fs/copy "test-resources/puppetserver/rich_data_puppet.conf" (str agent-conf-dir "/puppet.conf")))
 
      (with-synchronized-command-processing pdb-server timeout
        (apply bundle-exec env
