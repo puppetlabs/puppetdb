@@ -1,6 +1,7 @@
 require 'cgi'
 require 'beaker/dsl/install_utils'
 require 'beaker/dsl/helpers'
+require 'open3'
 require 'pp'
 require 'set'
 require 'test/unit/assertions'
@@ -25,9 +26,9 @@ module PuppetDBExtensions
       [:git, :package, :pe], "install type", "PUPPETDB_INSTALL_TYPE", :git)
 
     install_mode =
-        get_option_value(options[:install_mode],
-                         [:install, :upgrade_latest, :upgrade_oldest], "install mode",
-                         "INSTALL_MODE", :install)
+        get_option_value(options[:install_type],
+                         [:install, :upgrade_latest, :upgrade_oldest], "install type",
+                         "INSTALL_TYPE", :install)
 
     validate_package_version =
         get_option_value(options[:puppetdb_validate_package_version],
@@ -262,6 +263,36 @@ module PuppetDBExtensions
   rescue RuntimeError => e
     display_last_logs(host)
     raise
+  end
+
+  def is_bionic()
+    return test_config[:os_families].has_key? 'ubuntu1804-64-1'
+  end
+
+  def oldest_supported
+    # account for special case where bionic doesn't have builds before 5.2.4
+    return is_bionic ? '5.2.4' : '4.2.3.8'
+  end
+
+  def get_testing_branch(version)
+    branch_name = /^((?:\d+\.)*)\d+/.match(version)[1] + 'x'
+    if branch_name.chars.first.to_i > 5
+      branch_name = 'master'
+    end
+    return branch_name
+  end
+
+  def get_latest_released(version)
+    cloned = system('git clone https://github.com/puppetlabs/puppetdb.git')
+    if cloned.nil?
+      raise 'error cloning puppetdb repo'
+    end
+    branch_name = get_testing_branch(version)
+    stdout, status = Open3.capture2('git', '-C', 'puppetdb', 'describe', '--tags', '--abbrev=0', "origin/#{branch_name}")
+    if status.exitstatus != 0
+      raise "error getting most recent tagged release. status: #{status}"
+    end
+    return stdout.delete!("\n")
   end
 
   def get_package_version(host, version = nil)
