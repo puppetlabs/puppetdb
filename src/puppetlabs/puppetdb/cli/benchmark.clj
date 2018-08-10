@@ -53,8 +53,6 @@
             [slingshot.slingshot :refer [try+ throw+]]
             [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
             [clojure.core.match :as cm]
-            [puppetlabs.puppetdb.mq :as mq]
-            [puppetlabs.puppetdb.amq-migration :as amq]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.nio :refer [get-path]])
