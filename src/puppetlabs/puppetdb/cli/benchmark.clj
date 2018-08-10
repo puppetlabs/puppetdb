@@ -63,8 +63,6 @@
    [java.nio.file Files OpenOption]
    [java.util ArrayDeque]))
 
-(def cli-description "Development-only benchmarking tool")
-
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is
   logged, and nil is returned."

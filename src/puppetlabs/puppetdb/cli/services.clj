@@ -82,7 +82,6 @@
            [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
 
-(def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 (def clean-options
