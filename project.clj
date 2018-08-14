@@ -1,5 +1,5 @@
 (def pdb-version "6.0.0-SNAPSHOT")
-(def clj-parent-version "2.1.0")
+(def clj-parent-version "2.2.0")
 
 (defn pdb-run-sh [& args]
   (apply vector
@@ -116,9 +116,8 @@
   :pedantic? :abort
 
   :dependencies [;; clj-parent overrides
-                 [org.apache.commons/commons-compress "1.10"] ; legacy
-                 [org.postgresql/postgresql "42.2.2.jre7"] ; until we drop 7
-                 [prismatic/schema "1.1.2"] ; legacy
+                 ;; Until we officially drop 7
+                 [org.postgresql/postgresql "42.2.2.jre7"]
 
                  [org.clojure/clojure]
                  [org.clojure/core.async]
