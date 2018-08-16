@@ -4,10 +4,27 @@ set -uexo pipefail
 
 uname -a
 cat /etc/hosts
-hostname --fqdn
-free -m
-free -h
+
+case "$OSTYPE" in
+    darwin*|netbsd)
+        hostname
+        vm_stat -c 1
+        ;;
+    *)
+        hostname --fqdn
+        free -m
+        free -h
+        ;;
+esac
 
 if test -e /proc/cpuinfo; then
     cat /proc/cpuinfo
 fi
+
+bash --version
+java -version || true
+lein version || true
+ruby --version || true
+bundle --version || true
+bundler --version || true
+pgbox --version || true

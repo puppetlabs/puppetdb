@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -uxeo pipefail
+
+usage() {
+    echo 'Usage: $(basename "$0") PDB_TEST_SPEC'
+}
+
+misuse() {
+    usage 1>&2
+    exit 2
+}
+
+test $# -eq 1 || misuse
+spec="$1"
+
+jdk="$(ext/travisci/jdk-from-spec "$spec")"
+pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
+
+case "$OSTYPE" in
+    darwin*)
+        brew install bash
+        brew tap AdoptOpenJDK/openjdk
+        brew install adoptopenjdk-"$jdk"
+        brew install postgresql@"$pgver"
+        hash -r
+        ;;
+    *)
+        ;;
+esac

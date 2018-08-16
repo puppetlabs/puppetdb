@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+usage() {
+    echo 'Usage: $(basename "$0") --pgbin DIR --puppet REF --server REF -- CMD ...'
+}
+
+misuse() { usage 1>&2; exit 2; }
+
+pup_ref=''
+pupsrv_ref=''
+pgbin=''
+
+while test $# -gt 0; do
+    case "$1" in
+        --pgbin)
+            shift
+            test $# -gt 0 || misuse
+            pgbin="$1"
+            shift
+            ;;
+        --puppet)
+            shift
+            test $# -gt 0 || misuse
+            pup_ref="$1"
+            shift
+            ;;
+        --server)
+            shift
+            test $# -gt 0 || misuse
+            pupsrv_ref="$1"
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            misuse
+    esac
+done
+cmd=("$@")
+
+test "$pup_ref" || misuse
+test "$pupsrv_ref" || misuse
+test "$pgbin" || misuse
+
+set -x
+
+tmpdir="$(mktemp -d "int-test-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+mkdir -p "$tmpdir/local"
+
+ext/bin/require-leiningen default "$tmpdir/local"
+ext/bin/require-pgbox default "$tmpdir/local"
+export PATH="$tmpdir/local/bin:$PATH"
+ext/bin/host-info
+ext/bin/config-puppet-test-ref "$pup_ref"
+ext/bin/config-puppetserver-test-ref "$pupsrv_ref"
+ext/bin/with-pdbbox --box "$tmpdir/box" --pgbin "$pgbin" --pgport 34335 \
+                    -- "${cmd[@]}"

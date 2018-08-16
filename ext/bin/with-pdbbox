@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+script_home="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+    echo 'with-pdbbox --box DIR --pgbin PGBIN --pgport PORT -- CMD [ARG...]'
+}
+
+misuse() { usage 1>&2; exit 2; }
+
+box=''
+pgbin=''
+pgport=''
+
+while test $# -gt 0; do
+    case "$1" in
+        --box)
+            shift
+            test "$#" -ge 1 || misuse
+            box="$1"
+            shift
+            ;;
+        --pgbin)
+            shift
+            test "$#" -ge 1 || misuse
+            pgbin="$1"
+            shift
+            ;;
+        --pgport)
+            shift
+            test "$#" -ge 1 || misuse
+            pgport="$1"
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *) misuse ;;
+    esac
+done
+cmd=("$@")
+
+test "$box" || misuse
+test "$pgbin" || misuse
+test "$pgport" || misuse
+
+if test -e "$box"; then
+    printf 'error: the --box %q already exists\n' "$box"
+    exit 2
+fi
+
+set -x
+
+# The use of script_home here is a hack until/unless we decide to make
+# ext/bin suitable for inclusion in the PATH -- up to now the command
+# names in ext/bin weren't chosen with that in mind.  The use of
+# script_home allows people to invoke with-pdbbox from "other places".
+
+trap "$(printf 'rm -rf %q' "$box")" EXIT
+export PDBBOX="$box"
+"$script_home"/pdbbox-init --sandbox "$box" --pgbin "$pgbin" --pgport "$pgport"
+
+# Use a subshell for a nested EXIT trap
+(trap '"$script_home"/pdbbox-env pg_ctl stop' EXIT
+ "$script_home"/pdbbox-env pg_ctl start -w
+ "$script_home"/pdbbox-env "${cmd[@]}")

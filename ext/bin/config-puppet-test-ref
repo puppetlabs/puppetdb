@@ -37,6 +37,7 @@ esac
 
 bundle install --without acceptance --path vendor/bundle
 bundle update
+bundle info puppet
 
 # Symlink vendor/puppet to the git tree bundler checked out.  Use a
 # relative path so that moving the pdb tree around won't break things.
