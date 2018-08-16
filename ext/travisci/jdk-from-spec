@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from sys import exit, stderr
+import os, sys
+
+def usage(stream):
+    print('Usage: jdk-from-spec core/openjdk8/pg-9.6', file=stream)
+
+def misuse():
+    usage(stderr)
+    exit(2)
+
+len(sys.argv) == 2 or misuse()
+specs = sys.argv[1]
+specs = specs.split('/')
+specs = [x for x in specs if 'jdk' in x]
+len(specs) == 1 or misuse()
+print(specs[0])

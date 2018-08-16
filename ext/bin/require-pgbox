@@ -4,7 +4,7 @@ set -uexo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
-default=2.8.1
+default=0.0.0
 
 cmdname="$(basename "$0")"
 
@@ -13,7 +13,7 @@ usage() { echo "Usage: $cmdname VERSION INSTALLDIR_IF_NEEDED"; }
 misuse() { usage 1>&2; exit 2; }
 
 declare -A known_hash
-known_hash[2.8.1]=b7f9c70341d638022c1c2d74867c50aeb608d2d9e7cd2a94b8f191bf6a9e1a6e
+known_hash[0.0.0]=b5840a59f5437677e22a33dd27b27282c5186d1ecd89b23d8d2ef4c62d3511ce
 
 test "$#" -eq 2 || misuse
 
@@ -25,22 +25,16 @@ fi
 install="$2"
 hash="${known_hash[$ver]}"
 
-if command -v lein; then
-    curver="$(lein version | cut -d' ' -f2)"
+if ! test "$hash"; then
+    echo "$cmdname: don't know sha256sum for $ver" 1>&2
+    exit 2
+fi
+
+if command -v pgbox; then
+    curver="$(pgbox version | cut -d' ' -f2)"
     if test "$curver" = "$ver"; then
         exit 0
     fi
-    if test -x "$install/bin/lein"; then
-       curver="$("$install/bin/lein" version | cut -d' ' -f2)"
-       if test "$curver" = "$ver"; then
-           exit 0
-       fi
-    fi
-fi
-
-if test -z "$hash"; then
-    echo "$cmdname: don't know sha256sum for $ver" 1>&2
-    exit 2
 fi
 
 tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
@@ -48,8 +42,8 @@ tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
 cd "$tmpdir"
-curl -O "https://raw.githubusercontent.com/technomancy/leiningen/$ver/bin/lein"
-obshash="$("$script_home/sha256sum" < lein | cut -d' ' -f1)"
+curl -O "https://gitlab.com/pgbox-org/pgbox/raw/8ba9c69e061c89ef6f06cb40f5d60e85c1e2e336/pgbox"
+obshash="$("$script_home/sha256sum" < pgbox | cut -d' ' -f1)"
 cd ..
 
 if test "$obshash" != "$hash"; then
@@ -58,5 +52,5 @@ if test "$obshash" != "$hash"; then
 fi
 
 mkdir -p "$install/bin"
-mv -i "$tmpdir/lein" "$install/bin"
-chmod +x "$install/bin/lein"
+mv -i "$tmpdir/pgbox" "$install/bin"
+chmod +x "$install/bin/pgbox"

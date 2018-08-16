@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from sys import exit, stderr
+import os, sys
+
+def usage(stream):
+    print('Usage: prefixed-ref-from-spec .../pup-5.3.x/srv-5.1.x/pg-9.6 srv-',
+          file=stream)
+
+def misuse():
+    usage(stderr)
+    exit(2)
+
+len(sys.argv) == 3 or misuse()
+specs, prefix = sys.argv[1:]
+specs = specs.split('/')
+specs = [x for x in specs if x.startswith(prefix)]
+len(specs) == 1 or misuse()
+print(specs[0][len(prefix):])

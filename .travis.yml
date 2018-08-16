@@ -5,52 +5,81 @@ dist: trusty
 # based on when the repository testing was enabled.
 sudo: required
 
+# The test specifications are all extracted from the PDB_TEST value.
+
+# jdk_switcher is a shell function, so we can't handle it in
+# prep-os-essentials-for:
+# https://github.com/travis-ci/travis-ci/issues/9927
+
 aliases:
-  - &pg-ver 9.6
+  - &run-core-tests |
+    set -e
+    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
+    ext/travisci/prep-os-essentials-for "$PDB_TEST"
+    pgbin="$(ext/travisci/pgbin-from-spec "$PDB_TEST")"
+    ext/bin/boxed-core-tests --pgbin "$pgbin" -- lein test
+
+  - &run-integration-tests |
+    set -e
+    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
+    ext/travisci/prep-os-essentials-for "$PDB_TEST"
+    pgbin="$(ext/travisci/pgbin-from-spec "$PDB_TEST")"
+    puppet="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pup-)"
+    server="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" srv-)"
+    ext/bin/boxed-integration-tests \
+      --pgbin "$pgbin" \
+      --puppet "$puppet" \
+      --server "$server" \
+      -- lein test :integration
 
 jobs:
   include:
 
     # === core tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/openjdk8
-      addons:
-        postgresql: *pg-ver
-      services: postgresql
-      script: jdk_switcher use openjdk8 && ext/travisci/run-core-tests
+      env: PDB_TEST=core/openjdk8/pg-9.6
+      script: *run-core-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/oraclejdk8
-      addons:
-        postgresql: *pg-ver
-      services: postgresql
-      script: jdk_switcher use oraclejdk8 && ext/travisci/run-core-tests
+      env: PDB_TEST=core/oraclejdk8/pg-9.6
+      script: *run-core-tests
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x
-      addons:
-        postgresql: *pg-ver
-      services: postgresql
-      script: >-
-        jdk_switcher use openjdk8
-        && ext/travisci/run-integration-tests 5.3.x 5.1.x
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.x
-      addons:
-        postgresql: *pg-ver
-      services: postgresql
-      script: >-
-        jdk_switcher use oraclejdk8
-        && ext/travisci/run-integration-tests 5.3.x 5.1.x
+      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      script: *run-integration-tests
 
     # === rspec tests
     - stage: ❧ pdb tests
       env: PDB_TEST=rspec/pup-5.3.x
       script: ext/travisci/run-rspec-tests 5.3.x
 
-before_install: ext/bin/host-info
+
+    # ==== osx
+
+    # === core tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core/openjdk8/pg-9.6
+      script: *run-core-tests
+      os: osx
+
+    # === integration tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      script: *run-integration-tests
+      os: osx
+
+    # === rspec tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=rspec/pup-5.3.x
+      script: ext/travisci/run-rspec-tests 5.3.x
+      os: osx
 
 on_success: ext/travisci/on-success
 
@@ -64,3 +93,9 @@ notifications:
       / %{repository} %{branch} <a href="%{compare_url}">%{commit}</a> %{author}
       / <a href="%{build_url}">#%{build_number}</a> %{result} in %{elapsed_time}
     format: html
+
+cache:
+  directories:
+    - $HOME/.m2
+    - $HOME/Library/Caches/Homebrew
+    - vendor/bundle/ruby

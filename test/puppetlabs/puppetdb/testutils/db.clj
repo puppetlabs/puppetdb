@@ -15,7 +15,7 @@
   (re-matches #"[a-zA-Z][a-zA-Z0-9_]*" id))
 
 (def test-env
-  (let [user (env :pdb-test-db-user (env :puppetdb-dbuser "pdb_test"))
+  (let [user (env :pdb-test-db-user "pdb_test")
         admin (env :pdb-test-db-admin "pdb_test_admin")]
     ;; Since we're going to use these in raw SQL later (i.e. not via ?).
     (doseq [[who name] [[:user user] [:admin admin]]]
@@ -34,7 +34,7 @@
 (def sample-db-config
   {:classname "org.postgresql.Driver"
    :subprotocol "postgresql"
-   :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/foo")
+   :subname "//127.0.0.1:5432/foo"
    :user "puppetdb"
    :password "xyzzy"})
 

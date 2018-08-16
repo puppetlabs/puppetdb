@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -uxeo pipefail
+
+usage() { echo 'Usage: $(basename "$0") --pgbin DIR -- CMD ...'; }
+misuse() { usage 1>&2; exit 2; }
+
+pgbin=''
+
+while test $# -gt 0; do
+    case "$1" in
+        --pgbin)
+            shift
+            test $# -gt 0 || misuse
+            pgbin="$1"
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            misuse
+    esac
+done
+cmd=("$@")
+
+test "$pgbin" || misuse
+
+tmpdir="$(mktemp -d "core-test-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+mkdir -p "$tmpdir/local"
+
+ext/bin/require-leiningen default "$tmpdir/local"
+ext/bin/require-pgbox default "$tmpdir/local"
+export PATH="$tmpdir/local/bin:$PATH"
+ext/bin/host-info
+ext/bin/with-pdbbox --box "$tmpdir/box" --pgbin "$pgbin" --pgport 34335 \
+                    -- "${cmd[@]}"
