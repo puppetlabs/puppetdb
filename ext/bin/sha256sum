@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -x
+echo "$@" 1>&2
+
+if test "$#" != 0; then
+    echo "Usage: sha256sum(pdb) < PATH" 1>&2
+    exit 2
+fi
+
+case "$OSTYPE" in
+    darwin*) exec shasum -a 256 "$@" ;;
+    *) exec sha256sum "$@" ;;
+esac
