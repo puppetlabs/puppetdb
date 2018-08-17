@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+usage() { echo 'Usage: PDBBOX=BOX_DIR pdbbox-env CMD [ARG...]'; }
+
+if test "$#" -lt 1 -o -z "$PDBBOX"; then
+    usage 1>&2
+    exit 1
+fi
+
+pgport="$(cat "$PDBBOX/pg/port")"
+
+export PGBOX="$PDBBOX/pg"
+export PDB_TEST_DB_HOST=localhost
+export PDB_TEST_DB_PORT="$pgport"
+export PDB_TEST_DB_USER=pdb_test
+export PDB_TEST_DB_USER_PASSWORD="$(cat "$PDBBOX/test-pass")"
+export PDB_TEST_DB_ADMIN=pdb_test_admin
+export PDB_TEST_DB_ADMIN_PASSWORD="$(cat "$PDBBOX/test-pass-admin")"
+
+exec pgbox env "$@"

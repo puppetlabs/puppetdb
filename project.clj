@@ -34,12 +34,13 @@
 
 (def puppetserver-test-dep-gem-list
   (when puppetserver-test-dep-ver
-    (let [maj-ver (-> (re-matches #"^([0-9]+)\..*" puppetserver-test-dep-ver)
-                      second
-                      Integer/parseInt)]
-      (if (>= maj-ver 6)
-        "jruby-gem-list.txt"
-        "gem-list.txt"))))
+    (let [[major minor] (->> (re-matches #"^([0-9]+)\.([0-9]+)\..*" puppetserver-test-dep-ver)
+                             next
+                             (take 2)
+                             (map #(Integer/parseInt %)))]
+      (if (neg? (compare [major minor] [5 3]))
+        "gem-list.txt"
+        "jruby-gem-list.txt"))))
 
 (def puppetserver-test-deps
   (when puppetserver-test-dep-ver

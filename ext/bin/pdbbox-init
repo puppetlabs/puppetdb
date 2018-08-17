@@ -1,0 +1,179 @@
+#!/bin/bash
+
+set -ueo pipefail
+
+usage()
+{
+    echo "Usage: $(basename $0) <-s|--sandbox> DIR --pgbin DIR --pgport PORT"
+}
+
+misuse()
+{
+    usage 1>&2
+    exit 2
+}
+
+pdbbox=''
+pgbin=''
+pgport=''
+while test $# -gt 0; do
+    case "$1" in
+        -s|--sandbox)
+            shift
+            test $# -gt 0 || misuse
+            pdbbox="$1"
+            shift
+            ;;
+        --pgbin)
+            shift
+            test $# -gt 0 || misuse
+            pgbin="$1"
+            shift
+            ;;
+        --pgport)
+            shift
+            test $# -gt 0 || misuse
+            pgport="$1"
+            shift
+            ;;
+        *)
+            misuse
+    esac
+done
+test "$pdbbox" || misuse
+test "$pgbin" || misuse
+test "$pgport" || misuse
+
+export PGBOX="$pdbbox/pg"
+export PGUSER=postgres
+
+mkdir "$pdbbox"
+
+pgbox init --pgbin "$pgbin" --port "$pgport" -- -E UTF8 --locale=C
+
+mkdir "$pdbbox/var"
+
+tmp_dir="$(mktemp -d ./tmp-pdbbox-XXXXXX)"
+
+trap "$(printf 'pgbox env pg_ctl stop; rm -rf %q' "$tmp_dir")" EXIT
+
+pgbox env pg_ctl start -w
+
+pg_passwd="$(cd "$PGBOX" && cat pass-admin)"
+admin_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
+passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
+
+# This code relies on echo being a function in bash, not a subprocess
+# and "here documents" to prevent passwords from being visible in
+# "ps", etc.
+
+(cd "$pdbbox"
+ install -m 0600 /dev/null test-pass
+ echo -n "$passwd" > test-pass
+ install -m 0600 /dev/null test-pass-admin
+ echo -n "$admin_passwd" > test-pass-admin)
+
+(cd "$PGBOX"
+ cat > pgpass <<-EOF
+	# hostname:port:database:username:password
+	*:*:*:pdb_test:$passwd
+	*:*:*:pdb_test_admin:$admin_passwd
+	*:*:*:puppetdb:$passwd
+	*:*:*:postgres:$pg_passwd
+	EOF
+ )
+
+pgbox env createuser -dERs pdb_test_admin
+pgbox env createuser -DERS pdb_test
+
+tmp_cmds="$(mktemp "$tmp_dir/tmp-cmds-XXXXXX")"
+
+echo -n "alter role pdb_test with password '" > "$tmp_cmds"
+cat "$pdbbox/test-pass" >> "$tmp_cmds"
+echo "';" >> "$tmp_cmds"
+pgbox env psql -f "$tmp_cmds"
+
+echo -n "alter role pdb_test_admin with password '" > "$tmp_cmds"
+cat "$pdbbox/test-pass-admin" >> "$tmp_cmds"
+echo "';" >> "$tmp_cmds"
+pgbox env psql -f "$tmp_cmds"
+
+setup-pdb()
+{
+  local dbname="$1"
+  pgbox env createdb -E UTF8 -O puppetdb "$dbname"
+  pgbox env psql "$dbname" -c 'create extension pg_trgm'
+}
+
+pgbox env createuser -DRS puppetdb
+
+echo -n "alter role puppetdb with password '" > "$tmp_cmds"
+cat "$pdbbox/test-pass" >> "$tmp_cmds"
+echo "';" >> "$tmp_cmds"
+pgbox env psql -f "$tmp_cmds"
+
+setup-pdb puppetdb
+setup-pdb puppetdb2
+
+mkdir "$pdbbox/ssl"
+(cd "$pdbbox/ssl"
+ openssl genrsa -out ca.key.pem 2048
+ openssl req -x509 -new -nodes -days 1000 -key ca.key.pem -out ca.crt.pem \
+         -subj "/C=US/ST=confusion/L=unknown/O=none/CN=pdbca.localhost"
+
+  openssl genrsa -out pdb.key.pem 2048
+  openssl req -new -key pdb.key.pem -out pdb.csr.pem \
+         -subj "/C=US/ST=confusion/L=unknown/O=none/CN=pdb.localhost"
+
+  openssl x509 -req -in pdb.csr.pem -days 1000 \
+          -CA ca.crt.pem -CAkey ca.key.pem -CAcreateserial \
+          -out pdb.crt.pem)
+
+abs_pdbbox="$(cd "$pdbbox" && pwd)"
+
+cat > "$pdbbox/logback.xml" <<EOF
+<configuration scan="true">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d %-5p [%thread] [%c{2}] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Silence particularly noisy packages -->
+    <logger name="org.apache.activemq" level="warn"/>
+    <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
+        level="info"/>
+    <logger name="org.springframework.jms.connection" level="warn"/>
+
+    <root level="info">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>
+EOF
+
+cat > "$pdbbox/pdb.ini" <<EOF
+
+[global]
+vardir = $abs_pdbbox/var
+logging-config = $abs_pdbbox/logback.xml
+
+[database]
+subname = //localhost:$pgport/puppetdb
+username = puppetdb
+password = $passwd
+
+[nrepl]
+enabled = false
+
+[jetty]
+port = 8080
+ssl-port = 8081
+ssl-ca-cert = $abs_pdbbox/ssl/ca.crt.pem
+ssl-cert = $abs_pdbbox/ssl/pdb.crt.pem
+ssl-key = $abs_pdbbox/ssl/pdb.key.pem
+
+[puppetdb]
+disable-update-checking = true
+EOF
+
+touch "$pdbbox/pdbbox"

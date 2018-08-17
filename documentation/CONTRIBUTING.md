@@ -55,34 +55,64 @@ top of things.
 
 ### Testing
 
-To run the local unit or integration tests, you will need a
-[configured PostgreSQL server][configure_postgres], and you will need
-to create the test users:
+The easiest way to run the tests until you need to do it often is to
+use the built-in sandbox harness.  Assuming you the PostgreSQL
+binaries installed in /usr/lib/posgresql/9.6/bin, then you should be
+able to run the core tests like this:
 
-    $ createuser -DRSP pdb_test
-    $ createuser -dRsP pdb_test_admin
+    $ ext/bin/boxed-core-tests \
+        --pgbin /usr/lib/posgresql/9.6/bin \
+        -- lein test
 
-You will also need to set the following environment variables if the
-default values aren't appropriate:
+Copies of tools like `lein` and `pgbox` may be downloaded and
+installed to a temporary directory during the process, if you don't
+already have the expected versions.
 
-  * `PDB_TEST_DB_HOST` (defaults to localhost)
-  * `PDB_TEST_DB_PORT` (defaults to 5432)
-  * `PDB_TEST_DB_USER` (defaults to `pdb_test`)
-  * `PDB_TEST_DB_PASSWORD` (defaults to `pdb_test`)
-  * `PDB_TEST_DB_ADMIN` (defaults to `pdb_test_admin`)
-  * `PDB_TEST_DB_ADMIN_PASSWORD` (defaults to `pdb_test_admin`)
+Similarly you should be able to run the integration tests against the
+default Puppet and Puppetserver versions like this:
 
-Then you can run the unit tests:
+    $ ext/bin/boxed-integration-tests \
+        --pgbin /usr/lib/posgresql/9.6/bin \
+        -- lein test :integration
 
-    $ lein test
+You can also select the integration test versions of puppet and
+puppetserver with the `--puppet REF` and `--server REF` arguments.
 
-And if you'd like to preserve the temporary test databases on failure, you can
-set `PDB_TEST_PRESERVE_DB_ON_FAIL` to true:
+The sandboxes are destroyed when the commands finish, but you can
+arrange to inspect the environment after a failure like this:
 
-    $ PDB_TEST_KEEP_DB_ON_FAIL=true lein test
+    $ ext/bin/boxed-integration-tests \
+        --pgbin /usr/lib/posgresql/9.6/bin \
+        -- bash -c 'lein test || bash'
 
-To run the integration tests, you'll need to ensure you have a
-suitable version of Ruby and Bundler available, and then run
+which will drop you into a shell if anything goes wrong.
+
+If you're running the tests all the time, you might want to set up
+your own persistent sandbox instead (`ext/bin/with-pdbbox` does
+something similar) so you can run them directly:
+
+    $ ext/bin/pdbbox-init \
+      --sandbox ./test-sandbox \
+      --pgbin /usr/lib/postgresql-9.6/bin \
+      --pgport 17961
+
+After that you can start and stop the included database server like
+this:
+
+    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ ext/bin/pdbbox-env pg_ctl start -w
+    $ ext/bin/pdbbox-env pg_ctl stop
+
+and when the database server is running you can run the tests like
+this:
+
+    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ ext/bin/pdbbox-env lein test
+
+Before you can run the integration tests directly, you'll need to
+configure the puppet and puppetserver versions you want to use.
+Assuming you have suitable versions of Ruby and Bundler available, you
+can do this:
 
     $ ext/bin/config-puppet-test-ref
     $ ext/bin/config-puppetserver-test-ref
@@ -100,13 +130,44 @@ distclean` will completely undo the configurations.
 After configuration you should be able to run the tests by specifying
 the `:integration` selector:
 
-    $ lein test :integration
+    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ ext/bin/pdbbox-env lein test :integration
+
+You can also run puppetdb itself with the config file included in the
+sandbox:
+
+    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ ext/bin/pdbbox-env lein run services \
+        -c test-sandbox/pdb.ini
 
 To run the local rspec tests (e.g. for the PuppetDB terminus code),
 you must have run `config-puppet-test-ref` as described above, and
 then from within the `puppet/` directory run:
 
     $ bundle exec rspec spec
+
+If you'd like to preserve the temporary test databases on failure, you can
+set `PDB_TEST_PRESERVE_DB_ON_FAIL` to true:
+
+    $ PDB_TEST_KEEP_DB_ON_FAIL=true lein test
+
+And finally, you can of course set up and [configure your own
+PostgreSQL server][configure_postgres] for testing, but then you'll
+need to create the test users:
+
+    $ createuser -DRSP pdb_test
+    $ createuser -dRsP pdb_test_admin
+
+and do the other things that `pdbbox-init` normally handles, like
+setting environment variables if the default values aren't
+appropriate, etc.:
+
+  * `PDB_TEST_DB_HOST` (defaults to localhost)
+  * `PDB_TEST_DB_PORT` (defaults to 5432)
+  * `PDB_TEST_DB_USER` (defaults to `pdb_test`)
+  * `PDB_TEST_DB_PASSWORD` (defaults to `pdb_test`)
+  * `PDB_TEST_DB_ADMIN` (defaults to `pdb_test_admin`)
+  * `PDB_TEST_DB_ADMIN_PASSWORD` (defaults to `pdb_test_admin`)
 
 ### Cleaning up
 
