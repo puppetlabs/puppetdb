@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.config-test
-  (:import [java.security KeyStore])
+  (:import [java.security KeyStore]
+           [java.util.regex Pattern])
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.config :refer :all :as conf]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -61,6 +62,69 @@
     (testing "should default to half the available CPUs, even on single core boxes"
       (is (= (with-ncores 1) 1)))))
 
+(deftest blacklist-regex-validates-and-returns-patterns
+  (is (every? #(instance? Pattern %)
+              (-> {:database {:subname "bar"
+                              :facts-blacklist-type "regex"
+                              :facts-blacklist ["^foo$" "bar.*" "b[a].?z"]}}
+                  convert-blacklist-config
+                  (get-in [:database :facts-blacklist]))))
+
+  (is (thrown+-with-msg? [:type ::conf/cli-error]
+                         #".*Unclosed character class near index 4\.*"
+                         (-> {:database {:subname "bar"
+                                         :facts-blacklist-type "regex"
+                                         :facts-blacklist ["^foo[" "(bar.*"]}}
+                             convert-blacklist-config))))
+
+(deftest blacklist-conversion-is-no-op-when-type-literal
+  ;; with blacklist-type set to literal all blacklist entries kept as literal strings
+  (is (= ["^foo$" "bar.*" "b[a].?z"]
+         (-> {:database {:subname "bar"
+                         :facts-blacklist-type "literal"
+                         :facts-blacklist ["^foo$" "bar.*" "b[a].?z"]}}
+             convert-blacklist-config
+             (get-in [:database :facts-blacklist])))))
+
+(deftest blacklist-type-only-accepts-literal-regex-as-values
+  (let [config-db (fn [bl-type]
+                    (-> {:database {:classname "something"
+                                    :subname "stuff"
+                                    :subprotocol "more stuff"
+                                    :facts-blacklist-type bl-type}}
+                        (configure-section :database
+                                           write-database-config-in
+                                           write-database-config-out)))]
+
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not match schema"
+                          (config-db "foo")))
+
+    (is (= "regex" (get-in (config-db "regex")
+                           [:database :facts-blacklist-type])))
+
+    (is (= "literal" (get-in (config-db "literal")
+                             [:database :facts-blacklist-type])))))
+
+(deftest blacklist-type-defaults-to-literal
+  (let [config (-> {:database {:classname "something"
+                               :subname "stuff"
+                               :subprotocol "more stuff"}}
+                   (configure-section :database write-database-config-in write-database-config-out)
+                   configure-read-db)]
+    (is (= (get-in config [:database :facts-blacklist-type]) "literal"))))
+
+(deftest blacklist-converted-correctly-with-ini-and-conf-files
+  (let [build-config (fn [x] (-> {:database {:classname "something"
+                                             :subname "stuff"
+                                             :subprotocol "more stuff"
+                                             :facts-blacklist x}}
+                                 (configure-section :database write-database-config-in write-database-config-out)
+                                 configure-read-db))
+        ini-config (build-config "fact1, fact2, fact3")
+        hocon-config (build-config ["fact1" "fact2" "fact3"])]
+    (is (= (get-in ini-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))
+    (is (= (get-in hocon-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
+
 (deftest database-configuration
   (testing "database"
     (let [cfg {:database {:subname "baz"}}
@@ -102,26 +166,7 @@
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
-        (is (= (get-in config [:database :maximum-pool-size]) 25))))
-
-    (testing "facts-blacklist string from .ini converted correctly"
-      (let [config (-> {:database {:classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"
-                                   :facts-blacklist "fact1, fact2, fact3"}}
-                       (configure-section :database write-database-config-in write-database-config-out)
-                       configure-read-db)]
-        (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
-
-    (testing "facts-blacklist array from .conf converted correctly"
-      (let [config (-> {:database {:classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"
-                                   :facts-blacklist ["fact1" "fact2" "fact3"]}}
-                       (configure-section :database write-database-config-in write-database-config-out)
-                       configure-read-db)]
-        (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))))
-
+        (is (= (get-in config [:database :maximum-pool-size]) 25))))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]

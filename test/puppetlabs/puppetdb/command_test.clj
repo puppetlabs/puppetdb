@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
             [clojure.java.jdbc :as sql]
+            [clojure.string :as str]
             [metrics.counters :as counters]
             [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -72,6 +73,12 @@
     (fs/delete-dir (:path dlo))
     (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
 
+;; define blacklist map to allow use of with-redefs later
+(def blacklist-config {:facts-blacklist [#"blacklisted-fact"
+                                         #"pre.*" #".*suff"
+                                         #"gl.?b" #"p[u].*et"]
+                          :facts-blacklist-type "regex"})
+
 (defn create-message-handler-context [q]
   (let [delay-pool (mk-pool)
         command-chan (async/chan 10)
@@ -81,8 +88,7 @@
         dlo-dir (fs/temp-dir "test-msg-handler-dlo")
         dlo (dlo/initialize (.toPath dlo-dir)
                              (:registry (new-metrics "puppetlabs.puppetdb.dlo"
-                                                     :jmx? false)))
-        blacklisted-facts ["blacklisted-fact"]]
+                                                     :jmx? false)))]
     (map->CommandHandlerContext
      {:handle-message (message-handler
                        q
@@ -92,7 +98,7 @@
                        *db*
                        response-chan
                        stats
-                       blacklisted-facts
+                       blacklist-config
                        (atom {:executing-delayed 0}))
       :command-chan command-chan
       :dlo dlo
@@ -689,20 +695,21 @@
   "Get all fact names and their values converting values to text.
    Returns a vector of maps following the format below:
    [{:certname \"blarg\" :name \"fact1\" :value \"1\"}]"
-  (query-to-vec
-   "SELECT fp.path as name,
-           COALESCE(fv.value_string,
-                    cast(fv.value_integer as text),
-                    cast(fv.value_boolean as text),
-                    cast(fv.value_float as text),
-                    '') as value,
-           fs.certname
-    FROM factsets fs
-         INNER JOIN facts as f on fs.id = f.factset_id
-         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-         INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-    WHERE fp.depth = 0
-    ORDER BY name ASC"))
+  (->> ["SELECT fp.path as name,"
+        "       COALESCE(fv.value_string,"
+        "                cast(fv.value_integer as text),"
+        "                cast(fv.value_boolean as text),"
+        "                cast(fv.value_float as text),"
+        "                '') as value,"
+        "       fs.certname"
+        "FROM factsets fs"
+        "     INNER JOIN facts as f on fs.id = f.factset_id"
+        "     INNER JOIN fact_values as fv on f.fact_value_id = fv.id"
+        "     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id"
+        "WHERE fp.depth = 0"
+        "ORDER BY name ASC"]
+       (str/join "\n")
+       query-to-vec))
 
 (let [certname  "foo.example.com"
       facts     {:certname certname
@@ -740,29 +747,44 @@
                     certname]
                    {:as-arrays? true}))))))))
 
-  (deftest facts-blacklist
+  (deftest regex-facts-blacklist
     (dotestseq [version fact-versions
-                :let [command (update facts :values #(assoc % "blacklisted-fact" "val"))]]
-      (testing "should ignore the blacklisted fact"
+                :let [command (update facts :values
+                                      #(assoc %
+                                              "blacklisted-fact" "val"
+                                              "prefix" "val"
+                                              "facts-suff" "val"
+                                              "glob" "val"
+                                              "puppet" "val"
+                                              ;; facts below shouldn't be blacklisted
+                                              "notprefix" "val"
+                                              "suff-not" "val"
+                                              "not-blacklisted-fact" "val"))]]
+      (testing "should ignore the blacklisted facts using regex"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
+          (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))))))
+                  {:certname certname :name "c" :value "3"}
+                  {:certname certname :name "not-blacklisted-fact" :value "val"}
+                  {:certname certname :name "notprefix" :value "val"}
+                  {:certname certname :name "suff-not" :value "val"}]
+                 (approx-facts-query)))))))
+
+    (deftest literal-facts-blacklist
+        (dotestseq [version fact-versions
+                    :let [command (update facts :values
+                                          #(assoc % "blacklisted-fact" "val"))]]
+          (testing "should ignore the blacklisted fact"
+            (with-redefs [blacklist-config
+                          {:facts-blacklist ["blacklisted-fact"]
+                           :facts-blacklist-type "literal"}]
+              (with-message-handler {:keys [handle-message dlo delay-pool q]}
+                (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
+                (is (= [{:certname certname :name "a" :value "1"}
+                        {:certname certname :name "b" :value "2"}
+                        {:certname certname :name "c" :value "3"}]
+                       (approx-facts-query))))))))
 
   (deftest replace-facts-no-facts
     (dotestseq [version fact-versions
@@ -770,10 +792,10 @@
       (testing "should store the facts"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (approx-facts-query)
-                 [{:certname certname :name "a" :value "1"}
+          (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+                  {:certname certname :name "c" :value "3"}]
+                 (approx-facts-query)))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))
           (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
@@ -803,10 +825,10 @@
                         yesterday))
               (is (= (scf-store/environment-id "DEV") (:environment_id result))))
 
-            (is (= (approx-facts-query)
-                   [{:certname certname :name "a" :value "1"}
+            (is (= [{:certname certname :name "a" :value "1"}
                     {:certname certname :name "b" :value "2"}
-                    {:certname certname :name "c" :value "3"}]))
+                    {:certname certname :name "c" :value "3"}]
+                   (approx-facts-query)))
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo)))))))))
 
@@ -828,10 +850,10 @@
 
           (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
                  [(with-env {:certname certname :timestamp tomorrow})]))
-          (is (= (approx-facts-query)
-                 [{:certname certname :name "x" :value "24"}
+          (is (= [{:certname certname :name "x" :value "24"}
                   {:certname certname :name "y" :value "25"}
-                  {:certname certname :name "z" :value "26"}]))
+                  {:certname certname :name "z" :value "26"}]
+                 (approx-facts-query)))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))))))
 
@@ -846,10 +868,10 @@
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
-          (is (= (approx-facts-query)
-                 [{:certname certname :name "a" :value "1"}
+          (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+                  {:certname certname :name "c" :value "3"}]
+                 (approx-facts-query)))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))))
 
@@ -863,10 +885,10 @@
 
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
-          (is (= (approx-facts-query)
-                 [{:certname certname :name "a" :value "1"}
+          (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+                  {:certname certname :name "c" :value "3"}]
+                 (approx-facts-query)))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo)))))))))
 
