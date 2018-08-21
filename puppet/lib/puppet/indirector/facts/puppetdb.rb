@@ -31,6 +31,18 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           package_inventory = inventory['packages'] if inventory.respond_to?(:keys)
           facts.values.delete('_puppet_inventory_1')
 
+          fact_names_blocklist = Puppet::Util::Puppetdb.config.fact_names_blocklist
+
+          fact_names_blocklist.each{|blocklisted_fact_name|
+            facts.values.delete(blocklisted_fact_name)
+          }
+
+          fact_names_blocklist_regexps = Puppet::Util::Puppetdb.config.fact_names_blocklist_regex
+
+          fact_names_blocklist_regexps.each{|blocklisted_fact_name_regexp_str|
+            facts.values.reject!{|k,v| k =~ Regexp.new(blocklisted_fact_name_regexp_str)}
+          }
+
           payload_value = {
             "certname" => facts.name,
             "values" => facts.values,
