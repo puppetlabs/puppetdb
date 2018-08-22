@@ -26,15 +26,15 @@ fi
 
 set -x
 
-rm -f ext/test-conf/puppetserver-requested ext/test-conf/puppetserver-dep
+rm -f ext/test-conf/puppetserver-ref-requested ext/test-conf/puppetserver-dep
 
 case "$#" in
     0)
-        pupsrv_ref="$(cat ext/test-conf/puppetserver-default)"
+        pupsrv_ref="$(cat ext/test-conf/puppetserver-ref-default)"
         ;;
     1)
         pupsrv_ref="$1"
-        echo "$pupsrv_ref" > ext/test-conf/puppetserver-requested
+        echo "$pupsrv_ref" > ext/test-conf/puppetserver-ref-requested
         ;;
     *)
         usage 1>&2
