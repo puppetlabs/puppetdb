@@ -17,7 +17,7 @@ sudo: required
 # the attempt.
 
 aliases:
-  - &run-core-tests |
+  - &run-core-and-ext-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
     if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
@@ -30,6 +30,7 @@ aliases:
     ext/bin/test-config --set pgver "$pgver"
     ext/bin/test-config --set pgport 34335
     ext/bin/boxed-core-tests -- lein test
+    ext/bin/run-external-tests
 
   - &run-integration-tests |
     set -e
@@ -52,14 +53,14 @@ aliases:
 jobs:
   include:
 
-    # === core tests
+    # === core+ext tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/openjdk8/pg-9.6
-      script: *run-core-tests
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/oraclejdk8/pg-9.6
-      script: *run-core-tests
+      env: PDB_TEST=core+ext/oraclejdk8/pg-9.6
+      script: *run-core-and-ext-tests
 
     # === integration tests
     - stage: ❧ pdb tests
@@ -78,10 +79,10 @@ jobs:
 
     # ==== osx
 
-    # === core tests
+    # === core+ext tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/openjdk8/pg-9.6
-      script: *run-core-tests
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      script: *run-core-and-ext-tests
       os: osx
 
     # === integration tests

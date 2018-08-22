@@ -56,10 +56,26 @@ top of things.
 ### Testing
 
 The easiest way to run the tests until you need to do it often is to
-use the built-in sandbox harness.  You'll need to either specify the
-PostgreSQL port you'd like the sandbox to use by providing a `--pgport
-PORT` argument to each relevant test invocation, or you can set a
-default for the source tree:
+use the built-in sandbox harness.  If you just want to check some
+changes against "all the normal tests", this should work (assuming
+you're not running a server on port 34335):
+
+    $ ext/bin/test-config --set pgport 34335
+    $ ext/bin/test-config --reset puppet-ref
+    $ ext/bin/test-config --reset puppetserver-ref
+    $ ext/bin/run-normal-tests
+
+This will run the core, integration, and external tests, and in some
+cases may be all that you need, but in many cases, you may want to be
+able to run tests more selectively as detailed below.  Copies of tools
+like `lein` and `pgbox` may be downloaded and installed to a temporary
+directory during the process, if you don't already have the expected
+versions.
+
+When using the sandbox, you need to either specify the PostgreSQL port
+it should use by providing a `--pgport PORT` argument to each relevant
+test invocation, or you can set a default (as above) for the source
+tree:
 
     $ ./ext/bin/test-config --set pgport 34335
 
@@ -67,10 +83,6 @@ Once you've set the default pgport, you should be able to run the core
 tests like this:
 
     $ ext/bin/boxed-core-tests -- lein test
-
-Copies of tools like `lein` and `pgbox` may be downloaded and
-installed to a temporary directory during the process, if you don't
-already have the expected versions.
 
 Similarly you should be able to configure and run the integration
 tests against the default Puppet and Puppetserver versions like this:
