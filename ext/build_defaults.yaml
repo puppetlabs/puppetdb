@@ -1,6 +1,6 @@
 ---
 project: 'puppetdb'
-repo_name: 'puppet5'
-nonfinal_repo_name: 'puppet5-nightly'
+repo_name: 'puppet6'
+nonfinal_repo_name: 'puppet6-nightly'
 repo_link_target: 'puppet'
 nonfinal_repo_link_target: 'puppet-nightly'
