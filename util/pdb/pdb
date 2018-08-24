@@ -8,7 +8,16 @@ if __name__ == '__main__':
     pdb = PuppetDB()
     subcommand = sys.argv[1]
     if subcommand == 'simulate':
-        nhosts, interval = sys.argv[2:]
-        pdb.simulate(int(nhosts), int(interval))
+        args = sys.argv[2:]
+        if len(args) == 2:
+            nhosts, interval = args
+            pdb.simulate(int(nhosts), int(interval))
+        elif len(args) == 3:
+            nhosts, interval, orphans = args
+            # bool(orphans) below will be set to True on any non empty string
+            pdb.simulate(int(nhosts), int(interval), bool(orphans))
+        else:
+            raise ValueError('called with unsupported number of args')
+
     if subcommand == 'query':
         pdb.query(sys.argv[2])

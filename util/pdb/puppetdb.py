@@ -106,15 +106,15 @@ class PuppetDB(object):
     def prepare_sample(self):
         """ interactively prepare a simulation seed set """
 
-    def simulate(self, numhosts, runinterval, events_per_report=4,
-                 opts=DEFAULT_MUTATION_OPTS):
+    def simulate(self, numhosts, runinterval, orphans=False,
+                 events_per_report=4, opts=DEFAULT_MUTATION_OPTS):
         """Submit simulated commands to PDB, targeting equivalence to a given
         number of hosts, run interval, and mutation rate. Record selected
         metrics in a log file on an interval.
         """
         if not self.commands:
             self.commands = Commands()
-        s = CommandPipe(self.commands, numhosts, runinterval)
+        s = CommandPipe(self.commands, numhosts, runinterval, orphans)
         t = datetime.now().isoformat()
         outputfile = 'simulation-logs-%s-%s-%s.txt' % (numhosts,
                                                        runinterval, t)

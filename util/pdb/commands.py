@@ -3,6 +3,8 @@ import time
 import json
 import random
 from collections import deque
+import random
+import copy
 
 
 def update_nums(values):
@@ -14,18 +16,44 @@ def update_nums(values):
             values[k] = update_nums(v)
     return values
 
+def kinda_random(certname, give_int=False):
+    rand_float = random.Random(certname).random()
+    if give_int:
+        return int(10 * rand_float)
+    else:
+        return rand_float
 
-def mutate(command):
+def make_nested_fact(keyname, levels):
+    """generate a nested fact with unique fact name key values"""
+    key_suffix = kinda_random(keyname + str(levels))
+    key_val = f"{keyname}-{key_suffix}"
+    if levels <= 0:
+        return {key_val: "val"}
+    else:
+        return {key_val: make_nested_fact(keyname, (levels - 1))}
+
+def mutate(command, orphans=False):
     """Mutate a command in a type-specific way. Mutation logic is:
     - facts: Numeric facts change every run. Non-numeric facts are static.
     - reports: identity (not implemented)
     - catalogs: identity (not implemented)"""
 
-    if 'values' in command:
+    command_copy = copy.deepcopy(command)
+
+    if 'values' in command_copy:
         # we assume every numeric fact is volatile
-        values = command['values']
-        command['values'] = update_nums(values)
-    return command
+        values = command_copy['values']
+        command_copy['values'] = update_nums(values)
+
+        if orphans:
+            certname = command_copy['certname']
+            num_nested_facts = kinda_random(certname, True)
+
+            for num in range(num_nested_facts):
+                top_key = f"{certname}-{num}"
+                levels = kinda_random(top_key, True)
+                command_copy['values'][top_key] = make_nested_fact(top_key, levels)
+    return command_copy
 
 
 class Commands(object):
@@ -68,7 +96,8 @@ class CommandPipe(object):
     data pertinent to each simulated host. Access is throttled according to
     numhosts/runinterval. Multiple consumers are required to avoid hiccups."""
 
-    def __init__(self, commands, numhosts, runinterval, events_per_report=4):
+    def __init__(self, commands, numhosts, runinterval,
+                  orphans=False, events_per_report=4):
         """initialize a generator representing a realistic command sequence for
         the requested parameters, with mutation"""
         self.interval_sec = 60 * runinterval
@@ -76,6 +105,7 @@ class CommandPipe(object):
         t = 1000*time.time() + random.random()
         splay = t - float(self.interval_sec * 1000)
         self.state = deque()
+        self.orphans = orphans
         for i in range(numhosts):
             f = random.randint(0, len(commands['facts']) - 1)
             r = random.randint(0, len(commands['reports']) - 1)
@@ -104,7 +134,7 @@ class CommandPipe(object):
         c['certname'] = certname
 
         if random.random() < 1:
-            f = mutate(f)
+            f = mutate(f, self.orphans)
         if random.random() < 1:
             r = mutate(r)
         if random.random() < 1:
