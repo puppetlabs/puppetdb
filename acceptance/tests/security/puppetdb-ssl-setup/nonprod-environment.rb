@@ -1,5 +1,5 @@
 test_name "puppetdb ssl-setup on nonproduction environment" do
-  confdir = on(database, puppet_master("--configprint confdir")).stdout.chomp
+  confdir = on(database, "puppet config print confdir --section master").stdout.chomp
   bin_loc = "#{puppetdb_bin_dir(database)}"
   step "back up existing puppet.conf" do
     on database, "cp #{confdir}/puppet.conf #{confdir}/puppet.conf.bak"
