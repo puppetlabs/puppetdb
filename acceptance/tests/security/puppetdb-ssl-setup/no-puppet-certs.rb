@@ -4,7 +4,7 @@ test_name "puppetdb ssl-setup with no puppet certs" do
   db_confd = "#{puppetdb_confdir(database)}/conf.d"
   bin_loc = "#{puppetdb_bin_dir(database)}"
 
-  ssl_dir = on(database, puppet_master("--configprint ssldir")).stdout.chomp
+  ssl_dir = on(database, "puppet config print ssldir --section master").stdout.chomp
 
   step "backup jetty.ini and puppetdb ssl certs" do
     on database, "cp #{db_confd}/jetty.ini #{db_confd}/jetty.ini.bak.ssl_setup_tests"
