@@ -11,9 +11,9 @@ def initialize_repo_on_host(host, os, nightly)
 
     if options[:type] == 'aio' then
       if nightly
-        ## puppet5 repos
-        on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
-        on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
+        ## puppet6 repos
+        on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet6-nightly-release-$(lsb_release -sc).deb"
+        on host, "dpkg -i puppet6-nightly-release-$(lsb_release -sc).deb"
 
       else
         on host, "curl -O http://apt.puppetlabs.com/puppet-release-$(lsb_release -sc).deb"
@@ -33,9 +33,9 @@ def initialize_repo_on_host(host, os, nightly)
       arch = $3
 
       if nightly
-        ## puppet5 repos
-        on host, "curl -O http://yum.puppetlabs.com/puppet5/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
-        on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+        ## puppet6 repos
+        on host, "curl -O http://yum.puppetlabs.com/puppet6-nightly/puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
+        on host, "rpm -i puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
 
       else
         on host, "curl -O http://yum.puppetlabs.com/puppet/puppet-release-#{variant}-#{version}.noarch.rpm"
