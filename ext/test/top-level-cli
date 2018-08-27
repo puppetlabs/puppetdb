@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+usage() { echo "Usage: [PDB_JAR=JAR] $(basename "$0")"; }
+misuse() { usage 1>&2; exit 2; }
+
+test $# -eq 0 || misuse
+
+tmpdir="$(mktemp -d "test-top-level-cli-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+rc=0
+./pdb frobnicate ... 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
+cat "$tmpdir/out" "$tmpdir/err"
+test "$rc" -eq 1
+# FIXME: this should be err...
+grep -F 'Available subcommands:' "$tmpdir/out"
+grep -E 'Print info about the current version of PuppetDB' "$tmpdir/out"
+
+rc=0
+./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
+cat "$tmpdir/out" "$tmpdir/err"
+test "$rc" -eq 0
+grep -E '^version=' "$tmpdir/out"
+grep -E '^target_schema_version=' "$tmpdir/out"
+test $(wc -c < "$tmpdir/err") -eq 0

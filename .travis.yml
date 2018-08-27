@@ -11,40 +11,56 @@ sudo: required
 # prep-os-essentials-for:
 # https://github.com/travis-ci/travis-ci/issues/9927
 
+# We explicitly set up lein and pgbox at the top level so that we can
+# use them in commands like test-config, and so we can't end up doing
+# it multiple times if any of the (e.g. boxed-) sub-commands also make
+# the attempt.
+
 aliases:
-  - &run-core-tests |
+  - &run-core-and-ext-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
     if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
-    pgbin="$(ext/travisci/pgbin-from-spec "$PDB_TEST")"
-    ext/bin/boxed-core-tests --pgbin "$pgbin" -- lein test
+    mkdir -p ext/travisci/local
+    export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
+    ext/bin/require-leiningen default ext/travisci/local
+    ext/bin/require-pgbox default ext/travisci/local
+    pgver="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pg-)"
+    ext/bin/test-config --set pgver "$pgver"
+    ext/bin/test-config --set pgport 34335
+    ext/bin/boxed-core-tests -- lein test
+    ext/bin/run-external-tests
 
   - &run-integration-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
     if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
-    pgbin="$(ext/travisci/pgbin-from-spec "$PDB_TEST")"
+    mkdir -p ext/travisci/local
+    export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
+    ext/bin/require-leiningen default ext/travisci/local
+    ext/bin/require-pgbox default ext/travisci/local
+    pgver="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pg-)"
     puppet="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pup-)"
     server="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" srv-)"
-    ext/bin/boxed-integration-tests \
-      --pgbin "$pgbin" \
-      --puppet "$puppet" \
-      --server "$server" \
-      -- lein test :integration
+    ext/bin/test-config --set pgver "$pgver"
+    ext/bin/test-config --set pgport 34335
+    ext/bin/test-config --set puppet-ref "$puppet"
+    ext/bin/test-config --set puppetserver-ref "$server"
+    ext/bin/boxed-integration-tests -- lein test :integration
 
 jobs:
   include:
 
-    # === core tests
+    # === core+ext tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/openjdk8/pg-9.6
-      script: *run-core-tests
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/oraclejdk8/pg-9.6
-      script: *run-core-tests
+      env: PDB_TEST=core+ext/oraclejdk8/pg-9.6
+      script: *run-core-and-ext-tests
 
     # === integration tests
     - stage: ❧ pdb tests
@@ -63,10 +79,10 @@ jobs:
 
     # ==== osx
 
-    # === core tests
+    # === core+ext tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core/openjdk8/pg-9.6
-      script: *run-core-tests
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      script: *run-core-and-ext-tests
       os: osx
 
     # === integration tests

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+failures=0
+
+failure() {
+    echo "===== $(tput setaf 1)FAILED:$(tput sgr 0) $@" 1>&2
+    ((failures++)) || true
+}
+
+success() {
+    echo "===== OK: $@" 1>&2
+}
+
+run() {
+    echo -e "\n===== testing $@" 1>&2
+    rc=0
+    "$@" || rc=$?
+    if test "$rc" -eq 0; then
+        success "$@"
+    else
+        failure "$@"
+    fi
+}
+
+run lein uberjar
+
+unset PDBBOX
+export PDB_JAR="$(pwd)/target/puppetdb.jar"
+
+run ext/test/top-level-cli
+
+if test "$failures" -eq 0; then
+    echo "failures: $failures" 1>&2
+    exit 0
+else
+    echo "$(tput setaf 1)failures: $failures$(tput sgr 0)" 1>&2
+    exit 2
+fi
