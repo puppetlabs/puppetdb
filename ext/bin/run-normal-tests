@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 
-set -ueo pipefail
+set -euo pipefail
 
-usage() {
-    echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT] -- CMD ...'
-}
-
+usage() { echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT]'; }
 misuse() { usage 1>&2; exit 2; }
 
 declare -A opt
@@ -25,7 +22,6 @@ while test $# -gt 0; do
             misuse
     esac
 done
-cmd=("$@")
 
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
@@ -45,16 +41,25 @@ fi
 
 set -x
 
-tmpdir="$(mktemp -d "int-test-XXXXXX")"
+tmpdir="$(mktemp -d "normal-tests-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 mkdir -p "$tmpdir/local"
 
+# So we can't end up fetching and installing lein and pgbox multiple times...
 ext/bin/require-leiningen default "$tmpdir/local"
 ext/bin/require-pgbox default "$tmpdir/local"
 export PATH="$tmpdir/local/bin:$PATH"
-ext/bin/host-info
-ext/bin/with-pdbbox --box "$tmpdir/box" \
-                    --pgbin "${opt[pgbin]}" \
-                    --pgport "${opt[pgport]}" \
-                    -- "${cmd[@]}"
+
+echo -e '\n===== pdb core tests'
+ext/bin/boxed-core-tests \
+    --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
+    -- lein test
+
+echo -e '\n===== pdb integration tests'
+ext/bin/boxed-integration-tests \
+    --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
+    -- lein test :integration
+
+echo -e '\n===== pdb external tests'
+ext/bin/run-external-tests
