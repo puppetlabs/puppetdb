@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+from collections import defaultdict
+from subprocess import check_call
+from sys import stderr
+import errno, os, sys
+
+def usage():
+    return '\n'.join(('Usage:',
+                      '  test-config --help',
+                      '  test-config --get OPTION',
+                      '  test-config --set OPTION VALUE',
+                      '  test-config --reset OPTION',
+                      'Note: there may not be a default pgbin or pgport value'))
+
+def misuse():
+    print(usage(), file=stderr)
+    sys.exit(2)
+
+def slurp(path):
+    with open(path) as f:
+        return f.read()
+
+def spitn(path, value):
+    with open(path, 'w') as f:
+        print(value, file=f)
+
+def get_pgport():
+    try:
+        return slurp('ext/test-conf/pgport-requested').rstrip()
+    except IOError as ex:
+        return ''
+
+def get_pgver():
+    if os.path.exists('ext/test-conf/pgver-requested'):
+        return slurp('ext/test-conf/pgver-requested').rstrip()
+    return slurp('ext/test-conf/pgver-default').strip()
+    
+def get_pgbin():
+    if os.path.exists('ext/test-conf/pgbin-requested'):
+        return slurp('ext/test-conf/pgbin-requested').rstrip()
+
+    pgver = get_pgver()
+    pgbin = next((x for x in ('/usr/lib/postgresql/%s/bin' % pgver,
+                              '/usr/local/opt/postgresql@%s/bin' % pgver)
+                  if os.path.exists(x + '/initdb')),
+                 None)
+    if not pgbin:
+        return ''
+    return pgbin
+
+def get_test_ref(which):
+    req = 'ext/test-conf/%s-requested' % which
+    if os.path.exists(req):
+        return slurp(req).rstrip()
+    else:
+        return slurp('ext/test-conf/%s-default' % which).rstrip()
+
+def set_requested(what, value):
+    spitn('ext/test-conf/%s-requested' % what, value)
+    
+def reset_requested(what):
+    try:
+        os.unlink('ext/test-conf/%s-requested' % what)
+    except OSError as ex:
+        if ex.errno != errno.ENOENT:
+            raise
+
+def set_puppet_ref(what, value):
+    check_call(['ext/bin/config-puppet-test-ref', value])
+    
+def reset_puppet_ref(what):
+    check_call(['ext/bin/config-puppet-test-ref'])
+    
+def set_puppetserver_ref(what, value):
+    check_call(['ext/bin/config-puppetserver-test-ref', value])
+    
+def reset_puppetserver_ref(what):
+    check_call(['ext/bin/config-puppetserver-test-ref'])
+    
+get_val = {}
+get_val['pgbin'] = get_pgbin
+get_val['pgver'] = get_pgver
+get_val['pgport'] = get_pgport
+get_val['puppet-ref'] = lambda: get_test_ref('puppet-ref')
+get_val['puppetserver-ref'] = lambda: get_test_ref('puppetserver-ref')
+valid_opts = frozenset(get_val.keys())
+
+set_val = defaultdict(lambda: set_requested)
+set_val['puppet-ref'] = set_puppet_ref
+set_val['puppetserver-ref'] = set_puppetserver_ref
+
+reset_val = defaultdict(lambda: reset_requested)
+reset_val['puppet-ref'] = reset_puppet_ref
+reset_val['puppetserver-ref'] = reset_puppetserver_ref
+
+if sys.argv == ['--help']:
+    print(usage())
+    sys.exit(0)
+
+if len(sys.argv) == 1:
+    for opt in sorted(get_val.keys()):
+        print('%s: %s' % (opt, get_val[opt]()))
+    sys.exit(0)
+
+args = list(sys.argv[1:])
+while args:
+    opt = args[0]
+    if opt in ('--get', '--reset'):
+        len(args) >= 2 or misuse()
+        what = args[1]
+        args = args[2:]
+        if not what in valid_opts:
+            misuse()
+        if opt == '--get':
+            print(get_val[what]())
+        else:
+            reset_val[what](what)
+    elif opt in '--set':
+        len(args) >= 3 or misuse()
+        what, value = args[1:3]
+        args = args[3:]
+        if not what in valid_opts:
+            misuse()
+        set_val[what](what, value)
+    else:
+        misuse()

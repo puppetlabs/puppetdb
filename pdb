@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -e
+
+jar="${PDB_JAR:-target/puppetdb.jar}"
+
+if ! test -e "$jar"; then
+    printf 'Unable to find the puppetdb jar %q; have you run "lein uberjar"?\n' \
+           "$jar" 1>&2
+    exit 2
+fi
+
+exec java -cp "$jar" clojure.main -m puppetlabs.puppetdb.core "$@"

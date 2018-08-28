@@ -20,15 +20,15 @@ fi
 
 set -x
 
-rm -f ext/test-conf/puppet-requested
+rm -f ext/test-conf/puppet-ref-requested
 
 case "$#" in
     0)
-        puppet_ref="$(cat ext/test-conf/puppet-default)"
+        puppet_ref="$(cat ext/test-conf/puppet-ref-default)"
         ;;
     1)
         puppet_ref="$1"
-        echo "$puppet_ref" > ext/test-conf/puppet-requested
+        echo "$puppet_ref" > ext/test-conf/puppet-ref-requested
         ;;
     *)
         usage 1>&2

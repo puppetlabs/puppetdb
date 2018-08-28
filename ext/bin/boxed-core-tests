@@ -2,18 +2,17 @@
 
 set -uxeo pipefail
 
-usage() { echo 'Usage: $(basename "$0") --pgbin DIR -- CMD ...'; }
+usage() { echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT] -- CMD ...'; }
 misuse() { usage 1>&2; exit 2; }
 
-pgbin=''
+declare -A opt
 
 while test $# -gt 0; do
     case "$1" in
-        --pgbin)
-            shift
-            test $# -gt 0 || misuse
-            pgbin="$1"
-            shift
+        --pgbin|--pgport)
+            test $# -gt 1 || misuse
+            opt["${1:2}"]="$2"
+            shift 2
             ;;
         --)
             shift
@@ -25,7 +24,21 @@ while test $# -gt 0; do
 done
 cmd=("$@")
 
-test "$pgbin" || misuse
+if test -z "${opt[pgbin]:-}"; then
+    opt[pgbin]="$(ext/bin/test-config --get pgbin)"
+    if test  -z "${opt[pgbin]:-}"; then
+        echo 'Please specify --pgbin or set pgbin with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+if test -z "${opt[pgport]:-}"; then
+    opt[pgport]="$(ext/bin/test-config --get pgport)"
+     if test  -z "${opt[pgport]:-}"; then
+        echo 'Please specify --pgport or set pgport with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
 
 tmpdir="$(mktemp -d "core-test-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
@@ -36,5 +49,7 @@ ext/bin/require-leiningen default "$tmpdir/local"
 ext/bin/require-pgbox default "$tmpdir/local"
 export PATH="$tmpdir/local/bin:$PATH"
 ext/bin/host-info
-ext/bin/with-pdbbox --box "$tmpdir/box" --pgbin "$pgbin" --pgport 34335 \
+ext/bin/with-pdbbox --box "$tmpdir/box" \
+                    --pgbin "${opt[pgbin]}" \
+                    --pgport "${opt[pgport]}" \
                     -- "${cmd[@]}"

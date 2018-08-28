@@ -33,6 +33,6 @@ lein clean
 lein test
 
 export NO_ACCEPTANCE=true
-ext/bin/config-puppet-test-ref
-PDB_NO_PUPPETSERVER_INSTALL=true ext/bin/config-puppetserver-test-ref
+ext/bin/test-config --reset puppet-ref
+PDB_NO_PUPPETSERVER_INSTALL=true ext/bin/test-config --reset puppetserver-ref
 exec lein test :integration
