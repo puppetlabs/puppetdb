@@ -660,8 +660,8 @@
     (async/untap-all (:response-mult context))
     (async/close! (:response-chan-for-pub context))
     (async/close! (:response-chan context))
-    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult)
-    context)
+    (dissoc context
+            :response-pub :response-chan :response-chan-for-pub :response-mult))
 
   (stats [this]
     @(:stats (service-context this)))
