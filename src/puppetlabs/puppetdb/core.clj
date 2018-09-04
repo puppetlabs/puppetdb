@@ -13,6 +13,7 @@
   ["Available subcommands:"
    "  version                 Display version information"
    "  services                Run PuppetDB"
+   "  upgrade                 Upgrade to latest version and exit"
    "  benchmark               Run development-only benchmarking tool"
    "  fact-storage-benchmark"
    "For help on a given subcommand, invoke it with -h"])
@@ -30,7 +31,8 @@
   [success-fn fail-fn [subcommand & args]]
   (let [run (case subcommand
               "version" #(apply cver/-main args)
-              "services" #(apply svcs/-main args)
+              "services" #(svcs/provide-services args)
+              "upgrade" #(svcs/provide-services args {:upgrade-and-exit? true})
               "benchmark" #(apply benchmark/-main args)
               "fact-storage-benchmark" #(apply fstore-bench/-main args)
               (do

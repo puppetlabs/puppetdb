@@ -12,6 +12,7 @@ layout: default
 [plugin_source]: ./connect_puppet_master.html#on-platforms-without-packages
 [module]: ./install_via_module.html
 [puppetdb3]: /puppetdb/3.2/migrate.html
+[versioning]: ./versioning_policy.html#upgrades
 
 Checking for updates
 -----
@@ -109,3 +110,15 @@ Obtain a fresh copy of the PuppetDB source, and follow
 
 The command to restart the Puppet master will vary, depending on which web
 server you are using.
+
+### Upgrading across multiple major versions
+
+As stated by the [versioning policy][versioning], you cannot "skip"
+major versions of PuppetDB when upgrading.  For example, if you need
+to upgrade from PuppetDB 4.2.3 to 6.0.0, you must run some version of
+PuppetDB 5 at least long enough for it to upgrade your existing data.
+
+The upgrade subcommand can help with this.  When specified, PuppetDB
+will quit as soon as it has finished all of the necessary work:
+
+    $ puppetdb upgrade -c /path/to/config.ini

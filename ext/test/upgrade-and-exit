@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() { echo 'Usage: [PDB_JAR=JAR] $(basename "$0") --pgbin PGBIN --pgport PGPORT'; }
+misuse() { usage 1>&2; exit 2; }
+
+argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
+declare -A opt
+
+while test $# -gt 0; do
+    case "$1" in
+        --pgbin|--pgport)
+            test $# -gt 1 || misuse
+            opt["${1:2}"]="$2"
+            shift 2
+            ;;
+        *)
+            misuse
+    esac
+done
+
+if test -z "${opt[pgbin]:-}"; then
+    opt[pgbin]="$(ext/bin/test-config --get pgbin)"
+    if test  -z "${opt[pgbin]:-}"; then
+        echo 'Please specify --pgbin or set pgbin with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+if test -z "${opt[pgport]:-}"; then
+    opt[pgport]="$(ext/bin/test-config --get pgport)"
+     if test  -z "${opt[pgport]:-}"; then
+        echo 'Please specify --pgport or set pgport with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+set -x
+
+if test -z "${PDBBOX:-}"; then
+    # No PDBBOX, set one up and run ourselves again
+    tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
+    tmpdir="$(cd "$tmpdir" && pwd)"
+    trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+    # Don't exec (or we'll never run the trap)
+    ext/bin/with-pdbbox --box "$tmpdir/box" \
+                        --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
+                        -- "${argv[@]}"
+    exit 0
+fi
+
+tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+(cd "$PDBBOX/var" && tar xzpf -) \
+    < test-resources/pdb-4.2.3.8ish-activemq-dir-with-host-0-submit-facts.tgz
+test ! -e "$PDBBOX"/var/mq-migrated
+
+psql -U puppetdb puppetdb -c '\dt' | grep 'No relations found'
+
+./pdb upgrade -c "$PDBBOX/pdb.ini"
+
+psql -U puppetdb puppetdb -c 'select max(version) from schema_migrations;' \
+     > "$tmpdir/out"
+cat "$tmpdir/out"
+# This must be updated every time we add a new migration
+grep -qE ' 66$' "$tmpdir/out"
+
+test -e "$PDBBOX"/var/mq-migrated
+(cd "$PDBBOX"/var/stockpile/cmd/q
+ count="$(ls | grep -cE '_facts_4_host-0\.json$')"
+ test "$count" -eq 3
+ count="$(ls | wc -l)"
+ test "$count" -eq 3)
