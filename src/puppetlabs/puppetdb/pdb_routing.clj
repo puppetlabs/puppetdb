@@ -129,8 +129,9 @@
                                              (pdb-status/status-details config shared-globals maint-mode?)))))
         context)
   (start [this context]
-         (log/info (trs "PuppetDB finished starting, disabling maintenance mode"))
-         (disable-maint-mode)
+         (when-not (get-in (get-config) [:global :upgrade-and-exit?])
+           (log/info (trs "PuppetDB finished starting, disabling maintenance mode"))
+           (disable-maint-mode))
          context)
 
   (stop [this context]

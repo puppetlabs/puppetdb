@@ -12,8 +12,6 @@
   (:require [puppetlabs.puppetdb.meta.version :refer [version]]
             [puppetlabs.puppetdb.scf.migrate :refer [desired-schema-version]]))
 
-(def cli-description "Print info about the current version of PuppetDB")
-
 ;; TODO: Would like to add database info and some other things here, but that
 ;; will require us to have access to the configuration info.  At present, the
 ;; configuration parsing code is scattered throughout services.clj and not

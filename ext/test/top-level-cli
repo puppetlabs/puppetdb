@@ -17,7 +17,7 @@ cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 1
 # FIXME: this should be err...
 grep -F 'Available subcommands:' "$tmpdir/out"
-grep -E 'Print info about the current version of PuppetDB' "$tmpdir/out"
+grep -E 'Display version information' "$tmpdir/out"
 
 rc=0
 ./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
