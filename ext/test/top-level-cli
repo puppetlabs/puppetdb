@@ -19,6 +19,16 @@ grep -F 'Available subcommands:' "$tmpdir/err"
 grep -E 'Display version information' "$tmpdir/err"
 
 rc=0
+./pdb help 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
+cat "$tmpdir/out" "$tmpdir/err"
+test "$rc" -eq 0
+grep -F 'Available subcommands:' "$tmpdir/out"
+grep -E 'Display version information' "$tmpdir/out"
+# FIXME: this should and will be 0 once we fix the pos-int?,
+# etc. replacement warnings.
+test $(wc -c < "$tmpdir/err") -eq 400
+
+rc=0
 ./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
 cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 0

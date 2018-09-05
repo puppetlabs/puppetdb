@@ -16,12 +16,18 @@
    "  upgrade                 Upgrade to latest version and exit"
    "  benchmark               Run development-only benchmarking tool"
    "  fact-storage-benchmark"
+   "  help                    Display usage summary"
    "For help on a given subcommand, invoke it with -h"])
 
 (defn usage
   [stream]
   (binding [*out* stream]
     (println (str/join "\n" usage-lines))))
+
+(defn help [args success-fn fail-fn]
+  (if (zero? (count args))
+    (do (usage *out*) (success-fn))
+    (do (usage *err*) (fail-fn))))
 
 (defn run-command
   "Does the real work of invoking a command by attempting to result it and
@@ -30,6 +36,7 @@
    or a failure executing a command."
   [success-fn fail-fn [subcommand & args]]
   (let [run (case subcommand
+              "help" #(help args success-fn fail-fn)
               "version" #(apply cver/-main args)
               "services" #(svcs/provide-services args)
               "upgrade" #(svcs/provide-services args {:upgrade-and-exit? true})
