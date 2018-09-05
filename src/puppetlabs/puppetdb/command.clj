@@ -593,8 +593,10 @@
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]
-   [:ShutdownService request-shutdown]]
+   ;; If this dependency on PuppetDBServer is removed, the start
+   ;; method will need to avoid starting command processing (in start)
+   ;; when [:global :upgrade-and-exit?] is true.
+   [:PuppetDBServer shared-globals]]
   (init [this context]
     (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
@@ -616,40 +618,33 @@
    (let [config (get-config)
          globals (shared-globals)
          dlo (:dlo globals)]
-     (if (get-in config [:global :upgrade-and-exit?])
-       (do
-         ;; By this point we know that the pdb service has finished its
-         ;; start method because we depend on it for shared-globals,
-         ;; which means we've done everything that needs to be done.
-         (request-shutdown)
-         context)
-       (let [{:keys [command-chan scf-write-db q]} globals
-             {:keys [response-chan response-pub]} context
-             ;; From mq_listener
-             command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
-             delay-pool (:delay-pool context)
-             handle-cmd (message-handler q
-                                         command-chan
-                                         dlo
-                                         delay-pool
-                                         scf-write-db
-                                         response-chan
-                                         (:stats context)
-                                         (get-in config [:database :facts-blacklist]))]
-         
-         (doto (Thread. (fn []
-                          (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
-                                ;; This only occurs when new work is submitted after the threadpool has
-                                ;; started shutting down, which means PDB itself is shutting down. The
-                                ;; command will be retried when PDB next starts up, so there's no reason to
-                                ;; tell the user about this by letting it bubble up until it's printed.
-                                (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
-           (.setDaemon false)
-           (.start))
+     (let [{:keys [command-chan scf-write-db q]} globals
+           {:keys [response-chan response-pub]} context
+           ;; From mq_listener
+           command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
+           delay-pool (:delay-pool context)
+           handle-cmd (message-handler q
+                                       command-chan
+                                       dlo
+                                       delay-pool
+                                       scf-write-db
+                                       response-chan
+                                       (:stats context)
+                                       (get-in config [:database :facts-blacklist]))]
+       
+       (doto (Thread. (fn []
+                        (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
+                              ;; This only occurs when new work is submitted after the threadpool has
+                              ;; started shutting down, which means PDB itself is shutting down. The
+                              ;; command will be retried when PDB next starts up, so there's no reason to
+                              ;; tell the user about this by letting it bubble up until it's printed.
+                              (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
+         (.setDaemon false)
+         (.start))
 
-         (assoc context
-                :command-chan command-chan
-                :consumer-threadpool command-threadpool)))))
+       (assoc context
+              :command-chan command-chan
+              :consumer-threadpool command-threadpool))))
 
   (stop [this {:keys [consumer-threadpool command-chan delay-pool] :as context}]
     (some-> command-chan async/close!)
