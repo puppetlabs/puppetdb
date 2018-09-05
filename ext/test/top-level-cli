@@ -26,7 +26,7 @@ grep -F 'Available subcommands:' "$tmpdir/out"
 grep -E 'Display version information' "$tmpdir/out"
 # FIXME: this should and will be 0 once we fix the pos-int?,
 # etc. replacement warnings.
-test $(wc -c < "$tmpdir/err") -eq 400
+test $(wc -c < "$tmpdir/err") -eq 270
 
 rc=0
 ./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
@@ -36,4 +36,4 @@ grep -E '^version=' "$tmpdir/out"
 grep -E '^target_schema_version=' "$tmpdir/out"
 # FIXME: this should and will be 0 once we fix the pos-int?,
 # etc. replacement warnings.
-test $(wc -c < "$tmpdir/err") -eq 400
+test $(wc -c < "$tmpdir/err") -eq 270

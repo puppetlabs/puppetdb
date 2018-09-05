@@ -1,5 +1,5 @@
 (def pdb-version "6.0.0-SNAPSHOT")
-(def clj-parent-version "2.2.0")
+(def clj-parent-version "2.3.0")
 
 (defn pdb-run-sh [& args]
   (apply vector
