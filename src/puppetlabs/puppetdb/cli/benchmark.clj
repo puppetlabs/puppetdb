@@ -53,7 +53,6 @@
             [slingshot.slingshot :refer [try+ throw+]]
             [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
             [clojure.core.match :as cm]
-            [puppetlabs.puppetdb.mq :as mq]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.nio :refer [get-path]])
@@ -63,8 +62,6 @@
    [java.nio.file.attribute FileAttribute]
    [java.nio.file Files OpenOption]
    [java.util ArrayDeque]))
-
-(def cli-description "Development-only benchmarking tool")
 
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is

@@ -593,7 +593,8 @@
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]]
+   [:PuppetDBServer shared-globals]
+   [:ShutdownService request-shutdown]]
   (init [this context]
     (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
@@ -610,48 +611,56 @@
              :response-chan-for-pub response-chan-for-pub
              :response-pub (async/pub response-chan-for-pub :id))))
 
-  (start [this context]
-    (let [{:keys [scf-write-db dlo q]} (shared-globals)
-          {:keys [response-chan response-pub]} context
+  (start
+   [this context]
+   (let [config (get-config)
+         globals (shared-globals)
+         dlo (:dlo globals)]
+     (if (get-in config [:global :upgrade-and-exit?])
+       (do
+         ;; By this point we know that the pdb service has finished its
+         ;; start method because we depend on it for shared-globals,
+         ;; which means we've done everything that needs to be done.
+         (request-shutdown)
+         context)
+       (let [{:keys [command-chan scf-write-db q]} globals
+             {:keys [response-chan response-pub]} context
+             ;; From mq_listener
+             command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
+             delay-pool (:delay-pool context)
+             handle-cmd (message-handler q
+                                         command-chan
+                                         dlo
+                                         delay-pool
+                                         scf-write-db
+                                         response-chan
+                                         (:stats context)
+                                         (get-in config [:database :facts-blacklist]))]
+         
+         (doto (Thread. (fn []
+                          (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
+                                ;; This only occurs when new work is submitted after the threadpool has
+                                ;; started shutting down, which means PDB itself is shutting down. The
+                                ;; command will be retried when PDB next starts up, so there's no reason to
+                                ;; tell the user about this by letting it bubble up until it's printed.
+                                (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
+           (.setDaemon false)
+           (.start))
 
-          ;; From mq_listener
-          command-threadpool (create-command-handler-threadpool (conf/mq-thread-count (get-config)))
-          {:keys [command-chan]} (shared-globals)
-          delay-pool (:delay-pool context)
-          handle-cmd (message-handler q
-                                      command-chan
-                                      dlo
-                                      delay-pool
-                                      scf-write-db
-                                      response-chan
-                                      (:stats context)
-                                      (get-in (get-config) [:database :facts-blacklist]))]
-
-      (doto (Thread. (fn []
-                       (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
-                             ;; This only occurs when new work is submitted after the threadpool has
-                             ;; started shutting down, which means PDB itself is shutting down. The
-                             ;; command will be retried when PDB next starts up, so there's no reason to
-                             ;; tell the user about this by letting it bubble up until it's printed.
-                             (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
-        (.setDaemon false)
-        (.start))
-
-      (assoc context
-             :command-chan command-chan
-             :consumer-threadpool command-threadpool)))
+         (assoc context
+                :command-chan command-chan
+                :consumer-threadpool command-threadpool)))))
 
   (stop [this {:keys [consumer-threadpool command-chan delay-pool] :as context}]
-    (async/close! command-chan)
-    (gtp/shutdown consumer-threadpool)
-    (when delay-pool
-      (stop-and-reset-pool! delay-pool))
+    (some-> command-chan async/close!)
+    (some-> consumer-threadpool gtp/shutdown)
+    (some-> delay-pool stop-and-reset-pool!)
     (async/unsub-all (:response-pub context))
     (async/untap-all (:response-mult context))
     (async/close! (:response-chan-for-pub context))
     (async/close! (:response-chan context))
-    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult)
-    context)
+    (dissoc context
+            :response-pub :response-chan :response-chan-for-pub :response-mult))
 
   (stats [this]
     @(:stats (service-context this)))

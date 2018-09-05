@@ -81,7 +81,6 @@
   (:import [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
 
-(def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 (def clean-options
@@ -470,7 +469,7 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService shutdown-on-error]]
+   [:ShutdownService request-shutdown shutdown-on-error]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -515,12 +514,16 @@
   (clean [this] (clean this #{}))
   (clean [this what] (clean-puppetdb (service-context this) (get-config) what)))
 
-(def ^{:arglists `([& args])
-       :doc "Starts PuppetDB as a service via Trapperkeeper.  Aguments
-        TK's normal config parsing to do a bit of extra
-        customization."}
-  -main
-  (fn [& args]
-    (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
-                 #'conf/hook-tk-parse-config-data)
-    (apply tk/main args)))
+(defn provide-services
+  "Starts PuppetDB as a service via Trapperkeeper.  Augments TK's normal
+  config parsing a bit."
+  ([args] (provide-services args nil))
+  ([args {:keys [upgrade-and-exit?]}]
+   (let [hook (if upgrade-and-exit?
+                (fn [f args]
+                  (assoc-in (#'conf/hook-tk-parse-config-data f args)
+                            [:global :upgrade-and-exit?]
+                            true))
+                #'conf/hook-tk-parse-config-data)]
+     (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data hook))
+   (apply tk/main args)))
