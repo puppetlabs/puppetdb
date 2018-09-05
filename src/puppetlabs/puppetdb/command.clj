@@ -593,8 +593,7 @@
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]
-   [:ShutdownService request-shutdown]]
+   [:PuppetDBServer shared-globals]]
   (init [this context]
     (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
@@ -617,12 +616,7 @@
          globals (shared-globals)
          dlo (:dlo globals)]
      (if (get-in config [:global :upgrade-and-exit?])
-       (do
-         ;; By this point we know that the pdb service has finished its
-         ;; start method because we depend on it for shared-globals,
-         ;; which means we've done everything that needs to be done.
-         (request-shutdown)
-         context)
+       context
        (let [{:keys [command-chan scf-write-db q]} globals
              {:keys [response-chan response-pub]} context
              ;; From mq_listener
