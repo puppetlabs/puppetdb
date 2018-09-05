@@ -81,7 +81,6 @@
   (:import [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
 
-(def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 (def clean-options
@@ -378,74 +377,74 @@
 (defn start-puppetdb
   "Throws {:type ::unsupported-database :current version :oldest version} if
   the current database is not supported."
-  [context config service get-registered-endpoints]
+  [context config service get-registered-endpoints upgrade-and-exit?]
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)]}
-  (let [{:keys [developer jetty
-                database read-database
-                puppetdb command-processing]} config
-        {:keys [pretty-print max-enqueued]} developer
-        {:keys [gc-interval]} database
-        {:keys [disable-update-checking]} puppetdb
 
-        write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")
-                                         database-metrics-registry)
-        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool")
-                                        database-metrics-registry)]
+  (let [{:keys [database developer read-database]} config
+        write-db (-> (assoc database :pool-name "PDBWritePool")
+                     (jdbc/pooled-datasource database-metrics-registry))
+        read-db (-> (assoc read-database
+                           :pool-name "PDBReadPool"
+                           :read-only? true)
+                    (jdbc/pooled-datasource database-metrics-registry))
+        globals {:scf-read-db read-db
+                 :scf-write-db write-db
+                 :pretty-print (:pretty-print developer)}]
 
     (when-let [v (version/version)]
       (log/info (trs "PuppetDB version {0}" v)))
-
     (init-with-db database config)
 
-    (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
-      (pop/initialize-population-metrics! population-registry read-db))
+    (if upgrade-and-exit?
+      (assoc context :shared-globals globals)
+      (do
+        (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
+          (pop/initialize-population-metrics! population-registry read-db))
 
-    ;; Error handling here?
-    (let [stockdir (conf/stockpile-dir config)
-          command-chan (async/chan
-                         (queue/sorted-command-buffer
-                          max-enqueued
-                          #(cmd/update-counter! :invalidated %1 %2 inc!)))
-          [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
-          globals {:scf-read-db read-db
-                   :scf-write-db write-db
-                   :pretty-print pretty-print
-                   :q q
-                   :dlo (dlo/initialize (get-path stockdir "discard")
-                                        (get-in metrics-registries
-                                                [:dlo :registry]))
-                   :command-chan command-chan}
-          clean-lock (ReentrantLock.)
-          command-loader (when load-messages
-                           (future
-                             (load-messages command-chan cmd/inc-cmd-depth)))]
+        ;; Error handling here?
+        (let [stockdir (conf/stockpile-dir config)
+              command-chan (async/chan
+                            (queue/sorted-command-buffer
+                             (:max-enqueued developer)
+                             #(cmd/update-counter! :invalidated %1 %2 inc!)))
+              [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
+              globals (assoc globals
+                             :q q
+                             :dlo (dlo/initialize (get-path stockdir "discard")
+                                                  (get-in metrics-registries
+                                                          [:dlo :registry]))
+                             :command-chan command-chan)
+              clean-lock (ReentrantLock.)
+              command-loader (when load-messages
+                               (future
+                                 (load-messages command-chan cmd/inc-cmd-depth)))]
 
-      ;; Pretty much this helper just knows our job-pool and gc-interval
-      (let [job-pool (mk-pool)
-            gc-interval-millis (to-millis gc-interval)]
-        (when-not disable-update-checking
-          (maybe-check-for-updates config read-db job-pool))
-        (when (pos? gc-interval-millis)
-          (let [request (db-config->clean-request database)]
-            (interspaced gc-interval-millis
-                         #(collect-garbage write-db clean-lock database request)
-                         job-pool)))
-        (assoc context
-               :job-pool job-pool
-               :shared-globals globals
-               :clean-lock clean-lock
-               :command-loader command-loader)))))
+          ;; Pretty much this helper just knows our job-pool and gc-interval
+          (let [job-pool (mk-pool)
+                gc-interval-millis (to-millis (:gc-interval database))]
+            (when-not (get-in config [:puppetdb :disable-update-checking])
+              (maybe-check-for-updates config read-db job-pool))
+            (when (pos? gc-interval-millis)
+              (let [request (db-config->clean-request database)]
+                (interspaced gc-interval-millis
+                             #(collect-garbage write-db clean-lock database request)
+                             job-pool)))
+            (assoc context
+                   :job-pool job-pool
+                   :shared-globals globals
+                   :clean-lock clean-lock
+                   :command-loader command-loader)))))))
 
 (defn db-unsupported-msg
-  "Returns a message describing which databases are supported."
-  [current oldest]
-  (trs "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
-       (first current)
-       (second current)
-       (first oldest)
-       (second oldest)))
+    "Returns a message describing which databases are supported."
+    [current oldest]
+    (trs "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
+         (first current)
+         (second current)
+         (first oldest)
+         (second oldest)))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -470,7 +469,7 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService shutdown-on-error]]
+   [:ShutdownService request-shutdown shutdown-on-error]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -478,7 +477,15 @@
         (assoc context :url-prefix (atom nil)))
   (start [this context]
          (try+
-          (start-puppetdb context (get-config) this get-registered-endpoints)
+          (let [config (get-config)
+                upgrade? (get-in config [:global :upgrade-and-exit?])
+                context (start-puppetdb context config this
+                                        get-registered-endpoints upgrade?)]
+            (when upgrade?
+              ;; start-puppetdb has finished the migrations, which is
+              ;; all we needed to do.
+              (request-shutdown))
+            context)
           (catch [:type ::unsupported-database] {:keys [current oldest]}
             (let [msg (db-unsupported-msg current oldest)
                   attn (utils/attention-msg msg)]
@@ -515,12 +522,16 @@
   (clean [this] (clean this #{}))
   (clean [this what] (clean-puppetdb (service-context this) (get-config) what)))
 
-(def ^{:arglists `([& args])
-       :doc "Starts PuppetDB as a service via Trapperkeeper.  Aguments
-        TK's normal config parsing to do a bit of extra
-        customization."}
-  -main
-  (fn [& args]
-    (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
-                 #'conf/hook-tk-parse-config-data)
-    (apply tk/main args)))
+(defn provide-services
+  "Starts PuppetDB as a service via Trapperkeeper.  Augments TK's normal
+  config parsing a bit."
+  ([args] (provide-services args nil))
+  ([args {:keys [upgrade-and-exit?]}]
+   (let [hook (if upgrade-and-exit?
+                (fn [f args]
+                  (assoc-in (#'conf/hook-tk-parse-config-data f args)
+                            [:global :upgrade-and-exit?]
+                            true))
+                #'conf/hook-tk-parse-config-data)]
+     (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data hook))
+   (apply tk/main args)))

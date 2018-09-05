@@ -12,7 +12,7 @@ set -e
 # that particular one), perhaps puppetdb should just support the
 # variable itself.
 
-cmd="$(printf "%q %s -Dlogappender=STDOUT -cp %q/puppetdb.jar clojure.main -m puppetlabs.puppetdb.core services -c %q" \
+cmd="$(printf "%q %s -Dlogappender=STDOUT -cp %q/puppetdb.jar clojure.main -m puppetlabs.puppetdb.core upgrade -c %q" \
          "$JAVA_BIN" "$JAVA_ARGS" "$INSTALL_DIR" "$CONFIG")"
 
 if test "$(id -un)" = "$USER"; then

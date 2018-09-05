@@ -33,9 +33,10 @@
     (is (true? @fail?))
     (is (re-find #"For help on a given subcommand.*"
                  (with-out-str
-                   (ignore-exception
-                    (fn []
-                      (run-command (constantly nil) fail-fn ["something-random"]))))))))
+                   (binding [*err* *out*]
+                     (ignore-exception
+                      (fn []
+                        (run-command (constantly nil) fail-fn ["something-random"])))))))))
 
 (deftest successful-command-invocation
   (let [success? (atom false)
