@@ -20,7 +20,14 @@ aliases:
   - &run-core-and-ext-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
-    if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
+    jdkver="${jdk##*jdk}"
+    if test "$(uname)" = Linux -a "$jdkver" -lt 9 ; then
+        jdk_switcher use "$jdk";
+    elif test "$(uname)" = Linux; then
+        ext/bin/require-jdk "$jdk" ext/travisci/local
+        export JAVA_HOME="$(pwd)/ext/travisci/local/jdk"
+        export PATH="$JAVA_HOME/bin:$PATH"
+    fi
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     mkdir -p ext/travisci/local
     export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
@@ -35,7 +42,14 @@ aliases:
   - &run-integration-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
-    if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
+    jdkver="${jdk##*jdk}"
+    if test "$(uname)" = Linux -a "$jdkver" -lt 9 ; then
+        jdk_switcher use "$jdk";
+    elif test "$(uname)" = Linux; then
+        ext/bin/require-jdk "$jdk" ext/travisci/local
+        export JAVA_HOME="$(pwd)/ext/travisci/local/jdk"
+        export PATH="$JAVA_HOME/bin:$PATH"
+    fi
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     mkdir -p ext/travisci/local
     export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
@@ -62,6 +76,14 @@ jobs:
       env: PDB_TEST=core+ext/oraclejdk8/pg-9.6
       script: *run-core-and-ext-tests
 
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/openjdk10/pg-9.6
+      script: *run-core-and-ext-tests
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/oraclejdk10/pg-9.6
+      script: *run-core-and-ext-tests
+
     # === integration tests
     - stage: ❧ pdb tests
       env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-9.6
@@ -69,6 +91,14 @@ jobs:
 
     - stage: ❧ pdb tests
       env: PDB_TEST=int/oraclejdk8/pup-master/srv-master/pg-9.6
+      script: *run-integration-tests
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk10/pup-master/srv-master/pg-9.6
+      script: *run-integration-tests
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/oraclejdk10/pup-master/srv-master/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
@@ -97,9 +127,19 @@ jobs:
       script: *run-core-and-ext-tests
       os: osx
 
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/openjdk10/pg-9.6
+      script: *run-core-and-ext-tests
+      os: osx
+
     # === integration tests
     - stage: ❧ pdb tests
       env: PDB_TEST=int/openjdk8/pup-5.5.x/srv-5.3.x/pg-9.6
+      script: *run-integration-tests
+      os: osx
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk10/pup-master/srv-master/pg-9.6
       script: *run-integration-tests
       os: osx
 

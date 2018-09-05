@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+script_home="$(cd "$(dirname "$0")" && pwd)"
+
+default=openjdk10
+
+cmdname="$(basename "$0")"
+
+usage() { echo "Usage: $cmdname (oraclejdk10|openjdk10|default|...) INSTALLDIR_IF_NEEDED"; }
+
+misuse() { usage 1>&2; exit 2; }
+
+known_hash=1dfeb99d8d9485cebde8838d5456fb35de01167a2ecd02bcae4a93ad81023a2a
+
+test "$#" -eq 2 || misuse
+
+ver="$1"
+if test "$ver" = default; then
+    ver="$default"
+fi
+
+jdkver="${ver##*jdk}"
+jdktype="${ver%%jdk*}"
+
+if [ "$jdktype" = oracle ]; then
+    # Install OracleJDK
+    licensetype=BCL
+else
+    # Install OpenJDK
+    licensetype=GPL
+fi
+
+install="$2"
+
+tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+curl -so "$tmpdir/install-jdk.sh" "https://raw.githubusercontent.com/sormuras/bach/01d412b27d444f12dd8a1d0b0003ac94ed582539/install-jdk.sh"
+obshash="$("$script_home/sha256sum" < "$tmpdir/install-jdk.sh" | cut -d' ' -f1)"
+
+if test "$obshash" != "$known_hash"; then
+    echo "$cmdname: sha256sum $obshash != $known_hash" 1>&2
+    exit 2
+fi
+
+chmod +x "$tmpdir/install-jdk.sh"
+mkdir -p "$install"
+
+# Piping to tail to get the last line is necessary until https://github.com/sormuras/bach/issues/35 is resolved
+$tmpdir/install-jdk.sh --emit-java-home -f "$jdkver" -l "$licensetype" --target "$install/jdk"
