@@ -36,8 +36,7 @@
               "benchmark" #(apply benchmark/-main args)
               "fact-storage-benchmark" #(apply fstore-bench/-main args)
               (do
-                ;; FIXME: this should be *err*
-                (usage *out*)
+                (usage *err*)
                 (fail-fn)))]
     (utils/fail-unsupported-jdk fail-fn)
     (try
