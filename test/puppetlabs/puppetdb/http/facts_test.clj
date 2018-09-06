@@ -657,8 +657,8 @@
            write-config (-> write-db-config defaulted-write-db-config)]
        (clear-db-for-testing! read-config)
        (clear-db-for-testing! write-config)
-       (init-db read-config true)
-       (init-db write-config false)
+       (init-db read-config)
+       (init-db write-config)
        (call-with-puppetdb-instance
         config
         (fn []
