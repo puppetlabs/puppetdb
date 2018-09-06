@@ -24,13 +24,14 @@ fi
 jdkver="${ver##*jdk}"
 jdktype="${ver%%jdk*}"
 
-if [ "$jdktype" = oracle ]; then
-    # Install OracleJDK
-    licensetype=BCL
-else
-    # Install OpenJDK
-    licensetype=GPL
-fi
+case "$jdktype" in
+    oracle) licensetype=BCL ;;
+    open) licensetype=GPL ;;
+    *)
+        echo "$cmdname does not know how to install jdk type '$jdktype'"
+        exit 2
+        ;;
+esac
 
 install="$2"
 
@@ -49,5 +50,8 @@ fi
 chmod +x "$tmpdir/install-jdk.sh"
 mkdir -p "$install"
 
-# Piping to tail to get the last line is necessary until https://github.com/sormuras/bach/issues/35 is resolved
-$tmpdir/install-jdk.sh --emit-java-home -f "$jdkver" -l "$licensetype" --target "$install/jdk"
+"$tmpdir/install-jdk.sh" --emit-java-home -f "$jdkver" -l "$licensetype" --target "$install/jdk"
+
+# The unpatched version of openjdk10 does not contain the cacert that signed clojars
+rm "$install/jdk/lib/security/cacerts"
+ln -s /etc/ssl/certs/java/cacerts "$install/jdk/lib/security/cacerts"
