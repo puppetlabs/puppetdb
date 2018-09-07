@@ -111,8 +111,6 @@ An example configuration file:
     logging-config = /var/lib/puppetdb/logback.xml
 
     [database]
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //localhost:5432/puppetdb
 
     [puppetdb]
@@ -454,23 +452,6 @@ from the pool of database connections. If not supplied, defaults to
 
 ## Deprecated settings
 
-### `classname`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the JDBC class to use. It should be
-`org.postgresql.Driver`, which is the default. You should not need to
-change it.
-
-### `subprotocol`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This should be `postgresql`, which is the default. You should not
-need to change it.
-
 ### `log-slow-statements`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
@@ -513,8 +494,6 @@ of the configuration is in addition to the `[database]` settings. If
 To configure PuppetDB to use a read-only database from the cluster,
 add the following to the `[read-database]` section:
 
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //<HOST>:<PORT>/<DATABASE>
     username = <USERNAME>
     password = <PASSWORD>
@@ -587,23 +566,6 @@ from the pool of database connections. If not supplied, defaults to
 500.
 
 ## Deprecated settings
-
-### `classname`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the JDBC class to use. It should be
-`org.postgresql.Driver`, which is the default. You should not need to
-change it.
-
-### `subprotocol`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This should be `postgresql`, which is the default. You should not
-need to change it.
 
 ### `log-slow-statements`
 

@@ -55,8 +55,6 @@
      :conn-keep-alive (pls/defaulted-maybe s/Int 45)
      :conn-lifetime (s/maybe s/Int)
      :maximum-pool-size (pls/defaulted-maybe s/Int 25)
-     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
-     :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
      :username String
      :user String
@@ -71,7 +69,10 @@
      :statements-cache-size (pls/defaulted-maybe s/Int 0)
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
      :facts-blacklist (s/conditional string? String
-                                     sequential? [s/Str])}))
+                                     sequential? [s/Str])
+     ;; completely retired (ignored)
+     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
+     :subprotocol (pls/defaulted-maybe String "postgresql")}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -85,9 +86,7 @@
 
 (def database-config-out
   "Schema for parsed/processed database config"
-  {:classname String
-   :subprotocol String
-   :subname String
+  {:subname String
    :log-slow-statements Days
    :conn-max-age Minutes
    :conn-keep-alive Minutes
@@ -105,7 +104,10 @@
    (s/optional-key :user) String
    (s/optional-key :password) String
    (s/optional-key :syntax_pgs) String
-   (s/optional-key :facts-blacklist) clojure.lang.PersistentVector})
+   (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
+   ;; completely retired (ignored)
+   :classname String
+   :subprotocol String})
 
 (def write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
@@ -194,10 +196,9 @@
 ;;; Database config
 
 (defn validate-db-settings
-  "Throws a {:type ::cli-error :message m} exception
-  describing the required additions if the [database] configuration
-  doesn't specify classname, subprotocol and subname, all of which are
-  now required."
+  "Throws a {:type ::cli-error :message m} exception describing the
+  required additions if the [database] configuration doesn't specify a
+  subname."
   [{db-config :database :or {db-config {}} :as config}]
   (when (str/blank? (:subname db-config))
     (throw+
@@ -343,6 +344,8 @@
                          [:command-processing :temp-usage]
                          [:database :classname]
                          [:database :subprotocol]
+                         [:read-database :classname]
+                         [:read-database :subprotocol]
                          [:global :catalog-hash-conflict-debugging]]]
     (when (contains? (config-data section) opt)
       (utils/println-err
