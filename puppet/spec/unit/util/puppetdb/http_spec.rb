@@ -245,6 +245,21 @@ describe Puppet::Util::Puppetdb::Http do
           response.message.should == 'OK'
         end
 
+        it "fails over to the next url when one service is unavailable" do
+          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
+          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+
+          http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
+          http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
+
+          response = described_class.action("/baz", :command) do |http_instance, path|
+            http_instance.post(path, {})
+          end
+
+          response.code.should == 200
+          response.message.should == 'OK'
+        end
+
         it "raises an exception when all urls fail" do
           Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
           Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
