@@ -162,6 +162,7 @@ module Puppet::Util::Puppetdb
     def self.broadcast_action(path_suffix, server_urls, http_callback)
       response = nil
       response_error = nil
+      last_success = nil
       config = Puppet::Util::Puppetdb.config
       successful_submit_count = 0
 
@@ -180,15 +181,16 @@ module Puppet::Util::Puppetdb
           response_error = check_http_response(response, server_url, route)
           if response_error.nil?
             successful_submit_count += 1
+            last_success = response
           end
         end
       end
 
-      if successful_submit_count < config.min_successful_submissions
+      if successful_submit_count < config.min_successful_submissions or last_success.nil?
         raise_request_error(response, response_error, path_suffix)
       end
 
-      response
+      last_success
     end
 
     # Setup an http connection, provide a block that will do something with that http
