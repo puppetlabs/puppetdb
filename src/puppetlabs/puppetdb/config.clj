@@ -50,8 +50,7 @@
 (def database-config-in
   "Schema for incoming database config (user defined)"
   (all-optional
-    {:log-slow-statements (pls/defaulted-maybe s/Int 10)
-     :conn-max-age (pls/defaulted-maybe s/Int 60)
+    {:conn-max-age (pls/defaulted-maybe s/Int 60)
      :conn-keep-alive (pls/defaulted-maybe s/Int 45)
      :conn-lifetime (s/maybe s/Int)
      :maximum-pool-size (pls/defaulted-maybe s/Int 25)
@@ -72,6 +71,7 @@
                                      sequential? [s/Str])
      ;; completely retired (ignored)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
+     :log-slow-statements s/Int
      :subprotocol (pls/defaulted-maybe String "postgresql")}))
 
 (def write-database-config-in
@@ -87,7 +87,6 @@
 (def database-config-out
   "Schema for parsed/processed database config"
   {:subname String
-   :log-slow-statements Days
    :conn-max-age Minutes
    :conn-keep-alive Minutes
    :read-only? Boolean
@@ -107,6 +106,7 @@
    (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
    ;; completely retired (ignored)
    :classname String
+   (s/optional-key :log-slow-statements) Days
    :subprotocol String})
 
 (def write-database-config-out
@@ -343,8 +343,10 @@
                          [:command-processing :store-usage]
                          [:command-processing :temp-usage]
                          [:database :classname]
+                         [:database :log-slow-statements]
                          [:database :subprotocol]
                          [:read-database :classname]
+                         [:read-database :log-slow-statements]
                          [:read-database :subprotocol]
                          [:global :catalog-hash-conflict-debugging]]]
     (when (contains? (config-data section) opt)

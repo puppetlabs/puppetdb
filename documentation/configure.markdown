@@ -452,15 +452,6 @@ from the pool of database connections. If not supplied, defaults to
 
 ## Deprecated settings
 
-### `log-slow-statements`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note that PuppetDB does not interrupt slow queries, but simply reports them after they complete.
-
-The default value is 10 seconds. A value of zero will disable logging of slow queries.
-
 ### `conn-keep-alive`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
@@ -566,15 +557,6 @@ from the pool of database connections. If not supplied, defaults to
 500.
 
 ## Deprecated settings
-
-### `log-slow-statements`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries, but simply reports them after they complete.
-
-The default value is 10 seconds. A value of zero will disable logging of slow queries.
 
 ### `conn-keep-alive`
 
