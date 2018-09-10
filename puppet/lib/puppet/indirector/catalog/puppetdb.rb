@@ -50,7 +50,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def munge_catalog(catalog, producer_timestamp, extra_request_data = {})
     profile("Munge catalog", [:puppetdb, :catalog, :munge]) do
       data = profile("Convert catalog to JSON data hash", [:puppetdb, :catalog, :convert_to_hash]) do
-        catalog.to_data_hash
+        Puppet.override({:stringify_rich => true}, 'PuppetDB Terminus') do
+          catalog.to_data_hash
+        end
       end
 
       add_code_id_if_missing(data)

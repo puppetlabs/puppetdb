@@ -104,7 +104,7 @@ jobs:
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk10/pup-master/srv-master/pg-9.6
+      env: PDB_TEST=int/rich/oraclejdk10/pup-master/srv-master/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
