@@ -44,6 +44,13 @@
        :foo :foo
        :foo (s/required-key :foo)))
 
+(deftest blacklist->vector-test
+  (is (= ["baz" "bar"] (blacklist->vector "baz, bar")))
+  (is (= ["foo" "bar"] (blacklist->vector ["foo" "bar"])))
+  (is (thrown-with-msg? java.lang.Exception
+                        #"Invalid facts blacklist format"
+                        (blacklist->vector ["foo" :bar]))))
+
 (deftest unknown-keys-test
   (let [schema {(s/required-key :foo) Number
                 (s/optional-key :bar) Number
