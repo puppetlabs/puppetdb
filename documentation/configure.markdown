@@ -452,15 +452,6 @@ from the pool of database connections. If not supplied, defaults to
 
 ## Deprecated settings
 
-### `conn-keep-alive`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the time (in minutes) for a connection to remain idle before sending a test query to the database. This is useful to prevent a database from timing out connections on its end.
-
-If not supplied, the default value is 45 minutes.
-
 ### `statements-cache-size`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
@@ -557,15 +548,6 @@ from the pool of database connections. If not supplied, defaults to
 500.
 
 ## Deprecated settings
-
-### `conn-keep-alive`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the time (in minutes) for a connection to remain idle before sending a test query to the database. This is useful to prevent a database from timing out connections on its end.
-
-If not supplied, the default setting is 45 minutes.
 
 ### `statements-cache-size`
 
