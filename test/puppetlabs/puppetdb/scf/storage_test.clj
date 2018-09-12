@@ -330,7 +330,7 @@
                      expected-before
                      expected-after]
             (clear-db-for-testing!)
-            (init-db *db* false)
+            (init-db *db*)
             (doseq [cert (set (map first factset-changes))]
               (add-certname! cert))
             (doseq [[cert factset] factset-changes]
@@ -500,7 +500,7 @@
                 :paths_hash))
           (reset-db []
             (clear-db-for-testing!)
-            (init-db *db* false))
+            (init-db *db*))
           (set-cert-facts-causes-update [cert factset]
             (let [real-realize-paths realize-paths
                   called? (atom false)]
