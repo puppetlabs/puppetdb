@@ -337,14 +337,14 @@
   process if a [global] url-prefix is found."
   [config-data]
 
-  (doseq [[section opt :as path] [[:command-processing :max-frame-size]
-                                  [:command-processing :memory-usage]
-                                  [:command-processing :store-usage]
-                                  [:command-processing :temp-usage]
-                                  [:database :classname]
-                                  [:database :subprotocol]
-                                  [:global :catalog-hash-conflict-debugging]]]
-    (when (get-in config-data path)
+  (doseq [[section opt] [[:command-processing :max-frame-size]
+                         [:command-processing :memory-usage]
+                         [:command-processing :store-usage]
+                         [:command-processing :temp-usage]
+                         [:database :classname]
+                         [:database :subprotocol]
+                         [:global :catalog-hash-conflict-debugging]]]
+    (when (contains? (config-data section) opt)
       (utils/println-err
        (trs "The [{0}] {1} config option has been retired and will be ignored."
             (name section) (name opt)))))
