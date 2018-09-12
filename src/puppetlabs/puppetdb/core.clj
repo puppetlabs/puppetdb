@@ -29,6 +29,9 @@
     (do (usage *out*) (success-fn))
     (do (usage *err*) (fail-fn))))
 
+;; Only for testing
+(defn java-version [] (System/getProperty "java.version"))
+
 (defn run-command
   "Does the real work of invoking a command by attempting to result it and
    passing in args. `success-fn` is a no-arg function that is called when the
@@ -45,13 +48,14 @@
               (do
                 (usage *err*)
                 (fail-fn)))]
-    (utils/fail-unsupported-jdk fail-fn)
-    (try
-      (run)
-      (success-fn)
-      (catch Throwable e
-        (logging-utils/catch-all-logger e)
-        (fail-fn)))))
+    (if (= :no (utils/describe-and-return-jdk-status (java-version)))
+      (fail-fn)
+      (try
+        (run)
+        (success-fn)
+        (catch Throwable e
+          (logging-utils/catch-all-logger e)
+          (fail-fn))))))
 
 (defn -main
   [& args]
