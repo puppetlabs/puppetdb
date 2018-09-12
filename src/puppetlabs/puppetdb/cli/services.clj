@@ -287,18 +287,25 @@
              :desc "A reoccuring job to checkin the PuppetDB version"))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
 
+(def stop-gc-wait-ms (constantly 5000))
+
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
-  [context]
+  [{:keys [stop-status] :as context}]
   (log/info (trs "Shutdown request received; puppetdb exiting."))
+  (when-let [pool (:job-pool context)]
+    (stop-and-reset-pool! pool))
+  ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+  (swap! stop-status #(conj % :stopping))
+  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) #(= % #{:stopping}))
+    (log/info (trs "Periodic activities halted"))
+    (log/info (trs "Forcibly terminating periodic activities")))
   (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
     (.close ds))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
     (.close ds))
-  (when-let [pool (:job-pool context)]
-    (stop-and-reset-pool! pool))
   (when-let [command-loader (:command-loader context)]
     (future-cancel command-loader))
   context)
@@ -376,6 +383,20 @@
     (finally
       (.unlock clean-lock))))
 
+(defn coordinate-gc-with-shutdown
+  [write-db clean-lock database request stop-status]
+  ;; This function assumes it will never be called concurrently with
+  ;; itself, so that it's ok to just conj/disj below, instead of
+  ;; tracking an atomic count or similar.
+  (let [update-if-not-stopping #(if (:stopping %)
+                                  %
+                                  (conj % :collecting-garbage))]
+    (try
+      (when (:collecting-garbage (swap! stop-status update-if-not-stopping))
+        (collect-garbage write-db clean-lock database request))
+      (finally
+        (swap! stop-status disj :collecting-garbage)))))
+
 (defn start-puppetdb
   "Throws {:type ::unsupported-database :current version :oldest version} if
   the current database is not supported."
@@ -431,7 +452,9 @@
         (when (pos? gc-interval-millis)
           (let [request (db-config->clean-request database)]
             (interspaced gc-interval-millis
-                         #(collect-garbage write-db clean-lock database request)
+                         #(coordinate-gc-with-shutdown write-db clean-lock
+                                                       database request
+                                                       (:stop-status context))
                          job-pool)))
         (assoc context
                :job-pool job-pool
@@ -476,7 +499,12 @@
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
           (jmx-reporter/start reporter))
-        (assoc context :url-prefix (atom nil)))
+        (assoc context
+               :url-prefix (atom nil)
+               ;; This coordination is needed until we no longer
+               ;; support jdk < 10.
+               ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+               :stop-status (atom #{})))
   (start [this context]
          (try+
           (start-puppetdb context (get-config) this get-registered-endpoints)
