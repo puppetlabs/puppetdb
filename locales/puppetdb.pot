@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 1daaa793727b729330ef0badf5ab4fcf96818e91\n"
+"X-Git-Ref: c387958669d20fdfbb3dd8f7d33d2b1b2d0501df\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -185,6 +185,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj src/puppetlabs/puppetdb/utils.clj
+msgid "error: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -1077,9 +1081,7 @@ msgid "Threadpool shutting down, message rejected"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj
-msgid ""
-"JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently "
-"running: {0}"
+msgid "PuppetDB doesn''t support JDK {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj
