@@ -2,7 +2,7 @@
 # Init settings for puppetdb
 ###########################################
 
-# Location of your Java binary (version 7 or higher)
+# Location of your Java binary (version 8 or higher)
 JAVA_BIN="/usr/bin/java"
 
 # Modify this if you'd like to change the memory allocation, enable JMX, etc

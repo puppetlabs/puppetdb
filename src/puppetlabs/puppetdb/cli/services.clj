@@ -487,10 +487,9 @@
               (request-shutdown))
             context)
           (catch [:type ::unsupported-database] {:keys [current oldest]}
-            (let [msg (db-unsupported-msg current oldest)
-                  attn (utils/attention-msg msg)]
-              (utils/println-err attn)
-              (log/error attn)
+            (let [msg (db-unsupported-msg current oldest)]
+              (utils/println-err (str (trs "error: ") msg))
+              (log/error msg)
               ;; Until TK-445 is resolved, we won't be able to avoid the
               ;; backtrace on exit this causes.
               (shutdown-on-error (service-id this)

@@ -1,12 +1,9 @@
 (ns puppetlabs.puppetdb.core-test
-  (:require [puppetlabs.puppetdb.core :refer :all]
+  (:require [puppetlabs.puppetdb.core :as core :refer :all]
             [clojure.test :refer :all]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.utils-test :refer [jdk-1-6-version
-                                                    jdk-1-7-version
-                                                    unsupported-regex]]))
+            [puppetlabs.puppetdb.testutils :as tu]))
 
 (defn ignore-exception [f]
   (try
@@ -48,44 +45,35 @@
     (is (true? @success?))
     (is (false? @fail?))))
 
-(defn valid-unsupported-pred [regex]
-  (fn [[category level _ msg :as foo]]
-    (and (= "puppetlabs.puppetdb.utils"
-            category)
-         (= :error
-            level)
-         (re-find regex msg))))
-
-(deftest jdk-fail-message
-  (testing "No unsupported message when using 1.7"
-    (let [success? (atom false)
-          fail? (atom false)
-          jdk-version  jdk-1-7-version]
-      (with-redefs [kitchensink/java-version jdk-version]
-        (pllog/with-log-output log
-          (is (nil?
-               (re-find unsupported-regex
-                        (tu/with-err-str
-                          (with-out-str
-                            (run-command #(reset! success? true)
-                                         #(reset! fail? true)
-                                         ["version"]))))))
-          (is (true? @success?))
-          (is (false? @fail?))
-          (is (not-any? (valid-unsupported-pred unsupported-regex) @log))))))
-
-  (testing "fail message appears in log and stdout when using JDK 1.6"
-    (let [exec-path (atom [])
-          jdk-version  jdk-1-6-version]
-      (with-redefs [kitchensink/java-version jdk-version]
-        (pllog/with-log-output log
-          (is (re-find unsupported-regex
-                       (tu/with-err-str
-                         (with-out-str
-                           (run-command #(swap! exec-path conj :success)
-                                        #(swap! exec-path conj :fail)
-                                        ["version"])))))
-          ;;The code should call the fail-fn first, then the
-          ;;success-fn
-          (is (= [:fail :success] @exec-path))
-          (is (some (valid-unsupported-pred unsupported-regex) @log)))))))
+(deftest handling-of-jdk-versions
+  (letfn [(check [version invalid?]
+            (let [err (java.io.StringWriter.)
+                  success? (atom false)
+                  fail? (atom false)
+                  [success? fail? err log]
+                  (binding [*err* err]
+                    (pllog/with-log-output log
+                      (with-redefs [core/java-version (constantly version)]
+                        (run-command #(reset! success? true)
+                                     #(reset! fail? true)
+                                     ["version"]))
+                      [@success? @fail? (str err) @log]))]
+              (if-not invalid?
+                (do
+                  (is success?)
+                  (is (not fail?))
+                  (is (= "" err))
+                  (is (= [] log)))
+                (do
+                  (is (not success?))
+                  (is fail?)
+                  (is (re-matches #"(?s)error: PuppetDB doesn't support.*" err))
+                  (is (= 1 (count log)))
+                  (let [[[category level _ msg]] log]
+                    (is (= "puppetlabs.puppetdb.utils" category))
+                    (is (= :error level))
+                    (is (re-matches #"PuppetDB doesn't support.*" msg)))))))]
+    (check "1.5.0" true)
+    (check "1.8.0" false)
+    (check "1.10.0" false)
+    (check "huh?" false)))

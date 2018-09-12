@@ -18,6 +18,12 @@
            [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
            [org.postgresql.util PGobject]))
 
+(defn println-err
+  "Redirects output to standard error before invoking println"
+  [& args]
+  (binding [*out* *err*]
+    (apply println args)))
+
 (defn flush-and-exit [status]
   "Attempts to flush *out* and *err*, reporting any failures to *err*,
   if possible, and then invokes (System/exit status)."
@@ -32,40 +38,25 @@
     (catch Exception _ nil))
   (System/exit status))
 
-(defn jdk6?
-  "Returns true when the current JDK version is 1.6"
-  []
-  (.startsWith kitchensink/java-version "1.6"))
+(defn jdk-support-status [version]
+  "Returns :official, :tested, or :unknown, or :no."
+  (cond
+    (re-matches #"1.[123456]($|(\..*))" version) :no
+    (re-matches #"1.7($|(\..*))" version) :unknown
+    (re-matches #"1.8($|(\..*))*" version) :official
+    (re-matches #"1.10($|(\..*))*" version) :tested
+    :else :unknown))
 
-(defn attention-msg
-  "Wraps `msg` in lots of * to draw attention to the warning"
-  [msg]
-  (str "********************\n"
-       "*\n"
-       "* " msg "\n"
-       "* \n"
-       "********************"))
-
-(defn jdk-unsupported-message
-  "Returns error message instructing the user to switch to JDK 1.7"
-  []
-  (attention-msg
-   (trs "JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently running: {0}" kitchensink/java-version)))
-
-(defn println-err
-  "Redirects output to standard error before invoking println"
-  [& args]
-  (binding [*out* *err*]
-    (apply println args)))
-
-(defn fail-unsupported-jdk
-  "If the JDK is an unsupported version, Writes error message to standard error, the log and calls fail-fn"
-  [fail-fn]
-  (when (jdk6?)
-    (let [attn-msg (jdk-unsupported-message)]
-      (println-err attn-msg)
-      (log/error attn-msg)
-      (fail-fn))))
+(defn describe-and-return-jdk-status [version]
+  (let [status (jdk-support-status version)]
+    (case status
+      (:official :tested :unknown) :official
+      :no
+      (do
+        (println-err (str (trs "error: ")
+                          (trs "PuppetDB doesn''t support JDK {0}" version)))
+        (log/error (trs "PuppetDB doesn''t support JDK {0}" version))))
+    status))
 
 (pls/defn-validated diff-fn
   "Run clojure.data/diff on `left` and `right`, calling `left-only-fn`, `right-only-fn` and `same-fn` with
