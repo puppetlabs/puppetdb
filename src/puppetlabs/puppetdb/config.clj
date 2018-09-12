@@ -64,7 +64,6 @@
      :partition-count (pls/defaulted-maybe s/Int 1)
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
-     :statements-cache-size (pls/defaulted-maybe s/Int 0)
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
      :facts-blacklist (s/conditional string? String
                                      sequential? [s/Str])
@@ -72,6 +71,7 @@
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :conn-keep-alive s/Int
      :log-slow-statements s/Int
+     :statements-cache-size s/Int
      :subprotocol (pls/defaulted-maybe String "postgresql")}))
 
 (def write-database-config-in
@@ -94,7 +94,6 @@
    :partition-count s/Int
    :stats Boolean
    :log-statements Boolean
-   :statements-cache-size s/Int
    :connection-timeout s/Int
    :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
@@ -107,6 +106,7 @@
    :classname String
    (s/optional-key :conn-keep-alive) Minutes
    (s/optional-key :log-slow-statements) Days
+   (s/optional-key :statements-cache-size) s/Int
    :subprotocol String})
 
 (def write-database-config-out
@@ -345,10 +345,12 @@
                          [:database :classname]
                          [:database :conn-keep-alive]
                          [:database :log-slow-statements]
+                         [:database :statements-cache-size]
                          [:database :subprotocol]
                          [:read-database :classname]
                          [:read-database :conn-keep-alive]
                          [:read-database :log-slow-statements]
+                         [:read-database :statements-cache-size]
                          [:read-database :subprotocol]
                          [:global :catalog-hash-conflict-debugging]]]
     (when (contains? (config-data section) opt)

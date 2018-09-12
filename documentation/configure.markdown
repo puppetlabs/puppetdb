@@ -450,16 +450,6 @@ The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 1000.
 
-## Deprecated settings
-
-### `statements-cache-size`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
-
-If not supplied, the default value is zero.
 
 `[read-database]` settings
 -----
@@ -546,17 +536,6 @@ alone.
 The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 500.
-
-## Deprecated settings
-
-### `statements-cache-size`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
-
-If not supplied, the default setting is zero.
 
 
 `[command-processing]` Settings
