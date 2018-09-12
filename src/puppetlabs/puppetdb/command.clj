@@ -84,7 +84,7 @@
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.amq-migration :as mig]
             [puppetlabs.puppetdb.command.dlo :as dlo]
-            [overtone.at-at :refer [mk-pool stop-and-reset-pool! after]]
+            [overtone.at-at :as at-at :refer [mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.threadpool :as gtp]
             [puppetlabs.puppetdb.utils.metrics :as mutils]))
 
@@ -520,21 +520,37 @@
 
 (def command-delay-ms (* 1000 60 60))
 
-(defn send-delayed-message
+;; For testing via with-redefs
+(defn enqueue-delayed-message [command-chan narrowed-entry]
+  (async/>!! command-chan narrowed-entry))
+
+;; For testing via with-redefs
+(def schedule-msg-after at-at/after)
+
+(defn schedule-delayed-message
   "Will delay `cmd` in the `delay-pool` threadpool for
   `command-delay-ms`. It will then be enqueued in `command-chan`
   for another attempt at processing"
-  [cmd ex command-chan delay-pool]
+  [cmd ex command-chan delay-pool stop-status]
   (let [narrowed-entry (-> cmd
                            (queue/cons-attempt ex)
                            (dissoc :payload))
-        {:keys [command version]} cmd]
+        {:keys [command version]} cmd
+        inc-msgs-if-not-stopping #(if (:stopping %)
+                                    %
+                                    (update % :executing-delayed inc))]
     (update-counter! :awaiting-retry command version inc!)
-    (after command-delay-ms
-           #(do
-              (async/>!! command-chan narrowed-entry)
-              (update-counter! :awaiting-retry command version dec!))
-           delay-pool)))
+    (schedule-msg-after
+     command-delay-ms
+     (fn []
+       (let [status (swap! stop-status inc-msgs-if-not-stopping)]
+         (when-not (:stopping status)
+           (try
+             (enqueue-delayed-message command-chan narrowed-entry)
+             (update-counter! :awaiting-retry command version dec!)
+             (finally
+               (swap! stop-status #(update % :executing-delayed dec)))))))
+     delay-pool)))
 
 (def ^:private iso-formatter (fmt-time/formatters :date-time))
 
@@ -542,7 +558,8 @@
   "Processes the message via (process-message msg), retrying messages
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
-  [q command-chan dlo delay-pool scf-write-db response-chan stats facts-blacklist]
+  [q command-chan dlo delay-pool scf-write-db response-chan stats
+   facts-blacklist stop-status]
   (fn [{:keys [certname command version received delete? id] :as cmdref}]
     (try+
 
@@ -575,7 +592,7 @@
                    ex
                    (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
                         id command retries certname ex))
-                  (send-delayed-message cmdref ex command-chan delay-pool))
+                  (schedule-delayed-message cmdref ex command-chan delay-pool stop-status))
                 (do
                   (log/error
                    ex
@@ -587,6 +604,8 @@
        (log/error (:wrapper &throw-context)
                   (trs "Fatal error parsing command: {0}" (:id cmdref)))
        (discard-message cmdref (:throwable &throw-context) q dlo)))))
+
+(def stop-commands-wait-ms (constantly 5000))
 
 (defn create-command-handler-threadpool
   "Creates an unbounded threadpool with the intent that access to the
@@ -615,7 +634,11 @@
              :response-chan response-chan
              :response-mult response-mult
              :response-chan-for-pub response-chan-for-pub
-             :response-pub (async/pub response-chan-for-pub :id))))
+             :response-pub (async/pub response-chan-for-pub :id)
+             ;; This coordination is needed until we no longer
+             ;; support jdk < 10.
+             ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+             :stop-status (atom {:executing-delayed 0}))))
 
   (start [this context]
     (let [{:keys [scf-write-db dlo q]} (shared-globals)
@@ -632,7 +655,8 @@
                                       scf-write-db
                                       response-chan
                                       (:stats context)
-                                      (get-in (get-config) [:database :facts-blacklist]))]
+                                      (get-in (get-config) [:database :facts-blacklist])
+                                      (:stop-status context))]
 
       (doto (Thread. (fn []
                        (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
@@ -652,11 +676,17 @@
              :command-chan command-chan
              :consumer-threadpool command-threadpool)))
 
-  (stop [this {:keys [consumer-threadpool command-chan delay-pool] :as context}]
-    (async/close! command-chan)
-    (gtp/shutdown consumer-threadpool)
-    (when delay-pool
-      (stop-and-reset-pool! delay-pool))
+  (stop [this {:keys [stop-status consumer-threadpool command-chan delay-pool]
+               :as context}]
+    (some-> command-chan async/close!)
+    (some-> consumer-threadpool gtp/shutdown)
+    (some-> delay-pool stop-and-reset-pool!)
+    ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+    (swap! stop-status #(assoc % :stopping true))
+    (if (utils/wait-for-ref-state stop-status (stop-commands-wait-ms)
+                                  #(= % {:stopping true :executing-delayed 0}))
+      (log/info (trs "Halted delayed command processsing"))
+      (log/info (trs "Forcibly terminating delayed command processing")))
     (async/unsub-all (:response-pub context))
     (async/untap-all (:response-mult context))
     (async/close! (:response-chan-for-pub context))

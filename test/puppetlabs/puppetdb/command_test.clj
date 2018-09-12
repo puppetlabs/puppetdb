@@ -20,10 +20,11 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [schema.core :as s]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [atom-logger logs-matching with-log-output]]
             [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
-            [puppetlabs.puppetdb.command :refer :all]
+            [puppetlabs.puppetdb.command :as cmd :refer :all]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
@@ -34,7 +35,7 @@
             [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
-             :refer [*server*]]
+             :refer [*server* with-pdb-with-no-gc]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce
              :refer [from-sql-date to-timestamp to-date-time to-string]]
@@ -91,7 +92,8 @@
                        *db*
                        response-chan
                        stats
-                       blacklisted-facts)
+                       blacklisted-facts
+                       (atom {:executing-delayed 0}))
       :command-chan command-chan
       :dlo dlo
       :delay-pool delay-pool
@@ -1776,3 +1778,53 @@
             ;; fast enough, initially (at least), the rates can be zero.
             (is (= (+ 3 (:total start-global)) (:total global)))
             (is (= (+ 3 (or (:total start-cmd) 0)) (:total cmd)))))))))
+
+
+;; Test mitigation of
+;; https://bugs.openjdk.java.net/browse/JDK-8176254 i.e. handling of
+;; an unexpected in-flight garbage collection (via the scheduling
+;; bug) during stop.  For now, just test that if a gc is in flight,
+;; we wait on it if it doesn't take too long, and we proceed anyway
+;; if it does.
+
+(defn test-stop-with-delayed-commands [infinite-delay? expected-msg-rx]
+  (with-log-output log-output
+    (let [msg-count 3
+          enq-latch (java.util.concurrent.CountDownLatch. msg-count)
+          enq-proceed (promise)]
+      (with-redefs [cmd/schedule-msg-after (fn [ms f _] (f))  ;; no delay
+                    cmd/enqueue-delayed-message (fn [& args]
+                                                  (.countDown enq-latch)
+                                                  @enq-proceed
+                                                  ;; do nothing
+                                                  nil)]
+        (with-pdb-with-no-gc
+          (let [pdb (get-service *server* :PuppetDBServer)
+                q (-> pdb cli-svc/shared-globals :q)
+                dispatcher (get-service *server* :PuppetDBCommandDispatcher)
+                stop-status (-> dispatcher service-context :stop-status)
+                v5-catalog (get-in wire-catalogs [5 :empty])
+                cmdreqs (repeatedly msg-count #(catalog->command-req 5 v5-catalog))]
+            (doseq [cmdreq cmdreqs
+                    :let [cmdref (queue/store-command q cmdreq)
+                          {:keys [command version]} cmdref]]
+              ;; schedule-delayed-message assumes the metrics already exist
+              (cmd/create-metrics-for-command! command version)
+              (utils/noisy-future
+               (cmd/schedule-delayed-message cmdref (Exception.) :dummy-chan
+                                             :dummy-pool stop-status)))
+            (.await enq-latch)
+            (is #{:executing-delayed 3} @stop-status)
+            (when-not infinite-delay?
+              (deliver enq-proceed true))))))
+    (is (= 1 (->> @log-output
+                  (logs-matching expected-msg-rx)
+                  count)))))
+
+(deftest stop-waits-a-bit-for-delayed-cmds
+  (test-stop-with-delayed-commands false
+                                   #"^Halted delayed command processsing"))
+
+(deftest stop-ignores-delayed-cmds-that-take-too-long
+  (test-stop-with-delayed-commands true
+                                   #"^Forcibly terminating delayed command processing"))
