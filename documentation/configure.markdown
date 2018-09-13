@@ -111,8 +111,6 @@ An example configuration file:
     logging-config = /var/lib/puppetdb/logback.xml
 
     [database]
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //localhost:5432/puppetdb
 
     [puppetdb]
@@ -452,51 +450,6 @@ The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 1000.
 
-## Deprecated settings
-
-### `classname`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the JDBC class to use. It should be
-`org.postgresql.Driver`, which is the default. You should not need to
-change it.
-
-### `subprotocol`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This should be `postgresql`, which is the default. You should not
-need to change it.
-
-### `log-slow-statements`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note that PuppetDB does not interrupt slow queries, but simply reports them after they complete.
-
-The default value is 10 seconds. A value of zero will disable logging of slow queries.
-
-### `conn-keep-alive`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the time (in minutes) for a connection to remain idle before sending a test query to the database. This is useful to prevent a database from timing out connections on its end.
-
-If not supplied, the default value is 45 minutes.
-
-### `statements-cache-size`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
-
-If not supplied, the default value is zero.
 
 `[read-database]` settings
 -----
@@ -513,8 +466,6 @@ of the configuration is in addition to the `[database]` settings. If
 To configure PuppetDB to use a read-only database from the cluster,
 add the following to the `[read-database]` section:
 
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //<HOST>:<PORT>/<DATABASE>
     username = <USERNAME>
     password = <PASSWORD>
@@ -585,52 +536,6 @@ alone.
 The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 500.
-
-## Deprecated settings
-
-### `classname`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the JDBC class to use. It should be
-`org.postgresql.Driver`, which is the default. You should not need to
-change it.
-
-### `subprotocol`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This should be `postgresql`, which is the default. You should not
-need to change it.
-
-### `log-slow-statements`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries, but simply reports them after they complete.
-
-The default value is 10 seconds. A value of zero will disable logging of slow queries.
-
-### `conn-keep-alive`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This sets the time (in minutes) for a connection to remain idle before sending a test query to the database. This is useful to prevent a database from timing out connections on its end.
-
-If not supplied, the default setting is 45 minutes.
-
-### `statements-cache-size`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
-
-If not supplied, the default setting is zero.
 
 
 `[command-processing]` Settings

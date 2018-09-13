@@ -50,13 +50,9 @@
 (def database-config-in
   "Schema for incoming database config (user defined)"
   (all-optional
-    {:log-slow-statements (pls/defaulted-maybe s/Int 10)
-     :conn-max-age (pls/defaulted-maybe s/Int 60)
-     :conn-keep-alive (pls/defaulted-maybe s/Int 45)
+    {:conn-max-age (pls/defaulted-maybe s/Int 60)
      :conn-lifetime (s/maybe s/Int)
      :maximum-pool-size (pls/defaulted-maybe s/Int 25)
-     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
-     :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
      :username String
      :user String
@@ -68,10 +64,15 @@
      :partition-count (pls/defaulted-maybe s/Int 1)
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
-     :statements-cache-size (pls/defaulted-maybe s/Int 0)
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
      :facts-blacklist (s/conditional string? String
-                                     sequential? [s/Str])}))
+                                     sequential? [s/Str])
+     ;; completely retired (ignored)
+     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
+     :conn-keep-alive s/Int
+     :log-slow-statements s/Int
+     :statements-cache-size s/Int
+     :subprotocol (pls/defaulted-maybe String "postgresql")}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -85,19 +86,14 @@
 
 (def database-config-out
   "Schema for parsed/processed database config"
-  {:classname String
-   :subprotocol String
-   :subname String
-   :log-slow-statements Days
+  {:subname String
    :conn-max-age Minutes
-   :conn-keep-alive Minutes
    :read-only? Boolean
    :partition-conn-min s/Int
    :partition-conn-max s/Int
    :partition-count s/Int
    :stats Boolean
    :log-statements Boolean
-   :statements-cache-size s/Int
    :connection-timeout s/Int
    :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
@@ -105,7 +101,13 @@
    (s/optional-key :user) String
    (s/optional-key :password) String
    (s/optional-key :syntax_pgs) String
-   (s/optional-key :facts-blacklist) clojure.lang.PersistentVector})
+   (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
+   ;; completely retired (ignored)
+   :classname String
+   (s/optional-key :conn-keep-alive) Minutes
+   (s/optional-key :log-slow-statements) Days
+   (s/optional-key :statements-cache-size) s/Int
+   :subprotocol String})
 
 (def write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
@@ -194,10 +196,9 @@
 ;;; Database config
 
 (defn validate-db-settings
-  "Throws a {:type ::cli-error :message m} exception
-  describing the required additions if the [database] configuration
-  doesn't specify classname, subprotocol and subname, all of which are
-  now required."
+  "Throws a {:type ::cli-error :message m} exception describing the
+  required additions if the [database] configuration doesn't specify a
+  subname."
   [{db-config :database :or {db-config {}} :as config}]
   (when (str/blank? (:subname db-config))
     (throw+
@@ -337,14 +338,22 @@
   process if a [global] url-prefix is found."
   [config-data]
 
-  (doseq [[section opt :as path] [[:command-processing :max-frame-size]
-                                  [:command-processing :memory-usage]
-                                  [:command-processing :store-usage]
-                                  [:command-processing :temp-usage]
-                                  [:database :classname]
-                                  [:database :subprotocol]
-                                  [:global :catalog-hash-conflict-debugging]]]
-    (when (get-in config-data path)
+  (doseq [[section opt] [[:command-processing :max-frame-size]
+                         [:command-processing :memory-usage]
+                         [:command-processing :store-usage]
+                         [:command-processing :temp-usage]
+                         [:database :classname]
+                         [:database :conn-keep-alive]
+                         [:database :log-slow-statements]
+                         [:database :statements-cache-size]
+                         [:database :subprotocol]
+                         [:read-database :classname]
+                         [:read-database :conn-keep-alive]
+                         [:read-database :log-slow-statements]
+                         [:read-database :statements-cache-size]
+                         [:read-database :subprotocol]
+                         [:global :catalog-hash-conflict-debugging]]]
+    (when (contains? (config-data section) opt)
       (utils/println-err
        (trs "The [{0}] {1} config option has been retired and will be ignored."
             (name section) (name opt)))))

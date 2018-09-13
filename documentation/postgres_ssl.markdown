@@ -59,8 +59,6 @@ Tell Java to use this TrustStore instead of the system's default by specifying v
 Once this is complete, modify the database JDBC connection URL in your PuppetDB configuration as follows:
 
     [database]
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
     username = <USERNAME>
     password = <PASSWORD>
@@ -74,8 +72,6 @@ If you wish, you can follow the [PostgreSQL JDBC SSL client setup instructions](
 Once this is done, modify the JDBC URL in the database configuration section for PuppetDB. For example:
 
     [database]
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true&sslfactory=org.postgresql.ssl.jdbc4.LibPQFactory&sslmode=verify-full&sslrootcert=/etc/puppetlabs/puppetdb/ssl/ca.pem
     username = <USERNAME>
     password = <PASSWORD>
@@ -95,8 +91,6 @@ Because the JDBC PostgreSQL driver utilizes the Java's system KeyStore, and beca
 For example:
 
     [database]
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
     username = <USERNAME>
     password = <PASSWORD>
@@ -112,8 +106,6 @@ However, if you wish to disable SSL verification, you can do so by simply modify
 {% comment %}This code block broke Jekyll for some reason. I'm using a pre-formatted version of it instead of chasing down the problem. -NF{% endcomment %}
 
 <pre><code>[database]
-classname = org.postgresql.Driver
-subprotocol = postgresql
 subname = //&lt;HOST&gt;:&lt;PORT&gt;/&lt;DATABASE&gt;?ssl=true&amp;sslfactory=org.postgresql.ssl.NonValidatingFactory
 username = &lt;USERNAME&gt;
 password = &lt;PASSWORD&gt;

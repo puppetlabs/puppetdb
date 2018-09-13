@@ -73,50 +73,34 @@
                                (validate-db-settings {})))))
 
     (testing "the read-db defaulted to the specified write-db"
-      (let [config (-> {:database {:classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"}}
+      (let [config (-> {:database {:subname "stuff"}}
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]
-        (is (= (get-in config [:read-database :classname]) "something"))
-        (is (= "more stuff" (get-in config [:read-database :subprotocol])))
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "the read-db should be specified by a read-database property"
-      (let [config (-> {:database {:classname "wrong"
-                                   :subname "wronger"
-                                   :subprotocol "wrongest"}
-                        :read-database {:classname "something"
-                                        :subname "stuff"
-                                        :subprotocol "more stuff"}}
+      (let [config (-> {:database {:subname "wronger"}
+                        :read-database {:subname "stuff"}}
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]
-        (is (= (get-in config [:read-database :classname]) "something"))
-        (is (= "more stuff" (get-in config [:read-database :subprotocol])))
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "max-pool-size defaults to 25"
-      (let [config (-> {:database {:classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"}}
+      (let [config (-> {:database {:subname "stuff"}}
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
         (is (= (get-in config [:database :maximum-pool-size]) 25))))
 
     (testing "facts-blacklist string from .ini converted correctly"
-      (let [config (-> {:database {:classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"
+      (let [config (-> {:database {:subname "stuff"
                                    :facts-blacklist "fact1, fact2, fact3"}}
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]
         (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
 
     (testing "facts-blacklist array from .conf converted correctly"
-      (let [config (-> {:database {:classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"
+      (let [config (-> {:database {:subname "stuff"
                                    :facts-blacklist ["fact1" "fact2" "fact3"]}}
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]

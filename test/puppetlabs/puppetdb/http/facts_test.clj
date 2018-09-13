@@ -652,13 +652,11 @@
    (fn [read-db-config write-db-config]
      (let [config (-> (svc-utils/create-temp-config)
                       (assoc :read-database read-db-config)
-                      (assoc :database write-db-config))
-           read-config (-> read-db-config defaulted-read-db-config)
-           write-config (-> write-db-config defaulted-write-db-config)]
-       (clear-db-for-testing! read-config)
-       (clear-db-for-testing! write-config)
-       (init-db read-config true)
-       (init-db write-config false)
+                      (assoc :database write-db-config))]
+       (clear-db-for-testing! read-db-config)
+       (clear-db-for-testing! write-db-config)
+       (init-db read-db-config true)
+       (init-db write-db-config false)
        (call-with-puppetdb-instance
         config
         (fn []
