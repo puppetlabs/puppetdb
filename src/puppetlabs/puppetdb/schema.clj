@@ -50,12 +50,12 @@
 (defn blacklist->vector
   "Take a facts list as either a comma seperated string
    or a sequence and return a vector of those facts"
-  [fact-list]
+  [fl]
   (cond
-    string? (->> (str/split fact-list #",")
-                 (map str/trim)
-                 (apply vector))
-    sequential? (vec fact-list)
+    (string? fl) (->> (str/split fl #",")
+                      (map str/trim)
+                      (apply vector))
+    (and (coll? fl) (every? string? fl)) (vec fl)
     :else (throw (Exception. "Invalid facts blacklist format"))))
 
 (defn period?
