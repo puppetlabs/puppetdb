@@ -63,9 +63,8 @@
       (assert (valid-sql-id? name))
       name)))
 
-(defn init-db [db read-only?]
-  (jdbc/with-db-connection db (migrate! db))
-  (jdbc/pooled-datasource (assoc db :read-only? read-only?)))
+(defn init-db [db]
+  (jdbc/with-db-connection db (migrate! db)))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
@@ -204,9 +203,10 @@
   `(call-with-db-info-on-failure-or-drop ~db-config (fn [] ~@body)))
 
 (defn call-with-test-db
-  "Binds *db* to a clean, migrated test database, opens a connection
-  to it, and calls (f).  If there are no clojure.tests failures or
-  errors, drops the database, otherwise displays its subname."
+  "Binds *db* to a clean, migrated test database, makes it the active
+  jdbc connection via with-db-connection, and calls (f).  If there are
+  no clojure.tests failures or errors, drops the database, otherwise
+  displays its subname."
   [f]
   (binding [*db* (create-temp-db)]
     (with-db-info-on-failure-or-drop *db*
