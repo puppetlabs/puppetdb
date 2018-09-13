@@ -4,8 +4,19 @@ version = test_config[:package_build_version].to_s
 latest_released = get_latest_released(version)
 
 if ([:upgrade_oldest, :upgrade_latest].include? test_config[:install_mode] \
-    and not test_config[:skip_presuite_provisioning] \
-    and not (is_bionic and get_testing_branch(version) == '5.1.x'))
+  && !(test_config[:skip_presuite_provisioning]) \
+  && !(is_bionic && get_testing_branch(version) == '5.1.x'))
+
+  if (test_config[:install_mode] == :upgrade_latest \
+    && test_config[:nightly] == true)
+    # install official repos when testing upgrades from the latest official release
+    step "Install Official Puppet Labs repositories" do
+      hosts.each do |host|
+        initialize_repo_on_host(host, test_config[:os_families][host.name], false)
+      end
+    end
+  end
+
   install_target = test_config[:install_mode] == :upgrade_latest ? latest_released : oldest_supported
   step "Install most recent released PuppetDB on the PuppetDB server for upgrade test" do
     databases.each do |database|

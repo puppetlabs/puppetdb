@@ -21,7 +21,9 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*base-url* *server* with-pdb-with-no-gc]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
+            [puppetlabs.trapperkeeper.services :refer [service-context]]
+            [puppetlabs.puppetdb.testutils
+             :refer [block-until-results default-timeout-ms temp-file]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -253,3 +255,44 @@
                            (db-config->clean-request db-cfg)))
         (is (= expected-remaining
                (count (purgeable-nodes node-purge-ttl))))))))
+
+
+;; Test mitigation of
+;; https://bugs.openjdk.java.net/browse/JDK-8176254 i.e. handling of
+;; an unexpected in-flight garbage collection (via the scheduling
+;; bug) during stop.  For now, just test that if a gc is in flight,
+;; we wait on it if it doesn't take too long, and we proceed anyway
+;; if it does.
+
+(defn test-stop-with-periodic-gc-running [infinite-delay? expected-msg-rx]
+  (with-log-output log-output
+    (let [gc-blocked (promise)
+          gc-proceed (promise)
+          gc svcs/collect-garbage]
+      (with-redefs [svcs/stop-gc-wait-ms (constantly default-timeout-ms)
+                    svcs/collect-garbage (fn [& args]
+                                           (deliver gc-blocked true)
+                                           @gc-proceed
+                                           (apply gc args))]
+        (with-pdb-with-no-gc
+          (let [pdb (get-service *server* :PuppetDBServer)
+                db-cfg (-> *server* (get-service :DefaultedConfig) conf/get-config :database)
+                stop-status (-> pdb service-context :stop-status)
+                lock (ReentrantLock.)]
+            (utils/noisy-future
+             (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg
+                                               (svcs/db-config->clean-request db-cfg)
+                                               stop-status))
+            @gc-blocked
+            (is #{:collecting-garbage} @stop-status)
+            (when-not infinite-delay?
+              (deliver gc-proceed true))))))
+    (is (= 1 (->> @log-output
+                  (logs-matching expected-msg-rx)
+                  count)))))
+
+(deftest stop-waits-a-bit-for-periodic-gc
+  (test-stop-with-periodic-gc-running false #"^Periodic activities halted"))
+
+(deftest stop-ignores-gc-that-takes-too-long
+  (test-stop-with-periodic-gc-running true #"^Forcibly terminating periodic activities"))
