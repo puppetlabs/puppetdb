@@ -461,3 +461,14 @@
   "remove all nil-valued keys from a map"
   [m]
   (into {} (filter val m)))
+
+(defn wait-for-ref-state [ref ms pred]
+  (let [watch-key wait-for-ref-state
+        finished? (promise)
+        handle-state #(when (pred %) (deliver finished? true))]
+    (add-watch ref watch-key (fn [_ _ _ new] (handle-state new)))
+    (try
+      (handle-state @ref)
+      (deref finished? ms false)
+      (finally
+        (remove-watch ref watch-key)))))

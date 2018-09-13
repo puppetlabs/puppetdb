@@ -176,6 +176,14 @@ msgid "Shutdown request received; puppetdb exiting."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Periodic activities halted"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Forcibly terminating periodic activities"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Error while attempting to create connection pool"
 msgstr ""
 
@@ -225,6 +233,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
 msgid "Fatal error parsing command: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "Halted delayed command processsing"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "Forcibly terminating delayed command processing"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command/dlo.clj
