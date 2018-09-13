@@ -5,7 +5,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.command :refer [command-app]]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
@@ -25,6 +25,18 @@
   (:import
    (java.io ByteArrayInputStream)
    (java.util.concurrent Semaphore)))
+
+(defn env-true? [name]
+  (when-let [x (System/getenv name)]
+    (let [x (str/lower-case x)]
+      (and (not (str/blank? x))
+           (not (#{"no" "false"} x))
+           (try
+             (not (zero? (Integer. x)))
+             (catch NumberFormatException ex
+               true))))))
+
+(def test-rich-data? (env-true? "PDB_TEST_RICH_DATA"))
 
 (defn ordered-matches?
   "Returns a false value if there isn't a match in items for each
@@ -85,7 +97,7 @@
   "Given a `Throwable`, returns a String containing the message and stack trace.
   If passed `nil`, returns `nil`."
   [ex]
-  (when ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
+  (when ex (str (.getMessage ex) "\n" (str/join "\n" (.getStackTrace ex)))))
 
 (defmacro with-fixtures
   "Evaluates `body` wrapped by the `each` fixtures of the current namespace."

@@ -62,6 +62,8 @@ aliases:
     ext/bin/test-config --set pgport 34335
     ext/bin/test-config --set puppet-ref "$puppet"
     ext/bin/test-config --set puppetserver-ref "$server"
+    PDB_TEST_RICH_DATA="$(ext/travisci/spec-includes "$PDB_TEST" rich)"
+    export PDB_TEST_RICH_DATA
     ext/bin/boxed-integration-tests -- lein test :integration
 
 jobs:
@@ -90,6 +92,10 @@ jobs:
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
+      env: PDB_TEST=int/rich/openjdk8/pup-master/srv-master/pg-9.6
+      script: *run-integration-tests
+
+    - stage: ❧ pdb tests
       env: PDB_TEST=int/oraclejdk8/pup-master/srv-master/pg-9.6
       script: *run-integration-tests
 
@@ -98,7 +104,7 @@ jobs:
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk10/pup-master/srv-master/pg-9.6
+      env: PDB_TEST=int/rich/oraclejdk10/pup-master/srv-master/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests

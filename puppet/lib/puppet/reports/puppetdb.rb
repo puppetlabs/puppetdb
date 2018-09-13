@@ -167,8 +167,8 @@ Puppet::Reports.register_report(:puppetdb) do
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
       "property"          => event.property,
-      "new_value"         => event.desired_value,
-      "old_value"         => event.previous_value,
+      "new_value"         => event.desired_value.to_s,
+      "old_value"         => event.previous_value.to_s,
       "corrective_change" => corrective_change,
       "message"           => event.message,
     }

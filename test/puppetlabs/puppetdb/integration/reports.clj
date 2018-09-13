@@ -101,6 +101,97 @@
                       (int/pql-query pdb)
                       count))))))))
 
+(when tu/test-rich-data?
+  (def rich-data-tests
+    ; Names must be unique, they are used as Resource titles
+    [
+     ; for undef and false a wrapper is required or message is interpreted as 'absent' and no change occurs
+     {:name "literal_undef" :code "{ 'wrapper' => [undef] }"
+      :expected "{\"wrapper\"=>[nil]}"}
+     {:name "literal_false" :code "{ 'wrapper' => false }"
+      :expected "{\"wrapper\"=>false}"}
+
+     {:name "literal_default" :code "default" :expected "default"}
+     {:name "literal_integer" :code "47" :expected "47"}
+     {:name "literal_float" :code "3.14" :expected "3.14"}
+     {:name "literal_true" :code "true" :expected "true"}
+     {:name "literal_string" :code "\"hello\"" :expected "hello"}
+     {:name "string_with_single_quote" :code "\"ta'phoenix\"" :expected "ta'phoenix"}
+     {:name "string_with_double_quote" :code "\"he said \\\"hi\\\"\""
+      :expected "he said \"hi\""}
+     {:name "regexp" :code "/[a-z]+/" :expected "/[a-z]+/"}
+     {:name "deferred" :code "Deferred('join', [[1, 2, 3], ':'])" :expected "1:2:3"}
+     {:name "sensitive_deferred" :code "Sensitive(Deferred('join', [[1, 2, 3], ':']))"
+      :expected-old "[redacted]" :expected "[redacted]"}
+     {:name "sensitive" :code "Sensitive('password')"
+      :expected-old "[redacted]" :expected "[redacted]"}
+     {:name "timestamp" :code "Timestamp('2012-10-10')"
+      :expected "2012-10-10T00:00:00.000000000 UTC"}
+     {:name "hash_and_array" :code "{'a' => [1, 2, 3], 'b' => 'hello'}"
+      :expected "{\"a\"=>[1, 2, 3], \"b\"=>\"hello\"}"}
+     {:name "special_key" :code "{ ['special', 'key'] => 10 }"
+      :expected "{\"[\\\"special\\\", \\\"key\\\"]\"=>10}"}
+     {:name "hash_with_sensitive_val" :code "{ x => Sensitive(hush) }"
+      :expected #"\{\"x\"=>\"#<Sensitive \[value redacted\]:[0-9]+>\"}"}
+     {:name "hash_with_sensitive_key" :code "{Sensitive(hush) => 42 }"
+      :expected #"\{\"#<Sensitive \[value redacted\]:[0-9]+>\"=>42\}"}
+     {:name "hash_ptype_key" :code "{'__ptype' => 10}"
+      :expected "{\"reserved key: __ptype\"=>10}"}
+     {:name "binary_value" :code "Binary(\"hello\", \"%s\")" :expected "aGVsbG8="}
+     {:name "a_type" :code "Integer[0,100]" :expected "Integer[0, 100]"}
+
+     ; Car is defined in the manifest generated in the test below
+     ; {:name "user_defined_type" :code "Car" :expected "Car"}
+     ; {:name "user_defined_object" :code "Car(abc123)" :expected "Car({'regnbr' => 'abc123'})"}
+     ])
+
+  (deftest ^:integration rich-data-report-storage-and-querying
+    (with-open [pg (int/setup-postgres)
+                pdb (int/run-puppetdb pg {})
+                ps (int/run-puppet-server-as "my_puppetserver" [pdb] {:agent {:rich-data true}})]
+      (let [start-time (now)
+            query-with-one-ts (str "events { certname = 'my_agent' "
+                                   " and timestamp > '%s' "
+                                   "}")]
+        ;; Ensure at least 1 ms has passed
+        (Thread/sleep 1)
+
+        (testing "No data should be found since a puppet run hasn't happened"
+          (is (= 0
+                 (->> start-time
+                      int/query-timestamp-str
+                      (format query-with-one-ts)
+                      (int/pql-query pdb)
+                      count))))
+
+        (testing "Initial agent run, to populate puppetdb with data to query"
+          (let [manifest (str "type Car = Object[attributes => {regnbr => String}];\n"
+                              (apply str (for [{:keys [name code]} rich-data-tests]
+                                           (str "notify { '" name "':"
+                                                "  message => " code
+                                                "}"))))]
+          (int/run-puppet-as "my_agent" ps pdb manifest {:rich-data true})))
+
+        (testing "event storage/querying"
+          (doseq [{:keys [name expected] :as test-data} rich-data-tests]
+            (let [[{:keys [old_value new_value]} :as result] (int/pql-query pdb (format (str "events [old_value, new_value] "
+                                                         "{ timestamp > '%s' "
+                                                         " and certname = 'my_agent'"
+                                                         " and resource_type = 'Notify'"
+                                                         " and resource_title = '" name "'"
+                                                         "}")
+                                                    (int/query-timestamp-str start-time)))]
+
+              (is (= 1 (count result)))
+
+              (if (:expected-old test-data)
+                (is (= (:expected-old test-data) old_value))
+                (is (= "absent" old_value)))
+
+              (if (string? expected)
+                (is (= expected new_value))
+                (is (re-matches expected new_value))))))))))
+
 (defn get-href [pdb suffix]
   (-> pdb
       int/root-url-str

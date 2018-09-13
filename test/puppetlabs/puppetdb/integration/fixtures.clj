@@ -198,6 +198,9 @@
     (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
     (fs/mkdirs (str env-dir "/modules"))
 
+    (when tu/test-rich-data?
+      (fs/copy "test-resources/puppetserver/rich_data_environment.conf" (str env-dir "/environment.conf")))
+
     ;; copy our custom puppet functions into the code-dir, since puppet can't
     ;; find them in the ruby load path
     (let [functions-dir (str env-dir "/lib/puppet/functions")]
@@ -260,6 +263,8 @@
      (spit site-pp manifest-content)
 
      (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
+     (when tu/test-rich-data?
+       (fs/copy "test-resources/puppetserver/rich_data_puppet.conf" (str agent-conf-dir "/puppet.conf")))
 
      (with-synchronized-command-processing pdb-server timeout
        (apply bundle-exec env
