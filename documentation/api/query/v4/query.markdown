@@ -95,6 +95,20 @@ Most PuppetDB query endpoints support paged results via a set of shared URL para
 
 All queries return data with a content type of `application/json`. Each endpoint's page describes the format of its return data.
 
+### Rich data
+
+Puppet 6 supports
+[rich_data](https://github.com/puppetlabs/puppet-specifications/blob/master/language/types_values_variables.md#richdata)
+types like Timestamp and SemVer, and enables rich data by default.
+When rich data is enabled, readable string representations of rich
+data values may appear in the report resource event `old_value` and
+`new_value` fields, and in catalog parameter values.
+
+For example, a Timestamp value would be recorded in PuppetDB as a
+string like "2012-10-10T00:00:00.000000000 UTC", and a Deferred value
+would be recorded as a string like "Deferred({'name' => 'join',
+'arguments' => [[1, 2, 3], ':']})".
+
 ## Tutorial and tips
 
 For a walkthrough on constructing queries, see [the query tutorial page][tutorial]. For quick tips on using curl to make ad hoc queries, see [the curl tips page][curl].

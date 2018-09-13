@@ -16,6 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [producers]: ./producers.html
 [events]: ./events.html
 [nodes]: ./nodes.html
+[rich_data]: ./query.html#rich-data
 
 Puppet agent nodes submit reports after their runs, and the Puppet master
 forwards these to PuppetDB. Each report includes:
@@ -167,6 +168,9 @@ is of the form:
 > The response format in PE contains an additional field, `resources`, which
 > contains all the resource statuses for the Puppet run corresponding to the
 > `report`, both changed and unchanged resources.
+
+Below, in `old_value` and `new_value`, any [rich data][rich_data]
+values will appear as readable strings.
 
 The `<expanded resource events>` object is of the following form:
 

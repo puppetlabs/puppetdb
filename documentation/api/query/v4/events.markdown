@@ -14,6 +14,7 @@ canonical: "/puppetdb/latest/api/query/v4/events.html"
 [environments]: ./environments.html
 [nodes]: ./nodes.html
 [reports]: ./reports.html
+[rich_data]: ./query.html#rich-data
 
 Puppet agent nodes submit reports after their runs, and the Puppet master forwards these to PuppetDB. Each report includes:
 
@@ -86,9 +87,9 @@ See [the AST query language page][ast] for the full list of available operators.
   `Package` resource, this field might have a value of `ensure`. **Note:** this field
   may contain `NULL` values; see notes above.
 
-* `new_value` (string or null): the new value that Puppet was attempting to set for the specified resource property. **Note:** this field may contain `NULL` values; see notes above.
+* `new_value` (string or null): the new value that Puppet was attempting to set for the specified resource property.  Any [rich data][rich_data] values will appear as readable strings.  **Note:** this field may contain `NULL` values; see notes above.
 
-* `old_value` (string or null): the previous value of the resource property, which Puppet was attempting to change. **Note:** this field may contain `NULL` values; see notes above.
+* `old_value` (string or null): the previous value of the resource property, which Puppet was attempting to change.  Any [rich data][rich_data] values will appear as readable strings.  **Note:** this field may contain `NULL` values; see notes above.
 
 * `message` (string or null): a description (supplied by the resource provider) of what happened during the event. **Note:** this field may contain `NULL` values; see notes above.
 
