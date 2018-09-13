@@ -15,6 +15,7 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 [producers]: ./producers.html
 [nodes]: ./nodes.html
 [resources]: ./resources.html
+[rich_data]: ./query.html#rich-data
 
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
@@ -95,6 +96,9 @@ The `<expanded resources>` object is of the following form:
         "parameters": <any>
       } ... ]
     }
+
+In `parameters` map, any [rich data][rich_data] values will appear as
+readable strings.
 
 The `<expanded edges>` object is of the follow form:
 
