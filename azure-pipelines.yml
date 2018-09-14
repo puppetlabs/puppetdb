@@ -6,6 +6,7 @@ pool:
 
 variables:
   PUPPET_DOCKER_LOCATION: git://github.com/underscorgan/puppet_docker_tools#maint/master/run-better
+  BUILD_REPOSITORY: 127.0.0.1
 
 steps:
 - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
@@ -51,3 +52,8 @@ steps:
     Invoke-ContainerBuildSetup
   displayName: Prepare Build Environment
   name: build_prepare
+- powershell: |
+    . ./docker/ci/build.ps1
+    Build-Container -Name puppetdb -Repository $ENV:BUILD_REPOSITORY
+  displayName: Build puppetdb
+  name: build_puppetdb
