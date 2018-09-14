@@ -32,6 +32,11 @@ canonical: "/puppetdb/latest/release_notes.html"
    options have been retired: `store-usage`, `temp-usage`,
    `memory-usage`, and `max-frame-size`,
 
+### Contributors
+
+Austin Blatt, Britt Gresham, Charlie Sharpsteen, Garrett Guillotte, Jarret Lavallee
+Molly Waggett, Morgan Rhodes, Rob Browning, and Zachary Kent
+
 ## 5.2.4
 
 PuppetDB 5.2.4 is a minor bug-fix release.
