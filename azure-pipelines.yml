@@ -72,3 +72,8 @@ steps:
     Invoke-ContainerTest -Name puppetdb-postgres -Repository $ENV:BUILD_REPOSITORY
   displayName: Test puppetdb-postgres
   name: test_puppetdb_postgres
+- powershell: |
+    . ./docker/ci/build.ps1
+    Clear-ContainerBuilds
+  displayName: Container Cleanup
+  condition: always()
