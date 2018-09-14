@@ -62,6 +62,12 @@ steps:
     Invoke-ContainerTest -Name puppetdb -Repository $ENV:BUILD_REPOSITORY
   displayName: Test puppetdb
   name: test_puppetdb
+- task: PublishTestResults@2
+  displayName: Publish puppetdb test results
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'docker/**/TEST-*.xml'
+    testRunTitle: puppetdb Test Results
 - powershell: |
     . ./docker/ci/build.ps1
     Build-Container -Name puppetdb-postgres -Repository $ENV:BUILD_REPOSITORY
@@ -72,6 +78,12 @@ steps:
     Invoke-ContainerTest -Name puppetdb-postgres -Repository $ENV:BUILD_REPOSITORY
   displayName: Test puppetdb-postgres
   name: test_puppetdb_postgres
+- task: PublishTestResults@2
+  displayName: Publish puppetdb-postgres test results
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'docker/**/TEST-*.xml'
+    testRunTitle: puppetdb-postgres Test Results
 - powershell: |
     . ./docker/ci/build.ps1
     Clear-ContainerBuilds
