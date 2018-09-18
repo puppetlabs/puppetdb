@@ -57,3 +57,8 @@ steps:
     Build-Container -Name puppetdb -Repository $ENV:BUILD_REPOSITORY
   displayName: Build puppetdb
   name: build_puppetdb
+- powershell: |
+    . ./docker/ci/build.ps1
+    Invoke-ContainerTest -Name puppetdb -Repository $ENV:BUILD_REPOSITORY
+  displayName: Test puppetdb
+  name: test_puppetdb
