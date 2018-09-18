@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Release notes"
+title: "PuppetDB 6.0: Release notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -19,6 +19,17 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## 6.0.0
 
+## New features
+
+- Puppet 6 supports 
+[rich_data](https://github.com/puppetlabs/puppet-specifications/blob/master/language/types_values_variables.md#richdata) 
+types like Timestamp and SemVer, and enables rich data by default. 
+When rich data is enabled, readable string representations of rich 
+data values may appear in the report resource event `old_value` and 
+`new_value` fields, and in catalog parameter values. ([PDB-4082](https://tickets.puppetlabs.com/browse/PDB-4082))
+- A `help` subcommand has been added to display usage information to standard output. If an invalid command is specified, usage information will now be printed to standard error, not standard output. ([PDB-3993](https://tickets.puppetlabs.com/browse/PDB-3993))
+- PuppetDB has migrated to Clojure 1.9. ([PDB-3953])(https://tickets.puppetlabs.com/browse/PDB-3953))
+
 ## Upgrading
 
 -  Support for ActiveMQ has been completely removed, meaning that
@@ -30,7 +41,27 @@ canonical: "/puppetdb/latest/release_notes.html"
 
    As a result of the removal, these ActiveMQ specific configuration
    options have been retired: `store-usage`, `temp-usage`,
-   `memory-usage`, and `max-frame-size`,
+   `memory-usage`, and `max-frame-size`
+
+## Bug fixes
+
+- Prior to this fix, the HTTP submission with `command_broadcast` enabled 
+always returned the last response. As a result, a failure was shown if 
+the last connection produced a 503 response even though there was 
+previously a successful PuppetDB response and the minimum successful 
+responses had been met. This issue does not occur with responses that 
+raised an exception. Since the puppet `http_pool` does not raise 503 
+as an exception, this issue can be seen when PuppetDB is in 
+maintenance mode. This fix changes the behavior to send the last successful response 
+when the minimum successful submissions have been met. ([PDB-4020](https://tickets.puppetlabs.com/browse/PDB-4020))
+- A problem that could cause harmless but noisy database connection errors during shutdown has been fixed. ([PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952))
+- If using the default logback.xml configuration, PuppetDB should notice log config file changes every 60 seconds. Recent versions of PuppetDB had stopped noticing as a result of changes to Trapperkeeper (TK-426). This is fixed. ([PDB-3884](https://tickets.puppetlabs.com/browse/PDB-3884))
+- PuppetDB now no longer attempts database migrations at startup under inappropriate conditions, for example when the relevant migrations table is unreadable. ([PDB-3268](https://tickets.puppetlabs.com/browse/PDB-3268))
+
+## Deprecations
+
+- PuppetDB no longer officially supports JDK 7. PuppetDB 6.0.0 officially supports JDK 8, and has been tested against JDK 10. Please see the [FAQ](./puppetdb-faq.html#which-versions-of-java-are-supported) for further, or more current information. ([PDB-4069](https://tickets.puppetlabs.com/browse/PDB-4069))
+- Support for these database configuration options has been completely retired: `classname`, `subprotocol`, `log-slow-statements`, and `conn-keep-alive`. Aside from warning at startup, PuppetDB will completely ignore them, and references to them have been removed from the documentation. ([PDB-3935](https://tickets.puppetlabs.com/browse/PDB-3935))
 
 ### Contributors
 
@@ -42,6 +73,13 @@ Molly Waggett, Morgan Rhodes, Rob Browning, and Zachary Kent
 PuppetDB 5.2.4 is a minor bug-fix release.
 
 -   [All issues resolved in PuppetDB 5.2.4](https://tickets.puppetlabs.com/issues/?jql=fixVersion%20%3D%20%27PDB%205.2.4%27)
+
+### New feature
+
+- - An `upgrade` subcommand has been added that should be useful for cases where you want to upgrade across multiple major versions without skipping major versions (as per the [versioning policy][versioning]). See [these notes [multiple-major-upgrades] for additional information. 
+([PDB-3993](https://tickets.puppetlabs.com/browse/PDB-3993)) 
+
+
 
 ### Bug fixes
 
