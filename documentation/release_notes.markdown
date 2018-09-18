@@ -17,9 +17,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 [upgrade_policy]: ./versioning_policy.html#upgrades
 
-## 6.0.0
+## PuppetDB 6.0.0
 
-## New features
+### New features
 
 - Puppet 6 supports 
 [rich_data](https://github.com/puppetlabs/puppet-specifications/blob/master/language/types_values_variables.md#richdata) 
@@ -30,7 +30,7 @@ data values may appear in the report resource event `old_value` and
 - A `help` subcommand has been added to display usage information to standard output. If an invalid command is specified, usage information will now be printed to standard error, not standard output. ([PDB-3993](https://tickets.puppetlabs.com/browse/PDB-3993))
 - PuppetDB has migrated to Clojure 1.9. ([PDB-3953])(https://tickets.puppetlabs.com/browse/PDB-3953))
 
-## Upgrading
+### Upgrading
 
 -  Support for ActiveMQ has been completely removed, meaning that
    PuppetDB can no longer convert an existing queue to the new format
@@ -43,7 +43,7 @@ data values may appear in the report resource event `old_value` and
    options have been retired: `store-usage`, `temp-usage`,
    `memory-usage`, and `max-frame-size`
 
-## Bug fixes
+### Bug fixes
 
 - Prior to this fix, the HTTP submission with `command_broadcast` enabled 
 always returned the last response. As a result, a failure was shown if 
@@ -58,7 +58,7 @@ when the minimum successful submissions have been met. ([PDB-4020](https://ticke
 - If using the default logback.xml configuration, PuppetDB should notice log config file changes every 60 seconds. Recent versions of PuppetDB had stopped noticing as a result of changes to Trapperkeeper (TK-426). This is fixed. ([PDB-3884](https://tickets.puppetlabs.com/browse/PDB-3884))
 - PuppetDB now no longer attempts database migrations at startup under inappropriate conditions, for example when the relevant migrations table is unreadable. ([PDB-3268](https://tickets.puppetlabs.com/browse/PDB-3268))
 
-## Deprecations
+### Deprecations
 
 - PuppetDB no longer officially supports JDK 7. PuppetDB 6.0.0 officially supports JDK 8, and has been tested against JDK 10. Please see the [FAQ](./puppetdb-faq.html#which-versions-of-java-are-supported) for further, or more current information. ([PDB-4069](https://tickets.puppetlabs.com/browse/PDB-4069))
 - Support for these database configuration options has been completely retired: `classname`, `subprotocol`, `log-slow-statements`, and `conn-keep-alive`. Aside from warning at startup, PuppetDB will completely ignore them, and references to them have been removed from the documentation. ([PDB-3935](https://tickets.puppetlabs.com/browse/PDB-3935))
