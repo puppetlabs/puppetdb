@@ -2,7 +2,7 @@ FROM ubuntu:16.04
 
 ARG vcs_ref
 ARG build_date
-ARG version="5.1.5"
+ARG version="6.0.0"
 
 ENV PUPPETDB_VERSION="$version"
 ENV DUMB_INIT_VERSION="1.2.1"
@@ -27,11 +27,11 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
 
 RUN apt-get update && \
     apt-get install --no-install-recommends -y wget netcat lsb-release ca-certificates && \
-    wget https://apt.puppetlabs.com/puppet5-release-"$UBUNTU_CODENAME".deb && \
+    wget https://apt.puppetlabs.com/puppet6-release-"$UBUNTU_CODENAME".deb && \
     wget https://github.com/Yelp/dumb-init/releases/download/v"$DUMB_INIT_VERSION"/dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    dpkg -i puppet5-release-"$UBUNTU_CODENAME".deb && \
+    dpkg -i puppet6-release-"$UBUNTU_CODENAME".deb && \
     dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    rm puppet5-release-"$UBUNTU_CODENAME".deb dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
+    rm puppet6-release-"$UBUNTU_CODENAME".deb dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
     apt-get update && \
     apt-get install --no-install-recommends -y puppet-agent puppetdb="$PUPPETDB_VERSION"-1"$UBUNTU_CODENAME" && \
     apt-get clean && \
