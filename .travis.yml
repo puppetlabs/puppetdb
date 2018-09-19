@@ -170,3 +170,4 @@ cache:
     - $HOME/.m2
     - $HOME/Library/Caches/Homebrew
     - vendor/bundle/ruby
+    - ext/travisci/local/jdk
