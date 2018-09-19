@@ -271,7 +271,7 @@ module PuppetDBExtensions
 
   def oldest_supported
     # account for special case where bionic doesn't have builds before 5.2.4
-    return is_bionic ? '5.2.4' : '5.0.0'
+    return is_bionic ? '5.2.4' : '5.1.1'
   end
 
   def get_testing_branch(version)
