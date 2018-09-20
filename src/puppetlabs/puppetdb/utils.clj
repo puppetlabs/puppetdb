@@ -332,13 +332,17 @@
                       (map regex-quote)
                       (string/join "|"))))
 
+(defn optional-key? [x]
+  ;; broken with AOT noidea: (instance? schema.core.OptionalKey k))
+  (= schema.core.OptionalKey (class x)))
+
 (defn str-schema
   "Function for converting a schema with keyword keys to
    to one with string keys. Doens't walk the map so nested
    schema won't work."
   [kwd-schema]
   (reduce-kv (fn [acc k v]
-               (if (instance? schema.core.OptionalKey k)
+               (if (optional-key? k)
                  (assoc acc (schema.core/optional-key (puppetlabs.puppetdb.utils/kwd->str (:k k))) v)
                  (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v)))
              {} kwd-schema))
@@ -360,14 +364,14 @@
    or keyword) that was passed in.  This is useful for translating data structures
    from their JDBC-compatible representation to their wire format representation."
   [s]
-  (let [optional-key? (instance? schema.core.OptionalKey s)
-        result (if optional-key?
+  (let [opt-key? (optional-key? s)
+        result (if opt-key?
                  (string/replace (name (:k s)) \_ \-)
                  (string/replace (name s) \_ \-))]
     (cond
-      optional-key? (if (keyword? (:k s))
-                      (s/optional-key (keyword result))
-                      (s/optional-key result))
+      opt-key? (if (keyword? (:k s))
+                 (s/optional-key (keyword result))
+                 (s/optional-key result))
       (keyword? s) (keyword result)
       :else result)))
 
