@@ -109,6 +109,18 @@
          "puppetserver"
          "vendor"]))
 
+(def pdb-aot-namespaces
+  (apply vector
+         #"puppetlabs\.puppetdb\..*"
+         (->> "resources/puppetlabs/puppetdb/bootstrap.cfg"
+              clojure.java.io/reader
+              line-seq
+              (map clojure.string/trim)
+              (remove #(re-matches #"#.*" %))  ;; # comments
+              (remove #(re-matches #"puppetlabs\.puppetdb\.." %))
+              (map #(clojure.string/replace % #"(.*)/[^/]+$" "$1"))
+              (map symbol))))
+
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
 
@@ -229,11 +241,10 @@
   :deploy-repositories [["releases" ~(deploy-info "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-releases__local/")]
                         ["snapshots" ~(deploy-info "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-snapshots__local/")]]
 
-  ;; By declaring a classifier here and a corresponding profile below we'll get an additional jar
-  ;; during `lein jar` that has all the code in the test/ directory. Downstream projects can then
-  ;; depend on this test jar using a :classifier in their :dependencies to reuse the test utility
-  ;; code that we have.
-  :classifiers  [["test" :testutils]]
+  ;; Build a puppetdb-VER-test.jar containing test/ for projects like
+  ;; pdbext to use by depending on ["puppetlabs.puppetdb" :classifier
+  ;; "test"].  See the :testutils profile below.
+  :classifiers  {:test :testutils}
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies ~pdb-dev-deps
@@ -266,7 +277,13 @@
                                                [com.fasterxml.jackson.core/jackson-databind "2.9.7"]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.8.5"]]}
-             :testutils {:source-paths ^:replace ["test"]}
+             :testutils {:source-paths ^:replace ["test"]
+                         :resource-paths ^:replace []
+                         ;; Something else may need adjustment, but
+                         ;; without this, "lein uberjar" tries to
+                         ;; compile test files, and crashes because
+                         ;; "src" namespaces aren't available.
+                         :aot ^:replace []}
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
                             :dependencies ~puppetserver-test-deps}
@@ -274,13 +291,14 @@
              :test {:jvm-opts ~(if need-permgen?
                                  ;; integration tests cycle jruby a lot, which chews through permgen
                                  ^:replace ["-XX:MaxPermSize=500M"]
-                                 [])}}
+                                 [])}
+             :uberjar {:aot ~pdb-aot-namespaces}}
 
   :jar-exclusions [#"leiningen/"]
 
   :resource-paths ["resources" "puppet/lib" "resources/puppetlabs/puppetdb" "resources/ext/docs"]
 
-  :main ^:skip-aot puppetlabs.puppetdb.core
+  :main puppetlabs.puppetdb.core
 
   :test-selectors {:default (complement :integration)
                    :unit (complement :integration)
