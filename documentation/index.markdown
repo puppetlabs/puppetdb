@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2 overview"
+title: "PuppetDB overview"
 layout: default
 ---
 
@@ -97,13 +97,13 @@ any Unix-like OS with JVM 8 or newer, including:
 
 [See here for advanced installation instructions.][install_advanced]
 
-### Puppet 5.0.0
+### Puppet 6.0.0
 
-Your site's Puppet masters must be running Puppet Server 5.0.0 or later.
+Your site's Puppet masters must be running Puppet Server 6.0.0 or later.
 [You will need to connect your Puppet masters to PuppetDB after installing it][connect].
 If you wish to use PuppetDB with
 [standalone nodes that are running puppet apply][apply], every node
-must be running 5.0.0 or later.
+must be running 6.0.0 or later.
 
 ### PostgreSQL 9.6
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Configuring a Puppet/PuppetDB connection"
+title: "PuppetDB: Configuring a Puppet/PuppetDB connection"
 layout: default
 canonical: "/puppetdb/latest/puppetdb_connection.html"
 ---

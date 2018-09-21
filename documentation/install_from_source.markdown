@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Installing PuppetDB from source"
+title: "PuppetDB: Installing PuppetDB from source"
 layout: default
 ---
 
