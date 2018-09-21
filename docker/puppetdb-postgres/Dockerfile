@@ -19,5 +19,6 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.dockerfile="/Dockerfile"
 
 COPY docker-entrypoint-initdb.d /docker-entrypoint-initdb.d
+RUN chmod +x /docker-entrypoint-initdb.d/extensions.sh
 
 COPY Dockerfile /
