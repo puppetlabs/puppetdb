@@ -3,10 +3,20 @@ require 'puppet_docker_tools/spec_helper'
 CURRENT_DIRECTORY = File.dirname(File.dirname(__FILE__))
 
 describe 'Dockerfile' do
+
+  before(:all) do
+    @volume = %x(docker volume create --name puppetdb-postgres-test-#{Random.rand(1000)}).chomp
+    puts "OMG VOLUME IS #{@volume}"
+  end
+
+  after(:all) do
+    %x(docker volume rm #{@volume})
+  end
+
   include_context 'with a docker image'
   include_context 'with a docker container' do
     def docker_run_options
-      '-e POSTGRES_PASSWORD=puppetdb -e POSTGRES_USER=puppetdb'
+      "-e POSTGRES_PASSWORD=puppetdb -e POSTGRES_USER=puppetdb --mount 'type=volume,src=#{@volume},dst=/var/lib/postgresql/data/'"
     end
   end
 
