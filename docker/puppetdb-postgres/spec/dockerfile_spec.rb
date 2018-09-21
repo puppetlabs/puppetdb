@@ -16,7 +16,7 @@ describe 'Dockerfile' do
   include_context 'with a docker image'
   include_context 'with a docker container' do
     def docker_run_options
-      "-e POSTGRES_PASSWORD=puppetdb -e POSTGRES_USER=puppetdb --mount 'type=volume,src=#{@volume},dst=/var/lib/postgresql/data/'"
+      "-e POSTGRES_PASSWORD=puppetdb -e POSTGRES_USER=puppetdb --mount type=volume,src=#{@volume},dst=/var/lib/postgresql/data/"
     end
   end
 
