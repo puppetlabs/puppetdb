@@ -4,7 +4,11 @@ CURRENT_DIRECTORY = File.dirname(File.dirname(__FILE__))
 
 describe 'Dockerfile' do
   include_context 'with a docker image'
-  include_context 'with a transient docker container'
+  include_context 'with a docker container' do
+    def docker_run_options
+      '-e POSTGRES_PASSWORD=puppetdb -e POSTGRES_USER=puppetdb'
+    end
+  end
 
   ['postgresql-common', 'postgresql-9.6', 'postgresql-contrib-9.6'].each do |package_name|
     describe "#{package_name}" do
