@@ -638,11 +638,13 @@
                           "report_receive_time" "reports.receive_time"}]
     (match [path]
            [(field :guard (kitchensink/keyset timestamp-fields))]
-           (if-let [timestamp (to-timestamp value)]
-             {:where (format "%s %s ?" (timestamp-fields field) op)
-              :params [(to-timestamp value)]}
-             (throw (IllegalArgumentException.
-                     (i18n/tru "''{0}'' is not a valid timestamp value" value))))
+           (try
+             (let [timestamp (to-timestamp value)]
+               {:where (format "%s %s ?" (timestamp-fields field) op)
+                :params [(to-timestamp value)]})
+             (catch IllegalArgumentException _
+               (throw (IllegalArgumentException.
+                       (i18n/tru "''{0}'' is not a valid timestamp value" value)))))
 
            :else (throw (IllegalArgumentException.
                          (i18n/tru "{0} operator does not support object ''{1}'' for resource events"

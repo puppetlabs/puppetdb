@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.time-test
   (:require [clojure.test :refer :all]
             [clj-time.core :refer [days hours seconds minutes]]
-            [puppetlabs.puppetdb.time :refer :all]))
+            [puppetlabs.puppetdb.time :refer :all])
+  (:import (org.joda.time DateTime DateTimeZone)))
 
 (deftest test-periods-equal?
   (testing "should return true for a single period"
@@ -74,3 +75,12 @@
   (testing "should convert periods in various units to millis"
     (is (= 1000 (to-millis (seconds 1))))
     (is (= (* 1000 60) (to-millis (minutes 1))))))
+
+(deftest test-date-validity
+  (testing "should throw for invalid datetime"
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"Invalid date-time: 2018-08-15 21:11:21 UTC"
+                          (from-string "2018-08-15 21:11:21 UTC"))))
+  (testing "should parse for valid datetime"
+    (is (= (DateTime. 2018 8 15 21 11 21 (. DateTimeZone UTC))
+           (from-string "2018-08-15T21:11:21Z")))))

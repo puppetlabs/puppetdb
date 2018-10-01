@@ -4,11 +4,11 @@
    This namespace contains some utility functions for working with objects
    related to time; it is mostly based off of the `Period` class from
    Java's JodaTime library."
-  (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
-           (org.joda.time Period ReadablePeriod PeriodType DateTime))
   (:require [clj-time.coerce :as tc]
             [clj-time.format :as tf]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
+           (org.joda.time Period ReadablePeriod PeriodType DateTime)))
 
 ;; Functions for parsing Periods from Strings
 
@@ -226,7 +226,9 @@
   more likely formatters first"
   [s :- (s/maybe String)]
   (when s
-    (some #(attempt-date-time-parse % s) ordered-formatters)))
+    (if-let [res (some #(attempt-date-time-parse % s) ordered-formatters)]
+      res
+      (throw (IllegalArgumentException. (str "Invalid date-time: " s))))))
 
 (s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
   "Delegates to clj-time.core/to-timestamp, except when `ts` is a
