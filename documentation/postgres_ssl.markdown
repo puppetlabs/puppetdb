@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Setting up SSL for PostgreSQL"
+title: "PuppetDB: Setting up SSL for PostgreSQL"
 layout: default
 canonical: "/puppetdb/latest/postgres_ssl.html"
 ---
