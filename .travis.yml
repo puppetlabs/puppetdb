@@ -108,11 +108,11 @@ jobs:
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.5.x/srv-5.3.x/pg-9.6
+      env: PDB_TEST=int/openjdk8/pup-6.0.x/srv-6.0.x/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk8/pup-5.5.x/srv-5.3.x/pg-9.6
+      env: PDB_TEST=int/oraclejdk8/pup-6.0.x/srv-6.0.x/pg-9.6
       script: *run-integration-tests
 
     # === rspec tests
@@ -121,7 +121,7 @@ jobs:
       script: ext/travisci/run-rspec-tests master
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=rspec/pup-5.5.x
+      env: PDB_TEST=rspec/pup-6.0.x
       script: ext/travisci/run-rspec-tests 5.5.x
 
 
@@ -140,7 +140,7 @@ jobs:
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.5.x/srv-5.3.x/pg-9.6
+      env: PDB_TEST=int/openjdk8/pup-6.0.x/srv-6.0.x/pg-9.6
       script: *run-integration-tests
       os: osx
 
@@ -151,7 +151,7 @@ jobs:
 
     # === rspec tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=rspec/pup-5.5.x
+      env: PDB_TEST=rspec/pup-6.0.x
       script: ext/travisci/run-rspec-tests 5.5.x
       os: osx
 
