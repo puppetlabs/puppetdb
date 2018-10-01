@@ -4,23 +4,19 @@ CURRENT_DIRECTORY = File.dirname(File.dirname(__FILE__))
 
 describe 'Dockerfile' do
   include_context 'with a docker image'
+  include_context 'with a docker container'
 
   ['puppet-agent', 'puppetdb', 'netcat', 'lsb-release'].each do |package_name|
-    describe package(package_name) do
-      it { is_expected.to be_installed }
+    describe "#{package_name}" do
+      it_should_behave_like 'a running container', "dpkg -l #{package_name}"
     end
   end
 
-  describe file('/opt/puppetlabs/server/bin/puppetdb') do
-    it { should exist }
-    it { should be_executable }
+  describe 'has /opt/puppetlabs/server/bin/puppetdb' do
+    it_should_behave_like 'a running container', 'stat -L /opt/puppetlabs/server/bin/puppetdb', 0, 'Access: \(0755\/\-rwxr\-xr\-x\)'
   end
 
-  describe 'Dockerfile#running' do
-    include_context 'with a docker container'
-
-    describe command('/opt/puppetlabs/server/bin/puppetdb --help') do
-      its(:exit_status) { should eq 0 }
-    end
+  describe 'puppetdb --help' do
+    it_should_behave_like 'a running container', '/opt/puppetlabs/server/bin/puppetdb --help', 0
   end
 end
