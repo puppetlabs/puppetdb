@@ -264,12 +264,14 @@
 ;; we wait on it if it doesn't take too long, and we proceed anyway
 ;; if it does.
 
-(defn test-stop-with-periodic-gc-running [infinite-delay? expected-msg-rx]
+(defn test-stop-with-periodic-gc-running [slow-gc? expected-msg-rx]
   (with-log-output log-output
     (let [gc-blocked (promise)
           gc-proceed (promise)
           gc svcs/collect-garbage]
-      (with-redefs [svcs/stop-gc-wait-ms (constantly default-timeout-ms)
+      (with-redefs [svcs/stop-gc-wait-ms (constantly (if slow-gc?
+                                                       0 ;; no point in waiting
+                                                       default-timeout-ms))
                     svcs/collect-garbage (fn [& args]
                                            (deliver gc-blocked true)
                                            @gc-proceed
@@ -285,7 +287,7 @@
                                                stop-status))
             @gc-blocked
             (is #{:collecting-garbage} @stop-status)
-            (when-not infinite-delay?
+            (when-not slow-gc?
               (deliver gc-proceed true))))))
     (is (= 1 (->> @log-output
                   (logs-matching expected-msg-rx)
