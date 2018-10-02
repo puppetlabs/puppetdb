@@ -59,4 +59,15 @@ EXPOSE 8080 8081
 ENTRYPOINT ["dumb-init", "/docker-entrypoint.sh"]
 CMD ["foreground"]
 
+# The start-period is just a wild guess how long it takes PuppetDB to come
+# up in the worst case. The other timing parameters are set so that it
+# takes at most a minute to realize that PuppetDB has failed.
+HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
+  --start-period=5m CMD \
+  curl --fail --silent \
+  --resolve 'puppetdb:8080:127.0.0.1' \
+  http://puppetdb:8080/status/v1/services/puppetdb-status \
+  | grep -q '"state":"running"' \
+  || exit 1
+
 COPY Dockerfile /
