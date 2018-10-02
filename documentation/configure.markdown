@@ -269,7 +269,8 @@ server. Note that users installing PuppetDB via [the module][module]
 will already have PostgreSQL configured properly and these steps
 should not be necessary.
 
-Ensure that you have PostgreSQL 9.6 running that will accept incoming connections, a user and
+At a minimum, you will need to ensure that you have PostgreSQL 9.6 or
+later running that will accept incoming connections, a user and
 an empty database for PuppetDB. Information on
 connection/authentication configuration in PostgreSQL and be found
 [here](https://www.postgresql.org/docs/9.6/static/auth-pg-hba-conf.html). Docs
