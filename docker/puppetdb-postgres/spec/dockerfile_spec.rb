@@ -4,28 +4,27 @@ CURRENT_DIRECTORY = File.dirname(File.dirname(__FILE__))
 
 describe 'Dockerfile' do
   include_context 'with a docker image'
-
-  describe package('postgresql-common') do
-    it { is_expected.to be_installed }
+  include_context 'with a docker container' do
+    def docker_run_options
+      '-e POSTGRES_PASSWORD=puppetdb -e POSTGRES_USER=puppetdb'
+    end
   end
 
-  describe package('postgresql-9.6') do
-    it { is_expected.to be_installed }
+  ['postgresql-common', 'postgresql-9.6', 'postgresql-contrib-9.6'].each do |package_name|
+    describe "#{package_name}" do
+      it_should_behave_like 'a running container', "dpkg -l #{package_name}"
+    end
   end
 
-  describe package('postgresql-contrib-9.6') do
-    it { is_expected.to be_installed }
+  describe 'postgres --help' do
+    it_should_behave_like 'a running container', 'postgres --help', 0
   end
 
-  describe command('postgres --help') do
-    its(:exit_status) { should eq 0 }
+  describe 'postgres group' do
+    it_should_behave_like 'a running container', 'getent group postgres', 0
   end
 
-  describe group('postgres') do
-    it { should exist }
-  end
-
-  describe user('postgres') do
-    it { should exist }
+  describe 'postgres user' do
+    it_should_behave_like 'a running container', 'id postgres', 0
   end
 end
