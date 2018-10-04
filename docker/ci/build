@@ -18,9 +18,9 @@ function build_and_test_image() {
   : ===
   bundle exec puppet-docker build "$container_name" --no-cache --repository puppet --version "$version"  --build-arg postgres_version="$postgres_version"
   if [[ "$container_name" == 'puppetdb-postgres' ]]; then
-    bundle exec puppet-docker spec "$container_name" --image "puppet:$container_name/$postgres_version"
+    bundle exec puppet-docker spec "$container_name" --image "puppet/$container_name:$postgres_version"
   else
-    bundle exec puppet-docker spec "$container_name" --image "puppet:$container_name/$version"
+    bundle exec puppet-docker spec "$container_name" --image "puppet/$container_name:$version"
   fi
 }
 
