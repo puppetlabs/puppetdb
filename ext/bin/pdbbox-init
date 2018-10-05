@@ -176,4 +176,52 @@ ssl-key = $abs_pdbbox/ssl/pdb.key.pem
 disable-update-checking = true
 EOF
 
+# do some tuning on PostgreSQL
+
+# generally accepted configuration parameters:
+# Set the shared_buffers to be 1/4 of the amount of RAM
+
+case "$OSTYPE" in
+    darwin*)
+        total_ram_bytes=$(sysctl hw.memsize | awk '{ print $2 }')
+        total_ram_kb=$(($total_ram_bytes / 1024)) ;;
+    *)
+        total_ram_kb=$(grep MemTotal: /proc/meminfo | awk '{ print $2 }') ;;
+esac
+
+total_ram_mb=$(($total_ram_kb / 1024))
+# these values come from pgtune and the postgresql tuning wiki
+
+# shared buffers should max out at 1 GB of RAM
+shared_buffers=$(($total_ram_mb / 4))
+if (( $shared_buffers > 1024 )); then
+    shared_buffers=1024
+fi
+
+# do not let this be less than the default value
+maintenance_work_mem=$(($total_ram_mb / 15))
+if (( $maintenance_work_mem < 64 )); then
+    maintenance_work_mem=64
+fi
+
+cat >> "$pdbbox/pg/data/postgresql.conf" <<EOF
+
+# tuning parameters
+shared_buffers = ${shared_buffers}MB
+
+default_statistics_target = 50
+
+maintenance_work_mem = ${maintenance_work_mem}MB
+
+# aim to finish by the time 90% of the next checkpoint is here
+# this will spread out writes
+checkpoint_completion_target = 0.9
+
+work_mem = 96MB
+
+# Increasing wal_buffers from its tiny default of a small number of kilobytes
+# is helpful for write-heavy systems, 16MB is the effective upper bound
+wal_buffers = 8MB
+EOF
+
 touch "$pdbbox/pdbbox"
