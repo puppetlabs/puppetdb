@@ -638,7 +638,7 @@
            [(field :guard (kitchensink/keyset timestamp-fields))]
            (if-let [timestamp (to-timestamp value)]
              {:where (format "%s %s ?" (timestamp-fields field) op)
-              :params [(to-timestamp value)]}
+              :params [timestamp]}
              (throw (IllegalArgumentException.
                      (i18n/tru "''{0}'' is not a valid timestamp value" value))))
 
