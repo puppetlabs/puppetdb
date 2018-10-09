@@ -1763,6 +1763,12 @@
     :boolean {:type :boolean
               :field :fv.value_boolean}))
 
+(defn try-parse-timestamp
+  "Try to convert a string to a timestamp, throwing an exception if it fails"
+  [ts]
+  (or (to-timestamp ts)
+      (throw (IllegalArgumentException. (tru "''{0}'' is not a valid timestamp value" ts)))))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -1774,7 +1780,7 @@
                :timestamp
                (map->BinaryExpression {:operator :=
                                        :column cinfo
-                                       :value (to-timestamp value)})
+                                       :value (try-parse-timestamp value)})
 
                :array
                (map->ArrayBinaryExpression {:column cinfo
@@ -1808,7 +1814,7 @@
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "timestamp"
                                                                    java.sql.Timestamp
-                                                                   (map to-timestamp value))})
+                                                                   (map try-parse-timestamp value))})
 
                 :float
                 (map->InArrayExpression {:column cinfo
@@ -1847,7 +1853,7 @@
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
                                         :value  (if (= :timestamp type)
-                                                  (to-timestamp value)
+                                                  (try-parse-timestamp value)
                                                   value)})
                 (throw
                  (IllegalArgumentException.
