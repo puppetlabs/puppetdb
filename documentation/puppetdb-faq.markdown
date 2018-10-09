@@ -76,6 +76,28 @@ with ActiveRecord in Ruby. We have no plans to support any other databases,
 including MySQL, which lacks important features such as array columns and
 recursive queries.
 
+## Why does it error when `pg_trgm` is not installed?
+
+The expected behavior is a warning when the `pg_trgm` extension is not installed.
+If you are seeing a message that asks you to run `CREATE EXTENSION pg_trgm;`
+then it's not erroring, but we do suggest you install the `pg_trgm` extension.
+The error can be seen in your PostgreSQL log and the PuppetDB log and looks like the output below.
+
+PostgreSQL:
+
+      < 2016-08-10 14:03:04.523 PDT >ERROR: could not access file "$libdir/pg_trgm": No such file or directory
+      < 2016-08-10 14:03:04.523 PDT >STATEMENT: CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)
+
+PuppetDB:
+
+      2018-08-01 18:32:31,433 INFO  [async-dispatch-2] [p.p.s.migrate] Creating additional index `fact_paths_path_trgm`
+      2018-08-01 18:32:31,513 ERROR [async-dispatch-2] [p.t.internal] Error during service start!!!
+      java.sql.BatchUpdateException: Batch entry 0 CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops) was aborted.
+
+This error occurs when the database believes that `pg_trgm` has been installed, but for some
+reason the extension has been uninstalled or removed. Ensure the PostgreSQL extension `pg_trgm` has been installed.
+Depending on your operating system, you may be able to install this extension by installing the `postgresql-contrib` package.
+
 ## The PuppetDB daemon shuts down with a "Cannot assign requested address" error. What does this mean, and how do I fix it?
 
 ~~~
