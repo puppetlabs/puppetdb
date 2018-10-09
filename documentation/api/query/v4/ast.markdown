@@ -159,12 +159,12 @@ Every argument of these operators should be a **complete query string** in its o
 
 To reduce the keypairs returned for each result in the response, you can use **extract**:
 
-    ["extract", ["hash", "certname", "transaction_uuid"]
+    ["extract", ["hash", "certname", "transaction_uuid"],
       ["=", "certname", "foo.com"]]
 
 When only extracting a single column, the [] are optional:
 
-    ["extract", "transaction_uuid"
+    ["extract", "transaction_uuid",
       ["=", "certname", "foo.com"]]
 
 When applying an aggregate function over a `group_by` clause, an extract

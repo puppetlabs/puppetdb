@@ -63,7 +63,7 @@ When the [PuppetDB report processor][puppetdb_report_processor] is enabled on yo
 
 ## Clean up the dead letter office
 
-PuppetDB will react to certain types of processing failures by storing a complete copy of the offending input, along with retry timestamps and error traces, in the "dead letter office" (DLO). Over time, the DLO can grow quite large. If you're not actively troubleshooting an issue, you might be able to recover a significant amount of space by deleting the contents of `/var/lib/puppetdb/mq/discarded` (or `/var/lib/pe-puppetdb/mq/discarded` on Puppet Enterprise).
+PuppetDB will react to certain types of processing failures by storing a complete copy of the offending input, along with retry timestamps and error traces, in the "dead letter office" (DLO). Over time, the DLO can grow quite large. If you're not actively troubleshooting an issue, you might be able to recover a significant amount of space by deleting the contents of the DLO. It can be found at under [PuppetDB's data directory](https://puppet.com/docs/puppetdb/latest/configure.html#vardir) at `stockpile/discard`, which by default is `/opt/puppetlabs/server/data/puppetdb/stockpile/discard`.
 
 ## View the log
 
