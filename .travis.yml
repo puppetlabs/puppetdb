@@ -66,6 +66,11 @@ aliases:
     export PDB_TEST_RICH_DATA
     ext/bin/boxed-integration-tests -- lein test :integration
 
+  - &run-spec-tests |
+    set -e
+    puppet_ref="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pup-)"
+    ext/bin/run-rspec-tests "$puppet_ref"
+
 jobs:
   include:
 
@@ -118,11 +123,11 @@ jobs:
     # === rspec tests
     - stage: ❧ pdb tests
       env: PDB_TEST=rspec/pup-master
-      script: ext/travisci/run-rspec-tests master
+      script: *run-spec-tests
 
     - stage: ❧ pdb tests
       env: PDB_TEST=rspec/pup-6.0.x
-      script: ext/travisci/run-rspec-tests 5.5.x
+      script: *run-spec-tests
 
 
     # ==== osx
@@ -152,7 +157,7 @@ jobs:
     # === rspec tests
     - stage: ❧ pdb tests
       env: PDB_TEST=rspec/pup-6.0.x
-      script: ext/travisci/run-rspec-tests 5.5.x
+      script: *run-spec-tests
       os: osx
 
 on_success: ext/travisci/on-success
