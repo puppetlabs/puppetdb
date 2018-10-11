@@ -32,8 +32,8 @@
   (is (= :unknown (jdk-support-status "huh?")))
   (is (= :official (jdk-support-status "1.8")))
   (is (= :official (jdk-support-status "1.8.0")))
-  (is (= :tested (jdk-support-status "1.10")))
-  (is (= :tested (jdk-support-status "1.10.0"))))
+  (is (= :tested (jdk-support-status "10")))
+  (is (= :tested (jdk-support-status "10.0"))))
 
 (deftest describe-and-return-jdk-status-behavior
   (letfn [(check [version invalid?]
