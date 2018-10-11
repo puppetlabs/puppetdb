@@ -1,6 +1,9 @@
 (def pdb-version "6.0.1-SNAPSHOT")
 (def clj-parent-version "2.3.2")
 
+(defn true-in-env? [x]
+  (#{"true" "yes" "1"} (System/getenv x)))
+
 (defn pdb-run-sh [& args]
   (apply vector
          ["run" "-m" "puppetlabs.puppetdb.dev.lein/run-sh" (pr-str args)]))
@@ -21,6 +24,12 @@
 
 (def need-permgen?
   (= "1.7" (System/getProperty "java.specification.version")))
+
+(def pdb-repositories
+  (if (true-in-env? "PUPPET_SUPPRESS_INTERNAL_LEIN_REPOS")
+    []
+    [["releases" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-releases__local/"]
+     ["snapshots" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-snapshots__local/"]]))
 
 ;; See the integration tests section in documentation/CONTRIBUTING.md.
 (def puppetserver-test-dep-ver
@@ -187,8 +196,7 @@
               ["-XX:MaxPermSize=200M"]
               [])
 
-  :repositories [["releases" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-releases__local/"]
-                 ["snapshots" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-snapshots__local/"]]
+  :repositories ~pdb-repositories
 
   :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
             [lein-cloverage "1.0.6"]
