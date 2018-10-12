@@ -14,7 +14,7 @@ expected_version_warnings=0
 case "$jdkver" in
     8)
         ;;
-    10)
+    10|11)
         expected_help_warnings=0
         expected_version_warnings=535
         ;;
