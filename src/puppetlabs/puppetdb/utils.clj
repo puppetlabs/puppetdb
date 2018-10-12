@@ -41,10 +41,10 @@
 (defn jdk-support-status [version]
   "Returns :official, :tested, or :unknown, or :no."
   (cond
-    (re-matches #"1.[123456]($|(\..*))" version) :no
-    (re-matches #"1.7($|(\..*))" version) :unknown
-    (re-matches #"1.8($|(\..*))*" version) :official
-    (re-matches #"1.10($|(\..*))*" version) :tested
+    (re-matches #"1\.[123456]($|(\..*))" version) :no
+    (re-matches #"1\.7($|(\..*))" version) :unknown
+    (re-matches #"1\.8($|(\..*))" version) :official
+    (re-matches #"10($|(\..*))" version) :tested
     :else :unknown))
 
 (defn describe-and-return-jdk-status [version]
