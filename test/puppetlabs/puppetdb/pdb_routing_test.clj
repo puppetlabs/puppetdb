@@ -41,7 +41,7 @@
 
       (is (-> (query-server-time svc-utils/*base-url*)
               (get-in [:body :server_time])
-              time/from-string))
+              time/parse-wire-datetime))
 
       (let [resp (export svc-utils/*base-url*)]
         (tu/assert-success! resp)

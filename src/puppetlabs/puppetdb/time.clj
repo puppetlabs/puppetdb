@@ -5,7 +5,7 @@
    related to time; it is mostly based off of the `Period` class from
    Java's JodaTime library."
   (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
-           (org.joda.time Period ReadablePeriod PeriodType DateTime))
+           (org.joda.time Period ReadablePeriod PeriodType DateTime DateTimeZone))
   (:require [clj-time.coerce :as tc]
             [clj-time.format :as tf]
             [schema.core :as s]))
@@ -221,13 +221,6 @@
     (tf/parse formatter timestamp-str)
     (catch IllegalArgumentException _ nil)))
 
-(s/defn ^:always-validate from-string :- (s/maybe DateTime)
-  "Similar to the clj-time.coerce/from-string, but prioritizes the
-  more likely formatters first"
-  [s :- (s/maybe String)]
-  (when s
-    (some #(attempt-date-time-parse % s) ordered-formatters)))
-
 (s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
   "Delegates to clj-time.core/to-timestamp, except when `ts` is a
   String. When a String, this funciton will attempt to convert it
@@ -236,5 +229,39 @@
   [ts]
   (tc/to-timestamp
    (if (string? ts)
-     (from-string ts)
+     (when ts
+       (some #(attempt-date-time-parse % ts) ordered-formatters))
      ts)))
+
+;; Parsing wire datetimes, e.g.
+;;   api/wire_format/catalog_format_v9.markdown <datetime>
+
+(defn parse-iso-z
+  "Returns a pdb instant (UTC timestamp) if s represents an ISO
+  formatted timestamp like \"2011-12-03T10:15:30Z\" or nil."
+  [s]
+  ;; Currently represented as a java Instant via DateTimeFormatter/ISO_INSTANT
+  (try
+    (java.time.Instant/parse s)
+    (catch java.time.format.DateTimeParseException ex
+      nil)))
+
+(def parse-offset-iso
+  (let [formatter (java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME)]
+    (fn [s]
+      "Returns a pdb instant (UTC timestamp) if s represents an ISO
+  formatted timestamp with offset like \"2011-12-03T10:15:30+01:00\"
+  or nil."
+      (try
+        (-> (java.time.OffsetDateTime/parse s formatter) .toInstant)
+        (catch java.time.format.DateTimeParseException ex
+          nil)))))
+
+(defn parse-wire-datetime
+  "Parses s as a PuppetDB wire format <datetime> and returns a
+  LocalDate, or nil if the string cannot be parsed."
+  [s]
+  (when s
+    (some-> (or (parse-iso-z s) (parse-offset-iso s))
+            ;; temporary migration shim
+            (-> .toEpochMilli (DateTime. DateTimeZone/UTC)))))

@@ -234,7 +234,7 @@
    :version version
    :certname certname
    :producer-ts (when producer-ts
-                  (pdbtime/from-string producer-ts))
+                  (pdbtime/parse-wire-datetime producer-ts))
    :compression compression
    :callback callback
    :command-stream command-stream})

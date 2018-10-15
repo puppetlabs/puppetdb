@@ -308,7 +308,7 @@
                  :params {"command" "replace catalog"
                           "version" 4
                           "certname" "foo.com"
-                          "producer-timestamp" "2018-11-1"}}
+                          "producer-timestamp" "2018-11-01T00:00:00.000Z"}}
             wait-req (assoc-in req [:params "secondsToWaitForCompletion"] "0.001")]
         ;; These cases differ because we want to skip the processing
         ;; via timeout in the "success" case.

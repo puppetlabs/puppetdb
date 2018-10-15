@@ -1478,7 +1478,7 @@
                  :body
                  first
                  :deactivated
-                 (pt/from-string)))))))
+                 pt/parse-wire-datetime))))))
 
 (deftest command-response-channel
   (svc-utils/with-puppetdb-instance
