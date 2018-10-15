@@ -685,6 +685,25 @@
   "Support fact command versions"
   [:v4])
 
+(defn approx-facts-query []
+  "Get all fact names and their values converting values to text.
+   Returns a vector of maps following the format below:
+   [{:certname \"blarg\" :name \"fact1\" :value \"1\"}]"
+  (query-to-vec
+   "SELECT fp.path as name,
+           COALESCE(fv.value_string,
+                    cast(fv.value_integer as text),
+                    cast(fv.value_boolean as text),
+                    cast(fv.value_float as text),
+                    '') as value,
+           fs.certname
+    FROM factsets fs
+         INNER JOIN facts as f on fs.id = f.factset_id
+         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+         INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+    WHERE fp.depth = 0
+    ORDER BY name ASC"))
+
 (let [certname  "foo.example.com"
       facts     {:certname certname
                  :environment "DEV"
@@ -751,20 +770,7 @@
       (testing "should store the facts"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+          (is (= (approx-facts-query)
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
@@ -797,20 +803,7 @@
                         yesterday))
               (is (= (scf-store/environment-id "DEV") (:environment_id result))))
 
-            (is (= (query-to-vec
-                    "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY fp.path ASC")
+            (is (= (approx-facts-query)
                    [{:certname certname :name "a" :value "1"}
                     {:certname certname :name "b" :value "2"}
                     {:certname certname :name "c" :value "3"}]))
@@ -835,20 +828,7 @@
 
           (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
                  [(with-env {:certname certname :timestamp tomorrow})]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+          (is (= (approx-facts-query)
                  [{:certname certname :name "x" :value "24"}
                   {:certname certname :name "y" :value "25"}
                   {:certname certname :name "z" :value "26"}]))
@@ -866,20 +846,7 @@
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+          (is (= (approx-facts-query)
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
@@ -896,20 +863,7 @@
 
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
+          (is (= (approx-facts-query)
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
