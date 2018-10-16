@@ -4,9 +4,7 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.time :as time]
-            [puppetlabs.puppetdb.client :as pdb-client]
-            [clj-time.coerce :refer [to-string]]
-            [clj-time.core :refer [now]]
+            [puppetlabs.puppetdb.client :as pdb-client] 
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cli.services :as clisvc]
@@ -28,7 +26,7 @@
 
 (def test-facts {:certname "foo.com"
                  :environment "DEV"
-                 :producer_timestamp (to-string (now))
+                 :producer_timestamp (time/now-to-string)
                  :values {:foo 1
                           :bar "2"
                           :baz 3}})

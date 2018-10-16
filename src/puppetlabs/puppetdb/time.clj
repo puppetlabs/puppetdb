@@ -8,7 +8,8 @@
            (org.joda.time Period ReadablePeriod PeriodType DateTime))
   (:require [clj-time.coerce :as tc]
             [clj-time.format :as tf]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [clj-time.core :as t]))
 
 ;; Functions for parsing Periods from Strings
 
@@ -238,3 +239,13 @@
    (if (string? ts)
      (from-string ts)
      ts)))
+
+(defn to-string
+  "Converts a DateTime object to a 'Z' format ISO-8601 string"
+  [ts]
+  (tf/unparse (:date-time tf/formatters) ts))
+
+(defn now-to-string
+  "Gets the current time and returns it as a 'Z' format ISO-8601 string"
+  []
+  (to-string (t/now)))

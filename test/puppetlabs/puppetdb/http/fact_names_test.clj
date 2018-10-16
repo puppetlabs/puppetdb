@@ -12,7 +12,8 @@
                      query-response
                      query-result
                      vector-param]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
+            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.time :as t]))
 
 (def fact-name-endpoints [[:v4 "/v4/fact-names"]])
 
@@ -51,20 +52,20 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar3"})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar1"}))
 
     (let [expected-result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]]
@@ -151,20 +152,20 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar3"})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar1"}))
 
     (testing "query should return appropriate results"

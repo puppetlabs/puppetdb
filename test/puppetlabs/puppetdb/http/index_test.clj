@@ -14,7 +14,8 @@
                      query-response
                      query-result
                      vector-param
-                     with-http-app]]))
+                     with-http-app]]
+            [puppetlabs.puppetdb.time :as t]))
 
 ;; Queries issued at the root query endpoint
 (def endpoints [[:v4 "/v4"]])
@@ -45,25 +46,25 @@
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo1"})
     (scf-store/add-facts! {:certname "host2"
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo2"})
     (scf-store/add-facts! {:certname "host3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo3"})
     (scf-store/add-facts! {:certname "host4"
                            :values facts4
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo4"})
     (scf-store/deactivate-node! "host4")
 
@@ -335,7 +336,7 @@
                         "baz" 3
                         "match" "match"}
                :timestamp right-now
-               :producer_timestamp right-now
+               :producer_timestamp (t/to-string right-now)
                :producer "bar.com"}]
     (with-test-db
       (scf-store/add-certname! "foo.local")
@@ -408,7 +409,7 @@
                           "bar" 2
                           "baz" 3}
                  :timestamp right-now
-                 :producer_timestamp right-now}
+                 :producer_timestamp (t/to-string right-now)}
           resource {:type "File"
                     :title "/etc/apache/apache2.conf"
                     :exported false

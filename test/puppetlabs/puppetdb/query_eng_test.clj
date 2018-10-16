@@ -9,7 +9,8 @@
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.scf.storage-utils :as su]))
+            [puppetlabs.puppetdb.scf.storage-utils :as su]
+            [puppetlabs.puppetdb.time :as t]))
 
 (deftest test-plan-sql
   (let [col1 {:type :string :field :foo}
@@ -197,20 +198,20 @@
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "bar2"})
     (scf-store/add-facts! {:certname "foo3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "bar3"})
     (scf-store/deactivate-node! "foo1")
     (scf-store/add-facts! {:certname "foo1"
                            :values  facts1
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "bar1"}))
 
   (let [expected-result ["domain" "hostname" "kernel" "memorysize"

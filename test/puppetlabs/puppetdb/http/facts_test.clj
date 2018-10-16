@@ -39,7 +39,8 @@
              :refer [call-with-puppetdb-instance]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.puppetdb.time :as t]))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
@@ -543,25 +544,25 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar1"})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer nil})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar4"})
       (scf-store/deactivate-node! "foo4"))
 
@@ -608,19 +609,19 @@
                          :values {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp (now)
+                         :producer_timestamp (t/now-to-string)
                          :producer "mom"})
   (scf-store/add-facts! {:certname "bar"
                          :values {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp (now)
+                         :producer_timestamp (t/now-to-string)
                          :producer "mom"})
   (scf-store/add-facts! {:certname "baz"
                          :values {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp (now)
+                         :producer_timestamp (t/now-to-string)
                          :producer "mom"})
 
   (let [catalog (:empty catalogs)
@@ -681,7 +682,7 @@
                                      :values facts1
                                      :timestamp (now)
                                      :environment "DEV"
-                                     :producer_timestamp (now)
+                                     :producer_timestamp (t/now-to-string)
                                      :producer "bar1"}))
 
             (testing "queries only use the read database"
@@ -750,13 +751,13 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar1"})
       (scf-store/add-facts! {:certname "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)
+                             :producer_timestamp (t/now-to-string)
                              :producer "bar2"}))
 
     (testing "should support fact paging"
@@ -829,35 +830,35 @@
                            :values {"hostname" "c-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:certname "d.local"
                            :values {"uptime_days" "2"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "e.local")
     (scf-store/add-facts! {:certname "e.local"
                            :values {"my_structured_fact" (:value f5)}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
 
     (testing "include total results count"
@@ -968,35 +969,35 @@
                            :values {"my_structured_fact" (:value f3)}
                            :timestamp (now)
                            :environment "C"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "A"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "b2.local")
     (scf-store/add-facts! {:certname "b2.local"
                            :values {"max" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:certname "d.local"
                            :values {"min" "-4"}
                            :timestamp (now)
                            :environment "D"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
 
     (testing "ordering by environment should work"
@@ -1051,22 +1052,22 @@
                                :values facts1
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (t/now-to-string)})
         (scf-store/add-facts! {:certname "foo2"
                                :values facts2
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (t/now-to-string)})
         (scf-store/add-facts! {:certname "foo3"
                                :values facts3
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (t/now-to-string)})
         (scf-store/add-facts! {:certname "foo4"
                                :values facts4
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp (now)}))
+                               :producer_timestamp (t/now-to-string)}))
 
       (doseq [query '[[= environment PROD]
                       [not [= environment DEV]]
@@ -1962,7 +1963,7 @@
                           (let [facts {:certname "foo"
                                        :timestamp (now)
                                        :environment "DEV"
-                                       :producer_timestamp (now)
+                                       :producer_timestamp (t/now-to-string)
                                        :producer "bar"
                                        :values{"foo" "bar"
                                                "baz" "bax"}}]
