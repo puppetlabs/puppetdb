@@ -226,7 +226,9 @@
   more likely formatters first"
   [s :- (s/maybe String)]
   (when s
-    (some #(attempt-date-time-parse % s) ordered-formatters)))
+    (or (some #(attempt-date-time-parse % s) ordered-formatters)
+        (when (re-matches (re-pattern "\\d+") s)
+          (tc/from-long (Long/parseLong s))))))
 
 (s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
   "Delegates to clj-time.core/to-timestamp, except when `ts` is a

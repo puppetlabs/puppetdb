@@ -33,8 +33,7 @@
             [puppetlabs.puppetdb.queue :as queue])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
-           [java.util.concurrent Semaphore]
-           (java.util.zip GZIPOutputStream)))
+           [java.util.concurrent Semaphore]))
 
 (def endpoints [[:v1 "/v1"]])
 
@@ -85,32 +84,6 @@
              (let [response (app (post-request* endpoint
                                                 request-params
                                                 payload))]
-               (assert-success! response)
-
-               (let [cmdref (async/<!! command-chan)]
-                 (is (= {:foo 1
-                         :bar 2}
-                        (:payload (queue/cmdref->cmd q cmdref)))))
-
-               (is (http/json-utf8-ctype? (content-type response)))
-               (is (uuid-in-response? response))))
-
-           (testing "for gzipped json requests"
-             (let [gzipped-payload-stream (ByteArrayOutputStream.)
-                   _ (with-open [gzip-output-stream (GZIPOutputStream.
-                                                     gzipped-payload-stream)]
-                       (->> payload
-                            (.getBytes)
-                            (.write gzip-output-stream)))
-                   gzipped-payload (.toByteArray gzipped-payload-stream)
-                   request (post-request* endpoint
-                                          request-params
-                                          gzipped-payload)
-                   request-with-content-encoding (assoc-in request
-                                                           [:headers
-                                                            "content-encoding"]
-                                                           "gzip")
-                   response (app request-with-content-encoding)]
                (assert-success! response)
 
                (let [cmdref (async/<!! command-chan)]

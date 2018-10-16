@@ -20,7 +20,8 @@
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.time :as pdbtime]
-            [puppetlabs.puppetdb.utils :as utils])
+            [puppetlabs.puppetdb.utils :as utils]
+            [clj-time.format :as tf])
   (:import [org.apache.commons.io IOUtils]
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
@@ -114,6 +115,13 @@
                                        :timed_out false)
                                 http/status-ok)))))))
 
+(defn valid-optional-timestamp
+  "Validates a timestamp if the parameter is not nil"
+  [ts]
+  (if ts
+    (pdbtime/from-string ts) ;; handle unix timestamps as strings
+    true))
+
 (def new-request-schema
   {:params {(s/required-key "command") s/Str
             (s/required-key "version") s/Str
@@ -121,15 +129,28 @@
             (s/required-key "received") s/Str
             (s/optional-key "secondsToWaitForCompletion") s/Str
             (s/optional-key "checksum") s/Str
-            (s/optional-key "producer-timestamp") s/Str}
+            (s/optional-key "producer-timestamp") (s/pred valid-optional-timestamp)}
    :body java.io.InputStream
    s/Any s/Any})
 
 (defn-validated normalize-new-request
   [{:keys [params body] :as req} :- new-request-schema]
-  (-> req
-      (update-in [:params "command"] str/replace "_" " ")
-      (update-in [:params "version"] #(Integer/parseInt %))))
+  (let [result (-> req
+                   (update-in [:params "command"] str/replace "_" " ")
+                   (update-in [:params "version"] #(Integer/parseInt %)))
+        ;; validate the request parameters after normalizing them
+        _ (s/validate new-request-schema req)
+        ;; look inside the request body to see if we have a producer_timestamp,
+        ;; and if we do, make sure it's a yyyy-MM-dd format, which is the only
+        ;; format supported by the commands
+        parsed-body (json/parse-strict body)
+        body-producer-timestamp (get parsed-body "producer_timestamp")
+        body-timestamp-valid (valid-optional-timestamp body-producer-timestamp)]
+    (if body-timestamp-valid
+      (-> result
+          ;; since we read the body, we have to put it back
+          (assoc :body (json/generate-string parsed-body)))
+      (throw (IllegalArgumentException. (tru "''{0}'' is not a valid timestamp value" body-producer-timestamp))))))
 
 (def old-request-schema
   (s/conditional
