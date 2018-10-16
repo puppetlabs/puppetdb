@@ -22,7 +22,8 @@
                      query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]))
+            [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.time :as t]))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
@@ -464,7 +465,7 @@
                            :values {"ipaddress" "1.1.1.1"}
                            :timestamp (now)
                            :environment nil
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"}))
 
   (doseq [[query results] (get versioned-subqueries endpoint)]

@@ -4,7 +4,8 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.reports :as report]
-            [clj-time.core :refer [now plus seconds]]))
+            [clj-time.core :refer [now plus seconds]]
+            [puppetlabs.puppetdb.time :as t]))
 
 (defn change-certname
   "Changes [:certname certname] anywhere in `data` to `new-certname`"
@@ -51,7 +52,7 @@
                                     "uptime_seconds" 10000}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-facts! {:certname web2
                            :values {"ipaddress" "192.168.1.101"
@@ -60,7 +61,7 @@
                                     "uptime_seconds" 13000}
                            :timestamp (plus (now) (seconds 1))
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-facts! {:certname puppet
                            :values {"ipaddress" "192.168.1.110"
@@ -68,7 +69,7 @@
                                     "RedHat" "uptime_seconds" 15000}
                            :timestamp (plus (now) (seconds 2))
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/add-facts! {:certname db
                            :values {"ipaddress" "192.168.1.111"
@@ -76,7 +77,7 @@
                                     "operatingsystem" "Debian"}
                            :timestamp (plus (now) (seconds 3))
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo.com"})
     (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (plus (now) (seconds 1)))

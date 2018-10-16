@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
-            [puppetlabs.puppetdb.examples :refer :all]))
+            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.time :as t]))
 
 (defn get-versioned-response
   [version route]
@@ -56,19 +57,19 @@
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo1"})
     (scf-store/add-facts! {:certname "host2"
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo2"})
     (scf-store/add-facts! {:certname "host3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :producer "foo3"})
     (scf-store/deactivate-node! "host3")
 

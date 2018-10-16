@@ -89,7 +89,7 @@
                          :values {:foo "the foo"
                                   :bar "the bar"
                                   :baz "the baz"}
-                         :producer_timestamp (to-string (now))})
+                         :producer_timestamp (pdbtime/now-to-string)})
                        "")
 
       @(block-until-results 200 (first (get-factsets "foo.local")))
@@ -125,7 +125,7 @@
                         {:certname "foo.local"
                          :environment "DEV"
                          :values {:a "a" :b "b" :c "c"}
-                         :producer_timestamp (to-string (now))})
+                         :producer_timestamp (pdbtime/now-to-string)})
                        "")
 
       @(block-until-results 200 (first (get-factsets "foo.local")))

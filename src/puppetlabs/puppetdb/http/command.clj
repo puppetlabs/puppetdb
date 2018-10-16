@@ -114,6 +114,13 @@
                                        :timed_out false)
                                 http/status-ok)))))))
 
+(defn valid-optional-timestamp
+  "Validates a timestamp if the parameter is not nil"
+  [ts]
+  (if ts
+    (pdbtime/from-string ts) ;; handle unix timestamps as strings
+    true))
+
 (def new-request-schema
   {:params {(s/required-key "command") s/Str
             (s/required-key "version") s/Str
@@ -121,7 +128,7 @@
             (s/required-key "received") s/Str
             (s/optional-key "secondsToWaitForCompletion") s/Str
             (s/optional-key "checksum") s/Str
-            (s/optional-key "producer-timestamp") s/Str}
+            (s/optional-key "producer-timestamp") (s/pred valid-optional-timestamp)}
    :body java.io.InputStream
    s/Any s/Any})
 

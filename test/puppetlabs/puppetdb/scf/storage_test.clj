@@ -29,7 +29,8 @@
             [clj-time.core :refer [ago before? from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.puppetdb.jdbc :as jdbc
-             :refer [call-with-query-rows query-to-vec]]))
+             :refer [call-with-query-rows query-to-vec]]
+            [puppetlabs.puppetdb.time :as t]))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
@@ -251,7 +252,7 @@
         (replace-facts! {:certname certname
                          :values facts
                          :environment "DEV"
-                         :producer_timestamp (now)
+                         :producer_timestamp (t/now-to-string)
                          :timestamp (now)
                          :producer producer})
         (is (= facts (factset-map "some_certname"))))
@@ -267,7 +268,7 @@
         (replace-facts! {:certname certname
                          :values {"foo" "bar"}
                          :environment "DEV"
-                         :producer_timestamp (now)
+                         :producer_timestamp (t/now-to-string)
                          :timestamp (now)
                          :producer producer})
         (is (= {"foo" "bar"} (factset-map "some_certname"))))
@@ -277,7 +278,7 @@
           (replace-facts! {:certname certname
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :timestamp (now)
                            :producer producer})
           (is (= (assoc fact-map  "one more" "here")
@@ -288,7 +289,7 @@
           (replace-facts! {:certname certname
                            :values fact-map
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :timestamp (now)
                            :producer producer})
           (is (= fact-map
@@ -299,7 +300,7 @@
           (replace-facts! {:certname certname
                            :values fact-map
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :timestamp (now)
                            :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
@@ -307,7 +308,7 @@
           (replace-facts! {:certname certname
                            :values (assoc fact-map "another thing" "goes here")
                            :environment "DEV"
-                           :producer_timestamp (now)
+                           :producer_timestamp (t/now-to-string)
                            :timestamp (now)
                            :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
@@ -392,7 +393,7 @@
 (deftest fact-path-value-gc
   (letfn [(facts-now [c v]
             {:certname c :values v
-             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
+             :environment nil :timestamp (now) :producer_timestamp (t/now-to-string) :producer nil})
           (paths [& fact-sets]
             (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
           (values [& fact-sets] (set (mapcat vals fact-sets)))
@@ -714,7 +715,7 @@
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
-(def current-time (str (now)))
+(def current-time (t/now-to-string))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
@@ -1419,7 +1420,7 @@
     (let [catalog (:empty catalogs)
           certname (:certname catalog)]
       (add-certname! certname)
-      (replace-catalog! (assoc catalog :producer_timestamp (now)) (now))
+      (replace-catalog! (assoc catalog :producer_timestamp (t/now-to-string)) (now))
       (is (= [] (expire-stale-nodes (-> 3 days .toPeriod))))
       (is (= (map :certname (query-to-vec "select certname from certnames"))
              [certname])))))
@@ -1433,7 +1434,7 @@
                           {:certname "node1"
                            :values {"foo" "bar"}
                            :environment "DEV"
-                           :producer_timestamp (-> 10 days ago)
+                           :producer_timestamp (t/to-string (-> 10 days ago))
                            :timestamp (-> 2 days ago)
                            :producer "baz.com"})}]
       (doseq [ops (subsets (keys mutators))]
@@ -1448,7 +1449,7 @@
     (let [report (-> (:basic reports)
                      (assoc :environment "ENV2")
                      (assoc :end_time (now))
-                     (assoc :producer_timestamp (now)))]
+                     (assoc :producer_timestamp (t/now-to-string)))]
       (store-example-report! report (now))
       (is (= [] (expire-stale-nodes (-> 1 days .toPeriod)))))))
 
@@ -1456,7 +1457,7 @@
   (let [report-at #(assoc (:basic reports)
                           :environment "ENV2"
                           :end_time %
-                          :producer_timestamp %)
+                          :producer_timestamp (t/to-string %))
         stamp (now)
         stale-stamp-1 (-> 2 days ago)
         stale-stamp-2 (-> 3 days ago)]
@@ -1477,7 +1478,7 @@
   (let [repcat (fn [type stamp]
                  (replace-catalog! (assoc (type catalogs)
                                           :certname "node1"
-                                          :producer_timestamp stamp)
+                                          :producer_timestamp (t/to-string stamp))
                                    stamp))
         stamp (now)
         stale-stamp (-> 2 days ago)]
@@ -1499,11 +1500,11 @@
       (add-certname! "node2")
       (replace-catalog! (assoc catalog
                                :certname "node1"
-                               :producer_timestamp (-> 2 days ago))
+                               :producer_timestamp (t/to-string (-> 2 days ago)))
                         (now))
       (replace-catalog! (assoc catalog
                                :certname "node2"
-                               :producer_timestamp (now))
+                               :producer_timestamp (t/now-to-string))
                         (now))
       (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod)))))))
 
@@ -1561,7 +1562,7 @@
 (deftest-db report-sweep-nullifies-latest-report
   (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
     (let [report1 (assoc (:basic reports) :end_time (-> 12 days ago))
-          report2 (assoc (:basic reports) :certname "bar.local" :end_time (now) :producer_timestamp (now))]
+          report2 (assoc (:basic reports) :certname "bar.local" :end_time (now) :producer_timestamp (t/now-to-string))]
       (add-certname! "foo.local")
       (add-certname! "bar.local")
       (store-example-report! report1 (-> 12 days ago))
@@ -1682,7 +1683,7 @@
                                       (-> report
                                           (assoc :configuration_version "bar")
                                           (assoc :end_time (now))
-                                          (assoc :producer_timestamp (now)))
+                                          (assoc :producer_timestamp (t/now-to-string)))
                                       timestamp))]
           (is (is-latest-report? node new-report-hash))
           (is (not (is-latest-report? node report-hash)))))
@@ -1691,7 +1692,7 @@
                                       (-> report
                                           (assoc :configuration_version "bar")
                                           (assoc :end_time (now))
-                                          (assoc :producer_timestamp (-> -1 days from-now)))
+                                          (assoc :producer_timestamp (t/to-string (-> -1 days from-now))))
                                       timestamp))]
           (is (not (is-latest-report? node old-report-hash)))))))
 
@@ -1701,11 +1702,11 @@
       (let [report1 (assoc report
                            :certname "foo"
                            :end_time (to-string (-> 5 days ago))
-                           :producer_timestamp (to-string (-> 5 days ago)))
+                           :producer_timestamp (t/to-string (-> 5 days ago)))
             report2 (assoc report
                            :certname "bar"
                            :end_time (to-string (-> 2 days ago))
-                           :producer_timestamp (to-string (-> 2 days ago)))]
+                           :producer_timestamp (t/to-string (-> 2 days ago)))]
 
         (store-example-report! report1 timestamp)
         (store-example-report! report2 timestamp)
