@@ -61,7 +61,7 @@
    '[[ring-mock]
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
-     [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
+     [puppetlabs/trapperkeeper-webserver-jetty9 "2.2.0" :classifier "test"]
      [org.flatland/ordered "1.5.3"]
      [org.clojure/test.check "0.9.0"]
      [com.gfredericks/test.chuck "0.2.7" :exclusions
@@ -147,7 +147,7 @@
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
-                 [puppetlabs/trapperkeeper-webserver-jetty9]
+                 [puppetlabs/trapperkeeper-webserver-jetty9 "2.2.0"]
                  [puppetlabs/trapperkeeper-metrics :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
                  [puppetlabs/trapperkeeper-status]
 
