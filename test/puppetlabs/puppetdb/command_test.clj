@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
             [clojure.java.jdbc :as sql]
+            [clojure.string :as str]
             [metrics.counters :as counters]
             [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -72,6 +73,12 @@
     (fs/delete-dir (:path dlo))
     (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
 
+;; define blacklist map to allow use of with-redefs later
+(def blacklist-config {:facts-blacklist [#"blacklisted-fact"
+                                         #"pre.*" #".*suff"
+                                         #"gl.?b" #"p[u].*et"]
+                          :facts-blacklist-type "regex"})
+
 (defn create-message-handler-context [q]
   (let [delay-pool (mk-pool)
         command-chan (async/chan 10)
@@ -81,8 +88,7 @@
         dlo-dir (fs/temp-dir "test-msg-handler-dlo")
         dlo (dlo/initialize (.toPath dlo-dir)
                              (:registry (new-metrics "puppetlabs.puppetdb.dlo"
-                                                     :jmx? false)))
-        blacklisted-facts ["blacklisted-fact"]]
+                                                     :jmx? false)))]
     (map->CommandHandlerContext
      {:handle-message (message-handler
                        q
@@ -92,7 +98,7 @@
                        *db*
                        response-chan
                        stats
-                       blacklisted-facts
+                       blacklist-config
                        (atom {:executing-delayed 0}))
       :command-chan command-chan
       :dlo dlo
@@ -750,16 +756,44 @@
                     certname]
                    {:as-arrays? true}))))))))
 
-  (deftest facts-blacklist
+  (deftest regex-facts-blacklist
     (dotestseq [version fact-versions
-                :let [command (update facts :values #(assoc % "blacklisted-fact" "val"))]]
-      (testing "should ignore the blacklisted fact"
+                :let [command (update facts :values
+                                      #(assoc %
+                                              "blacklisted-fact" "val"
+                                              "prefix" "val"
+                                              "facts-suff" "val"
+                                              "glob" "val"
+                                              "puppet" "val"
+                                              ;; facts below shouldn't be blacklisted
+                                              "notprefix" "val"
+                                              "suff-not" "val"
+                                              "not-blacklisted-fact" "val"))]]
+      (testing "should ignore the blacklisted facts using regex"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-facts :certname :name :value)
-                 [{:certname certname :name "a" :value "1"}
+          (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))))))
+                  {:certname certname :name "c" :value "3"}
+                  {:certname certname :name "not-blacklisted-fact" :value "val"}
+                  {:certname certname :name "notprefix" :value "val"}
+                  {:certname certname :name "suff-not" :value "val"}]
+                 (query-facts :certname :name :value)))))))
+
+    (deftest literal-facts-blacklist
+        (dotestseq [version fact-versions
+                    :let [command (update facts :values
+                                          #(assoc % "blacklisted-fact" "val"))]]
+          (testing "should ignore the blacklisted fact"
+            (with-redefs [blacklist-config
+                          {:facts-blacklist ["blacklisted-fact"]
+                           :facts-blacklist-type "literal"}]
+              (with-message-handler {:keys [handle-message dlo delay-pool q]}
+                (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
+                (is (= [{:certname certname :name "a" :value "1"}
+                        {:certname certname :name "b" :value "2"}
+                        {:certname certname :name "c" :value "3"}]
+                       (query-facts :certname :name :value))))))))
 
   (deftest replace-facts-no-facts
     (dotestseq [version fact-versions
