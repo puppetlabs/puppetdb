@@ -5,7 +5,8 @@
    The schemas in this file define what is expected to be present in the INI file
    and the format expected by the rest of the application."
   (:import [java.security KeyStore]
-           [org.joda.time Minutes Days Period])
+           [org.joda.time Minutes Days Period]
+           [java.util.regex PatternSyntaxException Pattern])
   (:require [puppetlabs.i18n.core :refer [trs]]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -65,8 +66,8 @@
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
-     :facts-blacklist (s/conditional string? String
-                                     sequential? [s/Str])
+     :facts-blacklist pls/Blacklist
+     :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
      ;; completely retired (ignored)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :conn-keep-alive s/Int
@@ -102,6 +103,7 @@
    (s/optional-key :password) String
    (s/optional-key :syntax_pgs) String
    (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
+   :facts-blacklist-type String
    ;; completely retired (ignored)
    :classname String
    (s/optional-key :conn-keep-alive) Minutes
@@ -208,6 +210,31 @@
            "  The [database] section must contain an appropriate"
            " \"//host:port/database\" subname setting.")}))
   config)
+
+(defn check-fact-regex [fact]
+  (try
+    (re-pattern fact)
+    (catch PatternSyntaxException e
+      (.getMessage e))))
+
+(defn convert-blacklist-config
+  "Validate and convert facts blacklist section of db-config to runtime format.
+  Throws a {:type ::cli-error :message m} exception describing errors when compiling
+  facts-blacklist regex patterns if :facts-blacklist-type is set to \"regex\"."
+  [{db-config :database :or {db-config {}} :as config}]
+  (if (= "regex" (:facts-blacklist-type db-config))
+    (let [patts (->> db-config
+                     :facts-blacklist
+                     pls/blacklist->vector
+                     (mapv check-fact-regex))]
+      (when-let [errors (seq (filter string? patts))]
+        (throw+
+         {:type ::cli-error
+          :message
+          (apply str "Unable to parse facts-blacklist patterns:\n"
+                 (interpose "\n" errors))}))
+      (assoc-in config [:database :facts-blacklist] patts))
+    config))
 
 (defn convert-section-config
   "validates and converts a `section-config` to `section-schema-out` using defaults from `section-schema-in`."
@@ -417,7 +444,8 @@
 (def adjust-and-validate-tk-config
   (comp add-web-routing-service-config
         warn-retirements
-        validate-db-settings))
+        validate-db-settings
+        convert-blacklist-config))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept

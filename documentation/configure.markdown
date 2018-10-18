@@ -4,6 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/configure.html"
 ---
 
+[java-patterns]: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
 [logback]: http://logback.qos.ch/manual/configuration.html
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [repl]: ./repl.html
@@ -253,13 +254,6 @@ PuppetDB stores its data in PostgreSQL.
 >
 > Depending on demand, Oracle support may be forthcoming in a future version of PuppetDB. This hasn't been decided yet.
 
-### Facts Blacklist
-
-Optional. Set by declaring `facts-blacklist` in the PuppetDB configuration file. If you provide comma-separated fact names (in the case of an INI config file) or a list of fact names (in the case of a HOCON config file), PuppetDB ignores those facts on ingestion.
-
- * INI: `fact1, fact2, fact3`
- * HOCON: `["fact1", "fact2", "fact3"]`
-
 ### Using PostgreSQL
 
 Before using the PostgreSQL backend, you must set up a PostgreSQL
@@ -446,6 +440,31 @@ The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 1000.
 
+### `facts-blacklist`
+
+Optional.  A list of fact names to be ignored whenever submitted.  The
+`facts-blacklist-type` determines whether the names are matched
+literally or as [Java regular expresions][java-patterns].
+
+The names must be comma-separated in an INI configuration file, or a
+list in a HOCON file:
+
+ * INI: `facts-blacklist = fact1, fact2, fact3`
+ * HOCON: `facts-blacklist = ["fact1", "fact2", "fact3"]`
+
+When matching lterally, the entire fact name (not including the path)
+must completely match one of the `facts-blacklist` entries in order to
+be blacklisted.  When matching regular expressions, the name must
+match the entire pattern.  For example the pattern "xyz" will not
+match the fact "123xyzabc", but ".*xyz.*" will.
+
+### `facts-blacklist-type`
+
+Optional.  When set to `literal` (or not set) the `facts-blacklist`
+names will be matched literally.  When set to `regex` (the only other
+legal value), the names will be matched as [Java regular
+expresions][java-patterns].  See the `facts-blacklist` description
+above for additional information.
 
 `[read-database]` settings
 -----
