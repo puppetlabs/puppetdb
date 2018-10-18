@@ -186,9 +186,8 @@
                  [compojure]
                  [ring/ring-core]
 
-                 ;; Pin version for PDB-3809
-                 [com.fasterxml.jackson.core/jackson-databind]
-
+                 ;; Pin this for PDB-4161 until clj-parent is updated
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.7"]
                  ;; conflict resolution
                  [org.clojure/tools.nrepl "0.2.13"]]
 
