@@ -7,8 +7,9 @@
             [clojure.string :as str]
             [schema.utils :as su]
             [cheshire.custom :as json]
-            [slingshot.slingshot :refer [throw+]]))
-
+            [slingshot.slingshot :refer [throw+]])
+  (:import
+  (java.util.regex Pattern)))
 
 (defrecord DefaultedMaybe [schema default]
   s/Schema
@@ -62,6 +63,12 @@
   "True if `x` is a JodaTime Period"
   [x]
   (instance? org.joda.time.Period x))
+
+(def Blacklist
+  "Schema type for facts-blacklist"
+  (s/if coll?
+    (s/if #(-> % first string?) [s/Str] [s/Regex])
+    s/Str))
 
 (def Timestamp
   "Schema type for JodaTime timestamps"
