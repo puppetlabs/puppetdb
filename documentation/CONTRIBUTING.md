@@ -170,6 +170,13 @@ this:
     $ export PDBBOX="$(pwd)/test-sandbox"
     $ ext/bin/pdbbox-env lein test
 
+Note that in cases where durability and realistic performance aren't
+important (say for routine `lein test` runs), you may see substantially
+better performance if you disable postgres' fsync calls with `-F` like
+this:
+
+    $ ext/bin/pdbbox-env pg_ctl start -o -F -w
+
 Before you can run the integration tests directly, you'll need to
 configure the puppet and puppetserver versions you want to use.
 Assuming you have suitable versions of Ruby and Bundler available, you
