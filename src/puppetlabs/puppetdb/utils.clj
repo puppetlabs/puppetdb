@@ -38,26 +38,6 @@
     (catch Exception _ nil))
   (System/exit status))
 
-(defn jdk-support-status [version]
-  "Returns :official, :tested, or :unknown, or :no."
-  (cond
-    (re-matches #"1\.[123456]($|(\..*))" version) :no
-    (re-matches #"1\.7($|(\..*))" version) :unknown
-    (re-matches #"1\.8($|(\..*))" version) :official
-    (re-matches #"10($|(\..*))" version) :tested
-    :else :unknown))
-
-(defn describe-and-return-jdk-status [version]
-  (let [status (jdk-support-status version)]
-    (case status
-      (:official :tested :unknown) :official
-      :no
-      (do
-        (println-err (str (trs "error: ")
-                          (trs "PuppetDB doesn''t support JDK {0}" version)))
-        (log/error (trs "PuppetDB doesn''t support JDK {0}" version))))
-    status))
-
 (pls/defn-validated diff-fn
   "Run clojure.data/diff on `left` and `right`, calling `left-only-fn`, `right-only-fn` and `same-fn` with
    the results of the call. Those functions should always receive a non-nil argument (though possibly empty)."

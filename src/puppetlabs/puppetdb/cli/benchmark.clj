@@ -38,6 +38,7 @@
    tick."
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
+            [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -545,7 +546,15 @@
        validate-cli!
        benchmark))
 
+(defn cli
+  "Runs the benchmark command as directed by the command line args and
+  returns an appropriate exit status."
+  [args]
+  (run-cli-cmd #(do
+                  (when-let [{:keys [join]} (benchmark-wrapper args)]
+                    (println-err (trs "Press ctrl-c to stop"))
+                    (join))
+                  0)))
+
 (defn -main [& args]
-  (when-let [{:keys [join]} (benchmark-wrapper args)]
-    (println-err (trs "Press ctrl-c to stop"))
-    (join)))
+  (exit (cli args)))

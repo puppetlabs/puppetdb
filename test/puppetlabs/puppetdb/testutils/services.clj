@@ -18,7 +18,7 @@
             [puppetlabs.trapperkeeper.services.scheduler.scheduler-service :refer [scheduler-service]]
             [puppetlabs.trapperkeeper.services.metrics.metrics-service :refer [metrics-webservice]]
             [puppetlabs.puppetdb.client :as pdb-client]
-            [puppetlabs.puppetdb.cli.services :as svcs]
+            [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.http :refer [json-utf8-ctype?]]
@@ -68,7 +68,7 @@
 (def default-services
   [#'jetty9-service
    #'webrouting-service
-   #'svcs/puppetdb-service
+   #'puppetdb-service
    #'command-service
    #'status-service
    #'scheduler-service
