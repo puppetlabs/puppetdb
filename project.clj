@@ -230,7 +230,7 @@
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"
-                       :main-namespace "puppetlabs.puppetdb.main"
+                       :main-namespace "puppetlabs.puppetdb.cli.services"
                        :start-timeout 14400
                        :repo-target "puppet6"
                        :nonfinal-repo-target "puppet6-nightly"

@@ -18,49 +18,6 @@
   (is (= "foo bar\n"
          (tu/with-err-str (println-err "foo" "bar")))))
 
-(deftest jdk-support-status-behavior
-  (is (= :no (jdk-support-status "1.5")))
-  (is (= :no (jdk-support-status "1.5.0")))
-  (is (= :no (jdk-support-status "1.6")))
-  (is (= :no (jdk-support-status "1.6.0")))
-  (is (= :unknown (jdk-support-status "1.60")))
-  (is (= :unknown (jdk-support-status "1.60.1")))
-  (is (= :unknown (jdk-support-status "1.7")))
-  (is (= :unknown (jdk-support-status "1.7.0")))
-  (is (= :unknown (jdk-support-status "1.9")))
-  (is (= :unknown (jdk-support-status "1.9.0")))
-  (is (= :unknown (jdk-support-status "huh?")))
-  (is (= :official (jdk-support-status "1.8")))
-  (is (= :official (jdk-support-status "1.8.0")))
-  (is (= :tested (jdk-support-status "10")))
-  (is (= :tested (jdk-support-status "10.0"))))
-
-(deftest describe-and-return-jdk-status-behavior
-  (letfn [(check [version invalid?]
-            (let [status (jdk-support-status version)
-                  [returned err log]
-                  (let [err (java.io.StringWriter.)]
-                    (binding [*err* err]
-                      (with-log-output log-output
-                        (let [s (describe-and-return-jdk-status version)]
-                          [s (str err) @log-output]))))]
-              (is (= returned status))
-              (if-not invalid?
-                (do
-                  (is (= "" err))
-                  (is (= [] log)))
-                (do
-                  (is (re-matches #"(?s)error: PuppetDB doesn't support.*" err))
-                  (is (= 1 (count log)))
-                  (let [[[category level _ msg]] log]
-                    (is (= "puppetlabs.puppetdb.utils" category))
-                    (is (= :error level))
-                    (is (re-matches #"PuppetDB doesn't support.*" msg)))))))]
-    (check "1.5.0" true)
-    (check "1.8.0" false)
-    (check "1.10.0" false)
-    (check "huh?" false)))
-
 (deftest test-assoc-when
   (is (= {:a 1 :b 2}
          (assoc-when {:a 1 :b 2} :b 100)))

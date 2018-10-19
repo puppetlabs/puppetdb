@@ -50,6 +50,8 @@
             [overtone.at-at :refer [mk-pool every interspaced stop-and-reset-pool!]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.cli.tk-util :refer [run-tk-cli-cmd]]
+            [puppetlabs.puppetdb.cli.util :refer [exit]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
@@ -561,4 +563,15 @@
                             true))
                 #'conf/hook-tk-parse-config-data)]
      (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data hook))
-   (apply tk/main args)))
+   (apply tk/main args)
+   0))
+
+(defn cli
+  "Runs the services command as directed by the command line args and
+  returns an appropriate exit status."
+  ([args] (cli args nil))
+  ([args {:keys [upgrade-and-exit?] :as opts}]
+   (run-tk-cli-cmd #(provide-services args opts))))
+
+(defn -main [& args]
+  (exit (provide-services args)))

@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.cli.fact-storage-benchmark
   (:require [puppetlabs.puppetdb.client :as client]
             [clj-time.core :as t]
+            [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.core.async :as async]
@@ -115,13 +116,25 @@
        (map (fn [row] [(get row k) row]))
        (into {})))
 
-(defn -main [pdb-hostname & [test-name]]
-  (binding [*out* *err*]
-    (println "Running facts benchmark against puppetdb at" pdb-hostname))
+(defn benchmark [args]
+  "Runs benchmark as directed by the command line args."
+  (let [[pdb-hostname & [test-name]] args]
+    (binding [*out* *err*]
+      (println "Running facts benchmark against puppetdb at" pdb-hostname))
 
-  (let [tests (if test-name [test-name] (map :name test-configs))
-        test-configs-by-name (unique-index-by test-configs :name)]
-    (doseq [t tests]
-      (binding [*out* *err*]
-        (println "Running test:" t))
-      (run-fact-submission-benchmark t pdb-hostname (test-configs-by-name t)))))
+    (let [tests (if test-name [test-name] (map :name test-configs))
+          test-configs-by-name (unique-index-by test-configs :name)]
+      (doseq [t tests]
+        (binding [*out* *err*]
+          (println "Running test:" t))
+        (run-fact-submission-benchmark t pdb-hostname (test-configs-by-name t))))
+    0))
+
+(defn cli
+  "Runs the fact-storage-benchmark command as directed by the command
+  line args and returns an appropriate exit status."
+  [args]
+  (run-cli-cmd #(benchmark args)))
+
+(defn -main [& args]
+  (exit (cli args)))

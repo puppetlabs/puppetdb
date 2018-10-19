@@ -1,13 +1,10 @@
 (ns puppetlabs.puppetdb.core
-  "Handles command line arguments."
+  "PuppetDBs normal entry point.  Dispatches to command line subcommands."
   (:require
    [clojure.string :as str]
-   [puppetlabs.puppetdb.cli.benchmark :as benchmark]
-   [puppetlabs.puppetdb.cli.fact-storage-benchmark :as fstore-bench]
-   [puppetlabs.puppetdb.cli.services :as svcs]
-   [puppetlabs.puppetdb.cli.version :as cver]
-   [puppetlabs.puppetdb.utils :as utils]
-   [puppetlabs.trapperkeeper.logging :as logging-utils]))
+   [puppetlabs.puppetdb.cli.util
+    :refer [err-exit-status exit java-version jdk-support-status run-cli-cmd]]
+   [puppetlabs.i18n.core :refer [trs]]))
 
 (def usage-lines
   ["Available subcommands:"
@@ -24,39 +21,33 @@
   (binding [*out* stream]
     (println (str/join "\n" usage-lines))))
 
-(defn help [args success-fn fail-fn]
+(defn help [args]
   (if (zero? (count args))
-    (do (usage *out*) (success-fn))
-    (do (usage *err*) (fail-fn))))
+    (do (usage *out*) 0)
+    (do (usage *err*) err-exit-status)))
 
-;; Only for testing
-(defn java-version [] (System/getProperty "java.version"))
+;; Resolve the subcommands dynamically to avoid loading the world just
+;; to print the version.
+(defn run-resolved [cli-name fn-name args]
+  (let [namespace (symbol (str "puppetlabs.puppetdb.cli." cli-name))]
+    (require (vector namespace))
+    (apply (ns-resolve namespace fn-name) args)))
 
-(defn run-command
-  "Does the real work of invoking a command by attempting to result it and
-   passing in args. `success-fn` is a no-arg function that is called when the
-   command successfully executes.  `fail-fn` is called when a bad command is given
-   or a failure executing a command."
-  [success-fn fail-fn [subcommand & args]]
-  (let [run (case subcommand
-              "help" #(help args success-fn fail-fn)
-              "version" #(apply cver/-main args)
-              "services" #(svcs/provide-services args)
-              "upgrade" #(svcs/provide-services args {:upgrade-and-exit? true})
-              "benchmark" #(apply benchmark/-main args)
-              "fact-storage-benchmark" #(apply fstore-bench/-main args)
-              (do
-                (usage *err*)
-                (fail-fn)))]
-    (if (= :no (utils/describe-and-return-jdk-status (java-version)))
-      (fail-fn)
-      (try
-        (run)
-        (success-fn)
-        (catch Throwable e
-          (logging-utils/catch-all-logger e)
-          (fail-fn))))))
+(defn run-subcommand [subcommand args]
+  "Runs the given subcommand, which should handle shutdown and the
+  process exit status itself."
+  (case subcommand
+    "help" (run-cli-cmd #(help args))
+    "upgrade" (run-resolved "services" 'cli [args {:upgrade-and-exit? true}])
+    "services" (run-resolved "services" 'cli [args])
+
+    ("benchmark" "fact-storage-benchmark" "version")
+    (run-resolved subcommand 'cli [args])
+
+    (do
+      (usage *err*)
+      err-exit-status)))
 
 (defn -main
-  [& args]
-  (run-command #(utils/flush-and-exit 0) #(utils/flush-and-exit 1) args))
+  [subcommand & args]
+  (exit (run-subcommand subcommand args)))
