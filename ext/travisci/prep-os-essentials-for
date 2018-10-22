@@ -15,15 +15,37 @@ test $# -eq 1 || misuse
 spec="$1"
 
 jdk="$(ext/travisci/jdk-from-spec "$spec")"
+jdkver="${jdk##*jdk}"
 pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
 
 case "$OSTYPE" in
     darwin*)
         brew install bash
-        brew tap AdoptOpenJDK/openjdk
-        brew install adoptopenjdk-"$jdk"
         brew install postgresql@"$pgver"
-        hash -r
+
+        case "$jdkver" in
+          8)
+            # Install AdoptOpenJDK 11, we will use this for its cacert
+            brew cask install https://raw.githubusercontent.com/Homebrew/homebrew-cask/636d8f0d1afce664f47620b46571e42b01c93d8c/Casks/adoptopenjdk.rb
+            cacert_path=/Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/lib/security/cacerts
+
+            if test ! -f "$cacert_path"; then
+              echo "The cacerts file did not exist at '$cacert_path'" 1>&2
+              exit 3
+            fi
+
+            brew tap AdoptOpenJDK/openjdk
+            # brew cask install adoptopenjdk8
+            brew cask install "adopt$jdk"
+            old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/jre/lib/security/cacerts"
+            rm "$old_cacert_path"
+            ln -s $cacert_path "$old_cacert_path"
+            ;;
+          *)
+            echo "JDK version '$jdk' is not supported on Mac OSX"
+            exit 3
+            ;;
+        esac
         ;;
     *)
         ;;
