@@ -17,6 +17,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 [upgrade_policy]: ./versioning_policy.html#upgrades
 
+## 6.0.1
+
+PuppetDB 6.0.1 is a new feature and bug-fix release.
+
+### New features
+
+- Added support for fact blacklist regexes. Omits facts whose name completely matched any of the expressions provided. Added a "facts-blacklist-type" database configuration option which defaults to "literal", producing the existing behavior, but can be set to "regex" to indicate that the facts-blacklist items are java patterns. [PDB-3928](https://tickets.puppetlabs.com/browse/PDB-3928)
+- Currently, when building and testing from source, internal Puppet repositories are consulted by default, which may cause the process to take longer than necessary. Until the defaults are changed, the delays can be avoided by setting `PUPPET_SUPPRESS_INTERNAL_LEIN_REPOS=true` in the environment. [PDB-4135](https://tickets.puppetlabs.com/browse/PDB-4135)
+
+### Bug fixes 
+
+- PuppetDB should interpret JDK version numbers correctly when evaluating compatibility at startup. Previously, it was not accounting for the switch from the "1.10..." to 10..." format in newer versions of the JDK. [PDB-4141](https://tickets.puppetlabs.com/browse/PDB-4141)
+
+### Contributors
+Austin Blatt, Claire Cadman, Ethan J. Brown, Michelle Fredette, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary Kent
+
 ## PuppetDB 6.0.0
 
 ### New features
