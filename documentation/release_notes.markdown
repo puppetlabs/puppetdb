@@ -68,6 +68,36 @@ when the minimum successful submissions have been met. ([PDB-4020](https://ticke
 Austin Blatt, Britt Gresham, Charlie Sharpsteen, Garrett Guillotte, Jarret Lavallee
 Molly Waggett, Morgan Rhodes, Rob Browning, and Zachary Kent
 
+## 5.2.6
+
+PuppetDB 5.2.6 is a security, new feature, and bug-fix release.
+
+### Security
+
+- Our dependency on trapperkeeper-webserver-jetty9 was upgraded to 2.2.0 to fix CVE-2017-7658. [PDB-4160](https://tickets.puppetlabs.com/browse/PDB-4160)
+- Our dependency on jackson-databind was upgraded to 2.9.7 to fix CVE-2018-7489. [RE-11706](https://tickets.puppetlabs.com/browse/RE-11706)
+
+
+### New features
+
+- Added support for fact blacklist regexes. Omits facts whose name completely matched any of the expressions provided. Added a "facts-blacklist-type" database configuration option which defaults to "literal", producing the existing behavior, but can be set to "regex" to indicate that the facts-blacklist items are java patterns. [PDB-3928](https://tickets.puppetlabs.com/browse/PDB-3928) 
+- Currently, when building and testing from source, internal Puppet repositories are consulted by default, which may cause the process to take longer than necessary. Until the defaults are changed, the delays can be avoided by setting `PUPPET_SUPPRESS_INTERNAL_LEIN_REPOS=true` in the environment. [PDB-4135](https://tickets.puppetlabs.com/browse/PDB-4135)
+- An `upgrade` subcommand has been added that should be useful for cases where you want to upgrade across multiple major versions without skipping major versions (as per the versioning). [PDB-3993](https://tickets.puppetlabs.com/browse/PDB-3993)
+
+### Bug fixes
+
+- Previously http submission with `command_broadcast` enabled returned the last response. As a result, a failure would be shown if the last connection produced a 503 response, even though there was a successful PuppetDB response and the minimum successful responses had been met. This issue does not occur with responses that raised an exception. Since the Puppet `http_pool` does not raise 503 as an exception, this issue can be seen when the PuppetDB is in maintenance mode. This is now fixed and changes the behavior to send the last successful response when the minimum successful submissions have been met. [PDB-4020](https://tickets.puppetlabs.com/browse/PDB-4020)
+- The find/fix database connection errors after clj-parent 2.0 dep upgrades has now been fixed. [PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952)
+
+###Contributors
+Austin Blatt, Britt Gresham, Claire Cadman, Ethan J. Brown, Garrett Guillotte, Jarret Lavallee, Molly Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary Kent
+
+## 5.2.5
+
+NOTE: This version was not officially released, as additional fixes
+came in between the time we tagged this and the time we were going to
+publish release artifacts.
+
 ## 5.2.4
 
 PuppetDB 5.2.4 is a minor bug-fix release.
