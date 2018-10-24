@@ -186,8 +186,17 @@
                  [compojure]
                  [ring/ring-core]
 
-                 ;; Pin this for PDB-4161 until clj-parent is updated
+                 ;; Explicit pins (that really work): until we resolve
+                 ;; the issue with :dependencies ^:replace in the
+                 ;; ezbake profile below ignoring all the pins
+                 ;; in :dependencies, repeat these pins here and there
+                 ;; below, or they won't affect the jars we ship.  For
+                 ;; now, only include the pins that we added after we
+                 ;; recognized the problem (when fixing CVEs), so we
+                 ;; don't change unrelated deps that have already been
+                 ;; deployed.  Fix CVE-2018-5968 (PDB-4161)
                  [com.fasterxml.jackson.core/jackson-databind "2.9.7"]
+
                  ;; conflict resolution
                  [org.clojure/tools.nrepl "0.2.13"]]
 
@@ -251,7 +260,10 @@
                                                ;; This circular dependency is required because of a bug in
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
                                                ;; in the final package.
-                                               [puppetlabs/puppetdb ~pdb-version]]
+                                               [puppetlabs/puppetdb ~pdb-version]
+
+                                               ;; See "Explicit pins" above
+                                               [com.fasterxml.jackson.core/jackson-databind "2.9.7"]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.8.5"]]}
              :testutils {:source-paths ^:replace ["test"]}
