@@ -12,6 +12,8 @@ usage() { echo "Usage: $cmdname (oraclejdk10|openjdk10|default|...) INSTALLDIR_I
 
 misuse() { usage 1>&2; exit 2; }
 
+# Commit of the install-jdk.sh script, and its sha256 hash
+commit_sha=01d412b27d444f12dd8a1d0b0003ac94ed582539
 known_hash=1dfeb99d8d9485cebde8838d5456fb35de01167a2ecd02bcae4a93ad81023a2a
 
 test "$#" -eq 2 || misuse
@@ -34,12 +36,21 @@ case "$jdktype" in
 esac
 
 install="$2"
+cache_flag="$install/jdk/jdk-$commit_sha"
+
+if test -e "$cache_flag" -a -e "$install/jdk/bin"; then
+  # Correct java version is cached
+  exit 0
+fi
+
+# Clear a previous install, if it exists
+rm -r "$install/jdk" || true
 
 tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-curl -so "$tmpdir/install-jdk.sh" "https://raw.githubusercontent.com/sormuras/bach/01d412b27d444f12dd8a1d0b0003ac94ed582539/install-jdk.sh"
+curl -so "$tmpdir/install-jdk.sh" "https://raw.githubusercontent.com/sormuras/bach/$commit_sha/install-jdk.sh"
 obshash="$("$script_home/sha256sum" < "$tmpdir/install-jdk.sh" | cut -d' ' -f1)"
 
 if test "$obshash" != "$known_hash"; then
@@ -55,3 +66,5 @@ mkdir -p "$install"
 # The unpatched version of openjdk10 does not contain the cacert that signed clojars
 rm "$install/jdk/lib/security/cacerts"
 ln -s /etc/ssl/certs/java/cacerts "$install/jdk/lib/security/cacerts"
+
+touch "$cache_flag"
