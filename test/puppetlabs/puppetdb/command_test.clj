@@ -60,7 +60,8 @@
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
             [overtone.at-at :refer [mk-pool scheduled-jobs]]
-            [puppetlabs.puppetdb.testutils :as tu])
+            [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.trapperkeeper.config :as tkconfig])
   (:import [java.nio.file Files]
            [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
@@ -1360,7 +1361,7 @@
       (is (empty? (fs/list-dir (:path dlo)))))))
 
 (defn- get-config []
-  (conf/get-config (get-service svc-utils/*server* :DefaultedConfig)))
+  (tkconfig/get-config (get-service svc-utils/*server* :ConfigService)))
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance

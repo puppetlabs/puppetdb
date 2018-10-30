@@ -73,13 +73,14 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
-            [robert.hooke :as rh]
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
-            [puppetlabs.i18n.core :refer [trs tru]])
+            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.trapperkeeper.internal :as internal]
+            [puppetlabs.trapperkeeper.config :as tkconfig])
   (:import [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
 
@@ -492,7 +493,7 @@
   for initializing all of the PuppetDB subsystems and registering shutdown hooks
   that trapperkeeper will call on exit."
   PuppetDBServer
-  [[:DefaultedConfig get-config]
+  [[:ConfigService get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
    [:ShutdownService request-shutdown shutdown-on-error]]
   (init [this context]
@@ -556,14 +557,11 @@
   config parsing a bit."
   ([args] (provide-services args nil))
   ([args {:keys [upgrade-and-exit?]}]
-   (let [hook (if upgrade-and-exit?
-                (fn [f args]
-                  (assoc-in (#'conf/hook-tk-parse-config-data f args)
-                            [:global :upgrade-and-exit?]
-                            true))
-                #'conf/hook-tk-parse-config-data)]
-     (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data hook))
-   (apply tk/main args)
+   (let [cli-data (internal/parse-cli-args! args)
+         config (cond-> (-> (tkconfig/parse-config-data cli-data)
+                            (conf/adjust-and-validate-tk-config))
+                  upgrade-and-exit? (assoc-in [:global :upgrade-and-exit?] true))]
+     (tk/run-with-config config cli-data))
    0))
 
 (defn cli

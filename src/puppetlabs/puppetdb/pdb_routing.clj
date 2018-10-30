@@ -97,7 +97,7 @@
    [:PuppetDBServer clean shared-globals query set-url-prefix]
    [:PuppetDBCommandDispatcher enqueue-command]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
-   [:DefaultedConfig get-config]
+   [:ConfigService get-config]
    [:StatusService register-status]]
   (init [this context]
         (let [context-root (get-route this)

@@ -9,7 +9,7 @@
              :refer [*db* clear-db-for-testing! with-test-db]]
             [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
-            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.trapperkeeper.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -200,7 +200,7 @@
 
 (deftest unsupported-database-triggers-shutdown
   (svc-utils/with-single-quiet-pdb-instance
-    (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
+    (let [config (-> (get-service svc-utils/*server* :ConfigService)
                      conf/get-config)
           expected-oldest scf-store/oldest-supported-db]
       (doseq [v [[8 1]
@@ -236,7 +236,7 @@
   ;; tests with the same server, i.e. collect-garbage is only affected
   ;; by its arguments.
   (with-pdb-with-no-gc
-    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+    (let [config (-> *server* (get-service :ConfigService) conf/get-config)
           node-purge-ttl (get-in config [:database :node-purge-ttl])
           deactivation-time (pdbtime/to-timestamp (time/ago node-purge-ttl))
           lock (ReentrantLock.)]
@@ -249,7 +249,7 @@
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)
             (scf-store/deactivate-node! name deactivation-time)))
-        (let [cfg (-> *server* (get-service :DefaultedConfig) conf/get-config)
+        (let [cfg (-> *server* (get-service :ConfigService) conf/get-config)
               db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)]
           (collect-garbage db-cfg lock db-cfg
                            (db-config->clean-request db-cfg)))
@@ -278,7 +278,7 @@
                                            (apply gc args))]
         (with-pdb-with-no-gc
           (let [pdb (get-service *server* :PuppetDBServer)
-                db-cfg (-> *server* (get-service :DefaultedConfig) conf/get-config :database)
+                db-cfg (-> *server* (get-service :ConfigService) conf/get-config :database)
                 stop-status (-> pdb service-context :stop-status)
                 lock (ReentrantLock.)]
             (utils/noisy-future

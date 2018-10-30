@@ -622,7 +622,7 @@
 
 (defservice command-service
   PuppetDBCommandDispatcher
-  [[:DefaultedConfig get-config]
+  [[:ConfigService get-config]
    [:PuppetDBServer shared-globals]]
   (init [this context]
     (let [response-chan (async/chan 1000)

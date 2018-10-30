@@ -6,7 +6,7 @@
             [metrics.gauges :as gauges]
             [metrics.timers :as timers]
             [puppetlabs.puppetdb.admin :as admin]
-            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.trapperkeeper.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.http :as http]
@@ -135,7 +135,7 @@
 
 (deftest node-purge-batch-limits
   (with-pdb-with-no-gc
-    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+    (let [config (-> *server* (get-service :ConfigService) conf/get-config)
           orig-clean @#'cli-svc/clean-puppetdb
           after-clean (CyclicBarrier. 2)
           node-purge-ttl (get-in config [:database :node-purge-ttl])

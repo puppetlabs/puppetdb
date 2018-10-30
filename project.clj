@@ -161,7 +161,7 @@
                  [puppetlabs/kitchensink]
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
-                 [puppetlabs/trapperkeeper]
+                 [puppetlabs/trapperkeeper "1.5.7-SNAPSHOT"]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
                  [puppetlabs/trapperkeeper-metrics]
                  [puppetlabs/trapperkeeper-status]
@@ -177,7 +177,6 @@
                  [instaparse]
                  [me.raynes/fs]
                  [metrics-clojure]
-                 [robert/hooke "1.3.0"]
                  [slingshot]
                  [trptcolin/versioneer]
 

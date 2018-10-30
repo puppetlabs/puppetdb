@@ -443,26 +443,13 @@
 
 (def adjust-and-validate-tk-config
   (comp add-web-routing-service-config
-        warn-retirements
         validate-db-settings
-        convert-blacklist-config))
-
-(defn hook-tk-parse-config-data
-  "This is a robert.hooke compatible hook that is designed to intercept
-   trapperkeeper configuration before it is used, so that we may munge &
-   customize it.  It may throw {:type ::cli-error :message m}."
-  [f args]
-  (adjust-and-validate-tk-config (f args)))
-
-(defn process-config!
-  "Accepts a map containing all of the user-provided configuration values
-  and configures the various PuppetDB subsystems."
-  [config]
-  (-> config
-      configure-globals
-      configure-developer
-      validate-vardir
-      convert-config))
+        convert-blacklist-config
+        configure-globals
+        configure-developer
+        validate-vardir
+        convert-config
+        warn-retirements))
 
 (defn foss? [config]
   (= "puppetdb" (get-in config [:global :product-name])))
@@ -488,18 +475,3 @@
 
 (defn stockpile-dir [config]
   (str (io/file (get-in config [:global :vardir]) "stockpile")))
-
-(defprotocol DefaultedConfig
-  (get-config [this]))
-
-(defn create-defaulted-config-service [config-transform-fn]
-  (tk/service
-   DefaultedConfig
-   [[:ConfigService get-config]]
-   (init [this context]
-         (assoc context :config (config-transform-fn (get-config))))
-   (get-config [this]
-               (:config (service-context this)))))
-
-(def config-service
-  (create-defaulted-config-service process-config!))

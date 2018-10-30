@@ -33,7 +33,6 @@
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service
                                                      maint-mode-service]]
-            [puppetlabs.puppetdb.config :refer [config-service]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.puppetdb.schema :as pls]
             [ring.util.response :as rr]))
@@ -75,8 +74,7 @@
    #'metrics-webservice
    #'dashboard-redirect-service
    #'pdb-routing-service
-   #'maint-mode-service
-   #'config-service])
+   #'maint-mode-service])
 
 (defn clear-counters!
   [metrics]
