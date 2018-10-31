@@ -9,8 +9,7 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s]
-            [clj-time.coerce :as c]))
+            [schema.core :as s]))
 
 (defn get-metric [base-url metric-name]
   (let [url (str (utils/base-url->str base-url)
@@ -41,10 +40,13 @@
     payload :- {s/Any s/Any}
     timeout]
    (let [body (json/generate-string payload)
+         url-params (str
+                     (format "?command=%s&version=%s&certname=%s"
+                             (str/replace command #" " "_") version certname)
+                     (when-let [producer_timestamp (-> payload :producer_timestamp str)]
+                       (format "&producer-timestamp=%s" producer_timestamp)))
          url (str (utils/base-url->str base-url)
-                  (format "?command=%s&version=%s&certname=%s&producer-timestamp=%s"
-                          (str/replace command #" " "_") version certname
-                          (c/from-long (System/currentTimeMillis)))
+                  url-params
                   (when timeout (format "&secondsToWaitForCompletion=%s" timeout)))]
      (http-client/post url {:body body
                             :throw-exceptions false

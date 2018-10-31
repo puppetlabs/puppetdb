@@ -248,13 +248,15 @@
   [q
    command-chan
    ^Semaphore write-semaphore
-   {:keys [command certname command-stream compression] :as command-req} :- queue/command-req-schema]
+   {:keys [command certname command-stream compression] :as command-req} :- queue/command-req-schema
+   maybe-send-cmd-event!]
   (try
     (.acquire write-semaphore)
     (time! (get @metrics :message-persistence-time)
-           (let [cmd (queue/store-command q command-req)
-                 {:keys [id received]} cmd]
-             (async/>!! command-chan cmd)
+           (let [cmdref (queue/store-command q command-req)
+                 {:keys [id received]} cmdref]
+             (async/>!! command-chan cmdref)
+             (maybe-send-cmd-event! cmdref ::ingested)
              (log/debug (trs "[{0}-{1}] ''{2}'' command enqueued for {3}"
                              id
                              (tcoerce/to-long received)
@@ -488,10 +490,11 @@
 
 (defn discard-message
   "Discards the given `cmdref` caused by `ex`"
-  [cmdref ex q dlo]
+  [cmdref ex q dlo maybe-send-cmd-event!]
   (-> cmdref
       (queue/cons-attempt ex)
       (dlo/discard-cmdref q dlo))
+  (maybe-send-cmd-event! cmdref ::processed)
   (let [{:keys [command version]} cmdref]
     (mark-both-metrics! command version :discarded)
     (update-counter! :depth command version dec!)))
@@ -501,11 +504,12 @@
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
   [{:keys [command version certname id received] :as cmdref}
-   q scf-write-db response-chan stats blacklist-config]
+   q scf-write-db response-chan stats blacklist-config maybe-send-cmd-event!]
   (process-command-and-respond! cmdref scf-write-db response-chan stats blacklist-config)
   (log-command-processed-messsage id received (now) (command-keys command)
                                   certname {:obsolete-cmd? true})
   (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
+  (maybe-send-cmd-event! cmdref ::processed)
   (update-counter! :depth command version dec!)
   (update-counter! :invalidated command version dec!))
 
@@ -513,7 +517,7 @@
   "Parses, processes and acknowledges a successful command ref and
   updates the relevant metrics. Any exceptions that arise are
   unhandled and expected to be caught by the caller."
-  [cmdref q scf-write-db response-chan stats blacklist-config]
+  [cmdref q scf-write-db response-chan stats blacklist-config maybe-send-cmd-event!]
   (let [{:keys [command version] :as cmd} (queue/cmdref->cmd q cmdref)
         retries (count (:attempts cmdref))]
     (if-not cmd
@@ -522,7 +526,8 @@
         (create-metrics-for-command! command version)
         (mark-both-metrics! command version :seen)
         (update-counter! :depth command version dec!)
-        (mark! (global-metric :fatal)))
+        (mark! (global-metric :fatal))
+        (maybe-send-cmd-event! cmdref ::processed))
       (do
         (create-metrics-for-command! command version)
 
@@ -538,6 +543,7 @@
          (mark-both-metrics! command version :processed))
 
         (queue/ack-command q cmd)
+        (maybe-send-cmd-event! cmdref ::processed)
         (update-counter! :depth command version dec!)))))
 
 (def command-delay-ms (* 1000 60 60))
@@ -581,7 +587,7 @@
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool scf-write-db response-chan stats
-   blacklist-config stop-status]
+   blacklist-config stop-status maybe-send-cmd-event!]
   (fn [{:keys [certname command version received delete? id] :as cmdref}]
     (try+
 
@@ -594,17 +600,19 @@
          (update! (cmd-metric command version :queue-time) q-time)))
 
      (if delete?
-       (process-delete-cmdref cmdref q scf-write-db response-chan stats blacklist-config)
+       (process-delete-cmdref cmdref q scf-write-db response-chan
+                              stats blacklist-config maybe-send-cmd-event!)
        (let [retries (count (:attempts cmdref))]
          (try+
-          (process-cmdref cmdref q scf-write-db response-chan stats blacklist-config)
+          (process-cmdref cmdref q scf-write-db response-chan stats
+                          blacklist-config maybe-send-cmd-event!)
           (catch fatal? obj
             (mark! (global-metric :fatal))
             (let [ex (:cause obj)]
               (log/error
                (:wrapper &throw-context)
                (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-              (discard-message cmdref ex q dlo)))
+              (discard-message cmdref ex q dlo maybe-send-cmd-event!)))
           (catch Exception _
             (let [ex (:throwable &throw-context)]
               (mark-both-metrics! command version :retried)
@@ -619,13 +627,13 @@
                   (log/error
                    ex
                    (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
-                  (discard-message cmdref ex q dlo))))))))
+                  (discard-message cmdref ex q dlo maybe-send-cmd-event!))))))))
 
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
        (log/error (:wrapper &throw-context)
                   (trs "Fatal error parsing command: {0}" (:id cmdref)))
-       (discard-message cmdref (:throwable &throw-context) q dlo)))))
+       (discard-message cmdref (:throwable &throw-context) q dlo maybe-send-cmd-event!)))))
 
 (def stop-commands-wait-ms (constantly 5000))
 
@@ -677,7 +685,7 @@
          ;; which means we've done everything that needs to be done.
          (request-shutdown)
          context)
-       (let [{:keys [command-chan scf-write-db q]} globals
+       (let [{:keys [command-chan scf-write-db q maybe-send-cmd-event!]} globals
              {:keys [response-chan response-pub]} context
              ;; From mq_listener
              command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
@@ -693,7 +701,8 @@
                                              :database
                                              (select-keys [:facts-blacklist
                                                            :facts-blacklist-type]))
-                                         (:stop-status context))]
+                                         (:stop-status context)
+                                         maybe-send-cmd-event!)]
 
          (doto (Thread. (fn []
                           (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
@@ -735,13 +744,14 @@
                    (enqueue-command this command version certname producer-ts command-stream compression identity))
 
   (enqueue-command [this command version certname producer-ts command-stream compression command-callback]
-    (let [config (get-config)
-          q (:q (shared-globals))
-          command-chan (:command-chan (shared-globals))
-          write-semaphore (:write-semaphore (service-context this))
-          command (if (string? command) command (command-names command))
-          command-req (queue/create-command-req command version certname producer-ts compression command-callback command-stream)
-          result (do-enqueue-command q command-chan write-semaphore command-req)]
+   (let [config (get-config)
+         globals (shared-globals)
+         q (:q globals)
+         command-chan (:command-chan globals)
+         write-semaphore (:write-semaphore (service-context this))
+         command (if (string? command) command (command-names command))
+         command-req (queue/create-command-req command version certname producer-ts compression command-callback command-stream)
+         result (do-enqueue-command q command-chan write-semaphore command-req (:maybe-send-cmd-event! globals))]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (inc-cmd-depth command version)
       (swap! (:stats (service-context this)) update :received-commands inc)
