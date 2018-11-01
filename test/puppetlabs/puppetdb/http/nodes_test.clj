@@ -567,7 +567,11 @@
 
       (is-query-result' ["=" "report_timestamp" web1-report-ts] [web1])
       (is-query-result' [">" "report_timestamp" web1-report-ts] [db puppet])
-      (is-query-result' [">=" "report_timestamp" web1-report-ts] [web1 db puppet]))))
+      (is-query-result' [">=" "report_timestamp" web1-report-ts] [web1 db puppet])))
+
+  (let [res (->> ["<" "catalog_timestamp" "'2018-08-15 21:11:21 UTC'"]
+                 (query-response method endpoint))]
+    (is (= 400 (:status res)))))
 
 (def invalid-projection-queries
   (omap/ordered-map
