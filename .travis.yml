@@ -20,8 +20,22 @@ aliases:
   - &run-core-and-ext-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
-    if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
+    jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
+    case "$OSTYPE" in
+      linux*)
+          jdk_switcher use "$jdk";
+        ;;
+      darwin*)
+        export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home"
+        export PATH="$JAVA_HOME/bin:$PATH"
+        hash -r
+        ;;
+      *)
+        echo "$OSTYPE is not a supported system" 1>&2
+        exit 2
+        ;;
+    esac
     mkdir -p ext/travisci/local
     export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
     ext/bin/require-leiningen default ext/travisci/local
@@ -35,8 +49,22 @@ aliases:
   - &run-integration-tests |
     set -e
     jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
-    if test "$(uname)" = Linux; then jdk_switcher use "$jdk"; fi
+    jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
+    case "$OSTYPE" in
+      linux*)
+          jdk_switcher use "$jdk";
+        ;;
+      darwin*)
+        export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home"
+        export PATH="$JAVA_HOME/bin:$PATH"
+        hash -r
+        ;;
+      *)
+        echo "$OSTYPE is not a supported system" 1>&2
+        exit 2
+        ;;
+    esac
     mkdir -p ext/travisci/local
     export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
     ext/bin/require-leiningen default ext/travisci/local
