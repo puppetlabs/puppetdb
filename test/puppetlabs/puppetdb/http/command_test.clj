@@ -305,7 +305,8 @@
                  :body "more than ten characters"
                  :params {"command" "replace catalog"
                           "version" 4
-                          "certname" "foo.com"}}
+                          "certname" "foo.com"
+                          "producer-timestamp" "2018-11-1"}}
             wait-req (assoc-in req [:params "secondsToWaitForCompletion"] "0.001")]
         ;; These cases differ because we want to skip the processing
         ;; via timeout in the "success" case.
@@ -314,11 +315,16 @@
             (is (= http/status-ok
                    (:status (no-max-app req)))))
 
-          (is (= "more than ten characters"
-                 (->> (async/<!! command-chan)
-                      queue/cmdref->entry
-                      (stock/stream q)
-                      slurp)))
+          (let [test-cmdref (async/<!! command-chan)]
+            (is (= "more than ten characters"
+                   (->> test-cmdref
+                        queue/cmdref->entry
+                        (stock/stream q)
+                        slurp)))
+
+            ;; test producer-timestamp is included in cmdref
+            (is (= "2018-11-01T00:00:00.000Z"
+                   (str (:producer-ts test-cmdref)))))
 
           (testing "(with timeout),"
             (testing "when disabled, allows larger size"
