@@ -1797,17 +1797,6 @@
           (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
 
-(defn- fv-variant [x]
-  (case x
-    :integer {:type :integer
-              :field :fv.value_integer}
-    :float {:type :float
-            :field :fv.value_float}
-    :string {:type :string
-             :field :fv.value_string}
-    :boolean {:type :boolean
-              :field :fv.value_boolean}))
-
 (defn try-parse-timestamp
   "Try to convert a string to a timestamp, throwing an exception if it fails"
   [ts]
