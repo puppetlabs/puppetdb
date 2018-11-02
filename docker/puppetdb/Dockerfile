@@ -10,6 +10,9 @@ ENV UBUNTU_CODENAME="xenial"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
+ENV PUPPETDB_NODE_TTL=7d
+ENV PUPPETDB_NODE_PURGE_TTL=14d
+ENV PUPPETDB_REPORT_TTL=14d
 ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
 ENV PATH="/opt/puppetlabs/server/bin:/opt/puppetlabs/puppet/bin:/opt/puppetlabs/bin:$PATH"
 
