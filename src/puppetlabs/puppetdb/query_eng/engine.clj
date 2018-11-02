@@ -1797,6 +1797,12 @@
           (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
 
+(defn try-parse-timestamp
+  "Try to convert a string to a timestamp, throwing an exception if it fails"
+  [ts]
+  (or (to-timestamp ts)
+      (throw (IllegalArgumentException. (tru "''{0}'' is not a valid timestamp value" ts)))))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -1814,7 +1820,7 @@
                :timestamp
                (map->BinaryExpression {:operator :=
                                        :column cinfo
-                                       :value (to-timestamp value)})
+                                       :value (try-parse-timestamp value)})
 
                :array
                (map->ArrayBinaryExpression {:column cinfo
@@ -1890,7 +1896,7 @@
                 (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
-                                        :value (to-timestamp value)})
+                                        :value (try-parse-timestamp value)})
 
                 (and (number? value) (#{:numeric} type))
                 (map->BinaryExpression {:operator (keyword op)
