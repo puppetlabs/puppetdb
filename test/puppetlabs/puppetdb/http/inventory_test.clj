@@ -8,12 +8,12 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
             [flatland.ordered.map :as omap]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.http :refer [*app*
                                                         query-response
                                                         deftest-http-app]]
             [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   assert-success!]]))
+                                                   assert-success!]]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (def inventory-endpoints [[:v4 "/v4/inventory"]])
 

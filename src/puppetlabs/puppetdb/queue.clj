@@ -28,7 +28,7 @@
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :as pdbtime]))
+            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -233,8 +233,7 @@
   {:command command
    :version version
    :certname certname
-   :producer-ts (when producer-ts
-                  (pdbtime/parse-wire-datetime producer-ts))
+   :producer-ts (some-> producer-ts parse-wire-datetime)
    :compression compression
    :callback callback
    :command-stream command-stream})
@@ -341,7 +340,7 @@
 (s/defn store-command
   [q
    command-req :- command-req-schema]
-  (let [current-time (time/now)
+  (let [current-time (now)
         entry (store-in-stockpile q
                                   current-time
                                   command-req)]

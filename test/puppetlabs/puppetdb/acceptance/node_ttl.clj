@@ -5,9 +5,9 @@
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.http :as tuhttp]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.test-protocols :refer [called?]]))
+            [puppetlabs.puppetdb.test-protocols :refer [called?]]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (deftest test-node-ttl
   (tu/with-coordinated-fn run-purge-nodes puppetlabs.puppetdb.cli.services/purge-nodes!

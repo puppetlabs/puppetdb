@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.http :as http]
             [ring.middleware.multipart-params :as mp]
             [puppetlabs.puppetdb.query.summary-stats :as ss]
-            [clj-time.core :refer [now]]
+            [puppetlabs.puppetdb.time :refer [now]]
             [ring.util.io :as rio]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.middleware :as mid]

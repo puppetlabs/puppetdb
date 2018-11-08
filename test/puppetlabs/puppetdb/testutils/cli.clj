@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.cli
   (:require [clj-time.coerce :as time-coerce]
-            [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -14,6 +13,7 @@
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [puppetlabs.puppetdb.time :refer [now]]
             [clojure.walk :as walk]))
 
 (defn get-nodes []
@@ -51,14 +51,14 @@
             :bar "the bar"
             :baz "the baz"
             :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
-   :producer_timestamp (time-coerce/to-string (time/now))
+   :producer_timestamp (time-coerce/to-string (now))
    :producer example-producer})
 
 (def example-catalog
   (-> examples/wire-catalogs
       (get-in [9 :empty])
       (assoc :certname example-certname
-             :producer_timestamp (time/now))))
+             :producer_timestamp (now))))
 
 (def example-report
   (-> examples-reports/reports

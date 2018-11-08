@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.index-test
-  (:require [clj-time.core :refer [now]]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples :as examples]
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.http :as http]
@@ -14,7 +13,8 @@
                      query-response
                      query-result
                      vector-param
-                     with-http-app]]))
+                     with-http-app]]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 ;; Queries issued at the root query endpoint
 (def endpoints [[:v4 "/v4"]])

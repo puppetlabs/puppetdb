@@ -19,9 +19,9 @@
             GzipCompressorOutputStream
             GzipCompressorInputStream])
   (:require [clojure.java.io :refer :all]
-            [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-date]]
-            [puppetlabs.i18n.core :refer [tru]]))
+            [puppetlabs.i18n.core :refer [tru]]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 ;; A simple type for writing tar/gz streams
 (defrecord TarGzWriter [tar-stream tar-writer gzip-stream]

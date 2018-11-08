@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.http.reports-test
   (:require [clj-time.coerce :refer [to-date-time to-string] :as tcoerce]
-            [clj-time.core :refer [now ago days]]
+            [clj-time.core :refer [ago days]]
             [clj-time.format :as tfmt]
             [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys]]
@@ -27,7 +27,8 @@
                      ordered-query-result
                      vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
-                                                           munge-reports-for-comparison]]))
+                                                           munge-reports-for-comparison]]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (def endpoints [[:v4 "/v4/reports"]])
 

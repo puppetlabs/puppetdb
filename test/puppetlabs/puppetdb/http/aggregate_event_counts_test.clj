@@ -4,7 +4,6 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [clj-time.core :refer [now]]
             [clj-time.coerce :as coerce]
             [puppetlabs.puppetdb.testutils :refer [assert-success! ]]
             [puppetlabs.puppetdb.testutils.http
@@ -15,7 +14,8 @@
                      vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [with-corrective-change
                                                            without-corrective-change
-                                                           store-example-report!]]))
+                                                           store-example-report!]]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (def endpoints [[:v4 "/v4/aggregate-event-counts"]])
 

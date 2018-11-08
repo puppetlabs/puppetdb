@@ -19,7 +19,6 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [clj-time.format :as time]
-            [clj-time.core :refer [now before?]]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]

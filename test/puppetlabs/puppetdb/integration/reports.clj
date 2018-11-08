@@ -3,11 +3,11 @@
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clj-time.core :refer [now]]
-            [clj-time.core :refer [now days plus]]
+            [clj-time.core :refer [days plus]]
             [metrics.counters :as counters]
             [puppetlabs.puppetdb.cli.services :as pdb-services]
-            [puppetlabs.puppetdb.testutils :as tu]))
+            [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn add-2-days [timestamp]
   (plus timestamp (days 2)))

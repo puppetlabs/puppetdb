@@ -6,11 +6,11 @@
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.client :as pdb-client]
             [clj-time.coerce :refer [to-string]]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cli.services :as clisvc]
             [puppetlabs.puppetdb.pdb-routing :refer :all]
+            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.http.client.sync :as http]))
 

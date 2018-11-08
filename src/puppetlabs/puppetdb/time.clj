@@ -7,8 +7,12 @@
   (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
            (org.joda.time Period ReadablePeriod PeriodType DateTime DateTimeZone))
   (:require [clj-time.coerce :as tc]
+            [clj-time.core]
             [clj-time.format :as tf]
             [schema.core :as s]))
+
+(def now clj-time.core/now)
+;; If we end up switching directly to java.time: OffsetDateTime/now
 
 ;; Functions for parsing Periods from Strings
 

@@ -8,8 +8,8 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils :refer [with-fixtures]]
-            [clj-time.coerce :refer [to-timestamp]]
-            [clj-time.core :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]]
+            [clj-time.coerce :refer [to-timestamp]]))
 
 (deftest resource-count
   (with-test-db
