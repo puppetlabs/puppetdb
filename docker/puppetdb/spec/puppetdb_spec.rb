@@ -49,16 +49,10 @@ describe 'puppetdb container specs' do
     return id
   end
 
-  def run_puppetserver_container
-    %x(docker run --rm --detach \
-      --name puppet \
-      --hostname puppet \
-      --publish-all \
-      puppet/puppetserver).chomp
-  end
-
   def run_puppetdb_container
+    # skip Postgres SSL initialization for tests with USE_PUPPETSERVER
     %x(docker run --rm --detach \
+      --env USE_PUPPETSERVER=false \
       --name puppetdb \
       --hostname puppetdb \
       --publish-all \
@@ -99,8 +93,7 @@ describe 'puppetdb container specs' do
     # since pdb doesn't have a proper healthcheck yet, this could spin forever
     # add a timeout so it eventually returns.
     # puppetdb entrypoint waits on a response from the master
-    # 12 minutes seems ludicrous, but lets try it
-    Timeout::timeout(720) do
+    Timeout::timeout(240) do
       while status != 'running'
         sleep(1)
         status = get_puppetdb_state
@@ -128,7 +121,6 @@ describe 'puppetdb container specs' do
       fail error_message
     end
 
-    @server_container = run_puppetserver_container
     @pdb_container = run_puppetdb_container
   end
 
@@ -136,7 +128,6 @@ describe 'puppetdb container specs' do
     [
       @postgres_container,
       @pdb_container,
-      @server_container,
     ].each do |id|
       STDOUT.puts("Killing container #{id}")
       %x(docker container kill #{id})
