@@ -6,7 +6,7 @@ master_running() {
 }
 
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
-if [ ! -d "/etc/puppetlabs/puppetdb/ssl" ]; then
+if [ ! -d "/etc/puppetlabs/puppetdb/ssl" ] && [ "$USE_PUPPETSERVER" = true ]; then
   while ! master_running; do
     sleep 1
   done
