@@ -11,10 +11,13 @@ if [ ! -d "/etc/puppetlabs/puppetdb/ssl" ] && [ "$USE_PUPPETSERVER" = true ]; th
     sleep 1
   done
   set -e
-  /opt/puppetlabs/bin/puppet config set certname "$HOSTNAME"
-  /opt/puppetlabs/bin/puppet config set server "$PUPPETSERVER_HOSTNAME"
-  /opt/puppetlabs/bin/puppet agent --verbose --onetime --no-daemonize --waitforcert 120
-  /opt/puppetlabs/server/bin/puppetdb ssl-setup -f
+  puppet config set certname "$HOSTNAME"
+  puppet config set server "$PUPPETSERVER_HOSTNAME"
+  puppet agent --verbose --onetime --no-daemonize --waitforcert 120
+  # /opt/puppetlabs/server/bin/puppetdb ssl-setup -f
+  /ssl-setup.sh -f
 fi
 
-exec /opt/puppetlabs/server/bin/puppetdb "$@"
+# exec /opt/puppetlabs/server/bin/puppetdb "$@"
+exec java -cp /puppetdb.jar clojure.main -m puppetlabs.puppetdb.core "$@" \
+    -c /etc/puppetlabs/puppetdb/conf.d/

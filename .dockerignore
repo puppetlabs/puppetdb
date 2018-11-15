@@ -1,0 +1,7 @@
+*
+!project.clj
+!src
+!resources
+!documentation
+!docker/puppetdb
+#!Dockerfile.slim
