@@ -42,7 +42,7 @@ function Build-Container(
     '--tag', "$Namespace/puppetdb:latest"
   )
 
-  docker build $docker_args puppetdb
+  docker build $docker_args ..
 
   Pop-Location
 }
