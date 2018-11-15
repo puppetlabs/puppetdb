@@ -271,7 +271,7 @@
                                                   [puppetlabs/puppetdb ~pdb-version]
                                                   [org.clojure/tools.nrepl nil]])
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.8.5"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.8.10"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
