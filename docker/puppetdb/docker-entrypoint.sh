@@ -6,8 +6,8 @@ master_running() {
 }
 
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
-/opt/puppetlabs/bin/puppet config set certname "$HOSTNAME"
-/opt/puppetlabs/bin/puppet config set server "$PUPPETSERVER_HOSTNAME"
+# /opt/puppetlabs/bin/puppet config set certname "$HOSTNAME"
+# /opt/puppetlabs/bin/puppet config set server "$PUPPETSERVER_HOSTNAME"
 
 if [ ! -f "/etc/puppetlabs/puppet/ssl/certs/${HOSTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ]; then
   # if this is our first run, run puppet agent to get certs in place
@@ -15,10 +15,14 @@ if [ ! -f "/etc/puppetlabs/puppet/ssl/certs/${HOSTNAME}.pem" ] && [ "$USE_PUPPET
     sleep 1
   done
   set -e
-  /opt/puppetlabs/bin/puppet agent --verbose --onetime --no-daemonize --waitforcert 120
+  # /opt/puppetlabs/bin/puppet agent --verbose --onetime --no-daemonize --waitforcert 120
+  /ssl.sh
 fi
 if [ ! -d "/etc/puppetlabs/puppetdb/ssl" ] && [ "$USE_PUPPETSERVER" = true ]; then
-  /opt/puppetlabs/server/bin/puppetdb ssl-setup -f
+  # /opt/puppetlabs/server/bin/puppetdb ssl-setup -f
+  /ssl-setup.sh -f
 fi
 
-exec /opt/puppetlabs/server/bin/puppetdb "$@"
+# exec /opt/puppetlabs/server/bin/puppetdb "$@"
+exec java -cp /puppetdb.jar clojure.main -m puppetlabs.puppetdb.core "$@" \
+    -c /etc/puppetlabs/puppetdb/conf.d/
