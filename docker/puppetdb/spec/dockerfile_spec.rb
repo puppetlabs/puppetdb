@@ -8,7 +8,7 @@ describe 'Dockerfile' do
 
   ['puppet-agent', 'puppetdb', 'netcat', 'lsb-release'].each do |package_name|
     describe "#{package_name}" do
-      it_should_behave_like 'a running container', "dpkg -l #{package_name}"
+      it_should_behave_like 'a running container', "dpkg -l #{package_name}", 0, "#{package_name}"
     end
   end
 

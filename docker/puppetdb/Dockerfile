@@ -11,6 +11,9 @@ ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
 ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
+# used by entrypoint to determine if puppetserver should be contacted for config
+# set to false when container tests are run
+ENV USE_PUPPETSERVER=true
 ENV PATH="/opt/puppetlabs/server/bin:/opt/puppetlabs/puppet/bin:/opt/puppetlabs/bin:$PATH"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
