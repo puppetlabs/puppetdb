@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Redirect all output to stdout when running as a container
+exec 2>&1
+
 master_running() {
     status=$(curl --silent --fail --insecure "https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple")
     test "$status" = "running"
