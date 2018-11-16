@@ -25,9 +25,7 @@ describe 'puppetdb container specs' do
       'stellirin/postgres-windows:9.6'
     %x(docker pull #{image_name})
 
-    postgres_custom_source = File::ALT_SEPARATOR.nil? ?
-      '$(pwd)/postgres-custom' :
-      File.join(File.expand_path(__dir__), '..\postgres-custom')
+    postgres_custom_source = File.join(File.expand_path(__dir__), '..', 'postgres-custom')
 
     postgres_custom_target = File::ALT_SEPARATOR.nil? ?
       '/docker-entrypoint-initdb.d' :
@@ -57,7 +55,6 @@ describe 'puppetdb container specs' do
       --hostname puppetdb \
       --publish-all \
       --link postgres \
-      --link puppet \
       #{@pdb_image}).chomp
   end
 
