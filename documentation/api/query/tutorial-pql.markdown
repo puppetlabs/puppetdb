@@ -41,7 +41,7 @@ command line by using the [PuppetDB CLI][cli_install] or using [curl][curl].
 **Without SSL:**
 
     puppet query '<PQL query>' \
-      --urls http://puppetdb.example.com:8080/pdb/query/v4
+      --urls http://puppetdb.example.com:8080
 
 This requires that PuppetDB be
 [configured to accept non-SSL connections][config_jetty]. By default, it will
@@ -50,7 +50,7 @@ only accept unencrypted traffic from `localhost`.
 **With SSL:**
 
     puppet query '<PQL query>' \
-      --urls https://puppetdb.example.com:8081/pdb/query/v4 \
+      --urls https://puppetdb.example.com:8081 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
       --cert /etc/puppetlabs/puppet/ssl/certs/thisnode.pem \
       --key /etc/puppetlabs/puppet/ssl/private_keys/thisnode.pem
