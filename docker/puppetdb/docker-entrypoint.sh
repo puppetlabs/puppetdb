@@ -1,8 +1,12 @@
 #!/bin/bash
 
 master_running() {
-    curl -sf "http://${PUPPETSERVER_HOSTNAME}:8140/production/status/test" \
-        | grep -q '"is_alive":true'
+    # TODO Figure out a different way to detect when puppetserver is up.
+    # This netcat call doesn't work when a load balancer is in place as it just
+    # detects that the LB is up.
+    # curl -sf "http://${PUPPETSERVER_HOSTNAME}:8140/production/status/test" \
+    #     | grep -q '"is_alive":true'
+    nc -z "$PUPPETSERVER_HOSTNAME" 8140
 }
 
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
