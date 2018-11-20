@@ -265,7 +265,7 @@
                                                ;; See "Explicit pins" above
                                                [com.fasterxml.jackson.core/jackson-databind "2.9.7"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.8.5"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.8.10"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
