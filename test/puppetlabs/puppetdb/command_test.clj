@@ -47,7 +47,7 @@
             [slingshot.test]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
             [clojure.string :as str]
@@ -60,7 +60,9 @@
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
             [overtone.at-at :refer [mk-pool scheduled-jobs]]
-            [puppetlabs.puppetdb.testutils :as tu])
+            [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.client :as client]
+            [puppetlabs.puppetdb.threadpool :as gtp])
   (:import [java.nio.file Files]
            [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
@@ -1361,6 +1363,48 @@
 
 (defn- get-config []
   (conf/get-config (get-service svc-utils/*server* :DefaultedConfig)))
+
+(deftest bashed-commands-handled-correctly
+  (let [real-dochan gtp/dochan
+        go-ahead-and-execute (promise)]
+    (with-redefs [gtp/dochan (fn [& args]
+                               @go-ahead-and-execute
+                               (apply real-dochan args))]
+      (svc-utils/with-puppetdb-instance
+        (let [{pdb-host :host pdb-port :port
+               :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty (get-config))
+              base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
+              facts {:certname "foo.com"
+                     :environment "test"
+                     :producer_timestamp (str (now))
+                     :producer "puppetserver"
+                     :values {:foo "1"
+                              :bar "2"}
+                     :package_inventory [["openssl" "1.1.0e-1" "apt"]]}
+              dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+              response-mult (response-mult dispatcher)
+              response-watch-ch (async/chan 10)
+              _ (async/tap response-mult response-watch-ch)]
+
+          ;; submit two replace facts commands for the same certname
+          ;; this should cause one of the commands to get "bashed" in the queue
+          (client/submit-facts base-url "foo.com" 5 facts)
+          ;; make sure the second command has a later timestamp
+          (Thread/sleep 200)
+          (client/submit-facts base-url "foo.com" 5 facts)
+          ;; allow pdb to process messages
+          (deliver go-ahead-and-execute true)
+
+          ;; grab reponse maps from commands above, timeout if not received
+          (let [[val _] (async/alts!! [(async/into
+                                        #{} (async/take 2 response-watch-ch))
+                                       (async/timeout tu/default-timeout-ms)])]
+            (when-not val
+              (throw (Exception. "timed out waiting for response-chan")))
+
+            ;; check the first command was "bashed"
+            (is (= #{{:id 0, :delete? true} {:id 1, :delete? nil}}
+                   (set (map #(select-keys % [:id :delete?]) val))))))))))
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance
