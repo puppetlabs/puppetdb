@@ -386,6 +386,18 @@ runs every `gc-interval` minutes.
 
 If unset, the default value is 14 days.
 
+### `resource-events-ttl`
+
+Automatically delete report events older than the specified time. The reports
+will still be available, but the contained events will not be present.
+
+This allows for more fine-grained control of the expiration of reports. If this
+value is set higher than `report-ttl`, it will have no effect.
+
+If unset, the default value is 14 days.
+
+See `node-ttl` above for the format of this value.
+
 ### `subname`
 
 This describes where to find the database. It should be something like

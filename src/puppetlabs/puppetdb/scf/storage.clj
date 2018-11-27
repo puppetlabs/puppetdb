@@ -1256,7 +1256,7 @@
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id job_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
-                report-hash (shash/report-identity-hash report)]
+               report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
@@ -1311,6 +1311,12 @@
   {:pre [(kitchensink/datetime? time)]}
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
+(defn delete-resource-events-older-than!
+  "Delete all resource events in the database which have an `timestamp` that is prior to
+   the specified date/time."
+  [time]
+  {:pre [(kitchensink/datetime? time)]}
+  (jdbc/delete! :resource_events ["timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
