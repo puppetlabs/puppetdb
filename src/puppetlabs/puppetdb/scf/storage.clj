@@ -1393,6 +1393,12 @@
   {:pre [(kitchensink/datetime? time)]}
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
+(defn delete-resource-events-older-than!
+  "Delete all resource events in the database which have an `timestamp` that is prior to
+   the specified date/time."
+  [time]
+  {:pre [(kitchensink/datetime? time)]}
+  (jdbc/delete! :resource_events ["timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

@@ -217,7 +217,18 @@
       (testing "should default to 14 days"
         (let [report-ttl (get-in (config-with {}) [:database :report-ttl])]
           (is (time/period? report-ttl))
-          (is (= (time/days 14) (time/days (time/to-days report-ttl)))))))))
+          (is (= (time/days 14) (time/days (time/to-days report-ttl)))))))
+
+    (testing "resource-events-ttl"
+      (testing "should parse resource-events-ttl and produce resource-events-ttl"
+        (let [resource-events-ttl (get-in (config-with {:database {:resource-events-ttl "10d"}})
+                                          [:database :resource-events-ttl])]
+          (is (time/period? resource-events-ttl))
+          (is (= (time/days 10) (time/days (time/to-days resource-events-ttl))))))
+      (testing "should default to 14 days"
+        (let [resource-events-ttl (get-in (config-with {}) [:database :resource-events-ttl])]
+          (is (time/period? resource-events-ttl))
+          (is (= (time/days 14) (time/days (time/to-days resource-events-ttl)))))))))
 
 (defn vardir [path]
   {:global {:vardir (str path)}})
