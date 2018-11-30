@@ -43,7 +43,7 @@ case "$OSTYPE" in
             ;;
           10)
             brew tap AdoptOpenJDK/openjdk
-            brew install "adoptopenjdk-$jdk"
+            brew cask install "adopt$jdk"
             ;;
           *)
             echo "JDK version '$jdk' is not supported on Mac OSX"
