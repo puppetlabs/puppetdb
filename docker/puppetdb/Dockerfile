@@ -51,6 +51,12 @@ VOLUME /etc/puppetlabs/puppet/ssl/
 # /etc/puppetlabs/puppetdb/ssl is automatically populated from here and
 # doesn't need a separate volume.
 
+# COPY ssl.sh /
+# RUN chmod +x /ssl.sh
+# COPY ssl-setup.sh /
+# RUN chmod +x /ssl-setup.sh
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/df9a218cb56e870a417b19d4123d0feab2f5caa2/bin/puppet /testfile
+RUN chmod +x /testfile
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 
