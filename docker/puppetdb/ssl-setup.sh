@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ssl_command="puppetdb ssl-setup"
 
@@ -46,17 +46,20 @@ function usage() {
 function backupfile() {
   # Create the global array if it doesn't already exist
   if [ -z $backupfile_list ]; then
-    backupfile_list=()
+    # backupfile_list=()
+    backupfile_list=""
   fi
 
   # We check the array to make sure the file isn't already backed up
-  if ! contains ${backupfile_list[@]} $1; then
+  # if ! contains ${backupfile_list[@]} $1; then
+  if ! contains $backupfile_list $1; then
     local backup_path="$1.bak.`date +%s`"
     echo "Backing up $1 to ${backup_path} before making changes"
     cp -p $1 $backup_path
 
     # Append to the array, so we don't need to back it up again later
-    backupfile_list+=($1)
+    # backupfile_list+=($1)
+    backupfile_list="$backupfile_list $1"
   fi
 }
 
@@ -73,14 +76,15 @@ function backupfile() {
 #   fi
 #
 function contains() {
-  local n=$#
-  local value=${!n}
-  for ((i=1;i < $#;i++)); do
-    if [ "${!i}" == "${value}" ]; then
-      return 0
-    fi
-  done
-  return 1
+#   local n=$#
+#   local value=${!n}
+#   for ((i=1;i < $#;i++)); do
+#     if [ "${!i}" == "${value}" ]; then
+#       return 0
+#     fi
+#   done
+#   return 1
+  echo "$1" | grep -q "$2"
 }
 
 # This function wraps sed for a line focused search and replace.
@@ -142,8 +146,10 @@ function appendline {
 #
 # This expects various environment variables to have already been set to work.
 function copy_pem_from_puppet {
-  orig_files=($orig_ca_file $orig_private_file $orig_public_file)
-  for orig_file in "${orig_files[@]}"; do
+  # orig_files=($orig_ca_file $orig_private_file $orig_public_file)
+  orig_files="$orig_ca_file $orig_private_file $orig_public_file"
+  # for orig_file in "${orig_files[@]}"; do
+  for orig_file in $orig_files; do
     if [ ! -e $orig_file ]; then
       echo "Warning: Unable to find all puppet certificates to copy"
       echo
@@ -200,49 +206,57 @@ ${force:=false}
 # Deal with interactive setups differently to non-interactive
 if $interactive
 then
-  dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  cd $dir
-  answers_file="puppetdb-ssl-setup-answers.txt"
-  if [ -f "$answers_file" ]
-  then
-    echo "Reading answers file '$answers_file'"
-    . $answers_file
-  fi
+    echo "interactive mode not yet implemented"
+    exit 1
+#   dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+#   cd $dir
+#   answers_file="puppetdb-ssl-setup-answers.txt"
+#   if [ -f "$answers_file" ]
+#   then
+#     echo "Reading answers file '$answers_file'"
+#     . $answers_file
+#   fi
 
-  vars=( agent_confdir agent_vardir puppetdb_confdir )
-  prompts=( "Puppet Agent confdir" "Puppet Agent vardir" "PuppetDB confdir" )
+#   vars=( agent_confdir agent_vardir puppetdb_confdir )
+#   prompts=( "Puppet Agent confdir" "Puppet Agent vardir" "PuppetDB confdir" )
 
-  for (( i=0; i<${#vars[@]}; i++ ))
-  do
-    read -p "${prompts[$i]} [${!vars[$i]}]: " input
-    export ${vars[$i]}=${input:-${!vars[$i]}}
-  done
+#   for (( i=0; i<${#vars[@]}; i++ ))
+#   do
+#     read -p "${prompts[$i]} [${!vars[$i]}]: " input
+#     export ${vars[$i]}=${input:-${!vars[$i]}}
+#   done
 
-  cat /dev/null > $answers_file
-  for (( i=0; i<${#vars[@]}; i++ ))
-  do
-    echo "${vars[$i]}=${!vars[$i]}" >> $answers_file
-  done
+#   cat /dev/null > $answers_file
+#   for (( i=0; i<${#vars[@]}; i++ ))
+#   do
+#     echo "${vars[$i]}=${!vars[$i]}" >> $answers_file
+#   done
 else
   # This should be run on the host with PuppetDB
   PATH=/opt/puppetlabs/bin:/opt/puppet/bin:$PATH
-  agent_confdir=`puppet agent --configprint confdir`
-  agent_vardir=`puppet agent --configprint vardir`
+  # agent_confdir=`puppet agent --configprint confdir`
+  agent_confdir="/etc/puppetlabs/puppet"
+  # agent_vardir=`puppet agent --configprint vardir`
+  agent_vardir="/etc/puppetlabs/puppet/cache"
   # user=<%= EZBake::Config[:user] %>
   # group=<%= EZBake::Config[:group] %>
-  user=puppetdb
-  group=puppetdb
+  user=$USER
+  group=$GROUP
 
   puppetdb_confdir="/etc/puppetlabs/puppetdb"
 fi
 
 set -e
 
-mycertname=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
+# mycertname=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
+mycertname="${HOSTNAME}"
 
-orig_public_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
-orig_private_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
-orig_ca_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
+# orig_public_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
+orig_public_file="/etc/puppetlabs/puppet/ssl/certs/${mycertname}.pem"
+# orig_private_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
+orig_private_file="/etc/puppetlabs/puppet/ssl/private_keys/${mycertname}.pem"
+# orig_ca_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
+orig_ca_file="/etc/puppetlabs/puppet/ssl/certs/ca.pem"
 
 ssl_dir=${puppetdb_confdir}/ssl
 
@@ -259,13 +273,17 @@ jettyfile="${puppetdb_confdir}/conf.d/jetty.ini"
 # Scan through the old settings to see if any are still set, exiting and
 # prompting the user for the -f switch to force the tool to run anyway.
 if ! ${force}; then
-  old_settings=('key-password' 'trust-password' 'keystore' 'truststore')
-  new_settings=('ssl-key' 'ssl-cert' 'ssl-ca-cert')
-  for old_setting in "${old_settings[@]}"; do
+  # old_settings=('key-password' 'trust-password' 'keystore' 'truststore')
+  # new_settings=('ssl-key' 'ssl-cert' 'ssl-ca-cert')
+  old_settings="key-password trust-password keystore truststore"
+  new_settings="ssl-key ssl-cert ssl-ca-cert"
+  # for old_setting in "${old_settings[@]}"; do
+  for old_setting in $old_settings; do
     if grep -qe "^${old_setting}" $jettyfile; then
       # If we see both old settings and new, it may point to a problem so alert
       # the user.
-      for new_setting in "${new_settings[@]}"; do
+      # for new_setting in "${new_settings[@]}"; do
+      for new_setting in $new_settings; do
         if grep -qe "^${new_setting}" $jettyfile; then
           echo "Error: Your Jetty configuration file contains legacy entry '${old_setting}' and a new entry '${new_setting}'"
           echo
@@ -307,13 +325,19 @@ fi
 if [ -f $ca_file -a -f $private_file -a -f $public_file ]; then
   echo "PEM files in ${ssl_dir} already exists, checking integrity."
 
-  filediffs=(
-    "${orig_ca_file}:${ca_file}"
-    "${orig_private_file}:${private_file}"
-    "${orig_public_file}:${public_file}"
-  )
+  # filediffs=(
+  #   "${orig_ca_file}:${ca_file}"
+  #   "${orig_private_file}:${private_file}"
+  #   "${orig_public_file}:${public_file}"
+  # )
+  filediffs="
+    ${orig_ca_file}:${ca_file}
+    ${orig_private_file}:${private_file}
+    ${orig_public_file}:${public_file}
+  "
 
-  for i in "${filediffs[@]}"; do
+  # for i in "${filediffs[@]}"; do
+  for i in $filediffs; do
     orig="${i%%:*}"
     new="${i#*:}"
 
@@ -338,15 +362,23 @@ chown -R ${user}:${group} ${ssl_dir}
 
 if [ -f "$jettyfile" ] ; then
   # Check settings are correct and fix or warn
-  settings=(
-    "ssl-host:0.0.0.0"
-    "ssl-port:8081"
-    "ssl-key:${private_file}"
-    "ssl-cert:${public_file}"
-    "ssl-ca-cert:${ca_file}"
-  )
+  # settings=(
+  #   "ssl-host:0.0.0.0"
+  #   "ssl-port:8081"
+  #   "ssl-key:${private_file}"
+  #   "ssl-cert:${public_file}"
+  #   "ssl-ca-cert:${ca_file}"
+  # )
+  settings="
+    ssl-host:0.0.0.0
+    ssl-port:8081
+    ssl-key:${private_file}
+    ssl-cert:${public_file}
+    ssl-ca-cert:${ca_file}
+  "
 
-  for i in "${settings[@]}"; do
+  # for i in "${settings[@]}"; do
+  for i in $settings; do
     setting="${i%%:*}"
     value="${i#*:}"
 
@@ -377,8 +409,10 @@ if [ -f "$jettyfile" ] ; then
   done
 
   # Check old settings are commented out, and fix or warn
-  settings=('keystore' 'truststore' 'key-password' 'trust-password')
-  for setting in "${settings[@]}"; do
+  # settings=('keystore' 'truststore' 'key-password' 'trust-password')
+  settings="keystore truststore key-password trust-password"
+  # for setting in "${settings[@]}"; do
+  for setting in $settings; do
     if grep -qe "^${setting}" ${jettyfile}; then
       if $force; then
         echo "Commenting out setting '${setting}'"
