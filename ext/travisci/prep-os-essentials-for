@@ -24,7 +24,8 @@ case "$OSTYPE" in
         brew install postgresql@"$pgver"
 
         case "$jdkver" in
-          8)
+          8|10)
+
             # Install AdoptOpenJDK 11, we will use this for its cacert
             brew cask install https://raw.githubusercontent.com/Homebrew/homebrew-cask/636d8f0d1afce664f47620b46571e42b01c93d8c/Casks/adoptopenjdk.rb
             cacert_path=/Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/lib/security/cacerts
@@ -35,15 +36,16 @@ case "$OSTYPE" in
             fi
 
             brew tap AdoptOpenJDK/openjdk
-            # brew cask install adoptopenjdk8
             brew cask install "adopt$jdk"
-            old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/jre/lib/security/cacerts"
+
+            old_cacert_path=
+            if test "$jdkver" -eq 8; then
+              old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/jre/lib/security/cacerts"
+            else
+              old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/lib/security/cacerts"
+            fi
             rm "$old_cacert_path"
             ln -s $cacert_path "$old_cacert_path"
-            ;;
-          10)
-            brew tap AdoptOpenJDK/openjdk
-            brew cask install "adopt$jdk"
             ;;
           *)
             echo "JDK version '$jdk' is not supported on Mac OSX"
