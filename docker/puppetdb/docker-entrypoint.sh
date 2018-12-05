@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 master_running() {
     status=$(curl --silent --fail --insecure "https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple")
