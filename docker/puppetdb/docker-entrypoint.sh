@@ -1,9 +1,8 @@
 #!/bin/bash
 
 master_running() {
-    # This netcat call doesn't work when a load balancer is in place as it just
-    # detects that the LB is up (see PDB-4192)
-    nc -z "$PUPPETSERVER_HOSTNAME" 8140
+    status=$(curl --silent --fail --insecure "https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple")
+    test "$status" = "running"
 }
 
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
