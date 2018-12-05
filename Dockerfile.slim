@@ -11,9 +11,8 @@ COPY . .
 RUN lein with-profile uberjar uberjar
 
 
-# FROM openjdk:8-jre-alpine
-FROM alpine-jre-puppet
-RUN apk add --no-cache tini
+FROM openjdk:8-jre-alpine
+RUN apk add --no-cache tini curl openssl
 COPY --from=0 /app/target/puppetdb.jar /
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
 ENV PUPPETDB_USER=puppetdb
@@ -22,6 +21,7 @@ ENV PUPPETDB_NODE_TTL=7d
 ENV PUPPETDB_NODE_PURGE_TTL=14d
 ENV PUPPETDB_REPORT_TTL=14d
 ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
+ENV USE_PUPPETSERVER=true
 
 # Values from /etc/default/puppetdb
 ENV JAVA_BIN="/usr/bin/java"
@@ -40,9 +40,12 @@ COPY resources/ext/config/logback.xml /etc/puppetlabs/puppetdb/
 COPY resources/ext/config/request-logging.xml /etc/puppetlabs/puppetdb/
 RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
 
+RUN addgroup $GROUP && adduser -S $USER -G $GROUP
+
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/6487f9f9bee24a5330b1709cefee8cc10c4bf6d2/shared/ssl.sh /ssl.sh
+RUN chmod +x /ssl.sh
 COPY docker/puppetdb/ssl-setup.sh /
 RUN chmod +x /ssl-setup.sh
-RUN useradd -U puppetdb
 
 VOLUME /etc/puppetlabs/puppet/ssl/
 
