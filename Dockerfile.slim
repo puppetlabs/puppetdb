@@ -42,7 +42,7 @@ RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
 
 RUN addgroup $GROUP && adduser -S $USER -G $GROUP
 
-ADD https://raw.githubusercontent.com/puppetlabs/pupperware/6487f9f9bee24a5330b1709cefee8cc10c4bf6d2/shared/ssl.sh /ssl.sh
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/puppetless-ssl/shared/ssl.sh /ssl.sh
 RUN chmod +x /ssl.sh
 COPY docker/puppetdb/ssl-setup.sh /
 RUN chmod +x /ssl-setup.sh
@@ -54,7 +54,7 @@ RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 8080 8081
 
-ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "-g", "--", "/docker-entrypoint.sh"]
 CMD ["services"]
 
 # COPY Dockerfile.slim /Dockerfile
