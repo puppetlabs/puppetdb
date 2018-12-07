@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 38d0acbadd7ad18579463776b82c4cdeec8410d3\n"
+"X-Git-Ref: 3622f65f49dae78416ed9ca3df12925f1b388754\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -241,6 +241,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Error while running package gc"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Error while sweeping resource events"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -818,6 +822,7 @@ msgid "{0} requires exactly two arguments, but {1} were supplied"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query.clj
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "''{0}'' is not a valid timestamp value"
 msgstr ""
 
