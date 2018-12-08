@@ -268,10 +268,17 @@
   (let [id (str id)
         received-time (str (tcoerce/to-long received-time))
         duration (str (in-millis (interval start-time (now))))
-        command-name (command-names command-kw)]
-    (if-let [{:keys [puppet-version]} opts]
+        command-name (command-names command-kw)
+        puppet-version (:puppet-version opts)
+        obsolete-cmd? (:obsolete-cmd? opts)]
+    (cond
+      puppet-version
       (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
                      id received-time duration command-name puppet-version certname))
+      obsolete-cmd?
+      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command ignored (obsolete) for {4}"
+                     id received-time duration command-name certname))
+      :else
       (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
                      id received-time duration command-name certname)))))
 
@@ -485,8 +492,9 @@
   "Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
-  [{:keys [command version] :as cmdref} q scf-write-db response-chan stats]
+  [{:keys [command version certname id received] :as cmdref} q scf-write-db response-chan stats]
   (process-command-and-respond! cmdref scf-write-db response-chan stats)
+  (log-command-processed-messsage id received (now) :command-obsolete certname {:obsolete-cmd? true})
   (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
   (update-counter! :depth command version dec!)
   (update-counter! :invalidated command version dec!))

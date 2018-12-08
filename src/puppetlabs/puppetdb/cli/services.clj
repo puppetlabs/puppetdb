@@ -177,6 +177,10 @@
     (catch Exception e
       (log/error e (trs "Error while running package gc")))))
 
+(defn gc-resource-events!
+  []
+  (trs "Error while sweeping resource events"))
+
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
   This basically just wraps the corresponding scf.storage function with some
