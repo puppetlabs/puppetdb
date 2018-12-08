@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/configure.html"
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
 [ha]: ./ha.html
 [node-ttl]: #node-ttl
-[admin-cmd]: api/admin/v1/cmd.html
+[admin-cmd]: ./api/admin/v1/cmd.html
 
 PuppetDB has three main groups of settings:
 
