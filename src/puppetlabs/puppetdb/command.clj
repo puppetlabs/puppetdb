@@ -65,7 +65,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.command.constants
-             :refer [command-names supported-command-versions]]
+             :refer [command-names command-keys supported-command-versions]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
             [schema.core :as s]
@@ -503,7 +503,8 @@
   [{:keys [command version certname id received] :as cmdref}
    q scf-write-db response-chan stats blacklist-config]
   (process-command-and-respond! cmdref scf-write-db response-chan stats blacklist-config)
-  (log-command-processed-messsage id received (now) :command-obsolete certname {:obsolete-cmd? true})
+  (log-command-processed-messsage id received (now) (command-keys command)
+                                  certname {:obsolete-cmd? true})
   (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
   (update-counter! :depth command version dec!)
   (update-counter! :invalidated command version dec!))
