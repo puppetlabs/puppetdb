@@ -214,7 +214,7 @@
                                          (get "secondsToWaitForCompletion")
                                          Double/parseDouble
                                          (* 1000))
-           submit-params (select-keys params ["certname" "command" "version"])
+           submit-params (select-keys params ["certname" "command" "version" "producer-timestamp"])
            submit-params (if-let [v (submit-params "version")]
                            (update submit-params "version" str)
                            submit-params)
@@ -226,7 +226,7 @@
                         (get submit-params "command")
                         (Integer/parseInt (get submit-params "version"))
                         (get submit-params "certname")
-                        (pdbtime/from-string (get submit-params "producer-ts"))
+                        (get submit-params "producer-timestamp")
                         (stream-with-max-check body max-command-size)
                         compression
                         command-callback))]
