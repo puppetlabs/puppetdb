@@ -84,8 +84,7 @@
             :report-ttl (pls/defaulted-maybe String "14d")
             :node-purge-ttl (pls/defaulted-maybe String "14d")
             :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
-            :node-ttl (pls/defaulted-maybe String "7d")
-            :resource-events-ttl (pls/defaulted-maybe String "14d")})))
+            :node-ttl (pls/defaulted-maybe String "7d")})))
 
 (def database-config-out
   "Schema for parsed/processed database config"
@@ -119,8 +118,7 @@
           :report-ttl Period
           :node-purge-ttl Period
           :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
-          :node-ttl Period
-          :resource-events-ttl Period}))
+          :node-ttl Period}))
 
 (defn half-the-cores*
   "Function for computing half the cores of the system, useful
