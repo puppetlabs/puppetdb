@@ -26,11 +26,12 @@ describe Puppet::Util::Puppetdb::Command do
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
         http.expects(:post).with() do | path, payload, headers, options |
           param_map = CGI::parse(URI(path).query)
-          param_map['certname'].first.should == 'foo.localdomain' &&
+          assert_valid_producer_ts(path) &&
+            param_map['certname'].first.should == 'foo.localdomain' &&
             param_map['version'].first.should == '1' &&
-            param_map['command'].first.should == 'OPEN_SESAME'
-          options[:compress].should == :gzip
-          options[:metric_id].should == [:puppetdb, :command, 'OPEN_SESAME']
+            param_map['command'].first.should == 'OPEN_SESAME' &&
+            options[:compress] == :gzip &&
+            options[:metric_id] == [:puppetdb, :command, 'OPEN_SESAME']
         end.returns(httpok)
 
         subject.submit
