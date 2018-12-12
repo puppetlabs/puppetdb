@@ -85,7 +85,7 @@
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 (def clean-options
-  #{"expire_nodes" "purge_nodes" "purge_reports" "gc_packages" "purge_resource_events" "other"})
+  #{"expire_nodes" "purge_nodes" "purge_reports" "gc_packages" "other"})
 
 (def purge-nodes-opts-schema {:batch_limit s/Int})
 
@@ -114,7 +114,6 @@
        (map {"expire_nodes" "expiring-nodes"
              "purge_nodes" "purging-nodes"
              "purge_reports" "purging-reports"
-             "purge_resource_events" "purging-resource-events"
              "gc_packages" "package-gc"
              "other" "other"})
        (str/join " ")))
@@ -178,18 +177,8 @@
       (log/error e (trs "Error while running package gc")))))
 
 (defn gc-resource-events!
-  "Delete resource-events entries which are older than than `resource-events-ttl`."
-  [resource-events-ttl db]
-  {:pre [(map? db)
-         (period? resource-events-ttl)]}
-  (try
-    (kitchensink/demarcate
-     (format "sweep of stale resource events (threshold: %s)"
-             (format-period resource-events-ttl))
-     (jdbc/with-transacted-connection db
-       (scf-store/delete-resource-events-older-than! (ago resource-events-ttl))))
-    (catch Exception e
-      (log/error e (trs "Error while sweeping resource events")))))
+  []
+  (trs "Error while sweeping resource events"))
 
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
@@ -217,14 +206,12 @@
    :node-expirations (counter admin-metrics-registry "node-expirations")
    :node-purges (counter admin-metrics-registry "node-purges")
    :report-purges (counter admin-metrics-registry "report-purges")
-   :resource-events-purges (counter admin-metrics-registry "resource-event-purges")
    :package-gcs (counter admin-metrics-registry "package-gcs")
    :other-cleans (counter admin-metrics-registry "other-cleans")
 
    :node-expiration-time (timer admin-metrics-registry ["node-expiration-time"])
    :node-purge-time (timer admin-metrics-registry ["node-purge-time"])
    :report-purge-time (timer admin-metrics-registry ["report-purge-time"])
-   :resource-events-purge-time (timer admin-metrics-registry ["resource-events-purge-time"])
    :package-gc-time (timer admin-metrics-registry "package-gc-time")
    :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
 
@@ -238,12 +225,10 @@
   request is empty?."
   [db
    lock :- ReentrantLock
-   {:keys [node-ttl node-purge-ttl
-           report-ttl resource-events-ttl]} :- {:node-ttl Period
-                                                :node-purge-ttl Period
-                                                :report-ttl Period
-                                                :resource-events-ttl Period
-                                                s/Keyword s/Any}
+   {:keys [node-ttl node-purge-ttl report-ttl]} :- {:node-ttl Period
+                                                    :node-purge-ttl Period
+                                                    :report-ttl Period
+                                                    s/Keyword s/Any}
    ;; Later, the values might be maps, i.e. {:limit 1000}
    request :- clean-request-schema]
   (when-not (.isHeldByCurrentThread lock)
@@ -270,10 +255,6 @@
         (time! (:package-gc-time admin-metrics)
                (gc-packages! db))
         (counters/inc! (:package-gcs admin-metrics)))
-      (when (request "purge_resource_events")
-        (time! (:resource-events-purge-time admin-metrics)
-               (gc-resource-events! resource-events-ttl db))
-        (counters/inc! (:resource-events-purges admin-metrics)))
       ;; It's important that this go last to ensure anything referencing
       ;; an env or resource param is purged first.
       (when (request "other")
@@ -387,12 +368,10 @@
              (when (some-> (:node-purge-ttl config) seconds-pos?)
                (let [limit (:node-purge-gc-batch-limit config)]
                  (if (zero? limit)
-                   "purge_nodes"
-                   ["purge_nodes" {:batch_limit limit}])))
+                            "purge_nodes"
+                            ["purge_nodes" {:batch_limit limit}])))
              (when (some-> (:report-ttl config) seconds-pos?)
                "purge_reports")
-             (when (some-> (:resource-events-ttl config) seconds-pos?)
-               "purge_resource_events")
              "gc_packages"
              "other"])))
 
