@@ -58,7 +58,7 @@ class Puppet::Util::Puppetdb::Command
     checksum = Digest::SHA1.hexdigest(checksum_payload)
 
     for_whom = " for #{certname}" if certname
-    params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.to_i}"
+    params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.iso8601(3)}"
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path|

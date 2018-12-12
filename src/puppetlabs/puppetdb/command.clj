@@ -65,7 +65,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.command.constants
-             :refer [command-names supported-command-versions]]
+             :refer [command-names command-keys supported-command-versions]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
             [schema.core :as s]
@@ -438,7 +438,8 @@
 
 (defn make-cmd-processed-message [cmd ex]
   (conj
-   (conj (select-keys cmd [:id :command :version])
+   ;; :delete? from cmdref is needed to check when a command gets "bashed"
+   (conj (select-keys cmd [:id :command :version :delete?])
          [:producer-timestamp (get-in cmd [:payload :producer_timestamp])])
    (when ex
      [:exception ex])))
@@ -499,9 +500,11 @@
   "Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
-  [{:keys [command version certname id received] :as cmdref} q scf-write-db response-chan stats]
-  (process-command-and-respond! cmdref scf-write-db response-chan stats)
-  (log-command-processed-messsage id received (now) :command-obsolete certname {:obsolete-cmd? true})
+  [{:keys [command version certname id received] :as cmdref}
+   q scf-write-db response-chan stats blacklist-config]
+  (process-command-and-respond! cmdref scf-write-db response-chan stats blacklist-config)
+  (log-command-processed-messsage id received (now) (command-keys command)
+                                  certname {:obsolete-cmd? true})
   (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
   (update-counter! :depth command version dec!)
   (update-counter! :invalidated command version dec!))
@@ -591,7 +594,7 @@
          (update! (cmd-metric command version :queue-time) q-time)))
 
      (if delete?
-       (process-delete-cmdref cmdref q scf-write-db response-chan stats)
+       (process-delete-cmdref cmdref q scf-write-db response-chan stats blacklist-config)
        (let [retries (count (:attempts cmdref))]
          (try+
           (process-cmdref cmdref q scf-write-db response-chan stats blacklist-config)

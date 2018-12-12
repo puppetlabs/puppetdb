@@ -4,6 +4,7 @@ $LOAD_PATH.unshift File.join(dir, "../lib")
 # don't fail any worse than we already would.
 $LOAD_PATH.push File.join(dir, "../../../puppetlabs_spec_helper")
 
+require 'cgi'
 require 'rspec'
 require 'rspec/expectations'
 require 'puppetlabs_spec_helper/puppet_spec_helper'
@@ -31,6 +32,13 @@ def assert_command_req(expected_payload, actual_payload)
   req.delete("producer_timestamp")
   req == expected_payload &&
     actual_producer_timestamp <= Time.now.to_i
+end
+
+def assert_valid_producer_ts(path)
+  _, param_str = path.split "?"
+  params = CGI::parse(param_str)
+  return false if params["producer-timestamp"].size != 1
+  Time.iso8601(params["producer-timestamp"].first)
 end
 
 RSpec.configure do |config|
