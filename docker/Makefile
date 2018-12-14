@@ -38,9 +38,10 @@ test: prep
 	@PUPPET_TEST_DOCKER_IMAGE=puppet/puppetdb:$(version) bundle exec rspec puppetdb/spec
 
 publish: prep
-	@docker push puppet/puppetdb:$(version)
-ifeq ($(IS_LATEST),true)
-	@docker push puppet/puppetdb:latest
-endif
+# 	@docker push puppet/puppetdb:$(version)
+# ifeq ($(IS_LATEST),true)
+# 	@docker push puppet/puppetdb:latest
+# endif
+	@echo "TODO(nwolfe): uncomment publish"
 
 .PHONY: lint build test publish
