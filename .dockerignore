@@ -4,4 +4,3 @@
 !resources
 !documentation
 !docker/puppetdb
-#!Dockerfile.slim
