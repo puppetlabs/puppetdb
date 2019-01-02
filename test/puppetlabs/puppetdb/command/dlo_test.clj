@@ -16,7 +16,7 @@
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.testutils.queue :refer [catalog->command-req]]
    [puppetlabs.stockpile.queue :as stock])
-  (import
+  (:import
    [java.nio.file Files]))
 
 (defn reg-counter-val [registry suffix]
