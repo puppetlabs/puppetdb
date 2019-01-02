@@ -127,10 +127,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [;; clj-parent overrides
-                 ;; Until we officially drop 7
-                 [org.postgresql/postgresql "42.2.2.jre7"]
-
+  :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4"]
