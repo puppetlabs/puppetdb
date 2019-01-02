@@ -142,7 +142,7 @@
 
   :dependencies ~(concat
                   pdb-dep-pins
-                  '[[org.clojure/clojure "1.8.0"]
+                  '[[org.clojure/clojure "1.10.0"]
                     [org.clojure/core.async]
                     [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                     [org.clojure/core.memoize "0.5.9"]
@@ -204,6 +204,7 @@
                     [com.novemberain/pantomime "2.1.0"]
                     [compojure]
                     [org.apache.commons/commons-compress "1.10"]
+                    [org.tcrawley/dynapath "1.0.0"]
                     [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]])
 
   :jvm-opts ~(if need-permgen?
