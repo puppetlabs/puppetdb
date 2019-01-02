@@ -102,8 +102,8 @@ Note that you only need to configure the puppet-ref and
 puppetserver-ref once for each tree, but you can also change the refs
 when you like with `test-config`:
 
-    $ ext/bin/test-config --set puppet-ref 5.3.x
-    $ ext/bin/test-config --set puppetserver-ref 5.1.x
+    $ ext/bin/test-config --set puppet-ref 5.5.x
+    $ ext/bin/test-config --set puppetserver-ref 5.2.x
 
 Running `--reset` for an option resets it to the tree default, and at
 the moment, you'll need to do that manually whenever you're using the

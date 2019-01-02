@@ -5,7 +5,7 @@ from sys import exit, stderr
 import os, sys
 
 def usage(stream):
-    print('Usage: prefixed-ref-from-spec .../pup-5.3.x/srv-5.1.x/pg-9.6 srv-',
+    print('Usage: prefixed-ref-from-spec .../pup-5.5.x/srv-5.3.x/pg-9.6 srv-',
           file=stream)
 
 def misuse():
