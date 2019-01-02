@@ -84,9 +84,7 @@
 ;; long time.
 (def pdb-dep-pins
   `[;; Use jetty 9.4.11.v20180605 to fix CVE-2017-7656 (PDB-4160)
-    [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-ver]
-    ;; Fix CVE-2018-5968 (PDB-4161)
-    [com.fasterxml.jackson.core/jackson-databind "2.9.7"]])
+    [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-ver]])
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
@@ -205,6 +203,9 @@
                     [compojure]
                     [org.apache.commons/commons-compress "1.10"]
                     [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]])
+
+  ; permanently exclude jackson-databind, as it is a source of CVE's and we don't use it
+  :exclusions [[com.fasterxml.jackson.core/jackson-databind]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
