@@ -143,7 +143,7 @@
   :dependencies ~(concat
                   pdb-dep-pins
                   '[[org.clojure/clojure "1.10.0"]
-                    [org.clojure/core.async]
+                    [org.clojure/core.async "0.4.490"]
                     [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                     [org.clojure/core.memoize "0.5.9"]
                     [org.clojure/java.jdbc]
