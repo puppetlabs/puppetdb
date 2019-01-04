@@ -197,6 +197,9 @@
                  ;; conflict resolution
                  [org.clojure/tools.nrepl "0.2.13"]]
 
+  ; permanently exclude jackson-databind, as it is a source of CVE's and we don't use it
+  :exclusions [[com.fasterxml.jackson.core/jackson-databind]]
+
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
               [])

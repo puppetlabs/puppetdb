@@ -123,6 +123,10 @@ jobs:
       env: PDB_TEST=core+ext/openjdk10/pg-9.6
       script: *run-core-and-ext-tests
 
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/openjdk8/pg-11
+      script: *run-core-and-ext-tests
+
     # === integration with current platform
     - stage: ❧ pdb tests
       env: PDB_TEST=int/openjdk10/pup-6.0.x/srv-6.0.x/pg-9.6
@@ -138,6 +142,10 @@ jobs:
 
     - stage: ❧ pdb tests
       env: PDB_TEST=int/oraclejdk8/pup-6.0.x/srv-6.0.x/pg-9.6/rich
+      script: *run-integration-tests
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk8/pup-6.0.x/srv-6.0.x/pg-11
       script: *run-integration-tests
 
     # === integration with previous platform (no support for jdk > 8)
