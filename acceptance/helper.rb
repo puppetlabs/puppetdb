@@ -868,7 +868,7 @@ EOS
 
   def install_puppet_from_package
     hosts.each do |host|
-      install_puppet_on(host, {})
+      install_puppet_agent_on(host, {:puppet_collection => "puppet5"})
       on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
       install_package(host, 'puppetserver')
     end
