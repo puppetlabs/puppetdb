@@ -58,7 +58,12 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
     < test-resources/pdb-4.2.3.8ish-activemq-dir-with-host-0-submit-facts.tgz
 test ! -e "$PDBBOX"/var/mq-migrated
 
-psql -U puppetdb puppetdb -c '\dt' | grep 'No relations found'
+psql -U puppetdb puppetdb -c '\dt' >"$tmpdir/out" 2>"$tmpdir/err"
+cat "$tmpdir/out"
+cat "$tmpdir/err"
+# Output moved to err and changed as of at least pg 11
+grep 'No relations found' "$tmpdir/out" \
+    || grep 'Did not find any relations' "$tmpdir/err"
 
 ./pdb upgrade -c "$PDBBOX/pdb.ini"
 
