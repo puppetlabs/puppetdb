@@ -54,5 +54,18 @@ case "$OSTYPE" in
         esac
         ;;
     *)
+        # Can't use travis "addons" support for pg 11 until this is
+        # resolved: https://github.com/travis-ci/travis-ci/issues/5737
+
+        # Have to purge some of the existing pg bits so the 11 install
+        # won't fail with errors like this:
+        #   Refused to start PostgreSQL 11, because PostgreSQL 9.2 is
+        #   currently running! You should first stop 9.2 instance...
+        # Not sure we have to purge *all* of these, but it works.
+        sudo apt-get purge \
+             postgresql{,-client}-{9.2,9.3,9.4,9.5,9.6} \
+             postgresql-client-common postgresql-client postgresql-common
+        sudo apt-get update
+        sudo -i apt-get -y install postgresql-9.6 postgresql-11
         ;;
 esac

@@ -1,6 +1,7 @@
 require 'cgi'
 require 'beaker/dsl/install_utils'
 require 'beaker/dsl/helpers'
+require 'beaker-puppet'
 require 'open3'
 require 'pp'
 require 'set'
@@ -11,7 +12,7 @@ require 'inifile'
 module PuppetDBExtensions
   include Test::Unit::Assertions
 
-  GitReposDir = Beaker::DSL::InstallUtils::SourcePath
+  GitReposDir = Beaker::DSL::InstallUtils::FOSSUtils::SourcePath
 
   # We include the Puppet path here so we can use the Puppet ecosystem when
   # using rake, which needs the facter gem to work - AIO ruby contains this
@@ -867,7 +868,7 @@ EOS
 
   def install_puppet_from_package
     hosts.each do |host|
-      install_package(host, 'puppet-agent')
+      install_puppet_agent_on(host, {:puppet_collection => "puppet6"})
       on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
       install_package(host, 'puppetserver')
     end

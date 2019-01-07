@@ -139,10 +139,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [;; clj-parent overrides
-                 ;; Until we officially drop 7
-                 [org.postgresql/postgresql "42.2.2.jre7"]
-
+  :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4"]
@@ -211,6 +208,9 @@
 
                  ;; conflict resolution
                  [org.clojure/tools.nrepl "0.2.13"]]
+
+  ; permanently exclude jackson-databind, as it is a source of CVE's and we don't use it
+  :exclusions [[com.fasterxml.jackson.core/jackson-databind]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]

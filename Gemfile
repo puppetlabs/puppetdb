@@ -66,9 +66,11 @@ if ENV['NO_ACCEPTANCE'] != 'true'
       gem 'beaker', *location_for(beaker_version)
     else
       # use the pinned version
-      gem 'beaker', '~> 3.4'
+      gem 'beaker', '~> 4.1'
     end
   end
   gem 'beaker-hostgenerator', '1.1.13'
   gem 'beaker-abs', *location_for(ENV['BEAKER_ABS_VERSION'] || '~> 0.2')
+  gem 'beaker-vmpooler', *location_for(ENV['BEAKER_VMPOOLER_VERSION'] || "~> 1.3")
+  gem 'beaker-puppet', '~> 1.0'
 end
