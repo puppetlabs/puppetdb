@@ -152,7 +152,7 @@ Usage:
     (if (:help? opts)
       (do (usage *out*) 0)
       (apply dispatch-diff
-             (merge {:out *out*} (select-keys opts [:mismatches-only?]))
+             (merge {:out *out*} (select-keys opts [:mismatches-only? :ignore-exclusions?]))
              (:positional opts)))))
 
 (defn main [args]
