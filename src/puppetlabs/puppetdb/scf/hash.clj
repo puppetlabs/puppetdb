@@ -194,6 +194,16 @@
     :resource_events (sort (map resource-event-identity-string resource_events))
     :transaction_uuid transaction_uuid}))
 
+(defn resource-event-identity-hash
+  "Compute a hash for a resource-event's content, used as a primary key
+
+  This is different than resource-event-identity-string in that it does not
+  include every field - it only uses the fields that make up a unique constraint
+  in the database"
+  [{:keys [report_id resource_type resource_title property] :as event}]
+  (kitchensink/utf8-string->sha1
+   (str report_id resource_type resource_title (or property ""))))
+
 (defn fact-identity-hash
   "Compute a hash for a fact's content
 

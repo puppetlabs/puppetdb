@@ -1496,6 +1496,17 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+(defn resource-events-pk []
+  (jdbc/do-commands
+   "alter table resource_events add column event_hash bytea"
+
+   "update resource_events re
+    set event_hash = digest(concat(re.report_id, re.resource_type, re.resource_title, coalesce(re.property, ''))::text, 'sha1'::text)"
+
+   "alter table resource_events add primary key (event_hash)")
+
+  {::vaccum-analyze #{"resource_events"}})
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1539,7 +1550,8 @@
    63 add-job-id
    64 rededuplicate-facts
    65 varchar-columns-to-text
-   66 jsonb-facts})
+   66 jsonb-facts
+   67 resource-events-pk})
 
 (def desired-schema-version (apply max (keys migrations)))
 

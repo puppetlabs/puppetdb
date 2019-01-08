@@ -11,6 +11,9 @@
             [puppetlabs.puppetdb.testutils :refer [pprint-str]]
             [puppetlabs.puppetdb.utils :refer [flush-and-exit]]))
 
+(def extensions
+  ["pg_trgm" "pgcrypto"])
+
 (defn valid-sql-id? [id]
   (re-matches #"[a-zA-Z][a-zA-Z0-9_]*" id))
 
@@ -98,7 +101,7 @@
    (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
      (drop-sequence! sequence-name))
    (doseq [function-name (sutils/sql-current-connection-function-names)]
-          (drop-function! function-name))))
+     (drop-function! function-name))))
 
 (def ^:private pdb-test-id (env :pdb-test-id))
 
@@ -125,9 +128,9 @@
          (format "drop database if exists %s" template-name)
          (format "create database %s" template-name)))
       (jdbc/with-db-connection (db-admin-config template-name)
-        (jdbc/do-commands-outside-txn
-         "create extension if not exists pg_trgm"
-         "create extension if not exists pgcrypto"))
+        (doseq [ext extensions]
+          (jdbc/do-commands-outside-txn
+           (format "create extension if not exists %s" ext))))
       (let [cfg (db-user-config template-name)]
         (jdbc/with-db-connection cfg
           (migrate! cfg)))

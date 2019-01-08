@@ -1294,11 +1294,15 @@
                        adjust-event-metadata #(-> %
                                                   (assoc :report_id report-id
                                                          :certname_id certname-id)
-                                                  maybe-corrective-change)]
+                                                  maybe-corrective-change)
+                       add-hash #(-> %
+                                     (assoc :event_hash (sutils/munge-hash-for-storage
+                                                         (shash/resource-event-identity-hash %))))]
                    (when-not (empty? resource_events)
                      (->> resource_events
                           (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                           (map adjust-event-metadata)
+                          (map add-hash)
                           (jdbc/insert-multi! :resource_events)
                           dorun))
                    (when update-latest-report?

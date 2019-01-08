@@ -18,7 +18,8 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]])
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.scf.hash :as shash])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -290,9 +291,10 @@
         "CREATE SCHEMA pdbtestschema"
         "SET SCHEMA 'pdbtestschema'")
       (jdbc/with-db-connection (tdb/db-admin-config test-db-name)
-        (jdbc/do-commands
-          "DROP EXTENSION pg_trgm"
-          "CREATE EXTENSION pg_trgm WITH SCHEMA pdbtestschema"))
+        (doseq [ext tdb/extensions]
+          (jdbc/do-commands
+           (format "DROP EXTENSION %s" ext)
+           (format "CREATE EXTENSION %s WITH SCHEMA pdbtestschema" ext))))
 
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
@@ -1035,3 +1037,65 @@
     (is (= [{:value_type_id 4
               :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
+
+(deftest migration-67-adds-hashes-to-resource-events
+  (let [current-time (to-timestamp (now))]
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 66)
+
+      (jdbc/insert! :report_statuses
+                    {:status "testing1" :id 1})
+      (jdbc/insert! :environments {:id 0 :environment "testing"})
+      (jdbc/insert! :certnames {:certname "a.com"})
+
+      (jdbc/insert-multi!
+       :reports
+       [{:hash (sutils/munge-hash-for-storage "01")
+         :transaction_uuid (sutils/munge-uuid-for-storage
+                            "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+         :configuration_version "thisisacoolconfigversion"
+         :certname "a.com"
+         :puppet_version "0.0.0"
+         :report_format 1
+         :start_time current-time
+         :end_time current-time
+         :receive_time current-time
+         :producer_timestamp current-time
+         :environment_id 0
+         :status_id 1
+         :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+         :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+
+      (let [[id1] (map :id
+                       (query-to-vec "SELECT id from reports order by certname"))]
+        (jdbc/insert-multi!
+         :resource_events
+         [{:new_value "\"directory\"",
+           :corrective_change false,
+           :property "ensure",
+           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+           :report_id id1,
+           :old_value "\"absent\"",
+           :containing_class "Foo",
+           :certname_id 1,
+           :line 11,
+           :resource_type "File",
+           :status "success",
+           :resource_title "tmp-directory",
+           :timestamp current-time
+           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+           :message "created"}])
+
+        (apply-migration-for-testing! 67)
+
+        (let [[hash] (map :event_hash
+                          (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
+
+              expected (shash/resource-event-identity-hash
+                        {:report_id id1
+                         :property "ensure"
+                         :resource_title "tmp-directory"
+                         :resource_type "File"})]
+          (is (= expected
+                 hash)))))))
