@@ -903,6 +903,7 @@
    "CREATE INDEX catalogs_certname_idx ON catalogs (certname)"))
 
 (defn add-indexes-for-reports-summary-query
+  "This aggregate and function is used by PE, not puppetdb"
   []
   (jdbc/do-commands
    "CREATE FUNCTION dual_md5(BYTEA, BYTEA) RETURNS bytea AS $$
@@ -1496,6 +1497,70 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+(defn add-resource-events-pk []
+  (jdbc/do-commands
+   "CREATE TABLE resource_events_transform (
+      event_hash bytea NOT NULL PRIMARY KEY,
+      report_id bigint NOT NULL,
+      certname_id bigint NOT NULL,
+      status text NOT NULL,
+      \"timestamp\" timestamp with time zone NOT NULL,
+      resource_type text NOT NULL,
+      resource_title text NOT NULL,
+      property text,
+      new_value text,
+      old_value text,
+      message text,
+      file text DEFAULT NULL::character varying,
+      line integer,
+      containment_path text[],
+      containing_class text,
+      corrective_change boolean)")
+
+  (jdbc/call-with-query-rows
+   ["select
+       report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
+       new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
+     from resource_events"]
+   (fn [rows]
+     (doseq [batch (partition-all 500 rows)]
+       (jdbc/insert-multi! "resource_events_transform"
+                           (map #(-> %
+                                     (assoc :event_hash (->> (hash/resource-event-identity-pkey %)
+                                                             (sutils/munge-hash-for-storage))))
+                                batch)))))
+
+  (jdbc/do-commands
+   "DROP TABLE resource_events"
+
+   "ALTER TABLE resource_events_transform RENAME TO resource_events"
+
+   "ALTER INDEX resource_events_transform_pkey RENAME TO resource_events_pkey"
+
+   "ALTER TABLE ONLY resource_events
+      ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
+
+   "CREATE INDEX resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
+
+   "CREATE INDEX resource_events_property_idx ON resource_events USING btree (property)"
+
+   "CREATE INDEX resource_events_reports_id_idx ON resource_events USING btree (report_id)"
+
+   "CREATE INDEX resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")"
+
+   "CREATE INDEX resource_events_resource_title_idx ON resource_events USING btree (resource_title)"
+
+   "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events USING btree (status) WHERE corrective_change"
+
+   "CREATE INDEX resource_events_status_idx ON resource_events USING btree (status)"
+
+   "CREATE INDEX resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")"
+
+   "ALTER TABLE ONLY resource_events
+      ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
+
+  {::vaccum-analyze #{"resource_events"}})
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1539,7 +1604,8 @@
    63 add-job-id
    64 rededuplicate-facts
    65 varchar-columns-to-text
-   66 jsonb-facts})
+   66 jsonb-facts
+   67 add-resource-events-pk})
 
 (def desired-schema-version (apply max (keys migrations)))
 

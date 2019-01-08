@@ -72,7 +72,7 @@
           (s/optional-key :file) String
           (s/optional-key :line) s/Int
           (s/optional-key :tags) #{String}
-          (s/optional-key :aliases)#{String}
+          (s/optional-key :aliases) #{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
 
 (def resource-ref->resource-schema
@@ -1256,7 +1256,7 @@
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id job_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
-                report-hash (shash/report-identity-hash report)]
+               report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
@@ -1291,14 +1291,20 @@
                                               maybe-resources
                                               maybe-corrective-change
                                               (jdbc/insert! :reports))
-                       adjust-event-metadata #(-> %
-                                                  (assoc :report_id report-id
-                                                         :certname_id certname-id)
-                                                  maybe-corrective-change)]
+                       adjust-event #(-> %
+                                        maybe-corrective-change
+                                        (assoc :report_id report-id
+                                               :certname_id certname-id))
+                       add-event-hash #(-> %
+                                           ;; this cannot be merged with the function above, because the report-id
+                                           ;; field *has* to be exist first
+                                           (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
+                                                                   (sutils/munge-hash-for-storage))))]
                    (when-not (empty? resource_events)
                      (->> resource_events
                           (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                          (map adjust-event-metadata)
+                          (map adjust-event)
+                          (map add-event-hash)
                           (jdbc/insert-multi! :resource_events)
                           dorun))
                    (when update-latest-report?
