@@ -41,11 +41,11 @@
 (defn db-admin-config
   ([] (db-admin-config "postgres"))
   ([database]
-    {:classname "org.postgresql.Driver"
-     :subprotocol "postgresql"
-     :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
-     :user (get-in test-env [:admin :name])
-     :password (get-in test-env [:admin :password])}))
+   {:classname "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
+    :user (get-in test-env [:admin :name])
+    :password (get-in test-env [:admin :password])}))
 
 (defn db-user-config
   [database]
@@ -98,7 +98,7 @@
    (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
      (drop-sequence! sequence-name))
    (doseq [function-name (sutils/sql-current-connection-function-names)]
-          (drop-function! function-name))))
+     (drop-function! function-name))))
 
 (def ^:private pdb-test-id (env :pdb-test-id))
 

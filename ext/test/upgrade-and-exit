@@ -71,7 +71,7 @@ psql -U puppetdb puppetdb -c 'select max(version) from schema_migrations;' \
      > "$tmpdir/out"
 cat "$tmpdir/out"
 # This must be updated every time we add a new migration
-grep -qE ' 66$' "$tmpdir/out"
+grep -qE ' 67$' "$tmpdir/out"
 
 test -e "$PDBBOX"/var/mq-migrated
 (cd "$PDBBOX"/var/stockpile/cmd/q
