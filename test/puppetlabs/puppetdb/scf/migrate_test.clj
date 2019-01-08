@@ -18,7 +18,8 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]])
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.scf.hash :as shash])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -107,29 +108,29 @@
                             [{:name "testing1" :deactivated nil}
                              {:name "testing2" :deactivated nil}])
         (jdbc/insert-multi!
-          :reports
-          [{:hash "01"
-            :configuration_version  "thisisacoolconfigversion"
-            :transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
-            :certname "testing1"
-            :puppet_version "0.0.0"
-            :report_format 1
-            :start_time current-time
-            :end_time current-time
-            :receive_time current-time
-            :environment_id 1
-            :status_id 1}
-           {:hash "0000"
-            :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
-            :configuration_version "blahblahblah"
-            :certname "testing2"
-            :puppet_version "911"
-            :report_format 1
-            :start_time current-time
-            :end_time current-time
-            :receive_time current-time
-            :environment_id 1
-            :status_id 1}])
+         :reports
+         [{:hash "01"
+           :configuration_version  "thisisacoolconfigversion"
+           :transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
+           :certname "testing1"
+           :puppet_version "0.0.0"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :environment_id 1
+           :status_id 1}
+          {:hash "0000"
+           :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
+           :configuration_version "blahblahblah"
+           :certname "testing2"
+           :puppet_version "911"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :environment_id 1
+           :status_id 1}])
 
         (jdbc/insert-multi! :latest_reports
                             [{:report "01" :certname "testing1"}
@@ -139,7 +140,7 @@
 
         (let [response
               (query-to-vec
-                "SELECT encode(r.hash::bytea, 'hex') AS hash, r.certname,
+               "SELECT encode(r.hash::bytea, 'hex') AS hash, r.certname,
                          e.name AS environment, rs.status, r.transaction_uuid::text AS uuid
                  FROM certnames c
                  INNER JOIN reports r on c.latest_report_id=r.id
@@ -153,7 +154,7 @@
                   {:hash "0000" :environment "testing1" :certname "testing2" :status "testing1" :uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"}])))
 
         (let [[id1 id2] (map :id
-                              (query-to-vec "SELECT id from reports order by certname"))]
+                             (query-to-vec "SELECT id from reports order by certname"))]
 
           (let [latest-ids (map :latest_report_id
                                 (query-to-vec "select latest_report_id from certnames order by certname"))]
@@ -174,37 +175,37 @@
                             [{:certname "testing1" :deactivated nil}
                              {:certname "testing2" :deactivated nil}])
         (jdbc/insert-multi!
-          :reports
-          [{:hash (sutils/munge-hash-for-storage "01")
-            :transaction_uuid (sutils/munge-uuid-for-storage
-                                "bbbbbbbb-2222-bbbb-bbbb-222222222222")
-            :configuration_version "thisisacoolconfigversion"
-            :certname "testing1"
-            :puppet_version "0.0.0"
-            :report_format 1
-            :start_time current-time
-            :end_time current-time
-            :receive_time current-time
-            :producer_timestamp current-time
-            :environment_id 1
-            :status_id 1
-            :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
-            :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
-           {:hash (sutils/munge-hash-for-storage "0000")
-            :transaction_uuid (sutils/munge-uuid-for-storage
-                                "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
-            :configuration_version "blahblahblah"
-            :certname "testing2"
-            :puppet_version "911"
-            :report_format 1
-            :start_time current-time
-            :end_time current-time
-            :receive_time current-time
-            :producer_timestamp current-time
-            :environment_id 1
-            :status_id 1
-            :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
-            :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+         :reports
+         [{:hash (sutils/munge-hash-for-storage "01")
+           :transaction_uuid (sutils/munge-uuid-for-storage
+                              "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+           :configuration_version "thisisacoolconfigversion"
+           :certname "testing1"
+           :puppet_version "0.0.0"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :producer_timestamp current-time
+           :environment_id 1
+           :status_id 1
+           :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+           :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
+          {:hash (sutils/munge-hash-for-storage "0000")
+           :transaction_uuid (sutils/munge-uuid-for-storage
+                              "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
+           :configuration_version "blahblahblah"
+           :certname "testing2"
+           :puppet_version "911"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :producer_timestamp current-time
+           :environment_id 1
+           :status_id 1
+           :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+           :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
 
         (jdbc/update! :certnames
                       {:latest_report_id 1}
@@ -217,7 +218,7 @@
 
         (let [response
               (query-to-vec
-                "SELECT encode(r.hash, 'hex') AS hash, r.certname, e.environment, rs.status,
+               "SELECT encode(r.hash, 'hex') AS hash, r.certname, e.environment, rs.status,
                         r.transaction_uuid::text AS uuid,
                         coalesce(metrics_json::jsonb, metrics) as metrics,
                         coalesce(logs_json::jsonb, logs) as logs
@@ -236,7 +237,7 @@
                             #(update % :logs sutils/parse-db-json)) response))))
 
         (let [[id1 id2] (map :id
-                              (query-to-vec "SELECT id from reports order by certname"))]
+                             (query-to-vec "SELECT id from reports order by certname"))]
 
           (let [latest-ids (map :latest_report_id
                                 (query-to-vec "select latest_report_id from certnames order by certname"))]
@@ -251,7 +252,7 @@
       (jdbc/insert! :environments
                     {:id 1 :name "test env"})
       (jdbc/insert! :certnames
-                   {:name "foo.local"})
+                    {:name "foo.local"})
       (jdbc/insert! :catalogs
                     {:hash "18440af604d18536b1c77fd688dff8f0f9689d90"
                      :api_version 1
@@ -284,15 +285,15 @@
               user (get-in tdb/test-env [:user :name])]
           (assert (tdb/valid-sql-id? db))
           (jdbc/do-commands
-            (format "grant create on database %s to %s"
-                    db (get-in tdb/test-env [:user :name])))))
+           (format "grant create on database %s to %s"
+                   db (get-in tdb/test-env [:user :name])))))
       (jdbc/do-commands
-        "CREATE SCHEMA pdbtestschema"
-        "SET SCHEMA 'pdbtestschema'")
+       "CREATE SCHEMA pdbtestschema"
+       "SET SCHEMA 'pdbtestschema'")
       (jdbc/with-db-connection (tdb/db-admin-config test-db-name)
         (jdbc/do-commands
-          "DROP EXTENSION pg_trgm"
-          "CREATE EXTENSION pg_trgm WITH SCHEMA pdbtestschema"))
+         "DROP EXTENSION pg_trgm"
+         "CREATE EXTENSION pg_trgm WITH SCHEMA pdbtestschema"))
 
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
@@ -309,13 +310,13 @@
                             :environment_id (store/ensure-environment "prod")
                             :producer_timestamp (to-timestamp (now))}
           factset-data (map (fn [fs]
-                               (merge factset-template fs))
-                             [{:certname "foo.com"
-                               :hash nil}
-                              {:certname "bar.com"
-                               :hash nil}
-                              {:certname "baz.com"
-                               :hash (sutils/munge-hash-for-storage "abc123")}])]
+                              (merge factset-template fs))
+                            [{:certname "foo.com"
+                              :hash nil}
+                             {:certname "bar.com"
+                              :hash nil}
+                             {:certname "baz.com"
+                              :hash (sutils/munge-hash-for-storage "abc123")}])]
 
       (jdbc/insert-multi! :certnames (map (fn [{:keys [certname]}]
                                             {:certname certname :deactivated nil})
@@ -453,48 +454,48 @@
                      :column_name "id",
                      :table_name "producers"},
                     :same nil}
-                    {:left-only nil,
-                     :right-only
-                     {:numeric_scale 0,
-                      :column_default nil,
-                      :character_octet_length nil,
-                      :datetime_precision nil,
-                      :nullable? "YES",
-                      :character_maximum_length nil,
-                      :numeric_precision 64,
-                      :numeric_precision_radix 2,
-                      :data_type "bigint",
-                      :column_name "producer_id",
-                      :table_name "catalogs"},
-                     :same nil}
-                    {:left-only nil,
-                     :right-only
-                     {:numeric_scale nil,
-                      :column_default nil,
-                      :character_octet_length 1073741824,
-                      :datetime_precision nil,
-                      :nullable? "NO",
-                      :character_maximum_length nil,
-                      :numeric_precision nil,
-                      :numeric_precision_radix nil,
-                      :data_type "text",
-                      :column_name "name",
-                      :table_name "producers"},
-                     :same nil}
-                    {:left-only nil,
-                     :right-only
-                     {:numeric_scale 0,
-                      :column_default nil,
-                      :character_octet_length nil,
-                      :datetime_precision nil,
-                      :nullable? "YES",
-                      :character_maximum_length nil,
-                      :numeric_precision 64,
-                      :numeric_precision_radix 2,
-                      :data_type "bigint",
-                      :column_name "producer_id",
-                      :table_name "factsets"},
-                     :same nil}])
+                   {:left-only nil,
+                    :right-only
+                    {:numeric_scale 0,
+                     :column_default nil,
+                     :character_octet_length nil,
+                     :datetime_precision nil,
+                     :nullable? "YES",
+                     :character_maximum_length nil,
+                     :numeric_precision 64,
+                     :numeric_precision_radix 2,
+                     :data_type "bigint",
+                     :column_name "producer_id",
+                     :table_name "catalogs"},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:numeric_scale nil,
+                     :column_default nil,
+                     :character_octet_length 1073741824,
+                     :datetime_precision nil,
+                     :nullable? "NO",
+                     :character_maximum_length nil,
+                     :numeric_precision nil,
+                     :numeric_precision_radix nil,
+                     :data_type "text",
+                     :column_name "name",
+                     :table_name "producers"},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:numeric_scale 0,
+                     :column_default nil,
+                     :character_octet_length nil,
+                     :datetime_precision nil,
+                     :nullable? "YES",
+                     :character_maximum_length nil,
+                     :numeric_precision 64,
+                     :numeric_precision_radix 2,
+                     :data_type "bigint",
+                     :column_name "producer_id",
+                     :table_name "factsets"},
+                    :same nil}])
              (set (:table-diff schema-diff)))))))
 
 (deftest test-migrate-from-unsupported-version
@@ -535,24 +536,24 @@
 
     (jdbc/insert! :catalogs
                   {:hash (sutils/munge-hash-for-storage
-                           "18440af604d18536b1c77fd688dff8f0f9689d90")
+                          "18440af604d18536b1c77fd688dff8f0f9689d90")
                    :id 1
                    :api_version 1
                    :catalog_version 1
                    :transaction_uuid (sutils/munge-uuid-for-storage
-                                       "95d132b3-cb21-4e0a-976d-9a65567696ba")
+                                      "95d132b3-cb21-4e0a-976d-9a65567696ba")
                    :timestamp (to-timestamp (now))
                    :certname "foo.local"
                    :environment_id 1
                    :producer_timestamp (to-timestamp (now))})
     (jdbc/insert! :catalogs
                   {:hash (sutils/munge-hash-for-storage
-                           "18445af604d18536b1c77fd688dff8f0f9689d90")
+                          "18445af604d18536b1c77fd688dff8f0f9689d90")
                    :id 2
                    :api_version 1
                    :catalog_version 1
                    :transaction_uuid (sutils/munge-uuid-for-storage
-                                       "95d136b3-cb21-4e0a-976d-9a65567696ba")
+                                      "95d136b3-cb21-4e0a-976d-9a65567696ba")
                    :timestamp (to-timestamp (now))
                    :certname "foo.local"
                    :environment_id 1
@@ -635,8 +636,8 @@
     (testing "should migrate resource_params_cache data correctly"
       (let [responses
             (query-to-vec
-              (format "SELECT %s as resource, parameters FROM resource_params_cache"
-                      (sutils/sql-hash-as-str "resource")))
+             (format "SELECT %s as resource, parameters FROM resource_params_cache"
+                     (sutils/sql-hash-as-str "resource")))
             parsed-responses (for [response responses] (assoc response :parameters (sutils/parse-db-json (response :parameters))))]
         (is (= parsed-responses
                [{:resource "a0a0a0" :parameters {:a "apple" :b {:1 "bear" :2 "button" :3 "butts"}}}
@@ -647,21 +648,21 @@
                (->> (:index-diff schema-diff)
                     (map #(kitchensink/mapvals (fn [idx] (dissoc idx :user)) %))
                     set)))
-       (is (= #{{:left-only
-                {:data_type "text", :character_octet_length 1073741824},
-                :right-only
-                {:data_type "jsonb", :character_octet_length nil},
-                :same
-                {:table_name "resource_params_cache",
-                 :column_name "parameters",
-                 :numeric_precision_radix nil,
-                 :numeric_precision nil,
-                 :character_maximum_length nil,
-                 :nullable? "YES",
-                 :datetime_precision nil,
-                 :column_default nil,
-                 :numeric_scale nil}}}
-              (set (:table-diff schema-diff))))))))
+        (is (= #{{:left-only
+                  {:data_type "text", :character_octet_length 1073741824},
+                  :right-only
+                  {:data_type "jsonb", :character_octet_length nil},
+                  :same
+                  {:table_name "resource_params_cache",
+                   :column_name "parameters",
+                   :numeric_precision_radix nil,
+                   :numeric_precision nil,
+                   :character_maximum_length nil,
+                   :nullable? "YES",
+                   :datetime_precision nil,
+                   :column_default nil,
+                   :numeric_scale nil}}}
+               (set (:table-diff schema-diff))))))))
 
 (deftest fact-values-reduplication-schema-diff
   ;; This does not check the value_string trgm index since it is
@@ -709,7 +710,7 @@
                    (update :index-diff set)
                    (update :table-diff set)
                    (dissoc :constraint-diff))
-          exp-idx-diffs #{ ;; removed indexes
+          exp-idx-diffs #{;; removed indexes
                           {:left-only
                            {:schema "public"
                             :table "fact_values"
@@ -776,7 +777,7 @@
                             :user "pdb_test"}
                            :right-only nil
                            :same nil}}
-          exp-table-diffs  #{ ;; removed columns
+          exp-table-diffs  #{;; removed columns
                              {:left-only
                               {:numeric_scale nil
                                :column_default nil
@@ -965,7 +966,6 @@
                              :environment_id 0
                              :hash (sutils/munge-hash-for-storage "abcd1234")})
 
-
     (jdbc/insert! :fact_paths {:id 0
                                :depth 0
                                :name "json_null_with_json_type"
@@ -975,7 +975,6 @@
                           :fact_path_id 0
                           :value_type_id 5
                           :value (sutils/munge-jsonb-for-storage nil)})
-
 
     (jdbc/insert! :fact_paths {:id 1
                                :depth 0
@@ -987,7 +986,6 @@
                           :value_type_id 5
                           :value (sutils/munge-jsonb-for-storage nil)})
 
-
     (jdbc/insert! :fact_paths {:id 2
                                :depth 0
                                :name "sql_null_with_json_type"
@@ -997,7 +995,6 @@
                           :fact_path_id 2
                           :value_type_id 5
                           :value (sutils/munge-jsonb-for-storage nil)})
-
 
     (is (= {::migrate/vacuum-analyze #{"facts" "fact_values" "fact_paths"}}
            (apply-migration-for-testing! 64)))
@@ -1028,10 +1025,71 @@
                           :value_type_id 5
                           :value nil})
 
-
     (is (= {::migrate/vacuum-analyze #{"facts" "fact_values" "fact_paths"}}
            (apply-migration-for-testing! 64)))
 
     (is (= [{:value_type_id 4
-              :value nil}]
+             :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
+
+(deftest migration-67-adds-hashes-to-resource-events
+  (let [current-time (to-timestamp (now))]
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 66)
+
+      (jdbc/insert! :report_statuses
+                    {:status "testing1" :id 1})
+      (jdbc/insert! :environments {:id 0 :environment "testing"})
+      (jdbc/insert! :certnames {:certname "a.com"})
+
+      (jdbc/insert-multi!
+       :reports
+       [{:hash (sutils/munge-hash-for-storage "01")
+         :transaction_uuid (sutils/munge-uuid-for-storage
+                            "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+         :configuration_version "thisisacoolconfigversion"
+         :certname "a.com"
+         :puppet_version "0.0.0"
+         :report_format 1
+         :start_time current-time
+         :end_time current-time
+         :receive_time current-time
+         :producer_timestamp current-time
+         :environment_id 0
+         :status_id 1
+         :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+         :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+
+      (let [[id1] (map :id
+                       (query-to-vec "SELECT id from reports order by certname"))]
+        (jdbc/insert-multi!
+         :resource_events
+         [{:new_value "\"directory\"",
+           :corrective_change false,
+           :property "ensure",
+           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+           :report_id id1,
+           :old_value "\"absent\"",
+           :containing_class "Foo",
+           :certname_id 1,
+           :line 11,
+           :resource_type "File",
+           :status "success",
+           :resource_title "tmp-directory",
+           :timestamp current-time
+           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+           :message "created"}])
+
+        (apply-migration-for-testing! 67)
+
+        (let [[hash] (map :event_hash
+                          (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
+
+              expected (shash/resource-event-identity-pkey
+                        {:report_id id1
+                         :property "ensure"
+                         :resource_title "tmp-directory"
+                         :resource_type "File"})]
+          (is (= expected
+                 hash)))))))

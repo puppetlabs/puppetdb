@@ -72,7 +72,7 @@
           (s/optional-key :file) String
           (s/optional-key :line) s/Int
           (s/optional-key :tags) #{String}
-          (s/optional-key :aliases)#{String}
+          (s/optional-key :aliases) #{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
 
 (def resource-ref->resource-schema
@@ -170,8 +170,7 @@
 ;;   host
 ;;
 (def performance-metrics
-  {
-   :add-resources      (timer storage-metrics-registry ["add-resources"])
+  {:add-resources      (timer storage-metrics-registry ["add-resources"])
    :add-edges          (timer storage-metrics-registry ["add-edges"])
 
    :resource-hashes    (timer storage-metrics-registry ["resource-hashes"])
@@ -625,12 +624,12 @@
   (let [old-resources (catalog-resources certname-id)
         diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
-     (add-params! refs-to-resources refs-to-hashes)
-     (utils/diff-fn old-resources
-                    diffable-resources
-                    (delete-catalog-resources! certname-id)
-                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
-                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
+      (add-params! refs-to-resources refs-to-hashes)
+      (utils/diff-fn old-resources
+                     diffable-resources
+                     (delete-catalog-resources! certname-id)
+                     (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
+                     (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
 
 (s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -818,7 +817,6 @@
           ["NOT EXISTS (SELECT * FROM catalog_resources cr
                           WHERE cr.resource=resource_params_cache.resource)"])))
 
-
 (defn delete-unassociated-environments!
   "Remove any environments that aren't associated with a catalog, report or factset"
   []
@@ -843,6 +841,7 @@
 
 
 ;;; Packages
+
 
 (defn find-certname-id-and-hash [certname]
   (first (jdbc/query-to-vec [(format "SELECT id, %s as package_hash FROM certnames WHERE certname=?"
@@ -952,6 +951,7 @@
 
 ;;; JSONB facts
 
+
 (defn-validated certname-factset-metadata
   :- {:package_hash (s/maybe s/Str)
       :factset_id s/Int
@@ -966,7 +966,6 @@
             (sutils/sql-hash-as-str "c.package_hash"))
     certname certname]
    (comp first sql/result-set-seq)))
-
 
 (defn volatile-fact-keys-for-factset [factset-id]
   (->> (jdbc/query-to-vec "select jsonb_object_keys(volatile) as fact from factsets where id=?"
@@ -1256,7 +1255,7 @@
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id job_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
-                report-hash (shash/report-identity-hash report)]
+               report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
@@ -1291,14 +1290,20 @@
                                               maybe-resources
                                               maybe-corrective-change
                                               (jdbc/insert! :reports))
-                       adjust-event-metadata #(-> %
-                                                  (assoc :report_id report-id
-                                                         :certname_id certname-id)
-                                                  maybe-corrective-change)]
+                       adjust-event #(-> %
+                                        maybe-corrective-change
+                                        (assoc :report_id report-id
+                                               :certname_id certname-id))
+                       add-event-hash #(-> %
+                                           ;; this cannot be merged with the function above, because the report-id
+                                           ;; field *has* to be exist first
+                                           (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
+                                                                   (sutils/munge-hash-for-storage))))]
                    (when-not (empty? resource_events)
                      (->> resource_events
                           (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                          (map adjust-event-metadata)
+                          (map adjust-event)
+                          (map add-event-hash)
                           (jdbc/insert-multi! :resource_events)
                           dorun))
                    (when update-latest-report?
@@ -1314,6 +1319,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
+
 
 (def oldest-supported-db [9 6])
 
