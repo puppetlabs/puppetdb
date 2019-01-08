@@ -18,7 +18,8 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]])
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.scf.hash :as shash])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -1035,3 +1036,117 @@
     (is (= [{:value_type_id 4
               :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
+
+(deftest migration-67-adds-hashes-to-resource-events
+  (let [current-time (to-timestamp (now))]
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 66)
+
+      (jdbc/insert! :report_statuses
+                    {:status "testing1" :id 1})
+      (jdbc/insert! :environments {:id 0 :environment "testing"})
+      (jdbc/insert! :certnames {:certname "a.com"})
+
+      (jdbc/insert-multi!
+       :reports
+       [{:hash (sutils/munge-hash-for-storage "01")
+         :transaction_uuid (sutils/munge-uuid-for-storage
+                            "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+         :configuration_version "thisisacoolconfigversion"
+         :certname "a.com"
+         :puppet_version "0.0.0"
+         :report_format 1
+         :start_time current-time
+         :end_time current-time
+         :receive_time current-time
+         :producer_timestamp current-time
+         :environment_id 0
+         :status_id 1
+         :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+         :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+
+      (let [[id1] (map :id
+                       (query-to-vec "SELECT id from reports order by certname"))]
+        (jdbc/insert-multi!
+         :resource_events
+         [{:new_value "\"directory\"",
+           :corrective_change false,
+           :property "ensure",
+           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+           :report_id id1,
+           :old_value "\"absent\"",
+           :containing_class "Foo",
+           :certname_id 1,
+           :line 11,
+           :resource_type "File",
+           :status "success",
+           :resource_title "tmp-directory",
+           :timestamp current-time
+           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+           :message "created"}])
+
+        (apply-migration-for-testing! 67)
+
+        (let [[hash] (map :event_hash
+                          (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
+
+              expected (shash/resource-event-identity-pkey
+                        {:report_id id1
+                         :property "ensure"
+                         :resource_title "tmp-directory"
+                         :resource_type "File"})
+
+              [containment-path] (map :containment_path
+                                      (query-to-vec "SELECT containment_path FROM resource_events"))]
+          (is (= expected
+                 hash))
+
+          (is (= ["foo"]
+                 containment-path)))))))
+
+(deftest migration-67-schema-diff
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 66)
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 67)
+    (is (= {:index-diff [{:left-only nil
+                          :right-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_pkey"
+                                       :index_keys ["event_hash"]
+                                       :type "btree"
+                                       :unique? true
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? true
+                                       :user "pdb_test"}
+                          :same nil}]
+            :table-diff [{:left-only nil
+                          :right-only {:numeric_scale nil
+                                       :column_default nil
+                                       :character_octet_length nil
+                                       :datetime_precision nil
+                                       :nullable? "NO"
+                                       :character_maximum_length nil
+                                       :numeric_precision nil
+                                       :numeric_precision_radix nil
+                                       :data_type "bytea"
+                                       :column_name "event_hash"
+                                       :table_name "resource_events"}
+                          :same nil}]
+            :constraint-diff [{:left-only nil
+                               :right-only {:constraint_name "event_hash IS NOT NULL"
+                                            :table_name "resource_events"
+                                            :constraint_type "CHECK"
+                                            :initially_deferred "NO"
+                                            :deferrable? "NO"}
+                               :same nil}
+                              {:left-only nil
+                               :right-only {:constraint_name "resource_events_pkey"
+                                            :table_name "resource_events"
+                                            :constraint_type "PRIMARY KEY"
+                                            :initially_deferred "NO"
+                                            :deferrable? "NO"}
+                               :same nil}]}
+           (diff-schema-maps before-migration (schema-info-map *db*))))))

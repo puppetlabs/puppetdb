@@ -37,7 +37,7 @@
             (slurp (str "ext/test-conf/puppetserver-dep"))
             (catch java.io.FileNotFoundException ex
               (binding [*out* *err*]
-                (println "puppetserver test depdency unconfigured (ignoring)"))
+                (println "puppetserver test dependency unconfigured (ignoring)"))
               nil))
           clojure.string/trim))
 
