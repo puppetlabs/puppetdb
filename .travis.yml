@@ -135,7 +135,8 @@ on_success: ext/travisci/on-success
 notifications:
   email: false
   slack:
-    secure: IJU0YgGYbKgM7NupaOmE2BYra2mNx7+e5vAYNL+5oaRXolbHCyg0WzfFWilhMK3KEi8oIMKXR4ZzoUZLAqeOQzX7nnsLqC3wjyDHCgxtp4O+5GNKyeLN4ItoI1f2d6qyiiBPkHgVPuLhG3yyQ+wD0dMc9vSYmxfoazqe9HD/9UE=
+    rooms:
+      secure: IJU0YgGYbKgM7NupaOmE2BYra2mNx7+e5vAYNL+5oaRXolbHCyg0WzfFWilhMK3KEi8oIMKXR4ZzoUZLAqeOQzX7nnsLqC3wjyDHCgxtp4O+5GNKyeLN4ItoI1f2d6qyiiBPkHgVPuLhG3yyQ+wD0dMc9vSYmxfoazqe9HD/9UE=
 
 cache:
   directories:
