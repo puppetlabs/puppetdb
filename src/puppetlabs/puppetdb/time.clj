@@ -14,6 +14,15 @@
 (def now clj-time.core/now)
 ;; If we end up switching directly to java.time: OffsetDateTime/now
 
+(defprotocol ToJavaDate
+  (to-java-date ^java.util.Date [x] "Converts x to a java.util.Date."))
+
+(extend-protocol ToJavaDate
+  org.joda.time.DateTime
+  (to-java-date [x]
+    ;; Eventually: (Date/from (.toInstant odt))
+    (tc/to-date x)))
+
 ;; Functions for parsing Periods from Strings
 
 (defn period?
