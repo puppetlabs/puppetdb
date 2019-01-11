@@ -1,10 +1,13 @@
-(ns puppetlabs.puppetdb.command.constants)
+(ns puppetlabs.puppetdb.command.constants
+  (:require [clojure.set :as set]))
 
 (def command-names
   {:replace-catalog "replace catalog"
    :replace-facts   "replace facts"
    :deactivate-node "deactivate node"
    :store-report    "store report"})
+
+(def command-keys (set/map-invert command-names))
 
 (defn- version-range [min-version max-version]
   (set (range min-version (inc max-version))))

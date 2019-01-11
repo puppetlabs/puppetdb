@@ -59,6 +59,25 @@ Note that if you run it from the source tree via leiningen, you should
 make sure to use trampoline, i.e. `lein trampoline run benchmark ...`
 so that the tool can shut down and clean up normally.
 
+### Running on an agent other than master
+
+Running the PuppetDB benchmark tool on the master can cause resource constraints
+which may significantly skew performance on the master. If you would like to run
+the benchmark tool on an agent this can be achieved following the instructions
+below.
+
+* On the master, modify `/etc/puppetlabs/puppetdb/conf.d/jetty.ini`.
+In the `[jetty]` section, set either:
+    * `host=0.0.0.0 # http access from all agents`
+    * `host=<agent ip address> # access from specific agent`
+
+* Install java on the agent
+* On the agent, in the `config.ini` file set the port to the puppetdb port for
+http traffic (defaults to 8080)
+
+Once these steps have been completed you should be able to run the benchmark
+tool on the agent using the `java -cp ...` command described above.
+
 ### Arguments accepted by the benchmark command
 
 - **`--config / -c`**: path to the INI file that has the host/port configuration

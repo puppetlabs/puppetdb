@@ -1123,38 +1123,37 @@
 (defn delete-unused-fact-paths []
   "Deletes paths from fact_paths that are no longer needed by any
   factset.  In the unusual case where a path changes type, the
-  previous version will linger."
+  previous version will linger.  This requires a parent transaction
+  with at least a repeatable-read isolation level (and may or may not
+  need postgres' \"stronger than the standard\" repeatable-read
+  behavior).  Otherwise paths could be added to fact_paths elsewhere
+  during the gc, not be noticed, and then be deleted at the end."
+  ;; Use a temp table for now until we figure out why pg is creating a
+  ;; vast number of temp files when this is all handled as a single
+  ;; query.  (PDB-3924)
   (jdbc/do-commands
-   ["with recursive live_paths(key, path, value) as"
-    "  (select key, key as path, value"
-    "     from (select (jsonb_each(stable||volatile)).*"
-    "             from factsets) as base_case"
-    "   union all"
-    "   select sub_path as key,"
-    "          sub_paths.path||'#~'||sub_path as path,"
-    "          sub_value as value"
-    "     from (select *"
-    "             from (select path,"
-    "                          case jsonb_typeof(value)"
-    "                            when 'object'"
-    "                              then (jsonb_each(value)).key"
-    "                            when 'array'"
-    "                              then generate_series(0, jsonb_array_length(value - 1))::text"
-    "                            end"
-    "                            as sub_path,"
-    "                          case jsonb_typeof(value)"
-    "                            when 'object'"
-    "                              then (jsonb_each(value)).value"
-    "                            when 'array'"
-    "                              then jsonb_array_elements(value)"
-    "                          end"
-    "                          as sub_value"
-    "                     from live_paths) as candidates"
-    "             where candidates.sub_path is not null)"
-    "               as sub_paths)"
-    "  delete from fact_paths fp"
-    "    where not exists (select 1 from live_paths"
-    "                        where live_paths.path = fp.path)"]))
+   ["with recursive live_paths(path, value) as"
+    "   (select key as path, value"
+    "      from (select (jsonb_each(stable||volatile)).* from factsets) as base_case"
+    "      union"
+    "        select path||'#~'||sub_level.key as path,"
+    "               sub_level.value"
+    "          from live_paths,"
+    "          lateral (select *"
+    "                     from (select (jsonb_each(value)).*"
+    "                             where jsonb_typeof(value) = 'object') as sub_fields"
+    "                     union (select generate_series(0, jsonb_array_length(value - 1))::text as key,"
+    "                                   jsonb_array_elements(value) as value"
+    "                              where jsonb_typeof(value) = 'array')) as sub_level)"
+    "   select path into unlogged tmp_live_paths from live_paths"]
+
+   "analyze tmp_live_paths"
+
+   ["delete from fact_paths fp"
+    "  where not exists (select 1 from tmp_live_paths"
+    "                      where tmp_live_paths.path = fp.path)"]
+
+   "drop table tmp_live_paths"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
@@ -1435,5 +1434,7 @@
      (jdbc/with-transacted-connection db
        (delete-unassociated-params!)
        (delete-unassociated-environments!))
-     (jdbc/with-transacted-connection db
+     (jdbc/with-transacted-connection' db :repeatable-read
+       ;; May or may not require postgresql's "stronger than the
+       ;; standard" behavior for repeatable read.
        (delete-unused-fact-paths)))))

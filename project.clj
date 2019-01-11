@@ -1,5 +1,5 @@
-(def pdb-version "6.0.2-SNAPSHOT")
-(def clj-parent-version "2.3.2")
+(def pdb-version "6.0.3-SNAPSHOT")
+(def clj-parent-version "2.6.0")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -127,10 +127,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [;; clj-parent overrides
-                 ;; Until we officially drop 7
-                 [org.postgresql/postgresql "42.2.2.jre7"]
-
+  :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4"]
@@ -186,19 +183,11 @@
                  [compojure]
                  [ring/ring-core]
 
-                 ;; Explicit pins (that really work): until we resolve
-                 ;; the issue with :dependencies ^:replace in the
-                 ;; ezbake profile below ignoring all the pins
-                 ;; in :dependencies, repeat these pins here and there
-                 ;; below, or they won't affect the jars we ship.  For
-                 ;; now, only include the pins that we added after we
-                 ;; recognized the problem (when fixing CVEs), so we
-                 ;; don't change unrelated deps that have already been
-                 ;; deployed.  Fix CVE-2018-5968 (PDB-4161)
-                 [com.fasterxml.jackson.core/jackson-databind "2.9.7"]
-
                  ;; conflict resolution
                  [org.clojure/tools.nrepl "0.2.13"]]
+
+  ; permanently exclude jackson-databind, as it is a source of CVE's and we don't use it
+  :exclusions [[com.fasterxml.jackson.core/jackson-databind]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
@@ -260,10 +249,7 @@
                                                ;; This circular dependency is required because of a bug in
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
                                                ;; in the final package.
-                                               [puppetlabs/puppetdb ~pdb-version]
-
-                                               ;; See "Explicit pins" above
-                                               [com.fasterxml.jackson.core/jackson-databind "2.9.7"]]
+                                               [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.8.10"]]}
              :testutils {:source-paths ^:replace ["test"]}
