@@ -123,6 +123,7 @@ jobs:
       env: PDB_TEST=core+ext/openjdk10/pg-9.6
       script: *run-core-and-ext-tests
 
+    - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk8/pg-11
       script: *run-core-and-ext-tests
 
