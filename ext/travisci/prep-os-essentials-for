@@ -20,21 +20,26 @@ pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
 
 case "$OSTYPE" in
     darwin*)
+        # brew produced some HOMEBREW_LOGS related error on the first
+        # run but said that "everything should be fine" if you try
+        # again, so we do that...
+        brew install ruby || true
+        brew install ruby
         brew install bash
         brew install postgresql@"$pgver"
 
+        brew tap AdoptOpenJDK/openjdk
         case "$jdkver" in
           8)
             # Install AdoptOpenJDK 11, we will use this for its cacert
-            brew cask install https://raw.githubusercontent.com/Homebrew/homebrew-cask/636d8f0d1afce664f47620b46571e42b01c93d8c/Casks/adoptopenjdk.rb
-            cacert_path=/Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/lib/security/cacerts
+            brew cask install adoptopenjdk11
+            cacert_path=/Library/Java/JavaVirtualMachines/adoptopenjdk-11.0.1.jdk/Contents/Home/lib/security/cacerts
 
             if test ! -f "$cacert_path"; then
               echo "The cacerts file did not exist at '$cacert_path'" 1>&2
               exit 3
             fi
 
-            brew tap AdoptOpenJDK/openjdk
             # brew cask install adoptopenjdk8
             brew cask install "adopt$jdk"
             old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/jre/lib/security/cacerts"
