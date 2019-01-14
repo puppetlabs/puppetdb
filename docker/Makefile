@@ -28,7 +28,7 @@ else
 endif
 
 build: prep
-	@docker build --pull --build-arg vcs_ref=$(vcs_ref) --build-arg build_date=$(build_date) --build-arg version=$(version) --file puppetdb/$(dockerfile) --tag puppet/puppetdb:$(version) puppetdb
+	@docker build --pull --build-arg vcs_ref=$(vcs_ref) --build-arg build_date=$(build_date) --build-arg version=$(version) --file puppetdb/$(dockerfile) --tag puppet/puppetdb:$(version) ..
 ifeq ($(IS_LATEST),true)
 	@docker tag puppet/puppetdb:$(version) puppet/puppetdb:latest
 endif
