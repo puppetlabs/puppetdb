@@ -19,7 +19,7 @@ extract-major() {
     if test "$ver_x" -ge 10; then
         echo "$ver_x"
     else
-        echo "$ver" | sed -e 's/[0-9]\+\.\([0-9]\+\).*/\1/'
+        echo "$ver" | sed -E 's/[0-9]+\.([0-9]+).*/\1/'
     fi
 }
 
@@ -35,7 +35,7 @@ print-info() {
     #   openjdk version "1.8.0_171"
     #   openjdk version "10.0.2" 2018-07-17
     #   openjdk version "10.0.2-adoptopenjdk" 2018-07-17
-    ver=$(echo "$ver_out" | head -1 | cut -d' ' -f 3 | sed -e 's/^"\(.\+\)"$/\1/')
+    ver=$(echo "$ver_out" | head -1 | cut -d' ' -f 3 | sed -E 's/^"(.+)"$/\1/')
 
     case "$what" in
         version) echo "$ver" ;;
