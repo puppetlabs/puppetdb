@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+usage()
+{
+    echo "Usage: $(basename $0) <--print (version|major|spec)>..."
+}
+
+misuse()
+{
+    usage 1>&2
+    exit 2
+}
+
+extract-major() {
+    local ver="$1"
+    local ver_x="${ver%%.*}"
+    if test "$ver_x" -ge 10; then
+        echo "$ver_x"
+    else
+        echo "$ver" | sed -e 's/[0-9]\+\.\([0-9]\+\).*/\1/'
+    fi
+}
+
+print-info() {
+    local what="$1"
+    local ver ver_out
+    # java -version prints the requested info to stderr...
+    ver_out=$(java -version 2>&1 1>/dev/null)
+
+    # Looks like the third field of the first line always has a
+    # quoted version string.  Some variants:
+    #   java version "1.8.0_172"
+    #   openjdk version "1.8.0_171"
+    #   openjdk version "10.0.2" 2018-07-17
+    #   openjdk version "10.0.2-adoptopenjdk" 2018-07-17
+    ver=$(echo "$ver_out" | head -1 | cut -d' ' -f 3 | sed -e 's/^"\(.\+\)"$/\1/')
+
+    case "$what" in
+        version) echo "$ver" ;;
+        major) echo "$(extract-major "$ver")" ;;
+        spec)
+            local maj_ver
+            maj_ver=$(extract-major "$ver")
+            if echo "$ver_out" | grep -qiF openjdk; then
+                echo "openjdk$maj_ver"
+            else
+                echo "oraclejdk$maj_ver"
+            fi
+            ;;
+        *) misuse ;;
+    esac
+}
+
+if test $# -eq 0; then
+    misuse
+fi
+
+while test $# -gt 0; do
+    case "$1" in
+        --print)
+            shift
+            test $# -gt 0 || misuse
+            what="$1"
+            shift
+            case "$what" in
+                version|major|spec)
+                    print-info "$what"
+                    ;;
+                *) misuse ;;
+            esac
+            ;;
+        *)
+            misuse
+    esac
+done
