@@ -22,7 +22,7 @@ services:
 aliases:
   - &run-core-and-ext-tests |
     set -e
-    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     case "$OSTYPE" in
@@ -51,7 +51,7 @@ aliases:
 
   - &run-integration-tests |
     set -e
-    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     case "$OSTYPE" in
