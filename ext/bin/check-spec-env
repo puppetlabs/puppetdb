@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+usage()
+{
+    echo "Usage: $(basename $0) SPEC"
+}
+
+misuse()
+{
+    usage 1>&2
+    exit 2
+}
+
+verify-jdk() {
+    local spec="$1"
+    echo spec: [$spec]
+    local actual_jdk expected_jdk
+    expected_jdk="$(ext/bin/jdk-from-spec "$spec")"
+    actual_jdk="$(ext/bin/jdk-info --print spec)"
+    if test "$expected_jdk" != "$actual_jdk"; then
+        printf "JDK in path %q is not what PDB_TEST specifies: %q\n" \
+               "$actual_jdk" "$expected_jdk" 1>&2
+        exit 2
+    fi
+}
+
+test $# -ne 1 && misuse
+
+spec="$1"
+test_kind=''
+for item in ${spec//// }; do  # change / to ' '
+    echo item: "[$item]"
+    case "$item" in
+        core+ext|int|rspec) test_kind="$item" ;;
+    esac
+done
+
+if test -z "$test_kind"; then
+    echo "Unable to find a test category in $spec" 1>&2
+    exit 2
+fi
+
+case "$test_kind" in
+    core+ext|int)
+        verify-jdk "$spec"
+        ;;
+    rspec)
+        ;;
+    *)
+        echo "Unexpected test category: $test_kind" 1>&2
+        exit 2
+        ;;
+esac
