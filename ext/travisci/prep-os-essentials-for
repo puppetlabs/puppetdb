@@ -14,7 +14,7 @@ misuse() {
 test $# -eq 1 || misuse
 spec="$1"
 
-jdk="$(ext/travisci/jdk-from-spec "$spec")"
+jdk="$(ext/bin/jdk-from-spec "$spec")"
 jdkver="${jdk##*jdk}"
 pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
 

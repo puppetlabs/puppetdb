@@ -22,7 +22,7 @@ services:
 aliases:
   - &run-core-and-ext-tests |
     set -e
-    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     case "$OSTYPE" in
@@ -46,12 +46,13 @@ aliases:
     pgver="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pg-)"
     ext/bin/test-config --set pgver "$pgver"
     ext/bin/test-config --set pgport 34335
+    ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/boxed-core-tests -- lein test
     ext/bin/run-external-tests
 
   - &run-integration-tests |
     set -e
-    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     case "$OSTYPE" in
@@ -79,11 +80,13 @@ aliases:
     ext/bin/test-config --set pgport 34335
     ext/bin/test-config --set puppet-ref "$puppet"
     ext/bin/test-config --set puppetserver-ref "$server"
+    ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/boxed-integration-tests -- lein test :integration
 
   - &run-spec-tests |
     set -e
     puppet_ref="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pup-)"
+    ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/run-rspec-tests "$puppet_ref"
 
   - &run-docker-tests |
