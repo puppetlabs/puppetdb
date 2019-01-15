@@ -7,6 +7,22 @@ misuse() { usage 1>&2; exit 2; }
 
 test $# -eq 0 || misuse
 
+jdkver=$(ext/bin/jdk-info --print major)
+
+expected_warnings=0
+case "$jdkver" in
+    8)
+        expected_warnings=270
+        ;;
+    10|11)
+        expected_warnings=738
+        ;;
+    *)
+        echo "JDK version '$jdkver' is not supported" 1>&2
+        exit 3
+        ;;
+esac
+
 tmpdir="$(mktemp -d "test-top-level-cli-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
@@ -24,9 +40,9 @@ cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 0
 grep -F 'Available subcommands:' "$tmpdir/out"
 grep -E 'Display version information' "$tmpdir/out"
-# FIXME: this should and will be 0 once we fix the pos-int?,
+# FIXME: this should and will be 0 once we fix the pos-int?, dynapath,
 # etc. replacement warnings.
-test $(wc -c < "$tmpdir/err") -eq 270
+test $(wc -c < "$tmpdir/err") -eq $expected_warnings
 
 rc=0
 ./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
@@ -34,6 +50,6 @@ cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 0
 grep -E '^version=' "$tmpdir/out"
 grep -E '^target_schema_version=' "$tmpdir/out"
-# FIXME: this should and will be 0 once we fix the pos-int?,
+# FIXME: this should and will be 0 once we fix the pos-int?, dynapath,
 # etc. replacement warnings.
-test $(wc -c < "$tmpdir/err") -eq 270
+test $(wc -c < "$tmpdir/err") -eq $expected_warnings
