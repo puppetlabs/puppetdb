@@ -70,6 +70,7 @@ VOLUME /etc/puppetlabs/puppet/ssl/
 
 COPY docker/puppetdb/docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
+COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
 EXPOSE 8080 8081
 
