@@ -1,12 +1,25 @@
-FROM ubuntu:16.04
+FROM clojure:lein-alpine AS builder
+RUN apk add --no-cache make
+# Install only dependencies
+WORKDIR /app
+COPY project.clj /app/
+COPY resources/puppetlabs/puppetdb/bootstrap.cfg \
+     /app/resources/puppetlabs/puppetdb/bootstrap.cfg
+RUN lein with-profile uberjar deps
+# Build uberjar -- see .dockerignore
+COPY . /app
+RUN lein with-profile uberjar uberjar
+
+
+FROM openjdk:8-jre-alpine
+RUN apk add --no-cache tini curl openssl
+COPY --from=builder /app/target/puppetdb.jar /
 
 ARG vcs_ref
 ARG build_date
 ARG version="6.0.0"
 
 ENV PUPPETDB_VERSION="$version"
-ENV DUMB_INIT_VERSION="1.2.1"
-ENV UBUNTU_CODENAME="xenial"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
@@ -17,7 +30,6 @@ ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
 # used by entrypoint to determine if puppetserver should be contacted for config
 # set to false when container tests are run
 ENV USE_PUPPETSERVER=true
-ENV PATH="/opt/puppetlabs/server/bin:/opt/puppetlabs/puppet/bin:/opt/puppetlabs/bin:$PATH"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
@@ -31,36 +43,38 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.schema-version="1.0" \
       org.label-schema.dockerfile="/Dockerfile"
 
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y wget netcat lsb-release ca-certificates && \
-    wget https://apt.puppetlabs.com/puppet6-release-"$UBUNTU_CODENAME".deb && \
-    wget https://github.com/Yelp/dumb-init/releases/download/v"$DUMB_INIT_VERSION"/dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    dpkg -i puppet6-release-"$UBUNTU_CODENAME".deb && \
-    dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    rm puppet6-release-"$UBUNTU_CODENAME".deb dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    apt-get update && \
-    apt-get install --no-install-recommends -y puppet-agent puppetdb="$PUPPETDB_VERSION"-1"$UBUNTU_CODENAME" && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Values from /etc/default/puppetdb
+ENV JAVA_BIN="/usr/bin/java"
+ENV USER="puppetdb"
+ENV GROUP="puppetdb"
+ENV INSTALL_DIR="/opt/puppetlabs/server/apps/puppetdb"
+ENV CONFIG="/etc/puppetlabs/puppetdb/conf.d"
+ENV BOOTSTRAP_CONFIG="/etc/puppetlabs/puppetdb/bootstrap.cfg"
+ENV SERVICE_STOP_RETRIES=60
 
-COPY puppetdb /etc/default/
-COPY logging /etc/puppetlabs/puppetdb/logging
+COPY docker/puppetdb/logging /etc/puppetlabs/puppetdb/logging/
+COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
+COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
+COPY resources/ext/config/logback.xml /etc/puppetlabs/puppetdb/
+COPY resources/ext/config/request-logging.xml /etc/puppetlabs/puppetdb/
+RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
 
-RUN rm -fr /etc/puppetlabs/puppetdb/conf.d
-COPY conf.d /etc/puppetlabs/puppetdb/conf.d
+RUN addgroup $GROUP && adduser -S $USER -G $GROUP
 
-# Persist the agent SSL certificate.
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/b651119f16a1c18d5e9174c283a4e535d35a128a/shared/ssl.sh /ssl.sh
+RUN chmod +x /ssl.sh
+COPY docker/puppetdb/ssl-setup.sh /
+RUN chmod +x /ssl-setup.sh
+
 VOLUME /etc/puppetlabs/puppet/ssl/
-# /etc/puppetlabs/puppetdb/ssl is automatically populated from here and
-# doesn't need a separate volume.
 
-COPY docker-entrypoint.sh /
+COPY docker/puppetdb/docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 8080 8081
 
-ENTRYPOINT ["dumb-init", "/docker-entrypoint.sh"]
-CMD ["foreground"]
+ENTRYPOINT ["/sbin/tini", "-g", "--", "/docker-entrypoint.sh"]
+CMD ["services"]
 
 # The start-period is just a wild guess how long it takes PuppetDB to come
 # up in the worst case. The other timing parameters are set so that it
@@ -73,4 +87,4 @@ HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
   | grep -q '"state":"running"' \
   || exit 1
 
-COPY Dockerfile /
+COPY docker/puppetdb/Dockerfile /
