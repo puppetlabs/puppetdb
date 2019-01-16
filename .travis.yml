@@ -22,7 +22,7 @@ services:
 aliases:
   - &run-core-and-ext-tests |
     set -e
-    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     case "$OSTYPE" in
@@ -52,12 +52,13 @@ aliases:
     pgver="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pg-)"
     ext/bin/test-config --set pgver "$pgver"
     ext/bin/test-config --set pgport 34335
+    ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/boxed-core-tests -- lein test
     ext/bin/run-external-tests
 
   - &run-integration-tests |
     set -e
-    jdk="$(ext/travisci/jdk-from-spec "$PDB_TEST")"
+    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST"
     case "$OSTYPE" in
@@ -93,11 +94,13 @@ aliases:
     ext/bin/test-config --set puppetserver-ref "$server"
     PDB_TEST_RICH_DATA="$(ext/travisci/spec-includes "$PDB_TEST" rich)"
     export PDB_TEST_RICH_DATA
+    ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/boxed-integration-tests -- lein test :integration
 
   - &run-spec-tests |
     set -e
     puppet_ref="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pup-)"
+    ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/run-rspec-tests "$puppet_ref"
 
   - &run-docker-tests |
@@ -212,7 +215,11 @@ on_success: ext/travisci/on-success
 notifications:
   email: false
   slack:
-    secure: IJU0YgGYbKgM7NupaOmE2BYra2mNx7+e5vAYNL+5oaRXolbHCyg0WzfFWilhMK3KEi8oIMKXR4ZzoUZLAqeOQzX7nnsLqC3wjyDHCgxtp4O+5GNKyeLN4ItoI1f2d6qyiiBPkHgVPuLhG3yyQ+wD0dMc9vSYmxfoazqe9HD/9UE=
+    template:
+      - "<%{compare_url}|%{commit_subject}> | %{author}"
+      - "%{repository_slug} %{branch} | <%{build_url}|#%{build_number}> %{result} in %{elapsed_time}"
+    rooms:
+      secure: IJU0YgGYbKgM7NupaOmE2BYra2mNx7+e5vAYNL+5oaRXolbHCyg0WzfFWilhMK3KEi8oIMKXR4ZzoUZLAqeOQzX7nnsLqC3wjyDHCgxtp4O+5GNKyeLN4ItoI1f2d6qyiiBPkHgVPuLhG3yyQ+wD0dMc9vSYmxfoazqe9HD/9UE=
 
 cache:
   directories:
