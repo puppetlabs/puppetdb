@@ -54,7 +54,10 @@
 
 (defn transform-condexpression
   [a b c]
-  [b a c])
+  (case b
+    "!=" ["not" ["=" a c]]
+    "!~" ["not" ["~" a c]]
+    [b a c]))
 
 (defn transform-condexpnull
   [entity type]
