@@ -1498,7 +1498,7 @@
                   [op "value" fact-value]]]]]
 
               [["in" ["fact" fact-name] ["array" fact-values]]]
-              (if-not (= (count (map type fact-values)) 1)
+              (if-not (= (count (set (map type fact-values))) 1)
                 (throw (IllegalArgumentException.
                          (tru "All values in 'array' must be the same type.")))
                 ["in" "certname"

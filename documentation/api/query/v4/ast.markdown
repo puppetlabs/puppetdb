@@ -493,7 +493,7 @@ For example, the following query on the `/nodes` endpoint is valid:
      ["array",
       [20000.0,
        150.0,
-       300000]]]
+       30000.0]]]
 
 #### `from`
 
