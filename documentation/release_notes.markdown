@@ -17,6 +17,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 [upgrade_policy]: ./versioning_policy.html#upgrades
 
+## PuppetDB 6.2.0
+
+### New features
+
+- **Improved PostgreSQL support.** PuppetDB is now compatible with PostgreSQL version 10 and later. [PDB-3857](https://tickets.puppetlabs.com/browse/PDB-3857)
+
+- **New Puppet Query Language (PQL) operators.** You can now use the negative operators `!=` and `!~`. [PDB-3471](https://tickets.puppetlabs.com/browse/PDB-3471)
+
+### Bug fixes
+
+- **PuppetDB no longer causes PostgreSQL to create large amounts of temporary files during garbage collection.** This issue caused PostgreSQL's log to flood if the `log_temp_files` option was set to a small enough value. [PDB-3924](https://tickets.puppetlabs.com/browse/PDB-3924)
+
+### Security
+
+- **Removed jackson-databind dependency.** We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
+
 ## PuppetDB 6.1.0
 
 ### New features
@@ -51,7 +67,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ### Security
 
-- We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
+- **Removed jackson-databind dependency.** We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
 
 ## 6.0.1
 
@@ -138,7 +154,7 @@ Molly Waggett, Morgan Rhodes, Rob Browning, and Zachary Kent
 
 ### Security
 
-- We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
+- **Removed jackson-databind dependency.** We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
 
 ## 5.2.6
 
