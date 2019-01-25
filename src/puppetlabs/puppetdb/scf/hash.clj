@@ -180,9 +180,9 @@
 
   This hash is useful for situations where you'd like to determine
   whether or not two reports contain the same things (certname,
-  configuration version, timestamps, events)."
+  configuration version, timestamps)."
   [{:keys [certname puppet_version report_format configuration_version
-           start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
+           start_time end_time producer_timestamp transaction_uuid] :as report}]
   (generic-identity-hash
    {:certname certname
     :puppet_version puppet_version
@@ -191,7 +191,6 @@
     :start_time start_time
     :end_time end_time
     :producer_timestamp producer_timestamp
-    :resource_events (sort (map resource-event-identity-string resource_events))
     :transaction_uuid transaction_uuid}))
 
 (defn fact-identity-hash

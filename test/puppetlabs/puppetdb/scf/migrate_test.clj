@@ -18,7 +18,8 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]])
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [clojure.tools.logging :as log])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -1035,3 +1036,49 @@
     (is (= [{:value_type_id 4
               :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
+
+(deftest migration-68-changes-hash-of-reports
+  (let [current-time (to-timestamp (now))]
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 67)
+
+      (jdbc/insert! :report_statuses
+                    {:status "testing1" :id 1})
+      (jdbc/insert! :environments {:id 0 :environment "testing"})
+      (jdbc/insert! :certnames {:certname "a.com"})
+
+      (jdbc/insert-multi!
+       :reports
+       [{:hash (sutils/munge-hash-for-storage "01")
+         :transaction_uuid (sutils/munge-uuid-for-storage
+                            "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+         :configuration_version "thisisacoolconfigversion"
+         :certname "a.com"
+         :puppet_version "0.0.0"
+         :report_format 1
+         :start_time current-time
+         :end_time current-time
+         :receive_time current-time
+         :producer_timestamp current-time
+         :environment_id 0
+         :status_id 1
+         :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+         :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+
+      (apply-migration-for-testing! 68)
+
+      (let [[hash] (map :hash
+                        (query-to-vec "SELECT encode(hash, 'hex') AS hash from reports"))
+
+            expected (hash/report-identity-hash
+                      {:transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
+                       :configuration_version "thisisacoolconfigversion"
+                       :certname "a.com"
+                       :puppet_version "0.0.0"
+                       :report_format 1
+                       :start_time current-time
+                       :end_time current-time
+                       :producer_timestamp current-time})]
+        (is (= expected
+               hash))))))
