@@ -147,12 +147,12 @@
                                             ["group_by" "status" "certname"]])
              #{{:certname "bar.local" :status "unchanged" :count 1}
                {:certname "foo.local" :status "unchanged" :count 1}}))
-      (is (= (query-result method endpoint ["extract" ["hash"]
+      (is (= #{{:hash "5bc5d561c7912570a7c7f525b815477cdaed70a2"}
+               {:hash "5067c5ac56f39501e504c0b76186d31ec1b5ca94"}}
+             (query-result method endpoint ["extract" ["hash"]
                                             ["in" "hash"
-                                             ["array" ["572d1e89a4075170938f4e960b26d8f63ad705f8"
-                                                       "b437558374bf9d6e21cb880c22409f42f743de9b"]]]])
-             #{{:hash "572d1e89a4075170938f4e960b26d8f63ad705f8"}
-               {:hash "b437558374bf9d6e21cb880c22409f42f743de9b"}}))
+                                             ["array" ["5bc5d561c7912570a7c7f525b815477cdaed70a2"
+                                                       "5067c5ac56f39501e504c0b76186d31ec1b5ca94"]]]])))
       (is (= (query-result method endpoint ["extract" [["function" "count"] "status" "certname"]
                                             ["or"
                                              ["in" "status" ["array" ["unchanged"]]]
@@ -426,7 +426,7 @@
         basic4 (assoc (:basic4 reports) :status "failed")
         _ (store-example-report! basic4 (now))]
 
-    (testing "should return all reports for a certname"
+    (testing "should return all reports based on their status"
       (let [unchanged-reports (query-result method endpoint ["=" "status" "unchanged"]
                                             {} munge-reports-for-comparison)
             changed-reports (query-result method endpoint ["=" "status" "changed"]
@@ -437,16 +437,16 @@
         (is (= 2 (count unchanged-reports)))
         (is (every? #(= "unchanged" (:status %)) unchanged-reports))
 
-        (is (= unchanged-reports
-               (munge-reports-for-comparison [basic basic2])))
+        (is (= (munge-reports-for-comparison [basic basic2])
+               unchanged-reports))
 
         (is (= 1 (count changed-reports)))
-        (is (= changed-reports
-               (munge-reports-for-comparison [basic3])))
+        (is (= (munge-reports-for-comparison [basic3])
+               changed-reports))
 
         (is (= 1 (count failed-reports)))
-        (is (= failed-reports
-               (munge-reports-for-comparison [basic4])))))))
+        (is (= (munge-reports-for-comparison [basic4])
+               failed-reports))))))
 
 (deftest-http-app query-by-certname-with-environment
   [[version endpoint] endpoints

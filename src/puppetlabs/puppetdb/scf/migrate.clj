@@ -1575,6 +1575,118 @@
     "     check ((expire is not null and updated is not null)"
     "             or (expire is null and updated is null)))"]))
 
+(defn change-reports-hash-to-summary-hash
+  "Changes the reports table primary key hash to remove the events from
+  the hash calculation. This allows events to be garbage collected separately
+  from reports"
+  []
+  (jdbc/do-commands
+   ["CREATE TABLE reports_transform ("
+    "    id bigint not null,"
+    "    hash bytea not null,"
+    "    transaction_uuid uuid,"
+    "    certname text not null,"
+    "    puppet_version text not null,"
+    "    report_format smallint not null,"
+    "    configuration_version text not null,"
+    "    start_time timestamp with time zone not null,"
+    "    end_time timestamp with time zone not null,"
+    "    receive_time timestamp with time zone not null,"
+    "    noop boolean,"
+    "    environment_id bigint,"
+    "    status_id bigint,"
+    "    metrics_json json,"
+    "    logs_json json,"
+    "    producer_timestamp timestamp with time zone not null,"
+    "    metrics jsonb,"
+    "    logs jsonb,"
+    "    resources jsonb,"
+    "    catalog_uuid uuid,"
+    "    cached_catalog_status text,"
+    "    code_id text,"
+    "    producer_id bigint,"
+    "    noop_pending boolean,"
+    "    corrective_change boolean,"
+    "    job_id text)"])
+
+  (jdbc/call-with-query-rows
+   ["select
+       id, transaction_uuid, certname, puppet_version, report_format, configuration_version,
+       start_time, end_time, receive_time, noop, environment_id, status_id, metrics_json,
+       logs_json, producer_timestamp, metrics, logs, resources, catalog_uuid, cached_catalog_status,
+       code_id, producer_id, noop_pending, corrective_change, job_id
+     from reports"]
+   (fn [rows]
+     (reduce (fn [hashes-seen row]
+               (conj hashes-seen
+                     (let [hash-str (hash/report-identity-hash row)]
+                       (when-not (hashes-seen hash-str)
+                         (jdbc/insert-multi! "reports_transform"
+                                             (list (assoc row :hash
+                                                          (sutils/munge-hash-for-storage hash-str)))))
+                       hash-str)))
+             #{}
+             rows)))
+
+  (jdbc/do-commands
+   ;; drop the existing constraints on the reports table. many of these constraints
+   ;; have cascades on delete, and we don't want that to actually happen during the
+   ;; migration
+   "DROP INDEX idx_reports_noop_pending"
+   "DROP INDEX idx_reports_prod"
+   "DROP INDEX idx_reports_producer_timestamp"
+   "DROP INDEX idx_reports_producer_timestamp_by_hour_certname"
+   "DROP INDEX reports_cached_catalog_status_on_fail"
+   "DROP INDEX reports_catalog_uuid_idx"
+   "DROP INDEX reports_certname_idx"
+   "DROP INDEX reports_end_time_idx"
+   "DROP INDEX reports_environment_id_idx"
+   "DROP INDEX reports_hash_expr_idx"
+   "DROP INDEX reports_job_id_idx"
+   "DROP INDEX reports_noop_idx"
+   "DROP INDEX reports_status_id_idx"
+   "DROP INDEX reports_tx_uuid_expr_idx"
+   "ALTER TABLE reports DROP CONSTRAINT reports_certname_fkey"
+   "ALTER TABLE reports DROP CONSTRAINT reports_env_fkey"
+   "ALTER TABLE reports DROP CONSTRAINT reports_prod_fkey"
+   "ALTER TABLE reports DROP CONSTRAINT reports_status_fkey"
+   "ALTER TABLE resource_events DROP CONSTRAINT resource_events_report_id_fkey"
+   "ALTER TABLE certnames DROP CONSTRAINT certnames_reports_id_fkey"
+   "ALTER SEQUENCE reports_id_seq OWNED BY NONE"
+   "DROP TABLE reports"
+   "ALTER TABLE reports_transform RENAME TO reports"
+   "ALTER TABLE ONLY reports ALTER COLUMN id SET DEFAULT nextval('reports_id_seq'::regclass)"
+   "ALTER SEQUENCE reports_id_seq OWNED BY reports.id"
+   "ALTER TABLE ONLY reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
+   "CREATE INDEX idx_reports_noop_pending ON reports USING btree (noop_pending) WHERE (noop_pending = true)"
+   "CREATE INDEX idx_reports_prod ON reports USING btree (producer_id)"
+   "CREATE INDEX idx_reports_producer_timestamp ON reports USING btree (producer_timestamp)"
+   ["CREATE INDEX idx_reports_producer_timestamp_by_hour_certname ON reports USING btree "
+    "  (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"]
+   ["CREATE INDEX reports_cached_catalog_status_on_fail ON reports USING btree"
+    "  (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"]
+   "CREATE INDEX reports_catalog_uuid_idx ON reports USING btree (catalog_uuid)"
+   "CREATE INDEX reports_certname_idx ON reports USING btree (certname)"
+   "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
+   "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
+   "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports USING btree (encode(hash, 'hex'::text))"
+   "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
+   "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
+   "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
+   "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))"
+   ["ALTER TABLE ONLY reports"
+    "  ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"]
+   ["ALTER TABLE ONLY reports"
+    "  ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"]
+   ["ALTER TABLE ONLY reports"
+    "  ADD CONSTRAINT reports_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"]
+   ["ALTER TABLE ONLY reports"
+    "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"]
+   ["ALTER TABLE ONLY resource_events"
+    "  ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"]
+   ["ALTER TABLE ONLY certnames"
+    "  ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1620,7 +1732,8 @@
    65 varchar-columns-to-text
    66 jsonb-facts
    67 add-resource-events-pk
-   68 support-fact-expiration-configuration})
+   68 support-fact-expiration-configuration
+   69 change-reports-hash-to-summary-hash})
 
 (def desired-schema-version (apply max (keys migrations)))
 

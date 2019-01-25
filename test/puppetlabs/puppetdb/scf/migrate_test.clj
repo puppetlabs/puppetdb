@@ -1150,3 +1150,121 @@
                                             :deferrable? "NO"}
                                :same nil}]}
            (diff-schema-maps before-migration (schema-info-map *db*))))))
+
+(deftest migration-69-changes-hash-of-reports
+  (let [current-time (to-timestamp (now))
+        old-hash-fn (fn [{:keys [certname puppet_version report_format configuration_version
+                                 start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
+                      (hash/generic-identity-hash
+                       {:certname certname
+                        :puppet_version puppet_version
+                        :report_format report_format
+                        :configuration_version configuration_version
+                        :start_time start_time
+                        :end_time end_time
+                        :producer_timestamp producer_timestamp
+                        :resource_events (sort (map hash/resource-event-identity-string resource_events))
+                        :transaction_uuid transaction_uuid}))
+
+        report {:transaction_uuid (sutils/munge-uuid-for-storage
+                                   "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+                :configuration_version "thisisacoolconfigversion"
+                :certname "a.com"
+                :puppet_version "0.0.0"
+                :report_format 1
+                :start_time current-time
+                :end_time current-time
+                :receive_time current-time
+                :producer_timestamp current-time
+                :environment_id 0
+                :status_id 1
+                :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+                :logs (sutils/munge-json-for-storage [{:bar "baz"}])}]
+
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 68)
+
+      (jdbc/insert! :report_statuses
+                    {:status "testing1" :id 1})
+      (jdbc/insert! :environments {:id 0 :environment "testing"})
+      (jdbc/insert! :certnames {:certname "a.com"})
+
+      (jdbc/insert-multi!
+       :reports
+       ;; these two reports will end up with the same hash when events
+       ;; are removed from the hash calculation. to start with, we need
+       ;; to save them to the database using the *old* hashing function
+       [(assoc report :hash (sutils/munge-hash-for-storage
+                             (old-hash-fn
+                              (assoc report :resource_events [{:new_value "\"directory\"",
+                                                               :corrective_change false,
+                                                               :property "ensure",
+                                                               :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+                                                               :report_id 1,
+                                                               :old_value "\"absent\"",
+                                                               :containing_class "Foo",
+                                                               :certname_id 1,
+                                                               :line 11,
+                                                               :resource_type "File",
+                                                               :status "success",
+                                                               :resource_title "tmp-directory",
+                                                               :timestamp current-time
+                                                               :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                                                               :message "created"}]))))
+        (assoc report :hash (sutils/munge-hash-for-storage
+                             (old-hash-fn report)))])
+
+      (let [[id1] (map :id
+                       (query-to-vec "SELECT id from reports order by certname"))
+
+            event {:new_value "\"directory\"",
+                   :corrective_change false,
+                   :property "ensure",
+                   :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+                   :report_id id1,
+                   :old_value "\"absent\"",
+                   :containing_class "Foo",
+                   :certname_id 1,
+                   :line 11,
+                   :resource_type "File",
+                   :status "success",
+                   :resource_title "tmp-directory",
+                   :timestamp current-time
+                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                   :message "created"}]
+        (jdbc/insert-multi!
+         :resource_events
+         [(assoc event :event_hash (sutils/munge-hash-for-storage
+                                    (hash/resource-event-identity-pkey event)))]))
+
+      (apply-migration-for-testing! 69)
+
+      (let [hashes (map :hash
+                        (query-to-vec "SELECT encode(hash, 'hex') AS hash from reports"))
+
+            expected (hash/report-identity-hash
+                      {:transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
+                       :configuration_version "thisisacoolconfigversion"
+                       :certname "a.com"
+                       :puppet_version "0.0.0"
+                       :report_format 1
+                       :start_time current-time
+                       :end_time current-time
+                       :producer_timestamp current-time})]
+        (is (= 1
+               (count hashes)))
+        (is (= expected
+               (first hashes)))))))
+
+(deftest migration-69-schema-diff
+  ;; this migration does *not* change the database schema at all - it
+  ;; rewrites the contents of the table. Make sure there are no differences.
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 68)
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 69)
+    (is (= {:index-diff nil
+            :table-diff nil
+            :constraint-diff nil}
+           (diff-schema-maps before-migration (schema-info-map *db*))))))

@@ -146,16 +146,10 @@
                   :configuration_version "asdffdsa"
                   :start_time "2012-03-01-12:31:11.123"
                   :end_time   "2012-03-01-12:31:31.123"
-                  :producer_timestamp "2012-03-01-1:31:51.123"
-                  :resource_events [
-                                    {:type "Type"
-                                     :title "title"
-                                     :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
-                                     :exported false :file "/tmp/zzz"
-                                     :line 15}]}]
+                  :producer_timestamp "2012-03-01-1:31:51.123"}]
 
       (testing "should return sorted predictable string output"
-        (is (= "3016159f704726b486f8b42309773ec625e2f3b7"
+        (is (= "f0dc33b54c9eea0a83444fa1fecfe6a2b2b6db39"
                (report-identity-hash sample))))
 
       (testing "should return the same value twice"
@@ -232,13 +226,7 @@
         report (:basic reports)
         report2-events (get-in reports [:basic4 :resource_events :data])
         report2 (assoc-in report [:resource_events :data] report2-events)
-        report-hash (report-query->hash report)
-        report2-hash (report-query->hash report2)
-        report3-hash (report-query->hash
-                      (update-in report [:resource_events :data] rest))]
-    (testing "Reports with the same metadata but different events should have different hashes"
-      (is (not= report-hash report2-hash))
-      (is (not= report-hash report3-hash)))
+        report-hash (report-query->hash report)]
 
     (testing "Reports with different metadata but the same events should have different hashes"
       (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))
