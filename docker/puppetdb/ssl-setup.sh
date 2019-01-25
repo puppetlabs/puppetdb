@@ -2,6 +2,9 @@
 
 ssl_command="puppetdb ssl-setup"
 
+# If CERTNAME environment variable is set use that, otherwise use HOSTNAME
+mycertname="${CERTNAME:-$HOSTNAME}"
+
 #############
 # FUNCTIONS #
 #############
@@ -249,7 +252,6 @@ fi
 set -e
 
 # mycertname=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
-mycertname="${HOSTNAME}"
 
 # orig_public_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
 orig_public_file="/etc/puppetlabs/puppet/ssl/certs/${mycertname}.pem"
