@@ -20,6 +20,7 @@ pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
 
 case "$OSTYPE" in
     darwin*)
+        rm -rf "$(brew --cache)"
         # brew produced some HOMEBREW_LOGS related error on the first
         # run but said that "everything should be fine" if you try
         # again, so we do that...
@@ -34,7 +35,7 @@ case "$OSTYPE" in
 
             # Install AdoptOpenJDK 11, we will use this for its cacert
             brew cask install adoptopenjdk11
-            cacert_path=/Library/Java/JavaVirtualMachines/adoptopenjdk-11.0.1.jdk/Contents/Home/lib/security/cacerts
+            cacert_path=$(echo /Library/Java/JavaVirtualMachines/adoptopenjdk-11.*.jdk/Contents/Home/lib/security/cacerts)
 
             if test ! -f "$cacert_path"; then
               echo "The cacerts file did not exist at '$cacert_path'" 1>&2
