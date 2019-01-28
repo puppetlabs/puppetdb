@@ -25,6 +25,8 @@ case "$OSTYPE" in
         # again, so we do that...
         brew install ruby || true
         brew install ruby
+
+        brew update
         brew install bash
         brew install postgresql@"$pgver"
 
