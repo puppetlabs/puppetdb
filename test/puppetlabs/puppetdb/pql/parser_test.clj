@@ -34,6 +34,15 @@
        [:expr-not
         [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
 
+    ;; Test that whitespace is optional
+    "nodes{a=1}"
+    [:from
+     "nodes"
+     [:expr-or
+      [:expr-and
+       [:expr-not
+        [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
+
     "nodes [a, b, c] {}"
     [:from
      "nodes"
@@ -100,6 +109,26 @@
                             "="
                             [:integer "100"]]]]]]
 
+    ;; whitespace optional
+    "inventory[certname]{facts.foo.bar=100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo" "bar"] "=" [:integer "100"]]]]]]
+
+    ;; whitespace optional
+    "inventory[certname]{facts.foo.\"quoted string\"=100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo" "\"quoted string\""]
+                            "="
+                            [:integer "100"]]]]]]
+
     "inventory [certname] {facts.foo.\"dotted.string\" = 100}"
     [:from
      "inventory"
@@ -119,6 +148,25 @@
                             [:field "parameters" "foo" "bar"] "=" [:integer "100"]]]]]]
 
     "facts [value] { [certname,name] in fact_contents [certname, name] { value < 100 }}"
+    [:from
+     "facts"
+     [:extract [:field "value"]]
+     [:expr-or
+      [:expr-and
+       [:expr-not
+        [:condexpression
+         [:groupedfieldlist [:field "certname"] [:field "name"]]
+         "in"
+         [:from
+          "fact_contents"
+          [:extract [:field "certname"] [:field "name"]]
+          [:expr-or
+           [:expr-and
+            [:expr-not
+             [:condexpression [:field "value"] "<" [:integer "100"]]]]]]]]]]]
+
+    ;; whitespace optional
+    "facts[value]{[certname,name]in fact_contents[certname, name]{value<100}}"
     [:from
      "facts"
      [:extract [:field "value"]]

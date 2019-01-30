@@ -88,9 +88,9 @@ groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>
 (* Represents a field from an entity *)
 field = #'[a-zA-Z0-9_]+\??' | (dottedfield, fieldpath);
 <fieldpath> = <'.'>, (quotedfield | standardfield | matchfield) , [fieldpath];
-<quotedfield> = #'\".*?\"(?=\.|\s)';
+<quotedfield> = #'\".*?\"';
 <matchfield> = #'match\(.*?\)';
-<standardfield> = #'[^\s\.\"]+';
+<standardfield> = #'[^\s\.\"!<=>~]+';
 <dottedfield> = 'facts' | 'trusted' | 'parameters';
 
 <condregexp>      = '~';
