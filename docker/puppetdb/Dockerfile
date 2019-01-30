@@ -18,6 +18,10 @@ COPY --from=builder /app/target/puppetdb.jar /
 ARG vcs_ref
 ARG build_date
 ARG version="6.0.0"
+# used by entrypoint to submit metrics to Google Analytics;
+# published images should use "production" for this build_arg
+ARG pupperware_analytics_stream="dev"
+ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream"
 
 ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
