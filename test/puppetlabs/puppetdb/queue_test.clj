@@ -421,7 +421,7 @@
 
   (let [received (time/now)
         producer-ts received
-        compression "zip"]
+        compression "gz"]
     (is (= (parse-metadata
             (serialize-metadata received (cmd-req-stub producer-ts "store report" cconst/latest-report-version "foo.com" compression)))
            {:certname "foo.com"

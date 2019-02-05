@@ -22,6 +22,7 @@
             [clojure.core.async.impl.protocols :as async-protos]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.utils :refer [compression-file-extension-schema
+                                               content-encodings->file-extensions
                                                match-any-of utf8-length
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
@@ -153,11 +154,23 @@
 
 (def serialize-metadata (metadata-serializer))
 
+(defn validate-compression-extension-syntax [ext]
+  (assert (re-matches #"[a-zA-Z0-9]+" ext))
+  ext)
+
+(def compression-extension-rx-group
+  (format "\\.(%s)"
+          (->> content-encodings->file-extensions
+               vals
+               (remove #{""})
+               (map validate-compression-extension-syntax)
+               (str/join "|"))))
+
 (defn metadata-rx [valid-commands]
   (re-pattern (str
                "([0-9]+)([+|-][0-9]+)?_"
                (match-any-of valid-commands)
-               "_([0-9]+)_(.*)\\.json(\\..*)?")))
+               "_([0-9]+)_(.*)\\.json(?:" compression-extension-rx-group ")?")))
 
 (defn metadata-parser
   "Given an (optional) map between the command names that appear in metadata
@@ -186,9 +199,7 @@
                  :version (Long/parseLong version)
                  :command (get md-cmd->pdb-cmd md-command "unknown")
                  :certname certname
-                 :compression (if (nil? compression)
-                                ""
-                                (subs compression 1))})))))))
+                 :compression (if (seq compression) compression "")})))))))
 
 (def parse-metadata (metadata-parser))
 

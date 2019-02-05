@@ -449,6 +449,9 @@
            (println ex#))
          (throw ex#)))))
 
+;; For now, if you change these extensions, make sure they satisfy
+;; validate-compression-extension-syntax in the queue.
+
 (def content-encodings->file-extensions
   {"gzip" "gz"
    "identity" ""})
