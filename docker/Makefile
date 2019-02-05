@@ -1,4 +1,5 @@
 PUPPERWARE_ANALYTICS_STREAM ?= dev
+NAMESPACE ?= puppet
 git_describe = $(shell git describe)
 vcs_ref := $(shell git rev-parse HEAD)
 build_date := $(shell date -u +%FT%T)
@@ -25,7 +26,8 @@ ifeq ($(hadolint_available),0)
 	@$(hadolint_command) puppetdb/$(dockerfile)
 else
 	@docker pull $(hadolint_container)
-	@docker run --rm -v $(PWD)/puppetdb/$(dockerfile):/Dockerfile -i $(hadolint_container) $(hadolint_command) Dockerfile
+	@docker run --rm -v $(PWD)/puppetdb/$(dockerfile):/Dockerfile \
+		-i $(hadolint_container) $(hadolint_command) Dockerfile
 endif
 
 build: prep
@@ -36,15 +38,16 @@ build: prep
 		--build-arg version=$(version) \
 		--build-arg pupperware_analytics_stream=$(PUPPERWARE_ANALYTICS_STREAM) \
 		--file puppetdb/$(dockerfile) \
-		--tag puppet/puppetdb:$(version) \
+		--tag $(NAMESPACE)/puppetdb:$(version) \
 		..
 ifeq ($(IS_LATEST),true)
-	@docker tag puppet/puppetdb:$(version) puppet/puppetdb:latest
+	@docker tag $(NAMESPACE)/puppetdb:$(version) $(NAMESPACE)/puppetdb:latest
 endif
 
 test: prep
 	@bundle install --path .bundle/gems
-	@PUPPET_TEST_DOCKER_IMAGE=puppet/puppetdb:$(version) bundle exec rspec puppetdb/spec
+	@PUPPET_TEST_DOCKER_IMAGE=$(NAMESPACE)/puppetdb:$(version) \
+		bundle exec rspec puppetdb/spec
 
 publish: prep
 	@docker push puppet/puppetdb:$(version)
