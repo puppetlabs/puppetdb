@@ -12,7 +12,7 @@ RUN lein with-profile uberjar uberjar
 
 
 FROM openjdk:8-jre-alpine
-RUN apk add --no-cache tini curl openssl
+RUN apk add --no-cache tini curl openssl su-exec
 COPY --from=builder /app/target/puppetdb.jar /
 
 ARG vcs_ref
@@ -69,12 +69,15 @@ ADD https://raw.githubusercontent.com/puppetlabs/pupperware/b651119f16a1c18d5e91
 RUN chmod +x /ssl.sh
 COPY docker/puppetdb/ssl-setup.sh /
 RUN chmod +x /ssl-setup.sh
+COPY docker/puppetdb/analytics.sh /
+RUN chmod +x /analytics.sh
 
 VOLUME /etc/puppetlabs/puppet/ssl/
 
 COPY docker/puppetdb/docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
+COPY docker/puppetdb/docker-exit.d /docker-exit.d
 
 EXPOSE 8080 8081
 
