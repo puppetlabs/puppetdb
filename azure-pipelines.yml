@@ -69,6 +69,6 @@ steps:
     testRunTitle: PuppetDB Test Results
 - powershell: |
     . ./docker/ci/build.ps1
-    Clear-ContainerBuilds
+    Clear-ContainerBuilds -Name puppetdb
   displayName: Container Cleanup
   condition: always()
