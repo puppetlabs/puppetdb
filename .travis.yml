@@ -5,9 +5,6 @@ dist: trusty
 # based on when the repository testing was enabled.
 sudo: required
 
-services:
-  - docker
-
 # The test specifications are all extracted from the PDB_TEST value.
 
 # jdk_switcher is a shell function, so we can't handle it in
@@ -89,13 +86,6 @@ aliases:
     ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/run-rspec-tests "$puppet_ref"
 
-  - &run-docker-tests |
-    set -ex
-    cd docker
-    make lint
-    make build
-    make test
-
 jobs:
   include:
 
@@ -154,9 +144,6 @@ jobs:
       env: PDB_TEST=rspec/pup-5.5.x
       script: *run-spec-tests
       os: osx
-
-    - stage: ❧ pdb container tests
-      script: *run-docker-tests
 
 on_success: ext/travisci/on-success
 
