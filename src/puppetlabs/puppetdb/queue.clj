@@ -210,13 +210,17 @@
                                       tcoerce/from-long)
                  :version (Long/parseLong version)
                  :command (get md-cmd->pdb-cmd md-command "unknown")
-                 :certname certname
+                 :certname certid
                  :compression (if (seq compression) compression "")})))))))
 
 (def parse-metadata (metadata-parser))
 
 (def command-req-schema
-  "Represents an incoming command, before it has been enqueued"
+  "Represents an incoming command, before it has been enqueued.  One key
+  difference between this and the command ref (and a ref is what
+  you'll typically have) is that the certname in a ref may not be the
+  actual certname, it may be the mangled version which acts as a
+  hashable proxy for the original."
   {:command (apply s/enum (vals metadata-command->puppetdb-command))
    :version s/Int
    :certname s/Str
@@ -243,7 +247,12 @@
    :callback callback
    :command-stream command-stream})
 
-(defrecord CommandRef [id command version certname received producer-ts callback delete? compression])
+(defrecord CommandRef
+    ;; Note that the certname here is really a certid, i.e. it's what we
+    ;; store in the metadata for the certname which is either the actual
+    ;; certname with no trailing _HASH, or the sanitized and possibly
+    ;; truncated ADJUSTEDCERT_ORIGCERTHASH.
+    [id command version certname received producer-ts callback delete? compression])
 
 (defn cmdref->entry [{:keys [id received] :as cmdref}]
   (stock/entry id (serialize-metadata received cmdref true)))
