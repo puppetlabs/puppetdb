@@ -172,9 +172,12 @@
 
 (defn metadata-rx [valid-commands]
   (re-pattern (str
-               "([0-9]+)([+|-][0-9]+)?_"
-               (match-any-of valid-commands)
-               "_([0-9]+)_(.*)\\.json(?:" compression-extension-rx-group ")?")))
+               "([0-9]+)([+|-][0-9]+)?" ; received-stamp and optional offset
+               "_" (match-any-of valid-commands)
+               "_([0-9]+)"              ; command version
+               "_([^_]+)"               ; certname or certid prefix
+               "(_[a-fA-F0-9]{40})?"    ; cert hash (if cert had to be mangled)
+               "\\.json(?:" compression-extension-rx-group ")?")))
 
 (defn metadata-parser
   "Given an (optional) map between the command names that appear in metadata
@@ -190,9 +193,14 @@
    (let [rx (metadata-rx (keys metadata-command->puppetdb-command))
          md-cmd->pdb-cmd metadata-command->puppetdb-command]
      (fn [s]
-       (when-let [[_ received-stamp producer-offset md-command version certname compression] (re-matches rx s)]
+       (when-let [[_ received-stamp producer-offset md-command version
+                   certname cert-hash compression] (re-matches rx s)]
+         ;; The cert-hash will only exist if the certname had to be
+         ;; modified to accomodate the filesystem character/length
+         ;; restrictions, and it'll be "_HASH".
          (let [received-time-long (Long/parseLong received-stamp)
-               producer-offset (and producer-offset (Long/parseLong producer-offset))]
+               producer-offset (and producer-offset (Long/parseLong producer-offset))
+               certid (if-not cert-hash certname (str certname cert-hash))]
            (and certname
                 {:received (-> received-time-long
                                tcoerce/from-long
