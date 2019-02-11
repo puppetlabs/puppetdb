@@ -336,10 +336,13 @@
         entry (store-in-stockpile q
                                   current-time
                                   command-req)]
-    (-> command-req
-        (select-keys [:command :version :certname :producer-ts :callback :compression])
-        (assoc :id (stock/entry-id entry)
-               :received (kitchensink/timestamp current-time))
+    ;; Build the ref using the parsed metadata so that we'll have the
+    ;; correct "certname" -- mangled if needed.
+    (-> (parse-metadata (stock/entry-meta entry))
+        (select-keys [:command :version :certname :producer-ts :received
+                      :compression])
+        (assoc :id (stock/entry-id entry))
+        (merge (select-keys command-req [:callback]))
         map->CommandRef)))
 
 (defn ack-command

@@ -1038,7 +1038,7 @@
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
     (with-message-handler {:keys [handle-message dlo delay-pool q command-chan]}
-      (let [certname "some-certname"
+      (let [certname "some_certname"
             facts {:certname certname
                    :environment "DEV"
                    :values {"domain" "mydomain.com"
