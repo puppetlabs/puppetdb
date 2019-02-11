@@ -104,7 +104,7 @@ should be pretty-printed. Note that pretty printing comes at the cost of
 performance on some of our endpoints, such as `/v4/catalogs`, `/v4/reports` and
 `/v4/factsets`, due to the storage of some of their data as JSON/JSONB in PostgreSQL.
 
-    curl -X POST http://localhost:8080/pdb/query/v4/nodes \
+    curl -X GET http://localhost:8080/pdb/query/v4/nodes \
         --data-urlencode 'pretty=true'
 
 ## Querying PuppetDB with POST
