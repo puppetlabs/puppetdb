@@ -135,22 +135,26 @@
   certname if the certname is long or contains filesystem special characters."
   ([] (metadata-serializer puppetdb-command->metadata-command))
   ([puppetdb-command->metadata-command]
-   (fn [received {:keys [producer-ts command version certname compression]}]
+   (fn [received {:keys [producer-ts command version certname compression]}
+        fs-ready?]
      (when-not (puppetdb-command->metadata-command command)
        (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
            received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
-           safe-certname (embeddable-certname received short-command version certname)
-           name (if (= safe-certname certname)
-                  safe-certname
-                  (format "%s_%s"
-                          safe-certname
-                          (kitchensink/utf8-string->sha1 certname)))
+           certid (if fs-ready?
+                    certname
+                    (let [safe-certname (embeddable-certname received short-command
+                                                             version certname)]
+                      (if (= safe-certname certname)
+                        safe-certname
+                        (format "%s_%s"
+                                safe-certname
+                                (kitchensink/utf8-string->sha1 certname)))))
            extension (str "json" (if (not-empty compression)
                                    (str "." compression)))]
        (format "%s_%s_%d_%s.%s"
-               received+producer-time short-command version name extension)))))
+               received+producer-time short-command version certid extension)))))
 
 (def serialize-metadata (metadata-serializer))
 
@@ -234,7 +238,7 @@
 (defrecord CommandRef [id command version certname received producer-ts callback delete? compression])
 
 (defn cmdref->entry [{:keys [id received] :as cmdref}]
-  (stock/entry id (serialize-metadata received cmdref)))
+  (stock/entry id (serialize-metadata received cmdref true)))
 
 (defn entry->cmdref [entry]
   (let [{:keys [received command version
@@ -298,7 +302,7 @@
   (try+
    (stock/store q
                 (:command-stream command-req)
-                (serialize-metadata received command-req))
+                (serialize-metadata received command-req false))
 
    (catch [:kind ::stock/unable-to-commit] {:keys [stream-data]}
      ;; stockpile has saved all of the data in command-stream to
