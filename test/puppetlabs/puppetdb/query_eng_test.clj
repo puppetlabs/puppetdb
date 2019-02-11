@@ -149,7 +149,14 @@
 (deftest test-valid-query-fields
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources. Known queryable objects are.*"
-                        (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
+                        (compile-user-query->sql resources-query ["=" "foo" "bar"])))
+  (let [err #"All values in array must be the same type\."]
+    (is (thrown-with-msg? IllegalArgumentException
+                          err
+                          (compile-user-query->sql nodes-query ["in" ["fact" "uptime_seconds"] ["array" [500 100.0]]])))
+    (is (thrown-with-msg? IllegalArgumentException
+                          err
+                          (compile-user-query->sql nodes-query ["in" ["fact" "uptime_seconds"] ["array" ["500" 100.0]]])))))
 
 (deftest test-valid-subqueries
   (is (thrown-with-msg? IllegalArgumentException

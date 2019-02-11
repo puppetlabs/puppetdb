@@ -129,13 +129,13 @@
       (is-query-result' ["=" ["fact" "uptime_seconds"] "10000"] [])
       (is-query-result' ["=" ["fact" "uptime_seconds"] 10000.0] [web1])
       (is-query-result' ["in" ["fact" "uptime_seconds"] ["array" [10000.0]]] [web1])
-      (is-query-result' ["in" ["fact" "uptime_seconds"] ["array" [10000]]] [web1])
+      (is-query-result' ["in" ["fact" "uptime_seconds"] ["array" [10000 50000]]] [web1])
       (is-query-result' ["=" ["fact" "uptime_seconds"] true] [])
       (is-query-result' ["=" ["fact" "uptime_seconds"] 0] []))
 
     (testing "missing facts are not equal to anything"
       (is-query-result' ["=" ["fact" "fake_fact"] "something"] [])
-      (is-query-result' ["in" ["fact" "fake_fact"] ["array" ["something"]]] [])
+      (is-query-result' ["in" ["fact" "fake_fact"] ["array" ["something" "something else" "a whole other thing entirely"]]] [])
       (is-query-result' ["not" ["=" ["fact" "fake_fact"] "something"]] [db puppet web1 web2]))
 
     (testing "arithmetic works on facts"
