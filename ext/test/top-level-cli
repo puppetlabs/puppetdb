@@ -14,9 +14,7 @@ expected_version_warnings=0
 case "$jdkver" in
     8)
         ;;
-    10|11)
-        expected_help_warnings=0
-        expected_version_warnings=535
+    11)
         ;;
     *)
         echo "JDK version '$jdkver' is not supported" 1>&2
@@ -41,8 +39,6 @@ cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 0
 grep -F 'Available subcommands:' "$tmpdir/out"
 grep -E 'Display version information' "$tmpdir/out"
-# FIXME: this should and will be 0 once we fix the pos-int?, dynapath,
-# etc. replacement warnings.
 test $(wc -c < "$tmpdir/err") -eq $expected_help_warnings
 
 rc=0
@@ -51,6 +47,4 @@ cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 0
 grep -E '^version=' "$tmpdir/out"
 grep -E '^target_schema_version=' "$tmpdir/out"
-# FIXME: this should and will be 0 once we fix the pos-int?, dynapath,
-# etc. replacement warnings.
 test $(wc -c < "$tmpdir/err") -eq $expected_version_warnings

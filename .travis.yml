@@ -157,11 +157,11 @@ jobs:
 
     # === integration with current platform
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk10/pup-6.0.x/srv-6.0.x/pg-9.6
+      env: PDB_TEST=int/openjdk11/pup-6.0.x/srv-6.0.x/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk10/pup-6.0.x/srv-6.0.x/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-6.0.x/srv-6.0.x/pg-9.6/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
