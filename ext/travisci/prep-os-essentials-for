@@ -53,6 +53,9 @@ case "$OSTYPE" in
             rm "$old_cacert_path"
             ln -s $cacert_path "$old_cacert_path"
             ;;
+          11)
+            brew cask install "adopt$jdk"
+            ;;
           *)
             echo "JDK version '$jdk' is not supported on Mac OSX"
             exit 3

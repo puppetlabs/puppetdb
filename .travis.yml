@@ -123,7 +123,7 @@ jobs:
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk10/pg-9.6
+      env: PDB_TEST=core+ext/openjdk11/pg-9.6
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
@@ -132,11 +132,15 @@ jobs:
 
     # === integration with master branches
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk10/pup-master/srv-master/pg-9.6
+      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk10/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6/rich
+      script: *run-integration-tests
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-11/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
@@ -186,18 +190,18 @@ jobs:
       os: osx
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk10/pg-9.6
+      env: PDB_TEST=core+ext/openjdk11/pg-9.6
       script: *run-core-and-ext-tests
       os: osx
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6/rich
       script: *run-integration-tests
       os: osx
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk10/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk8/pup-6.0.x/srv-6.0.x/pg-9.6/rich
       script: *run-integration-tests
       os: osx
 

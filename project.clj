@@ -62,7 +62,7 @@
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
-     [org.flatland/ordered "1.5.3"]
+     [org.flatland/ordered "1.5.7"]
      [org.clojure/test.check "0.9.0"]
      [com.gfredericks/test.chuck "0.2.7"
       :exclusions [com.andrewmcveigh/cljs-time]]
