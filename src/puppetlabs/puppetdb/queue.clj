@@ -51,63 +51,40 @@
     (catch Exception e
       (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
+(def forbidden-meta-field-char-rx
+  (re-pattern (str "("
+                   (->> "_"  ; our meta field separator
+                        (conj constants/filename-forbidden-characters)
+                        (map #(format "\\Q%s\\E" %)) ; be careful
+                        (str/join "|"))
+                   ")")))
+
 (defn sanitize-certname
   "Replace any underscores and filename forbidden characters found in `certname`
   with dashes."
   [certname]
-  (let [forbidden-chars (conj constants/filename-forbidden-characters
-                              "_")]
-    (str/replace
-      certname
-      (re-pattern (str "("
-                       (->> forbidden-chars
-                           (map #(format "\\Q%s\\E" %)) ; escape regex chars
-                           (str/join "|"))
-                       ")"))
-      "-")))
+  ;; str/replace appears to be smart enough to return certname when
+  ;; there are no replacements.
+  (str/replace certname forbidden-meta-field-char-rx "-"))
 
-(defn max-certname-length
-  "Given the received-at time, metadata command name and command version for
-  a metadata string, returns the maximum allowable length (in bytes) of
-  a certname in that string. Note that this length is only achievable if the
-  certname does not need to be sanitized, since sanitized certnames always have
-  a SHA1 hash appended."
-  [received metadata-command version]
-  (let [time-length (-> received tcoerce/to-long str utf8-length)
-        command-length (utf8-length metadata-command)
-        version-length (utf8-length (str version))
-        field-separators 3]
-    (- 255 ; overall filename length limit
-       time-length command-length version-length
-       3 ; number of field separators (underscores)
-       5))) ; length of '.json' suffix in UTF-8
-
-(defn truncated-certname-length
-  "Given the received-at time, metadata command name, and command version that
-  will be in a metadata string, returns the length (in bytes) to truncate
-  certnames to when they are longer than the `max-certname-length` for the
-  string or they contain characters that must be sanitized. This is less than
-  the string's `max-certname-length` to leave space for the SHA1 hash."
-  [received metadata-command version]
-  (- (max-certname-length received metadata-command version)
-     1 ; for the additional field separator between certname and hash
-     constants/sha1-hex-length))
-
-(defn embeddable-certname
-  "Takes all the components of a metadata string, and returns a version of the
-  certname that's safe to embed in the metadata string. It will be sanitized to
-  replace any illegal filesystem characters and underscores with dashes, and
-  will be truncated if the original version will cause the metadata string to
-  exceed 255 characters."
-  [received metadata-command version certname]
-  (let [cn-length (utf8-length certname)
-        trunc-length (truncated-certname-length received metadata-command version)
-        sanitized-certname (sanitize-certname certname)]
-    (if (or (> cn-length (max-certname-length received metadata-command version))
-            (and (not= certname sanitized-certname)
-                 (> cn-length trunc-length)))
-      (utf8-truncate sanitized-certname trunc-length)
-      sanitized-certname)))
+(defn embeddable-certid
+  "Returns a certid, either the original certname or a hashable proxy
+  for the original, that is safe to use as part of a filename on all
+  of our the supported filesystems, and whose UTF-8 representation is
+  no longer than max-utf8-bytes."
+  [certname max-utf8-bytes]
+  (let [sanitized (sanitize-certname certname)
+        u8-len (utf8-length sanitized)]
+    (if (= sanitized certname)
+      (if (<= u8-len max-utf8-bytes)
+        certname
+        (str (utf8-truncate sanitized (- max-utf8-bytes 41))
+             "_" (kitchensink/utf8-string->sha1 certname)))
+      ;; certname had to be altered
+      (if (<= (+ u8-len 41) max-utf8-bytes)
+        (str sanitized "_" (kitchensink/utf8-string->sha1 certname))
+        (str (utf8-truncate sanitized (- max-utf8-bytes 41))
+             "_" (kitchensink/utf8-string->sha1 certname))))))
 
 (defn encode-command-time
   "This takes the two time fields in the command header and encodes it
@@ -126,6 +103,22 @@
            producer-offset)
       (str received-time))))
 
+(defn valid-metadata-field-count? [metadata]
+  (#{3 4} (count (filter #{\_} metadata))))
+
+(def max-metadata-utf8-bytes
+  "Maximum number of bytes allowed for our queue metadata, allowing room
+  for stockpile's ID- prefix, where the ID is a long."
+  (- 255 20))
+
+(defn valid-metadata-utf8-length? [metadata]
+  (>= max-metadata-utf8-bytes (utf8-length metadata)))
+
+(def metadata-schema
+  (s/conditional string?
+                 (s/conditional valid-metadata-field-count?
+                                (s/pred valid-metadata-utf8-length?))))
+
 (defn metadata-serializer
   "Given an (optional) map between the command names used in the rest of
   PuppetDB and the command names to use in metadata strings, return a function
@@ -135,26 +128,24 @@
   certname if the certname is long or contains filesystem special characters."
   ([] (metadata-serializer puppetdb-command->metadata-command))
   ([puppetdb-command->metadata-command]
-   (fn [received {:keys [producer-ts command version certname compression]}
-        fs-ready?]
+   (s/fn serialize-metadata :- metadata-schema
+     [received {:keys [producer-ts command version certname compression]}
+      fs-ready?]
      (when-not (puppetdb-command->metadata-command command)
        (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
            received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
-           certid (if fs-ready?
-                    certname
-                    (let [safe-certname (embeddable-certname received short-command
-                                                             version certname)]
-                      (if (= safe-certname certname)
-                        safe-certname
-                        (format "%s_%s"
-                                safe-certname
-                                (kitchensink/utf8-string->sha1 certname)))))
            extension (str "json" (if (not-empty compression)
-                                   (str "." compression)))]
-       (format "%s_%s_%d_%s.%s"
-               received+producer-time short-command version certid extension)))))
+                                   (str "." compression)))
+           cert->meta #(format "%s_%s_%d_%s.%s"
+                               received+producer-time short-command version %
+                               extension)]
+       (cert->meta (if fs-ready?
+                     certname
+                     (let [all-but-cert (utf8-length (cert->meta ""))
+                           max-cert-len (- max-metadata-utf8-bytes all-but-cert)]
+                       (embeddable-certid certname max-cert-len))))))))
 
 (def serialize-metadata (metadata-serializer))
 

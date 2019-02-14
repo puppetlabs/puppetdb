@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.queue-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.string :as str]
+            [clojure.test :refer :all]
             [puppetlabs.puppetdb.queue :refer :all]
             [clj-time.core :as t :refer [days ago now seconds]]
             [clj-time.coerce :as tcoerce]
@@ -11,7 +12,7 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.testutils.nio :as nio]
-            [puppetlabs.puppetdb.utils :refer [utf8-length]]
+            [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
             [puppetlabs.puppetdb.command.constants :as cconst]))
 
 (defn catalog->command-req [version {:keys [certname name] :as catalog}]
@@ -45,7 +46,8 @@
         recvd-long (tcoerce/to-long recvd)
         cmd "replace facts"
         cmd-abbrev (puppetdb-command->metadata-command cmd)
-        cmd-ver 4]
+        cmd-ver 4
+        cert->meta #(format "%d_%s_%d_%s.json" recvd-long cmd-abbrev cmd-ver %)]
 
     (testing "certnames are sanitized"
       (let [cname "foo_bar/baz"
@@ -58,31 +60,36 @@
 
     (testing "long certnames are truncated"
       (let [long-cname (apply str "trol" (repeat 1000 "lo"))
-            trunc-cname (subs long-cname 0 (truncated-certname-length recvd cmd-abbrev cmd-ver))
             cname-hash (kitchensink/utf8-string->sha1 long-cname)
-            compression ""
-            req (cmd-req-stub nil cmd cmd-ver long-cname compression)]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd req false)))
-        (is (>= 255 (utf8-length (serialize-metadata recvd req false))))))
+            trunc-cname (utf8-truncate long-cname (- max-metadata-utf8-bytes
+                                                     41
+                                                     (utf8-length (cert->meta ""))))
+            req (cmd-req-stub nil cmd cmd-ver long-cname "")
+            expected (cert->meta (str trunc-cname "_" cname-hash))
+            serialized (serialize-metadata recvd req false)]
+        (is (= expected serialized))
+        (is (= max-metadata-utf8-bytes (utf8-length serialized)))))
 
-    (testing "multi-byte characters in UTF-8 are counted correctly"
-      (let [cname-max-length (max-certname-length recvd cmd cmd-ver)
-            disapproval-monster (apply str (repeat (inc (/ cname-max-length 4)) "ಠ_"))
-            compression ""
-            req (cmd-req-stub nil cmd cmd-ver disapproval-monster compression)]
-        (is (>= 255 (utf8-length (serialize-metadata recvd req false))))))
+    (testing "utf-8 multi-byte characters are truncated correctly"
+      (let [disapproval-monster (->> "ಠ_"
+                                     (repeat (inc (/ max-metadata-utf8-bytes 4)))
+                                     (apply str))
+            req (cmd-req-stub nil cmd cmd-ver disapproval-monster "")]
+        (is (= max-metadata-utf8-bytes
+               (utf8-length (serialize-metadata recvd req false))))))
 
     (testing "sanitized certnames are truncated to leave room for hash"
-      (let [cname-trunc-length (truncated-certname-length recvd cmd-abbrev cmd-ver)
-            tricky-cname (apply str "____" (repeat cname-trunc-length "o"))
+      (let [tricky-cname (apply str "____" (repeat max-metadata-utf8-bytes "o"))
+            sanitized (str/replace tricky-cname \_ \-)
             cname-hash (kitchensink/utf8-string->sha1 tricky-cname)
-            trunc-cname (subs (sanitize-certname tricky-cname) 0 cname-trunc-length)
-            compression ""
-            req (cmd-req-stub nil cmd cmd-ver tricky-cname compression)]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd req false)))
-        (is (>= 255 (utf8-length (serialize-metadata recvd req false))))))
+            trunc-cname (utf8-truncate sanitized (- max-metadata-utf8-bytes
+                                                    41
+                                                    (utf8-length (cert->meta ""))))
+            req (cmd-req-stub nil cmd cmd-ver tricky-cname "")
+            expected (cert->meta (str trunc-cname "_" cname-hash))
+            serialized (serialize-metadata recvd req false)]
+        (is (= expected serialized))
+        (is (= max-metadata-utf8-bytes (utf8-length serialized)))))
 
     (testing "short & safe certnames are preserved and the hash is omitted"
       (let [cname "bender.myowncasino.moon"
