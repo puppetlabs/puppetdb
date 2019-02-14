@@ -1,11 +1,18 @@
 #!/bin/sh
 
 master_running() {
-    status=$(curl --silent --fail --insecure "https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple")
-    test "$status" = "running"
+    if [ "$CONSUL_ENABLED" = "true" ]; then
+      status=$(curl --silent --fail "http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet" | grep -q '"Status": "passing"')
+      test "$?" = "0"
+    else
+      status=$(curl --silent --fail --insecure "https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple")
+      test "$status" = "running"
+    fi
 }
 
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
+CONSUL_HOSTNAME="${CONSUL_HOSTNAME:-consul}"
+CONSUL_PORT="${CONSUL_PORT:-8500}"
 
 if [ ! -f "/etc/puppetlabs/puppet/ssl/certs/${HOSTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ]; then
   # if this is our first run, run puppet agent to get certs in place
