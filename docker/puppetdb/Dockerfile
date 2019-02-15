@@ -65,7 +65,7 @@ RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
 
 RUN addgroup $GROUP && adduser -S $USER -G $GROUP
 
-ADD https://raw.githubusercontent.com/puppetlabs/pupperware/b651119f16a1c18d5e9174c283a4e535d35a128a/shared/ssl.sh /ssl.sh
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/2630075434af829489b5fb3e01039701ed6fe752/shared/ssl.sh /ssl.sh
 RUN chmod +x /ssl.sh
 COPY docker/puppetdb/ssl-setup.sh /
 RUN chmod +x /ssl-setup.sh
