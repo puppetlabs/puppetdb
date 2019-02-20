@@ -23,7 +23,7 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.utils :refer [compression-file-extension-schema
                                                content-encodings->file-extensions
-                                               match-any-of utf8-length
+                                               match-any-of re-quote utf8-length
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
@@ -55,7 +55,8 @@
   (re-pattern (str "("
                    (->> "_"  ; our meta field separator
                         (conj constants/filename-forbidden-characters)
-                        (map #(format "\\Q%s\\E" %)) ; be careful
+                        (map str)
+                        (map re-quote)
                         (str/join "|"))
                    ")")))
 
