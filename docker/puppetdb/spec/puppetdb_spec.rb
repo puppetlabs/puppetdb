@@ -106,14 +106,6 @@ describe 'puppetdb container specs' do
   end
 
   before(:all) do
-    @mapped_ports = {}
-    # Windows doesn't have the default 'bridge network driver
-    network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
-
-    @network = %x(docker network create #{network_opt} puppetdb_test_network).chomp
-
-    @postgres_container = run_postgres_container
-
     @pdb_image = ENV['PUPPET_TEST_DOCKER_IMAGE']
     if @pdb_image.nil?
       error_message = <<-MSG
@@ -124,6 +116,14 @@ describe 'puppetdb container specs' do
       MSG
       fail error_message
     end
+
+    @mapped_ports = {}
+    # Windows doesn't have the default 'bridge network driver
+    network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
+
+    @network = %x(docker network create #{network_opt} puppetdb_test_network).chomp
+
+    @postgres_container = run_postgres_container
 
     @pdb_container = run_puppetdb_container
   end
