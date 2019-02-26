@@ -36,6 +36,7 @@ describe 'puppetdb container specs' do
       --env POSTGRES_USER=puppetdb \
       --env POSTGRES_DB=puppetdb \
       --name postgres \
+      --network #{@network} \
       --hostname postgres \
       --publish-all \
       --mount type=bind,source=#{postgres_custom_source},target=#{postgres_custom_target} \
@@ -55,7 +56,7 @@ describe 'puppetdb container specs' do
       --name puppetdb \
       --hostname puppetdb \
       --publish-all \
-      --link postgres \
+      --network #{@network} \
       #{@pdb_image}).chomp
   end
 
@@ -106,6 +107,11 @@ describe 'puppetdb container specs' do
 
   before(:all) do
     @mapped_ports = {}
+    # Windows doesn't have the default 'bridge network driver
+    network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
+
+    @network = %x(docker network create #{network_opt} puppetdb_test_network).chomp
+
     @postgres_container = run_postgres_container
 
     @pdb_image = ENV['PUPPET_TEST_DOCKER_IMAGE']
@@ -130,6 +136,7 @@ describe 'puppetdb container specs' do
       STDOUT.puts("Killing container #{id}")
       %x(docker container kill #{id})
     end
+    %x(docker network rm #{@network}) unless @network.nil?
   end
 
   it 'should have started postgres' do
