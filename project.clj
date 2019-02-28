@@ -177,6 +177,11 @@
                     [robert/hooke "1.3.0"]
                     [slingshot]
                     [trptcolin/versioneer]
+                    ;; We do not currently use this dependency directly, but
+                    ;; we have documentation that shows how users can use it to
+                    ;; send their logs to logstash, so we include it in the jar.
+                    [net.logstash.logback/logstash-logback-encoder]
+
 
                     ;; Filesystem utilities
                     [org.apache.commons/commons-lang3 "3.4"]
