@@ -1273,7 +1273,7 @@
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id job_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
-               report-hash (shash/report-identity-hash report)]
+                report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
