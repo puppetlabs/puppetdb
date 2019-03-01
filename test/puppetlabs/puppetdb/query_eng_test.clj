@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng-test
-  (:require [clojure.test :refer :all]
+  (:require [cheshire.core :as json]
+            [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
@@ -303,3 +304,43 @@
             result (vec (parse-result body))]
         (is (= status http/status-ok))
         (is (= result expected-result))))))
+
+(deftest-http-app fact-expiration-queries
+  [version [:v4]
+   endpoint ["/v4/nodes"]]
+
+  (with-transacted-connection *db*
+    (scf-store/add-certname! "foo1")
+    (scf-store/add-certname! "foo2")
+    (scf-store/add-certname! "foo3")
+
+    (scf-store/set-certname-facts-expiration "foo1" false (now))
+    (scf-store/set-certname-facts-expiration "foo2" true (now)))
+
+  (testing "test facts expiring for nodes set to false"
+    (let [request (get-request endpoint (json/generate-string ["=" "expires.facts" false]))
+          {:keys [status body]} (*app* request)
+          result (vec (parse-result body))]
+
+      (is (= status http/status-ok))
+      (is (= 1 (count result)))
+      (let [node (first result)]
+        (is (= false (get-in node [:expires :facts])))
+        (is (= "foo1" (:certname node)))
+        (is (some? (get-in node [:expires :facts_updated]))))))
+
+  (testing "test facts expiring for nodes set to true (default)"
+    (let [request (get-request endpoint (json/generate-string ["=" "expires.facts" true]))
+          {:keys [status body]} (*app* request)
+          result (vec (parse-result body))]
+
+      (is (= status http/status-ok))
+      (is (= 2 (count result)))
+      (let [nodes (sort-by :certname result)]
+        (is (= true (get-in (first nodes) [:expires :facts])))
+        (is (= "foo2" (:certname (first nodes))))
+        (is (some? (get-in (first nodes) [:expires :facts_updated])))
+
+        (is (= true (get-in (second nodes) [:expires :facts])))
+        (is (= "foo3" (:certname (second nodes))))
+        (is (nil? (get-in (second nodes) [:expires :facts_updated])))))))

@@ -48,7 +48,8 @@
    "fact_contents" {:columns ["certname"]}
    "events" {:columns ["certname"]}
    "edges" {:columns ["certname"]}
-   "resources" {:columns ["certname"]}})
+   "resources" {:columns ["certname"]}
+   "certname_fact_expiration" {:columns ["certid"]}})
 
 (def type-coercion-matrix
   {:string {:numeric (su/sql-cast "int")
@@ -271,7 +272,10 @@
                                                     :field :catalog_environment.environment}
                              "report_environment" {:type :string
                                                    :queryable? true
-                                                   :field :reports_environment.environment}}
+                                                   :field :reports_environment.environment}
+                             "expires" {:type :queryable-json
+                                        :queryable? true
+                                        :field (hcore/raw "jsonb_build_object('facts', coalesce(certname_fact_expiration.expire, true), 'facts_updated', certname_fact_expiration.updated)")}}
 
                :relationships certname-relations
 
@@ -297,11 +301,15 @@
                                        [:= :facts_environment.id :fs.environment_id]
 
                                        [:environments :reports_environment]
-                                       [:= :reports_environment.id :reports.environment_id]]}
+                                       [:= :reports_environment.id :reports.environment_id]
+
+                                       :certname_fact_expiration
+                                       [:= :certnames.id :certname_fact_expiration.certid]]}
 
                :source-table "certnames"
                :alias "nodes"
-               :subquery? false}))
+               :subquery? false
+               :dotted-fields ["expires\\..*"]}))
 
 (def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
