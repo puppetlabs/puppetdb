@@ -10,6 +10,9 @@
             [clj-time.format :as tf]
             [schema.core :as s]))
 
+(defn date-time? [x]
+  (instance? DateTime x))
+
 ;; Functions for parsing Periods from Strings
 
 (defn period?

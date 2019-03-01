@@ -47,7 +47,8 @@
                :catalog_environment :facts_environment :report_environment
                :latest_report_status :latest_report_hash :latest_report_noop
                :latest_report_noop_pending :cached_catalog_status
-               :latest_report_corrective_change :latest_report_job_id} (keyset res))
+               :latest_report_corrective_change :latest_report_job_id
+               :expires_facts :expires_facts_updated} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
