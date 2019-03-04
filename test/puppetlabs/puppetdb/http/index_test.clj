@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [dotestseq]]
-            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :refer [with-test-db without-db-var]]
             [puppetlabs.puppetdb.testutils.http
              :refer [are-error-response-headers
                      deftest-http-app
@@ -159,10 +159,13 @@
 
     (testing "ast only"
       (testing "pql query should be translated to ast"
-        (doseq [query ["nodes{}"
-                       "facts { [certname,name] in fact_contents[certname,name] { limit 1 order by certname } }"]]
-          (let [results (ordered-query-result method endpoint query {:ast_only true})]
-            (is (= (first (pql/pql->ast query)) results)))))
+        (without-db-var
+          (fn []
+            (doseq [query ["nodes{}"
+                           "facts { [certname,name] in fact_contents[certname,name] { limit 1 order by certname } }"
+                           "facts[certname]{ name = \"ipaddress\" and value in [\"192.168.0.10\"] }"]]
+            (let [results (ordered-query-result method endpoint query {:ast_only true})]
+              (is (= (first (pql/pql->ast query)) results)))))))
       (testing "ast query should be returned as is"
         (doseq [query [["from" "nodes"]
                        ["from" "facts"
