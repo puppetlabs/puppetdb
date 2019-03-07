@@ -22,7 +22,8 @@
             [clojure.core.async.impl.protocols :as async-protos]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.utils :refer [compression-file-extension-schema
-                                               match-any-of utf8-length
+                                               content-encodings->file-extensions
+                                               match-any-of re-quote utf8-length
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
@@ -50,63 +51,41 @@
     (catch Exception e
       (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
+(def forbidden-meta-field-char-rx
+  (re-pattern (str "("
+                   (->> "_"  ; our meta field separator
+                        (conj constants/filename-forbidden-characters)
+                        (map str)
+                        (map re-quote)
+                        (str/join "|"))
+                   ")")))
+
 (defn sanitize-certname
   "Replace any underscores and filename forbidden characters found in `certname`
   with dashes."
   [certname]
-  (let [forbidden-chars (conj constants/filename-forbidden-characters
-                              "_")]
-    (str/replace
-      certname
-      (re-pattern (str "("
-                       (->> forbidden-chars
-                           (map #(format "\\Q%s\\E" %)) ; escape regex chars
-                           (str/join "|"))
-                       ")"))
-      "-")))
+  ;; str/replace appears to be smart enough to return certname when
+  ;; there are no replacements.
+  (str/replace certname forbidden-meta-field-char-rx "-"))
 
-(defn max-certname-length
-  "Given the received-at time, metadata command name and command version for
-  a metadata string, returns the maximum allowable length (in bytes) of
-  a certname in that string. Note that this length is only achievable if the
-  certname does not need to be sanitized, since sanitized certnames always have
-  a SHA1 hash appended."
-  [received metadata-command version]
-  (let [time-length (-> received tcoerce/to-long str utf8-length)
-        command-length (utf8-length metadata-command)
-        version-length (utf8-length (str version))
-        field-separators 3]
-    (- 255 ; overall filename length limit
-       time-length command-length version-length
-       3 ; number of field separators (underscores)
-       5))) ; length of '.json' suffix in UTF-8
-
-(defn truncated-certname-length
-  "Given the received-at time, metadata command name, and command version that
-  will be in a metadata string, returns the length (in bytes) to truncate
-  certnames to when they are longer than the `max-certname-length` for the
-  string or they contain characters that must be sanitized. This is less than
-  the string's `max-certname-length` to leave space for the SHA1 hash."
-  [received metadata-command version]
-  (- (max-certname-length received metadata-command version)
-     1 ; for the additional field separator between certname and hash
-     constants/sha1-hex-length))
-
-(defn embeddable-certname
-  "Takes all the components of a metadata string, and returns a version of the
-  certname that's safe to embed in the metadata string. It will be sanitized to
-  replace any illegal filesystem characters and underscores with dashes, and
-  will be truncated if the original version will cause the metadata string to
-  exceed 255 characters."
-  [received metadata-command version certname]
-  (let [cn-length (utf8-length certname)
-        trunc-length (truncated-certname-length received metadata-command version)
-        sanitized-certname (sanitize-certname certname)]
-    (if (or (> cn-length (max-certname-length received metadata-command version))
-            (and (not= certname sanitized-certname)
-                 (> cn-length trunc-length)))
-      (utf8-truncate sanitized-certname trunc-length)
-      sanitized-certname)))
+(defn embeddable-certid
+  "Returns a certid, either the original certname or a hashable proxy
+  for the original, that is safe to use as part of a filename on all
+  of our the supported filesystems, and whose UTF-8 representation is
+  no longer than max-utf8-bytes."
+  [certname max-utf8-bytes]
+  (let [sanitized (sanitize-certname certname)
+        u8-len (utf8-length sanitized)]
+    (if (= sanitized certname)
+      (if (<= u8-len max-utf8-bytes)
+        certname
+        (str (utf8-truncate sanitized (- max-utf8-bytes 41))
+             "_" (kitchensink/utf8-string->sha1 certname)))
+      ;; certname had to be altered
+      (if (<= (+ u8-len 41) max-utf8-bytes)
+        (str sanitized "_" (kitchensink/utf8-string->sha1 certname))
+        (str (utf8-truncate sanitized (- max-utf8-bytes 41))
+             "_" (kitchensink/utf8-string->sha1 certname))))))
 
 (defn encode-command-time
   "This takes the two time fields in the command header and encodes it
@@ -125,6 +104,22 @@
            producer-offset)
       (str received-time))))
 
+(defn valid-metadata-field-count? [metadata]
+  (#{3 4} (count (filter #{\_} metadata))))
+
+(def max-metadata-utf8-bytes
+  "Maximum number of bytes allowed for our queue metadata, allowing room
+  for stockpile's ID- prefix, where the ID is a long."
+  (- 255 20))
+
+(defn valid-metadata-utf8-length? [metadata]
+  (>= max-metadata-utf8-bytes (utf8-length metadata)))
+
+(def metadata-schema
+  (s/conditional string?
+                 (s/conditional valid-metadata-field-count?
+                                (s/pred valid-metadata-utf8-length?))))
+
 (defn metadata-serializer
   "Given an (optional) map between the command names used in the rest of
   PuppetDB and the command names to use in metadata strings, return a function
@@ -134,30 +129,47 @@
   certname if the certname is long or contains filesystem special characters."
   ([] (metadata-serializer puppetdb-command->metadata-command))
   ([puppetdb-command->metadata-command]
-   (fn [received {:keys [producer-ts command version certname compression]}]
+   (s/fn serialize-metadata :- metadata-schema
+     [received {:keys [producer-ts command version certname compression]}
+      fs-ready?]
      (when-not (puppetdb-command->metadata-command command)
        (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
            received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
-           safe-certname (embeddable-certname received short-command version certname)
-           name (if (= safe-certname certname)
-                  safe-certname
-                  (format "%s_%s"
-                          safe-certname
-                          (kitchensink/utf8-string->sha1 certname)))
            extension (str "json" (if (not-empty compression)
-                                   (str "." compression)))]
-       (format "%s_%s_%d_%s.%s"
-               received+producer-time short-command version name extension)))))
+                                   (str "." compression)))
+           cert->meta #(format "%s_%s_%d_%s.%s"
+                               received+producer-time short-command version %
+                               extension)]
+       (cert->meta (if fs-ready?
+                     certname
+                     (let [all-but-cert (utf8-length (cert->meta ""))
+                           max-cert-len (- max-metadata-utf8-bytes all-but-cert)]
+                       (embeddable-certid certname max-cert-len))))))))
 
 (def serialize-metadata (metadata-serializer))
 
+(defn validate-compression-extension-syntax [ext]
+  (assert (re-matches #"[a-zA-Z0-9]+" ext))
+  ext)
+
+(def compression-extension-rx-group
+  (format "\\.(%s)"
+          (->> content-encodings->file-extensions
+               vals
+               (remove #{""})
+               (map validate-compression-extension-syntax)
+               (str/join "|"))))
+
 (defn metadata-rx [valid-commands]
   (re-pattern (str
-               "([0-9]+)([+|-][0-9]+)?_"
-               (match-any-of valid-commands)
-               "_([0-9]+)_(.*)\\.json(\\..*)?")))
+               "([0-9]+)([+|-][0-9]+)?" ; received-stamp and optional offset
+               "_" (match-any-of valid-commands)
+               "_([0-9]+)"              ; command version
+               "_([^_]+)"               ; certname or certid prefix
+               "(_[a-fA-F0-9]{40})?"    ; cert hash (if cert had to be mangled)
+               "\\.json(?:" compression-extension-rx-group ")?")))
 
 (defn metadata-parser
   "Given an (optional) map between the command names that appear in metadata
@@ -173,9 +185,14 @@
    (let [rx (metadata-rx (keys metadata-command->puppetdb-command))
          md-cmd->pdb-cmd metadata-command->puppetdb-command]
      (fn [s]
-       (when-let [[_ received-stamp producer-offset md-command version certname compression] (re-matches rx s)]
+       (when-let [[_ received-stamp producer-offset md-command version
+                   certname cert-hash compression] (re-matches rx s)]
+         ;; The cert-hash will only exist if the certname had to be
+         ;; modified to accomodate the filesystem character/length
+         ;; restrictions, and it'll be "_HASH".
          (let [received-time-long (Long/parseLong received-stamp)
-               producer-offset (and producer-offset (Long/parseLong producer-offset))]
+               producer-offset (and producer-offset (Long/parseLong producer-offset))
+               certid (if-not cert-hash certname (str certname cert-hash))]
            (and certname
                 {:received (-> received-time-long
                                tcoerce/from-long
@@ -185,15 +202,17 @@
                                       tcoerce/from-long)
                  :version (Long/parseLong version)
                  :command (get md-cmd->pdb-cmd md-command "unknown")
-                 :certname certname
-                 :compression (if (nil? compression)
-                                ""
-                                (subs compression 1))})))))))
+                 :certname certid
+                 :compression (if (seq compression) compression "")})))))))
 
 (def parse-metadata (metadata-parser))
 
 (def command-req-schema
-  "Represents an incoming command, before it has been enqueued"
+  "Represents an incoming command, before it has been enqueued.  One key
+  difference between this and the command ref (and a ref is what
+  you'll typically have) is that the certname in a ref may not be the
+  actual certname, it may be the mangled version which acts as a
+  hashable proxy for the original."
   {:command (apply s/enum (vals metadata-command->puppetdb-command))
    :version s/Int
    :certname s/Str
@@ -220,10 +239,15 @@
    :callback callback
    :command-stream command-stream})
 
-(defrecord CommandRef [id command version certname received producer-ts callback delete? compression])
+(defrecord CommandRef
+    ;; Note that the certname here is really a certid, i.e. it's what we
+    ;; store in the metadata for the certname which is either the actual
+    ;; certname with no trailing _HASH, or the sanitized and possibly
+    ;; truncated ADJUSTEDCERT_ORIGCERTHASH.
+    [id command version certname received producer-ts callback delete? compression])
 
 (defn cmdref->entry [{:keys [id received] :as cmdref}]
-  (stock/entry id (serialize-metadata received cmdref)))
+  (stock/entry id (serialize-metadata received cmdref true)))
 
 (defn entry->cmdref [entry]
   (let [{:keys [received command version
@@ -287,7 +311,7 @@
   (try+
    (stock/store q
                 (:command-stream command-req)
-                (serialize-metadata received command-req))
+                (serialize-metadata received command-req false))
 
    (catch [:kind ::stock/unable-to-commit] {:keys [stream-data]}
      ;; stockpile has saved all of the data in command-stream to
@@ -321,10 +345,13 @@
         entry (store-in-stockpile q
                                   current-time
                                   command-req)]
-    (-> command-req
-        (select-keys [:command :version :certname :producer-ts :callback :compression])
-        (assoc :id (stock/entry-id entry)
-               :received (kitchensink/timestamp current-time))
+    ;; Build the ref using the parsed metadata so that we'll have the
+    ;; correct "certname" -- mangled if needed.
+    (-> (parse-metadata (stock/entry-meta entry))
+        (select-keys [:command :version :certname :producer-ts :received
+                      :compression])
+        (assoc :id (stock/entry-id entry))
+        (merge (select-keys command-req [:callback]))
         map->CommandRef)))
 
 (defn ack-command

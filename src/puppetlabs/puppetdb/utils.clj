@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.utils
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [clojure.string :as str]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
@@ -23,6 +24,17 @@
   [& args]
   (binding [*out* *err*]
     (apply println args)))
+
+(defn re-quote
+  "Quotes s so that all of its characters will be matched literally."
+  [s]
+  ;; Wrap all segments not containing a \E in \Q...\E, and replace \E
+  ;; with \\E.
+  (apply str
+         "\\Q"
+         (concat (->> (str/split s #"\\E" -1)
+                      (interpose "\\E\\\\E\\Q"))
+                 ["\\E"])))
 
 (defn flush-and-exit [status]
   "Attempts to flush *out* and *err*, reporting any failures to *err*,
@@ -439,6 +451,9 @@
          (binding [*out* *err*]
            (println ex#))
          (throw ex#)))))
+
+;; For now, if you change these extensions, make sure they satisfy
+;; validate-compression-extension-syntax in the queue.
 
 (def content-encodings->file-extensions
   {"gzip" "gz"

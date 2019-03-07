@@ -167,7 +167,7 @@
   [cmdref stockpile dlo]
   (let [{:keys [path registry metrics]} dlo
         {:keys [id received command attempts]} cmdref
-        entry (stock/entry id (serialize-metadata received cmdref))
+        entry (stock/entry id (serialize-metadata received cmdref true))
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
     ;; We're going to assume that our moves will be atomic, and if
     ;; they're not, that we don't care about the possibility of
@@ -205,7 +205,8 @@
                                       :command "unknown"
                                       :version 0
                                       :certname digest
-                                      :compression ""})
+                                      :compression ""}
+                                     true)
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"

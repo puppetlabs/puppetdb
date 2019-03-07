@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.queue-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.string :as str]
+            [clojure.test :refer :all]
             [puppetlabs.puppetdb.queue :refer :all]
             [clj-time.core :as t :refer [days ago now seconds]]
             [clj-time.coerce :as tcoerce]
@@ -11,7 +12,7 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.testutils.nio :as nio]
-            [puppetlabs.puppetdb.utils :refer [utf8-length]]
+            [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
             [puppetlabs.puppetdb.command.constants :as cconst]))
 
 (defn catalog->command-req [version {:keys [certname name] :as catalog}]
@@ -45,53 +46,65 @@
         recvd-long (tcoerce/to-long recvd)
         cmd "replace facts"
         cmd-abbrev (puppetdb-command->metadata-command cmd)
-        cmd-ver 4]
+        cmd-ver 4
+        cert->meta #(format "%d_%s_%d_%s.json" recvd-long cmd-abbrev cmd-ver %)]
 
     (testing "certnames are sanitized"
       (let [cname "foo_bar/baz"
             safe-cname "foo-bar-baz"
             cname-hash (kitchensink/utf8-string->sha1 cname)
-            compression ""]
+            compression ""
+            req (cmd-req-stub nil cmd cmd-ver cname compression)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver safe-cname cname-hash)
-               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver cname compression))))))
+               (serialize-metadata recvd req false)))))
 
     (testing "long certnames are truncated"
       (let [long-cname (apply str "trol" (repeat 1000 "lo"))
-            trunc-cname (subs long-cname 0 (truncated-certname-length recvd cmd-abbrev cmd-ver))
             cname-hash (kitchensink/utf8-string->sha1 long-cname)
-            compression ""]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver long-cname compression))))
-        (is (<= (utf8-length (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver long-cname compression))) 255))))
+            trunc-cname (utf8-truncate long-cname (- max-metadata-utf8-bytes
+                                                     41
+                                                     (utf8-length (cert->meta ""))))
+            req (cmd-req-stub nil cmd cmd-ver long-cname "")
+            expected (cert->meta (str trunc-cname "_" cname-hash))
+            serialized (serialize-metadata recvd req false)]
+        (is (= expected serialized))
+        (is (= max-metadata-utf8-bytes (utf8-length serialized)))))
 
-    (testing "multi-byte characters in UTF-8 are counted correctly"
-      (let [cname-max-length (max-certname-length recvd cmd cmd-ver)
-            disapproval-monster (apply str (repeat (inc (/ cname-max-length 4)) "ಠ_"))
-            compression ""]
-        (is (<= (utf8-length (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver disapproval-monster compression))) 255))))
+    (testing "utf-8 multi-byte characters are truncated correctly"
+      (let [disapproval-monster (->> "ಠ_"
+                                     (repeat (inc (/ max-metadata-utf8-bytes 4)))
+                                     (apply str))
+            req (cmd-req-stub nil cmd cmd-ver disapproval-monster "")]
+        (is (= max-metadata-utf8-bytes
+               (utf8-length (serialize-metadata recvd req false))))))
 
     (testing "sanitized certnames are truncated to leave room for hash"
-      (let [cname-trunc-length (truncated-certname-length recvd cmd-abbrev cmd-ver)
-            tricky-cname (apply str "____" (repeat cname-trunc-length "o"))
+      (let [tricky-cname (apply str "____" (repeat max-metadata-utf8-bytes "o"))
+            sanitized (str/replace tricky-cname \_ \-)
             cname-hash (kitchensink/utf8-string->sha1 tricky-cname)
-            trunc-cname (subs (sanitize-certname tricky-cname) 0 cname-trunc-length)
-            compression ""]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver tricky-cname compression))))
-        (is (<= (utf8-length (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver tricky-cname compression))) 255))))
+            trunc-cname (utf8-truncate sanitized (- max-metadata-utf8-bytes
+                                                    41
+                                                    (utf8-length (cert->meta ""))))
+            req (cmd-req-stub nil cmd cmd-ver tricky-cname "")
+            expected (cert->meta (str trunc-cname "_" cname-hash))
+            serialized (serialize-metadata recvd req false)]
+        (is (= expected serialized))
+        (is (= max-metadata-utf8-bytes (utf8-length serialized)))))
 
     (testing "short & safe certnames are preserved and the hash is omitted"
       (let [cname "bender.myowncasino.moon"
-            compression ""]
+            compression ""
+            req (cmd-req-stub nil cmd cmd-ver cname compression)]
         (is (= (format "%d_%s_%d_%s.json" recvd-long cmd-abbrev cmd-ver cname)
-               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver cname compression))))))
+               (serialize-metadata recvd req false)))))
 
     (testing "compression format is added"
       (let [cname "compress.me"
-            compression "gz"]
+            compression "gz"
+            req (cmd-req-stub nil cmd cmd-ver cname compression)]
         (is (= (format "%d_%s_%d_%s.json.%s"
                        recvd-long cmd-abbrev cmd-ver cname compression)
-               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver cname compression))))))))
+               (serialize-metadata recvd req false)))))))
 
 (deftest test-metadata
   (tqueue/with-stockpile q
@@ -397,36 +410,42 @@
 (deftest test-metadata-parsing
   (let [received (time/now)
         producer-ts (time/minus received (seconds 5))
-        compression ""]
-    (is (= (parse-metadata
-            (serialize-metadata received (cmd-req-stub producer-ts "replace catalog" cconst/latest-catalog-version "foo.com" compression)))
-           {:certname "foo.com"
+        compression ""
+        req (cmd-req-stub producer-ts
+                          "replace catalog" cconst/latest-catalog-version
+                          "foo.com" compression)]
+    (is (= {:certname "foo.com"
             :command "replace catalog"
             :version cconst/latest-catalog-version
             :received (kitchensink/timestamp received)
             :producer-ts producer-ts
-            :compression compression})))
+            :compression compression}
+           (parse-metadata (serialize-metadata received req false)))))
 
   (let [received (time/now)
         producer-ts (time/plus received (seconds 5))
-        compression "gz"]
-    (is (= (parse-metadata
-            (serialize-metadata received (cmd-req-stub producer-ts "replace facts" cconst/latest-facts-version "foo.com" compression)))
-           {:certname "foo.com"
+        compression "gz"
+        req (cmd-req-stub producer-ts
+                          "replace facts" cconst/latest-facts-version
+                          "foo.com" compression)]
+    (is (= {:certname "foo.com"
             :command "replace facts"
             :version cconst/latest-facts-version
             :received (kitchensink/timestamp received)
             :producer-ts producer-ts
-            :compression compression})))
+            :compression compression}
+           (parse-metadata (serialize-metadata received req false)))))
 
   (let [received (time/now)
         producer-ts received
-        compression "zip"]
-    (is (= (parse-metadata
-            (serialize-metadata received (cmd-req-stub producer-ts "store report" cconst/latest-report-version "foo.com" compression)))
-           {:certname "foo.com"
+        compression "gz"
+        req (cmd-req-stub producer-ts
+                          "store report" cconst/latest-report-version
+                          "foo.com" compression)]
+    (is (= {:certname "foo.com"
             :command "store report"
             :version cconst/latest-report-version
             :received (kitchensink/timestamp received)
             :producer-ts producer-ts
-            :compression compression}))))
+            :compression compression}
+           (parse-metadata (serialize-metadata received req false))))))

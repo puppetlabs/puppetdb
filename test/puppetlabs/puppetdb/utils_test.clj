@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.utils-test
-  (:require [puppetlabs.puppetdb.utils :refer :all]
+  (:require [clojure.math.combinatorics :refer [selections]]
+            [puppetlabs.puppetdb.utils :as tgt :refer :all]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog
@@ -10,6 +11,10 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :as cct]))
+
+(deftest re-quote-behavior
+  (doseq [x (map #(apply str %) (selections ["x" "\\Q" "\\E"] 6))]
+    (is (= x (re-matches (re-pattern (str (tgt/re-quote x) "$")) x)))))
 
 (deftest test-println-err
   (is (= "foo\n"
