@@ -84,7 +84,11 @@
 ;; long time.
 (def pdb-dep-pins
   `[;; Use jetty 9.4.11.v20180605 to fix CVE-2017-7656 (PDB-4160)
-    [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-ver]])
+    [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-ver]
+    ;; This dependency is used by logstash above and should be
+    ;; explicitly defined to pick up the latest version for any
+    ;; CVE fixes
+    [com.fasterxml.jackson.core/jackson-databind "2.9.8"]])
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
@@ -177,6 +181,10 @@
                     [robert/hooke "1.3.0"]
                     [slingshot]
                     [trptcolin/versioneer]
+                    ;; We do not currently use this dependency directly, but
+                    ;; we have documentation that shows how users can use it to
+                    ;; send their logs to logstash, so we include it in the jar.
+                    [net.logstash.logback/logstash-logback-encoder]
 
                     ;; Filesystem utilities
                     [org.apache.commons/commons-lang3 "3.4"]
@@ -203,9 +211,6 @@
                     [compojure]
                     [org.apache.commons/commons-compress "1.10"]
                     [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]])
-
-  ; permanently exclude jackson-databind, as it is a source of CVE's and we don't use it
-  :exclusions [[com.fasterxml.jackson.core/jackson-databind]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
