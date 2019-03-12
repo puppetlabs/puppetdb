@@ -50,8 +50,8 @@ case "$OSTYPE" in
             else
               old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/lib/security/cacerts"
             fi
-            rm "$old_cacert_path"
-            ln -s $cacert_path "$old_cacert_path"
+            sudo -i rm "$old_cacert_path"
+            sudo -i ln -s $cacert_path "$old_cacert_path"
             ;;
           *)
             echo "JDK version '$jdk' is not supported on Mac OSX"
