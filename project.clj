@@ -177,6 +177,11 @@
                  [robert/hooke "1.3.0"]
                  [slingshot]
                  [trptcolin/versioneer]
+                 ;; We do not currently use this dependency directly, but
+                 ;; we have documentation that shows how users can use it to
+                 ;; send their logs to logstash, so we include it in the jar.
+                 [net.logstash.logback/logstash-logback-encoder]
+                 [com.fasterxml.jackson.core/jackson-databind]
 
                  ;; Filesystem utilities
                  [org.apache.commons/commons-lang3]
@@ -200,9 +205,6 @@
 
                  ;; fixing a illegal reflective access
                  [org.tcrawley/dynapath "1.0.0"]]
-
-  ; permanently exclude jackson-databind, as it is a source of CVE's and we don't use it
-  :exclusions [[com.fasterxml.jackson.core/jackson-databind]]
 
   :jvm-opts ~(if need-permgen?
               ["-XX:MaxPermSize=200M"]
