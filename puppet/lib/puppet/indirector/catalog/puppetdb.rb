@@ -23,6 +23,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def extract_extra_request_data(request)
     {
       :transaction_uuid => request.options[:transaction_uuid],
+      :job_id => request.options[:job_id],
       :environment => request.environment.to_s
     }
   end
