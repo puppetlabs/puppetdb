@@ -15,6 +15,7 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [reportv7]: ../../wire_format/report_format_v7.html
 [reportv8]: ../../wire_format/report_format_v8.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
+[expirev1]: ../../wire_format/configure_expiration_format_v1.html
 
 Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:
@@ -45,6 +46,9 @@ containing the given command's wire format. This mechanism allows PuppetDB to
 provide better validation and feedback at time of POSTing without inspecting the
 command payload itself, and should be preferred over the alternative due to
 lower memory consumption.
+
+> *Note*: every command that requires an accurate certname *must*
+> include (duplicate) the certname in the wire format (the payload).
 
 * Payload only (deprecated): This method entails POSTing a single JSON body
 containing the certname, command name, and command version along side a
@@ -204,6 +208,16 @@ The payload is expected to be a report, containing events that occurred on
 Puppet resources. It is structured as a JSON object, conforming to the
 [report wire format v5][reportv5].
 
+### "configure expiration", version 1 (experimental)
+
+The payload should be a JSON format command, conforming to the
+[configure_expiration wire format v1][expirev1], indicating whether or
+not facts should be expired for a given `certname`.
+
+> *Note*: this is an experimental command, which might be altered or
+> removed in a future release, and for the time being, PuppetDB
+> exports will not include this information.
+
 ## Examples using `curl`
 
 To post a `replace facts` command you can use the following curl command:
@@ -237,3 +251,11 @@ or equivalently:
       -H "Content-Type: application/json" \
       -d '{"command":"deactivate node","version":3,"payload":{"certname":"test1","producer_timestamp":"2015-01-01"}}' \
       http://localhost:8080/pdb/cmd/v1
+
+To `configure expiration` for facts:
+
+    curl -X POST \
+      -H 'Content-Type:application/json' \
+      -H 'Accept:application/json' \
+      -d '{"certname":"test1","producer_timestamp":"2019-01-01","expire":{"facts":false}}' \
+      "http://localhost:8080/pdb/cmd/v1?certname=test1&command=configure_expiration&version=1"

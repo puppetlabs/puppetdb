@@ -37,7 +37,8 @@
   {"catalog" "replace catalog"
    "facts" "replace facts"
    "rm-node" "deactivate node"
-   "report" "store report"})
+   "report" "store report"
+   "set-expire" "configure expiration"})
 
 (def puppetdb-command->metadata-command
   (into {} (for [[md pdb] metadata-command->puppetdb-command] [pdb md])))

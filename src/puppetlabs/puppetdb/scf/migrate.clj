@@ -1561,6 +1561,20 @@
 
   {::vaccum-analyze #{"resource_events"}})
 
+(defn support-fact-expiration-configuration []
+  ;; Note that a missing row implies "true", i.e. expiration should
+  ;; behave as it always had, and as it does for agent managed nodes.
+  (jdbc/do-commands
+   ["create table certname_fact_expiration"
+    "  (certid bigint not null primary key,"
+    "   expire bool not null,"
+    "   updated timestamp with time zone not null,"
+    "   constraint certname_fact_expiration_certid_fkey"
+    "     foreign key (certid) references certnames(id) on delete cascade,"
+    "   constraint certname_fact_expiration_expire_updated_vals_match"
+    "     check ((expire is not null and updated is not null)"
+    "             or (expire is null and updated is null)))"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1605,7 +1619,8 @@
    64 rededuplicate-facts
    65 varchar-columns-to-text
    66 jsonb-facts
-   67 add-resource-events-pk})
+   67 add-resource-events-pk
+   68 support-fact-expiration-configuration})
 
 (def desired-schema-version (apply max (keys migrations)))
 

@@ -387,6 +387,19 @@
         (assoc :payload validated-payload)
         (store-report* start-time db))))
 
+(defn configure-expiration
+  [{:keys [id received payload]}
+   start-time db]
+  (let [certname (:certname payload)
+        stamp (:producer_timestamp payload (now))
+        expire-facts? (get-in payload [:expire :facts])]
+    (when-not (nil? expire-facts?)
+      (jdbc/with-transacted-connection db
+        (scf-storage/maybe-activate-node! certname stamp)
+        (scf-storage/set-certname-facts-expiration certname expire-facts? stamp))
+      (log-command-processed-messsage id received start-time
+                                      :configure-expiration certname))))
+
 ;; ## Command processors
 
 (def supported-command?
@@ -410,7 +423,8 @@
         "replace catalog" (replace-catalog command start db)
         "replace facts" (replace-facts command start db blacklist-config)
         "store report" (store-report command start db)
-        "deactivate node" (deactivate-node command start db)))))
+        "deactivate node" (deactivate-node command start db)
+        "configure expiration" (configure-expiration command start db)))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"

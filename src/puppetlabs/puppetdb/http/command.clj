@@ -25,7 +25,8 @@
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
 (def min-supported-commands
-  {"replace catalog" 6
+  {"configure expiration" 1
+   "replace catalog" 6
    "replace facts" 4
    "store report" 5
    "deactivate node" 3})

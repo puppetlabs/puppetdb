@@ -304,6 +304,23 @@
       (create-row table row-map))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Node data expiration
+
+(pls/defn-validated set-certname-facts-expiration
+  [certname :- s/Str
+   expire? :- s/Bool
+   updated :- pls/Timestamp]
+  (let [updated (to-timestamp updated)]
+    (jdbc/do-prepared
+     (str "insert into certname_fact_expiration as cfe (certid, expire, updated)"
+          "  select id, ?, ? from certnames where certname = ?"
+          "  on conflict (certid) do update"
+          "    set expire = excluded.expire,"
+          "        updated = excluded.updated"
+          "    where excluded.updated > cfe.updated")
+     [expire? updated certname])))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
 
 (pls/defn-validated environment-id :- (s/maybe s/Int)
@@ -1400,6 +1417,7 @@
                      left outer join catalogs cats on cats.certname = c.certname
                      left outer join factsets fs on c.certname = fs.certname
                      left outer join reports r on c.latest_report_id = r.id
+                     left outer join certname_fact_expiration cfe on c.id = cfe.certid
                    where c.deactivated is null
                      and c.expired is null
                      and (cats.producer_timestamp is null
@@ -1407,9 +1425,12 @@
                      and (fs.producer_timestamp is null
                           or fs.producer_timestamp < ?)
                      and (r.producer_timestamp is null
-                          or r.producer_timestamp < ?))"
+                          or r.producer_timestamp < ?)"
+           "         and (cfe.updated is null"
+           "              or (cfe.expire and cfe.updated < ?)))"
            "  returning certname")
-          expired-ts stale-start-ts stale-start-ts stale-start-ts))))
+          expired-ts
+          stale-start-ts stale-start-ts stale-start-ts stale-start-ts))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.
