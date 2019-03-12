@@ -26,7 +26,7 @@
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
-            [clj-time.core :refer [ago before? from-now now days]]
+            [clj-time.core :as time :refer [ago before? from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.puppetdb.jdbc :as jdbc
              :refer [call-with-query-rows query-to-vec]]))
@@ -1958,3 +1958,23 @@
 (deftest-db test-resources-exist?
   (testing "With empty input"
     (is (= #{} (resources-exist? #{})))))
+
+(deftest-db setting-fact-expiration-for-certname
+  (is (= [] (query-to-vec "select * from certname_fact_expiration")))
+  (add-certname! "foo")
+  (is (= [] (query-to-vec "select * from certname_fact_expiration")))
+  (let [stamp-1 (to-timestamp (now))
+        stamp-2 (to-timestamp (time/plus (now) (time/seconds 1)))
+        id (-> "select id from certnames where certname = 'foo'"
+               query-to-vec first :id)]
+    (set-certname-facts-expiration "foo" true stamp-1)
+    (is (= [{:certid id :expire true :updated stamp-1}]
+           (query-to-vec "select * from certname_fact_expiration")))
+    ;; No effect if time is <=
+    (set-certname-facts-expiration "foo" false stamp-1)
+    (is (= [{:certid id :expire true :updated stamp-1}]
+           (query-to-vec "select * from certname_fact_expiration")))
+    ;; Changes for newer time
+    (set-certname-facts-expiration "foo" false stamp-2)
+    (is (= [{:certid id :expire false :updated stamp-2}]
+           (query-to-vec "select * from certname_fact_expiration")))))

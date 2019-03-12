@@ -1,13 +1,19 @@
 (ns puppetlabs.puppetdb.acceptance.node-ttl
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.testutils.http :as tuhttp]
-            [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
-            [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.test-protocols :refer [called?]]))
+  (:require
+   [clj-time.core :as tc :refer [now]]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.cli.services :as cli-svc]
+   [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+   [puppetlabs.puppetdb.test-protocols :refer [called?]]
+   [puppetlabs.puppetdb.testutils :as tu]
+   [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+   [puppetlabs.puppetdb.testutils.http :as tuhttp]
+   [puppetlabs.puppetdb.testutils.services :as svc-utils
+    :refer [*server* with-pdb-with-no-gc]]
+   [puppetlabs.puppetdb.time :as time]
+   [puppetlabs.puppetdb.utils :as utils]
+   [puppetlabs.trapperkeeper.app :refer [get-service]]))
 
 (deftest test-node-ttl
   (tu/with-coordinated-fn run-purge-nodes puppetlabs.puppetdb.cli.services/purge-nodes!
@@ -49,6 +55,122 @@
                     (-> (svc-utils/query-url-str "/nodes/foo.com")
                         svc-utils/get
                         :body))))))))))
+
+(deftest configure-expiration-behavior
+  (let [lifetime-ms 1
+        lifetime-cfg (str lifetime-ms "ms")]
+    (with-test-db
+      (svc-utils/call-with-single-quiet-pdb-instance
+       (-> (svc-utils/create-temp-config)
+           (assoc :database *db*)
+           (assoc-in [:database :node-ttl] lifetime-cfg)
+           (assoc-in [:database :node-purge-ttl] lifetime-cfg))
+       (fn []
+         (let [pdb (get-service *server* :PuppetDBServer)
+               do-cmd (fn [wire cmd version]
+                        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url)
+                                                     (:certname wire)
+                                                     cmd
+                                                     version
+                                                     wire))
+               add-catalog (fn [certname stamp]
+                             (-> (get-in wire-catalogs [8 :empty])
+                                 (assoc :certname certname
+                                        :producer_timestamp stamp)
+                                 (do-cmd "replace catalog" 8)))
+               add-facts (fn [certname stamp facts]
+                           (do-cmd {:producer_timestamp (str stamp)
+                                    :timestamp stamp
+                                    :producer nil
+                                    :certname certname
+                                    :environment "dev"
+                                    :values facts}
+                                   "replace facts" 5))
+               deactivate (fn [certname stamp]
+                            (do-cmd {:producer_timstamp stamp
+                                :certname certname}
+                                    "deactivate node" 3))
+               set-expire (fn [certname stamp expire-facts?]
+                            (do-cmd {:producer_timstamp stamp
+                                     :certname certname
+                                     :expire {:facts expire-facts?}}
+                                    "configure expiration" 1))
+               compare-certs #(compare (get %1 "certname") (get %2 "certname"))
+               nodes (fn []
+                       (->> {:query ["from" "nodes"
+                                     ["extract" ["certname" "expired"]
+                                      ["or"
+                                       ["=" "node_state" "active"]
+                                       ["=" "node_state" "inactive"]]]]}
+                            (svc-utils/post (svc-utils/query-url-str ""))
+                            :body
+                            slurp
+                            json/parse-string
+                            (sort compare-certs)))
+               facts (fn []
+                       (->> {:query ["from" "factsets"
+                                     ["extract" ["certname" "facts"]
+                                      ["or"
+                                       ["=" "node_state" "active"]
+                                       ["=" "node_state" "inactive"]]]]}
+                            (svc-utils/post (svc-utils/query-url-str ""))
+                            :body
+                            slurp
+                            json/parse-string
+                            (map #(update % "facts" (fn [v] (get v "data"))))
+                            (sort compare-certs)))]
+
+           (testing "facts don't expire/purge when expire configured to false"
+             (let [start-time (now)]
+               (set-expire "foo" (now) false)
+               (add-catalog "foo" (now))
+               (add-facts "foo" (now) {:x 1})
+               (add-facts "bar" (now) {:y 1})
+               (Thread/sleep (inc lifetime-ms))
+               (is (= [{"certname" "bar" "expired" nil}
+                       {"certname" "foo" "expired" nil}]
+                      (nodes)))
+               (cli-svc/clean pdb ["expire_nodes"])
+               (let [result (nodes)]
+                 (is (= 2 (count result)))
+                 (is (= {"certname" "foo" "expired" nil} (second result)))
+                 (is (= "bar" (-> result first (get "certname"))))
+                 (is (tc/after? (now)
+                                (-> result first (get "expired") time/from-string))))
+               (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
+                   {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                  (facts))
+               (cli-svc/clean pdb ["purge_nodes"])
+               (is (= [{"certname" "foo" "expired" nil}] (nodes)))
+               (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                  (facts))))
+
+           (testing "changing expiration from false to true allows expire/purge"
+             (let [start-time (now)]
+               (set-expire "foo" (now) true)
+               (cli-svc/clean pdb ["expire_nodes"])
+               (let [result (nodes)]
+                 (is (= 1 (count result)))
+                 (is (= "foo" (-> result first (get "certname"))))
+                 (is (tc/after? (now)
+                                (-> result first (get "expired") time/from-string))))
+               (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                  (facts))
+               (cli-svc/clean pdb ["purge_nodes"])
+               (is (= [] (nodes)))
+               (= [] (facts))))
+
+           (testing "nodes with unexpirable facts deactivate properly"
+             (set-expire "foo" (now) false)
+             (add-catalog "foo" (now))
+             (add-facts "foo" (now) {:x 1})
+             (is (= [{"certname" "foo" "expired" nil}] (nodes)))
+             (cli-svc/clean pdb [])
+             (is (= [{"certname" "foo" "expired" nil}] (nodes)))
+             (deactivate "foo" (now))
+             (is (= [{"certname" "foo" "expired" nil}] (nodes)))
+             (cli-svc/clean pdb [])
+             (is (= [] (nodes))))))))))
 
 (deftest test-zero-gc-interval
   (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]

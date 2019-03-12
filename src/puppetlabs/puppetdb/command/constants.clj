@@ -2,7 +2,8 @@
   (:require [clojure.set :as set]))
 
 (def command-names
-  {:replace-catalog "replace catalog"
+  {:configure-expiration "configure expiration"
+   :replace-catalog "replace catalog"
    :replace-facts   "replace facts"
    :deactivate-node "deactivate node"
    :store-report    "store report"})
@@ -13,7 +14,8 @@
   (set (range min-version (inc max-version))))
 
 (def supported-command-versions
-  {"replace facts" (version-range 2 5)
+  {"configure expiration" (version-range 1 1)
+   "replace facts" (version-range 2 5)
    "replace catalog" (version-range 4 9)
    "store report" (version-range 3 8)
    "deactivate node" (version-range 1 3)})
