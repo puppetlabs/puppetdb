@@ -30,7 +30,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
              :refer [args-supplied call-counter default-timeout-ms dotestseq
-                     times-called]]
+                     temp-dir times-called]]
 
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
@@ -47,8 +47,7 @@
             [slingshot.test]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
-            [puppetlabs.trapperkeeper.app  :as tk-app
-             :refer [get-service app-context]]
+            [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
             [clojure.string :as str]
@@ -1656,48 +1655,59 @@
 
 (deftest handling-commands-producing-unusual-queue-names-across-restart
   ;; Should also apply to a full server stop/start
-  (let [producer-ts (to-string (now))]
-    (svc-utils/with-puppetdb-instance
-      (let [dispatcher (get-service *server* :PuppetDBCommandDispatcher)
-            enqueue-command (partial enqueue-command dispatcher)
-            mod-cert "underscores_must_be_altered_for_the_queue"
-            long-cert (apply str (repeat (inc queue/max-metadata-utf8-bytes) "z"))
-            enqueue #(enqueue-command (command-names :replace-facts) 4 %
-                                      nil
-                                      (tqueue/coerce-to-stream
-                                       {:environment "DEV" :certname %
-                                        :values {:foo "foo"}
-                                        :producer_timestamp producer-ts})
-                                      "")]
-        (with-redefs [process-command-and-respond! (fn [& _]
-                                                     (throw (Exception. "prevent processing")))]
-          (enqueue mod-cert)
-          (enqueue long-cert)))
-      ;; Now start back up with a functional processor and make sure the commands
-      ;; can be found and processed.
-      (let [orig-process process-command-and-respond!
+  (with-test-db
+    (let [producer-ts (to-string (now))
+          shared-vardir (temp-dir)
+          config (-> (svc-utils/create-temp-config)
+                     (assoc :database *db*)
+                     (assoc-in [:global :vardir] shared-vardir))]
+
+      ;; Add unusual messages to the queue without processing them
+      (with-redefs [process-cmdref (fn [& _] :intentionally-did-nothing)]
+        (svc-utils/call-with-single-quiet-pdb-instance
+         config
+         (fn []
+           (let [dispatcher (get-service *server* :PuppetDBCommandDispatcher)
+                 enqueue-command (partial enqueue-command dispatcher)
+                 mod-cert "underscores_must_be_altered_for_the_queue"
+                 long-cert (apply str (repeat (inc queue/max-metadata-utf8-bytes) "z"))
+                 enqueue #(enqueue-command (command-names :replace-facts) 4 %
+                                           nil
+                                           (tqueue/coerce-to-stream
+                                            {:environment "DEV" :certname %
+                                             :values {:foo "foo"}
+                                             :producer_timestamp producer-ts})
+                                           "")]
+             (enqueue mod-cert)
+             (enqueue long-cert)))))
+
+      ;; Now start back up with a functional processor and make sure
+      ;; the commands can be found and processed.
+      (let [orig-process process-cmdref
             continue-processing? (promise)]
-        (with-redefs [process-command-and-respond! #(do
-                                                      @continue-processing?
-                                                      (apply orig-process %&))]
-          (tk-app/restart *server*)  ; have to restart -- stop/start doesn't work
-          (let [dispatcher (get-service *server* :PuppetDBCommandDispatcher)
-                response-mult (response-mult dispatcher)
-                response-watch-ch (async/chan 10)
-                _ (async/tap response-mult response-watch-ch)]
-            (deliver continue-processing? true)
-            (let [[val _] (async/alts!! [(async/into
-                                          #{} (async/take 2 response-watch-ch))
-                                         (async/timeout tu/default-timeout-ms)])]
-              (when-not val
-                (throw (Exception. "timed out waiting for response-chan")))
-              (is (= 2 (count val)))
-              (let [expected #{{:command "replace facts" :version 4
-                                 :producer-timestamp producer-ts :delete? nil}}]
-                (is (= expected
-                       (->> val
-                            (map #(select-keys % [:command :version :producer-timestamp :delete?]))
-                            set)))))))))))
+        (with-redefs [process-cmdref #(do
+                                        @continue-processing?
+                                        (apply orig-process %&))]
+          (svc-utils/call-with-single-quiet-pdb-instance
+           config
+           (fn []
+             (let [dispatcher (get-service *server* :PuppetDBCommandDispatcher)
+                   response-mult (response-mult dispatcher)
+                   response-watch-ch (async/chan 10)
+                   _ (async/tap response-mult response-watch-ch)]
+               (deliver continue-processing? true)
+               (let [[val _] (async/alts!! [(async/into
+                                             #{} (async/take 2 response-watch-ch))
+                                            (async/timeout tu/default-timeout-ms)])]
+                 (when-not val
+                   (throw (Exception. "timed out waiting for response-chan")))
+                 (is (= 2 (count val)))
+                 (let [expected #{{:command "replace facts" :version 4
+                                   :producer-timestamp producer-ts :delete? nil}}]
+                   (is (= expected
+                          (->> val
+                               (map #(select-keys % [:command :version :producer-timestamp :delete?]))
+                               set)))))))))))))
 
 ;; Test mitigation of
 ;; https://bugs.openjdk.java.net/browse/JDK-8176254 i.e. handling of
