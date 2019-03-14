@@ -154,15 +154,18 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # Include job_id in hash, returning the complete hash.
   #
   # @param hash [Hash] original data hash
-  # @return [Hash] returns original hash with a gaurunteed job_id key
+  # @return [Hash] returns original hash with `job_id` added as a string if
+  #                present in the request
   # @api private
   def add_job_id_if_missing(hash, default)
-    hash["job_id"] = hash["job_id"] || default
-
+    hash['job_id'] = hash['job_id'] || default
+    # PuppetDB's wire format catalog schema requires this to be a string
+    # or nil
+    hash['job_id'] = hash['job_id']&.to_s
     hash
   end
 
-  # Include code_id in hash, returning the complete hash.
+  # Include catalog_uuid in hash, returning the complete hash.
   #
   # @param hash [Hash] original data hash
   # @param default [String] default catalog_uuid to use if hash doesn't have one
