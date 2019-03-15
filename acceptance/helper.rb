@@ -270,9 +270,19 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'ubuntu1804-64-1'
   end
 
+  def is_rhel8()
+    return test_config[:os_families].has_key? 'redhat8-64-1'
+  end
+
   def oldest_supported
-    # account for special case where bionic doesn't have builds before 5.2.4
-    return is_bionic ? '5.2.4' : '4.2.3.8'
+    # account for bionic/rhel8 not having build before certian versions
+    if is_bionic
+      '5.2.4'
+    elsif is_rhel8
+      '5.2.8'
+    else
+      '4.2.3.8'
+    end
   end
 
   def get_testing_branch(version)
@@ -327,6 +337,8 @@ module PuppetDBExtensions
       "#{version}.el6"
     elsif host['platform'].include?('el-7')
       "#{version}.el7"
+    elsif host['platform'].include?('el-8')
+      "#{version}.el8"
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
       "#{version}.fc#{version_tag}"
