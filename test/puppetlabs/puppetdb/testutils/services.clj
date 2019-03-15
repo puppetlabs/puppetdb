@@ -46,6 +46,7 @@
   []
   {:nrepl {}
    :global {:vardir (testutils/temp-dir)}
+   :puppetdb {:disable-update-checking "true"}
    :jetty {:port 0}
    :command-processing {}})
 
