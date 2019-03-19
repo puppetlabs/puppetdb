@@ -1517,18 +1517,33 @@
       containing_class text,
       corrective_change boolean)")
 
+  ;; null values are not considered equal in postgresql indexes,
+  ;; therefore the existing unique constraint did not function
+  ;; as intended. this will replace the unique constraint with
+  ;; a primary key that is a hash of the four columns used to
+  ;; consider uniqueness.
+
+  ;; since the unique constraint could allow duplicates to exist
+  ;; in the table, we have to keep a running set of the hashes
+  ;; we've encountered during the migration to avoid inserting
+  ;; duplicates into the new table.
+
   (jdbc/call-with-query-rows
    ["select
        report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
        new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
      from resource_events"]
    (fn [rows]
-     (doseq [batch (partition-all 500 rows)]
-       (jdbc/insert-multi! "resource_events_transform"
-                           (map #(-> %
-                                     (assoc :event_hash (->> (hash/resource-event-identity-pkey %)
-                                                             (sutils/munge-hash-for-storage))))
-                                batch)))))
+     (reduce (fn [hashes-seen row]
+               (conj hashes-seen
+                     (let [hash-str (hash/resource-event-identity-pkey row)]
+                       (when-not (hashes-seen hash-str)
+                         (jdbc/insert-multi! "resource_events_transform"
+                                             (list (assoc row :event_hash
+                                                          (sutils/munge-hash-for-storage hash-str)))))
+                       hash-str)))
+             #{}
+             rows)))
 
   (jdbc/do-commands
    "DROP TABLE resource_events"
@@ -1536,9 +1551,6 @@
    "ALTER TABLE resource_events_transform RENAME TO resource_events"
 
    "ALTER INDEX resource_events_transform_pkey RENAME TO resource_events_pkey"
-
-   "ALTER TABLE ONLY resource_events
-      ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
 
    "CREATE INDEX resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
 
