@@ -1084,23 +1084,65 @@
            :resource_title "tmp-directory",
            :timestamp current-time
            :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+           :message "created"}
+
+          ;; make a few duplicates
+          {:new_value "\"directory\""
+           :corrective_change false,
+           :property nil
+           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+           :report_id id1
+           :old_value "\"absent\""
+           :containing_class "Foo"
+           :certname_id 1
+           :line 11
+           :resource_type "File"
+           :status "success"
+           :resource_title "tmp-directory"
+           :timestamp current-time
+           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+           :message "created"}
+          {:new_value "\"directory\""
+           :corrective_change false
+           :property nil
+           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+           :report_id id1
+           :old_value "\"absent\""
+           :containing_class "Foo"
+           :certname_id 1
+           :line 11
+           :resource_type "File"
+           :status "success"
+           :resource_title "tmp-directory"
+           :timestamp current-time
+           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
            :message "created"}])
 
         (apply-migration-for-testing! 67)
 
-        (let [[hash] (map :event_hash
+        (let [hashes (map :event_hash
                           (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
 
-              expected (shash/resource-event-identity-pkey
-                        {:report_id id1
-                         :property "ensure"
-                         :resource_title "tmp-directory"
-                         :resource_type "File"})
+              hashes-set (set hashes)
+
+              expected1 (shash/resource-event-identity-pkey
+                         {:report_id id1
+                          :property "ensure"
+                          :resource_title "tmp-directory"
+                          :resource_type "File"})
+              expected2 (shash/resource-event-identity-pkey
+                         {:report_id id1
+                          :property nil
+                          :resource_title "tmp-directory"
+                          :resource_type "File"})
 
               [containment-path] (map :containment_path
                                       (query-to-vec "SELECT containment_path FROM resource_events"))]
-          (is (= expected
-                 hash))
+          (is (= 2
+                 (count hashes)))
+
+          (is (contains? hashes-set expected1))
+          (is (contains? hashes-set expected2))
 
           (is (= ["foo"]
                  containment-path)))))))
@@ -1121,6 +1163,18 @@
                                        :is_partial false
                                        :primary? true
                                        :user "pdb_test"}
+                          :same nil}
+                         {:left-only {:schema "public"
+                                      :table "resource_events"
+                                      :index "resource_events_unique"
+                                      :index_keys ["report_id" "resource_type" "resource_title" "property"]
+                                      :type "btree"
+                                      :unique? true
+                                      :functional? false
+                                      :is_partial false
+                                      :primary? false
+                                      :user "pdb_test"}
+                          :right-only nil
                           :same nil}]
             :table-diff [{:left-only nil
                           :right-only {:numeric_scale nil
@@ -1148,5 +1202,12 @@
                                             :constraint_type "PRIMARY KEY"
                                             :initially_deferred "NO"
                                             :deferrable? "NO"}
+                               :same nil}
+                              {:left-only {:constraint_name "resource_events_unique"
+                                           :table_name "resource_events"
+                                           :constraint_type "UNIQUE"
+                                           :initially_deferred "NO"
+                                           :deferrable? "NO"}
+                               :right-only nil
                                :same nil}]}
            (diff-schema-maps before-migration (schema-info-map *db*))))))
