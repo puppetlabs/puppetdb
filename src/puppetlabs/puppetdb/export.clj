@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.nodes :as nodes]
             [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.utils :as utils]
@@ -46,7 +47,8 @@
         (case entity
           "factsets" ["facts" (str (:certname datum) export-file-ext)]
           "catalogs" ["catalogs" (export-filename datum)]
-          "reports" ["reports" (export-filename datum)])]
+          "reports" ["reports" (export-filename datum)]
+          "nodes-with-fact-expiration" ["configure_expiration" (export-filename datum)])]
     {:file-suffix command-file-name
      :contents (json/generate-pretty-string datum)}))
 
@@ -56,14 +58,27 @@
 
 (def export-info
   {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v9
-              :anonymize-fn anon/anonymize-catalog
-              :json-encoded-fields [:edges :resources]}
+               :anonymize-fn anon/anonymize-catalog
+               :json-encoded-fields [:edges :resources]}
    "reports" {:query->wire-fn reports/reports-query->wire-v8
-             :anonymize-fn anon/anonymize-report
-             :json-encoded-fields [:metrics :logs :resource_events :resources]}
+              :anonymize-fn anon/anonymize-report
+              :json-encoded-fields [:metrics :logs :resource_events :resources]}
    "factsets" {:query->wire-fn factsets/factsets-query->wire-v5
-              :anonymize-fn anon/anonymize-facts
-              :json-encoded-fields [:facts]}})
+               :anonymize-fn anon/anonymize-facts
+               :json-encoded-fields [:facts]}
+   "nodes-with-fact-expiration" {:query->wire-fn nodes/nodes-query->configure-expiration-wire-v1
+                                 :anonymize-fn anon/anonymize-configure-expiration
+                                 :json-encoded-fields []}})
+
+(def export-order
+  "Order is important here because we have to make sure the fact expiration status
+  makes it into the exported tarball first, so that it is later imported first. This
+  will ensure factsets belonging to nodes with expiration set to false are not subject
+  to garbage collection during the import."
+  (conj (->> export-info
+             keys
+             (remove #{"nodes-with-fact-expiration"}))
+        "nodes-with-fact-expiration"))
 
 (defn maybe-anonymize [anonymize-fn anon-config data]
   (if (not= anon-config ::not-found)
@@ -82,8 +97,9 @@
 (defn export!*
   [tar-writer query-fn anonymize-profile]
   (let [anon-config (get anon/anon-profiles anonymize-profile ::not-found)]
-    (doseq [[entity {:keys [json-encoded-fields query->wire-fn anonymize-fn]}] export-info
-            :let [query-callback-fn (fn [rows]
+    (doseq [entity export-order
+            :let [{:keys [json-encoded-fields query->wire-fn anonymize-fn]} (get export-info entity)
+                  query-callback-fn (fn [rows]
                                       (->> rows
                                            (map #(decode-json-children % json-encoded-fields))
                                            query->wire-fn

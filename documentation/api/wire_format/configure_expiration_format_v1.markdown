@@ -29,7 +29,7 @@ This is **version 1** of the configure expiration command.
 
 The command is serialized as JSON, which requires strict UTF-8 encoding.
 
-### Main data type: Configure expiration
+### Main data type: Configure expiration for node
 
      {
       "certname": <string>,
