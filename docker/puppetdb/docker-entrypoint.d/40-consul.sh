@@ -14,7 +14,7 @@ if [ "$CONSUL_ENABLED" = "true" ]; then
   "checks": [
     {
       "http": "http://$HOSTNAME:8080/status/v1/services/puppetdb-status",
-      "interval": "30s",
+      "interval": "10s",
       "deregister_critical_service_after": "10m"
     }
   ]
