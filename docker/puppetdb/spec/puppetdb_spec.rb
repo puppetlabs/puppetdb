@@ -7,20 +7,27 @@ require 'net/http'
 describe 'puppetdb container specs' do
 
   def run_command(command)
+    stdout_string = ''
     status = nil
-    STDOUT.puts "Executing #{command}"
-    Open3.popen2e(command) do |stdin, stdout_stderr, wait_thread|
+
+    Open3.popen3(command) do |stdin, stdout, stderr, wait_thread|
       Thread.new do
-        stdout_stderr.each { |l| STDOUT.puts l }
+        stdout.each { |l| stdout_string << l; STDOUT.puts l }
       end
+      Thread.new do
+        stderr.each { |l| STDOUT.puts l }
+      end
+
       stdin.close
       status = wait_thread.value
     end
-    status
+
+    { status: status, stdout: stdout_string }
   end
 
   def count_database(container, database)
-    %x(docker exec #{container} psql -t --username=puppetdb --command="SELECT count(datname) FROM pg_database where datname = '#{database}'").strip
+    cmd = "docker exec #{container} psql -t --username=puppetdb --command=\"SELECT count(datname) FROM pg_database where datname = '#{database}'\""
+    run_command(cmd)[:stdout].strip
   end
 
   def wait_on_postgres_db(container, database)
@@ -46,17 +53,18 @@ describe 'puppetdb container specs' do
       '/docker-entrypoint-initdb.d' :
       'c:\docker-entrypoint-initdb.d'
 
-    id = %x(docker run --rm --detach \
-      --env POSTGRES_PASSWORD=puppetdb \
-      --env POSTGRES_USER=puppetdb \
-      --env POSTGRES_DB=puppetdb \
-      --name postgres \
-      --network #{@network} \
-      --hostname postgres \
-      --publish-all \
-      --mount type=bind,source=#{postgres_custom_source},target=#{postgres_custom_target} \
-      #{image_name}).chomp
-    fail 'Failed to create postgres container' unless $?.exitstatus == 0
+    result = run_command("docker run --rm --detach \
+          --env POSTGRES_PASSWORD=puppetdb \
+          --env POSTGRES_USER=puppetdb \
+          --env POSTGRES_DB=puppetdb \
+          --name postgres \
+          --network #{@network} \
+          --hostname postgres \
+          --publish-all \
+          --mount type=bind,source=#{postgres_custom_source},target=#{postgres_custom_target} \
+          #{image_name}")
+    fail 'Failed to create postgres container' unless result[:status].exitstatus == 0
+    id = result[:stdout].chomp
 
     # this is necessary to add a wait for database creation
     wait_on_postgres_db(id, 'puppetdb')
@@ -66,22 +74,21 @@ describe 'puppetdb container specs' do
 
   def run_puppetdb_container
     # skip Postgres SSL initialization for tests with USE_PUPPETSERVER
-    id = %x(docker run --rm --detach \
-      --env USE_PUPPETSERVER=false \
-      --env PUPPERWARE_DISABLE_ANALYTICS=true \
-      --name puppetdb \
-      --hostname puppetdb \
-      --publish-all \
-      --network #{@network} \
-      #{@pdb_image}).chomp
-    fail 'Failed to create puppetdb container' unless $?.exitstatus == 0
-
-    id
+    result = run_command("docker run --rm --detach \
+          --env USE_PUPPETSERVER=false \
+          --env PUPPERWARE_DISABLE_ANALYTICS=true \
+          --name puppetdb \
+          --hostname puppetdb \
+          --publish-all \
+          --network #{@network} \
+          #{@pdb_image}")
+    fail 'Failed to create puppetdb container' unless result[:status].exitstatus == 0
+    result[:stdout].chomp
   end
 
   def get_container_port(container, port)
     @mapped_ports["#{container}:#{port}"] ||= begin
-      service_ip_port = %x(docker port #{container} #{port}/tcp).chomp
+      service_ip_port = run_command("docker port #{container} #{port}/tcp")[:stdout].chomp
       uri = URI("http://#{service_ip_port}")
       uri.host = 'localhost' if uri.host == '0.0.0.0'
       STDOUT.puts "determined #{container} endpoint for port #{port}: #{uri}"
@@ -101,7 +108,8 @@ describe 'puppetdb container specs' do
   end
 
   def get_postgres_extensions
-    extensions = %x(docker exec #{@postgres_container} psql --username=puppetdb --command="SELECT * FROM pg_extension").chomp
+    result = run_command("docker exec #{@postgres_container} psql --username=puppetdb --command=\"SELECT * FROM pg_extension\"")
+    extensions = result[:stdout].chomp
     STDOUT.puts("retrieved extensions: #{extensions}")
     extensions
   end
@@ -140,8 +148,9 @@ describe 'puppetdb container specs' do
     # Windows doesn't have the default 'bridge network driver
     network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
 
-    @network = %x(docker network create #{network_opt} puppetdb_test_network).chomp
-    fail 'Failed to create network' unless $?.exitstatus == 0
+    result = run_command("docker network create #{network_opt} puppetdb_test_network")
+    fail 'Failed to create network' unless result[:status].exitstatus == 0
+    @network = result[:stdout].chomp
 
     @postgres_container = run_postgres_container
 
