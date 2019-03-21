@@ -41,6 +41,7 @@ describe 'puppetdb container specs' do
       --publish-all \
       --mount type=bind,source=#{postgres_custom_source},target=#{postgres_custom_target} \
       #{image_name}).chomp
+    fail 'Failed to create postgres container' unless $?.exitstatus == 0
 
     # this is necessary to add a wait for database creation
     wait_on_postgres_db(id, 'puppetdb')
@@ -50,7 +51,7 @@ describe 'puppetdb container specs' do
 
   def run_puppetdb_container
     # skip Postgres SSL initialization for tests with USE_PUPPETSERVER
-    %x(docker run --rm --detach \
+    id = %x(docker run --rm --detach \
       --env USE_PUPPETSERVER=false \
       --env PUPPERWARE_DISABLE_ANALYTICS=true \
       --name puppetdb \
@@ -58,6 +59,9 @@ describe 'puppetdb container specs' do
       --publish-all \
       --network #{@network} \
       #{@pdb_image}).chomp
+    fail 'Failed to create puppetdb container' unless $?.exitstatus == 0
+
+    id
   end
 
   def get_container_port(container, port)
@@ -122,6 +126,7 @@ describe 'puppetdb container specs' do
     network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
 
     @network = %x(docker network create #{network_opt} puppetdb_test_network).chomp
+    fail 'Failed to create network' unless $?.exitstatus == 0
 
     @postgres_container = run_postgres_container
 
