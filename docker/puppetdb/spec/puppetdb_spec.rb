@@ -1,9 +1,24 @@
 require 'timeout'
 require 'json'
+require 'open3'
 require 'rspec'
 require 'net/http'
 
 describe 'puppetdb container specs' do
+
+  def run_command(command)
+    status = nil
+    STDOUT.puts "Executing #{command}"
+    Open3.popen2e(command) do |stdin, stdout_stderr, wait_thread|
+      Thread.new do
+        stdout_stderr.each { |l| STDOUT.puts l }
+      end
+      stdin.close
+      status = wait_thread.value
+    end
+    status
+  end
+
   def count_database(container, database)
     %x(docker exec #{container} psql -t --username=puppetdb --command="SELECT count(datname) FROM pg_database where datname = '#{database}'").strip
   end
@@ -23,7 +38,7 @@ describe 'puppetdb container specs' do
     image_name = File::ALT_SEPARATOR.nil? ?
       'postgres:9.6' :
       'stellirin/postgres-windows:9.6'
-    %x(docker pull #{image_name})
+    run_command("docker pull #{image_name}")
 
     postgres_custom_source = File.join(File.expand_path(__dir__), '..', 'postgres-custom')
 
@@ -139,9 +154,9 @@ describe 'puppetdb container specs' do
       @pdb_container,
     ].each do |id|
       STDOUT.puts("Killing container #{id}")
-      %x(docker container kill #{id})
+      run_command("docker container kill #{id}")
     end
-    %x(docker network rm #{@network}) unless @network.nil?
+    run_command("docker network rm #{@network}") unless @network.nil?
   end
 
   it 'should have started postgres' do
