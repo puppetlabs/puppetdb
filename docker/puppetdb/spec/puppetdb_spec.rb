@@ -5,25 +5,7 @@ require 'rspec'
 require 'net/http'
 
 describe 'puppetdb container specs' do
-
-  def run_command(command)
-    stdout_string = ''
-    status = nil
-
-    Open3.popen3(command) do |stdin, stdout, stderr, wait_thread|
-      Thread.new do
-        stdout.each { |l| stdout_string << l; STDOUT.puts l }
-      end
-      Thread.new do
-        stderr.each { |l| STDOUT.puts l }
-      end
-
-      stdin.close
-      status = wait_thread.value
-    end
-
-    { status: status, stdout: stdout_string }
-  end
+  include Helpers
 
   def count_database(container, database)
     cmd = "docker exec #{container} psql -t --username=puppetdb --command=\"SELECT count(datname) FROM pg_database where datname = '#{database}'\""
