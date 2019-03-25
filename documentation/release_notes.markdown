@@ -17,6 +17,24 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 [upgrade_policy]: ./versioning_policy.html#upgrades
 
+## PuppetDB 6.3.0
+
+### New features and improvements
+
+- **New** `configure expiration` **command.** Use `configure expiration` to specify if a `factset` should or should not be a candidate for expiration. This is an experimental command and could be altered or removed in a future release. For more information, see [PuppetDB: Commands endpoint](./api/command/v1/commands.md). [PDB-4270](https://tickets.puppetlabs.com/browse/PDB-4270)
+
+- **Primary key added to the** `resource_events` **table**. This allows the use of `pg_repack` to reclaim space without taking the table offline. This change rewrites the entire `resource_events` table, so make sure you have more than the existing table's size available during the upgrade. The upgrade time is relative to the size of your table.[PDB-3911](https://tickets.puppetlabs.com/browse/PDB-3911)
+
+### Bug fixes
+
+- **Logback integration.** The Logstash dependency was accidentally removed in a previous release. The dependency has been reinstated. [PDB-4277](https://tickets.puppetlabs.com/browse/PDB-4277)
+
+- **Improved** `certname` **handling.** Previously, PuppetDB was unable to process commands that were submitted with a `certname` containing special characters such as `/`, `/`, `:` `_` or `0`, or exceeded 200 UTF-8 bytes if PuppetDB was restarted after the commands were submitted and before they were processed. PuppetDB now handles these commands correctly. [PDB-4257](https://tickets.puppetlabs.com/browse/PDB-4257)
+
+- **Errors when using the** `in` **operator with** `"act_only":true`. Valid PQL queries, which use the `in` operator to compare against an array, that are being converted to AST via the `ast_only` option no longer throw a `NullPointerException`.  [PDB-4232](https://tickets.puppetlabs.com/browse/PDB-4232)
+
+- **Errors when using the** `in` **operator with arrays**. PuppetDB would give an error if you used the `in` operator with an array of fact values or any array that did not have just one element. PuppetDB now accepts an array of fact values unless it finds an actual type mismatch. [PDB-4199](https://tickets.puppetlabs.com/browse/PDB-4199)
+
 ## PuppetDB 6.2.0
 
 ### New features
