@@ -197,16 +197,23 @@
 (defn resource-event-identity-pkey
   "Compute a hash for a resource-event's content, used as a primary key
 
-  This is different than resource-event-identity-string in that it does not
-  include every field - it only uses the fields that make up a unique constraint
-  in the database"
-  [{:keys [report_id resource_type resource_title property] :as event}]
+  This is similar to resource-event-identity-string but it also includes the report id."
+  [{:keys [report_id resource_type resource_title property timestamp
+           status old_value new_value message file line] :as event}]
   (assert report_id "report_id must not be nil")
   (generic-identity-hash
    {:report_id report_id
     :resource_type resource_type
     :resource_title resource_title
-    :property property}))
+    :property property
+    :timestamp timestamp
+    :status status
+    :old_value old_value
+    :new_value new_value
+    :message message
+    :name nil ;TODO: fill this field
+    :file file
+    :line line}))
 
 (defn fact-identity-hash
   "Compute a hash for a fact's content

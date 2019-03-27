@@ -38,8 +38,13 @@
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace catalog" cmd-consts/latest-catalog-version example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" cmd-consts/latest-report-version example-report)
+       (let [report-with-duplicate-events (update-in example-report
+                                                     [:resources 0 :events]
+                                                     (fn [events] (conj events (first events))))]
+         ;; this will add a duplicate event into a report, which will then be dropped at the database
+         ;; side
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "store report" cmd-consts/latest-report-version report-with-duplicate-events))
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" cmd-consts/latest-facts-version example-facts)
 
