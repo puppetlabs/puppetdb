@@ -55,9 +55,9 @@ unless (test_config[:skip_presuite_provisioning])
             on database, "apt-get install -y rake unzip openjdk-8-jre-headless"
           end
         when :redhat
-          on database, "yum install -y java-1.7.0-openjdk rubygem-rake unzip"
+          on database, "yum install -y java-1.8.0-openjdk rubygem-rake unzip"
         when :fedora
-          on database, "yum install -y java-1.7.0-openjdk rubygem-rake unzip"
+          on database, "yum install -y java-1.8.0-openjdk rubygem-rake unzip"
         else
           raise ArgumentError, "Unsupported OS '#{os}'"
         end
@@ -101,10 +101,21 @@ unless (test_config[:skip_presuite_provisioning])
           on master, "gem install sqlite3"
         when /^el-6/
           on master, "yum install -y rubygems ruby-sqlite3 rubygem-activerecord"
-        else
+        when /^el-7/
           # EL7 very much matches what Fedora 20 uses
           on master, "yum install -y rubygems rubygem-sqlite3"
           on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
+        else
+          # rubygem-sqlite3 doesn't exist on rhel-8
+          on master, "yum install -y rubygems"
+          on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
+
+          # work around for testing on rhel8 and the repos on the image not finding the pg packages it needs
+          on master, "sed -i 's/gpgcheck=1/gpgcheck=0/g' /etc/dnf/dnf.conf"
+          on master, "dnf config-manager --add-repo https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/"
+          on master, "dnf clean all"
+          on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-9.6.12-1PGDG.rhel8.x86_64.rpm"
+          on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-server-9.6.12-1PGDG.rhel8.x86_64.rpm"
         end
       when :fedora
         # This was really set with Fedora 20 in mind, later versions might differ
