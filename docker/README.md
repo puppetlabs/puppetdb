@@ -28,7 +28,52 @@ The following environment variables are supported:
 
 - `USE_PUPPETSERVER`
 
-  Set to `false` to skip acquiring SSL certificates from a Puppet Server.
+  Set to `false` to skip acquiring SSL certificates from a Puppet Server. Defaults to 'true'.
+
+- `PUPPETDB_DATABASE_CONNECTION`
+
+  The value for the 'subname' field in puppetdb/conf.d/database.conf. Defaults to '//postgres:5432/puppetdb'.
+
+- `PUPPETDB_USER`
+
+  The user to connect to the postgres database as. Defaults to 'puppetdb'.
+
+- `PUPPETDB_PASSWORD`
+
+  The password to connect to the postgres database with. Defaults to 'puppetdb'.
+
+- `PUPPETDB_NODE_TTL`
+
+  How long nodes should be preserved in puppetdb without receiving any updates (new catalogs, facts, or reports)
+  before being marked expired. Defaults to '7d'.
+
+- `PUPPETDB_NODE_PURGE_TTL`
+
+  Delete nodes that have been deactivated or expired for the specified amount of time. Defaults to '14d'.
+
+- `PUPPETDB_REPORT_TTL`
+
+  Automatically delete reports that are older than the specified amount of time. Defaults to '14d'.
+
+- `PUPPETDB_JAVA_ARGS`
+
+  Additional Java args to pass to the puppetdb process. Defaults to '-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m'.
+
+- `CONSUL_ENABLED`
+
+  Whether or not to register the `puppet` service with an external consul server. Defaults to 'false'.
+
+- `CONSUL_HOSTNAME`
+
+  If consul is enabled, the hostname for the external consul server. Defaults to 'consul'.
+
+- `CONSUL_PORT`
+
+  If consul is enabled, the port to access consul at. Defaults to '8500'.
+
+- `PUPPETSERVER_HOSTNAME`
+
+  The hostname for the puppetserver instance. This determines where to request certificates from. Defaults to 'puppet'.
 
 
 
