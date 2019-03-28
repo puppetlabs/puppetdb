@@ -457,7 +457,7 @@ When matching lterally, the entire fact name (not including the path)
 must completely match one of the `facts-blacklist` entries in order to
 be blacklisted.  When matching regular expressions, the name must
 match the entire pattern.  For example the pattern "xyz" will not
-match the fact "123xyzabc", but ".*xyz.*" will.
+match the fact "123xyzabc", but ".\*xyz.\*" will.
 
 ### `facts-blacklist-type`
 
