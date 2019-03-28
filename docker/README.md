@@ -24,7 +24,7 @@ The following environment variables are supported:
 
 - `PUPPERWARE_DISABLE_ANALYTICS`
 
-  Set to `false` to disable Google Analytics.
+  Set to `true` to disable Google Analytics. Defaults to 'true'.
 
 - `USE_PUPPETSERVER`
 
@@ -75,6 +75,22 @@ The following environment variables are supported:
 
   The hostname for the puppetserver instance. This determines where to request certificates from. Defaults to 'puppet'.
 
+## Analytics Data Collection
+
+ The puppetdb container collects usage data. This is disabled by default. You can enable it by passing `--env PUPPERWARE_DISABLE_ANALYTICS=false`
+to your `docker run` command.
+
+### What data is collected?
+* Version of the puppetdb container.
+* Anonymized IP address is used by Google Analytics for Geolocation data, but the IP address is not collected.
+
+### Why does the puppetdb container collect data?
+
+ We collect data to help us understand how the containers are used and make decisions about upcoming changes.
+
+### How can I opt out of puppetdb container data collection?
+
+ This is disabled by default.
 
 
 [1]: https://github.com/puppetlabs/puppetdb/blob/master/docker/puppetdb/Dockerfile
