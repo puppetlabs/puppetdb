@@ -311,7 +311,8 @@
     (cmdi/context ["/" (route-param :node)]
                   (cmdi/ANY "" []
                             (-> (node-status version)
-                                (validate-query-params {:optional ["pretty"]})))
+                                (validate-query-params {:optional ["pretty"
+                                                                   "include_facts_expiration"]})))
 
                   (cmdi/context "/facts"
                                 (-> (facts-routes version)
