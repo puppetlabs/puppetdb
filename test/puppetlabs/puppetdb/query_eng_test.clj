@@ -319,7 +319,9 @@
     (scf-store/set-certname-facts-expiration "foo2" true (now)))
 
   (testing "test facts expiring for nodes set to false"
-    (let [request (get-request endpoint (json/generate-string ["=" "expires_facts" false]))
+    (let [request (get-request endpoint
+                               (json/generate-string ["=" "expires_facts" false])
+                               {:include_facts_expiration true})
           {:keys [status body]} (*app* request)
           result (vec (parse-result body))]
 
@@ -331,7 +333,9 @@
         (is (-> node :expires_facts_updated time/from-string time/date-time?)))))
 
   (testing "test facts expiring for nodes set to true (default)"
-    (let [request (get-request endpoint (json/generate-string ["=" "expires_facts" true]))
+    (let [request (get-request endpoint
+                               (json/generate-string ["=" "expires_facts" true])
+                               {:include_facts_expiration true})
           {:keys [status body]} (*app* request)
           result (vec (parse-result body))]
 
