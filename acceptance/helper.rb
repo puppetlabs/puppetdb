@@ -281,7 +281,7 @@ module PuppetDBExtensions
     elsif is_rhel8
       '5.2.8'
     else
-      '4.2.3.8'
+      '5.2.0'
     end
   end
 
