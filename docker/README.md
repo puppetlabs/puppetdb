@@ -22,13 +22,13 @@ Docker Compose.
 
 The following environment variables are supported:
 
-- `PUPPERWARE_DISABLE_ANALYTICS`
+- `PUPPERWARE_ANALYTICS_ENABLED`
 
-  Set to `true` to disable Google Analytics. Defaults to 'true'.
+  Set to 'true' to enable Google Analytics. Defaults to 'false'.
 
 - `USE_PUPPETSERVER`
 
-  Set to `false` to skip acquiring SSL certificates from a Puppet Server. Defaults to 'true'.
+  Set to 'false' to skip acquiring SSL certificates from a Puppet Server. Defaults to 'true'.
 
 - `PUPPETDB_DATABASE_CONNECTION`
 
@@ -77,7 +77,7 @@ The following environment variables are supported:
 
 ## Analytics Data Collection
 
- The puppetdb container collects usage data. This is disabled by default. You can enable it by passing `--env PUPPERWARE_DISABLE_ANALYTICS=false`
+ The puppetdb container collects usage data. This is disabled by default. You can enable it by passing `--env PUPPERWARE_ANALYTICS_ENABLED=true`
 to your `docker run` command.
 
 ### What data is collected?

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ "${PUPPERWARE_DISABLE_ANALYTICS}" = "true" ]; then
+if [ "${PUPPERWARE_ANALYTICS_ENABLED}" = "false" ]; then
     echo "($0) Pupperware analytics disabled; skipping metric submission"
     exit 0
 fi
