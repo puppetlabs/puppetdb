@@ -19,4 +19,23 @@ module Helpers
 
     { status: status, stdout: stdout_string }
   end
+
+  def inspect_container(container, query)
+    result = run_command("docker inspect \"#{container}\" --format \"#{query}\"")
+    status = result[:stdout].chomp
+    STDOUT.puts "queried #{query} of #{container}: #{status}"
+    return status
+  end
+
+  def get_container_name(container)
+    inspect_container(container, '{{.Name}}')
+  end
+
+  def emit_log(container)
+    container_name = get_container_name(container)
+    STDOUT.puts("#{'*' * 80}\nContainer logs for #{container_name} / #{container}\n#{'*' * 80}\n")
+    logs = run_command("docker logs --details --timestamps #{container}")[:stdout]
+    STDOUT.puts(logs)
+  end
+
 end
