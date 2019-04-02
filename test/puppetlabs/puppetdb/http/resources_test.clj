@@ -52,6 +52,7 @@ to the result of the form supplied to this method."
       (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
                               [["=" "tag" "one"] #{foo1 bar1}]
                               [["=" "tag" "two"] #{foo1 bar1}]
+                              [["=" "tag" "æøåۿᚠ𠜎٤"] #{foo1}]
                               [["~" "tag" "tw"] #{foo1 bar1}]
 
                               [["and"

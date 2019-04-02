@@ -302,7 +302,11 @@
 ;; Functions to ensure that the catalog structure is coherent.
 
 (def ^:const tag-pattern
-  #"\A[a-z0-9_][a-z0-9_:\-.]*\Z")
+  ; tags are case insensitive, and Puppet automatically converts
+  ; tags to lower case, so we do not consider uppercase letters in
+  ; our valid tag regex.
+  ; See the doc for more info https://puppet.com/docs/puppet/6.4/lang_reserved.html#tags
+  #"[[\p{L}&&[^\p{Lu}]]\p{N}_][[\p{L}&&[^\p{Lu}]]\p{N}_:.-]*")
 
 (defn validate-resources
   "Ensure that all resource tags conform to the allowed tag pattern."
@@ -311,7 +315,7 @@
    :post [(= % catalog)]}
   (doseq [[resource-spec resource] resources]
     (when-let [invalid-tag (first
-                            (remove #(re-find tag-pattern %) (:tags resource)))]
+                            (remove #(re-matches tag-pattern %) (:tags resource)))]
       (throw (IllegalArgumentException.
               (str
                (trs "Resource ''{0}'' has an invalid tag ''{1}''." resource-spec invalid-tag)
