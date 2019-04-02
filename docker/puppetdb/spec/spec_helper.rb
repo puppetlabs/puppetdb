@@ -20,6 +20,17 @@ module Helpers
     { status: status, stdout: stdout_string }
   end
 
+  def get_container_port(container, port)
+    @mapped_ports["#{container}:#{port}"] ||= begin
+      service_ip_port = run_command("docker port #{container} #{port}/tcp")[:stdout].chomp
+      uri = URI("http://#{service_ip_port}")
+      uri.host = 'localhost' if uri.host == '0.0.0.0'
+      STDOUT.puts "determined #{container} endpoint for port #{port}: #{uri}"
+      uri
+    end
+    @mapped_ports["#{container}:#{port}"]
+  end
+
   def inspect_container(container, query)
     result = run_command("docker inspect \"#{container}\" --format \"#{query}\"")
     status = result[:stdout].chomp
