@@ -68,17 +68,6 @@ describe 'puppetdb container specs' do
     result[:stdout].chomp
   end
 
-  def get_container_port(container, port)
-    @mapped_ports["#{container}:#{port}"] ||= begin
-      service_ip_port = run_command("docker port #{container} #{port}/tcp")[:stdout].chomp
-      uri = URI("http://#{service_ip_port}")
-      uri.host = 'localhost' if uri.host == '0.0.0.0'
-      STDOUT.puts "determined #{container} endpoint for port #{port}: #{uri}"
-      uri
-    end
-    @mapped_ports["#{container}:#{port}"]
-  end
-
   def get_puppetdb_state
     pdb_uri = URI::join(get_container_port(@pdb_container, 8080), '/status/v1/services/puppetdb-status')
     status = Net::HTTP.get_response(pdb_uri).body
