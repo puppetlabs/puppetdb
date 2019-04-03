@@ -35,7 +35,7 @@ describe 'puppetdb container specs' do
       '/docker-entrypoint-initdb.d' :
       'c:\docker-entrypoint-initdb.d'
 
-    result = run_command("docker run --rm --detach \
+    result = run_command("docker run --detach \
           --env POSTGRES_PASSWORD=puppetdb \
           --env POSTGRES_USER=puppetdb \
           --env POSTGRES_DB=puppetdb \
@@ -56,7 +56,7 @@ describe 'puppetdb container specs' do
 
   def run_puppetdb_container
     # skip Postgres SSL initialization for tests with USE_PUPPETSERVER
-    result = run_command("docker run --rm --detach \
+    result = run_command("docker run --detach \
           --env USE_PUPPETSERVER=false \
           --env PUPPERWARE_DISABLE_ANALYTICS=true \
           --name puppetdb \
@@ -66,17 +66,6 @@ describe 'puppetdb container specs' do
           #{@pdb_image}")
     fail 'Failed to create puppetdb container' unless result[:status].exitstatus == 0
     result[:stdout].chomp
-  end
-
-  def get_container_port(container, port)
-    @mapped_ports["#{container}:#{port}"] ||= begin
-      service_ip_port = run_command("docker port #{container} #{port}/tcp")[:stdout].chomp
-      uri = URI("http://#{service_ip_port}")
-      uri.host = 'localhost' if uri.host == '0.0.0.0'
-      STDOUT.puts "determined #{container} endpoint for port #{port}: #{uri}"
-      uri
-    end
-    @mapped_ports["#{container}:#{port}"]
   end
 
   def get_puppetdb_state
@@ -144,6 +133,7 @@ describe 'puppetdb container specs' do
       @postgres_container,
       @pdb_container,
     ].each do |id|
+      emit_log(id)
       STDOUT.puts("Killing container #{id}")
       run_command("docker container kill #{id}")
     end

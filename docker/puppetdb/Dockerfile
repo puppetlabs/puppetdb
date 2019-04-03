@@ -72,6 +72,8 @@ RUN chmod +x /ssl-setup.sh
 
 VOLUME /etc/puppetlabs/puppet/ssl/
 
+ADD https://raw.githubusercontent.com/puppetlabs/wtfc/4dbbc91eb0d89c48e3494c1fab37c74c6b13178c/wtfc.sh /wtfc.sh
+RUN chmod +x /wtfc.sh
 COPY docker/puppetdb/docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
