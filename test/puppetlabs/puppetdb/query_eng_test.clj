@@ -349,4 +349,16 @@
 
         (is (= true (:expires_facts (second nodes))))
         (is (= "foo3" (:certname (second nodes))))
-        (is (nil? (:expires_facts_updated (second nodes))))))))
+        (is (nil? (:expires_facts_updated (second nodes)))))))
+
+  (testing "/nodes/foo also respects include_facts_expiration=true"
+    (let [request (get-request (str endpoint "/foo1")
+                               nil
+                               {:include_facts_expiration true})
+          {:keys [status body]} (*app* request)
+          result (parse-result body)]
+      (is (= status http/status-ok))
+      (is (= "foo1" (:certname result)))
+      (is (= false (:expires_facts result)))
+      (is (-> result :expires_facts_updated time/from-string
+              time/date-time?)))))
