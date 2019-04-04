@@ -34,13 +34,13 @@ wait_for_host "postgres"
 
 if [ "$USE_PUPPETSERVER" = true ]; then
   wait_for_host $PUPPETSERVER_HOSTNAME
-  HEALTH_COMMAND="curl --silent --fail --insecure "\""https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple"\"" | grep -q '^running$'"
+  HEALTH_COMMAND="curl --silent --fail --insecure 'https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple' | grep -q '^running$'"
 fi
 
 if [ "$CONSUL_ENABLED" = "true" ]; then
   wait_for_host $CONSUL_HOSTNAME
   # with Consul enabled, wait on Consul instead of Puppetserver
-  HEALTH_COMMAND="curl --silent --fail "\""http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet"\"" | grep -q '"\""Status"\"": "\""passing"\""'"
+  HEALTH_COMMAND="curl --silent --fail 'http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet' | grep -q '\\"\""state"\\\"":\\"\""running\\"\""'"
 fi
 
 if [ -n "$HEALTH_COMMAND" ]; then
