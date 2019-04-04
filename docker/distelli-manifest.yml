@@ -2,8 +2,7 @@ pe-and-platform/puppetdb:
   PreBuild:
     - make lint
   Build:
-    - make build PUPPERWARE_ANALYTICS_STREAM=production
-    - make test
-  AfterBuildSuccess:
-    - docker login -u "$DISTELLI_DOCKER_USERNAME" -p "$DISTELLI_DOCKER_PW" "$DISTELLI_DOCKER_ENDPOINT"
-    - make publish
+    - docker container ps --all
+    - docker image ls
+    - docker container prune --force
+    - docker image prune --filter "dangling=true" --force
