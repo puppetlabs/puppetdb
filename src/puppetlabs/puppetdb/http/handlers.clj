@@ -84,10 +84,12 @@
 (defn status-response
   "Executes `query` and if a result is found, calls `found-fn` with
   that result, returns 404 otherwise."
-  [version query globals found-fn not-found-response]
-  (if-let [query-result (first (stream-query-result version query {} globals))]
-    (http/json-response (found-fn query-result))
-    not-found-response))
+  ([version query globals found-fn not-found-response]
+   (status-response version query globals found-fn not-found-response {}))
+  ([version query globals found-fn not-found-response query-params]
+   (if-let [query-result (first (stream-query-result version query query-params globals))]
+     (http/json-response (found-fn query-result))
+     not-found-response)))
 
 (defn catalog-status
   "Produces a response body for a request to retrieve the catalog for the node in route-params"
@@ -115,13 +117,14 @@
 (defn node-status
   "Produce a response body for a single environment."
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [node (:node route-params)]
       (status-response version
                        ["from" "nodes" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "node" node)))))
+                       (http/status-not-found-response "node" node)
+                       (select-keys puppetdb-query [:include_facts_expiration])))))
 
 (defn environment-status
   "Produce a response body for a single environment."
