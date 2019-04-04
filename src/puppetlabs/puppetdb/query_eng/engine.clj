@@ -48,7 +48,8 @@
    "fact_contents" {:columns ["certname"]}
    "events" {:columns ["certname"]}
    "edges" {:columns ["certname"]}
-   "resources" {:columns ["certname"]}})
+   "resources" {:columns ["certname"]}
+   "certname_fact_expiration" {:columns ["certid"]}})
 
 (def type-coercion-matrix
   {:string {:numeric (su/sql-cast "int")
@@ -221,87 +222,106 @@
                :entity :inventory
                :subquery? false}))
 
+(def nodes-query-base
+  {:projections {"certname" {:type :string
+                             :queryable? true
+                             :field :certnames.certname}
+                 "deactivated" {:type :string
+                                :queryable? true
+                                :field :certnames.deactivated}
+                 "expired" {:type :timestamp
+                            :queryable? true
+                            :field :certnames.expired}
+                 "facts_environment" {:type :string
+                                      :queryable? true
+                                      :field :facts_environment.environment}
+                 "catalog_timestamp" {:type :timestamp
+                                      :queryable? true
+                                      :field :catalogs.timestamp}
+                 "facts_timestamp" {:type :timestamp
+                                    :queryable? true
+                                    :field :fs.timestamp}
+                 "report_timestamp" {:type :timestamp
+                                     :queryable? true
+                                     :field :reports.end_time}
+                 "latest_report_hash" {:type :string
+                                       :queryable? true
+                                       :field (hsql-hash-as-str
+                                               :reports.hash)}
+                 "latest_report_noop" {:type :boolean
+                                       :queryable? true
+                                       :field :reports.noop}
+                 "latest_report_noop_pending" {:type :boolean
+                                               :queryable? true
+                                               :field :reports.noop_pending}
+                 "latest_report_status" {:type :string
+                                         :queryable? true
+                                         :field :report_statuses.status}
+                 "latest_report_corrective_change" {:type :boolean
+                                                    :queryable? true
+                                                    :field :reports.corrective_change}
+                 "latest_report_job_id" {:type :string
+                                         :queryable? true
+                                         :field :reports.job_id}
+                 "cached_catalog_status" {:type :string
+                                          :queryable? true
+                                          :field :reports.cached_catalog_status}
+                 "catalog_environment" {:type :string
+                                        :queryable? true
+                                        :field :catalog_environment.environment}
+                 "report_environment" {:type :string
+                                       :queryable? true
+                                       :field :reports_environment.environment}}
+
+   :relationships certname-relations
+
+   :selection {:from [:certnames]
+               :left-join [:catalogs
+                           [:= :catalogs.certname :certnames.certname]
+
+                           [:factsets :fs]
+                           [:= :certnames.certname :fs.certname]
+
+                           :reports
+                           [:and
+                            [:= :certnames.certname :reports.certname]
+                            [:= :certnames.latest_report_id :reports.id]]
+
+                           [:environments :catalog_environment]
+                           [:= :catalog_environment.id :catalogs.environment_id]
+
+                           :report_statuses
+                           [:= :reports.status_id :report_statuses.id]
+
+                           [:environments :facts_environment]
+                           [:= :facts_environment.id :fs.environment_id]
+
+                           [:environments :reports_environment]
+                           [:= :reports_environment.id :reports.environment_id]]}
+
+   :source-table "certnames"
+   :alias "nodes"
+   :subquery? false})
+
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
-  (map->Query {:projections {"certname" {:type :string
-                                         :queryable? true
-                                         :field :certnames.certname}
-                             "deactivated" {:type :string
-                                            :queryable? true
-                                            :field :certnames.deactivated}
-                             "expired" {:type :timestamp
-                                        :queryable? true
-                                        :field :certnames.expired}
-                             "facts_environment" {:type :string
-                                                  :queryable? true
-                                                  :field :facts_environment.environment}
-                             "catalog_timestamp" {:type :timestamp
-                                                  :queryable? true
-                                                  :field :catalogs.timestamp}
-                             "facts_timestamp" {:type :timestamp
-                                                :queryable? true
-                                                :field :fs.timestamp}
-                             "report_timestamp" {:type :timestamp
-                                                 :queryable? true
-                                                 :field :reports.end_time}
-                             "latest_report_hash" {:type :string
-                                                   :queryable? true
-                                                   :field (hsql-hash-as-str
-                                                            :reports.hash)}
-                             "latest_report_noop" {:type :boolean
-                                                   :queryable? true
-                                                   :field :reports.noop}
-                             "latest_report_noop_pending" {:type :boolean
-                                                           :queryable? true
-                                                           :field :reports.noop_pending}
-                             "latest_report_status" {:type :string
-                                                     :queryable? true
-                                                     :field :report_statuses.status}
-                             "latest_report_corrective_change" {:type :boolean
-                                                                :queryable? true
-                                                                :field :reports.corrective_change}
-                             "latest_report_job_id" {:type :string
-                                                     :queryable? true
-                                                     :field :reports.job_id}
-                             "cached_catalog_status" {:type :string
-                                                      :queryable? true
-                                                      :field :reports.cached_catalog_status}
-                             "catalog_environment" {:type :string
-                                                    :queryable? true
-                                                    :field :catalog_environment.environment}
-                             "report_environment" {:type :string
-                                                   :queryable? true
-                                                   :field :reports_environment.environment}}
+  (map->Query nodes-query-base))
 
-               :relationships certname-relations
-
-               :selection {:from [:certnames]
-                           :left-join [:catalogs
-                                       [:= :catalogs.certname :certnames.certname]
-
-                                       [:factsets :fs]
-                                       [:= :certnames.certname :fs.certname]
-
-                                       :reports
-                                       [:and
-                                        [:= :certnames.certname :reports.certname]
-                                        [:= :certnames.latest_report_id :reports.id]]
-
-                                       [:environments :catalog_environment]
-                                       [:= :catalog_environment.id :catalogs.environment_id]
-
-                                       :report_statuses
-                                       [:= :reports.status_id :report_statuses.id]
-
-                                       [:environments :facts_environment]
-                                       [:= :facts_environment.id :fs.environment_id]
-
-                                       [:environments :reports_environment]
-                                       [:= :reports_environment.id :reports.environment_id]]}
-
-               :source-table "certnames"
-               :alias "nodes"
-               :subquery? false}))
+(def nodes-query-with-fact-expiration
+  "Query for nodes entities, mostly used currently for subqueries"
+  (map->Query (-> nodes-query-base
+                  (assoc-in [:projections "expires_facts"]
+                            {:type :boolean
+                             :queryable? true
+                             :field (hcore/raw "coalesce(certname_fact_expiration.expire, true)")})
+                  (assoc-in [:projections "expires_facts_updated"]
+                            {:type :timestamp
+                             :queryable? true
+                             :field :certname_fact_expiration.updated})
+                  (update-in [:selection :left-join]
+                             #(conj %
+                                    :certname_fact_expiration
+                                    [:= :certnames.id :certname_fact_expiration.certid])))))
 
 (def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
