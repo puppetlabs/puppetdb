@@ -44,7 +44,7 @@ if [ "$CONSUL_ENABLED" = "true" ]; then
 fi
 
 if [ -n "$HEALTH_COMMAND" ]; then
-  /wtfc.sh --timeout=$PUPPETDB_WAITFORHEALTH_SECONDS --interval=1 --progress $HEALTH_COMMAND
+  /wtfc.sh --timeout=$PUPPETDB_WAITFORHEALTH_SECONDS --interval=1 --progress "$HEALTH_COMMAND"
   if [ $? -ne 0 ]; then
     error "Required health check failed"
   fi
