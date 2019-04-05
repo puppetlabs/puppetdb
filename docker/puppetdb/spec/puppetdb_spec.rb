@@ -1,6 +1,5 @@
 require 'timeout'
 require 'json'
-require 'open3'
 require 'rspec'
 require 'net/http'
 
@@ -11,68 +10,23 @@ describe 'puppetdb container specs' do
     'pgdata'
   ]
 
-  def count_database(container, database)
-    cmd = "docker exec #{container} psql -t --username=puppetdb --command=\"SELECT count(datname) FROM pg_database where datname = '#{database}'\""
+  def count_postgres_database(database)
+    cmd = "docker-compose --no-ansi exec -T postgres psql -t --username=puppetdb --command=\"SELECT count(datname) FROM pg_database where datname = '#{database}'\""
     run_command(cmd)[:stdout].strip
   end
 
-  def wait_on_postgres_db(container, database)
-    Timeout::timeout(120) do
-      while count_database(container, database) != '1'
-        sleep(1)
-      end
+  def wait_on_postgres_db(database, seconds = 240)
+    return retry_block_up_to_timeout(seconds) do
+      count_postgres_database('puppetdb') == '1' ? '1' :
+        raise("database #{database} never created")
     end
-  rescue Timeout::Error
-    STDOUT.puts("database #{database} never created")
-    raise
-  end
-
-  def run_postgres_container
-    image_name = 'postgres:9.6'
-    run_command("docker pull #{image_name}")
-
-    data_mount = ''
-    if !!File::ALT_SEPARATOR
-      data_mount = "--volume #{ENV['VOLUME_ROOT']}/pgdata:/var/lib/postgresql/data"
-    end
-
-    postgres_custom_source = File.join(File.expand_path(__dir__), '..', 'postgres-custom')
-    result = run_command("docker run --detach \
-          --env POSTGRES_PASSWORD=puppetdb \
-          --env POSTGRES_USER=puppetdb \
-          --env POSTGRES_DB=puppetdb \
-          --name postgres \
-          --network #{@network} \
-          --hostname postgres \
-          --publish-all \
-          --volume #{postgres_custom_source}:/docker-entrypoint-initdb.d \
-          #{data_mount} \
-          #{image_name}")
-    fail 'Failed to create postgres container' unless result[:status].exitstatus == 0
-    id = result[:stdout].chomp
-
-    # this is necessary to add a wait for database creation
-    wait_on_postgres_db(id, 'puppetdb')
-
-    return id
-  end
-
-  def run_puppetdb_container
-    # skip Postgres SSL initialization for tests with USE_PUPPETSERVER
-    result = run_command("docker run --detach \
-          --env USE_PUPPETSERVER=false \
-          --env PUPPERWARE_ANALYTICS_ENABLED=false \
-          --name puppetdb \
-          --hostname puppetdb \
-          --publish-all \
-          --network #{@network} \
-          #{@pdb_image}")
-    fail 'Failed to create puppetdb container' unless result[:status].exitstatus == 0
-    result[:stdout].chomp
   end
 
   def get_puppetdb_state
-    pdb_uri = URI::join(get_container_port(@pdb_container, 8080), '/status/v1/services/puppetdb-status')
+    # make sure PDB container hasn't stopped
+    get_service_container('puppetdb', 5)
+    # now query its status endpoint
+    pdb_uri = URI::join(get_service_base_uri('puppetdb', 8080), '/status/v1/services/puppetdb-status')
     response = Net::HTTP.get_response(pdb_uri)
     STDOUT.puts "retrieved raw puppetdb status: #{response.body}"
     case response
@@ -93,7 +47,7 @@ describe 'puppetdb container specs' do
   end
 
   def get_postgres_extensions
-    result = run_command("docker exec #{@postgres_container} psql --username=puppetdb --command=\"SELECT * FROM pg_extension\"")
+    result = run_command('docker-compose --no-ansi exec -T postgres psql --username=puppetdb --command="SELECT * FROM pg_extension"')
     extensions = result[:stdout].chomp
     STDOUT.puts("retrieved extensions: #{extensions}")
     extensions
@@ -119,38 +73,29 @@ describe 'puppetdb container specs' do
       MSG
       fail error_message
     end
+    status = run_command('docker-compose --no-ansi version')[:status]
+    if status.exitstatus != 0
+      fail "`docker-compose` must be installed and available in your PATH"
+    end
 
     @mapped_ports = {}
 
+    teardown_cluster()
     # LCOW requires directories to exist
     create_host_volume_targets(ENV['VOLUME_ROOT'], VOLUMES)
 
-    # Windows doesn't have the default 'bridge network driver
-    network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
-
-    result = run_command("docker network create #{network_opt} puppetdb_test_network_#{Random.rand(1000)}")
-    fail 'Failed to create network' unless result[:status].exitstatus == 0
-    @network = result[:stdout].chomp
-
-    @postgres_container = run_postgres_container
-
-    @pdb_container = run_puppetdb_container
+    # fire up the cluster and wait for puppetdb creation in postgres
+    run_command('docker-compose --no-ansi up --detach')
+    wait_on_postgres_db('puppetdb')
   end
 
   after(:all) do
-    [
-      @postgres_container,
-      @pdb_container,
-    ].each do |id|
-      emit_log(id)
-      STDOUT.puts("Killing container #{id}")
-      run_command("docker container kill #{id}")
-    end
-    run_command("docker network rm #{@network}") unless @network.nil?
+    emit_logs()
+    teardown_cluster()
   end
 
   it 'should have started postgres' do
-    expect(@postgres_container).to_not be_empty
+    expect(get_service_container('postgres', 30)).to_not be_empty
   end
 
   it 'should have installed postgres extensions' do
@@ -160,7 +105,7 @@ describe 'puppetdb container specs' do
   end
 
   it 'should have started puppetdb' do
-    expect(@pdb_container).to_not be_empty
+    expect(get_service_container('puppetdb', 60)).to_not be_empty
   end
 
   it 'should have a "running" puppetdb container' do
