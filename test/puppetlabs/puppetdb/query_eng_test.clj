@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng-test
-  (:require [clojure.test :refer :all]
+  (:require [cheshire.core :as json]
+            [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
@@ -8,6 +9,7 @@
             [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as su]))
 
@@ -303,3 +305,60 @@
             result (vec (parse-result body))]
         (is (= status http/status-ok))
         (is (= result expected-result))))))
+
+(deftest-http-app fact-expiration-queries
+  [version [:v4]
+   endpoint ["/v4/nodes"]]
+
+  (with-transacted-connection *db*
+    (scf-store/add-certname! "foo1")
+    (scf-store/add-certname! "foo2")
+    (scf-store/add-certname! "foo3")
+
+    (scf-store/set-certname-facts-expiration "foo1" false (now))
+    (scf-store/set-certname-facts-expiration "foo2" true (now)))
+
+  (testing "test facts expiring for nodes set to false"
+    (let [request (get-request endpoint
+                               (json/generate-string ["=" "expires_facts" false])
+                               {:include_facts_expiration true})
+          {:keys [status body]} (*app* request)
+          result (vec (parse-result body))]
+
+      (is (= status http/status-ok))
+      (is (= 1 (count result)))
+      (let [node (first result)]
+        (is (= false (:expires_facts node)))
+        (is (= "foo1" (:certname node)))
+        (is (-> node :expires_facts_updated time/from-string time/date-time?)))))
+
+  (testing "test facts expiring for nodes set to true (default)"
+    (let [request (get-request endpoint
+                               (json/generate-string ["=" "expires_facts" true])
+                               {:include_facts_expiration true})
+          {:keys [status body]} (*app* request)
+          result (vec (parse-result body))]
+
+      (is (= status http/status-ok))
+      (is (= 2 (count result)))
+      (let [nodes (sort-by :certname result)]
+        (is (= true (:expires_facts (first nodes))))
+        (is (= "foo2" (:certname (first nodes))))
+        (is (-> nodes first :expires_facts_updated time/from-string
+                time/date-time?))
+
+        (is (= true (:expires_facts (second nodes))))
+        (is (= "foo3" (:certname (second nodes))))
+        (is (nil? (:expires_facts_updated (second nodes)))))))
+
+  (testing "/nodes/foo also respects include_facts_expiration=true"
+    (let [request (get-request (str endpoint "/foo1")
+                               nil
+                               {:include_facts_expiration true})
+          {:keys [status body]} (*app* request)
+          result (parse-result body)]
+      (is (= status http/status-ok))
+      (is (= "foo1" (:certname result)))
+      (is (= false (:expires_facts result)))
+      (is (-> result :expires_facts_updated time/from-string
+              time/date-time?)))))

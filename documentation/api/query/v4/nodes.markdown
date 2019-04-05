@@ -21,6 +21,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 [edges]: ./edges.html
 [resources]: ./resources.html
 [inventory]: ./inventory.html
+[expirev1]: ../../wire_format/configure_expiration_format_v1.html
 
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
@@ -84,6 +85,21 @@ The below fields are allowed as filter criteria and are returned in all response
 
     Note that nodes which are missing a fact referenced by a `not` query will match
     the query.
+
+* `expires_facts` (boolean): indicates whether or not factsets for the
+  node will be a candidate for expiration.  This field will only be
+  visible if the `include_facts_expiration` query parameter is set to
+  `true`.
+
+> *Note*: configuration of fact expiration is an experimental feature
+> which might be altered or removed in a future release, and for the
+> time being, PuppetDB exports will not include this information.
+
+* `expires_facts_updated` (timestamp or null): indicates when the
+  value of `expires_facts` was last changed.  This will be `null` if
+  the value has never been explicitly set by a [configure expiration][expirev1]
+  command.  This field will only be visible if the
+  `include_facts_expiration` query parameter is set to true.
 
 ### Response format
 

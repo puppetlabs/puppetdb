@@ -45,6 +45,9 @@
                :rec eng/catalog-query}
     :nodes {:munge (constantly identity)
             :rec eng/nodes-query}
+    ;; Not a real entity name of course -- requested by query parameter.
+    :nodes-with-fact-expiration {:munge (constantly identity)
+                                 :rec eng/nodes-query-with-fact-expiration}
     :environments {:munge (constantly identity)
                    :rec eng/environments-query}
     :producers {:munge (constantly identity)
@@ -85,28 +88,31 @@
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
-  [query entity version paging-options]
+  [query entity version query-options]
   {:pre  [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
-          (or (not (:include_total paging-options))
+          (or (not (:include_total query-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
 
   (cond
     (= :aggregate-event-counts entity)
-    (aggregate-event-counts/query->sql version query paging-options)
+    (aggregate-event-counts/query->sql version query query-options)
 
     (= :event-counts entity)
-    (event-counts/query->sql version query paging-options)
+    (event-counts/query->sql version query query-options)
 
-    (and (= :events entity) (:distinct_resources paging-options))
-    (events/legacy-query->sql false version query paging-options)
+    (and (= :events entity) (:distinct_resources query-options))
+    (events/legacy-query->sql false version query query-options)
 
     :else
-    (let [query-rec (get-in @entity-fn-idx [entity :rec])
+    (let [query-rec (if (and (:include_facts_expiration query-options)
+                             (= entity :nodes))
+                      (get-in @entity-fn-idx [:nodes-with-fact-expiration :rec])
+                      (get-in @entity-fn-idx [entity :rec]))
           columns (orderable-columns query-rec)]
-      (paging/validate-order-by! columns paging-options)
-      (eng/compile-user-query->sql query-rec query paging-options))))
+      (paging/validate-order-by! columns query-options)
+      (eng/compile-user-query->sql query-rec query query-options))))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
