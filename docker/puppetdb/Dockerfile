@@ -22,6 +22,7 @@ ARG version="6.0.0"
 # published images should use "production" for this build_arg
 ARG pupperware_analytics_stream="dev"
 ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream"
+ENV PUPPERWARE_ANALYTICS_ENABLED=false
 
 ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"

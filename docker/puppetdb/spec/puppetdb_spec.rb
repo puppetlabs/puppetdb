@@ -58,7 +58,7 @@ describe 'puppetdb container specs' do
     # skip Postgres SSL initialization for tests with USE_PUPPETSERVER
     result = run_command("docker run --detach \
           --env USE_PUPPETSERVER=false \
-          --env PUPPERWARE_DISABLE_ANALYTICS=true \
+          --env PUPPERWARE_ANALYTICS_ENABLED=false \
           --name puppetdb \
           --hostname puppetdb \
           --publish-all \
