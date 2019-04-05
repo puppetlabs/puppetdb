@@ -105,6 +105,10 @@ aliases:
 
   - &run-docker-tests |
     set -ex
+    sudo rm /usr/local/bin/docker-compose
+    curl --location https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname --kernel-name`-`uname --machine` > docker-compose
+    chmod +x docker-compose
+    sudo mv docker-compose /usr/local/bin
     cd docker
     make lint
     make build
@@ -212,6 +216,7 @@ jobs:
       os: osx
 
     - stage: ❧ pdb container tests
+      env: DOCKER_COMPOSE_VERSION=1.24.0
       script: *run-docker-tests
 
 on_success: ext/travisci/on-success
