@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: d0c8cda74e918be186e7787baf619a78f33348af\n"
+"X-Git-Ref: d028aa68717e74e1b0c6fcb530547c2ab1e8e5b2\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -556,6 +556,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/import.clj
 msgid "Importing facts from archive entry ''{0}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/import.clj
+msgid "Importing node expiration from archive entry ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/import.clj
