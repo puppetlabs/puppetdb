@@ -14,12 +14,15 @@
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            [puppetlabs.puppetdb.nodes :as nodes]))
 
-(defn get-nodes []
-  (-> (svc-utils/query-url-str "/nodes")
-      svc-utils/get-or-throw
-      :body))
+(defn get-nodes [&{:keys [include-facts-expiration]}]
+  (let [url-suffix (when include-facts-expiration
+                     (str "?include_facts_expiration=" include-facts-expiration))]
+    (-> (svc-utils/query-url-str (str "/nodes" url-suffix))
+        svc-utils/get-or-throw
+        :body)))
 
 (defn get-catalogs [certname]
   (-> (svc-utils/get-catalogs certname)
@@ -41,6 +44,8 @@
   (svc-utils/get-summary-stats))
 
 (def example-certname "foo.local")
+
+(def example-certname2 "foo.bar")
 
 (def example-producer "bar.com")
 
@@ -66,6 +71,27 @@
       (assoc :certname example-certname)
       tur/munge-report
       reports/report-query->wire-v8))
+
+(def node-expiration-timestamp
+  (time/now))
+
+(def example-nodes
+  [{:certname example-certname
+    :expires_facts false
+    :expires_facts_updated (time-coerce/to-string node-expiration-timestamp)}
+   {:certname example-certname2
+    :expires_facts true
+    :expires_facts_updated (time-coerce/to-string node-expiration-timestamp)}])
+
+(def example-configure-expiration-false
+  {:certname example-certname
+   :expire {:facts false}
+   :producer_timestamp (time-coerce/to-string node-expiration-timestamp)})
+
+(def example-configure-expiration-true
+  {:certname example-certname2
+   :expire {:facts true}
+   :producer_timestamp (time-coerce/to-string node-expiration-timestamp)})
 
 (defn munge-tar-map
   [tar-map]
