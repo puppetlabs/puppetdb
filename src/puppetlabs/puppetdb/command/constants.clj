@@ -23,8 +23,10 @@
 (def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
 (def latest-report-version (apply max (get supported-command-versions "store report")))
 (def latest-facts-version (apply max (get supported-command-versions "replace facts")))
+(def latest-configure-expiration-version (apply max (get supported-command-versions "configure expiration")))
 
 (def latest-command-versions
   {:replace_catalog latest-catalog-version
    :store_report latest-report-version
-   :replace_facts latest-facts-version})
+   :replace_facts latest-facts-version
+   :configure_expiration latest-configure-expiration-version})

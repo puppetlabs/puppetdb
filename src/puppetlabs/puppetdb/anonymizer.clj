@@ -442,6 +442,13 @@
         (update "values" anonymize-fact-values context config)
         (update "environment" anonymize-leaf :environment context config))))
 
+(defn anonymize-configure-expiration
+  "Anonymize a set of expiration configurations"
+  [config wire-node]
+  (let [context {"node" (get wire-node "certname")}]
+    (-> wire-node
+        (update "certname" anonymize-leaf :node context config))))
+
 (def anon-profiles
   ^{:doc "Hard coded rule engine profiles indexed by profile name"}
   {

@@ -18,10 +18,14 @@
             [puppetlabs.puppetdb.testutils.cli
              :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
                      example-catalog example-report
-                     example-facts example-certname
-                     get-summary-stats]]
+                     example-facts example-certname example-certname2
+                     example-nodes example-configure-expiration-true
+                     example-configure-expiration-false get-summary-stats]]
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [puppetlabs.puppetdb.time :as time]
+            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [clj-time.core :as cljtime]))
 
 (use-fixtures :each tu/call-with-test-logging-silenced)
 
@@ -38,6 +42,17 @@
                                     "store report" cmd-consts/latest-report-version example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" cmd-consts/latest-facts-version example-facts)
+
+       ;; ensure the three combinations of fact expiration - false, true and not set
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "configure expiration"
+                                    cmd-consts/latest-configure-expiration-version
+                                    example-configure-expiration-false)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname2
+                                    "configure expiration"
+                                    cmd-consts/latest-configure-expiration-version
+                                    example-configure-expiration-true)
+       (scf-storage/maybe-activate-node! "i_dont_have_an_expiration_setting" (cljtime/now))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -67,7 +82,14 @@
        (is (= [(tur/update-report-pe-fields example-report)]
               (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
-              (tuf/munge-facts (get-factsets example-certname))))))))
+              (tuf/munge-facts (get-factsets example-certname))))
+
+       (let [nodes (get-nodes :include-facts-expiration true)]
+         (is (= 2 (count nodes)))
+         (is (= (sort-by :certname example-nodes)
+                (sort-by :certname
+                         (map #(select-keys % [:certname :expires_facts :expires_facts_updated])
+                              nodes)))))))))
 
 (deftest test-anonymized-export
   (doseq [profile (keys anon/anon-profiles)]
@@ -82,8 +104,8 @@
                                       "replace catalog" cmd-consts/latest-catalog-version example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "store report" cmd-consts/latest-report-version example-report)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" cmd-consts/latest-facts-version example-facts)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "replace facts" cmd-consts/latest-facts-version example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
