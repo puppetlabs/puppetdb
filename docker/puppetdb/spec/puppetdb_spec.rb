@@ -2,6 +2,7 @@ require 'timeout'
 require 'json'
 require 'open3'
 require 'rspec'
+require 'securerandom'
 require 'net/http'
 
 describe 'puppetdb container specs' do
@@ -24,17 +25,17 @@ describe 'puppetdb container specs' do
   end
 
   def run_postgres_container
-    image_name = File::ALT_SEPARATOR.nil? ?
-      'postgres:9.6' :
-      'stellirin/postgres-windows:9.6'
+    image_name = 'postgres:9.6'
     run_command("docker pull #{image_name}")
 
+    data_mount = ''
+    if !!File::ALT_SEPARATOR
+      data_dir = File.join(File.expand_path(__dir__), '..', '..', SecureRandom.uuid)
+      FileUtils.mkdir_p(data_dir)
+      data_mount = "--volume #{data_dir}:/var/lib/postgresql/data"
+    end
+
     postgres_custom_source = File.join(File.expand_path(__dir__), '..', 'postgres-custom')
-
-    postgres_custom_target = File::ALT_SEPARATOR.nil? ?
-      '/docker-entrypoint-initdb.d' :
-      'c:\docker-entrypoint-initdb.d'
-
     result = run_command("docker run --detach \
           --env POSTGRES_PASSWORD=puppetdb \
           --env POSTGRES_USER=puppetdb \
@@ -43,7 +44,8 @@ describe 'puppetdb container specs' do
           --network #{@network} \
           --hostname postgres \
           --publish-all \
-          --mount type=bind,source=#{postgres_custom_source},target=#{postgres_custom_target} \
+          --volume #{postgres_custom_source}:/docker-entrypoint-initdb.d \
+          #{data_mount} \
           #{image_name}")
     fail 'Failed to create postgres container' unless result[:status].exitstatus == 0
     id = result[:stdout].chomp
