@@ -1318,12 +1318,13 @@
                                            (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
                                                                    (sutils/munge-hash-for-storage))))]
                    (when-not (empty? resource_events)
-                     (->> resource_events
-                          (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                          (map adjust-event)
-                          (map add-event-hash)
-                          (jdbc/insert-multi! :resource_events)
-                          dorun))
+                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x {:on-conflict "do nothing"}))]
+                       (->> resource_events
+                            (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                            (map adjust-event)
+                            (map add-event-hash)
+                            insert!
+                            dorun)))
                    (when update-latest-report?
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 

@@ -59,8 +59,20 @@
           (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'b@r'"
                                 (validate-resources catalog)))))
 
+      (testing "should fail when a resource has tags with extra whitespace characters at end"
+        (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "bar\n"]}}
+              catalog {:resources resources}]
+          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'bar\n'"
+                                (validate-resources catalog)))))
+
       (testing "should not fail when a resource has only lower-case tags"
         (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "bar"]}}
+              catalog {:resources resources}]
+          (is (= catalog (validate-resources catalog)))))
+
+      (testing "should not fail when a resource has lower-case unicode tags"
+        (let [resources {{:type "Type" :title "foo"}
+                         {:tags ["foo٤" "a\u06FF\u16A0\ud841\udf0e" "norwegian_characters_æøå"]}} ; tags foo<arabic 4> aۿᚠ𠜎
               catalog {:resources resources}]
           (is (= catalog (validate-resources catalog))))))
 

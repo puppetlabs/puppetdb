@@ -214,6 +214,10 @@ jobs:
     - stage: ❧ pdb container tests
       script: *run-docker-tests
 
+matrix:
+  allow_failures:
+  - os: osx
+
 on_success: ext/travisci/on-success
 
 notifications:

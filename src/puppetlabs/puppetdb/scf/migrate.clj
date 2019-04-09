@@ -1513,6 +1513,7 @@
       message text,
       file text DEFAULT NULL::character varying,
       line integer,
+      name text,
       containment_path text[],
       containing_class text,
       corrective_change boolean)")
@@ -1631,8 +1632,12 @@
    64 rededuplicate-facts
    65 varchar-columns-to-text
    66 jsonb-facts
-   67 add-resource-events-pk
-   68 support-fact-expiration-configuration})
+   ;; migration 69 replaces migration 67 - we do not need to apply both
+   ;; 67 exposed an agent bug where we would get duplicate resource events
+   ;; from a failed exec call. The updated migration adds additional columns
+   ;; to the hash to avoid these sorts of collisions
+   68 support-fact-expiration-configuration
+   69 add-resource-events-pk})
 
 (def desired-schema-version (apply max (keys migrations)))
 

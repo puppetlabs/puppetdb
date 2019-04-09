@@ -1037,11 +1037,11 @@
               :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
 
-(deftest migration-67-adds-hashes-to-resource-events
+(deftest migration-69-adds-hashes-to-resource-events
   (let [current-time (to-timestamp (now))]
     (jdbc/with-db-connection *db*
       (clear-db-for-testing!)
-      (fast-forward-to-migration! 66)
+      (fast-forward-to-migration! 68)
 
       (jdbc/insert! :report_statuses
                     {:status "testing1" :id 1})
@@ -1118,7 +1118,7 @@
            :containment_path (sutils/to-jdbc-varchar-array ["foo"])
            :message "created"}])
 
-        (apply-migration-for-testing! 67)
+        (apply-migration-for-testing! 69)
 
         (let [hashes (map :event_hash
                           (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
@@ -1126,15 +1126,37 @@
               hashes-set (set hashes)
 
               expected1 (shash/resource-event-identity-pkey
-                         {:report_id id1
+                         {:new_value "\"directory\""
+                          :corrective_change false
                           :property "ensure"
+                          :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+                          :report_id id1
+                          :old_value "\"absent\""
+                          :containing_class "Foo"
+                          :certname_id 1
+                          :line 11
+                          :resource_type "File"
+                          :status "success"
                           :resource_title "tmp-directory"
-                          :resource_type "File"})
+                          :timestamp current-time
+                          :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                          :message "created"})
               expected2 (shash/resource-event-identity-pkey
-                         {:report_id id1
+                         {:new_value "\"directory\""
+                          :corrective_change false
                           :property nil
+                          :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+                          :report_id id1
+                          :old_value "\"absent\""
+                          :containing_class "Foo"
+                          :certname_id 1
+                          :line 11
+                          :resource_type "File"
+                          :status "success"
                           :resource_title "tmp-directory"
-                          :resource_type "File"})
+                          :timestamp current-time
+                          :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                          :message "created"})
 
               [containment-path] (map :containment_path
                                       (query-to-vec "SELECT containment_path FROM resource_events"))]
@@ -1149,9 +1171,9 @@
 
 (deftest migration-67-schema-diff
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 66)
+  (fast-forward-to-migration! 68)
   (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 67)
+    (apply-migration-for-testing! 69)
     (is (= {:index-diff [{:left-only nil
                           :right-only {:schema "public"
                                        :table "resource_events"
@@ -1187,6 +1209,19 @@
                                        :numeric_precision_radix nil
                                        :data_type "bytea"
                                        :column_name "event_hash"
+                                       :table_name "resource_events"}
+                          :same nil}
+                         {:left-only nil
+                          :right-only {:numeric_scale nil
+                                       :column_default nil
+                                       :character_octet_length 1073741824
+                                       :datetime_precision nil
+                                       :nullable? "YES"
+                                       :character_maximum_length nil
+                                       :numeric_precision nil
+                                       :numeric_precision_radix nil
+                                       :data_type "text"
+                                       :column_name "name"
                                        :table_name "resource_events"}
                           :same nil}]
             :constraint-diff [{:left-only nil
