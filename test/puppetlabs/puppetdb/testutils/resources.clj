@@ -94,7 +94,7 @@
         :catalog_resources
          [{:certname_id 1 :resource (sutils/munge-hash-for-storage "01")
            :type "File" :title "/etc/passwd" :exported false
-           :tags (to-jdbc-varchar-array ["one" "two"])}
+           :tags (to-jdbc-varchar-array ["one" "two" "æøåۿᚠ𠜎٤"])}
           {:certname_id 1 :resource (sutils/munge-hash-for-storage "02")
            :type "Notify" :title "hello" :exported false
            :tags (to-jdbc-varchar-array [])}
@@ -109,7 +109,7 @@
              :resource   "01"
              :type       "File"
              :title      "/etc/passwd"
-             :tags       ["one" "two"]
+             :tags       ["one" "two" "æøåۿᚠ𠜎٤"]
              :exported   false
              :file nil
              :line nil
