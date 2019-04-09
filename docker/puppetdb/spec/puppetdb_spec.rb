@@ -119,7 +119,7 @@ describe 'puppetdb container specs' do
     # Windows doesn't have the default 'bridge network driver
     network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
 
-    result = run_command("docker network create #{network_opt} puppetdb_test_network")
+    result = run_command("docker network create #{network_opt} puppetdb_test_network_#{Random.rand(1000)}")
     fail 'Failed to create network' unless result[:status].exitstatus == 0
     @network = result[:stdout].chomp
 
