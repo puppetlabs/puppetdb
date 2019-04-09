@@ -130,6 +130,10 @@ jobs:
       script: *run-spec-tests
       os: osx
 
+matrix:
+  allow_failures:
+  - os: osx
+
 on_success: ext/travisci/on-success
 
 notifications:
