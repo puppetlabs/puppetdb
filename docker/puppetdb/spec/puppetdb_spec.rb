@@ -73,12 +73,23 @@ describe 'puppetdb container specs' do
 
   def get_puppetdb_state
     pdb_uri = URI::join(get_container_port(@pdb_container, 8080), '/status/v1/services/puppetdb-status')
-    status = Net::HTTP.get_response(pdb_uri).body
-    STDOUT.puts "retrieved raw puppetdb status: #{status}"
-    return JSON.parse(status)['state'] unless status.empty?
+    response = Net::HTTP.get_response(pdb_uri)
+    STDOUT.puts "retrieved raw puppetdb status: #{response.body}"
+    case response
+      when Net::HTTPSuccess then
+        return JSON.parse(response.body)['state']
+      else
+        return ''
+    end
+  rescue Errno::ECONNREFUSED, Errno::ECONNRESET, EOFError => e
+    STDOUT.puts "PDB not accepting connections yet #{pdb_uri}: #{e}"
+    return ''
+  rescue JSON::ParserError
+    STDOUT.puts "Invalid JSON response: #{e}"
+    return ''
   rescue
     STDOUT.puts "Failure querying #{pdb_uri}: #{$!}"
-    return ''
+    raise
   end
 
   def get_postgres_extensions
@@ -101,7 +112,7 @@ describe 'puppetdb container specs' do
     end
   rescue Timeout::Error
     STDOUT.puts('puppetdb never entered running state')
-    return ''
+    raise
   else
     return status
   end
