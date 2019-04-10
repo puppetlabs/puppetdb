@@ -781,7 +781,7 @@ EOS
   # End Object diff functions
   ##############################################################################
 
-  def initialize_repo_on_host(host, os, nightly)
+  def initialize_repo_on_host(host, os, nightly, puppet_platform = :puppet6)
     case os
     when :debian
 
@@ -793,10 +793,14 @@ EOS
       end
 
       if options[:type] == 'aio' then
-        if nightly
+        if nightly && puppet_platform == :puppet6
           ## puppet6 repos
           on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet6-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet6-nightly-release-$(lsb_release -sc).deb"
+
+        elsif nightly && puppet_platform == :puppet5
+          on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
+          on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
         else
           on host, "curl -O http://apt.puppetlabs.com/puppet-release-$(lsb_release -sc).deb"
@@ -815,10 +819,15 @@ EOS
         version = $2
         arch = $3
 
-        if nightly
+        if nightly && puppet_platform == :puppet6
           ## puppet6 repos
           on host, "curl -O http://yum.puppetlabs.com/puppet6-nightly/puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
+
+        elsif nightly && puppet_platform == :puppet5
+          ## puppet6 repos
+          on host, "curl -O http://yum.puppetlabs.com/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         else
           on host, "curl -O http://yum.puppetlabs.com/puppet/puppet-release-#{variant}-#{version}.noarch.rpm"
@@ -878,9 +887,9 @@ EOS
     end
   end
 
-  def install_puppet_from_package
+  def install_puppet_from_package(puppet_collection = "puppet6")
     hosts.each do |host|
-      install_puppet_agent_on(host, {:puppet_collection => "puppet6"})
+      install_puppet_agent_on(host, {:puppet_collection => puppet_collection})
       on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
       install_package(host, 'puppetserver')
     end
@@ -997,7 +1006,7 @@ EOS
     end
   end
 
-  def install_puppet
+  def install_puppet(puppet_collection = "puppet6")
     hosts.each do |host|
       if host['platform'].variant == 'debian' &&
          host['platform'].version == '8'
@@ -1007,7 +1016,7 @@ EOS
     # If our :install_type is :pe then the harness has already installed puppet.
     case test_config[:install_type]
     when :package
-      install_puppet_from_package
+      install_puppet_from_package(puppet_collection)
     when :git
       if test_config[:repo_puppet] then
         install_puppet_from_source
