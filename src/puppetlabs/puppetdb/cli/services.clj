@@ -399,6 +399,13 @@
       (finally
         (swap! stop-status disj :collecting-garbage)))))
 
+(defn maybe-send-cmd-event!
+  "Put a map with identifying information about an enqueued command on the
+   cmd-event-chan. Valid :kind values are: ::command/ingested ::command/processed"
+  [emit-cmd-events? cmd-event-ch cmdref kind]
+  (when emit-cmd-events?
+    (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
+
 (defn start-puppetdb
   "Throws {:type ::unsupported-database :current version :oldest version} if
   the current database is not supported."
@@ -407,7 +414,10 @@
          (map? config)]
    :post [(map? %)]}
 
-  (let [{:keys [database developer read-database]} config
+  (let [{:keys [database developer read-database emit-cmd-events?]} config
+        {:keys [cmd-event-mult cmd-event-ch]} context
+        emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
+        maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
         write-db (-> (assoc database :pool-name "PDBWritePool")
                      (jdbc/pooled-datasource database-metrics-registry))
         read-db (-> (assoc read-database
@@ -416,7 +426,9 @@
                     (jdbc/pooled-datasource database-metrics-registry))
         globals {:scf-read-db read-db
                  :scf-write-db write-db
-                 :pretty-print (:pretty-print developer)}]
+                 :pretty-print (:pretty-print developer)
+                 :cmd-event-mult cmd-event-mult
+                 :maybe-send-cmd-event! maybe-send-cmd-event!}]
 
     (when-let [v (version/version)]
       (log/info (trs "PuppetDB version {0}" v)))
@@ -434,7 +446,9 @@
                             (queue/sorted-command-buffer
                              (:max-enqueued developer)
                              #(cmd/update-counter! :invalidated %1 %2 inc!)))
-              [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
+              [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config)
+                                                                maybe-send-cmd-event!
+                                                                cmd-event-ch)
               globals (assoc globals
                              :q q
                              :dlo (dlo/initialize (get-path stockdir "discard")
@@ -445,6 +459,10 @@
               command-loader (when load-messages
                                (future
                                  (load-messages command-chan cmd/inc-cmd-depth)))]
+
+          ;; send the queue-loaded cmd-event if the command-loader didn't
+          (when-not command-loader
+            (async/>!! cmd-event-ch {:kind ::queue/queue-loaded}))
 
           ;; Pretty much this helper just knows our job-pool and gc-interval
           (let [job-pool (mk-pool)
@@ -487,7 +505,16 @@
     Returns false if some kind of maintenance was already in progress,
     true otherwise.  Although the latter does not imply that all of
     the operations were successful; consult the logs for more
-    information."))
+    information.")
+  (cmd-event-mult [this]
+    "Returns a core.async mult to which
+     {:kind <::ingested|::processed|::queue/queue-loaded>} maps are sent
+     when emit-cmd-events? is set to true. In the case of
+     {:kind <::ingested|::processed>} the map will contain :entity, :certname,
+     and :producer-ts entries for each command PDB has either ingested or
+     finished processing. The {:kind ::queue/queue-loaded} map is used to
+     indicate that the queue/message-loader has finished loading any existing
+     commands from the stockpile queue when PDB starts up."))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -501,12 +528,16 @@
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
           (jmx-reporter/start reporter))
-        (assoc context
-               :url-prefix (atom nil)
-               ;; This coordination is needed until we no longer
-               ;; support jdk < 10.
-               ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-               :stop-status (atom #{})))
+        (let [cmd-event-ch (async/chan 1000)
+              cmd-event-mult (async/mult cmd-event-ch)]
+          (assoc context
+                 :cmd-event-ch cmd-event-ch
+                 :cmd-event-mult cmd-event-mult
+                 :url-prefix (atom nil)
+                 ;; This coordination is needed until we no longer
+                 ;; support jdk < 10.
+                 ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+                 :stop-status (atom #{}))))
   (start [this context]
          (try+
           (let [config (get-config)
@@ -530,7 +561,13 @@
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
           (jmx-reporter/stop reporter))
+        (let [{:keys [cmd-event-mult cmd-event-ch]} context]
+          (when cmd-event-mult
+            (async/untap-all cmd-event-mult))
+          (when cmd-event-ch
+            (async/close! cmd-event-ch)))
         (stop-puppetdb context))
+
   (set-url-prefix [this url-prefix]
                   (let [old-url-prefix (:url-prefix (service-context this))]
                     (when-not (compare-and-set! old-url-prefix nil url-prefix)
@@ -551,7 +588,9 @@
                                      row-callback-fn)))
 
   (clean [this] (clean this #{}))
-  (clean [this what] (clean-puppetdb (service-context this) (get-config) what)))
+  (clean [this what] (clean-puppetdb (service-context this) (get-config) what))
+
+  (cmd-event-mult [this] (-> this service-context :cmd-event-mult)))
 
 (defn provide-services
   "Starts PuppetDB as a service via Trapperkeeper.  Augments TK's normal

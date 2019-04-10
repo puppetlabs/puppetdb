@@ -90,7 +90,8 @@
         dlo-dir (fs/temp-dir "test-msg-handler-dlo")
         dlo (dlo/initialize (.toPath dlo-dir)
                              (:registry (new-metrics "puppetlabs.puppetdb.dlo"
-                                                     :jmx? false)))]
+                                                     :jmx? false)))
+        maybe-send-cmd-event! (constantly true)]
     (map->CommandHandlerContext
      {:handle-message (message-handler
                        q
@@ -101,7 +102,8 @@
                        response-chan
                        stats
                        blacklist-config
-                       (atom {:executing-delayed 0}))
+                       (atom {:executing-delayed 0})
+                       maybe-send-cmd-event!)
       :command-chan command-chan
       :dlo dlo
       :delay-pool delay-pool
@@ -1391,7 +1393,7 @@
           (client/submit-facts base-url "foo.com" 5 facts)
           ;; make sure the second command has a later timestamp
           (Thread/sleep 200)
-          (client/submit-facts base-url "foo.com" 5 facts)
+          (client/submit-facts base-url "foo.com" 5 (assoc facts :producer_timestamp (str (now))))
           ;; allow pdb to process messages
           (deliver go-ahead-and-execute true)
 
@@ -1403,7 +1405,7 @@
               (throw (Exception. "timed out waiting for response-chan")))
 
             ;; check the first command was "bashed"
-            (is (= #{{:id 0, :delete? true} {:id 1, :delete? nil}}
+            (is (= #{{:id 0 :delete? true} {:id 1 :delete? nil}}
                    (set (map #(select-keys % [:id :delete?]) val))))))))))
 
 (deftest command-service-stats
