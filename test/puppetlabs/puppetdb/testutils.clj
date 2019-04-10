@@ -415,11 +415,13 @@
    (command-app
     (fn [] {})
     (fn [command version certname producer-ts stream compression callback]
-      (dispatch/do-enqueue-command
-       q
-       command-chan
-       (Semaphore. 100)
-       (queue/create-command-req command version certname producer-ts compression callback stream)))
+      (let [maybe-send-cmd-event! (constantly true)]
+        (dispatch/do-enqueue-command
+         q
+         command-chan
+         (Semaphore. 100)
+         (queue/create-command-req command version certname producer-ts compression callback stream)
+         maybe-send-cmd-event!)))
 
     false
     nil)))

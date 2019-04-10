@@ -334,7 +334,9 @@
      (get-path "target")
      (str *ns*)
      (fn [temp-path]
-       (let [[q load-messages] (create-or-open-stockpile temp-path)]
+       (let [maybe-send-cmd-event! (constantly true)
+             cmd-event-ch (async/chan 10)
+             [q load-messages] (create-or-open-stockpile temp-path maybe-send-cmd-event! cmd-event-ch)]
 
          (is (nil? load-messages))
          (store-command q (catalog->command-req 1 {:message "payload 1"
@@ -346,7 +348,9 @@
          (store-command q (catalog->command-req 1 {:message "payload 4"
                                                          :certname "foo4"})))
 
-       (let [[q load-messages] (create-or-open-stockpile temp-path)
+       (let [maybe-send-cmd-event! (constantly true)
+             cmd-event-ch (async/chan 10)
+             [q load-messages] (create-or-open-stockpile temp-path maybe-send-cmd-event! cmd-event-ch)
              command-chan (async/chan 4)
              cc (tu/call-counter)]
 
@@ -366,7 +370,9 @@
      (get-path "target")
      (str *ns*)
      (fn [temp-path]
-       (let [[q load-messages] (create-or-open-stockpile temp-path)]
+       (let [maybe-send-cmd-event! (constantly true)
+             cmd-event-ch (async/chan 10)
+             [q load-messages] (create-or-open-stockpile temp-path maybe-send-cmd-event! cmd-event-ch)]
 
          (is (nil? load-messages))
          (store-command q (catalog->command-req 1 {:message "payload 1"
@@ -374,7 +380,9 @@
          (store-command q (catalog->command-req 1 {:message "payload 2"
                                                    :certname "foo2"})))
 
-       (let [[q load-messages] (create-or-open-stockpile temp-path)
+       (let [maybe-send-cmd-event! (constantly true)
+             cmd-event-ch (async/chan 10)
+             [q load-messages] (create-or-open-stockpile temp-path maybe-send-cmd-event! cmd-event-ch)
              command-chan (async/chan 4)
              cc (tu/call-counter)]
 
