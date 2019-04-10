@@ -1636,6 +1636,7 @@
    ;; 67 exposed an agent bug where we would get duplicate resource events
    ;; from a failed exec call. The updated migration adds additional columns
    ;; to the hash to avoid these sorts of collisions
+   67 (fn [])
    68 support-fact-expiration-configuration
    69 add-resource-events-pk})
 
