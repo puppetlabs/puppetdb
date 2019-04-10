@@ -428,6 +428,17 @@
    ;; to get rid of it somehow when we refactor mq-listener and command.clj.
    (SortedCommandBuffer. (TreeMap.) (HashMap.) n delete-update-fn)))
 
+(defn make-cmd-event
+  "Given a cmdref and kind return a cmd-event-map which is suitable to be put
+   on the cmd-event-chan.
+   Valid :kind values are: ::command/ingested and ::command/processed."
+  [cmdref kind]
+  (let [{:keys [command certname producer-ts]} cmdref]
+    {:kind kind
+     :command (command-constants/command-keys command)
+     :certname certname
+     :producer-ts producer-ts}))
+
 (defn message-loader
   "Returns a function that will enqueue existing stockpile messages to
   `command-chan`. Messages with ids less than `message-id-ceiling`
@@ -435,29 +446,32 @@
   when new commands are enqueued before all existing commands have
   been enqueued. Note that there is no guarantee on the enqueuing
   order of commands read from stockpile's reduce function"
-  [q message-id-ceiling]
+  [q message-id-ceiling maybe-send-cmd-event! cmd-event-ch]
   (fn [command-chan update-metrics]
-    (stock/reduce q
-                  (fn [chan entry]
-                    ;;This conditional guards against a new command
-                    ;;enqueued in the same directory before we've
-                    ;;read all existing files
-                    (when (< (stock/entry-id entry) message-id-ceiling)
-                      (let [{:keys [command version] :as cmdref} (entry->cmdref entry)]
-                        (async/>!! chan cmdref)
-                        (update-metrics command version)))
-                    chan)
-                  command-chan)))
+    (let [output (stock/reduce q
+                               (fn [chan entry]
+                                 ;;This conditional guards against a new command
+                                 ;;enqueued in the same directory before we've
+                                 ;;read all existing files
+                                 (when (< (stock/entry-id entry) message-id-ceiling)
+                                   (let [{:keys [command version] :as cmdref} (entry->cmdref entry)]
+                                     (async/>!! chan cmdref)
+                                     (maybe-send-cmd-event! cmdref :puppetlabs.puppetdb.command/ingested)
+                                     (update-metrics command version)))
+                                 chan)
+                               command-chan)]
+      (async/>!! cmd-event-ch {:kind ::queue-loaded})
+      output)))
 
 (defn create-or-open-stockpile
   "Opens an existing stockpile queue if one is present otherwise
   creates a new stockpile queue at `queue-dir`"
-  [queue-dir]
+  [queue-dir maybe-send-cmd-event! cmd-event-ch]
   (let [stockpile-root (kitchensink/absolute-path queue-dir)
         queue-path (get-path stockpile-root "cmd")]
     (if-let [q (and (Files/exists queue-path (make-array LinkOption 0))
                     (stock/open queue-path))]
-      [q (message-loader q (stock/next-likely-id q))]
+      [q (message-loader q (stock/next-likely-id q) maybe-send-cmd-event! cmd-event-ch)]
       (do
         (Files/createDirectories (get-path stockpile-root)
                                  (make-array FileAttribute 0))

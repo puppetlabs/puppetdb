@@ -27,12 +27,12 @@ successfully complete a run, ending with `Notice: Applied catalog in X.XX
 seconds`.
 
 > **Note:** It is helpful to add the Puppet bin, `/opt/puppetlabs/bin`, and man,
-`/opt/puppetlabs/client/tools/share/man`, directories to your `PATH` and
+`/opt/puppetlabs//client-tools/share/man`, directories to your `PATH` and
 `MANPATH` directories respectively. For example,
 >
 > ```bash
 > $ export PATH=/opt/puppetlabs/bin:$PATH
-> $ export MANPATH=/opt/puppetlabs/client/tools/share/man:$MANPATH
+> $ export MANPATH=/opt/puppetlabs/client-tools/share/man:$MANPATH
 > ```
 >
 > The rest of this documentation assumes that these two directories have been
