@@ -2,11 +2,14 @@ require 'timeout'
 require 'json'
 require 'open3'
 require 'rspec'
-require 'securerandom'
 require 'net/http'
 
 describe 'puppetdb container specs' do
   include Helpers
+
+  VOLUMES = [
+    'pgdata'
+  ]
 
   def count_database(container, database)
     cmd = "docker exec #{container} psql -t --username=puppetdb --command=\"SELECT count(datname) FROM pg_database where datname = '#{database}'\""
@@ -30,9 +33,7 @@ describe 'puppetdb container specs' do
 
     data_mount = ''
     if !!File::ALT_SEPARATOR
-      data_dir = File.join(File.expand_path(__dir__), '..', '..', SecureRandom.uuid)
-      FileUtils.mkdir_p(data_dir)
-      data_mount = "--volume #{data_dir}:/var/lib/postgresql/data"
+      data_mount = "--volume #{ENV['VOLUME_ROOT']}/pgdata:/var/lib/postgresql/data"
     end
 
     postgres_custom_source = File.join(File.expand_path(__dir__), '..', 'postgres-custom')
@@ -118,6 +119,10 @@ describe 'puppetdb container specs' do
     end
 
     @mapped_ports = {}
+
+    # LCOW requires directories to exist
+    create_host_volume_targets(ENV['VOLUME_ROOT'], VOLUMES)
+
     # Windows doesn't have the default 'bridge network driver
     network_opt = File::ALT_SEPARATOR.nil? ? '' : '--driver=nat'
 
