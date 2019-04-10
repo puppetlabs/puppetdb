@@ -65,6 +65,12 @@ steps:
   displayName: Build PuppetDB Container
   name: build_puppetdb_container
 - powershell: |
+    # set an Azure variable for temp volumes root
+    $tempVolumeRoot = Join-Path -Path $ENV:TEMP -ChildPath ([System.IO.Path]::GetRandomFileName())
+    Write-Host "##vso[task.setvariable variable=VOLUME_ROOT]$tempVolumeRoot"
+  displayName: Prepare Test Environment
+  name: test_prepare
+- powershell: |
     . ./docker/ci/build.ps1
     Invoke-ContainerTest -Name puppetdb -Namespace $ENV:NAMESPACE
   displayName: Test PuppetDB
@@ -78,5 +84,7 @@ steps:
 - powershell: |
     . ./docker/ci/build.ps1
     Clear-ContainerBuilds -Name puppetdb
+    Write-Host "Cleaning up temporary volume: $ENV:VOLUME_ROOT"
+    Remove-Item $ENV:VOLUME_ROOT -Force -Recurse -ErrorAction Continue
   displayName: Container Cleanup
   condition: always()
