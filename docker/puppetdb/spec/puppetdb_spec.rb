@@ -99,22 +99,13 @@ describe 'puppetdb container specs' do
     extensions
   end
 
-  def start_puppetdb
-    status = get_puppetdb_state
+  def wait_on_puppetdb_status(seconds = 240)
     # since pdb doesn't have a proper healthcheck yet, this could spin forever
     # add a timeout so it eventually returns.
-    # puppetdb entrypoint waits on a response from the master
-    Timeout::timeout(240) do
-      while status != 'running'
-        sleep(1)
-        status = get_puppetdb_state
-      end
+    return retry_block_up_to_timeout(seconds) do
+      get_puppetdb_state() == 'running' ? 'running' :
+        raise('puppetdb never entered running state')
     end
-  rescue Timeout::Error
-    STDOUT.puts('puppetdb never entered running state')
-    raise
-  else
-    return status
   end
 
   before(:all) do
@@ -173,7 +164,6 @@ describe 'puppetdb container specs' do
   end
 
   it 'should have a "running" puppetdb container' do
-    status = start_puppetdb
-    expect(status).to eq('running')
+    expect(wait_on_puppetdb_status()).to eq('running')
   end
 end
