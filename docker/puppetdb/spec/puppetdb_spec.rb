@@ -66,22 +66,19 @@ describe 'puppetdb container specs' do
   end
 
   before(:all) do
-    @pdb_image = ENV['PUPPET_TEST_DOCKER_IMAGE']
-    if @pdb_image.nil?
+    if ENV['PUPPET_TEST_DOCKER_IMAGE'].nil?
+      fail <<-MSG
       error_message = <<-MSG
   * * * * *
   PUPPET_TEST_DOCKER_IMAGE environment variable must be set so we
   know which image to test against!
   * * * * *
       MSG
-      fail error_message
     end
     status = run_command('docker-compose --no-ansi version')[:status]
     if status.exitstatus != 0
       fail "`docker-compose` must be installed and available in your PATH"
     end
-
-    @mapped_ports = {}
 
     teardown_cluster()
     # LCOW requires directories to exist
