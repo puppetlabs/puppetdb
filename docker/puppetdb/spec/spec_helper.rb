@@ -1,4 +1,5 @@
 require 'open3'
+require 'timeout'
 
 module Helpers
   def run_command(command)
@@ -18,6 +19,24 @@ module Helpers
     end
 
     { status: status, stdout: stdout_string }
+  end
+
+  def retry_block_up_to_timeout(timeout, &block)
+    ex = nil
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    loop do
+      begin
+        return yield
+      rescue => e
+        ex = e
+        sleep(1)
+      ensure
+        if (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) > timeout
+          raise Timeout::Error.new(ex)
+        end
+      end
+    end
   end
 
   # Windows requires directories to exist prior, whereas Linux will create them
