@@ -47,10 +47,13 @@ describe 'puppetdb container specs' do
   end
 
   def get_postgres_extensions
-    result = run_command('docker-compose --no-ansi exec -T postgres psql --username=puppetdb --command="SELECT * FROM pg_extension"')
-    extensions = result[:stdout].chomp
-    STDOUT.puts("retrieved extensions: #{extensions}")
-    extensions
+    return retry_block_up_to_timeout(30) do
+      query = 'docker-compose --no-ansi exec -T postgres psql --username=puppetdb --command="SELECT * FROM pg_extension"'
+      extensions = run_command(query)[:stdout].chomp
+      raise('failed to retrieve extensions') if extensions.empty?
+      STDOUT.puts("retrieved extensions: #{extensions}")
+      extensions
+    end
   end
 
   def wait_on_puppetdb_status(seconds = 240)
@@ -92,10 +95,6 @@ describe 'puppetdb container specs' do
   after(:all) do
     emit_logs()
     teardown_cluster()
-  end
-
-  it 'should have started postgres' do
-    expect(get_service_container('postgres', 30)).to_not be_empty
   end
 
   it 'should have installed postgres extensions' do
