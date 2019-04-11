@@ -2,11 +2,11 @@ require 'open3'
 require 'timeout'
 
 module Helpers
-  def run_command(command)
+  def run_command(env = ENV.to_h, command)
     stdout_string = ''
     status = nil
 
-    Open3.popen3(command) do |stdin, stdout, stderr, wait_thread|
+    Open3.popen3(env, command) do |stdin, stdout, stderr, wait_thread|
       Thread.new do
         Thread.current.report_on_exception = false
         stdout.each { |l| stdout_string << l and STDOUT.puts l }
