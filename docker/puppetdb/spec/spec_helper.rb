@@ -8,9 +8,11 @@ module Helpers
 
     Open3.popen3(command) do |stdin, stdout, stderr, wait_thread|
       Thread.new do
+        Thread.current.report_on_exception = false
         stdout.each { |l| stdout_string << l and STDOUT.puts l }
       end
       Thread.new do
+        Thread.current.report_on_exception = false
         stderr.each { |l| STDOUT.puts l }
       end
 
@@ -50,6 +52,7 @@ module Helpers
   end
 
   def get_service_base_uri(service, port)
+    @mapped_ports ||= {}
     @mapped_ports["#{service}:#{port}"] ||= begin
       result = run_command("docker-compose --no-ansi port #{service} #{port}")
       service_ip_port = result[:stdout].chomp
