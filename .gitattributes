@@ -2,3 +2,4 @@ docker/puppetdb/*                                        text  eol=lf
 docker/puppetdb/conf.d/*                                 text  eol=lf
 docker/puppetdb/logging/*                                text  eol=lf
 docker/puppetdb/docker-entrypoint.d/*                    text  eol=lf
+docker/puppetdb/postgres-custom/*                        text  eol=lf

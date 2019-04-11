@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:9.6
+    environment:
+      - POSTGRES_PASSWORD=puppetdb
+      - POSTGRES_USER=puppetdb
+      - POSTGRES_DB=puppetdb
+    expose:
+      - 5432
+    volumes:
+      - ./puppetdb/postgres-custom:/docker-entrypoint-initdb.d
+      - ${VOLUME_ROOT:-.}/pgdata:/var/lib/postgresql/data
+
+  puppetdb:
+    image: ${PUPPET_TEST_DOCKER_IMAGE:-puppet/puppetdb}
+    environment:
+      - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-false}
+      - PUPPETDB_PASSWORD=puppetdb
+      - PUPPETDB_USER=puppetdb
+      - USE_PUPPETSERVER=false
+    ports:
+      - 8080
+      - 8081
+    depends_on:
+      - postgres

@@ -109,4 +109,10 @@ $($output | Out-String)
 
   Write-Output "`nPruning Dangling Images"
   docker image prune --filter "dangling=true" --force
+
+  Write-Output "`nPruning Volumes"
+  docker volume prune
+
+  Write-Output "`nPruning Networks"
+  docker network prune
 }
