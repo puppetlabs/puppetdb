@@ -43,7 +43,7 @@ CONSUL_PORT="${CONSUL_PORT:-8500}"
 wait_for_host_port "postgres" "5432" $PUPPETDB_WAITFORPOSTGRES_SECONDS
 
 if [ "$USE_PUPPETSERVER" = true ]; then
-  wait_for_host $PUPPETSERVER_HOSTNAME
+  wait_for_host_port $PUPPETSERVER_HOSTNAME "8140"
   HEALTH_COMMAND="curl --silent --fail --insecure 'https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple' | grep -q '^running$'"
 fi
 
