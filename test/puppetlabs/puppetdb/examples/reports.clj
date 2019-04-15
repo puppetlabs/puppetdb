@@ -62,6 +62,7 @@
        :resource_title "notify, yo"
        :environment "DEV"
        :property "message"
+       :name "foo"
        :new_value "notify, yo"
        :old_value ["what" "the" "woah"]
        :corrective_change true
@@ -78,6 +79,7 @@
        :corrective_change false
        :resource_title "notify, yar"
        :property "message"
+       :name "bar"
        :new_value {"absent" 5}
        :old_value {"absent" true}
        :message "defined 'message' as 'notify, yo'"
@@ -93,6 +95,7 @@
        :resource_title "hi"
        :corrective_change false
        :property nil
+       :name nil
        :new_value nil
        :old_value nil
        :message nil
@@ -158,6 +161,7 @@
        :resource_type "Notify"
        :resource_title "Creating tmp directory at /Users/foo/tmp"
        :property "message"
+       :name "foo"
        :new_value "Creating tmp directory at /Users/foo/tmp"
        :old_value "absent"
        :corrective_change false
@@ -172,6 +176,7 @@
        :resource_type "File"
        :resource_title "puppet-managed-file"
        :property "ensure"
+       :name "bar"
        :new_value "present"
        :old_value "absent"
        :corrective_change false
@@ -186,6 +191,7 @@
        :resource_type "File"
        :resource_title "tmp-directory"
        :property "ensure"
+       :name nil
        :new_value "directory"
        :old_value "absent"
        :corrective_change false
@@ -252,6 +258,7 @@
        :resource_type "Notify"
        :resource_title "notify, yo"
        :property "message"
+       :name "foo"
        :new_value "notify, yo"
        :old_value ["what" "the" "woah"]
        :corrective_change false
@@ -266,6 +273,7 @@
        :resource_type "Notify"
        :resource_title "notify, yar"
        :property "message"
+       :name "bar"
        :corrective_change false
        :new_value {"absent" 5}
        :old_value {"absent" true}
@@ -280,6 +288,7 @@
        :resource_type "Notify"
        :resource_title "hi"
        :property nil
+       :name nil
        :new_value nil
        :old_value nil
        :corrective_change false
@@ -346,6 +355,7 @@
        :resource_type "Notify"
        :resource_title "notify, yo"
        :property "message"
+       :name "foo"
        :new_value "notify, yo"
        :corrective_change false
        :old_value ["what" "the" "woah"]
@@ -360,6 +370,7 @@
        :resource_type "Notify"
        :resource_title "notify, yar"
        :property "message"
+       :name "bar"
        :corrective_change false
        :new_value {"absent" 5}
        :old_value {"absent" true}
@@ -375,6 +386,7 @@
        :resource_title "hi"
        :corrective_change false
        :property nil
+       :name nil
        :new_value nil
        :old_value nil
        :message nil

@@ -260,6 +260,7 @@
    "line"                   ["resource_events"]
    "containment_path"       ["resource_events"]
    "containing_class"       ["resource_events"]
+   "name"                   ["resource_events"]
    "environment"            ["environments"]})
 
 (def resource-event-columns
@@ -275,6 +276,7 @@
    "resource_type"          ["latest_events"]
    "resource_title"         ["latest_events"]
    "property"               ["latest_events"]
+   "name"                   ["latest_events"]
    "new_value"              ["latest_events"]
    "old_value"              ["latest_events"]
    "message"                ["latest_events"]
@@ -303,6 +305,7 @@
    "line"                   ["resource_events"]
    "containment_path"       ["resource_events"]
    "containing_class"       ["resource_events"]
+   "name"                   ["resource_events"]
    "environment"            ["environments"]})
 
 (def report-columns
