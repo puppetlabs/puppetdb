@@ -5,7 +5,7 @@
 #
 # Optional environment variables:
 #   PUPPETDB_WAITFORHOST_SECONDS     Number of seconds to wait for host, defaults to 30
-#   PUPPETDB_WAITFORPOSTGRES_SECONDS Number of seconds to wait on Postgres, defaults to 90
+#   PUPPETDB_WAITFORPOSTGRES_SECONDS Number of seconds to wait on Postgres, defaults to 150
 #   PUPPETDB_WAITFORHEALTH_SECONDS   Number of seconds to wait for health
 #                                    checks of Consul / Puppetserver to succeed, defaults to 600
 
@@ -34,7 +34,7 @@ wait_for_host_port() {
 }
 
 PUPPETDB_WAITFORHOST_SECONDS=${PUPPETDB_WAITFORHOST_SECONDS:-30}
-PUPPETDB_WAITFORPOSTGRES_SECONDS=${PUPPETDB_WAITFORPOSTGRES_SECONDS:-90}
+PUPPETDB_WAITFORPOSTGRES_SECONDS=${PUPPETDB_WAITFORPOSTGRES_SECONDS:-150}
 PUPPETDB_WAITFORHEALTH_SECONDS=${PUPPETDB_WAITFORHEALTH_SECONDS:-600}
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
 CONSUL_HOSTNAME="${CONSUL_HOSTNAME:-consul}"
