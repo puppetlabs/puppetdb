@@ -62,7 +62,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [puppetlabs.puppetdb.time :refer [now]]
+            [puppetlabs.puppetdb.time :as time
+             :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.command.constants
@@ -71,8 +72,7 @@
              :refer [defservice service-context]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clj-time.core :as time :refer [interval in-millis]]
+            [puppetlabs.puppetdb.time :as time]
             [clj-time.format :as fmt-time]
             [clojure.set :as set]
             [clojure.core.async :as async]

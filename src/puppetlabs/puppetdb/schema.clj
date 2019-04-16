@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.schema
-  (:require [puppetlabs.puppetdb.time :as pl-time]
-            [clj-time.core :as time]
+  (:require [puppetlabs.puppetdb.time :as time]
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.coerce :as sc]
@@ -133,7 +132,7 @@
   "Basic conversion functions for use by Schema"
   (convert-if-needed
    {org.joda.time.Minutes (comp time/minutes coerce-to-int)
-    org.joda.time.Period (comp pl-time/parse-period str)
+    org.joda.time.Period (comp time/parse-period str)
     org.joda.time.Days (comp time/days coerce-to-int)
     org.joda.time.Seconds (comp time/seconds coerce-to-int)
     Boolean (comp #(Boolean/valueOf %) str)

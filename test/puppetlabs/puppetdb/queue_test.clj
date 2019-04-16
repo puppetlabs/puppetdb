@@ -2,9 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.queue :refer :all]
-            [clj-time.core :as t :refer [days ago seconds]]
             [clj-time.coerce :as tcoerce]
-            [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.constants :as constants]
             [puppetlabs.puppetdb.nio :refer [get-path]]
@@ -14,7 +12,8 @@
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
             [puppetlabs.puppetdb.command.constants :as cconst]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
+            [puppetlabs.puppetdb.time :as time
+             :refer [now days parse-wire-datetime seconds]]))
 
 (defn catalog->command-req [version {:keys [certname name] :as catalog}]
   (create-command-req "replace catalog"
@@ -122,8 +121,8 @@
               :certname "foo.com"
               :payload {:message "payload"}}
              (select-keys command [:command :version :certname :payload])))
-      (is (t/before? start (-> (get-in command [:annotations :received])
-                             parse-wire-datetime))))))
+      (is (time/before? start (-> (get-in command [:annotations :received])
+                                  parse-wire-datetime))))))
 
 (deftest test-sorted-command-buffer
   (testing "newer catalogs/facts cause older catalogs to be deleted"

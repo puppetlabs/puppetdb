@@ -11,8 +11,24 @@
             [clj-time.format :as tf]
             [schema.core :as s]))
 
-(def now clj-time.core/now)
-;; If we end up switching directly to java.time: OffsetDateTime/now
+(def ago clj-time.core/ago)
+(def now clj-time.core/now)         ; ~= java.time: OffsetDateTime/now
+(def days clj-time.core/days)       ; ~= java.time: Period/ofDays
+;; No direct java.time equivalents (Periods have day granularity there)
+(def hours clj-time.core/hours)
+(def minutes clj-time.core/minutes)
+(def seconds clj-time.core/seconds)
+
+(def date-time clj-time.core/date-time)
+(def before? clj-time.core/before?)
+(def after? clj-time.core/after?)
+(def plus clj-time.core/plus)
+(def minus clj-time.core/minus)
+(def from-now clj-time.core/from-now)
+(def interval clj-time.core/interval)
+(def in-millis clj-time.core/in-millis)
+(def in-seconds clj-time.core/in-seconds)
+(def in-minutes clj-time.core/in-minutes)
 
 (defprotocol ToJavaDate
   (to-java-date ^java.util.Date [x] "Converts x to a java.util.Date."))

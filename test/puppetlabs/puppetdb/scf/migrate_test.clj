@@ -10,7 +10,6 @@
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
             [clj-time.coerce :refer [to-timestamp]]
-            [clj-time.core :refer [ago days]]
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
@@ -19,7 +18,7 @@
                      schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.time :refer [now]])
+            [puppetlabs.puppetdb.time :refer [ago days now]])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 

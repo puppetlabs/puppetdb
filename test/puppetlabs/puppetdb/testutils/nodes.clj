@@ -4,8 +4,7 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.time :refer [now]]
-            [clj-time.core :refer [plus seconds]]))
+            [puppetlabs.puppetdb.time :refer [now plus seconds]]))
 
 (defn change-certname
   "Changes [:certname certname] anywhere in `data` to `new-certname`"

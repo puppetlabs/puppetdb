@@ -15,7 +15,6 @@
             [puppetlabs.puppetdb.constants :as constants]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
-            [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
@@ -27,6 +26,7 @@
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
 

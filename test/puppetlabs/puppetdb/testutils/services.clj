@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.services
   (:refer-clojure :exclude [get])
-  (:require [clj-time.core :as t]
-            [clj-time.coerce :as time-coerce]
+  (:require [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
