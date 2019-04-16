@@ -23,7 +23,6 @@
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [atom-logger logs-matching with-log-output]]
-            [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :as cmd :refer :all]
             [puppetlabs.puppetdb.config :as conf]
@@ -43,6 +42,7 @@
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.time :as tfmt]
             [puppetlabs.puppetdb.time :as time
              :refer [ago days from-sql-date now seconds to-date-time to-string
                      to-timestamp]]

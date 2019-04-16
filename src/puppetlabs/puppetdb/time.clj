@@ -36,6 +36,10 @@
 (def from-long tc/from-long)
 (def from-sql-date tc/from-sql-date)
 
+(def formatters tf/formatters)
+(def parse tf/parse)
+(def unparse tf/unparse)
+
 (defprotocol ToJavaDate
   (to-java-date ^java.util.Date [x] "Converts x to a java.util.Date."))
 
