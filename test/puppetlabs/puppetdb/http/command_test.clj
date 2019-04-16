@@ -18,8 +18,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
-            [clj-time.format :as time]
-            [clj-time.coerce :as tcoerce]
             [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [clojure.java.io :as io]
@@ -28,8 +26,9 @@
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.command :as cmd]
+            [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [puppetlabs.puppetdb.queue :as queue])
+            [puppetlabs.puppetdb.time :as time])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
            [java.util.concurrent Semaphore]
@@ -209,7 +208,7 @@
        (let [cmdref (async/<!! command-chan)]
 
          (testing "should be timestamped when parseable"
-           (is (< ms-before-test (tcoerce/to-long (:received cmdref))))))))))
+           (is (< ms-before-test (time/to-long (:received cmdref))))))))))
 
 (deftest wrap-with-request-normalization-all-params
   (let [normalize (#'tgt/wrap-with-request-normalization identity)]

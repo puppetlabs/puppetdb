@@ -62,6 +62,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -82,7 +83,6 @@
             [metrics.histograms :refer [histogram update!]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
-            [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.amq-migration :as mig]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [overtone.at-at :as at-at :refer [mk-pool stop-and-reset-pool!]]

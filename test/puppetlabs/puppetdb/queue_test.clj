@@ -2,7 +2,6 @@
   (:require [clojure.string :as str]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.queue :refer :all]
-            [clj-time.coerce :as tcoerce]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.constants :as constants]
             [puppetlabs.puppetdb.nio :refer [get-path]]
@@ -12,6 +11,7 @@
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
             [puppetlabs.puppetdb.command.constants :as cconst]
+            [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time
              :refer [now days parse-wire-datetime seconds]]))
 

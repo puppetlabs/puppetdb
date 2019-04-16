@@ -7,7 +7,6 @@
            [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
   (:require [clojure.string :as str :refer [re-quote-replacement]]
             [puppetlabs.stockpile.queue :as stock]
-            [clj-time.coerce :as tcoerce]
             [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -26,6 +25,7 @@
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))

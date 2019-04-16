@@ -30,6 +30,12 @@
 (def in-seconds clj-time.core/in-seconds)
 (def in-minutes clj-time.core/in-minutes)
 
+(def to-date-time tc/to-date-time)
+(def to-long tc/to-long)
+(def to-string tc/to-string)
+(def from-long tc/from-long)
+(def from-sql-date tc/from-sql-date)
+
 (defprotocol ToJavaDate
   (to-java-date ^java.util.Date [x] "Converts x to a java.util.Date."))
 

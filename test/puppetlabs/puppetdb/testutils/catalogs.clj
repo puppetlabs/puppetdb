@@ -3,13 +3,12 @@
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.catalogs :as cats]
             [puppetlabs.kitchensink.core :refer [uuid]]
-            [clj-time.coerce :refer [to-string]]
             [schema.core :as s]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.catalogs :refer [catalog-version]]
-            [puppetlabs.puppetdb.time :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now to-string]]))
 
 (defn replace-catalog
   "Convenience function for simulating a `replace catalog` command during testing.

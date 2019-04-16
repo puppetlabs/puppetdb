@@ -13,7 +13,7 @@
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.time :as time :refer [now]]
+            [puppetlabs.puppetdb.time :as time :refer [now to-string]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
@@ -23,7 +23,6 @@
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.testutils
              :refer [block-until-results default-timeout-ms temp-file]]
-            [clj-time.coerce :refer [to-string]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]

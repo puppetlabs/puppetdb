@@ -38,14 +38,14 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [clj-time.coerce
-             :refer [from-sql-date to-timestamp to-date-time to-string]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.time :as time :refer [ago days now seconds]]
+            [puppetlabs.puppetdb.time :as time
+             :refer [ago days from-sql-date now seconds to-date-time to-string
+                     to-timestamp]]
             [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]

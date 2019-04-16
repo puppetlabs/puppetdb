@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.cli
-  (:require [clj-time.coerce :as time-coerce]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.utils :as utils]
@@ -13,7 +12,7 @@
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.time :refer [now]]
+            [puppetlabs.puppetdb.time :as time-coerce :refer [now]]
             [clojure.walk :as walk]))
 
 (defn get-nodes []

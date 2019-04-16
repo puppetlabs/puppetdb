@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.reports-test
-  (:require [clj-time.coerce :refer [to-date-time to-string] :as tcoerce]
-            [clj-time.format :as tfmt]
+  (:require [clj-time.format :as tfmt]
             [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.query-eng :as qe]
@@ -27,7 +26,8 @@
                      vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-reports-for-comparison]]
-            [puppetlabs.puppetdb.time :refer [ago days now]]))
+            [puppetlabs.puppetdb.time
+             :refer [ago days now to-date-time to-string]]))
 
 (def endpoints [[:v4 "/v4/reports"]])
 
@@ -601,7 +601,7 @@
     (is (= all-reports (munge-reports-for-comparison [basic basic2])))))
 
 (defn ts->str [ts]
-  (tfmt/unparse (tfmt/formatters :date-time) (tcoerce/to-date-time ts)))
+  (tfmt/unparse (tfmt/formatters :date-time) (to-date-time ts)))
 
 (deftest-http-app query-by-receive-time
   [[version endpoint] endpoints
