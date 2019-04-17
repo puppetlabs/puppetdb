@@ -182,6 +182,7 @@ The `<expanded resource events>` object is of the following form:
         "resource_type": <type of resource event occurred on>,
         "resource_title": <title of resource event occurred on>,
         "property": <property/parameter of resource on which event occurred>,
+        "name": <name of the resource on which event occurred>,
         "new_value": <new value for resource property>,
         "old_value": <old value of resource property>,
         "message": <description of what happened during event>,
@@ -210,6 +211,7 @@ Where an `<event>` object is of the form:
     {
             "timestamp": <timestamp (from agent) at which event occurred>,
             "property": <property/parameter of resource on which event occurred>,
+            "name": <name of resource on which event occurred>,
             "new_value": <new value for resource property>,
             "old_value": <old value of resource property>,
             "status": <status of event (`success`, `failure`, or `noop`)>,
@@ -282,6 +284,7 @@ Query for all reports:
         "data": [ {
           "new_value" : "hi world",
           "property" : "message",
+          "name": "define message",
           "file" : "/home/wyatt/.puppet/manifests/site.pp",
           "old_value" : "absent",
           "line" : 7,
@@ -294,6 +297,7 @@ Query for all reports:
         }, {
           "new_value" : "hi world",
           "property" : "message",
+          "name": "define message",
           "file" : "/home/wyatt/.puppet/manifests/site.pp",
           "old_value" : "absent",
           "line" : 3,
@@ -381,6 +385,7 @@ for a report with hash `32c821673e647b0650717db467abc51d9949fd9a`:
           "events":[
              {
                 "property":"message",
+                "name": null,
                 "old_value":"absent",
                 "new_value":"hi world",
                 "status":"success",
