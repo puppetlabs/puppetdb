@@ -19,7 +19,7 @@
             [puppetlabs.trapperkeeper.core :as tk]
             [yaml.core :as yaml]
             [slingshot.slingshot :refer [throw+]]
-            [clj-time.format :as tfmt]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])
   (:import [com.typesafe.config ConfigValueFactory]))
 
@@ -350,7 +350,7 @@
              "--vardir" "puppet"
              extra-puppet-args))))
 
-(def date-formatter (tfmt/formatters :date-time))
+(def date-formatter (time/formatters :date-time))
 
 (defn query-timestamp-str [timestamp-obj]
-  (tfmt/unparse date-formatter timestamp-obj))
+  (time/unparse date-formatter timestamp-obj))

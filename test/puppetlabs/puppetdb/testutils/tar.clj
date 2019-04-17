@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.testutils.tar
   (:require [puppetlabs.puppetdb.archive :as archive]
             [clojure.string :as str]
-            [clj-time.core :as time]
             [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn path
   "Creates a platform independent relative path built
@@ -17,7 +17,7 @@
   [tar-map]
   (assoc tar-map
     (path "puppetdb-bak" "export-metadata.json")
-    {"timestamp" (time/now)
+    {"timestamp" (now)
      "command_versions" {"replace_facts" 4
                          "replace_catalog" 6
                          "store_report" 5}}))

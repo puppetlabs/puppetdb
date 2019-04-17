@@ -4,16 +4,15 @@
             [clojure.walk :refer [stringify-keys]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
-            [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
             [flatland.ordered.map :as omap]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.http :refer [*app*
                                                         query-response
                                                         deftest-http-app]]
             [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   assert-success!]]))
+                                                   assert-success!]]
+            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp]]))
 
 (def inventory-endpoints [[:v4 "/v4/inventory"]])
 

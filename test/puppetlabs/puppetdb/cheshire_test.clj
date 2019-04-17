@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.cheshire-test
   (:require [cheshire.factory :refer [*json-factory*]]
-            [clj-time.core :as clj-time]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cheshire :refer :all])
+            [puppetlabs.puppetdb.cheshire :refer :all]
+            [puppetlabs.puppetdb.time :as time])
   (:import [java.io StringWriter StringReader]
            [java.sql Timestamp]
            [org.joda.time DateTime]))
@@ -13,7 +13,7 @@
     (is (= (generate-string (sorted-map :a 1 :b 2))
            "{\"a\":1,\"b\":2}")))
   (testing "should generate a json string that has a Joda DataTime object in it and not explode"
-    (is (= (generate-string (sorted-map :a 1 :b (clj-time/date-time 1986 10 14 4 3 27 456)))
+    (is (= (generate-string (sorted-map :a 1 :b (time/date-time 1986 10 14 4 3 27 456)))
            "{\"a\":1,\"b\":\"1986-10-14T04:03:27.456Z\"}"))))
 
 (deftest test-generate-pretty-string
@@ -21,7 +21,7 @@
     (is (= (generate-pretty-string (sorted-map :a 1 :b 2))
            "{\n  \"a\" : 1,\n  \"b\" : 2\n}")))
   (testing "should generate a json string that has a Joda DataTime object in it and not explode"
-    (is (= (generate-pretty-string (sorted-map :a 1 :b (clj-time/date-time 1986 10 14 4 3 27 456)))
+    (is (= (generate-pretty-string (sorted-map :a 1 :b (time/date-time 1986 10 14 4 3 27 456)))
            "{\n  \"a\" : 1,\n  \"b\" : \"1986-10-14T04:03:27.456Z\"\n}"))))
 
 (deftest test-generate-stream

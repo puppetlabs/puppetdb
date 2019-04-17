@@ -1,13 +1,12 @@
 (ns puppetlabs.puppetdb.testutils.resources
   (:require [clojure.java.jdbc :as sql]
-            [clj-time.core :refer [now]]
-            [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage
              :refer [add-facts! ensure-environment]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [to-jdbc-varchar-array]]
-            [puppetlabs.puppetdb.testutils.db :refer [*db*]]))
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
+            [puppetlabs.puppetdb.time :refer [now to-timestamp]]))
 
 (defn store-example-resources
   ([] (store-example-resources true))

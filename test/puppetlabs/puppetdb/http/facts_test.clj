@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.http.facts-test
   (:require [cheshire.core :as json]
-            [clj-time.coerce :refer [to-timestamp to-string]]
-            [clj-time.core :refer [now]]
             [clojure.java.jdbc :as sql]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
@@ -39,7 +37,8 @@
              :refer [call-with-puppetdb-instance]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp]]))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")

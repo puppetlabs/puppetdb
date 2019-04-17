@@ -45,10 +45,10 @@
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
+            [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
             [slingshot.slingshot :refer [try+ throw+]]
             [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
@@ -337,7 +337,7 @@
             (recur (inc events-since-last-report) last-report-time)))))))
 
 (defn rand-lastrun [run-interval]
-  (jitter (time/minus (time/now) run-interval)
+  (jitter (time/minus (now) run-interval)
           (time/in-seconds run-interval)))
 
 (defn delete-dir-or-report [dir]
@@ -432,7 +432,7 @@
      (map (fn [host-state]
             (when-not num-msgs
               (Thread/sleep (int (+ (rand) ms-per-message))))
-            (let [updated-host-state (update-host host-state rand-perc (time/now) run-interval)]
+            (let [updated-host-state (update-host host-state rand-perc (now) run-interval)]
               (>!! mq-ch updated-host-state)
               updated-host-state)))
      mq-ch)))

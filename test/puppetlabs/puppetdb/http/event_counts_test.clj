@@ -16,7 +16,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer [with-corrective-change
                                                            without-corrective-change
                                                            store-example-report!]]
-            [clj-time.core :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (def endpoints [[:v4 "/v4/event-counts"]])
 

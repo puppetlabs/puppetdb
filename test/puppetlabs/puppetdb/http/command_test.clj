@@ -18,9 +18,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
-            [clj-time.format :as time]
-            [clj-time.core :refer [now before?]]
-            [clj-time.coerce :as tcoerce]
             [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [clojure.java.io :as io]
@@ -29,8 +26,9 @@
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.command :as cmd]
+            [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [puppetlabs.puppetdb.queue :as queue])
+            [puppetlabs.puppetdb.time :as time])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
            [java.util.concurrent Semaphore]
@@ -210,7 +208,7 @@
        (let [cmdref (async/<!! command-chan)]
 
          (testing "should be timestamped when parseable"
-           (is (< ms-before-test (tcoerce/to-long (:received cmdref))))))))))
+           (is (< ms-before-test (time/to-long (:received cmdref))))))))))
 
 (deftest wrap-with-request-normalization-all-params
   (let [normalize (#'tgt/wrap-with-request-normalization identity)]
@@ -308,7 +306,7 @@
                  :params {"command" "replace catalog"
                           "version" 4
                           "certname" "foo.com"
-                          "producer-timestamp" "2018-11-1"}}
+                          "producer-timestamp" "2018-11-01T00:00:00.000Z"}}
             wait-req (assoc-in req [:params "secondsToWaitForCompletion"] "0.001")]
         ;; These cases differ because we want to skip the processing
         ;; via timeout in the "success" case.
