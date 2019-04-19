@@ -26,10 +26,10 @@
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
-            [clj-time.core :as time :refer [ago before? from-now now days]]
-            [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.puppetdb.jdbc :as jdbc
-             :refer [call-with-query-rows query-to-vec]]))
+             :refer [call-with-query-rows query-to-vec]]
+            [puppetlabs.puppetdb.time :as time
+             :refer [ago before? days from-now now to-string to-timestamp]]))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")

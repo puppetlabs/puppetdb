@@ -1,11 +1,10 @@
 (ns puppetlabs.puppetdb.testutils.services
   (:refer-clojure :exclude [get])
-  (:require [clj-time.core :as t]
-            [clj-time.coerce :as time-coerce]
-            [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
+            [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [metrics.counters :refer [clear!]]
@@ -400,7 +399,7 @@
   successful (i.e. didn't time out).  The current timeout granularity
   may be as bad as 10ms."
   [server timeout-ms]
-  (let [now-ms #(time-coerce/to-long (t/now))
+  (let [now-ms #(time/to-long (now))
         deadline (+ (now-ms) timeout-ms)]
     (loop []
       (cond

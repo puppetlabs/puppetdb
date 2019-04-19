@@ -8,7 +8,6 @@
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.reports :as reports]
-            [clj-time.core :refer [now]]
             [clojure.test.check.clojure-test :as cct]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]

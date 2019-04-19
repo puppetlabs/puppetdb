@@ -23,7 +23,6 @@
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [atom-logger logs-matching with-log-output]]
-            [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :as cmd :refer :all]
             [puppetlabs.puppetdb.config :as conf]
@@ -38,15 +37,15 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [clj-time.coerce
-             :refer [from-sql-date to-timestamp to-date-time to-string]]
-            [clj-time.core :as t :refer [days ago now seconds]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.time :as pt]
+            [puppetlabs.puppetdb.time :as tfmt]
+            [puppetlabs.puppetdb.time :as time
+             :refer [ago days from-sql-date now seconds to-date-time to-string
+                     to-timestamp]]
             [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
@@ -61,6 +60,7 @@
              :refer [service-context]]
             [overtone.at-at :refer [mk-pool scheduled-jobs]]
             [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.threadpool :as gtp])
   (:import [java.nio.file Files]
@@ -920,7 +920,7 @@
                           to-timestamp
                           json/generate-string
                           json/parse-string
-                          pt/to-timestamp)
+                          time/to-timestamp)
         facts-cmd {:name certname
                    :environment "DEV"
                    :producer-timestamp producer-time
@@ -1478,7 +1478,7 @@
                  :body
                  first
                  :deactivated
-                 (pt/from-string)))))))
+                 time/parse-wire-datetime))))))
 
 (deftest command-response-channel
   (svc-utils/with-puppetdb-instance

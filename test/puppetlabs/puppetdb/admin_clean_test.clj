@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.admin-clean-test
-  (:require [clj-time.core :as time]
-            [clojure.math.combinatorics :refer [combinations]]
+  (:require [clojure.math.combinatorics :refer [combinations]]
             [clojure.test :refer :all]
             [metrics.counters :as counters]
             [metrics.gauges :as gauges]
@@ -20,7 +19,7 @@
                      with-test-db]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
-            [puppetlabs.puppetdb.time :as pdbtime]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]])
@@ -128,7 +127,7 @@
                 (await-a-while after-clean)))))))))
 
 (defn purgeable-nodes [node-purge-ttl]
-  (let [horizon (pdbtime/to-timestamp (time/ago node-purge-ttl))]
+  (let [horizon (time/to-timestamp (time/ago node-purge-ttl))]
     (jdbc/query-to-vec
      "select * from certnames where deactivated < ? or expired < ?"
      horizon horizon)))
@@ -139,7 +138,7 @@
           orig-clean @#'cli-svc/clean-puppetdb
           after-clean (CyclicBarrier. 2)
           node-purge-ttl (get-in config [:database :node-purge-ttl])
-          deactivation-time (pdbtime/to-timestamp (time/ago node-purge-ttl))
+          deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
           clean (fn [req]
                   (utils/noisy-future
                    (checked-admin-post "cmd" (clean-cmd req)))

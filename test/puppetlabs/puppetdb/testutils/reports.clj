@@ -8,9 +8,9 @@
             [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [clj-time.coerce :as time-coerce]
             [clojure.walk :refer [keywordize-keys]]
-            [flatland.ordered.map :as omap]))
+            [flatland.ordered.map :as omap]
+            [puppetlabs.puppetdb.time :as time-coerce]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that

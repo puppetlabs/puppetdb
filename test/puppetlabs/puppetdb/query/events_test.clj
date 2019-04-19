@@ -10,8 +10,8 @@
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.events :refer :all]
             [puppetlabs.puppetdb.testutils :refer [dotestseq select-values']]
-            [clj-time.coerce :refer [to-string to-timestamp to-long]]
-            [clj-time.core :refer [now ago days]]))
+            [puppetlabs.puppetdb.time
+             :refer [ago days now to-long to-string to-timestamp]]))
 
 (def distinct-resource-events (comp set timestamps->str query-resource-events))
 

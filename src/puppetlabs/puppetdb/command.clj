@@ -62,6 +62,10 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.time :as fmt-time]
+            [puppetlabs.puppetdb.time :as tcoerce]
+            [puppetlabs.puppetdb.time :as time
+             :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.command.constants
@@ -70,9 +74,7 @@
              :refer [defservice service-context]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clj-time.core :as time :refer [now interval in-millis]]
-            [clj-time.format :as fmt-time]
+            [puppetlabs.puppetdb.time :as time]
             [clojure.set :as set]
             [clojure.core.async :as async]
             [metrics.timers :refer [timer time!]]
@@ -81,7 +83,6 @@
             [metrics.histograms :refer [histogram update!]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
-            [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [overtone.at-at :as at-at :refer [mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.threadpool :as gtp]
@@ -600,7 +601,7 @@
 
      (when received
        (let [q-time (-> (fmt-time/parse iso-formatter received)
-                        (time/interval (time/now))
+                        (time/interval (now))
                         time/in-seconds)]
          (create-metrics-for-command! command version)
          (update! (global-metric :queue-time) q-time)

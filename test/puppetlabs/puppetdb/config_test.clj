@@ -4,8 +4,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.config :refer :all :as conf]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.time :as pl-time]
-            [clj-time.core :as time]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
@@ -167,35 +166,35 @@
       (testing "should use the value specified in minutes"
         (let [gc-interval (get-in (config-with {:database {:gc-interval 900}})
                                   [:database :gc-interval])]
-          (is (pl-time/period? gc-interval))
-          (is (= 900 (pl-time/to-minutes gc-interval)))))
+          (is (time/period? gc-interval))
+          (is (= 900 (time/to-minutes gc-interval)))))
       (testing "should default to 60 minutes"
         (let [gc-interval (get-in (config-with {:database {}})
                                   [:database :gc-interval])]
-          (is (pl-time/period? gc-interval))
-          (is (= 60 (pl-time/to-minutes gc-interval))))))
+          (is (time/period? gc-interval))
+          (is (= 60 (time/to-minutes gc-interval))))))
 
     (testing "node-ttl"
-      (testing "should parse node-ttl and return a Pl-Time/Period object"
+      (testing "should parse node-ttl and return a period"
         (let [node-ttl (get-in (config-with {:database {:node-ttl "10d"}})
                                [:database :node-ttl])]
-          (is (pl-time/period? node-ttl))
-          (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
+          (is (time/period? node-ttl))
+          (is (= (time/days 10) (time/days (time/to-days node-ttl))))))
       (testing "should default to 7 days"
         (let [node-ttl (get-in (config-with {}) [:database :node-ttl])]
-          (is (pl-time/period? node-ttl))
-          (is (= 7 (pl-time/to-days node-ttl))))))
+          (is (time/period? node-ttl))
+          (is (= 7 (time/to-days node-ttl))))))
 
     (testing "node-purge-ttl"
-      (testing "should parse node-purge-ttl and return a Pl-Time/Period object"
+      (testing "should parse node-purge-ttl and return a period"
         (let [node-purge-ttl (get-in (config-with {:database {:node-purge-ttl "10d"}})
                                [:database :node-purge-ttl])]
-          (is (pl-time/period? node-purge-ttl))
-          (is (= (time/days 10) (time/days (pl-time/to-days node-purge-ttl))))))
+          (is (time/period? node-purge-ttl))
+          (is (= (time/days 10) (time/days (time/to-days node-purge-ttl))))))
       (testing "should default to 14 days"
         (let [node-purge-ttl (get-in (config-with {}) [:database :node-purge-ttl])]
-          (is (pl-time/period? node-purge-ttl))
-          (is (= 14 (pl-time/to-days node-purge-ttl))))))
+          (is (time/period? node-purge-ttl))
+          (is (= 14 (time/to-days node-purge-ttl))))))
 
     (testing "node-purge-gc-batch-limit"
       (testing "should use the value specified"
@@ -213,12 +212,12 @@
       (testing "should parse report-ttl and produce report-ttl"
         (let [report-ttl (get-in (config-with {:database {:report-ttl "10d"}})
                                  [:database :report-ttl])]
-          (is (pl-time/period? report-ttl))
-          (is (= (time/days 10) (time/days (pl-time/to-days report-ttl))))))
+          (is (time/period? report-ttl))
+          (is (= (time/days 10) (time/days (time/to-days report-ttl))))))
       (testing "should default to 14 days"
         (let [report-ttl (get-in (config-with {}) [:database :report-ttl])]
-          (is (pl-time/period? report-ttl))
-          (is (= (time/days 14) (time/days (pl-time/to-days report-ttl)))))))))
+          (is (time/period? report-ttl))
+          (is (= (time/days 14) (time/days (time/to-days report-ttl)))))))))
 
 (defn vardir [path]
   {:global {:vardir (str path)}})

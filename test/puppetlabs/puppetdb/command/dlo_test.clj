@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.command.dlo-test
   (:require
-   [clj-time.coerce :as coerce-time]
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer :all]
@@ -15,6 +14,7 @@
    [puppetlabs.puppetdb.testutils :refer [ordered-matches?]]
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.testutils.queue :refer [catalog->command-req]]
+   [puppetlabs.puppetdb.time :as coerce-time]
    [puppetlabs.stockpile.queue :as stock])
   (:import
    [java.nio.file Files]))

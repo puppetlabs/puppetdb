@@ -7,7 +7,7 @@
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.random :refer [random-resource random-kw-resource
                                                 random-parameters]]
-            [clj-time.core :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn convert-to-wire
   "Converts a catalog in the internal format to the wire format"

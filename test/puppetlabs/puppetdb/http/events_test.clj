@@ -6,9 +6,7 @@
             [puppetlabs.puppetdb.testutils.events :refer [expected-resource-events]]
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
-            [clj-time.core :refer [ago now seconds]]
             [clojure.set :as clj-set]
-            [clj-time.coerce :refer [to-string to-long to-timestamp]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    paged-results]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
@@ -22,7 +20,9 @@
                      query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]))
+            [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.time
+             :refer [ago now seconds to-long to-string to-timestamp]]))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])

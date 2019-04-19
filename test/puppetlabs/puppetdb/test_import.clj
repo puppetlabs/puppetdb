@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.import :refer :all]
             [puppetlabs.puppetdb.scf.hash :as hash]
-            [clj-time.core :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn cmd-path-with-hash [entity producer-ts-hash certname]
   (format "puppetdb-bak/%s/%s-%s.json" entity certname producer-ts-hash))

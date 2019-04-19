@@ -19,7 +19,6 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.time :as pdbtime]
             [puppetlabs.puppetdb.utils :as utils])
   (:import [org.apache.commons.io IOUtils]
            [org.apache.commons.fileupload.util LimitedInputStream]))

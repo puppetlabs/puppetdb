@@ -1,14 +1,14 @@
 (ns puppetlabs.puppetdb.meta-test
   (:import (java.util.concurrent TimeUnit))
-  (:require [clj-time.core :refer [ago seconds interval in-seconds]]
-            [clj-time.coerce :refer [from-string]]
-            [puppetlabs.puppetdb.cheshire :as json]
+  (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils
              :refer [assert-success! dotestseq get-request]]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.time
+             :refer [ago seconds in-seconds interval parse-wire-datetime]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [puppetlabs.puppetdb.middleware :as mid]))
 
@@ -106,6 +106,6 @@
       (let [server-time (-> response
                             parsed-body
                             :server_time
-                            from-string)]
+                            parse-wire-datetime)]
         (is (> (in-seconds (interval test-time server-time)) 0))
         (is (> 5 (in-seconds (interval test-time server-time))))))))

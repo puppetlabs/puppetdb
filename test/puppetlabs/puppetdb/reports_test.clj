@@ -9,7 +9,7 @@
             [schema.core :as s]
             [com.rpl.specter :as sp]
             [puppetlabs.puppetdb.utils :as utils]
-            [clj-time.core :refer [now]]
+            [puppetlabs.puppetdb.time :refer [now]]
             [schema.core :as s]))
 
 (let [report (-> (:basic reports)

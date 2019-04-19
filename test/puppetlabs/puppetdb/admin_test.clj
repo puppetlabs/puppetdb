@@ -23,9 +23,8 @@
                      example-configure-expiration-false get-summary-stats]]
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.time :as time]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]
-            [clj-time.core :as cljtime]))
+            [puppetlabs.puppetdb.time :refer [now]]
+            [puppetlabs.puppetdb.scf.storage :as scf-storage]))
 
 (use-fixtures :each tu/call-with-test-logging-silenced)
 
@@ -57,7 +56,7 @@
                                     "configure expiration"
                                     cmd-consts/latest-configure-expiration-version
                                     example-configure-expiration-true)
-       (scf-storage/maybe-activate-node! "i_dont_have_an_expiration_setting" (cljtime/now))
+       (scf-storage/maybe-activate-node! "i_dont_have_an_expiration_setting" (now))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
