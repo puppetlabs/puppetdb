@@ -9,8 +9,6 @@
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
-            [clj-time.coerce :refer [to-timestamp]]
-            [clj-time.core :refer [now ago days]]
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
@@ -19,7 +17,8 @@
                      schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.scf.hash :as shash])
+            [puppetlabs.puppetdb.scf.hash :as shash]
+            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 

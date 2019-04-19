@@ -4,14 +4,14 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.scf.storage-utils :as su]))
+            [puppetlabs.puppetdb.scf.storage-utils :as su]
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (deftest test-plan-sql
   (let [col1 {:type :string :field :foo}
@@ -330,7 +330,7 @@
       (let [node (first result)]
         (is (= false (:expires_facts node)))
         (is (= "foo1" (:certname node)))
-        (is (-> node :expires_facts_updated time/from-string time/date-time?)))))
+        (is (-> node :expires_facts_updated time/parse-wire-datetime time/date-time?)))))
 
   (testing "test facts expiring for nodes set to true (default)"
     (let [request (get-request endpoint
@@ -344,7 +344,7 @@
       (let [nodes (sort-by :certname result)]
         (is (= true (:expires_facts (first nodes))))
         (is (= "foo2" (:certname (first nodes))))
-        (is (-> nodes first :expires_facts_updated time/from-string
+        (is (-> nodes first :expires_facts_updated time/parse-wire-datetime
                 time/date-time?))
 
         (is (= true (:expires_facts (second nodes))))
@@ -360,5 +360,5 @@
       (is (= status http/status-ok))
       (is (= "foo1" (:certname result)))
       (is (= false (:expires_facts result)))
-      (is (-> result :expires_facts_updated time/from-string
+      (is (-> result :expires_facts_updated time/parse-wire-datetime
               time/date-time?)))))

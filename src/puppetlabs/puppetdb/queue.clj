@@ -7,7 +7,6 @@
            [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
   (:require [clojure.string :as str :refer [re-quote-replacement]]
             [puppetlabs.stockpile.queue :as stock]
-            [clj-time.coerce :as tcoerce]
             [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -15,7 +14,6 @@
             [puppetlabs.puppetdb.constants :as constants]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
-            [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
@@ -27,8 +25,10 @@
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.time :as tcoerce]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :as pdbtime]))
+            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -234,8 +234,7 @@
   {:command command
    :version version
    :certname certname
-   :producer-ts (when producer-ts
-                  (pdbtime/from-string producer-ts))
+   :producer-ts (some-> producer-ts parse-wire-datetime)
    :compression compression
    :callback callback
    :command-stream command-stream})
@@ -342,7 +341,7 @@
 (s/defn store-command
   [q
    command-req :- command-req-schema]
-  (let [current-time (time/now)
+  (let [current-time (now)
         entry (store-in-stockpile q
                                   current-time
                                   command-req)]

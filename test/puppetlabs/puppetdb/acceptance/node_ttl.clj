@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.acceptance.node-ttl
   (:require
-   [clj-time.core :as tc :refer [now]]
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.cli.services :as cli-svc]
@@ -11,7 +10,7 @@
    [puppetlabs.puppetdb.testutils.http :as tuhttp]
    [puppetlabs.puppetdb.testutils.services :as svc-utils
     :refer [*server* with-pdb-with-no-gc]]
-   [puppetlabs.puppetdb.time :as time]
+   [puppetlabs.puppetdb.time :as tc :refer [now parse-wire-datetime]]
    [puppetlabs.puppetdb.utils :as utils]
    [puppetlabs.trapperkeeper.app :refer [get-service]]))
 
@@ -136,7 +135,7 @@
                  (is (= {"certname" "foo" "expired" nil} (second result)))
                  (is (= "bar" (-> result first (get "certname"))))
                  (is (tc/after? (now)
-                                (-> result first (get "expired") time/from-string))))
+                                (-> result first (get "expired") parse-wire-datetime))))
                (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
                    {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                   (facts))
@@ -153,7 +152,7 @@
                  (is (= 1 (count result)))
                  (is (= "foo" (-> result first (get "certname"))))
                  (is (tc/after? (now)
-                                (-> result first (get "expired") time/from-string))))
+                                (-> result first (get "expired") parse-wire-datetime))))
                (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                   (facts))
                (cli-svc/clean pdb ["purge_nodes"])

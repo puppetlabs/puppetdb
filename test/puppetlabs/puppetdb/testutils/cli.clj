@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.cli
-  (:require [clj-time.coerce :as time-coerce]
-            [clj-time.core :as time]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.utils :as utils]
@@ -14,8 +12,9 @@
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clojure.walk :as walk]
-            [puppetlabs.puppetdb.nodes :as nodes]))
+            [puppetlabs.puppetdb.time :as time-coerce :refer [now]]
+            [clojure.walk :as walk]))
+
 
 (defn get-nodes [&{:keys [include-facts-expiration]}]
   (let [url-suffix (when include-facts-expiration
@@ -56,14 +55,14 @@
             :bar "the bar"
             :baz "the baz"
             :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
-   :producer_timestamp (time-coerce/to-string (time/now))
+   :producer_timestamp (time-coerce/to-string (now))
    :producer example-producer})
 
 (def example-catalog
   (-> examples/wire-catalogs
       (get-in [9 :empty])
       (assoc :certname example-certname
-             :producer_timestamp (time/now))))
+             :producer_timestamp (now))))
 
 (def example-report
   (-> examples-reports/reports
@@ -73,7 +72,7 @@
       reports/report-query->wire-v8))
 
 (def node-expiration-timestamp
-  (time/now))
+  (now))
 
 (def example-nodes
   [{:certname example-certname

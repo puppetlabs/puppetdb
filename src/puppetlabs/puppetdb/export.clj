@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.export
-  (:require [clj-time.core :refer [now]]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.scf.hash :as hash]
@@ -11,6 +10,7 @@
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.nodes :as nodes]
             [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.command.constants :as command-constants]

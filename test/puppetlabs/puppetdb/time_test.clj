@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.time-test
   (:require [clojure.test :refer :all]
-            [clj-time.core :refer [days hours seconds minutes]]
             [puppetlabs.puppetdb.time :refer :all]))
 
 (deftest test-periods-equal?

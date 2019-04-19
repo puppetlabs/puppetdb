@@ -22,14 +22,14 @@
              :refer [add-encoder encode-map encode-seq]]
             [cheshire.generate :as generate]
             [cheshire.parse :as parse]
-            [clj-time.coerce :as coerce]
             [clojure.java.io :as io]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [puppetlabs.puppetdb.time :as time]))
 
 (defrecord RawJsonString [data])
 
-;; Alias coerce/to-string to avoid reflection
-(def ^String to-string coerce/to-string)
+;; Alias time/to-string to avoid reflection
+(def ^String to-string time/to-string)
 (defn add-common-json-encoders!*
   "Non-memoize version of add-common-json-encoders!"
   []

@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.cli.fact-storage-benchmark
   (:require [puppetlabs.puppetdb.client :as client]
-            [clj-time.core :as t]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
+            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.core.async :as async]
@@ -31,7 +31,7 @@
                 ["hundred-values" (mod (hash certname) 100)]])]
     {:certname certname
      :environment "production"
-     :producer_timestamp (t/now)
+     :producer_timestamp (now)
      :producer "micro-bench"
      :values (into {} facts)}))
 

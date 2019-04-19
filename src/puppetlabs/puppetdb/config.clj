@@ -11,7 +11,6 @@
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
-            [clj-time.core :as time]
             [clojure.java.io :as io]
             [me.raynes.fs :as fs]
             [clojure.string :as str]

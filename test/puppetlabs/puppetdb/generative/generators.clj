@@ -1,5 +1,7 @@
 (ns puppetlabs.puppetdb.generative.generators
-  (:require [puppetlabs.puppetdb.generative.overridable-generators :as gen :refer [defgen]]))
+  (:require
+   [puppetlabs.puppetdb.generative.overridable-generators :as gen :refer [defgen]]
+   [puppetlabs.puppetdb.time :as time]))
 
 ;;; common data types and combinators
 
@@ -15,7 +17,7 @@
 (def uuid-string (gen/fmap str gen/uuid))
 
 (def datetime
-  (gen/fmap clj-time.coerce/from-long
+  (gen/fmap time/from-long
         (gen/choose 50000000000 2000000000000)))
 
 (def json-value

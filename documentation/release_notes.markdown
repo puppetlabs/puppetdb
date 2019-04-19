@@ -17,6 +17,21 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 [upgrade_policy]: ./versioning_policy.html#upgrades
 
+## PuppetDB 6.3.1
+
+### New features and improvements
+
+- **Import and export** `configure expiration` **commands.** You can now use import and export to check which nodes have fact expiration disabled. For more information about the `configure expiration` command, see [Configure expiration wire format](./api/wire_format/configure_expiration_format_v1.markdown). [PDB-4275](https://tickets.puppetlabs.com/browse/PDB-4275)
+
+- **View a node's lifetime data.** Use the `/nodes` endpoint with an `include_fact_expiration=true` argument to check if a node's facts are set to never expire. This is an experimental command and could be altered or removed in a future release. For more information, see [Nodes endpoint](./api/query/v4/nodes.markdown). [PDB-4271](https://tickets.puppetlabs.com/browse/PDB-4271)
+
+### Bug fixes
+
+- **Storing catalogs with Unicode Unicode alphanumeric tags.** PuppetDB now successfully stores catalogs with Unicode alphanumeric tags.  [PDB-4326](https://tickets.puppetlabs.com/browse/PDB-4326)
+
+- **Resource event duplicates in reports.** Puppet agent was sending duplicate events for failing `exec` calls, causing PuppetDB report inserts to fail. This fix adds additional columns to the primary key calculation for events, and ignores duplicate rows at insert. [PDB-4315](https://tickets.puppetlabs.com/browse/PDB-4315)
+
+
 ## PuppetDB 6.3.0
 
 ### New features and improvements

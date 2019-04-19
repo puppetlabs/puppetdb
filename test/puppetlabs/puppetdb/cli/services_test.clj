@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.cli.services-test
-  (:require [clj-time.core :as time]
-            [me.raynes.fs :as fs]
+  (:require [me.raynes.fs :as fs]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
@@ -14,7 +13,7 @@
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.time :as pdbtime]
+            [puppetlabs.puppetdb.time :as time :refer [now to-string]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
@@ -24,8 +23,6 @@
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.testutils
              :refer [block-until-results default-timeout-ms temp-file]]
-            [clj-time.coerce :refer [to-string]]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
@@ -226,7 +223,7 @@
               true))))))
 
 (defn purgeable-nodes [node-purge-ttl]
-  (let [horizon (pdbtime/to-timestamp (time/ago node-purge-ttl))]
+  (let [horizon (time/to-timestamp (time/ago node-purge-ttl))]
     (jdbc/query-to-vec
      "select * from certnames where deactivated < ? or expired < ?"
      horizon horizon)))
@@ -238,7 +235,7 @@
   (with-pdb-with-no-gc
     (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
           node-purge-ttl (get-in config [:database :node-purge-ttl])
-          deactivation-time (pdbtime/to-timestamp (time/ago node-purge-ttl))
+          deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
           lock (ReentrantLock.)]
       (doseq [[limit expected-remaining] [[0 0]
                                           [7 3]
