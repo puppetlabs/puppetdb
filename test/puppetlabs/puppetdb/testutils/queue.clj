@@ -7,8 +7,8 @@
             [puppetlabs.puppetdb.testutils.nio :refer [create-temp-dir]]
             [puppetlabs.puppetdb.queue :as q]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as ks]
-            [clj-time.core :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]]
+            [puppetlabs.kitchensink.core :as ks]))
 
 (defmacro with-stockpile [queue-sym & body]
   `(let [ns-str#  (str (ns-name ~*ns*))

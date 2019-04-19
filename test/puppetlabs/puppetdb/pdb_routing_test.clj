@@ -3,14 +3,13 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.time :as time]
+            [puppetlabs.puppetdb.time :as time :refer [to-string]]
             [puppetlabs.puppetdb.client :as pdb-client]
-            [clj-time.coerce :refer [to-string]]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cli.services :as clisvc]
             [puppetlabs.puppetdb.pdb-routing :refer :all]
+            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.http.client.sync :as http]))
 
@@ -41,7 +40,7 @@
 
       (is (-> (query-server-time svc-utils/*base-url*)
               (get-in [:body :server_time])
-              time/from-string))
+              time/parse-wire-datetime))
 
       (let [resp (export svc-utils/*base-url*)]
         (tu/assert-success! resp)

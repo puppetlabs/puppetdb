@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.facts-test
   (:require [puppetlabs.puppetdb.facts :refer :all]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.time :refer [from-string to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [schema.core :as s]))
 
 (deftest test-str->num

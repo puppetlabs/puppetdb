@@ -4,8 +4,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
-            [clj-time.coerce :refer [to-timestamp to-string]]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]))
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.time :refer [to-string to-timestamp]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that

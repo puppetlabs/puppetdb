@@ -2,9 +2,8 @@
   (:import [org.joda.time Minutes Days Seconds Period])
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.schema :refer :all]
+            [puppetlabs.puppetdb.time :as time]
             [schema.core :as s]
-            [clj-time.core :as time]
-            [puppetlabs.puppetdb.time :as pl-time]
             [schema.coerce :as sc]))
 
 (deftest defaulted-maybe-test
@@ -179,7 +178,7 @@
     (time/days 10) Days String "10"
     (time/days 10) Days Number 10
 
-    (pl-time/parse-period "10d") Period String "10d"
+    (time/parse-period "10d") Period String "10d"
 
     :foo s/Keyword s/Keyword :foo
     10 s/Int s/Int 10
@@ -213,9 +212,9 @@
     (let [schema {:foo Period
                   :bar Minutes
                   :baz Period}
-          result {:foo (pl-time/parse-period "10d")
+          result {:foo (time/parse-period "10d")
                   :bar (time/minutes 20)
-                  :baz (pl-time/parse-period "30s")}]
+                  :baz (time/parse-period "30s")}]
       (is (= result
              (convert-to-schema schema {:foo "10d"
                                         :bar "20"
@@ -231,7 +230,7 @@
                   :baz Period}
           result {:foo "foo"
                   :bar 10
-                  :baz (pl-time/parse-period "30s")}]
+                  :baz (time/parse-period "30s")}]
       (is (= result
              (convert-to-schema schema {:foo "foo"
                                         :bar 10
@@ -248,7 +247,7 @@
                   (s/optional-key :taf-nil) (s/maybe s/Keyword)}
           result {:foo "foo"
                   :bar 10
-                  :baz (pl-time/parse-period "30s")
+                  :baz (time/parse-period "30s")
                   :bog 1000
                   :taf :foo
                   :baz-nil nil

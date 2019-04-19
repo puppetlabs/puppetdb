@@ -4,10 +4,10 @@
              [cheshire.core :as json]
              [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
              [puppetlabs.puppetdb.http :as http]
-             [clj-time.core :refer [days ago]]
              [flatland.ordered.map :as omap]
              [puppetlabs.puppetdb.jdbc :as jdbc]
              [puppetlabs.puppetdb.testutils.db :refer [*db*]]
+             [puppetlabs.puppetdb.time :refer [days ago]]
              [puppetlabs.puppetdb.scf.storage :as scf-store]))
 
 (defn is-query-result [endpoint query expected-results]

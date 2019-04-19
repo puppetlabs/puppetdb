@@ -5,10 +5,49 @@
    related to time; it is mostly based off of the `Period` class from
    Java's JodaTime library."
   (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
-           (org.joda.time Period ReadablePeriod PeriodType DateTime))
+           (org.joda.time Period ReadablePeriod PeriodType DateTime DateTimeZone))
   (:require [clj-time.coerce :as tc]
+            [clj-time.core]
             [clj-time.format :as tf]
             [schema.core :as s]))
+
+(def ago clj-time.core/ago)
+(def now clj-time.core/now)         ; ~= java.time: OffsetDateTime/now
+(def days clj-time.core/days)       ; ~= java.time: Period/ofDays
+;; No direct java.time equivalents (Periods have day granularity there)
+(def hours clj-time.core/hours)
+(def minutes clj-time.core/minutes)
+(def seconds clj-time.core/seconds)
+
+(def date-time clj-time.core/date-time)
+(def before? clj-time.core/before?)
+(def after? clj-time.core/after?)
+(def plus clj-time.core/plus)
+(def minus clj-time.core/minus)
+(def from-now clj-time.core/from-now)
+(def interval clj-time.core/interval)
+(def in-millis clj-time.core/in-millis)
+(def in-seconds clj-time.core/in-seconds)
+(def in-minutes clj-time.core/in-minutes)
+
+(def to-date-time tc/to-date-time)
+(def to-long tc/to-long)
+(def to-string tc/to-string)
+(def from-long tc/from-long)
+(def from-sql-date tc/from-sql-date)
+
+(def formatters tf/formatters)
+(def parse tf/parse)
+(def unparse tf/unparse)
+
+(defprotocol ToJavaDate
+  (to-java-date ^java.util.Date [x] "Converts x to a java.util.Date."))
+
+(extend-protocol ToJavaDate
+  org.joda.time.DateTime
+  (to-java-date [x]
+    ;; Eventually: (Date/from (.toInstant odt))
+    (tc/to-date x)))
 
 ;; Functions for parsing Periods from Strings
 
@@ -221,13 +260,6 @@
     (tf/parse formatter timestamp-str)
     (catch IllegalArgumentException _ nil)))
 
-(s/defn ^:always-validate from-string :- (s/maybe DateTime)
-  "Similar to the clj-time.coerce/from-string, but prioritizes the
-  more likely formatters first"
-  [s :- (s/maybe String)]
-  (when s
-    (some #(attempt-date-time-parse % s) ordered-formatters)))
-
 (s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
   "Delegates to clj-time.core/to-timestamp, except when `ts` is a
   String. When a String, this funciton will attempt to convert it
@@ -236,5 +268,39 @@
   [ts]
   (tc/to-timestamp
    (if (string? ts)
-     (from-string ts)
+     (when ts
+       (some #(attempt-date-time-parse % ts) ordered-formatters))
      ts)))
+
+;; Parsing wire datetimes, e.g.
+;;   api/wire_format/catalog_format_v9.markdown <datetime>
+
+(defn parse-iso-z
+  "Returns a pdb instant (UTC timestamp) if s represents an ISO
+  formatted timestamp like \"2011-12-03T10:15:30Z\" or nil."
+  [s]
+  ;; Currently represented as a java Instant via DateTimeFormatter/ISO_INSTANT
+  (try
+    (java.time.Instant/parse s)
+    (catch java.time.format.DateTimeParseException ex
+      nil)))
+
+(def parse-offset-iso
+  (let [formatter (java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME)]
+    (fn [s]
+      "Returns a pdb instant (UTC timestamp) if s represents an ISO
+  formatted timestamp with offset like \"2011-12-03T10:15:30+01:00\"
+  or nil."
+      (try
+        (-> (java.time.OffsetDateTime/parse s formatter) .toInstant)
+        (catch java.time.format.DateTimeParseException ex
+          nil)))))
+
+(defn parse-wire-datetime
+  "Parses s as a PuppetDB wire format <datetime> and returns a
+  LocalDate, or nil if the string cannot be parsed."
+  [s]
+  (when s
+    (some-> (or (parse-iso-z s) (parse-offset-iso s))
+            ;; temporary migration shim
+            (-> .toEpochMilli (DateTime. DateTimeZone/UTC)))))

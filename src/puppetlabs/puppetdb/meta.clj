@@ -1,12 +1,12 @@
 (ns puppetlabs.puppetdb.meta
   (:require [clojure.tools.logging :as log]
-            [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.meta.version :as v]
+            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.comidi :as cmdi]
             [bidi.schema :as bidi-schema]
