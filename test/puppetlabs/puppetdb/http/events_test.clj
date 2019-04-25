@@ -41,14 +41,15 @@
   [responses]
   (map #(dissoc % :count) responses))
 
-(defn is-query-result
+(defmacro is-query-result
   [endpoint query expected-results]
-  (let [request (get-request endpoint (json/generate-string query))
-        {:keys [status body]} (*app* request)
-        actual-result (parse-result body)]
-    (is (= (count expected-results) (count actual-result)))
-    (is (= expected-results (set actual-result)))
-    (is (= http/status-ok status))))
+  `(let [request# (get-request ~endpoint (json/generate-string ~query))
+         response# (*app* request#)
+         status# (:status response#)
+         actual-result# (parse-result (:body response#))]
+     (is (= (count ~expected-results) (count actual-result#)))
+     (is (= ~expected-results (set actual-result#)))
+     (is (= http/status-ok status#))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -79,7 +80,7 @@
       (let [response (query-result method endpoint ["=" "report" report-hash]
                                    {} munge-event-values)
             expected (expected-resource-events basic-events basic)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     ;; NOTE: more exhaustive testing for these queries can be found in
     ;; `puppetlabs.puppetdb.query.event-test`
@@ -93,7 +94,7 @@
                 expected (expected-resource-events
                           (kitchensink/select-values basic-events-map [0 2])
                           basic)]
-            (is (= response expected))))
+            (is (= expected response))))
 
         (testing "should support compound timestamp queries"
           (let [response (query-result method endpoint ["and" [">" "timestamp" start_time]
@@ -102,7 +103,7 @@
                 expected (expected-resource-events
                           (kitchensink/select-values basic-events-map [2])
                           basic)]
-            (is (= response expected))))))
+            (is (= expected response))))))
 
     (testing "compound queries"
       (doseq [[query matches]
@@ -128,7 +129,7 @@
               expected (expected-resource-events
                          (kitchensink/select-values basic-events-map matches)
                          basic)]
-          (is (= response expected)))))
+          (is (= expected response)))))
 
     (testing "compound queries with a projection"
       (doseq [[query matches ks]
@@ -162,7 +163,7 @@
               expected (->> (kitchensink/select-values basic-events-map matches)
                             (map #(select-keys % ks))
                             set)]
-          (is (= response expected)))))
+          (is (= expected response)))))
 
 
     (doseq [[label count?] [["without" false]
@@ -188,15 +189,15 @@
               {:keys [status body]} (query-response
                                       method endpoint [">" "timestamp" 0]
                                       {:order_by (vector-param method [{:field "resource_title"}])})]
-          (is (= status http/status-ok))
-          (is (= (set (munge-event-values (json/parse-string (slurp body) true))) expected))))
+          (is (= http/status-ok status))
+          (is (= expected (set (munge-event-values (json/parse-string (slurp body) true)))))))
 
       (testing "should reject dashes"
         (let [response (query-response method endpoint [">" "timestamp" 0]
                                         {:order_by (vector-param method
                                                                 [{:field "resource-title"}])})
               body (get response :body "null")]
-          (is (= (:status response) http/status-bad-request))
+          (is (= http/status-bad-request (:status response)))
           (are-error-response-headers (:headers response))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
@@ -214,7 +215,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_resources true})
             body (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= http/status-bad-request (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -222,7 +223,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                      {:distinct_resources true :distinct_start_time 0})
             body (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= http/status-bad-request (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -230,7 +231,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                      {:distinct_resources true :distinct_end_time 0})
             body (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= http/status-bad-request (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -239,7 +240,7 @@
       (let [response  (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_start_time 0 :distinct_end_time 0})
             body      (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= http/status-bad-request (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -252,7 +253,7 @@
                                      :distinct_start_time 0
                                      :distinct_end_time (now)}
                                     munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "distinct params should work with include_total"
       (let [expected  (expected-resource-events basic3-events basic3)
@@ -262,7 +263,7 @@
                                      :include_total true
                                      :distinct_end_time (now)}
                                     munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "distinct resources should work with latest_report?"
       (let [expected (expected-resource-events basic3-events basic3)
@@ -271,7 +272,7 @@
                                     :distinct_start_time 0
                                     :distinct_end_time (now)}
                                    munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "events should be contained within distinct resource timestamps"
       (let [expected  (expected-resource-events basic-events basic)
@@ -280,7 +281,7 @@
                                      :distinct_start_time 0
                                      :distinct_end_time "2011-01-02T12:00:01-03:00"}
                                     munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "filters (such as status) should be applied *after* the distinct list of most recent events has been built up"
       (let [expected  #{}
@@ -291,7 +292,7 @@
                                     :distinct_start_time 0
                                     :distinct_end_time (now)}
                                    munge-event-values)]
-        (is (= response expected))))))
+        (is (= expected response))))))
 
 (deftest-http-app query-by-puppet-report-timestamp
   [[version endpoint] endpoints
@@ -308,20 +309,20 @@
             response  (query-result method endpoint
                                     ["<" "run_start_time" "2011-01-02T00:00:00-03:00"]
                                     {} munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "query by report end time"
       (let [expected  (expected-resource-events basic3-events basic3)
             response  (query-result method endpoint
                                     [">" "run_end_time" "2011-01-02T00:00:00-03:00"]
                                     {} munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "query without a query parameter"
       (let [expected  (clj-set/union (expected-resource-events basic3-events basic3)
                                      (expected-resource-events basic-events basic))
             response  (query-result method endpoint nil {} munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "query by end time w/no results"
       (let [expected  #{}
@@ -329,7 +330,7 @@
                                     [">" "run_end_time" "2011-01-04T00:00:00-03:00"]
                                     {}
                                     munge-event-values)]
-        (is (= response expected))))))
+        (is (= expected response))))))
 
 (deftest-http-app query-by-report-receive-timestamp
   [[version endpoint] endpoints
@@ -343,14 +344,14 @@
             response  (query-result method endpoint
                                     [">" "report_receive_time" (to-string test-start-time)]
                                     {} munge-event-values)]
-        (is (= response expected))))
+        (is (= expected response))))
 
     (testing "query by receive time w/no results"
       (let [expected  #{}
             response  (query-result method endpoint
                                     ["<" "report_receive_time" (to-string test-start-time)]
                                     {} munge-event-values)]
-        (is (= response expected))))))
+        (is (= expected response))))))
 
 (deftest-http-app query-by-corrective_change
   [[version endpoint] endpoints
@@ -362,8 +363,8 @@
                                 {}  munge-event-values)
         response2 (query-result method endpoint ["=" "corrective_change" true])]
     (testing "queries on corrective_change is null"
-      (is (= response1 expected1))
-      (is (= response2 #{})))))
+      (is (= expected1 response1))
+      (is (= #{} response2)))))
 
 (def versioned-subqueries
   (omap/ordered-map

@@ -68,7 +68,7 @@
           (testing "should return the list of resource events for a given report hash"
             (let [expected  (expected-resource-events basic-events basic)
                   actual (distinct-resource-events version ["=" "report" report-hash])]
-              (is (= actual expected)))))
+              (is (= expected actual)))))
 
         (testing "resource event timestamp queries"
           (testing "should return the list of resource events that occurred before a given time"
@@ -77,14 +77,14 @@
                                (kitchensink/select-values basic-events-map [0 2])
                                basic)
                   actual (distinct-resource-events version ["<" "timestamp" end-time])]
-              (is (= actual expected))))
+              (is (= expected actual))))
           (testing "should return the list of resource events that occurred after a given time"
             (let [start-time  "2011-01-01T12:00:01-03:00"
                   expected    (expected-resource-events
                                (kitchensink/select-values basic-events-map [1 2])
                                basic)
                   actual (distinct-resource-events version [">" "timestamp" start-time])]
-              (is (= actual expected))))
+              (is (= expected actual))))
           (testing "should return the list of resource events that occurred between a given start and end time"
             (let [start-time  "2011-01-01T12:00:01-03:00"
                   end-time    "2011-01-01T12:00:03-03:00"
@@ -94,7 +94,7 @@
                   actual (distinct-resource-events version ["and"
                                                             [">" "timestamp" start-time]
                                                             ["<" "timestamp" end-time]])]
-              (is (= actual expected))))
+              (is (= expected actual))))
           (testing "should return the list of resource events that occurred between a given start and end time (inclusive)"
             (let [start-time  "2011-01-01T12:00:01-03:00"
                   end-time    "2011-01-01T12:00:03-03:00"
@@ -104,7 +104,7 @@
                   actual (distinct-resource-events version ["and"
                                                             [">=" "timestamp" start-time]
                                                             ["<=" "timestamp" end-time]])]
-              (is (= actual expected)))))
+              (is (= expected actual)))))
 
         (testing "equality queries"
           (doseq [[field value matches]
@@ -133,7 +133,7 @@
                                basic)
                     query     ["=" (name field) value]
                     actual (distinct-resource-events version query)]
-                (is (= actual expected)
+                (is (= expected actual)
                     (format "Results didn't match for query '%s'" query))))))
 
         (testing (str "'not' queries for " version)
@@ -164,7 +164,7 @@
                                basic)
                     query     ["not" ["=" (name field) value]]
                     actual (distinct-resource-events version query)]
-                (is (= actual expected)
+                (is (= expected actual)
                     (format "Results didn't match for query '%s'" query))))))
 
         (testing "regex queries"
@@ -186,7 +186,7 @@
                                basic)
                     query     ["~" (name field) value]
                     actual (distinct-resource-events version query)]
-                (is (= actual expected)
+                (is (= expected actual)
                     (format "Results didn't match for query '%s'" query))))))
 
         (testing "negated regex queries"
@@ -208,7 +208,7 @@
                                basic)
                     query     ["not" ["~" (name field) value]]
                     actual (distinct-resource-events version query)]
-                (is (= actual expected)
+                (is (= expected actual)
                     (format "Results didn't match for query '%s'" query))))))
 
         (testing "compound queries"
@@ -231,7 +231,7 @@
                     term-fn     (fn [[field value]] ["=" (name field) value])
                     query       (vec (cons "or" (map term-fn terms)))
                     actual (distinct-resource-events version query)]
-                (is (= actual expected)
+                (is (= expected actual)
                     (format "Results didn't match for query '%s'" query))))))
 
         (testing "'and' equality queries"
@@ -256,7 +256,7 @@
                   term-fn     (fn [[field value]] ["=" (name field) value])
                   query       (vec (cons "and" (map term-fn terms)))
                   actual (distinct-resource-events version query)]
-              (is (= actual expected)
+              (is (= expected actual)
                   (format "Results didn't match for query '%s'" query)))))
 
         (testing "nested compound queries"
@@ -282,7 +282,7 @@
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                   actual (distinct-resource-events version query)]
-              (is (= actual expected)
+              (is (= expected actual)
                   (format "Results didn't match for query '%s'" query)))))
 
         (testing "compound queries with both equality and inequality"
@@ -297,7 +297,7 @@
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                   actual (distinct-resource-events version query)]
-              (is (= actual expected)
+              (is (= expected actual)
                   (format "Results didn't match for query '%s'" query)))))))))
 
 (deftest resource-event-queries-for-v4+
@@ -312,8 +312,8 @@
             basic-events-map  (enumerated-resource-events-map (get-in reports [:basic :resource_events :data]))
             basic2-events-map (enumerated-resource-events-map (get-in reports [:basic2 :resource_events :data]))]
 
-        (are [query event-ids] (= (actual* query)
-                                  (expected* basic-events-map event-ids basic))
+        (are [query event-ids] (= (expected* basic-events-map event-ids basic)
+                                  (actual* query))
 
              ["=" "configuration_version" "a81jasj123"] [0 1 2]
              ["=" "run_start_time" "2011-01-01T12:00:00-03:00"] [0 1 2]
@@ -328,9 +328,9 @@
               ["<=" "line" 2] [0 2])
 
         (are [query basic-event-ids basic2-event-ids]
-          (= (actual* query)
-             (into (expected* basic-events-map basic-event-ids basic)
-                   (expected* basic2-events-map basic2-event-ids basic2)))
+          (= (into (expected* basic-events-map basic-event-ids basic)
+                   (expected* basic2-events-map basic2-event-ids basic2))
+             (actual* query))
 
           ["=" "containment_path" "Foo"] [2] [2]
           ["~" "containment_path" "Fo"] [2] [2]
@@ -354,26 +354,26 @@
         (testing "applied to entire query"
           (let [expected (expected-resource-events events2 basic2)
                 actual (distinct-resource-events version ["=" "latest_report?" true])]
-            (is (= actual expected))))
+            (is (= expected actual))))
         (testing "applied to subquery"
           (let [expected (expected-resource-events
                           (kitchensink/select-values events2-map [1 2]) basic2)
                 actual (distinct-resource-events version ["and" ["=" "resource_type" "File"]
                                                           ["=" "latest_report?" true]])]
-            (is (= actual expected)))))
+            (is (= expected actual)))))
 
       (testing (str "retrieval of events prior to latest report " version)
         (testing "applied to entire query"
           (let [expected  (expected-resource-events events1 basic1)
                 actual (distinct-resource-events version ["=" "latest_report?" false])]
-            (is (= actual expected))))
+            (is (= expected actual))))
         (testing "applied to subquery"
           (let [expected  (expected-resource-events
                            (kitchensink/select-values events1-map [0 1]) basic1)
                 actual (distinct-resource-events version ["and"
                                                           ["=" "status" "success"]
                                                           ["=" "latest_report?" false]])]
-            (is (= actual expected)))))
+            (is (= expected actual)))))
 
       (testing "compound latest report"
         (let [results1 (expected-resource-events
@@ -386,7 +386,7 @@
                                                          ["=" "latest_report?" false]]
                                                         ["and" ["=" "message" "created"]
                                                          ["=" "latest_report?" true]]])]
-          (is (= actual expected)))))))
+          (is (= expected actual)))))))
 
 (deftest distinct-resource-event-queries
   (with-test-db
@@ -403,7 +403,7 @@
                                                   :distinct_start_time (to-timestamp 0)
                                                   :distinct_end_time   (to-timestamp (now))})]
             (is (= (count events3) (count actual)))
-            (is (= actual expected))))
+            (is (= expected actual))))
 
         (testing "events should be contained within distinct resource timestamps"
           (let [expected  (expected-resource-events events1 basic1)
@@ -412,7 +412,7 @@
                                                   :distinct_start_time (to-timestamp 0)
                                                   :distinct_end_time (to-timestamp "2011-01-02T12:00:01-03:00")})]
             (is (= (count events1) (count actual)))
-            (is (= actual expected))))
+            (is (= expected actual))))
 
         (testing "filters (such as status) should be applied *after* the distinct list of most recent events has been built up"
           (let [expected  #{}
@@ -423,7 +423,7 @@
                                                   :distinct_start_time (to-timestamp 0)
                                                   :distinct_end_time   (to-timestamp (now))})]
             (is (= (count expected) (count actual)))
-            (is (= actual expected))))))))
+            (is (= expected actual))))))))
 
 (deftest paging-results
   (with-test-db
@@ -436,7 +436,7 @@
         (doseq [[limit expected] [[1 1] [2 2] [100 event-count]]]
           (let [results (query-resource-events version [">" "timestamp" 0] {:limit limit})
                 actual  (count results)]
-            (is (= actual expected)))))
+            (is (= expected actual)))))
 
       (testing "order_by"
         (testing "rejects invalid fields"
@@ -453,7 +453,7 @@
                               (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0]
                                                   {:order_by [[:line order]]})]
-                (is (= actual expected))))))
+                (is (= expected actual))))))
 
         (testing "alphabetical fields"
           (doseq [[order expected-events] [[:ascending  [0 1 2]]
@@ -463,7 +463,7 @@
                               (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0]
                                                   {:order_by [[:file order]]})]
-                (is (= actual expected))))))
+                (is (= expected actual))))))
 
         (testing "timestamp fields"
           (doseq [[order expected-events] [[:ascending  [0 1 2]]
@@ -472,7 +472,7 @@
               (let [expected (raw-expected-resource-events
                               (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:timestamp order]]})]
-                (is (= actual expected))))))
+                (is (= expected actual))))))
 
         (testing "multiple fields"
           (doseq [[[status-order title-order] expected-events] [[[:descending :ascending] [1 0 2]]
@@ -482,7 +482,7 @@
                               (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:status status-order]
                                                                                           [:resource_title title-order]]})]
-                (is (= actual expected)))))))
+                (is (= expected actual)))))))
 
       (testing "offset"
         (doseq [[order expected-sequences] [[:ascending  [[0 [0 1 2]]
@@ -499,7 +499,7 @@
                               (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:line order]]
                                                                                :offset offset})]
-                (is (= actual expected))))))))))
+                (is (= expected actual))))))))))
 
 (deftest query-by-environment
   (with-test-db
@@ -517,7 +517,7 @@
                          ["not"["~" "environment" "PR.*"]]]
                   :let [actual (distinct-resource-events :v4 query {})]]
             (is (every? #(= "DEV" (:environment %)) actual))
-            (is (= actual expected)))))
+            (is (= expected actual)))))
       (testing "query for PROD reports"
         (let [expected (expected-resource-events basic-events2 basic2)]
           (doseq [query [["=" "environment" "PROD"]
@@ -526,7 +526,7 @@
                          ["not"["~" "environment" "DE.*"]]]
                   :let [actual (distinct-resource-events :v4 query {})]]
             (is (every? #(= "PROD" (:environment %)) actual))
-            (is (= actual expected))))))))
+            (is (= expected actual))))))))
 
 (defn- test-events-query
   [report events-map version query expected-rows]
@@ -534,7 +534,7 @@
                    (kitchensink/select-values events-map expected-rows)
                    report)
         actual   (distinct-resource-events version query)]
-    (is (= actual expected)
+    (is (= expected actual)
         (format "Results didn't match for query '%s'" query))))
 
 (deftest query-by-corrective-change
