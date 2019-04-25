@@ -887,6 +887,19 @@
                                            expected
                                            version)))))
 
+      (testing "works on value"
+        (doseq [[order expected] [["ASC" [f1 f3]]
+                                  ["DESC" [f3 f1]]]]
+          (testing order
+            (let [actual (->> {:order_by (vector-param method [{"field" "value" "order" order}])}
+                              (query-response method endpoint ["=" "name" "hostname"])
+                              :body
+                              slurp)
+                  actual (json/parse-string actual true)]
+              (compare-structured-response (map unkeywordize-values actual)
+                                           expected
+                                           version)))))
+
       (testing "unextracted field with alias"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
@@ -940,13 +953,7 @@
                   actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
-                                           version))))
-        (testing "rejects order by value on v4+"
-          (is (re-matches #"Unrecognized column 'value' specified in :order_by.*"
-                          (:body (query-response method endpoint nil
-                                                 {:order_by
-                                                  (vector-param method
-                                                               [{"field" "value" "order" "ASC"}])})))))))))
+                                           version))))))))
 
 (deftest-http-app facts-environment-paging
   [[version endpoint] facts-endpoints
