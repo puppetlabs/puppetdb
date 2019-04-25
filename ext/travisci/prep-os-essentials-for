@@ -11,6 +11,24 @@ misuse() {
     exit 2
 }
 
+# this handles the issue where apt-get update fails but has an exit code of zero
+# because there's a mirror sync going on. This failure is retryable, but you have
+# to look for it in the output from the command. This is a common failure on AWS
+# and GCP because they inject their own mirrors into /etc/apt/sources.list at VM
+# start time, and there's a delay in getting all their mirrors in sync.
+apt_get_update() {
+    local tmpdir
+    tmpdir=$(mktemp)
+    set +e
+    for i in $(seq 1 20); do
+        sudo apt-get update 2>&1 | tee $tmpdir
+        grep -x "[WE]:.*" $tmpdir || break
+        sleep 1
+    done;
+    set -e
+    echo Executed apt-get update $i times;
+}
+
 test $# -eq 1 || misuse
 spec="$1"
 
@@ -74,7 +92,12 @@ case "$OSTYPE" in
         sudo apt-get purge \
              postgresql{,-client}-{9.2,9.3,9.4,9.5,9.6} \
              postgresql-client-common postgresql-client postgresql-common
-        sudo apt-get update
+        # workaround for mongodb, CouchDB and git-lfs having invalid keys
+        # see: https://github.com/travis-ci/travis-ci/issues/9037 (which is still broken)
+        sudo rm -f /etc/apt/sources.list.d/mongodb*
+        sudo rm -f /etc/apt/sources.list.d/couchdb*
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
+        apt_get_update
         sudo -i apt-get -y install postgresql-9.6 postgresql-11
         ;;
 esac
