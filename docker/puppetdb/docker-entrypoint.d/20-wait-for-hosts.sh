@@ -50,7 +50,7 @@ fi
 if [ "$CONSUL_ENABLED" = "true" ]; then
   wait_for_host $CONSUL_HOSTNAME
   # with Consul enabled, wait on Consul instead of Puppetserver
-  HEALTH_COMMAND="curl --silent --fail 'http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet' | grep -q '\\"\""state"\\\"":\\"\""running\\"\""'"
+  HEALTH_COMMAND="curl --silent --fail 'http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet' | grep -q '\\"\""Status"\\\"": \\"\""passing\\"\""'"
 fi
 
 if [ -n "$HEALTH_COMMAND" ]; then
