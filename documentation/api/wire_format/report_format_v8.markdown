@@ -145,6 +145,7 @@ In each `<resource>` object `"events"` is an array of objects of the following f
       "status": <status of event (`success`, `failure`, `noop`)>,
       "timestamp": <timestamp (from agent) at which event occurred>,
       "property": <property/parameter of resource on which event occurred>,
+      "name": <name of resource on which event occurred>,
       "new_value": <new value for resource property>,
       "old_value": <old value of resource property>,
       "message": <description of what happened during event>,
@@ -245,6 +246,7 @@ A JSONObject of the following form:
 
     {
      "property": <string>,
+     "name": <string>,
      "timestamp": <datetime>,
      "status": <string>,
      "old_value": <string>,
@@ -257,6 +259,8 @@ All keys are required.
 `"timestamp"` is the date/time at which the event occurred.
 
 `"property"` is the name of the property of the resource for which the event occurred.
+
+`"name"` is the name of the resource for which the event occurred.
 
 `"old_value"` is the value that Puppet determined the property to have held prior
 to the event.

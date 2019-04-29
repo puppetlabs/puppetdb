@@ -199,7 +199,7 @@
 
   This is similar to resource-event-identity-string but it also includes the report id."
   [{:keys [report_id resource_type resource_title property timestamp
-           status old_value new_value message file line] :as event}]
+           status old_value new_value message file line name] :as event}]
   (assert report_id "report_id must not be nil")
   (generic-identity-hash
    {:report_id report_id
@@ -211,7 +211,7 @@
     :old_value old_value
     :new_value new_value
     :message message
-    :name nil ;TODO: fill this field
+    :name name
     :file file
     :line line}))
 

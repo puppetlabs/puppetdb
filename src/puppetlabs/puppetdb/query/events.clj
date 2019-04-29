@@ -71,6 +71,7 @@
                             distinct_events.resource_type AS resource_type,
                             distinct_events.resource_title AS resource_title,
                             distinct_events.property as property,
+                            distinct_events.name as name,
                             new_value,
                             old_value,
                             message,
@@ -84,6 +85,7 @@
                         resource_type COLLATE \"C\" AS resource_type,
                         resource_title COLLATE \"C\" AS resource_title,
                         property COLLATE \"C\" AS property,
+                        name COLLATE \"C\" AS name,
                         MAX(resource_events.timestamp) AS latest_timestamp
                 FROM resource_events
                 WHERE resource_events.timestamp >= ?
@@ -92,15 +94,19 @@
                 GROUP BY certname_id,
                          resource_type COLLATE \"C\",
                          resource_title COLLATE \"C\",
-                         property COLLATE \"C\") distinct_events
+                         property COLLATE \"C\",
+                         name COLLATE \"C\") distinct_events
                 INNER JOIN resource_events
                 ON resource_events.resource_type = distinct_events.resource_type
                    AND resource_events.resource_title = distinct_events.resource_title
                    AND ((resource_events.property = distinct_events.property) OR
                         (resource_events.property IS NULL
                          AND distinct_events.property IS NULL))
-                AND resource_events.timestamp = distinct_events.latest_timestamp
-                AND resource_events.certname_id = distinct_events.certname_id
+                   AND ((resource_events.name = distinct_events.name) OR
+                        (resource_events.name IS NULL
+                         AND distinct_events.name IS NULL))
+                   AND resource_events.timestamp = distinct_events.latest_timestamp
+                   AND resource_events.certname_id = distinct_events.certname_id
                 INNER JOIN reports ON resource_events.report_id = reports.id
                 LEFT OUTER JOIN environments
                   ON reports.environment_id = environments.id
