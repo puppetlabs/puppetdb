@@ -285,12 +285,8 @@ module PuppetDBExtensions
     end
   end
 
-  def get_testing_branch(version)
-    branch_name = /^((?:\d+\.)*)\d+/.match(version)[1] + 'x'
-    if branch_name.chars.first.to_i > 5
-      branch_name = 'master'
-    end
-    return branch_name
+  def get_latest_tag(branch)
+    Open3.capture2('git', '-C', 'puppetdb', 'describe', '--tags', '--abbrev=0', "origin/#{branch}")
   end
 
   def get_latest_released(version)
@@ -298,12 +294,22 @@ module PuppetDBExtensions
     if cloned.nil?
       raise 'error cloning puppetdb repo'
     end
-    branch_name = get_testing_branch(version)
-    stdout, status = Open3.capture2('git', '-C', 'puppetdb', 'describe', '--tags', '--abbrev=0', "origin/#{branch_name}")
-    if status.exitstatus != 0
-      raise "error getting most recent tagged release. status: #{status}"
+
+    # infer branch from version, note this will ask for a non existent branch when on master
+    branch = /^((?:\d+\.)*)\d+/.match(version)[1] + 'x'
+    tag, status = get_latest_tag(branch)
+
+    if status.success?
+      return tag.delete("\n")
+    else
+      # if tag doesn't exist assume branch is master
+      tag, status = get_latest_tag('master')
+      if status.success?
+        return tag.delete("\n")
+      else
+        raise "error getting most recent tagged release. status: #{status}"
+      end
     end
-    return stdout.delete!("\n")
   end
 
   def get_package_version(host, version = nil)
