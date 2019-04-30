@@ -33,6 +33,14 @@ wait_for_host_port() {
   fi
 }
 
+wait_for_host_or_port() {
+  # Use either the ping or port connection to determine the connectivity of the host
+  /wtfc.sh --timeout=${3:-$PUPPETDB_WAITFORHOST_SECONDS} --interval=1 --progress "ping -c1 -W1 '${1}' || nc -v -w 1 -z '${1}' ${2}"
+  if [ $? -ne 0 ]; then
+    error "host cannot be resolved or contacted on $1:$2"
+  fi
+}
+
 PUPPETDB_WAITFORHOST_SECONDS=${PUPPETDB_WAITFORHOST_SECONDS:-30}
 PUPPETDB_WAITFORPOSTGRES_SECONDS=${PUPPETDB_WAITFORPOSTGRES_SECONDS:-150}
 PUPPETDB_WAITFORHEALTH_SECONDS=${PUPPETDB_WAITFORHEALTH_SECONDS:-600}
@@ -43,7 +51,7 @@ CONSUL_PORT="${CONSUL_PORT:-8500}"
 wait_for_host_port "postgres" "5432" $PUPPETDB_WAITFORPOSTGRES_SECONDS
 
 if [ "$USE_PUPPETSERVER" = true ]; then
-  wait_for_host $PUPPETSERVER_HOSTNAME
+  wait_for_host_or_port $PUPPETSERVER_HOSTNAME "8140"
   HEALTH_COMMAND="curl --silent --fail --insecure 'https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple' | grep -q '^running$'"
 fi
 
