@@ -30,9 +30,17 @@ The following environment variables are supported:
 
   Set to 'false' to skip acquiring SSL certificates from a Puppet Server. Defaults to 'true'.
 
+- `PUPPETDB_POSTGRES_HOSTNAME`
+
+  The DNS name of the Postgres host to use when performing initial health checks and when connecting to the database. Defaults to 'postgres'.
+
+- `PUPPETDB_POSTGRES_PORT`
+
+  The port of the Postgres host to use when performing initial health checks and when connecting to the database. Defaults to '5432'.
+
 - `PUPPETDB_DATABASE_CONNECTION`
 
-  The value for the 'subname' field in puppetdb/conf.d/database.conf. Defaults to '//postgres:5432/puppetdb'.
+  The value for the 'subname' field in puppetdb/conf.d/database.conf. Defaults to '//$PUPPETDB_POSTGRES_HOSTNAME:$PUPPETDB_POSTGRES_PORT/puppetdb', which is '//postgres:5432/puppetdb' by default
 
 - `PUPPETDB_USER`
 
