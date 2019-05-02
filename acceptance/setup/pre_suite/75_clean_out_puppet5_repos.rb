@@ -7,11 +7,7 @@ if (test_config[:install_mode] == :upgrade_oldest) \
 
         # need to remove puppet5 repos to avoid conflicts when upgrading
         uninstall_package(database, "puppet5-release")
-
-        case test_config[:os_families][database.name]
-        when :debian
-          uninstall_package(database, "puppet5-nightly-release")
-        end
+        uninstall_package(database, "puppet5-nightly-release")
 
         # init the puppet6 repos to allow it to find the puppet6 collection
         initialize_repo_on_host(database, test_config[:os_families][database.name], test_config[:nightly])
