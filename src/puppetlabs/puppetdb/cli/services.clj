@@ -344,7 +344,7 @@
   ;; SQLException.
   (with-open [db-pool (-> (assoc write-db-config
                                  :pool-name "PDBMigrationsPool"
-                                 :connection-timeout 15000)
+                                 :connection-timeout 3000)
                           (jdbc/make-connection-pool database-metrics-registry))]
     (let [runtime (Runtime/getRuntime)
           on-shutdown (doto (Thread.
@@ -356,13 +356,23 @@
                         (.setName "PuppetDB migration pool closer"))]
       (.addShutdownHook runtime on-shutdown)
       (try
-        (while (not (try
-                      (initialize-schema {:datasource db-pool} config)
-                      true
-                      (catch java.sql.SQLTransientConnectionException e
-                        (log/error (str (trs "Will retry database connection after temporary failure: ")
-                                        ex))
-                        false))))
+        (loop [i 0
+               last-ex nil]
+          (let [result (try
+                         (initialize-schema {:datasource db-pool} config)
+                         true
+                         (catch java.sql.SQLTransientConnectionException ex
+                           ;; When coupled with the 3000ms timout, this
+                           ;; is intended to log a duplicate message no
+                           ;; faster than once per minute.
+                           (when (or (not= (str ex) (str last-ex))
+                                     (zero? (mod i 20)))
+                             (log/error (str (trs "Will retry database connection after temporary failure: ")
+                                             ex)))
+                           ex))]
+            (if (true? result)
+              result
+              (recur (inc i) result))))
         (finally
           (try
             (.removeShutdownHook runtime on-shutdown)
