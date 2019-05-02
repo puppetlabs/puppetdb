@@ -12,7 +12,7 @@ RUN lein with-profile uberjar uberjar
 
 
 FROM openjdk:8-jre-alpine
-RUN apk add --no-cache tini curl openssl
+RUN apk add --no-cache tini curl openssl bind-tools
 COPY --from=builder /app/target/puppetdb.jar /
 
 ARG vcs_ref
