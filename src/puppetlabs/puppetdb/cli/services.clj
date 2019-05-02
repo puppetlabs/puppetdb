@@ -339,17 +339,36 @@
   Throws {:type ::unsupported-database :current version :oldest
   version} if the current database is not supported."
   [write-db-config config]
+  ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
+  ;; will then cause the pool connection to throw a (generic)
+  ;; SQLException.
   (with-open [db-pool (-> (assoc write-db-config
                                  :pool-name "PDBMigrationsPool"
                                  :connection-timeout 15000)
                           (jdbc/make-connection-pool database-metrics-registry))]
-    (while (not (try
-                  (initialize-schema {:datasource db-pool} config)
-                  true
-                  (catch java.sql.SQLTransientConnectionException e
-                    (log/error (str (trs "Will retry database connection after temporary failure: ")
-                                    ex))
-                    false))))))
+    (let [runtime (Runtime/getRuntime)
+          on-shutdown (doto (Thread.
+                             #(try
+                                (.close db-pool)
+                                (catch Exception ex
+                                  ;; Nothing to do but log it...
+                                  (log/error ex (trs "Unable to close migration pool")))))
+                        (.setName "PuppetDB migration pool closer"))]
+      (.addShutdownHook runtime on-shutdown)
+      (try
+        (while (not (try
+                      (initialize-schema {:datasource db-pool} config)
+                      true
+                      (catch java.sql.SQLTransientConnectionException e
+                        (log/error (str (trs "Will retry database connection after temporary failure: ")
+                                        ex))
+                        false))))
+        (finally
+          (try
+            (.removeShutdownHook runtime on-shutdown)
+            (catch IllegalStateException ex
+              ;; Ignore, because we're already shutting down.
+              nil)))))))
 
 (defn db-config->clean-request
   [config]
