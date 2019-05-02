@@ -596,7 +596,8 @@
                                                     :re.file
                                                     :re.line
                                                     :re.containment_path
-                                                    :re.containing_class]
+                                                    :re.containing_class
+                                                    :re.name]
                                                    :from [[:resource_events :re]]
                                                    :where [:= :reports.id :re.report_id]} :t]]}
                                          :event_data]]}}}
@@ -883,7 +884,10 @@
                              "report_id" {:type :numeric
                                           :queryable? false
                                           :query-only? true
-                                          :field :events.report_id}}
+                                          :field :events.report_id}
+                             "name" {:type :string
+                                     :queryable? true
+                                     :field :name}}
                :selection {:from [[:resource_events :events]]
                            :join [:reports
                                   [:= :events.report_id :reports.id]]

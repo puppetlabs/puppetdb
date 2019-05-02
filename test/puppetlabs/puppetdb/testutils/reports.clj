@@ -83,7 +83,7 @@
 
 (defn munge-resources-for-comparison [resources]
   (let [resources-sort-fn (partial sort-by (juxt :resource_type :resource_title))
-        events-sort-fn (partial sort-by :property)]
+        events-sort-fn (partial sort-by (juxt :name :property))]
     (->> resources
          (map (fn [resource]
                 (-> resource
@@ -145,7 +145,7 @@
 (defn munge-resource-events [resource-events]
   (->> resource-events
        (map #(update % :timestamp time-coerce/to-string))
-       (sort-by #(mapv % [:timestamp :resource_type :resource_title :property]))))
+       (sort-by #(mapv % [:timestamp :resource_type :resource_title :name :property]))))
 
 (defn munge-report
   [report]

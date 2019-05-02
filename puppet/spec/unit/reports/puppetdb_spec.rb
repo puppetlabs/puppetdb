@@ -230,6 +230,7 @@ describe processor do
           event.desired_value = "fooval"
           event.previous_value = "oldfooval"
           event.message = "foomessage"
+          event.name = "foobar"
           if defined?(event.corrective_change) then
             event.corrective_change = true
           end
@@ -256,6 +257,7 @@ describe processor do
           res_event["new_value"].should == "fooval"
           res_event["old_value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
+          res_event["name"].should == "foobar"
           if defined?(event.corrective_change) then
             res_event["corrective_change"].should == true
           else
