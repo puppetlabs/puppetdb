@@ -332,31 +332,23 @@
         migrated?))))
 
 (defn init-with-db
-  "All initialization operations needing a database connection should
-  happen here. This function creates a connection pool using
-  `write-db-config` that will hang until it is able to make a
-  connection to the database. This covers the case of the database not
-  being fully started when PuppetDB starts. This connection pool will
-  be opened and closed within the body of this function.  Returns true
-  iff any migrations were run.  Throws
-  {:type ::unsupported-database :current version :oldest version} if the
-  current database is not supported."
+  "Performs all initialization operations requiring a database
+  connection using a transient connection pool derived from the
+  `write-db-config`.  Blocks until the initialization is complete, and
+  then returns an unspecified value.  Throws exceptions on errors.
+  Throws {:type ::unsupported-database :current version :oldest
+  version} if the current database is not supported."
   [write-db-config config]
-  (loop [db-spec (assoc write-db-config
-                        ;; Block waiting to grab a connection
-                        :connection-timeout 15000
-                        :pool-name "PDBMigrationsPool")]
-    (if-let [result
-             (try
-               (with-open [init-db-pool (jdbc/make-connection-pool db-spec
-                                                                   database-metrics-registry)]
-                 (let [db-pool-map {:datasource init-db-pool}]
-                   (initialize-schema db-pool-map config)
-                   ::success))
-               (catch java.sql.SQLTransientConnectionException e
-                 (log/error e (trs "Error while attempting to create connection pool"))))]
-      result
-      (recur db-spec))))
+  (with-open [db-pool (-> (assoc write-db-config
+                                 :pool-name "PDBMigrationsPool"
+                                 :connection-timeout 15000)
+                          (jdbc/make-connection-pool database-metrics-registry))]
+    (while (not (try
+                  (initialize-schema {:datasource db-pool} config)
+                  true
+                  (catch java.sql.SQLTransientConnectionException e
+                    (log/error e (trs "Database initialization connection has temporarily failed (retrying)"))
+                    false))))))
 
 (defn db-config->clean-request
   [config]
