@@ -18,7 +18,8 @@
    :property (s/maybe s/Str)
    :new_value (s/maybe pls/JSONable)
    :old_value (s/maybe pls/JSONable)
-   :message (s/maybe s/Str)})
+   :message (s/maybe s/Str)
+   (s/optional-key :name) (s/maybe s/Str)})
 
 (def resource-wireformat-schema
   {:skipped s/Bool
@@ -76,7 +77,7 @@
         (update :events #(mapv update-fn %)))))
 
 (def report-v7-wireformat-schema
-  (let [update-fn #(dissoc % :corrective_change)]
+  (let [update-fn #(dissoc % :corrective_change :name)]
     (-> report-wireformat-schema
         (dissoc :producer :noop_pending :corrective_change :job_id)
         (update :resources #(mapv (update-resource-events update-fn) %)))))
@@ -128,7 +129,8 @@
    :file (s/maybe s/Str)
    :line (s/maybe s/Int)
    :status (s/maybe s/Str)
-   :message (s/maybe s/Str)})
+   :message (s/maybe s/Str)
+   (s/optional-key :name) (s/maybe s/Str)})
 
 (def resource-events-expanded-query-schema
   {:href s/Str
@@ -291,7 +293,7 @@
   [resource]
   (-> resource
       ;; We also need to grab the timestamp when the resource is `skipped'
-      (select-keys [:resource_type :resource_title :file :line :containment_path :timestamp])
+      (select-keys [:resource_type :resource_title :file :line :containment_path :timestamp :name])
       (merge {:status "skipped" :property nil :old_value nil :new_value nil :message nil :corrective_change false})
       vector))
 
