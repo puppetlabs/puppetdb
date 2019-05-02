@@ -18,6 +18,8 @@ error() {
     exit 1
 }
 
+# Alpine as high as 3.9 seems to have failures reaching addresses sporadically
+# In local repro scenarios, performing a DNS lookup with dig increases reliability
 wait_for_host_name_resolution() {
   # host and dig are in the bind-tools Alpine package
   # k8s nodes may not be reachable with a ping
@@ -40,11 +42,13 @@ wait_for_host_port() {
 PUPPETDB_WAITFORHOST_SECONDS=${PUPPETDB_WAITFORHOST_SECONDS:-30}
 PUPPETDB_WAITFORPOSTGRES_SECONDS=${PUPPETDB_WAITFORPOSTGRES_SECONDS:-150}
 PUPPETDB_WAITFORHEALTH_SECONDS=${PUPPETDB_WAITFORHEALTH_SECONDS:-600}
+PUPPETDB_POSTGRES_HOSTNAME="${PUPPETDB_POSTGRES_HOSTNAME:-postgres}"
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
 CONSUL_HOSTNAME="${CONSUL_HOSTNAME:-consul}"
 CONSUL_PORT="${CONSUL_PORT:-8500}"
 
-wait_for_host_port "${PUPPETDB_POSTGRES_HOSTNAME:-postgres}" "${PUPPETDB_POSTGRES_PORT:-5432}" $PUPPETDB_WAITFORPOSTGRES_SECONDS
+wait_for_host_name_resolution $PUPPETDB_POSTGRES_HOSTNAME
+wait_for_host_port $PUPPETDB_POSTGRES_HOSTNAME "${PUPPETDB_POSTGRES_PORT:-5432}" $PUPPETDB_WAITFORPOSTGRES_SECONDS
 
 if [ "$USE_PUPPETSERVER" = true ]; then
   wait_for_host_name_resolution $PUPPETSERVER_HOSTNAME
