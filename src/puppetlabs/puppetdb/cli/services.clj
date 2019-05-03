@@ -347,7 +347,8 @@
                   (initialize-schema {:datasource db-pool} config)
                   true
                   (catch java.sql.SQLTransientConnectionException e
-                    (log/error e (trs "Database initialization connection has temporarily failed (retrying)"))
+                    (log/error (str (trs "Will retry database connection after temporary failure: ")
+                                    ex))
                     false))))))
 
 (defn db-config->clean-request
