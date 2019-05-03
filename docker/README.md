@@ -83,6 +83,10 @@ The following environment variables are supported:
 
   The hostname for the puppetserver instance. This determines where to request certificates from. Defaults to 'puppet'.
 
+- `PUPPETSERVER_PORT`
+
+  The port for the puppetserver instance. This determines where to request certificates from. Defaults to '8140'.
+
 ## Analytics Data Collection
 
  The puppetdb container collects usage data. This is disabled by default. You can enable it by passing `--env PUPPERWARE_ANALYTICS_ENABLED=true`

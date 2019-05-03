@@ -18,8 +18,14 @@ error() {
     exit 1
 }
 
-wait_for_host() {
-  /wtfc.sh --timeout=$PUPPETDB_WAITFORHOST_SECONDS --interval=1 --progress ping -c1 -W1 $1
+# Alpine as high as 3.9 seems to have failures reaching addresses sporadically
+# In local repro scenarios, performing a DNS lookup with dig increases reliability
+wait_for_host_name_resolution() {
+  # host and dig are in the bind-tools Alpine package
+  # k8s nodes may not be reachable with a ping
+  /wtfc.sh --timeout=$PUPPETDB_WAITFORHOST_SECONDS --interval=1 --progress host $1
+  # additionally log the DNS lookup information for diagnostic purposes
+  dig $1
   if [ $? -ne 0 ]; then
     error "dependent service at $1 cannot be resolved or contacted"
   fi
@@ -36,19 +42,21 @@ wait_for_host_port() {
 PUPPETDB_WAITFORHOST_SECONDS=${PUPPETDB_WAITFORHOST_SECONDS:-30}
 PUPPETDB_WAITFORPOSTGRES_SECONDS=${PUPPETDB_WAITFORPOSTGRES_SECONDS:-150}
 PUPPETDB_WAITFORHEALTH_SECONDS=${PUPPETDB_WAITFORHEALTH_SECONDS:-600}
+PUPPETDB_POSTGRES_HOSTNAME="${PUPPETDB_POSTGRES_HOSTNAME:-postgres}"
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
 CONSUL_HOSTNAME="${CONSUL_HOSTNAME:-consul}"
 CONSUL_PORT="${CONSUL_PORT:-8500}"
 
-wait_for_host_port "${PUPPETDB_POSTGRES_HOSTNAME:-postgres}" "${PUPPETDB_POSTGRES_PORT:-5432}" $PUPPETDB_WAITFORPOSTGRES_SECONDS
+wait_for_host_name_resolution $PUPPETDB_POSTGRES_HOSTNAME
+wait_for_host_port $PUPPETDB_POSTGRES_HOSTNAME "${PUPPETDB_POSTGRES_PORT:-5432}" $PUPPETDB_WAITFORPOSTGRES_SECONDS
 
 if [ "$USE_PUPPETSERVER" = true ]; then
-  wait_for_host $PUPPETSERVER_HOSTNAME
-  HEALTH_COMMAND="curl --silent --fail --insecure 'https://${PUPPETSERVER_HOSTNAME}:8140/status/v1/simple' | grep -q '^running$'"
+  wait_for_host_name_resolution $PUPPETSERVER_HOSTNAME
+  HEALTH_COMMAND="curl --silent --fail --insecure 'https://${PUPPETSERVER_HOSTNAME}:"${PUPPETSERVER_PORT:-8140}"/status/v1/simple' | grep -q '^running$'"
 fi
 
 if [ "$CONSUL_ENABLED" = "true" ]; then
-  wait_for_host $CONSUL_HOSTNAME
+  wait_for_host_name_resolution $CONSUL_HOSTNAME
   # with Consul enabled, wait on Consul instead of Puppetserver
   HEALTH_COMMAND="curl --silent --fail 'http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet' | grep -q '\\"\""Status"\\\"": \\"\""passing\\"\""'"
 fi
