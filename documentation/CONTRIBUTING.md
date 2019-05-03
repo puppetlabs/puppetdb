@@ -85,7 +85,7 @@ tree:
 
     $ ./ext/bin/test-config --set pgport 34335
 
-Once you've set the default pgport, you should be able to run the core
+After you've set the default pgport, you should be able to run the core
 tests like this:
 
     $ ext/bin/boxed-core-tests -- lein test
@@ -99,7 +99,7 @@ tests against the default Puppet and Puppetserver versions like this:
         -- lein test :integration
 
 Note that you only need to configure the puppet-ref and
-puppetserver-ref once for each tree, but you can also change the refs
+puppetserver-ref one time for each tree, but you can also change the refs
 when you like with `test-config`:
 
     $ ext/bin/test-config --set puppet-ref 5.5.x

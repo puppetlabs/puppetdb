@@ -39,11 +39,11 @@ Manual Installation and Configuration
 
 1. Provision two PuppetDB nodes. Designate one of these as your _primary_
    PuppetDB, and the other as the _replica_. Be sure that each PuppetDB is using
-   its own PostgreSQL cluster, since HA doesn't buy you anything if you have
-   single database. In this guide, we will give them the hostnames
+   its own PostgreSQL cluster, because HA isn't helpful if you have only
+   single database. In this guide, we give them the hostnames
    `primary-puppetdb.mycorp.net` and `replica-puppetdb.mycorp.net`.
 
-2. Configure each PuppetDB to pull from the other. This guide will use
+2. Configure each PuppetDB to pull from the other. This guide uses
    HOCON-style configuration. See the
    [PE Configuration Documentation][pe-configure] for further details.
 
@@ -252,7 +252,7 @@ The following metrics are all located in the `puppetlabs.puppetdb.ha` namespace.
 * `last-sync-succeeded` (boolean): Did the last sync succeed?
 * `sync-has-worked-once`(boolean): Has the sync worked at all since starting this process?
 * `sync-has-failed-after-working`(boolean): Has the sync stopped working after
-  working once? This may be useful for ignoring errors that occur when many
+  working previously? This may be useful for ignoring errors that occur when many
   machines in the same cluster are starting at the same time.
 * `last-successful-sync-time` (timestamp): The wall-clock time, on the PuppetDB
   server, of when the last successful sync finished.

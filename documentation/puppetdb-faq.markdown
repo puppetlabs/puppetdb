@@ -158,9 +158,9 @@ throughput. Increasing the number of threads should also be paired
 with increasing the [amount of memory allocated to PuppetDB][java heap].
 
 The [concurrent-writes][concurrent-writes] setting indicates how many
-threads can write to the disk at once. Faster enqueuing will result in
-faster puppet runs as the PuppetDB terminus enqueues the message as
-part of the puppet run. The impact of this setting is heavily related
+threads can write to the disk at one time. Faster enqueuing results in
+faster Puppet runs, because the PuppetDB terminus enqueues the message as
+part of the Puppet run. The impact of this setting is heavily related
 to disk performance on the system. On a system with an SSD, this
 setting will have very little impact on performance or load on the
 system. On a system with a spinning disk, this setting can heavily
