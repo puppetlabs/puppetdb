@@ -87,6 +87,8 @@ See [the AST query language page][ast] for the full list of available operators.
   `Package` resource, this field might have a value of `ensure`. **Note:** this field
   may contain `NULL` values; see notes above.
 
+* `name` (string or null): the name of the resource on which the event occurred.
+
 * `new_value` (string or null): the new value that Puppet was attempting to set for the specified resource property.  Any [rich data][rich_data] values will appear as readable strings.  **Note:** this field may contain `NULL` values; see notes above.
 
 * `old_value` (string or null): the previous value of the resource property, which Puppet was attempting to change.  Any [rich data][rich_data] values will appear as readable strings.  **Note:** this field may contain `NULL` values; see notes above.
@@ -127,6 +129,7 @@ The response is a JSON array of events that match the input parameters. The arra
         "certname": "foo.localdomain",
         "old_value": "absent",
         "property": "ensure",
+        "name": "reporting file",
         "timestamp": "2012-10-30T19:01:05.000Z",
         "resource_type": "File",
         "resource_title": "/tmp/reportingfoo",
@@ -147,6 +150,7 @@ The response is a JSON array of events that match the input parameters. The arra
         "certname": "foo.localdomain",
         "old_value": "absent",
         "property": "message",
+        "name": null,
         "timestamp": "2012-10-30T19:01:05.000Z",
         "resource_type": "Notify",
         "resource_title": "notify, yo",

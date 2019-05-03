@@ -1,7 +1,9 @@
 test_name "Install Puppet" do
   unless (test_config[:skip_presuite_provisioning])
     step "Install Puppet" do
-      install_puppet
+      # when running upgrade_oldest install puppet5
+      puppet_collection = test_config[:install_mode] == :upgrade_oldest ? "puppet5" : "puppet6"
+      install_puppet(puppet_collection)
     end
   end
 

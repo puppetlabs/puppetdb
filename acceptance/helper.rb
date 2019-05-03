@@ -285,12 +285,8 @@ module PuppetDBExtensions
     end
   end
 
-  def get_testing_branch(version)
-    branch_name = /^((?:\d+\.)*)\d+/.match(version)[1] + 'x'
-    if branch_name.chars.first.to_i > 5
-      branch_name = 'master'
-    end
-    return branch_name
+  def get_latest_tag(branch)
+    Open3.capture2('git', '-C', 'puppetdb', 'describe', '--tags', '--abbrev=0', "origin/#{branch}")
   end
 
   def get_latest_released(version)
@@ -298,12 +294,22 @@ module PuppetDBExtensions
     if cloned.nil?
       raise 'error cloning puppetdb repo'
     end
-    branch_name = get_testing_branch(version)
-    stdout, status = Open3.capture2('git', '-C', 'puppetdb', 'describe', '--tags', '--abbrev=0', "origin/#{branch_name}")
-    if status.exitstatus != 0
-      raise "error getting most recent tagged release. status: #{status}"
+
+    # infer branch from version, note this will ask for a non existent branch when on master
+    branch = /^((?:\d+\.)*)\d+/.match(version)[1] + 'x'
+    tag, status = get_latest_tag(branch)
+
+    if status.success?
+      return tag.delete("\n")
+    else
+      # if tag doesn't exist assume branch is master
+      tag, status = get_latest_tag('master')
+      if status.success?
+        return tag.delete("\n")
+      else
+        raise "error getting most recent tagged release. status: #{status}"
+      end
     end
-    return stdout.delete!("\n")
   end
 
   def get_package_version(host, version = nil)
@@ -781,7 +787,7 @@ EOS
   # End Object diff functions
   ##############################################################################
 
-  def initialize_repo_on_host(host, os, nightly)
+  def initialize_repo_on_host(host, os, nightly, puppet_platform = :puppet6)
     case os
     when :debian
 
@@ -793,10 +799,14 @@ EOS
       end
 
       if options[:type] == 'aio' then
-        if nightly
+        if nightly && puppet_platform == :puppet6
           ## puppet6 repos
           on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet6-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet6-nightly-release-$(lsb_release -sc).deb"
+
+        elsif nightly && puppet_platform == :puppet5
+          on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
+          on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
         else
           on host, "curl -O http://apt.puppetlabs.com/puppet-release-$(lsb_release -sc).deb"
@@ -815,10 +825,15 @@ EOS
         version = $2
         arch = $3
 
-        if nightly
+        if nightly && puppet_platform == :puppet6
           ## puppet6 repos
           on host, "curl -O http://yum.puppetlabs.com/puppet6-nightly/puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
+
+        elsif nightly && puppet_platform == :puppet5
+          ## puppet6 repos
+          on host, "curl -O http://yum.puppetlabs.com/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         else
           on host, "curl -O http://yum.puppetlabs.com/puppet/puppet-release-#{variant}-#{version}.noarch.rpm"
@@ -878,9 +893,9 @@ EOS
     end
   end
 
-  def install_puppet_from_package
+  def install_puppet_from_package(puppet_collection = "puppet6")
     hosts.each do |host|
-      install_puppet_agent_on(host, {:puppet_collection => "puppet6"})
+      install_puppet_agent_on(host, {:puppet_collection => puppet_collection})
       on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
       install_package(host, 'puppetserver')
     end
@@ -997,7 +1012,7 @@ EOS
     end
   end
 
-  def install_puppet
+  def install_puppet(puppet_collection = "puppet6")
     hosts.each do |host|
       if host['platform'].variant == 'debian' &&
          host['platform'].version == '8'
@@ -1007,7 +1022,7 @@ EOS
     # If our :install_type is :pe then the harness has already installed puppet.
     case test_config[:install_type]
     when :package
-      install_puppet_from_package
+      install_puppet_from_package(puppet_collection)
     when :git
       if test_config[:repo_puppet] then
         install_puppet_from_source

@@ -383,6 +383,7 @@
        :report "7d0cfa08901e1e1d80cf2f2f814d356d0e457e09"
        :resource_title "hi"
        :property nil
+       :name nil
        :file "bar"
        :old_value nil
        :run_start_time "2011-01-01T15:00:00.000Z"
@@ -409,6 +410,7 @@
        :report "7d0cfa08901e1e1d80cf2f2f814d356d0e457e09"
        :resource_title "hi"
        :property nil
+       :name nil
        :file "bar"
        :old_value nil
        :run_start_time "2011-01-01T15:00:00.000Z"
@@ -437,6 +439,7 @@
        :report "7d0cfa08901e1e1d80cf2f2f814d356d0e457e09"
        :resource_title "hi"
        :property nil
+       :name nil
        :file "bar"
        :old_value nil
        :run_start_time "2011-01-01T15:00:00.000Z"
