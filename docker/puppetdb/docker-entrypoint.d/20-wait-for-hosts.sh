@@ -25,7 +25,7 @@ wait_for_host_name_resolution() {
   # k8s nodes may not be reachable with a ping
   /wtfc.sh --timeout=$PUPPETDB_WAITFORHOST_SECONDS --interval=1 --progress host $1
   # additionally log the DNS lookup information for diagnostic purposes
-  dig $1
+  dig +search $1
   if [ $? -ne 0 ]; then
     error "dependent service at $1 cannot be resolved or contacted"
   fi
