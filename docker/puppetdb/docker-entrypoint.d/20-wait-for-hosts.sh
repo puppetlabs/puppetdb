@@ -23,7 +23,9 @@ error() {
 wait_for_host_name_resolution() {
   # host and dig are in the bind-tools Alpine package
   # k8s nodes may not be reachable with a ping
-  /wtfc.sh --timeout=$PUPPETDB_WAITFORHOST_SECONDS --interval=1 --progress host $1
+  # performing a dig prior to a host may help prime the cache in Alpine
+  # https://github.com/Microsoft/opengcs/issues/303
+  /wtfc.sh --timeout=$PUPPETDB_WAITFORHOST_SECONDS --interval=1 --progress "dig $1 && host $1"
   # additionally log the DNS lookup information for diagnostic purposes
   NAME_RESOLVED=$?
   dig $1
