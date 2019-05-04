@@ -145,7 +145,7 @@ jobs:
       os: osx
 
     - stage: ❧ pdb container tests
-      language:ruby
+      language: ruby
       rvm: 2.5.0
       env: DOCKER_COMPOSE_VERSION=1.24.0
       script: *run-docker-tests
