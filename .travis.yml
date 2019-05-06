@@ -97,11 +97,11 @@ jobs:
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.6/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.6/pg-9.6
       script: *run-integration-tests
 
     # === rspec tests
@@ -120,7 +120,7 @@ jobs:
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.6/pg-9.6
       script: *run-integration-tests
       os: osx
 
