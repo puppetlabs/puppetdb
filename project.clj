@@ -85,8 +85,11 @@
 (def pdb-dep-pins
   `[;; Use jetty 9.4.11.v20180605 to fix CVE-2017-7656 (PDB-4160)
     [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-ver]
-    ;; Fix CVE-2018-5968 (PDB-4161)
-    [com.fasterxml.jackson.core/jackson-databind "2.9.7"]])
+    ;; Pin to fix CVEs -- currently covers at least:
+    ;;   CVE-2018-5968 (PDB-3809)
+    ;;   CVE-2017-7658 (PDB-4161)
+    ;;   CVE-2018-19360 CVE-2018-19361 CVE-2018-19362 (PDB-4364)
+    [com.fasterxml.jackson.core/jackson-databind "2.9.8"]])
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
