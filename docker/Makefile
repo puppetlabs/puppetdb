@@ -8,7 +8,10 @@ hadolint_command := hadolint --ignore DL3008 --ignore DL3018 --ignore DL4000 --i
 hadolint_container := hadolint/hadolint:latest
 version = $(shell echo $(git_describe) | sed 's/-.*//')
 dockerfile := Dockerfile
-
+pwd := $(shell pwd)
+export BUNDLE_PATH = $(pwd)/.bundle/gems
+export BUNDLE_BIN = $(pwd)/.bundle/bin
+export GEMFILE = $(pwd)/Gemfile
 
 prep:
 	@git fetch --unshallow ||:
@@ -38,9 +41,9 @@ ifeq ($(IS_LATEST),true)
 endif
 
 test: prep
-	@bundle install --path .bundle/gems
+	@bundle install --path $$BUNDLE_PATH --gemfile $$GEMFILE
 	@PUPPET_TEST_DOCKER_IMAGE=$(NAMESPACE)/puppetdb:$(version) \
-		bundle exec rspec puppetdb/spec
+		bundle exec --gemfile $$GEMFILE rspec puppetdb/spec
 
 push-image: prep
 	@docker push puppet/puppetdb:$(version)

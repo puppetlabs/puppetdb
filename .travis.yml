@@ -76,6 +76,7 @@ aliases:
     make lint
     make build
     make test
+    set +x
 
 jobs:
   include:
@@ -146,7 +147,7 @@ jobs:
 
     - stage: ❧ pdb container tests
       language: ruby
-      rvm: 2.5.0
+      rvm: 2.5.5
       env: DOCKER_COMPOSE_VERSION=1.24.0
       script: *run-docker-tests
 
