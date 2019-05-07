@@ -16,6 +16,29 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+## 5.1.6
+
+PuppetDB 5.1.6 is a PE-only release.
+
+### Bug fixes
+
+- The jackson-databind dependency has been upgraded to 2.9.8 to fix
+  CVE-2018-5968, CVE-2018-19360, CVE-2018-19361, and CVE-2018-19362.
+  ([PDB-4364](https://tickets.puppetlabs.com/browse/PDB-4364))
+
+- When an invalid / malformed timestamp was passed in a PQL query, it
+  was treated as a null, giving back an unexpected query result. The
+  timestamp is now validated, and an error is returned to the user.
+  ([PDB-4015](https://tickets.puppetlabs.com/browse/PDB-4015))
+
+- When there are processing errors during an initial HA sync PuppetDB
+  should now defer commands to the local queue as originally intended,
+  (PE Only). ([PDB-4117](https://tickets.puppetlabs.com/browse/PDB-4117))
+
+- A problem that could cause harmless, but noisy database connection
+  errors during shutdown has been fixed.
+  ([PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952))
+
 ## 5.1.5
 
 PuppetDB 5.1.5 is a bug-fix release.

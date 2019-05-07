@@ -97,11 +97,11 @@ jobs:
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.6/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      env: PDB_TEST=int/oraclejdk8/pup-5.3.x/srv-5.1.6/pg-9.6
       script: *run-integration-tests
 
     # === rspec tests
@@ -120,7 +120,7 @@ jobs:
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.x/pg-9.6
+      env: PDB_TEST=int/openjdk8/pup-5.3.x/srv-5.1.6/pg-9.6
       script: *run-integration-tests
       os: osx
 
@@ -130,18 +130,20 @@ jobs:
       script: *run-spec-tests
       os: osx
 
+matrix:
+  allow_failures:
+  - os: osx
+
 on_success: ext/travisci/on-success
 
 notifications:
   email: false
-  hipchat:
+  slack:
+    template:
+      - "<%{compare_url}|%{commit_subject}> | %{author}"
+      - "%{repository_slug} %{branch} | <%{build_url}|#%{build_number}> %{result} in %{elapsed_time}"
     rooms:
-      secure: gZpfMrGsUEHKzHfDaq8S00Xd35gzwEzcAy5/VV7JOGcmXLyWlx7ojh/Ke4rJ1vOa59OlazyCt5o8uDhB0CcQnZ2Aa6ncoOyLpLLjO8/Ak8qsxPLgC4Ov/zuRA4oTvxqZtaR7Juwbeobp5lB1OSFb7o4G747tC2Ihd1Nhx717tdQ=
-    template: >-
-      %{commit_subject}
-      / %{repository} %{branch} <a href="%{compare_url}">%{commit}</a> %{author}
-      / <a href="%{build_url}">#%{build_number}</a> %{result} in %{elapsed_time}
-    format: html
+      secure: IJU0YgGYbKgM7NupaOmE2BYra2mNx7+e5vAYNL+5oaRXolbHCyg0WzfFWilhMK3KEi8oIMKXR4ZzoUZLAqeOQzX7nnsLqC3wjyDHCgxtp4O+5GNKyeLN4ItoI1f2d6qyiiBPkHgVPuLhG3yyQ+wD0dMc9vSYmxfoazqe9HD/9UE=
 
 cache:
   directories:
