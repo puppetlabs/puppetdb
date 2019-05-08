@@ -795,7 +795,7 @@ EOS
       if host['platform'].version == '8'
         create_remote_file(host,
                           "/etc/apt/sources.list.d/jessie-backports.list",
-                          "deb http://httpredir.debian.org/debian jessie-backports main")
+                          "deb https://artifactory.delivery.puppetlabs.net/artifactory/debian_archive__remote/ jessie-backports main")
       end
 
       if options[:type] == 'aio' then
@@ -1014,9 +1014,8 @@ EOS
 
   def install_puppet(puppet_collection = "puppet6")
     hosts.each do |host|
-      if host['platform'].variant == 'debian' &&
-         host['platform'].version == '8'
-        on host, "apt-get install -y -t jessie-backports openjdk-8-jre-headless"
+      if host['platform'].variant == 'debian' && host['platform'].version == '8'
+        install_package(host, "openjdk-8-jre-headless")
       end
     end
     # If our :install_type is :pe then the harness has already installed puppet.
