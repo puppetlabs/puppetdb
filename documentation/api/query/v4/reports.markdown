@@ -24,7 +24,7 @@ forwards these to PuppetDB. Each report includes:
 * Metadata about the report
 * Many _events,_ describing what happened during the run
 
-Once this information is stored in PuppetDB, it can be queried in various ways.
+After this information is stored in PuppetDB, it can be queried in various ways.
 
 * You can query **data about the run** and **report metadata** by making an HTTP
   request to the `/reports` endpoint.

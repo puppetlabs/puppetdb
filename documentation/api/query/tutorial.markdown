@@ -273,7 +273,7 @@ this time.
 
 ## Nodes walkthrough
 
-We can also query for nodes. Once again, this is quite similar to resource and
+We can also query for nodes. Again, this is similar to resource and
 fact queries:
 
     ["=", "certname", "foo.example.com"]

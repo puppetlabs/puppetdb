@@ -24,7 +24,7 @@ After configuration, restart the PuppetDB service.
 Connecting to a remote REPL
 -----
 
-Once PuppetDB is accepting remote REPL connections, you can connect to it and begin issuing low-level debugging commands and Clojure code.
+When PuppetDB is accepting remote REPL connections, you can connect to it and begin issuing low-level debugging commands and Clojure code.
 
 For example, with a NREPL configured on port 8082, and using Leiningen to connect:
 

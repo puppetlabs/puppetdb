@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/index.html"
 [ast]: ./query/v4/ast.html
 [pql]: ./query/v4/pql.html
 
-Since PuppetDB collects lots of data from Puppet, it's an ideal platform for new tools and applications that use that data. You can use the HTTP API described in these pages to interact with PuppetDB's data.
+Because PuppetDB collects lots of data from Puppet, it's an ideal platform for new tools and applications that use that data. You can use the HTTP API described in these pages to interact with PuppetDB's data.
 
 Summary
 -----

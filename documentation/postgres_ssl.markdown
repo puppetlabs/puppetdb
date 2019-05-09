@@ -30,8 +30,8 @@ Before beginning, take a look at PostgreSQL's [secure TCP/IP connections with SS
 
 Using Puppet certificates to secure your PostgreSQL server has the following benefits:
 
-* Since you are using PuppetDB, we can presume that you are using Puppet on each server. This means you can reuse the local Puppet agent certificate for PostgreSQL.
-* Since your local Puppet agent's certificate must be signed for Puppet to work, you likely have an established workflow for getting these signed. 
+* Because you are using PuppetDB, we can presume that you are using Puppet on each server. This means you can reuse the local Puppet agent certificate for PostgreSQL.
+* Because your local Puppet agent's certificate must be signed for Puppet to work, you likely have an established workflow for getting these signed. 
 * We also recommend this methodology for securing the HTTPS interface for PuppetDB.
 
 To begin, configure your PostgreSQL server to use the host's Puppet server certificate and key. The location of these files can be found by using the following commands:
@@ -56,7 +56,7 @@ Tell Java to use this TrustStore instead of the system's default by specifying v
 
 *Note:* Replace `<PASSWORD>` with the password you used to create the KeyStore, or the one found in `/etc/puppetdb/ssl/puppetdb_keystore_pw.txt`.
 
-Once this is complete, modify the database JDBC connection URL in your PuppetDB configuration as follows:
+After this is complete, modify the database JDBC connection URL in your PuppetDB configuration as follows:
 
     [database]
     classname = org.postgresql.Driver
@@ -71,7 +71,7 @@ Restart PuppetDB and monitor your logs for errors. Your connection should now be
 
 If you wish, you can follow the [PostgreSQL JDBC SSL client setup instructions](http://jdbc.postgresql.org/documentation/head/ssl-client.html). This documentation will help you to generate a new SSL certificate, key, and CA. Make sure you place your signed certificate and private key in the locations specified by the `ssl_cert_file` and `ssl_key_file` locations, and that you change the `ssl` setting to `on` in your `postgresql.conf`. Don't forget to give the correct permissions for each file (such as `chmod 0600 file`). Otherwise, PostgreSQL will reject the key and cert files.
 
-Once this is done, modify the JDBC URL in the database configuration section for PuppetDB. For example:
+After this is done, modify the JDBC URL in the database configuration section for PuppetDB. For example:
 
     [database]
     classname = org.postgresql.Driver

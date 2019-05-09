@@ -460,7 +460,7 @@ precedence over limit:
 
     reports {certname = "foo.com" offset 10 limit 10}
 
-Note that since there is no default ordering for results returned by PuppetDB,
+Note that because there is no default ordering for results returned by PuppetDB,
 `limit` and `offset` are generally only useful in combination with `order by`.
 
 ### `order by`
