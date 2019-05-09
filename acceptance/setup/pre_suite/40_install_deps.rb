@@ -50,7 +50,7 @@ unless (test_config[:skip_presuite_provisioning])
           if database['platform'].variant == 'debian' &&
              database['platform'].version == '8'
             on database, "apt-get install -y rake unzip"
-            on database, "apt-get install -y -t jessie-backports openjdk-8-jre-headless"
+            on database, "apt-get install -y openjdk-8-jre-headless"
           else
             on database, "apt-get install -y rake unzip openjdk-8-jre-headless"
           end
@@ -142,10 +142,10 @@ unless (test_config[:skip_presuite_provisioning])
             # SSLv2_method, version OPENSSL_1.0.0 not defined in file
             # libssl.so.1.0.0 with link time reference -
             # /usr/lib/x86_64-linux-gnu/ruby/2.1.0/openssl.so
-            on master, "apt-get install -y openssl"
+            on master, "apt-get install -y --force-yes openssl"
           end
 
-          on master, "apt-get install -y ruby ruby-dev libsqlite3-dev build-essential"
+          on master, "apt-get install -y --force-yes ruby ruby-dev libsqlite3-dev build-essential"
           # this is to get around the activesupport dependency on Ruby 1.9.3 for
           # Ubuntu 12.04. We can remove it when we drop support for 1.8.7.
           on master, "gem install i18n -v 0.6.11"
