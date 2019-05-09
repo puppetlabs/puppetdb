@@ -21,7 +21,8 @@
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :refer [update-when]]
-            [ring.util.response :as resp]))
+            [ring.util.response :as resp]
+            [clojure.tools.logging :as log]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -385,7 +386,10 @@
         (let [ex (ex-data e)
               query-error (and ex (:query-error ex))]
           (if query-error
-            (-> (resp/response "Bad query")
+            (-> (resp/response (trs "Bad query"))
                 (resp/status 400))
+
+            ;; in the case of an error that isn't the query validation,
+            ;; rethrow the exception and let the callers handle it accordingly
             (throw e)))))))
 
