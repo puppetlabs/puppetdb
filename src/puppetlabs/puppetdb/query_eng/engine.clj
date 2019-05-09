@@ -20,6 +20,8 @@
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s]
+            [schema.macros :as macros]
+            [schema.utils :as sutils]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [clojure.string :as string]
             [clojure.walk :as walk])
@@ -1127,13 +1129,20 @@
       first
       log/spy))
 
+(defn query-validate
+  [schema value]
+  (let [c (s/checker schema)]
+    (when-let [error (c value)]
+      (throw (ex-info (sutils/format* "Value does not match schema: %s" (pr-str error))
+                      {:schema schema :value value :error error :query-error true})))))
+
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
 
 (extend-protocol SQLGen
   Query
   (-plan->sql [{:keys [projections projected-fields where] :as query}]
-    (s/validate [projection-schema] projected-fields)
+    (query-validate [projection-schema] projected-fields)
     (let [has-where? (boolean where)
           has-projections? (not (empty? projected-fields))
           sql (-> query
@@ -1157,7 +1166,7 @@
   InExpression
   (-plan->sql [{:keys [column subquery] :as this}]
     ;; 'column' is actually a vector of columns.
-    (s/validate [column-schema] column)
+    (query-validate [column-schema] column)
     ;; if a field has type jsonb, cast that field in the subquery to jsonb
     (let [fields (mapv :field column)
           outer-types (mapv :type column)
@@ -1205,27 +1214,27 @@
 
   InArrayExpression
   (-plan->sql [{:keys [column]}]
-    (s/validate column-schema column)
+    (query-validate column-schema column)
     (su/sql-in-array (:field column)))
 
   ArrayBinaryExpression
   (-plan->sql [{:keys [column]}]
-    (s/validate column-schema column)
+    (query-validate column-schema column)
     (su/sql-array-query-string (:field column)))
 
   RegexExpression
   (-plan->sql [{:keys [column]}]
-    (s/validate column-schema column)
+    (query-validate column-schema column)
     (su/sql-regexp-match (:field column)))
 
   ArrayRegexExpression
   (-plan->sql [{:keys [column]}]
-    (s/validate column-schema column)
+    (query-validate column-schema column)
     (su/sql-regexp-array-match (:field column)))
 
   NullExpression
   (-plan->sql [{:keys [column] :as expr}]
-    (s/validate column-schema column)
+    (query-validate column-schema column)
     (let [lhs (-plan->sql (:field column))
           json? (= :jsonb-scalar (:type column))]
       (if (:null? expr)

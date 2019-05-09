@@ -20,7 +20,8 @@
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when]]))
+            [puppetlabs.puppetdb.utils :refer [update-when]]
+            [ring.util.response :as resp]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -374,8 +375,17 @@
 (defn query-handler
   [version]
   (fn [{:keys [params globals puppetdb-query]}]
-    (if (and (:ast_only puppetdb-query) (valid-query? (:scf-read-db globals) version puppetdb-query))
-      (http/json-response (:query puppetdb-query))
-      (qeng/produce-streaming-body version
-                              (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                              (narrow-globals globals)))))
+    (try
+      (if (and (:ast_only puppetdb-query) (valid-query? (:scf-read-db globals) version puppetdb-query))
+        (http/json-response (:query puppetdb-query))
+        (qeng/produce-streaming-body version
+                                     (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                                     (narrow-globals globals)))
+      (catch Exception e
+        (let [ex (ex-data e)
+              query-error (and ex (:query-error ex))]
+          (if query-error
+            (-> (resp/response "Bad query")
+                (resp/status 400))
+            (throw e)))))))
+
