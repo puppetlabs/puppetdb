@@ -20,14 +20,14 @@ canonical: "/puppetdb/latest/connect_puppet_apply.html"
 
 > **Note:** To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 
-PuppetDB can be used with standalone Puppet deployments where each node runs `puppet apply`. Once connected to PuppetDB, `puppet apply` will do the following:
+PuppetDB can be used with standalone Puppet deployments where each node runs `puppet apply`. When connected to PuppetDB, `puppet apply` does the following:
 
 * Send the node's catalog to PuppetDB
 * Query PuppetDB when compiling catalogs that collect [exported resources][exported]
 * Store facts in PuppetDB
 * Send reports to PuppetDB (optional)
 
-You will need to take the following steps to configure your standalone nodes to connect to PuppetDB. Note that since you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.**
+You will need to take the following steps to configure your standalone nodes to connect to PuppetDB. Note that because you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.**
 
 ## Step 1: Configure SSL
 
@@ -41,7 +41,7 @@ PuppetDB requires client authentication (CA) for its SSL connections, and the Pu
 
 ### Option B: Issue certificates to all Puppet nodes
 
-When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet master's certificate authority. You can issue certificates to every node by setting up a Puppet master server with dummy manifests, running `puppet agent --test` once on every node, signing every certificate request on the Puppet master, and running `puppet agent --test` again on every node.
+When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet master's certificate authority. You can issue certificates to every node by setting up a Puppet master server with dummy manifests, running `puppet agent --test` one time on every node, signing every certificate request on the Puppet master, and running `puppet agent --test` again on every node.
 
 Do the same on your PuppetDB node, then [re-run the SSL setup script][ssl_script] (which usually runs automatically during installation). PuppetDB will now trust connections from your Puppet nodes.
 

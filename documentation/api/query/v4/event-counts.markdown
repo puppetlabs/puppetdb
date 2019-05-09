@@ -18,7 +18,7 @@ Puppet agent nodes submit reports after their runs, and the Puppet master forwar
 * Metadata about the report
 * Many _events,_ describing what happened during the run
 
-Once this information is stored in PuppetDB, it can be queried in various ways.
+After this information is stored in PuppetDB, it can be queried in various ways.
 
 * You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`](./reports.html) endpoint.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.

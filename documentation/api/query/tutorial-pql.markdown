@@ -334,7 +334,7 @@ numeric comparison operators can't be used with them at this time.
 
 ## Nodes walkthrough
 
-We can also query for nodes. Once again, this is quite similar to resource and
+We can also query for nodes. Again, this is similar to resource and
 fact queries:
 
     nodes {

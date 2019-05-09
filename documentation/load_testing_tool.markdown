@@ -75,7 +75,7 @@ In the `[jetty]` section, set either:
 * On the agent, in the `config.ini` file set the port to the puppetdb port for
 http traffic (defaults to 8080)
 
-Once these steps have been completed you should be able to run the benchmark
+After these steps have been completed you should be able to run the benchmark
 tool on the agent using the `java -cp ...` command described above.
 
 ### Arguments accepted by the benchmark command

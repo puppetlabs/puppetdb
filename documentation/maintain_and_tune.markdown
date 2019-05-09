@@ -77,7 +77,7 @@ it exceeds 200 MB in size.  At most 90 days and at most 1 GB of the most recent
 
 ## Tune the max heap size
 
-Although we provide [rule-of-thumb memory recommendations][memrec], PuppetDB's RAM usage depends on several factors. Your memory needs will vary depending on the number of nodes, frequency of Puppet runs, and amount of managed resources. For instance, nodes that check in once a day will require significantly less memory than those that check in every 30 minutes.
+Although we provide [rule-of-thumb memory recommendations][memrec], PuppetDB's RAM usage depends on several factors. Your memory needs will vary depending on the number of nodes, frequency of Puppet runs, and amount of managed resources. For instance, nodes that check in one time a day requires significantly less memory than those that check in every 30 minutes.
 
 The best way to manage PuppetDB's max heap size is to estimate a ballpark figure, then [monitor the performance dashboard][dashboard] and [increase the heap size][configure_heap] if the "JVM Heap" metric regularly approaches the maximum. You may need to revisit your memory needs whenever your site grows substantially.
 
