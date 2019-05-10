@@ -279,7 +279,7 @@ module PuppetDBExtensions
     if is_bionic
       '5.2.4'
     elsif is_rhel8
-      '5.2.8'
+      '6.0.3'
     else
       '5.2.0'
     end
