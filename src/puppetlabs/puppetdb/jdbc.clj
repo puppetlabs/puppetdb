@@ -512,9 +512,7 @@
   keys, return a pooled DB spec map (one containing just the :datasource key
   with a pooled DataSource object as the value). The returned pooled DB spec
   can be passed directly as the first argument to clojure.java.jdbc's
-  functions.
-
-  Times out after 30 seconds and throws org.postgresql.util.PSQLException"
+  functions."
   ([db-spec] (make-connection-pool db-spec nil))
   ([{:keys [subprotocol subname
             user username password

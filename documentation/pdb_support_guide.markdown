@@ -202,7 +202,7 @@ Check the postgres logs for:
 * Postgres errors (marked "ERROR") coming from the puppetdb database
 * Slow queries
 
-Slow queries are the main concern here, since most errors here have already
+Slow queries are the main concern here, because most errors here have already
 been seen in the PDB logs. Slow queries frequently occur on deletes related to
 garbage collection and in queries against event-counts and
 aggregate-event-counts (which will typically present in Puppet Enterprise as

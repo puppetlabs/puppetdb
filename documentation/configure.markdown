@@ -619,7 +619,7 @@ all available interfaces, use `0.0.0.0`.
 To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccomend using an IP address instead of a hostname.
 
 > **Note:** Unencrypted HTTP is the only way to view the [performance
-    dashboard][dashboard], since PuppetDB uses host verification for
+    dashboard][dashboard], because PuppetDB uses host verification for
     SSL. However, it can also be used to make any call to PuppetDB's
     API, including inserting exported resources and retrieving
     arbitrary data about your Puppet-managed nodes. **If you enable
