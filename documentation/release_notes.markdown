@@ -245,7 +245,7 @@ PuppetDB 5.2.6 is a security, new feature, and bug-fix release.
 
 ### Bug fixes
 
-- Previously http submission with `command_broadcast` enabled returned the last response. As a result, a failure would be shown if the last connection produced a 503 response, even though there was a successful PuppetDB response and the minimum successful responses had been met. This issue does not occur with responses that raised an exception. Since the Puppet `http_pool` does not raise 503 as an exception, this issue can be seen when the PuppetDB is in maintenance mode. This is now fixed and changes the behavior to send the last successful response when the minimum successful submissions have been met. [PDB-4020](https://tickets.puppetlabs.com/browse/PDB-4020)
+- Previously http submission with `command_broadcast` enabled returned the last response. As a result, a failure would be shown if the last connection produced a 503 response, even though there was a successful PuppetDB response and the minimum successful responses had been met. This issue does not occur with responses that raised an exception. Because the Puppet `http_pool` does not raise 503 as an exception, this issue can be seen when the PuppetDB is in maintenance mode. This is now fixed and changes the behavior to send the last successful response when the minimum successful submissions have been met. [PDB-4020](https://tickets.puppetlabs.com/browse/PDB-4020)
 - The find/fix database connection errors after clj-parent 2.0 dep upgrades has now been fixed. [PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952)
 
 ###Contributors
@@ -356,7 +356,7 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 
 -   This version of PuppetDB prevents the query engine from limiting queries against the v4 endpoint to active nodes, in cases where the relevant entity has no certname field. This facilitates PQL queries against fact_paths and environments.
 
--   When using the benchmark tool in PuppetDB 5.2.0, every host in enqueued once before starting the simulation loop.
+-   When using the benchmark tool in PuppetDB 5.2.0, every host is enqueued once before starting the simulation loop.
 
 -   PuppetDB 5.2.0 tracks how long a migration takes and logs them to improve testing and support awareness.
 
@@ -386,6 +386,29 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 ### Contributors
 Karel Březina, Katie Lawhorn, Mike Eller, Rob Browning, Russell Mull,
 Scott Walker, Thomas Hallgren, Wyatt Alt, and Zachary Kent
+
+## 5.1.6
+
+PuppetDB 5.1.6 is a PE-only release.
+
+### Bug fixes
+
+- The jackson-databind dependency has been upgraded to 2.9.8 to fix
+  CVE-2018-5968, CVE-2018-19360, CVE-2018-19361, and CVE-2018-19362.
+  ([PDB-4364](https://tickets.puppetlabs.com/browse/PDB-4364))
+
+- When an invalid / malformed timestamp was passed in a PQL query, it
+  was treated as a null, giving back an unexpected query result. The
+  timestamp is now validated, and an error is returned to the user.
+  ([PDB-4015](https://tickets.puppetlabs.com/browse/PDB-4015))
+
+- When there are processing errors during an initial HA sync PuppetDB
+  should now defer commands to the local queue as originally intended,
+  (PE Only). ([PDB-4117](https://tickets.puppetlabs.com/browse/PDB-4117))
+
+- A problem that could cause harmless, but noisy database connection
+  errors during shutdown has been fixed.
+  ([PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952))
 
 ## 5.1.5
 
@@ -625,7 +648,7 @@ example (4.4.x).
   ([PDB-3515](https://tickets.puppetlabs.com/browse/PDB-3515))
 
 * PuppetDB no longer prints a warning when a command request doesn't
-  include a Content-Length header, since it's less important with the
+  include a Content-Length header, because it's less important with the
   stockpile queue.
   ([PDB-3567](https://tickets.puppetlabs.com/browse/PDB-3567))
 
@@ -1686,7 +1709,7 @@ performing subqueries, and many more enhancements and bug fixes.
 
 * Increase JVM PermGen maximum for JDK 7. ([PDB-1959](https://tickets.puppetlabs.com/browse/PDB-1959))
 
-* Previously, updating 6554 or more fact values at once produced a prepared statement
+* Previously, updating 6554 or more fact values at one time produced a prepared statement
   with more parameters than can be represented with a 16-bit integer, which is the
   maximum allowed by the PostgreSQL JDBC driver. These updates will now occur in
   batches of 6000.
@@ -2209,7 +2232,7 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
 * Allow factset hashes to be nil in PuppetDB.
 
     This is necessary for factsets to function after the ([PDB-898](https://tickets.puppetlabs.com/browse/PDB-898)) migration,
-    since existing factsets are not being hashed.
+    because existing factsets are not being hashed.
 
 * Fix ActiveMQ errors on PuppetDB shutdown. ([PDB-880](https://tickets.puppetlabs.com/browse/PDB-880)) ([PDB-1102](https://tickets.puppetlabs.com/browse/PDB-1102))
 
@@ -2322,7 +2345,7 @@ Ken Barber, Ryan Senior, Wyatt Alt
 
 ### Bug fixes and maintenance
 
-* Updating 6554 or more fact values at once would produce a prepared statement
+* Updating 6554 or more fact values at one time would produce a prepared statement
   with more parameters than can be represented with a 16-bit integer, which is the
   maximum allowed by the PostgreSQL JDBC driver. These updates will now occur in
   batches of 6000, so the limit should not be reached.
@@ -2959,7 +2982,7 @@ Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Al
     Switched from a background thread to cleanup orphaned fact_values to one
     that deletes as it goes. Switching to deferred constraints also
     significantly improved performance on PostgreSQL. Deferred constraints are
-    not available in HSQLDB, but since HSQLDB is unlikely to be running at the
+    not available in HSQLDB, but because HSQLDB is unlikely to be running at the
     scale that will surface the issue, simply switching to delete-as-you-go
     should be sufficient to mitigate the issue to the extent that HSQL
     installations are affected.
@@ -3147,7 +3170,7 @@ Brian Cain, Eric Timmerman, Justin Holguin, Ken Barber, Nick Fagerlund, Ryan Sen
 
 * [`in` and `extract` (version 4)](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/operators.html#in)
 
-    We have modified the v4 IN and EXTRACT operators to accept multiple fields at once.
+    We have modified the v4 IN and EXTRACT operators to accept multiple fields at one time.
     This allows the following...
 
         ["and" ["in", "name",
@@ -3284,7 +3307,7 @@ All these tools have been modified to support structured facts. `export` specifi
 
 * Switch confine for basic test during acc dependency installation
 
-    The way we were using confine was wrong, and since this is now more strict
+    The way we were using confine was wrong, and because this is now more strict
     in beaker it was throwing errors in the master smoke tests. This patch
     just replaces it for a basic include? on the master platform instead.
 
@@ -3606,7 +3629,7 @@ New features:
 
     This patch adds the new code relevant for doing any future v4 work. It has been
     raised as an experimental end-point only so there are no commitments to its
-    interface yet. Once stable we will need another patch to declare it as so.
+    interface yet. When this is stable, we will need another patch to declare it as so.
 
     This patch also deprecates the v2 end-point in documentation and by adding the
     same headers we used to use for the v1 end-point.
@@ -3752,7 +3775,7 @@ Notable improvements and fixes:
     Some Puppet classes (Puppet::Node and Puppet::Node::Facts) don't
     support JSON serialization, so continue to use PSON serialization
     for them. In Puppet 3.4.0+ they have methods to do seralization in
-    other formats than PSON though, so once support for older versions
+    other formats than PSON though, so when support for older versions
     of Puppet is dropped they can be seralized in JSON as well.
 
 * (PDB-476) Decorate the terminus code with Puppet profiling blocks
@@ -3975,7 +3998,7 @@ Notable improvements and fixes:
     that portion of the query has to work against the entire table,
     and becomes prohibitively expensive.
 
-    Since the existing timestamp filtering can be nested arbitrarily
+    Because the existing timestamp filtering can be nested arbitrarily
     inside of the query (inside of boolean logic, etc.), it was not
     going to be possible to re-use that to handle the timestamp filtering
     for the `distinct` part of the query; thus, we had to introduce
@@ -4104,7 +4127,7 @@ Notable improvements and fixes:
 
     This increases performance for exported resource collection
     queries. For postgresql the index is only a partial on exported =
-    true, since indexing on the very common 'false' case is not that
+    true, because indexing on the very common 'false' case is not that
     effective. This gives us a big perf boost with minimal disk usage.
 
 * (PDB-85) Various fixes for report export and anonymization

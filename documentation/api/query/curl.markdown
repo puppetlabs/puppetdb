@@ -8,6 +8,8 @@ canonical: "/puppetdb/latest/api/query/curl.html"
 [dashboard]: ../../maintain_and_tune.html#monitor-the-performance-dashboard
 [whitelist]: ../../configure.html#certificate-whitelist
 [entities]: ./v4/entities.html
+[pql]: ./tutorial-pql.markdown
+[pdb-cli]: ../../pdb_client_tools.md
 
 You can use [`curl`][curl] to directly interact with PuppetDB's REST API. This is useful for testing, prototyping, and quickly fetching arbitrary data.
 
@@ -110,10 +112,27 @@ performance on some of our endpoints, such as `/v4/catalogs`, `/v4/reports` and
 ## Querying PuppetDB with POST
 
 PuppetDB supports querying by POST, which is useful for large
-queries (exact limits depend on the client and webserver used.)
+queries (exact limits depend on the client and webserver used). POST queries allow you to limit the number of entries in the response. The example below limits the query to return one entry.   
 
 POST queries use the following syntax:
 
     curl -X POST http://localhost:8080/pdb/query/v4/nodes \
       -H 'Content-Type:application/json' \
       -d '{"query":["~","certname",".*.com"],"order_by":[{"field":"certname"}],"limit":1}'
+
+## Querying PuppetDB based on specific resource attributes
+
+You can use POST to query for a specific resource attribute. Note that this requires you to escape your quotes (`"`). Alternatively, use the [PuppetDB CLI](pdb-cli), together with the [Puppet Query Language (PQL)](pql) to make queries without having to escape characters.
+
+To query for the following resource attributes: 
+
+    resources {
+      tag = "foo" and
+      exported = true
+    } 
+
+Use the following CURL command:
+
+    curl -X POST http://localhost:8080/pdb/query/v4 \
+      -H 'Content-Type:application/json' \
+      -d '{"query": "resources { tag = \"foo\" and exported = true }"}'

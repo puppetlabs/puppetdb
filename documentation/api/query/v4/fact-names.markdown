@@ -27,7 +27,7 @@ If a query parameter is not provided, all results will be returned.
 ### Response format
 
 The response will be in `application/json`, and will contain an alphabetical
-JSON array containing fact names. Each fact name will appear only once,
+JSON array containing fact names. Each fact name will appear only one time,
 regardless of how many nodes have that fact.
 
     [<fact>, <fact>, ..., <fact>, <fact>]
