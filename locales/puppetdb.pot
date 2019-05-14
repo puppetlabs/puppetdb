@@ -187,8 +187,13 @@ msgstr ""
 msgid "Forcibly terminating periodic activities"
 msgstr ""
 
+#. Nothing to do but log it...
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Error while attempting to create connection pool"
+msgid "Unable to close migration pool"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Will retry database connection after temporary failure: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj

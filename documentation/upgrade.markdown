@@ -63,7 +63,7 @@ When a new version of PuppetDB is released, you will need to upgrade:
 2. The [PuppetDB-termini][connect_master] on every Puppet master (or
    [every node][connect_apply], if using a standalone deployment).
 
-You should **upgrade PuppetDB first.** Since PuppetDB will be down for a few
+You should **upgrade PuppetDB first.** Because PuppetDB will be down for a few
 minutes during the upgrade and Puppet masters will not be able to serve catalogs
 until it comes back, you should schedule upgrades during a maintenance window
 during which no new nodes will be brought online.
