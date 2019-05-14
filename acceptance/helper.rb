@@ -795,16 +795,16 @@ EOS
       if options[:type] == 'aio' then
         if nightly
           ## puppet5 repos
-          on host, "curl -O http://nightlies.puppetlabs.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
+          on host, "curl -O http://nightlies.puppet.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
         else
-          on host, "curl -O http://apt.puppetlabs.com/puppet-release-$(lsb_release -sc).deb"
-          on host, "dpkg -i puppet-release-$(lsb_release -sc).deb"
+          on host, "curl -O http://apt.puppet.com/puppet5-release-$(lsb_release -sc).deb"
+          on host, "dpkg -i puppet5-release-$(lsb_release -sc).deb"
         end
       else
-        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
-        on host, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
+        on host, "curl -O http://apt.puppet.com/puppet5-release-$(lsb_release -sc).deb"
+        on host, "dpkg -i puppet5-release-$(lsb_release -sc).deb"
       end
       on host, "apt-get update"
       on host, "apt-get install debian-archive-keyring"
@@ -817,12 +817,12 @@ EOS
 
         if nightly
           ## puppet5 repos
-          on host, "curl -O http://yum.puppetlabs.com/puppet5/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O http://nightlies.puppet.com/yum/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         else
-          on host, "curl -O http://yum.puppetlabs.com/puppet/puppet-release-#{variant}-#{version}.noarch.rpm"
-          on host, "rpm -i puppet-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O http://yum.puppet.com/puppet5-release-#{variant}-#{version}.noarch.rpm"
+          on host, "rpm -i puppet5-release-#{variant}-#{version}.noarch.rpm"
         end
       else
         on host, "yum clean all -y"
