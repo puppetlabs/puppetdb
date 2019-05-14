@@ -19,7 +19,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 > Note: To use PuppetDB, your site's Puppet master(s) must be running
 > Puppet version 5.0.0 or later.
 
-Once PuppetDB is installed and running, configure your Puppet master(s) to use it. When properly connected to PuppetDB, Puppet masters will do the following:
+After PuppetDB is installed and running, configure your master to use it. When properly connected to PuppetDB, the master does the following:
 
 * Send every node's catalog, facts, and reports to PuppetDB
 * Query PuppetDB when compiling node catalogs that collect [exported resources][exported]

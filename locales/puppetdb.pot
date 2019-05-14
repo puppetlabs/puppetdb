@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: d028aa68717e74e1b0c6fcb530547c2ab1e8e5b2\n"
+"X-Git-Ref: 3475651bd445ffad00aca26e63c5dcca7092a26e\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -187,8 +187,13 @@ msgstr ""
 msgid "Forcibly terminating periodic activities"
 msgstr ""
 
+#. Nothing to do but log it...
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Error while attempting to create connection pool"
+msgid "Unable to close migration pool"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Will retry database connection after temporary failure: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj

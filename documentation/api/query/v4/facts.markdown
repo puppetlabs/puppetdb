@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 
 You can query facts by making an HTTP request to the `/facts` endpoint.
 
-In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But since PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
+In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But because PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
 
 ## `/pdb/query/v4/facts`
 

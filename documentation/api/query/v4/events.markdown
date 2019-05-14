@@ -22,7 +22,7 @@ Puppet agent nodes submit reports after their runs, and the Puppet master forwar
 * Metadata about the report
 * Many _events,_ describing what happened during the run
 
-Once this information is stored in PuppetDB, it can be queried in various ways.
+After this information is stored in PuppetDB, it can be queried in various ways.
 
 * You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`][report] endpoint.
 * You can query **data about individual events** by making an HTTP request to the `/events` endpoint.
@@ -42,9 +42,9 @@ are generated from Puppet reports.)
     For example: if the resource `File[/tmp/foo]` was failing on some node
     but has since been fixed and is now succeeding, then a "normal" event query might
     return both the success and failure events. A query with `distinct_resources=true`
-    would only return the success event, since this is the most recent event for that resource.
+    would only return the success event, because this is the most recent event for that resource.
 
-    Since a `distinct_resources` query can be expensive, it requires a limited
+    Because a `distinct_resources` query can be expensive, it requires a limited
     window of time to examine. Use the `distinct_start_time` and
     `distinct_end_time` parameters to define this interval.
     Issuing a `distinct_resources` query without specifying both of these parameters will cause an error.
