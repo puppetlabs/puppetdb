@@ -38,16 +38,17 @@ seconds`.
 > The rest of this documentation assumes that these two directories have been
 added to their proper path configurations.
 
-### Step 2: Enable the Puppet Platform package repository
-
-If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Platform package repository][repos] for your system.
-
 ### Step 3: Install and configure the PuppetDB CLI
 
-Use Puppet to install the PuppetDB CLI:
+Install the PuppetDB CLI from Rubygems:
 
-    $ puppet resource package puppet-client-tools ensure=latest
+    $ gem install --bindir /opt/puppetlabs/bin puppetdb_cli
+
+If you are installing the PuppetDB CLI on a machine that does not have Puppet
+installed, such as your own workstation, you can install the executables to Ruby's
+standard bindir by omitting the `--bindir` option.
+
+    $ gem install puppetdb_cli
 
 If the node you installed the CLI on is not the same node as your PuppetDB
 server, you will need to add the CLI node's certname to the PuppetDB

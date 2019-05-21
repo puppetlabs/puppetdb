@@ -114,8 +114,8 @@ unless (test_config[:skip_presuite_provisioning])
           on master, "sed -i 's/gpgcheck=1/gpgcheck=0/g' /etc/dnf/dnf.conf"
           on master, "dnf config-manager --add-repo https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/"
           on master, "dnf clean all"
-          on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-9.6.12-1PGDG.rhel8.x86_64.rpm"
-          on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-server-9.6.12-1PGDG.rhel8.x86_64.rpm"
+          on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-9.6.13-1PGDG.rhel8.x86_64.rpm"
+          on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-server-9.6.13-1PGDG.rhel8.x86_64.rpm"
         end
       when :fedora
         # This was really set with Fedora 20 in mind, later versions might differ
