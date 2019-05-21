@@ -577,6 +577,11 @@ module PuppetDBExtensions
   end
 
   def clear_and_restart_puppetdb(host)
+    # gross hack to fix :upgrade_oldest tests on centos6 (see PDB-4373). remove this once the issue is resolved
+    if (test_config[:os_families].has_key? 'centos6-64-1') && test_config[:install_mode] == :upgrade_oldest
+      on host, "sed -i 's/pid=.*/pid=\"$(pgrep -f \"puppetdb.jar.* -m puppetlabs.puppetdb.(cli.services|main)\")\"/' /opt/puppetlabs/server/apps/puppetdb/cli/apps/stop"
+    end
+
     stop_puppetdb(host)
     clear_database(host)
     start_puppetdb(host)
