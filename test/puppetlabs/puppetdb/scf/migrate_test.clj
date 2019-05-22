@@ -506,19 +506,19 @@
                         #"Found an old and unuspported database migration.*"
                         (migrate! *db*))))
 
-(deftest md5-agg-test
+(deftest sha1-agg-test
   (with-test-db
     (jdbc/with-db-connection *db*
-      (testing "dual_md5 function"
-        (is (= [{:encode "187ef4436122d1cc2f40dc2b92f0eba0"}]
-               (query-to-vec "select encode(dual_md5('a', 'b'), 'hex')"))))
+      (testing "dual_sha1 function"
+        (is (= [{:encode "da23614e02469a0d7c7bd1bdab5c9c474b1904dc"}]
+               (query-to-vec "select encode(dual_sha1('a', 'b'), 'hex')"))))
 
-      (testing "md5_agg custom aggregator"
+      (testing "sha1_agg custom aggregator"
         ;; this hash is different from the above because it starts by executing
-        ;; dual_md5(0::bytea, 'a'::bytea)
-        (is (= [{:encode "bdef73571a96923bdc6b78b5345377d3"}]
+        ;; dual_sha1(0::bytea, 'a'::bytea)
+        (is (= [{:encode "420763a8701d3a2585f2a2e005e1f4f108390ad1"}]
                (query-to-vec
-                (str "select encode(md5_agg(val), 'hex') "
+                (str "select encode(sha1_agg(val), 'hex') "
                      "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
                      "group by gid"))))))))
 
@@ -575,22 +575,6 @@
   (is (thrown-with-msg? IllegalStateException
                         #"Found an old and unuspported database migration.*"
                         (migrate! *db*))))
-
-(deftest md5-agg-test
-  (with-test-db
-    (jdbc/with-db-connection *db*
-      (testing "dual_md5 function"
-        (is (= [{:encode "187ef4436122d1cc2f40dc2b92f0eba0"}]
-               (query-to-vec "select encode(dual_md5('a', 'b'), 'hex')"))))
-
-      (testing "md5_agg custom aggregator"
-        ;; this hash is different from the above because it starts by executing
-        ;; dual_md5(0::bytea, 'a'::bytea)
-        (is (= [{:encode "bdef73571a96923bdc6b78b5345377d3"}]
-               (query-to-vec
-                (str "select encode(md5_agg(val), 'hex') "
-                     "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
-                     "group by gid"))))))))
 
 (deftest test-fact-values-value->jsonb
   (clear-db-for-testing!)
@@ -1245,3 +1229,37 @@
                                :right-only nil
                                :same nil}]}
            (diff-schema-maps before-migration (schema-info-map *db*))))))
+
+(deftest migration-70-schema-diff
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 69)
+
+  ;; restore the aggregate and function that would be present
+  ;; in any existing system
+  (jdbc/do-commands
+   "CREATE FUNCTION dual_md5(BYTEA, BYTEA) RETURNS bytea AS $$
+      BEGIN
+        RETURN digest($1 || $2, 'md5');
+      END;
+    $$ LANGUAGE plpgsql"
+   "CREATE AGGREGATE md5_agg (BYTEA)
+    (
+      sfunc = dual_md5,
+      stype = bytea,
+      initcond = '\\x00'
+    )")
+
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 70)
+
+    (is (= {:index-diff nil
+            :table-diff nil
+            :constraint-diff nil}
+           (diff-schema-maps before-migration (schema-info-map *db*))))
+
+    (let [procs (set (map :proname
+                          (query-to-vec "SELECT proname FROM pg_proc")))]
+      (is (contains? procs "sha1_agg"))
+      (is (contains? procs "dual_sha1"))
+      (is (not (contains? procs "md5_agg")))
+      (is (not (contains? procs "dual_md5"))))))

@@ -839,8 +839,21 @@
 
 (defn factset-hash-field-not-nullable
   []
+  (jdbc/call-with-query-rows
+   ["select id from factsets where hash is null"]
+   (fn [rows]
+     (doseq [batch (partition-all 500 rows)]
+       (doall
+        (map #(jdbc/do-prepared
+               "update factsets set hash=? where id=?"
+               [(-> (:id %)
+                    .toString
+                    kitchensink/utf8-string->sha1
+                    sutils/munge-hash-for-storage)
+                (:id %)])
+             batch)))))
+
   (jdbc/do-commands
-   "UPDATE factsets SET hash=md5(factsets.id::text)::bytea WHERE hash is NULL"
    "ALTER TABLE factsets ALTER COLUMN hash SET NOT NULL"))
 
 (defn add-expression-indexes-for-bytea-queries
@@ -905,14 +918,14 @@
   "This aggregate and function is used by PE, not puppetdb"
   []
   (jdbc/do-commands
-   "CREATE FUNCTION dual_md5(BYTEA, BYTEA) RETURNS bytea AS $$
+   "CREATE FUNCTION dual_sha1(BYTEA, BYTEA) RETURNS bytea AS $$
       BEGIN
-        RETURN digest($1 || $2, 'md5');
+        RETURN digest($1 || $2, 'sha1');
       END;
     $$ LANGUAGE plpgsql"
-   "CREATE AGGREGATE md5_agg (BYTEA)
+   "CREATE AGGREGATE sha1_agg (BYTEA)
     (
-      sfunc = dual_md5,
+      sfunc = dual_sha1,
       stype = bytea,
       initcond = '\\x00'
     )"
@@ -1588,6 +1601,36 @@
     "     check ((expire is not null and updated is not null)"
     "             or (expire is null and updated is null)))"]))
 
+(defn migrate-md5-to-sha1-hashes []
+  ;; Existing puppetdb installations will have a dual_md5 function
+  ;; and a md5_agg aggregate function. We are replacing them with
+  ;; SHA-1 based versions. A brand new puppetdb installation will
+  ;; only have the SHA-1 versions, because the earlier migrations
+  ;; were changed.
+
+  (jdbc/do-commands
+   ;; handle the case where this is a brand new installation of puppetdb
+   "DROP AGGREGATE IF EXISTS sha1_agg(BYTEA)"
+   "DROP FUNCTION IF EXISTS dual_sha1(BYTEA, BYTEA)"
+
+   ;; both new and existing installations will need these created
+   "CREATE FUNCTION dual_sha1(BYTEA, BYTEA) RETURNS bytea AS $$
+      BEGIN
+        RETURN digest($1 || $2, 'sha1');
+      END;
+    $$ LANGUAGE plpgsql"
+   "CREATE AGGREGATE sha1_agg (BYTEA)
+    (
+      sfunc = dual_sha1,
+      stype = bytea,
+      initcond = '\\x00'
+    )"
+
+   ;; existing puppetdb installations will have these functions, which
+   ;; are now not used
+   "DROP AGGREGATE IF EXISTS md5_agg(BYTEA)"
+   "DROP FUNCTION IF EXISTS dual_md5(BYTEA, BYTEA)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1638,7 +1681,8 @@
    ;; to the hash to avoid these sorts of collisions
    67 (fn [])
    68 support-fact-expiration-configuration
-   69 add-resource-events-pk})
+   69 add-resource-events-pk
+   70 migrate-md5-to-sha1-hashes})
 
 (def desired-schema-version (apply max (keys migrations)))
 
