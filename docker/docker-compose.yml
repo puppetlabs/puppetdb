@@ -2,7 +2,8 @@ version: '3.5'
 
 services:
   postgres:
-    hostname: postgres.test
+    hostname: postgres
+    domainname: test
     image: postgres:9.6
     environment:
       - POSTGRES_PASSWORD=puppetdb
@@ -20,7 +21,8 @@ services:
           - postgres.test
 
   puppetdb:
-    hostname: puppetdb.test
+    hostname: puppetdb
+    domainname: test
     image: ${PUPPET_TEST_DOCKER_IMAGE:-puppet/puppetdb}
     environment:
       - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-false}
