@@ -1,7 +1,8 @@
-version: '3'
+version: '3.5'
 
 services:
   postgres:
+    hostname: postgres.test
     image: postgres:9.6
     environment:
       - POSTGRES_PASSWORD=puppetdb
@@ -12,11 +13,18 @@ services:
     volumes:
       - ./puppetdb/postgres-custom:/docker-entrypoint-initdb.d
       - ${VOLUME_ROOT:-.}/pgdata:/var/lib/postgresql/data
+    dns_search: 'test'
+    networks:
+      puppetdb_test:
+        aliases:
+          - postgres.test
 
   puppetdb:
+    hostname: puppetdb.test
     image: ${PUPPET_TEST_DOCKER_IMAGE:-puppet/puppetdb}
     environment:
       - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-false}
+      - PUPPETDB_POSTGRES_HOSTNAME=postgres.test
       - PUPPETDB_PASSWORD=puppetdb
       - PUPPETDB_USER=puppetdb
       - USE_PUPPETSERVER=false
@@ -25,3 +33,12 @@ services:
       - 8081
     depends_on:
       - postgres
+    dns_search: 'test'
+    networks:
+      puppetdb_test:
+        aliases:
+          - puppetdb.test
+
+networks:
+  puppetdb_test:
+    name: puppetdb_test
