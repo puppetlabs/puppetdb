@@ -1315,7 +1315,8 @@
 (defn rededuplicate-facts []
   (log/info (trs "[1/8] Cleaning up unreferenced facts..."))
   (jdbc/do-commands
-   "DELETE FROM facts WHERE factset_id NOT IN (SELECT id FROM factsets)")
+   "DELETE FROM facts WHERE factset_id NOT IN (SELECT id FROM factsets)"
+   "DELETE FROM facts WHERE fact_path_id NOT IN (SELECT id FROM fact_paths)")
 
   (log/info (trs "[2/8] Creating new fact storage tables..."))
   (jdbc/do-commands
