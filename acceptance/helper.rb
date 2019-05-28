@@ -24,7 +24,7 @@ module PuppetDBExtensions
     base_dir = File.join(File.dirname(__FILE__), '..')
 
     install_type = get_option_value(options[:puppetdb_install_type],
-      [:git, :package, :pe], "install type", "PUPPETDB_INSTALL_TYPE", :git)
+      [:git, :package, :pe], "install type", "PUPPETDB_INSTALL_TYPE", :package)
 
     install_mode =
         get_option_value(options[:install_type],
@@ -1026,8 +1026,12 @@ EOS
       if test_config[:repo_puppet] then
         install_puppet_from_source
       else
-        install_puppet_from_package
+        puts "Error: No puppet repo set for installation from git source"
+        exit 1
       end
+    else
+      puts "Error: No puppet repo set for installation from git source"
+      exit 1
     end
     install_puppet_conf
   end
