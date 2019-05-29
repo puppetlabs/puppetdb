@@ -154,11 +154,11 @@ Here are some examples of using the CLI.
 
 Query PuppetDB using PQL:
 
-    $ puppet query 'nodes [ certname ]{ limit 1 }'
+    $ puppet query "nodes [ certname ]{ limit 1 }"
 
 Or query PuppetDB using the AST syntax:
 
-    $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", 1]]'
+    $ puppet query "['from', 'nodes', ['extract', 'certname'], ['limit', 1]]"
 
 For more information on the `query` command:
 
