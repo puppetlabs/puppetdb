@@ -1,4 +1,4 @@
-# PuppetDB [![Build Status](https://travis-ci.org/puppetlabs/puppetdb.svg?branch=master)](https://travis-ci.org/puppetlabs/puppetdb)
+# PuppetDB [![Build Status](https://travis-ci.com/puppetlabs/puppetdb.svg?branch=6.3.x)](https://travis-ci.com/puppetlabs/puppetdb)
 
 [docs]: https://docs.puppet.com/puppetdb/latest
 [contributing]: documentation/CONTRIBUTING.md
