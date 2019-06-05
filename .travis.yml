@@ -152,4 +152,5 @@ cache:
   directories:
     - $HOME/.m2
     - $HOME/Library/Caches/Homebrew
+    - var/cache/apt/archives
     - vendor/bundle/ruby
