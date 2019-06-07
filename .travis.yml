@@ -1,15 +1,18 @@
+# We don't specify a global language both because we use different
+# languages in different jobs, and because in some cases travis
+# language-specific automation either does things we don't want to do,
+# or does them too early in the process, i.e. lein deps, etc.  It's
+# still possible to set the language explicitly for a job when that's
+# appropriate.
 language: generic
-dist: trusty
+
+dist: xenial
 
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.
 sudo: required
 
 # The test specifications are all extracted from the PDB_TEST value.
-
-# jdk_switcher is a shell function, so we can't handle it in
-# prep-os-essentials-for:
-# https://github.com/travis-ci/travis-ci/issues/9927
 
 # We explicitly set up lein and pgbox at the top level so that we can
 # use them in commands like test-config, and so we can't end up doing
@@ -21,21 +24,8 @@ aliases:
     set -e
     jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
-    ext/travisci/prep-os-essentials-for "$PDB_TEST"
-    case "$OSTYPE" in
-      linux*)
-          jdk_switcher use "$jdk";
-        ;;
-      darwin*)
-        export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home"
-        export PATH="$JAVA_HOME/bin:$PATH"
-        hash -r
-        ;;
-      *)
-        echo "$OSTYPE is not a supported system" 1>&2
-        exit 2
-        ;;
-    esac
+    ext/travisci/prep-os-essentials-for "$PDB_TEST" prep-os-essentials-tmp.env
+    source prep-os-essentials-tmp.env
     mkdir -p ext/travisci/local
     export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
     ext/bin/require-leiningen default ext/travisci/local
@@ -51,21 +41,8 @@ aliases:
     set -e
     jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
     jdkver="${jdk##*jdk}"
-    ext/travisci/prep-os-essentials-for "$PDB_TEST"
-    case "$OSTYPE" in
-      linux*)
-          jdk_switcher use "$jdk";
-        ;;
-      darwin*)
-        export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home"
-        export PATH="$JAVA_HOME/bin:$PATH"
-        hash -r
-        ;;
-      *)
-        echo "$OSTYPE is not a supported system" 1>&2
-        exit 2
-        ;;
-    esac
+    ext/travisci/prep-os-essentials-for "$PDB_TEST" prep-os-essentials-tmp.env
+    source prep-os-essentials-tmp.env
     mkdir -p ext/travisci/local
     export PATH="$(pwd)/ext/travisci/local/bin:$PATH"
     ext/bin/require-leiningen default ext/travisci/local
@@ -82,6 +59,8 @@ aliases:
 
   - &run-spec-tests |
     set -e
+    ext/travisci/prep-os-essentials-for "$PDB_TEST" prep-os-essentials-tmp.env
+    source prep-os-essentials-tmp.env
     puppet_ref="$(ext/travisci/prefixed-ref-from-spec "$PDB_TEST" pup-)"
     ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/run-rspec-tests "$puppet_ref"
@@ -95,20 +74,12 @@ jobs:
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/oraclejdk8/pg-9.6
-      script: *run-core-and-ext-tests
-
-    - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk8/pg-11
       script: *run-core-and-ext-tests
 
     # === integration tests
     - stage: ❧ pdb tests
       env: PDB_TEST=int/openjdk8/pup-5.5.x/srv-5.3.x/pg-9.6
-      script: *run-integration-tests
-
-    - stage: ❧ pdb tests
-      env: PDB_TEST=int/oraclejdk8/pup-5.5.x/srv-5.3.x/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
@@ -152,4 +123,5 @@ cache:
   directories:
     - $HOME/.m2
     - $HOME/Library/Caches/Homebrew
+    - var/cache/apt/archives
     - vendor/bundle/ruby

@@ -16,7 +16,7 @@ lein-pprint() {
 
 PDB_NO_PUPPETSERVER_INSTALL="${PDB_NO_PUPPETSERVER_INSTALL:-}"
 
-if test -z "$(type -t bundler)"; then
+if test -z "$(type -t bundle)"; then
     cat 2>&1 <<-EOS
 	Ruby bundler does not appear to be available.
 	Please install it via "gem install --user-install bundler" or similar.
