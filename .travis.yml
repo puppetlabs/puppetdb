@@ -117,7 +117,7 @@ notifications:
 
 cache:
   directories:
+    - /var/cache/apt/archives
     - $HOME/.m2
     - $HOME/Library/Caches/Homebrew
-    - var/cache/apt/archives
     - vendor/bundle/ruby
