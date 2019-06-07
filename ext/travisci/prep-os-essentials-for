@@ -92,10 +92,10 @@ case "$flavor" in
                 # Note the leading tabs, though it's only critical that it be
                 # tabs for the EOS line.
                 cat >> "$env_dest" <<-EOS
-	export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home"
-	export PATH="$JAVA_HOME/bin:$PATH"
-	hash -r
-	EOS
+		export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home"
+		export PATH="$JAVA_HOME/bin:$PATH"
+		hash -r
+		EOS
                 ;;
             *)
                 # adoptopenjdk

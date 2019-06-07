@@ -22,8 +22,6 @@ sudo: required
 aliases:
   - &run-core-and-ext-tests |
     set -e
-    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
-    jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST" prep-os-essentials-tmp.env
     source prep-os-essentials-tmp.env
     mkdir -p ext/travisci/local
@@ -39,8 +37,6 @@ aliases:
 
   - &run-integration-tests |
     set -e
-    jdk="$(ext/bin/jdk-from-spec "$PDB_TEST")"
-    jdkver="${jdk##*jdk}"
     ext/travisci/prep-os-essentials-for "$PDB_TEST" prep-os-essentials-tmp.env
     source prep-os-essentials-tmp.env
     mkdir -p ext/travisci/local
