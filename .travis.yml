@@ -94,6 +94,18 @@ jobs:
 
     # ==== osx
 
+    # === core+ext tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      script: *run-core-and-ext-tests
+      os: osx
+
+    # === integration tests
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk8/pup-5.5.x/srv-5.3.x/pg-9.6
+      script: *run-integration-tests
+      os: osx
+
     # === rspec tests
     - stage: ❧ pdb tests
       env: PDB_TEST=rspec/pup-5.5.x
@@ -120,4 +132,5 @@ cache:
     - /var/cache/apt/archives
     - $HOME/.m2
     - $HOME/Library/Caches/Homebrew
+    - ext/travisci/local/jdk
     - vendor/bundle/ruby
