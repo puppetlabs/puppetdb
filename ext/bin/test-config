@@ -96,7 +96,7 @@ reset_val = defaultdict(lambda: reset_requested)
 reset_val['puppet-ref'] = reset_puppet_ref
 reset_val['puppetserver-ref'] = reset_puppetserver_ref
 
-if sys.argv == ['--help']:
+if sys.argv[1:] == ['--help']:
     print(usage())
     sys.exit(0)
 

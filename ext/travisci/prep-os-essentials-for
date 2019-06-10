@@ -3,7 +3,7 @@
 set -uxeo pipefail
 
 usage() {
-    echo 'Usage: $(basename "$0") PDB_TEST_SPEC'
+    echo 'Usage: $(basename "$0") PDB_TEST_SPEC ENV_CMDS_DEST'
 }
 
 misuse() {
@@ -29,72 +29,69 @@ apt_get_update() {
     echo Executed apt-get update $i times;
 }
 
-test $# -eq 1 || misuse
+test $# -eq 2 || misuse
 spec="$1"
+env_dest="$2"
+flavor=$(ext/bin/flavor-from-spec "$spec")
 
-jdk="$(ext/bin/jdk-from-spec "$spec")"
-jdkver="${jdk##*jdk}"
-pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
+echo -n > "$env_dest"
 
+# Bits common to all tests
 case "$OSTYPE" in
-    darwin*)
-        rm -rf "$(brew --cache)"
-        # brew produced some HOMEBREW_LOGS related error on the first
-        # run but said that "everything should be fine" if you try
-        # again, so we do that...
-        brew install ruby || true
-        brew install ruby
-        brew install bash
-        brew install postgresql@"$pgver"
-
-        brew tap AdoptOpenJDK/openjdk
-        case "$jdkver" in
-          8|10)
-
-            # Install AdoptOpenJDK 11, we will use this for its cacert
-            brew cask install adoptopenjdk11
-            cacert_path=$(echo /Library/Java/JavaVirtualMachines/adoptopenjdk-11.*.jdk/Contents/Home/lib/security/cacerts)
-
-            if test ! -f "$cacert_path"; then
-              echo "The cacerts file did not exist at '$cacert_path'" 1>&2
-              exit 3
-            fi
-
-            brew cask install "adopt$jdk"
-
-            old_cacert_path=
-            if test "$jdkver" -eq 8; then
-              old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/jre/lib/security/cacerts"
-            else
-              old_cacert_path="/Library/Java/JavaVirtualMachines/adoptopenjdk-$jdkver.jdk/Contents/Home/lib/security/cacerts"
-            fi
-            sudo -i rm "$old_cacert_path"
-            sudo -i ln -s $cacert_path "$old_cacert_path"
-            ;;
-          *)
-            echo "JDK version '$jdk' is not supported on Mac OSX"
-            exit 3
-            ;;
-        esac
-        ;;
-    *)
-        # Can't use travis "addons" support for pg 11 until this is
-        # resolved: https://github.com/travis-ci/travis-ci/issues/5737
-
-        # Have to purge some of the existing pg bits so the 11 install
-        # won't fail with errors like this:
-        #   Refused to start PostgreSQL 11, because PostgreSQL 9.2 is
-        #   currently running! You should first stop 9.2 instance...
-        # Not sure we have to purge *all* of these, but it works.
-        sudo apt-get purge \
-             postgresql{,-client}-{9.2,9.3,9.4,9.5,9.6} \
-             postgresql-client-common postgresql-client postgresql-common
+    linux*)
         # workaround for mongodb, CouchDB and git-lfs having invalid keys
         # see: https://github.com/travis-ci/travis-ci/issues/9037 (which is still broken)
         sudo rm -f /etc/apt/sources.list.d/mongodb*
         sudo rm -f /etc/apt/sources.list.d/couchdb*
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
         apt_get_update
-        sudo -i apt-get -y install postgresql-9.6 postgresql-11
+
+        sudo -i apt-get install ruby2.3-dev ruby-bundler ruby-rspec
+    ;;
+esac
+
+case "$flavor" in
+    core+ext|int)  # Not needed for rspec right now
+        jdk="$(ext/bin/jdk-from-spec "$spec")"
+        jdkver="${jdk##*jdk}"
+        pgver="$(ext/travisci/prefixed-ref-from-spec "$spec" pg-)"
+        case "$OSTYPE" in
+            darwin*)
+                rm -rf "$(brew --cache)"
+                # brew produced some HOMEBREW_LOGS related error on the first
+                # run but said that "everything should be fine" if you try
+                # again, so we do that...
+                brew install bash || true
+                brew install bash
+                brew install ruby
+                brew install postgresql@"$pgver"
+                ;;
+            *)
+                # Can't use travis "addons" support for pg 11 until this is
+                # resolved: https://github.com/travis-ci/travis-ci/issues/5737
+
+                # Have to purge some of the existing pg bits so the 11 install
+                # won't fail with errors like this:
+                #   Refused to start PostgreSQL 11, because PostgreSQL 9.2 is
+                #   currently running! You should first stop 9.2 instance...
+                # Not sure we have to purge *all* of these, but it works.
+                sudo apt-get purge \
+                     postgresql{,-client}-{9.2,9.3,9.4,9.5,9.6} \
+                     postgresql-client-common postgresql-client postgresql-common
+                sudo -i apt-get -y install \
+                     postgresql-9.6 postgresql-contrib-9.6 \
+                     postgresql-11
+                ;;
+        esac
+        mkdir -p ext/travisci/local
+        ext/bin/require-jdk --expire "$jdk" ext/travisci/local
+        cat >> "$env_dest" <<-EOS
+	export JAVA_HOME="$(pwd)/ext/travisci/local/jdk"
+	export PATH="\$JAVA_HOME/bin:$PATH"
+	hash -r
+	EOS
         ;;
 esac
+
+echo "$env_dest contents:" 1>&2
+cat "$env_dest" 2>&2

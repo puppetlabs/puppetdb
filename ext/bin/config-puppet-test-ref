@@ -10,7 +10,7 @@ usage() {
     echo "Usage: $(basename "$0") [REF]"
 }
 
-if test -z "$(type -t bundler)"; then
+if test -z "$(type -t bundle)"; then
     cat 2>&1 <<-EOS
 	Ruby bundler does not appear to be available.
 	Please install it via "gem install --user-install bundler" or similar.
@@ -35,9 +35,9 @@ case "$#" in
         exit 2
 esac
 
-bundle install --without acceptance --path vendor/bundle
+bundle install --without acceptance --path vendor/bundle --retry=10
 bundle update
-bundle info puppet
+bundle info puppet || true  # Not all versions appear to have info
 
 # Symlink vendor/puppet to the git tree bundler checked out.  Use a
 # relative path so that moving the pdb tree around won't break things.
