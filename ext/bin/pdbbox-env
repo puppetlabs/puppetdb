@@ -10,9 +10,10 @@ if test "$#" -lt 1 -o -z "$PDBBOX"; then
 fi
 
 pgport="$(cat "$PDBBOX/pg/port")"
+pghost="$(cat "$PDBBOX/pg/bind-addrs" | tail -1)"
 
 export PGBOX="$PDBBOX/pg"
-export PDB_TEST_DB_HOST=localhost
+export PDB_TEST_DB_HOST="$pghost"
 export PDB_TEST_DB_PORT="$pgport"
 export PDB_TEST_DB_USER=pdb_test
 export PDB_TEST_DB_USER_PASSWORD="$(cat "$PDBBOX/test-pass")"
