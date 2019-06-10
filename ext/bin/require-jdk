@@ -84,7 +84,10 @@ case "$OSTYPE" in
     darwin*)
         (cd "$install"
          tar xpSf "$tmpdir/jdk.tar.gz"
-         mv */Contents/Home jdk)
+         case "$ver" in
+             openjdk8) mv */Contents/Home jdk ;;
+             *) mv * jdk ;;
+         esac)
         ;;
     *)
         (cd "$install"
