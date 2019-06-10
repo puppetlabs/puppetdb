@@ -4,7 +4,7 @@ set -ueo pipefail
 
 usage()
 {
-    echo "Usage: $(basename $0) <--print (version|major|spec)>..."
+    echo "Usage: [JDK_INFO_JAVA=bin/java] $(basename $0) <--print (version|major|spec)>..."
 }
 
 misuse()
@@ -27,7 +27,7 @@ print-info() {
     local what="$1"
     local ver ver_out
     # java -version prints the requested info to stderr...
-    ver_out=$(java -version 2>&1 1>/dev/null)
+    ver_out=$("$java_bin" -version 2>&1 1>/dev/null)
 
     # Looks like the third field of the first line always has a
     # quoted version string.  Some variants:
@@ -52,6 +52,8 @@ print-info() {
         *) misuse ;;
     esac
 }
+
+java_bin="${JDK_INFO_JAVA:-java}"
 
 if test $# -eq 0; then
     misuse

@@ -120,4 +120,5 @@ cache:
     - /var/cache/apt/archives
     - $HOME/.m2
     - $HOME/Library/Caches/Homebrew
+    - ext/travisci/local/jdk
     - vendor/bundle/ruby

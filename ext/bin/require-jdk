@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+script_home="$(cd "$(dirname "$0")" && pwd)"
+cmdname="$(basename "$0")"
+
+default=openjdk8
+
+usage() {
+    echo "Usage: $cmdname [--(no-)expire] <openjdk11|default|...> INSTALLDIR_IF_NEEDED"
+}
+
+misuse() { usage 1>&2; exit 2; }
+
+epochsecs() { printf '%(%s)T\n' -1; }
+
+expire=''
+
+while true; do
+    case "$1" in
+        --expire) expire='true'; shift ;;
+        --no-expire) expire=''; shift ;;
+        --) shift; break ;;
+        *) break ;;
+    esac
+done
+
+test $# -eq 2 || misuse
+ver="$1"
+install="$2"
+install_time="$install/jdk/jdk-install-time"
+
+case "$ver" in
+    openjdk*) ;;
+    default) ver="$default" ;;
+    *)
+        echo "$cmdname does not know how to install $ver" 2>&1
+        exit 2
+        ;;
+esac
+
+if test "$expire"; then
+    if test -e "$install_time"; then
+        if test $(($(epochsecs) - "$(< "$install_time")")) -lt 86400; then
+            export JDK_INFO_JAVA="$install/jdk/bin/java"
+            if test openjdk"$(ext/bin/jdk-info --print major)" = "$ver"; then
+                # Don't update more than once per day
+                exit 0
+            fi
+        fi
+    fi
+else  # not expiring
+    if test openjdk"$(ext/bin/jdk-info --print major)" = "$ver"; then
+        exit 0
+    fi
+fi
+
+
+tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+case "$OSTYPE" in
+    linux*)
+        adoptos=linux
+        ;;
+    darwin*)
+        adoptos=mac
+        ;;
+    *)
+        echo "Unexpected platform: $OSTYPE" 1>&2
+        exit 2
+        ;;
+esac
+
+curl -sSLo "$tmpdir/jdk.tar.gz" \
+     "https://api.adoptopenjdk.net/v2/binary/releases/$ver?os=$adoptos&arch=x64&openjdk_impl=hotspot&release=latest&type=jdk"
+
+rm -rf "$install/jdk"
+mkdir -p "$install"
+
+case "$OSTYPE" in
+    darwin*)
+        (cd "$install"
+         tar xpSf "$tmpdir/jdk.tar.gz"
+         mv */Contents/Home jdk)
+        ;;
+    *)
+        (cd "$install"
+         tar xpSf "$tmpdir/jdk.tar.gz"
+         mv * jdk)
+        ;;
+esac
+
+echo "$ver" > "$install/jdk/jdk-flavor"
+epochsecs > "$install_time"
