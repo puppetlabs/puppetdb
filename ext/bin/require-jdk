@@ -85,8 +85,8 @@ case "$OSTYPE" in
         (cd "$install"
          tar xpSf "$tmpdir/jdk.tar.gz"
          case "$ver" in
-             openjdk8) mv */Contents/Home jdk ;;
-             *) mv * jdk ;;
+             openjdk10) mv * jdk ;;
+             *) mv */Contents/Home jdk ;;  # At least 8 and 11
          esac)
         ;;
     *)
