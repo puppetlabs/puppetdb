@@ -77,24 +77,26 @@ esac
 curl -sSLo "$tmpdir/jdk.tar.gz" \
      "https://api.adoptopenjdk.net/v2/binary/releases/$ver?os=$adoptos&arch=x64&openjdk_impl=hotspot&release=latest&type=jdk"
 
-rm -rf "$install/jdk"
-mkdir -p "$install"
+(cd "$tmpdir"
+ mkdir tmp-unpack
+ cd tmp-unpack
+ tar xpSf ../jdk.tar.gz)
 
 case "$OSTYPE" in
     darwin*)
-        (cd "$install"
-         tar xpSf "$tmpdir/jdk.tar.gz"
+        (cd "$tmpdir/tmp-unpack"
          case "$ver" in
              openjdk10) mv * jdk ;;
              *) mv */Contents/Home jdk ;;  # At least 8 and 11
          esac)
         ;;
     *)
-        (cd "$install"
-         tar xpSf "$tmpdir/jdk.tar.gz"
-         mv * jdk)
+        (cd "$tmpdir/tmp-unpack" && mv * jdk)
         ;;
 esac
 
+rm -rf "$install/jdk"
+mkdir -p "$install"
+mv "$tmpdir/tmp-unpack/jdk" "$install/jdk"
 echo "$ver" > "$install/jdk/jdk-flavor"
 epochsecs > "$install_time"
