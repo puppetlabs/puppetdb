@@ -8,4 +8,5 @@ puppet_ref="$1"
 ruby -v
 ext/bin/test-config --set puppet-ref "$puppet_ref"
 cd puppet
+bundle install --retry=10
 bundle exec rspec spec

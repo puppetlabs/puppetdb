@@ -1161,7 +1161,7 @@
     "                     union (select generate_series(0, jsonb_array_length(value - 1))::text as key,"
     "                                   jsonb_array_elements(value) as value"
     "                              where jsonb_typeof(value) = 'array')) as sub_level)"
-    "   select path into unlogged tmp_live_paths from live_paths"]
+    "   select path into temp tmp_live_paths from live_paths"]
 
    "analyze tmp_live_paths"
 

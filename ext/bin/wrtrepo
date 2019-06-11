@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+
+from __future__ import absolute_import, division, print_function, unicode_literals
+from functools import partial
+from pipes import quote
+from subprocess import CalledProcessError
+import re, subprocess, sys
+
+def log(*args, **kwargs):
+    assert 'file' not in kwargs
+    kwargs['file'] = sys.stderr
+    print(*args, **kwargs)
+
+def usage():
+    msg = """
+Usage:
+  wrtrepo --help
+  wrtrepo ref-lands-where [--ref-tree TREE] REF
+"""
+    return msg.lstrip()
+
+def misuse():
+    log(usage())
+    sys.exit(2)
+
+ex = subprocess.call
+exc = subprocess.check_call
+exo = subprocess.check_output
+
+def refs_under(ref_tree):
+  assert not ref_tree.startswith('/')
+  assert not ref_tree.endswith('/')
+  return exo(['git', 'for-each-ref','--format=%(refname)',
+              ref_tree]).splitlines()
+
+def is_release_branch_name(name, expected_prefix):
+    return re.match(expected_prefix + r'/[0-9]+\.[0-9]+\.x$', name)
+
+def tags_on_branch(commit_ref):
+    return exo(['git', 'tag', '--merged', commit_ref]).splitlines()
+
+def is_commit_an_ancestor(potential_ancestor, other):
+    rc = ex(['git', 'merge-base', '--is-ancestor', potential_ancestor, other])
+    if rc == 0: return True
+    if rc == 1: return False
+    sys.exit(rc)
+
+def releases_before_ref(ref, ref_tree):
+    for release_branch in [x for x in refs_under(ref_tree)
+                           if is_release_branch_name(x, ref_tree)]:
+        most_recent_tag = tags_on_branch(release_branch)[-1]
+        if is_commit_an_ancestor(ref, release_branch) \
+           and not is_commit_an_ancestor(ref, most_recent_tag):
+            yield most_recent_tag
+    
+def releases_before_ref_for_argv(argv):
+    ref_tree = 'refs/remotes/origin'
+    while argv:
+        arg = argv[0]
+        if arg == '--ref-tree':
+            if len(argv) < 2:
+                misuse()
+            ref_tree = argv[1]
+            argv = argv[2:]
+        elif arg == '--':
+            argv = argv[1:]
+            break
+        elif arg.startswith('--'):
+            misuse()
+        else:
+            break
+    if len(argv) != 1:
+        misuse()
+    ref = argv[0]
+    preceeding_tags = list(releases_before_ref(ref, ref_tree))
+    if preceeding_tags:
+        for tag in preceeding_tags:
+            print('New in release after', tag, 'of', ref_tree)
+    else:
+        print('Appears to have been released')        
+    return 0
+
+if sys.argv[1:] == ['--help']:
+    print(usage())
+    sys.exit(0)
+
+if len(sys.argv) < 2:
+    misuse()
+
+subcommand = {
+    'ref-lands-where': releases_before_ref_for_argv,
+}
+
+subcmd_name, args = sys.argv[1], sys.argv[2:]
+argv_subcmd = subcommand.get(subcmd_name)
+
+if not argv_subcmd:
+    misuse()
+    
+exit(argv_subcmd(args))
