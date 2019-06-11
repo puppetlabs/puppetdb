@@ -44,14 +44,14 @@ if test "$expire"; then
     if test -e "$install_time"; then
         if test $(($(epochsecs) - "$(< "$install_time")")) -lt 86400; then
             export JDK_INFO_JAVA="$install/jdk/bin/java"
-            if test openjdk"$(ext/bin/jdk-info --print major)" = "$ver"; then
+            if test "$(ext/bin/jdk-info --print spec)" = "$ver"; then
                 # Don't update more than once per day
                 exit 0
             fi
         fi
     fi
 else  # not expiring
-    if test openjdk"$(ext/bin/jdk-info --print major)" = "$ver"; then
+    if test openjdk"$(ext/bin/jdk-info --print spec)" = "$ver"; then
         exit 0
     fi
 fi
