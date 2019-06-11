@@ -45,8 +45,8 @@ esac
 if test "$expire"; then
     if test -e "$install_time"; then
         if test $(($(epochsecs) - $(< "$install_time"))) -lt 86400; then
-            export JDK_INFO_JAVA="$install/jdk/bin/java"
-            if test "$(jdk-info --print spec)" = "$ver"; then
+            jdk_spec=$(JDK_INFO_JAVA="$install/jdk/bin/java" jdk-info --print spec)
+            if test "$jdk_spec" = "$ver"; then
                 # Don't update more than once per day
                 exit 0
             fi
