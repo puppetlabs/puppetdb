@@ -2,7 +2,22 @@
 
 set -euo pipefail
 
-usage() { echo 'Usage: [PDB_JAR=JAR] $(basename "$0") --pgbin PGBIN --pgport PGPORT'; }
+usage() {
+    cat <<EOF
+Usage: [PDB_JAR=JAR] $(basename "$0") [--pgbin PGBIN] [--pgport PGPORT] DEST"
+
+  Write an SVG graph of the pdb schema to DEST.
+
+  The pgbin and pgport settings will be picked up from the current
+  tree if they've been set via test-config, and the pgbin setting may
+  be guessed.  Otherwise, you'll need to specify them.
+
+  The version of pdb will be the one run via ./pdb which defaults to
+  the uberjar in target/.  
+
+EOF
+}
+
 misuse() { usage 1>&2; exit 2; }
 
 argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
@@ -16,9 +31,25 @@ while test $# -gt 0; do
             shift 2
             ;;
         *)
-            misuse
+            break
+            ;;
     esac
 done
+
+if test $# -ne 1; then
+    misuse
+fi
+dest="$1"
+
+if ! command -v postgresql_autodoc; then
+    echo "postgresql_autodoc does not appear to be in the PATH"
+    exit 2
+fi
+
+if ! command -v dot; then
+    echo "graphviz dot does not appear to be in the PATH"
+    exit 2
+fi
 
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
@@ -40,7 +71,7 @@ set -x
 
 if test -z "${PDBBOX:-}"; then
     # No PDBBOX, set one up and run ourselves again
-    tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
+    tmpdir="$(mktemp -d "render-pdb-schema-XXXXXX")"
     tmpdir="$(cd "$tmpdir" && pwd)"
     trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
     # Don't exec (or we'll never run the trap)
@@ -54,21 +85,7 @@ tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-test ! -e "$PDBBOX"/var/mq-migrated
-
-psql -U puppetdb puppetdb -c '\dt' >"$tmpdir/out" 2>"$tmpdir/err"
-cat "$tmpdir/out"
-cat "$tmpdir/err"
-# Output moved to err and changed as of at least pg 11
-grep 'No relations found' "$tmpdir/out" \
-    || grep 'Did not find any relations' "$tmpdir/err"
-
 ./pdb upgrade -c "$PDBBOX/pdb.ini"
 
-psql -U puppetdb puppetdb -c 'select max(version) from schema_migrations;' \
-     > "$tmpdir/out"
-cat "$tmpdir/out"
-# This must be updated every time we add a new migration
-grep -qE ' 70$' "$tmpdir/out"
-
-test ! -e "$PDBBOX"/var/mq-migrated
+postgresql_autodoc -t dot -u puppetdb -d puppetdb -f "$tmpdir/pdb"
+dot -Tsvg "$tmpdir/pdb.dot" -o "$dest"

@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from sys import exit, stderr
+import os, sys
+
+valid_flavors = ('core+ext', 'int', 'rspec')
+
+def usage(stream):
+    print('Usage: flavor-from-spec core/openjdk8/pg-9.6', file=stream)
+
+def misuse():
+    usage(stderr)
+    exit(2)
+
+len(sys.argv) == 2 or misuse()
+orig_specs = sys.argv[1]
+specs = orig_specs.split('/')
+specs = [x for x in specs if x in valid_flavors]
+if len(specs) != 1:
+    print('Invalid test flavor in spec:', repr(orig_specs), file=stderr)
+    exit(2)
+print(specs[0])

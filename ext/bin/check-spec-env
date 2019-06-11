@@ -29,19 +29,7 @@ verify-jdk() {
 test $# -ne 1 && misuse
 
 spec="$1"
-test_kind=''
-for item in ${spec//// }; do  # change / to ' '
-    echo item: "[$item]"
-    case "$item" in
-        core+ext|int|rspec) test_kind="$item" ;;
-    esac
-done
-
-if test -z "$test_kind"; then
-    echo "Unable to find a test category in $spec" 1>&2
-    exit 2
-fi
-
+test_kind=$(ext/bin/flavor-from-spec "$spec")
 case "$test_kind" in
     core+ext|int)
         verify-jdk "$spec"
