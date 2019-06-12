@@ -13,6 +13,8 @@ usage() {
 
 misuse() { usage 1>&2; exit 2; }
 
+jdk-info () { "$script_home"/jdk-info "$@"; }
+
 epochsecs() { printf '%(%s)T\n' -1; }
 
 expire=''
@@ -42,16 +44,16 @@ esac
 
 if test "$expire"; then
     if test -e "$install_time"; then
-        if test $(($(epochsecs) - "$(< "$install_time")")) -lt 86400; then
-            export JDK_INFO_JAVA="$install/jdk/bin/java"
-            if test openjdk"$(ext/bin/jdk-info --print major)" = "$ver"; then
+        if test $(($(epochsecs) - $(< "$install_time"))) -lt 86400; then
+            jdk_spec=$(JDK_INFO_JAVA="$install/jdk/bin/java" jdk-info --print spec)
+            if test "$jdk_spec" = "$ver"; then
                 # Don't update more than once per day
                 exit 0
             fi
         fi
     fi
 else  # not expiring
-    if test openjdk"$(ext/bin/jdk-info --print major)" = "$ver"; then
+    if test openjdk"$(jdk-info --print spec)" = "$ver"; then
         exit 0
     fi
 fi
