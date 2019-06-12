@@ -290,8 +290,8 @@
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [certname version id received payload]} start-time db]
-  (let [{producer-timestamp :producer_timestamp :as catalog} payload]
+  [{:keys [version id received payload]} start-time db]
+  (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-catalog! catalog received))
