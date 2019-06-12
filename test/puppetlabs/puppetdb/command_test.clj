@@ -482,21 +482,33 @@
                    (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
                                          (sutils/sql-hash-as-str "hash")))))
             (is (= 0 (task-count delay-pool)))
-            (is (empty? (fs/list-dir (:path dlo)))))
+            (is (empty? (fs/list-dir (:path dlo))))))
 
-          (testing "should store the catalog if the node was deactivated after the message"
+        (testing "should store the catalog if the node was deactivated after the message"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+
+            (scf-store/delete-certname! certname)
+            (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+
+            (handle-message (queue/store-command q (make-cmd-req)))
+
+            (is (= [{:certname certname :deactivated tomorrow}]
+                   (query-to-vec "SELECT certname,deactivated FROM certnames")))
+            (is (= [{:certname certname :catalog catalog-hash}]
+                   (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                         (sutils/sql-hash-as-str "hash")))))
+            (is (= 0 (task-count delay-pool)))
+            (is (empty? (fs/list-dir (:path dlo))))))
+
+        (testing "should store the proper certname for catalogs with underscores"
+          (let [certname "host_0"]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
-
-              (scf-store/delete-certname! certname)
-              (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
-
-              (handle-message (queue/store-command q (make-cmd-req)))
-
-              (is (= [{:certname certname :deactivated tomorrow}]
-                     (query-to-vec "SELECT certname,deactivated FROM certnames")))
-              (is (= [{:certname certname :catalog catalog-hash}]
-                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))))
+              (->> (assoc catalog :certname certname)
+                   (catalog->command-req version-num)
+                   (queue/store-command q)
+                   handle-message)
+              (is (= [(with-env {:certname certname})]
+                     (query-to-vec "SELECT certname, environment_id FROM catalogs")))
               (is (= 0 (task-count delay-pool)))
               (is (empty? (fs/list-dir (:path dlo)))))))))))
 
@@ -812,6 +824,21 @@
           (is (empty? (fs/list-dir (:path dlo))))
           (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
             (is (= result [(with-env {:certname certname})])))))))
+
+  (deftest replace-facts-unusual-certname
+    (let [certname "host_0"]
+      (dotestseq [version fact-versions
+                  :let [command (assoc facts :certname certname)]]
+        (testing "should store the facts without changing the certname"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
+            (is (= [{:certname certname
+                     :facts {"a" "1", "b" "2", "c" "3"}}]
+                   (query-factsets :certname :facts)))
+            (is (= 0 (task-count delay-pool)))
+            (is (empty? (fs/list-dir (:path dlo))))
+            (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
+              (is (= result [(with-env {:certname certname})]))))))))
 
   (deftest replace-facts-existing-facts
     (dotestseq [version fact-versions
@@ -1278,6 +1305,17 @@
                query-to-vec)))
     (is (= 0 (task-count delay-pool)))
     (is (empty? (fs/list-dir (:path dlo))))))
+
+(deftest store-v8-report-test-unusual-certname
+  (let [v8-report (assoc v8-report :certname "host_0")]
+    (with-message-handler {:keys [handle-message dlo delay-pool q]}
+      (handle-message (queue/store-command q (report->command-req 8 v8-report)))
+      (is (= [(with-producer (select-keys v8-report [:certname]))]
+             (-> (str "select certname, producer_id"
+                      "  from reports")
+                 query-to-vec)))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo)))))))
 
 (deftest store-v7-report-test
   (with-message-handler {:keys [handle-message dlo delay-pool q]}
