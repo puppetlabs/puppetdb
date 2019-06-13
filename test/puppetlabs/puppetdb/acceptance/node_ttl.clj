@@ -94,6 +94,14 @@
                                      :certname certname
                                      :expire {:facts expire-facts?}}
                                     "configure expiration" 1))
+               set-bulk-expiration (fn [cernames stamp expire-facts?]
+                                     (svc-utils/sync-command-post (svc-utils/pdb-cmd-url)
+                                                                  nil ; send nil for certname so client omits certname query param
+                                                                  "configure expiration"
+                                                                  1
+                                                                  {:certname cernames
+                                                                   :expire {:facts expire-facts?}
+                                                                   :producer_timestamp stamp}))
                compare-certs #(compare (get %1 "certname") (get %2 "certname"))
                nodes (fn []
                        (->> {:query ["from" "nodes"
@@ -125,35 +133,62 @@
                (add-catalog "foo" (now))
                (add-facts "foo" (now) {:x 1})
                (add-facts "bar" (now) {:y 1})
+
+               ;; test that bulk configure-expiration commands work
+               (set-bulk-expiration ["baz" "bats"] (now) false)
+               (add-facts "baz" (now) {:x 1})
+               (add-facts "bats" (now) {:x 1})
+
                (Thread/sleep (inc lifetime-ms))
                (is (= [{"certname" "bar" "expired" nil}
+                       {"certname" "bats" "expired" nil}
+                       {"certname" "baz" "expired" nil}
                        {"certname" "foo" "expired" nil}]
                       (nodes)))
                (cli-svc/clean pdb ["expire_nodes"])
                (let [result (nodes)]
-                 (is (= 2 (count result)))
-                 (is (= {"certname" "foo" "expired" nil} (second result)))
+                 (is (= 4 (count result)))
+                 ;; assert that "bar" was expired and the other certnames remain untouched
                  (is (= "bar" (-> result first (get "certname"))))
                  (is (tc/after? (now)
-                                (-> result first (get "expired") parse-wire-datetime))))
+                                (-> result first (get "expired") parse-wire-datetime)))
+                 (is (= [{"certname" "bats" "expired" nil}
+                         {"certname" "baz" "expired" nil}
+                         {"certname" "foo" "expired" nil}]
+                        (rest result))))
                (is (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
+                       {"certname" "bats", "facts" [{"name" "x", "value" 1}]}
+                       {"certname" "baz", "facts" [{"name" "x", "value" 1}]}
                        {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                       (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
-               (is (= [{"certname" "foo" "expired" nil}] (nodes)))
-               (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+               (is (= [{"certname" "bats" "expired" nil}
+                       {"certname" "baz" "expired" nil}
+                       {"certname" "foo" "expired" nil}] (nodes)))
+               (is (= [{"certname" "bats", "facts" [{"name" "x", "value" 1}]}
+                       {"certname" "baz", "facts" [{"name" "x", "value" 1}]}
+                       {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                       (facts)))))
 
            (testing "changing expiration from false to true allows expire/purge"
              (let [start-time (now)]
                (set-expire "foo" (now) true)
+               (set-bulk-expiration ["baz" "bats"] (now) true)
                (cli-svc/clean pdb ["expire_nodes"])
                (let [result (nodes)]
-                 (is (= 1 (count result)))
-                 (is (= "foo" (-> result first (get "certname"))))
-                 (is (tc/after? (now)
-                                (-> result first (get "expired") parse-wire-datetime))))
-               (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                 (is (= 3 (count result)))
+                 (is (= #{"bats" "baz" "foo"}
+                        (->> result
+                             (map #(get % "certname"))
+                             (into #{}))))
+                 (doall
+                  (->> result
+                       (map #(get % "expired"))
+                       (map parse-wire-datetime)
+                       (map #(is (tc/after? (now) %))))))
+               (is (= [{"certname" "bats", "facts" [{"name" "x", "value" 1}]}
+                       {"certname" "baz", "facts" [{"name" "x", "value" 1}]}
+                       {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                       (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
                (is (= [] (nodes)))

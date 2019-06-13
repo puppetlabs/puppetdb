@@ -216,7 +216,7 @@
   hashable proxy for the original."
   {:command (apply s/enum (vals metadata-command->puppetdb-command))
    :version s/Int
-   :certname s/Str
+   :certname (s/maybe s/Str)
    :producer-ts (s/maybe pls/Timestamp)
    :callback (s/=> s/Any s/Any)
    :command-stream java.io.InputStream
@@ -226,7 +226,7 @@
   "Validating constructor function for command requests"
   [command :- s/Str
    version :- s/Int
-   certname :- s/Str
+   certname :- (s/maybe s/Str)
    producer-ts :- (s/maybe s/Str)
    compression :- compression-file-extension-schema
    callback :- (s/=> s/Any s/Any)

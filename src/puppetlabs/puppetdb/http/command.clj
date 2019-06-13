@@ -114,16 +114,31 @@
                                        :timed_out false)
                                 http/status-ok)))))))
 
-(def new-request-schema
+(def base-new-req-schema
   {:params {(s/required-key "command") s/Str
             (s/required-key "version") s/Str
-            (s/required-key "certname") s/Str
             (s/required-key "received") s/Str
             (s/optional-key "secondsToWaitForCompletion") s/Str
             (s/optional-key "checksum") s/Str
             (s/optional-key "producer-timestamp") s/Str}
    :body java.io.InputStream
    s/Any s/Any})
+
+(def default-new-req-schema
+  (assoc-in base-new-req-schema [:params (s/required-key "certname")]  s/Str))
+
+(def config-expr-new-req-schema
+  (assoc-in base-new-req-schema [:params (s/optional-key "certname")]  s/Str))
+
+(s/defschema new-request-schema
+  ;; allow certname param to be optional for configure_expiration cmds
+  (s/conditional
+   (fn [req]
+     (= (-> req :params (get "command")) "configure_expiration"))
+   config-expr-new-req-schema
+
+   :else
+   default-new-req-schema))
 
 (defn-validated normalize-new-request
   [{:keys [params body] :as req} :- new-request-schema]

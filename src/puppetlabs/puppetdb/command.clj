@@ -272,8 +272,7 @@
         received-time (str (tcoerce/to-long received-time))
         duration (str (in-millis (interval start-time (now))))
         command-name (command-names command-kw)
-        puppet-version (:puppet-version opts)
-        obsolete-cmd? (:obsolete-cmd? opts)]
+        {:keys [puppet-version obsolete-cmd? bulk-cmd? bulk-cmd-count]} opts]
     (cond
       puppet-version
       (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
@@ -281,6 +280,11 @@
       obsolete-cmd?
       (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command ignored (obsolete) for {4}"
                      id received-time duration command-name certname))
+
+      bulk-cmd?
+      (log/info (trs "[{0}-{1}] [{2} ms] bulk ''{3}'' command processed for {4} certnames"
+                     id received-time duration command-name bulk-cmd-count))
+
       :else
       (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
                      id received-time duration command-name certname)))))
@@ -391,17 +395,27 @@
         (store-report* start-time db))))
 
 (defn configure-expiration
-  [{:keys [id received payload]}
-   start-time db]
+  [{:keys [id received payload]} start-time db]
   (let [certname (:certname payload)
         stamp (:producer_timestamp payload (now))
-        expire-facts? (get-in payload [:expire :facts])]
+        expire-facts? (get-in payload [:expire :facts])
+        store-cmd (fn [certname]
+                    (jdbc/with-transacted-connection db
+                      (scf-storage/maybe-activate-node! certname stamp)
+                      (scf-storage/set-certname-facts-expiration
+                       certname expire-facts? stamp)))]
     (when-not (nil? expire-facts?)
-      (jdbc/with-transacted-connection db
-        (scf-storage/maybe-activate-node! certname stamp)
-        (scf-storage/set-certname-facts-expiration certname expire-facts? stamp))
-      (log-command-processed-messsage id received start-time
-                                      :configure-expiration certname))))
+      (if (vector? certname)
+        (do
+          (dorun (map store-cmd certname))
+          (log-command-processed-messsage id received start-time
+                                          :configure-expiration certname
+                                          {:bulk-cmd? true
+                                           :bulk-cmd-count (count certname)}))
+        (do
+          (store-cmd certname)
+          (log-command-processed-messsage id received start-time
+                                          :configure-expiration certname))))))
 
 ;; ## Command processors
 
