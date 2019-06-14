@@ -28,21 +28,22 @@
    submission. Alternately accepts a command-map object (such as those
    returned by `parse-command`). Returns the server response."
   ([base-url
-    certname :- s/Str
+    certname :- (s/maybe s/Str)
     command :- s/Str
     version :- s/Int
     payload]
    (submit-command-via-http! base-url certname command version payload nil))
   ([base-url
-    certname :- s/Str
+    certname :- (s/maybe s/Str)
     command :- s/Str
     version :- s/Int
     payload :- {s/Any s/Any}
     timeout]
    (let [body (json/generate-string payload)
          url-params (str
-                     (format "?command=%s&version=%s&certname=%s"
-                             (str/replace command #" " "_") version certname)
+                     (format (str "?command=%s&version=%s") (str/replace command #" " "_") version)
+                     (when certname
+                       (str "&certname=" certname))
                      (when-let [producer_timestamp (-> payload :producer_timestamp str)]
                        (format "&producer-timestamp=%s" producer_timestamp)))
          url (str (utils/base-url->str base-url)
