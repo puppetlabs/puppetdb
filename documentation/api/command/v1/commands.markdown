@@ -212,7 +212,7 @@ Puppet resources. It is structured as a JSON object, conforming to the
 
 The payload should be a JSON format command, conforming to the
 [configure_expiration wire format v1][expirev1], indicating whether or
-not facts should be expired for a given `certname`.
+not facts should be expired for a given `certname` or `certnames`.
 
 > *Note*: this is an experimental command, which might be altered or
 > removed in a future release, and for the time being, PuppetDB

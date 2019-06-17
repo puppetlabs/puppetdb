@@ -14,6 +14,10 @@ Changing the value of this setting for a certname has the same effect
 as receipt of a new factset with respect to extending the lifetime of
 the node.
 
+Optionally submit an array of certnames to have the same `expiration` behavior 
+applied to all given certnames. *Note*: when multiple certnames are specified 
+the certname query param should be omitted.
+
 > *Note*: this is an experimental command, which might be altered or
 > removed in a future release, and for the time being, PuppetDB
 > exports will not include this information.
@@ -32,15 +36,15 @@ The command is serialized as JSON, which requires strict UTF-8 encoding.
 ### Main data type: Configure expiration for node
 
      {
-      "certname": <string>,
+      "certname": <string> | [<string>],
       "expire": {"facts": <boolean>},
       "producer_timestamp": <datetime>
      }
 
 #### `certname`
 
-String. The name of the node for which the expiration behavior should
-be configured.
+String or array of strings. The name of the node or nodes for which the 
+expiration behavior should be configured.
 
 #### `expire`
 
