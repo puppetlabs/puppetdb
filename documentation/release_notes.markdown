@@ -16,6 +16,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 [upgrade_policy]: ./versioning_policy.html#upgrades
+[facts]: ./api/query/v4/facts.html
 
 ## PuppetDB 6.3.3
 
