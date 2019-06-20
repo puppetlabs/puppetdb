@@ -49,3 +49,8 @@
   [_ _]
   (fn [rows]
     (map :name rows)))
+
+(defn munge-package-inventory
+  [_ _]
+  (fn [rows]
+    (map #(utils/update-when % [:package_inventory] (partial map vec)) rows)))
