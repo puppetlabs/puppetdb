@@ -1274,9 +1274,12 @@
           "  FROM edges e"
           "  INNER JOIN certnames c ON e.certname = c.certname")
      (str "ALTER TABLE edges_transform"
-          "  ALTER COLUMN certname SET NOT NULL,"
-          "  ALTER COLUMN source SET NOT NULL,"
-          "  ALTER COLUMN target SET NOT NULL,"
+          "  ALTER COLUMN certname SET NOT NULL")
+     (str "ALTER TABLE edges_transform"
+          "  ALTER COLUMN source SET NOT NULL")
+     (str "ALTER TABLE edges_transform"
+          "  ALTER COLUMN target SET NOT NULL")
+     (str "ALTER TABLE edges_transform"
           "  ALTER COLUMN type SET NOT NULL")
      (str "DROP TABLE edges")
      (str "ALTER TABLE edges_transform RENAME TO edges")
@@ -1452,13 +1455,21 @@
 (defn varchar-columns-to-text []
   (jdbc/do-commands
     "alter table reports
-     alter column puppet_version type text,
+     alter column puppet_version type text"
+
+    "alter table reports
      alter column configuration_version type text"
 
     "alter table resource_events
-     alter column status type text,
-     alter column property type text,
-     alter column containing_class type text,
+     alter column status type text"
+
+    "alter table resource_events
+     alter column property type text"
+
+    "alter table resource_events
+     alter column containing_class type text"
+
+    "alter table resource_events
      alter column file type text"))
 
 (defn jsonb-facts []
