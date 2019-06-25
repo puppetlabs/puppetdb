@@ -14,7 +14,7 @@ export BUNDLE_BIN = $(pwd)/.bundle/bin
 export GEMFILE = $(pwd)/Gemfile
 
 prep:
-	@git fetch --unshallow ||:
+	@git fetch --unshallow 2> /dev/null ||:
 	@git fetch origin 'refs/tags/*:refs/tags/*'
 
 lint:
@@ -43,7 +43,7 @@ endif
 test: prep
 	@bundle install --path $$BUNDLE_PATH --gemfile $$GEMFILE
 	@PUPPET_TEST_DOCKER_IMAGE=$(NAMESPACE)/puppetdb:$(version) \
-		bundle exec --gemfile $$GEMFILE rspec puppetdb/spec
+		bundle exec --gemfile $$GEMFILE rspec spec
 
 push-image: prep
 	@docker push puppet/puppetdb:$(version)
