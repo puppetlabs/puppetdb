@@ -44,11 +44,13 @@
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
-            [puppetlabs.puppetdb.cheshire :as json])
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.scf.partitioning :as partitioning])
   (:import [java.security MessageDigest]
            [java.util Arrays]
            [org.postgresql.util PGobject]
-           [org.joda.time Period]))
+           [org.joda.time Period]
+           [java.sql Timestamp]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1350,26 +1352,39 @@
                                               maybe-environment
                                               maybe-resources
                                               maybe-corrective-change
-                                              (jdbc/insert! :reports))
-                       adjust-event #(-> %
-                                        maybe-corrective-change
-                                        (assoc :report_id report-id
-                                               :certname_id certname-id))
-                       add-event-hash #(-> %
-                                           ;; this cannot be merged with the function above, because the report-id
-                                           ;; field *has* to be exist first
-                                           (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
-                                                                   (sutils/munge-hash-for-storage))))]
+                                              (jdbc/insert! :reports))]
                    (when-not (empty? resource_events)
-                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x {:on-conflict "do nothing"}))]
-                       (->> resource_events
-                            (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                            (map adjust-event)
-                            (map add-event-hash)
-                            insert!
-                            dorun)))
+                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
+                           adjust-event #(-> %
+                                             maybe-corrective-change
+                                             (assoc :report_id report-id
+                                                    :certname_id certname-id))
+                           add-event-hash #(-> %
+                                               ;; this cannot be merged with the function above, because the report-id
+                                               ;; field *has* to be exist first
+                                               (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
+                                                                       (sutils/munge-hash-for-storage))))
+                           ;; group by the hash, and choose the oldest (aka first) of any duplicates.
+                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
+
+                       (do
+                         (dorun
+                          (map partitioning/create-resource-events-partition
+                               (set (map #(-> ^Timestamp (:timestamp %)
+                                              .toLocalDateTime
+                                              .toLocalDate) resource_events))))
+                         (->> resource_events
+                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                              (map adjust-event)
+                              (map add-event-hash)
+                              ;; ON CONFLICT does *not* work properly in partitions, see:
+                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+                              ;; section 5.10.6
+                              remove-dupes
+                              insert!
+                              dorun)))
                    (when update-latest-report?
-                     (update-latest-report! certname report-id producer_timestamp)))))))))
+                     (update-latest-report! certname report-id producer_timestamp))))))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to

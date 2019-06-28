@@ -65,8 +65,11 @@
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.structured-logging.core :refer [maplog]]
             [clojure.set :as set]
-            [clojure.string :as str])
-  (:import [org.postgresql.util PGobject]))
+            [clojure.string :as str]
+            [puppetlabs.puppetdb.scf.storage :as scf]
+            [puppetlabs.puppetdb.scf.partitioning :as partitioning])
+  (:import [org.postgresql.util PGobject]
+           [java.time LocalDate]))
 
 (defn init-through-2-3-8
   []
@@ -1704,6 +1707,60 @@
    "ALTER TABLE certnames SET ( autovacuum_vacuum_scale_factor=0.75 )"
    "ALTER TABLE reports   SET ( autovacuum_vacuum_scale_factor=0.01 )"))
 
+(defn reporting-partitioned-tables []
+  (jdbc/do-commands
+   ;; yes, this is lossy - this is temporary
+   "DROP TABLE resource_events"
+
+   "CREATE TABLE resource_events (
+      event_hash bytea NOT NULL PRIMARY KEY,
+      report_id bigint NOT NULL,
+      certname_id bigint NOT NULL,
+      status text NOT NULL,
+      \"timestamp\" timestamp with time zone NOT NULL,
+      resource_type text NOT NULL,
+      resource_title text NOT NULL,
+      property text,
+      new_value text,
+      old_value text,
+      message text,
+      file text DEFAULT NULL::character varying,
+      line integer,
+      name text,
+      containment_path text[],
+      containing_class text,
+      corrective_change boolean)"
+
+   "CREATE OR REPLACE FUNCTION resource_events_insert_trigger()
+   RETURNS TRIGGER AS $$
+   DECLARE
+     tablename varchar;
+   BEGIN
+     SELECT FORMAT('resource_events_%s_W%s',
+                   EXTRACT(ISOYEAR FROM NEW.\"timestamp\")::varchar,
+                   TO_CHAR(EXTRACT(WEEK FROM NEW.\"timestamp\"), 'FM00')) INTO tablename;
+
+     EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
+     USING NEW;
+
+     RETURN NULL;
+   END;
+   $$
+   LANGUAGE plpgsql;"
+
+   "CREATE TRIGGER insert_resource_events_trigger
+   BEFORE INSERT ON resource_events
+   FOR EACH ROW EXECUTE PROCEDURE resource_events_insert_trigger();")
+
+  ;; create range of partitioned tables
+
+  (let [now (LocalDate/now)
+        weeks (range -4 4)]
+    (doall
+     (map (fn [week-offset]
+            (partitioning/create-resource-events-partition (.plusWeeks now week-offset)))
+          weeks))))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1757,7 +1814,8 @@
    69 add-resource-events-pk
    70 migrate-md5-to-sha1-hashes
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports
-   72 add-support-for-catalog-inputs})
+   72 add-support-for-catalog-inputs
+   73 reporting-partitioned-tables})
 
 (def desired-schema-version (apply max (keys migrations)))
 

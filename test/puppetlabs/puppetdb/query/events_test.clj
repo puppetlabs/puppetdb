@@ -110,7 +110,8 @@
           (doseq [[field value matches]
                   [[:resource_type    "Notify"                            [0 1 2]]
                    [:resource_title   "notify, yo"                        [0]]
-                   [:status           "success"                           [0 1]]
+                   [:status           "success"                           [0]]
+                   [:status           "failure"                           [1]]
                    [:property         "message"                           [0 1]]
                    [:property         nil                                 [2]]
                    [:old_value        ["what" "the" "woah"]               [0]]
@@ -140,7 +141,8 @@
           (doseq [[field value matches]
                   [[:resource_type    "Notify"                            []]
                    [:resource_title   "notify, yo"                        [1 2]]
-                   [:status           "success"                           [2]]
+                   [:status           "success"                           [1 2]]
+                   [:status           "failure"                           [0 2]]
                    [:property         "message"                           []]
                    [:property         nil                                 [0 1]]
                    [:old_value        ["what" "the" "woah"]               [1 2]]
@@ -171,7 +173,8 @@
           (doseq [[field value matches]
                   [[:resource_type    "otify"                 [0 1 2]]
                    [:resource_title   "^[Nn]otify,\\s*yo$"    [0]]
-                   [:status           "^.ucces."              [0 1]]
+                   [:status           "^.ucces."              [0]]
+                   [:status           "^.failu."              []]
                    [:property         "^[Mm][\\w\\s]+"        [0 1]]
                    [:message          "notify, yo"            [0 1]]
                    [:resource_title   "^bunk$"                []]
@@ -193,7 +196,7 @@
           (doseq [[field value matches]
                   [[:resource_type    "otify"                 []]
                    [:resource_title   "^[Nn]otify,\\s*yo$"    [1 2]]
-                   [:status           "^.ucces."              [2]]
+                   [:status           "^.ucces."              [1 2]]
                    [:property         "^[Mm][\\w\\s]+"        [2]]
                    [:message          "notify, yo"            [2]]
                    [:resource_title   "^bunk$"                [0 1 2]]
@@ -237,7 +240,7 @@
         (testing "'and' equality queries"
           (doseq [[terms matches]
                   [[[[:resource_type    "Notify"]
-                     [:status           "success"]]     [0 1]]
+                     [:status           "success"]]     [0]]
                    [[[:resource_type    "bunk"]
                      [:resource_title   "notify, yar"]] []]
                    [[[:resource_title   "notify, yo"]
@@ -369,7 +372,7 @@
             (is (= expected actual))))
         (testing "applied to subquery"
           (let [expected  (expected-resource-events
-                           (kitchensink/select-values events1-map [0 1]) basic1)
+                           (kitchensink/select-values events1-map [0]) basic1)
                 actual (distinct-resource-events version ["and"
                                                           ["=" "status" "success"]
                                                           ["=" "latest_report?" false]])]

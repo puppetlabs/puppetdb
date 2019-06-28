@@ -380,7 +380,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "7d0cfa08901e1e1d80cf2f2f814d356d0e457e09"
+       :report "675545f1e8e91b3f5ba2749756295688094fa34f"
        :resource_title "hi"
        :property nil
        :name nil
@@ -407,7 +407,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "7d0cfa08901e1e1d80cf2f2f814d356d0e457e09"
+       :report "675545f1e8e91b3f5ba2749756295688094fa34f"
        :resource_title "hi"
        :property nil
        :name nil
@@ -436,7 +436,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "7d0cfa08901e1e1d80cf2f2f814d356d0e457e09"
+       :report "675545f1e8e91b3f5ba2749756295688094fa34f"
        :resource_title "hi"
        :property nil
        :name nil

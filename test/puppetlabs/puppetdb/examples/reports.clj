@@ -72,7 +72,7 @@
        :containment_path nil
        :containing_class nil}
       {:certname "foo.local"
-       :status "success"
+       :status "failure"
        :timestamp "2011-01-01T12:00:03-03:00"
        :resource_type "Notify"
        :environment "DEV"

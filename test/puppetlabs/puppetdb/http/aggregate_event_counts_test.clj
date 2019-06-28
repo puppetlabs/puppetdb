@@ -48,21 +48,21 @@
 
     (testing "summarize_by accepts multiple parameters"
       (let [expected #{{:successes 1
-                        :failures 0
+                        :failures 1
                         :noops 0
                         :skips 1
                         :total 1
                         :summarize_by "certname"}
-                       {:successes 2
+                       {:successes 1
                         :skips 1
-                        :failures 0
+                        :failures 1
                         :noops 0
                         :total 3
                         :summarize_by "resource"}}
             result (query-result method endpoint
                                  ["=" "certname" "foo.local"]
                                  {:summarize_by "certname,resource"})]
-        (is (= result expected))))
+        (is (= expected result))))
 
     (testing "nontrivial query using all the optional parameters"
       (let [expected {:successes 0
@@ -76,7 +76,7 @@
                                    {:summarize_by "containing_class"
                                     :count_by      "certname"
                                     :counts_filter (vector-param method ["<" "successes" 1])})]
-        (is (= (first response) expected))))))
+        (is (= expected (first response)))))))
 
 (deftest-http-app query-distinct-event-counts
   [[version endpoint] endpoints
@@ -176,25 +176,25 @@
     (are [result query] (= result
                            (query-result method endpoint query
                                          {:summarize_by "resource"}))
-         #{{:successes 2
+         #{{:successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :noops 0
             :total 3
             :summarize_by "resource"}}
          ["=" "environment" "DEV"]
 
-         #{{:successes 5
+         #{{:successes 4
             :skips 1
-            :failures 0
+            :failures 1
             :noops 0
             :total 6
             :summarize_by "resource"}}
          nil
 
-         #{{:successes 2
+         #{{:successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :noops 0
             :total 3
             :summarize_by "resource"}}
@@ -216,17 +216,17 @@
             :summarize_by "resource"}}
          ["~" "environment" "PR"]
 
-         #{{:successes 5
+         #{{:successes 4
             :skips 1
-            :failures 0
+            :failures 1
             :noops 0
             :total 6
             :summarize_by "resource"}}
          ["~" "environment" "D"]
 
-         #{{:successes 5
+         #{{:successes 4
             :skips 1
-            :failures 0
+            :failures 1
             :noops 0
             :total 6
             :summarize_by "resource"}}
@@ -243,8 +243,8 @@
          ["<" "timestamp" 0]
 
          #{{:summarize_by "resource"
-            :successes 5
-            :failures 0
+            :successes 4
+            :failures 1
             :noops 0
             :skips 1
             :total 6}}
@@ -260,18 +260,18 @@
     (store-example-report! (:basic reports) (now))
 
     (testing "summarize_by accepts multiple parameters"
-      (let [expected #{{:intentional_successes 1
+      (let [expected #{{:intentional_successes 0
                         :corrective_successes 1
-                        :failures 0
+                        :failures 1
                         :intentional_noops 0
                         :corrective_noops 0
                         :skips 1
                         :total 1
                         :summarize_by "certname"}
-                       {:intentional_successes 1
+                       {:intentional_successes 0
                         :corrective_successes 1
                         :skips 1
-                        :failures 0
+                        :failures 1
                         :intentional_noops 0
                         :corrective_noops 0
                         :total 3
@@ -279,23 +279,23 @@
             result (query-result method endpoint
                                  ["=" "certname" "foo.local"]
                                  {:summarize_by "certname,resource"})]
-        (is (= result expected))))
+        (is (= expected result))))
 
     (testing "nontrivial query using all the optional parameters"
       (let [expected {:intentional_successes 0
-                      :corrective_successes 0
+                      :corrective_successes 1
                       :failures 0
                       :intentional_noops 0
                       :corrective_noops 0
                       :skips 1
-                      :total 1
+                      :total 2
                       :summarize_by "containing_class"}
             response (query-result method endpoint
                                    ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                    {:summarize_by "containing_class"
                                     :count_by      "certname"
                                     :counts_filter (vector-param method ["<" "intentional_successes" 1])})]
-        (is (= (first response) expected))))))
+        (is (= expected (first response)))))))
 
 (deftest-http-app query-distinct-event-counts-with-corrective-changes
   [[version endpoint] endpoints
@@ -385,30 +385,30 @@
     (are [result query] (= result
                            (query-result method endpoint query
                                          {:summarize_by "resource"}))
-         #{{:intentional_successes 1
+         #{{:intentional_successes 0
             :corrective_successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :intentional_noops 0
             :corrective_noops 0
             :total 3
             :summarize_by "resource"}}
          ["=" "environment" "DEV"]
 
-         #{{:intentional_successes 4
+         #{{:intentional_successes 3
             :corrective_successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :intentional_noops 0
             :corrective_noops 0
             :total 6
             :summarize_by "resource"}}
          nil
 
-         #{{:intentional_successes 1
+         #{{:intentional_successes 0
             :corrective_successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :intentional_noops 0
             :corrective_noops 0
             :total 3
@@ -435,20 +435,20 @@
             :summarize_by "resource"}}
          ["~" "environment" "PR"]
 
-         #{{:intentional_successes 4
+         #{{:intentional_successes 3
             :corrective_successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :intentional_noops 0
             :corrective_noops 0
             :total 6
             :summarize_by "resource"}}
          ["~" "environment" "D"]
 
-         #{{:intentional_successes 4
+         #{{:intentional_successes 3
             :corrective_successes 1
             :skips 1
-            :failures 0
+            :failures 1
             :intentional_noops 0
             :corrective_noops 0
             :total 6
@@ -468,9 +468,9 @@
          ["<" "timestamp" 0]
 
          #{{:summarize_by "resource"
-            :intentional_successes 4
+            :intentional_successes 3
             :corrective_successes 1
-            :failures 0
+            :failures 1
             :intentional_noops 0
             :corrective_noops 0
             :skips 1
