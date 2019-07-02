@@ -18,6 +18,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrade_policy]: ./versioning_policy.html#upgrades
 [facts]: ./api/query/v4/facts.html
 
+## PuppetDB 6.3.4
+
+### Bug fixes
+
+- Puppet DB database migrations failed due to a bug in the most recent releases of PostgreSQL 9.4.23, 9.5.18, 9.6.14, 10.9, and 11.4. This release does not change migration behavior, but includes changes to PuppetDB's database migration to avoid triggering the issue. See [PostgreSQL bug #15865](https://www.postgresql.org/message-id/15865-17940eacc8f8b081%40postgresql.org) for details about the issue. [PDB-4422](https://tickets.puppetlabs.com/browse/PDB-4422)
+
 ## PuppetDB 6.3.3
 
 ### New features and improvements
@@ -103,6 +109,29 @@ canonical: "/puppetdb/latest/release_notes.html"
 [PDB-4015](https://tickets.puppetlabs.com/browse/PDB-4015)
 
 ---
+
+## PuppetDB 6.0.4
+
+### New features and improvements
+
+- **Order `facts` and `fact-contents` by value.** The v4 `/facts` endpoint now supports ordering by fact value. For more information, see [Facts][facts]. [PUP-3687](https://tickets.puppetlabs.com/browse/PDB-3687)
+
+### Bug fixes
+
+- PuppetDB database migrations failed due to a bug in the most recent releases of PostgreSQL 9.4.23, 9.5.18, 9.6.14, 10.9, and 11.4. This release does not change migration behavior, but includes changes to PuppetDB's database migration to avoid triggering the issue. See [PostgreSQL bug #15865](https://www.postgresql.org/message-id/15865-17940eacc8f8b081%40postgresql.org) for details about the issue. [PDB-4422](https://tickets.puppetlabs.com/browse/PDB-4422)
+
+- Certnames using unusual characters or that are very long will now be stored properly for catalogs. In previous releases, certnames with special characters, or very long certnames, caused duplicate node entries. [PUP-4390](https://tickets.puppetlabs.com/browse/PDB-4390)
+
+- Resolved a bug  where garbage collection table names were causing a conflict. [PUP-4347](https://tickets.puppetlabs.com/browse/PDB-4347)
+
+- Resolved an bug that was causing PuppetDB to crash when performing older database migrations. [PUP-3840](https://tickets.puppetlabs.com/browse/PDB-3840)
+
+- In previous releases, if the database was inaccessible during startup, PuppetDB could become unkillable. [PUP-4308](https://tickets.puppetlabs.com/browse/PDB-4308)
+
+- PuppetDB now logs the correct error when an attempt to query a remote PuppetDB server for sync fails. Previously, PuppetDB was incorrectly reporting a `FileNotFoundException`.
+ [PUP-3592](https://tickets.puppetlabs.com/browse/PDB-3592)
+
+- **Storing catalogs with Unicode Unicode alphanumeric tags.** PuppetDB now successfully stores catalogs with Unicode alphanumeric tags.  [PDB-4326](https://tickets.puppetlabs.com/browse/PDB-4326)
 
 ## PuppetDB 6.0.3
 
@@ -210,6 +239,29 @@ Austin Blatt, Britt Gresham, Charlie Sharpsteen, Garrett Guillotte, Jarret Laval
 Molly Waggett, Morgan Rhodes, Rob Browning, and Zachary Kent
 
 ---
+
+## PuppetDB 5.2.9
+
+### New features and improvements
+
+- **Order `facts` and `fact-contents` by value.** The v4 `/facts` endpoint now supports ordering by fact value. For more information, see [Facts][facts]. [PUP-3687](https://tickets.puppetlabs.com/browse/PDB-3687)
+
+### Bug fixes
+
+- PuppetDB database migrations failed due to a bug in the most recent releases of PostgreSQL 9.4.23, 9.5.18, 9.6.14, 10.9, and 11.4. This release does not change migration behavior, but includes changes to PuppetDB's database migration to avoid triggering the issue. See [PostgreSQL bug #15865](https://www.postgresql.org/message-id/15865-17940eacc8f8b081%40postgresql.org) for details about the issue. [PDB-4422](https://tickets.puppetlabs.com/browse/PDB-4422)
+
+- Certnames using unusual characters or that are very long will now be stored properly for catalogs. In previous releases, certnames with special characters, or very long certnames, caused duplicate node entries. [PUP-4390](https://tickets.puppetlabs.com/browse/PDB-4390)
+
+- Resolved a bug  where garbage collection table names were causing a conflict. [PUP-4347](https://tickets.puppetlabs.com/browse/PDB-4347)
+
+- Resolved an bug that was causing PuppetDB to crash when performing older database migrations. [PUP-3840](https://tickets.puppetlabs.com/browse/PDB-3840)
+
+- In previous releases, if the database was inaccessible during startup, PuppetDB could become unkillable. [PUP-4308](https://tickets.puppetlabs.com/browse/PDB-4308)
+
+- PuppetDB now logs the correct error when an attempt to query a remote PuppetDB server for sync fails. Previously, PuppetDB was incorrectly reporting a `FileNotFoundException`.
+ [PUP-3592](https://tickets.puppetlabs.com/browse/PDB-3592)
+
+- **Storing catalogs with Unicode Unicode alphanumeric tags.** PuppetDB now successfully stores catalogs with Unicode alphanumeric tags.  [PDB-4326](https://tickets.puppetlabs.com/browse/PDB-4326)
 
 ## PuppetDB 5.2.8
 
