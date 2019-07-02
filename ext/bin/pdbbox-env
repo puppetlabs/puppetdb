@@ -10,7 +10,7 @@ if test "$#" -lt 1 -o -z "$PDBBOX"; then
 fi
 
 pgport="$(cat "$PDBBOX/pg/port")"
-pghost="$(cat "$PDBBOX/pg/bind-addrs" | tail -1)"
+pghost="$(tail -1 "$PDBBOX/pg/bind-addrs")"
 
 export PGBOX="$PDBBOX/pg"
 export PDB_TEST_DB_HOST="$pghost"

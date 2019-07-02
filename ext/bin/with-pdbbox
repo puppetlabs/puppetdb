@@ -61,7 +61,9 @@ set -x
 
 trap "$(printf 'rm -rf %q' "$box")" EXIT
 export PDBBOX="$box"
-"$script_home"/pdbbox-init --sandbox "$box" --pgbin "$pgbin" --pgport "$pgport" --bind-addr ip6-localhost localhost
+"$script_home"/pdbbox-init --sandbox "$box" --pgbin "$pgbin" \
+              --pgport "$pgport" \
+              --bind-addr ip6-localhost --bind-addr localhost
 
 # Use a subshell for a nested EXIT trap
 (trap '"$script_home"/pdbbox-env pg_ctl stop' EXIT
