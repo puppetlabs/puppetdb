@@ -4,7 +4,7 @@ set -ueo pipefail
 
 usage()
 {
-    echo "Usage: $(basename $0) <-s|--sandbox> DIR --pgbin DIR --pgport PORT"
+    echo "Usage: $(basename $0) <-s|--sandbox> DIR --pgbin DIR --pgport PORT --bind-addr ADDR1 [--bind-addr ADDR2 ...]"
 }
 
 misuse()
@@ -16,6 +16,7 @@ misuse()
 pdbbox=''
 pgbin=''
 pgport=''
+bind_addr=()
 while test $# -gt 0; do
     case "$1" in
         -s|--sandbox)
@@ -36,6 +37,12 @@ while test $# -gt 0; do
             pgport="$1"
             shift
             ;;
+        --bind-addr)
+            shift
+            test $# -gt 0 || misuse
+            bind_addr+=("$1")
+            shift
+            ;;
         *)
             misuse
     esac
@@ -43,13 +50,19 @@ done
 test "$pdbbox" || misuse
 test "$pgbin" || misuse
 test "$pgport" || misuse
+test "$bind_addr" || misuse
+
+bind_args=()
+for addr in "${bind_addr[@]}"; do
+    bind_args+=(--bind-addr "$addr")
+done
 
 export PGBOX="$pdbbox/pg"
 export PGUSER=postgres
 
 mkdir "$pdbbox"
 
-pgbox init --pgbin "$pgbin" --port "$pgport" -- -E UTF8 --locale=C
+pgbox init --pgbin "$pgbin" --port "$pgport" "${bind_args[@]}" -- -E UTF8 --locale=C
 
 mkdir "$pdbbox/var"
 
@@ -151,6 +164,8 @@ cat > "$pdbbox/logback.xml" <<EOF
 </configuration>
 EOF
 
+host=${bind_addr[${#bind_addr[@]}-1]}
+
 cat > "$pdbbox/pdb.ini" <<EOF
 
 [global]
@@ -158,7 +173,7 @@ vardir = $abs_pdbbox/var
 logging-config = $abs_pdbbox/logback.xml
 
 [database]
-subname = //localhost:$pgport/puppetdb
+subname = //$host:$pgport/puppetdb
 username = puppetdb
 password = $passwd
 
