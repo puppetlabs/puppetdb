@@ -13,7 +13,7 @@ usage() { echo "Usage: $cmdname VERSION INSTALLDIR_IF_NEEDED"; }
 misuse() { usage 1>&2; exit 2; }
 
 declare -A known_hash
-known_hash[0.0.0]=b5840a59f5437677e22a33dd27b27282c5186d1ecd89b23d8d2ef4c62d3511ce
+known_hash[0.0.0]=c4dd424ddbcaf33cb0d3ef51255943cbdd87446ea7bf220528441849de35cfef
 
 test "$#" -eq 2 || misuse
 
@@ -42,7 +42,7 @@ tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
 cd "$tmpdir"
-curl -O "https://gitlab.com/pgbox-org/pgbox/raw/8ba9c69e061c89ef6f06cb40f5d60e85c1e2e336/pgbox"
+curl -O "https://gitlab.com/pgbox-org/pgbox/raw/82e512d37a7c6c2ae72d1293ea98945eaaae51f4/pgbox"
 obshash="$("$script_home/sha256sum" < pgbox | cut -d' ' -f1)"
 cd ..
 
