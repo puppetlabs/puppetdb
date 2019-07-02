@@ -44,6 +44,10 @@
     :version          "123456789"
     :producer_timestamp "2014-07-10T22:33:54.781Z"
     :producer "mom.com"
+
+    ;; messing with adding catalog inputs to the test fixtures
+    :inputs [["type-1" "name-1"] ["type-2" "name-2"] ["type-3" "name-3"]]
+
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "/etc/foobar"}
                          :relationship :contains}

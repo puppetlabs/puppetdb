@@ -834,6 +834,17 @@
     (add-certname! certname)
     (replace-catalog! (assoc catalog :producer_timestamp current-time))
 
+    (testing "catalog inputs should get stored properly"
+      (is (= (query-to-vec ["SELECT certid, type, name FROM catalog_inputs"])
+             [{:certid 1 :type "type-1" :name "name-1"}
+              {:certid 1 :type "type-2" :name "name-2"}
+              {:certid 1 :type "type-3" :name "name-3"}])))
+
+    (testing "catalog inputs should add metadata to certnames table"
+      (is (= (query-to-vec ["SELECT catalog_inputs_uuid, catalog_inputs_timestamp FROM certnames"])
+             [{:catalog_inputs_uuid #uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+               :catalog_inputs_timestamp (to-timestamp current-time)}])))
+
     (testing "should contain proper catalog metadata"
       (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
              [{:certname certname :api_version 1 :catalog_version "123456789" :producer_timestamp (to-timestamp current-time)}])))

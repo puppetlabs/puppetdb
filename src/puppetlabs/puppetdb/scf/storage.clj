@@ -90,6 +90,8 @@
   code needs to assume a map of resources (not a vector) and tests need to be update to adhere
   to the new format."
   (assoc cat/catalog-wireformat-schema
+         ;; update the internal schema to allow for inputs. TODO adjust the wire format schema
+         (s/optional-key :inputs) [[s/Str]]
          :resources resource-ref->resource-schema
          :edges #{edge-schema}))
 
@@ -772,6 +774,26 @@
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)
          (update-catalog-associations! certname-id catalog refs-to-hashes)))
 
+(defn update-catalog-inputs-metadata
+  "Add catalog inputs metadata to the certnames table"
+  [certname-id catalog-id catalog-inputs-ts]
+  (jdbc/update! :certnames
+                {:catalog_inputs_uuid catalog-id :catalog_inputs_timestamp catalog-inputs-ts}
+                ["id=?" certname-id]))
+
+(defn update-catalog-inputs
+  "Store catalog inputs that come in with a catalog"
+  [certname-id inputs]
+  ;; do we need to adjust the transaction level here?
+  (jdbc/with-db-transaction []
+    ;; TODO make this smarter, diff incoming inputs with any existing in db
+    ;; only delete/update those rows that have changed
+    (jdbc/delete! :catalog_inputs
+                  ["certid=?" certname-id])
+    (jdbc/insert-multi! :catalog_inputs
+                        ["certid" "type" "name"]
+                        (map (fn [[type name]] [certname-id type name]) inputs))))
+
 (s/defn add-new-catalog
   "Creates new catalog metadata and adds the proper associations for the edges and resources"
   [certname-id :- Long
@@ -781,7 +803,16 @@
    received-timestamp :- pls/Timestamp]
   (inc! (:updated-catalog performance-metrics))
   (time! (:add-new-catalog performance-metrics)
-         (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+         (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))
+               {:keys [catalog_uuid producer_timestamp inputs]} catalog]
+
+           (when inputs
+             (update-catalog-inputs-metadata
+              certname-id
+              (sutils/munge-uuid-for-storage catalog_uuid)
+              (to-timestamp producer_timestamp))
+             (update-catalog-inputs certname-id inputs))
+
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (s/defn replace-catalog!
@@ -793,6 +824,9 @@
     received-timestamp :- pls/Timestamp]
    (time! (:replace-catalog performance-metrics)
           (jdbc/with-db-transaction []
+            ;; TODO: figure out if we want/need to include catalog inputs in the similarity hash for catalogs
+            ;; this could cause issues similar to those with package inventory wrt sync
+            ;; it might be better to have catalog inputs sync as a diff command with each catalog entity in sync
             (let [hash (time! (:catalog-hash performance-metrics)
                               (shash/catalog-similarity-hash catalog))
                   {catalog-id :catalog_id
@@ -804,6 +838,7 @@
                         (.after (to-timestamp producer_timestamp)))
                 (log/warn (trs "Not replacing catalog for certname {0} because local data is newer." certname))
 
+                ;; TODO: adjust this check to allow a catalog change to only catalog inputs to trigger an update for inputs
                 (= stored-hash hash)
                 (update-existing-catalog catalog-id hash catalog received-timestamp)
 
