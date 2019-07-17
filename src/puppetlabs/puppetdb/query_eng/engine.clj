@@ -1033,56 +1033,81 @@
                :subquery? false
                :source-table packages"}))
 
+(def factsets-query-base
+  {:projections
+   {"timestamp" {:type :timestamp
+                 :queryable? true
+                 :field :timestamp}
+    "facts" {:type :queryable-json
+             :queryable? true
+             :field {:select [(h/row-to-json :facts_data)]
+                     :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))")
+                                        :data]
+                                       [(hsql-hash-as-href "fs.certname" :factsets :facts)
+                                        :href]]
+                              :from [[{:select [[:key :name] :value :fs.certname]
+                                       :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
+                                      :t]]}
+                             :facts_data]]}}
+    "certname" {:type :string
+                :queryable? true
+                :field :fs.certname}
+    "hash" {:type :string
+            :queryable? true
+            :field (hsql-hash-as-str :fs.hash)}
+    "producer_timestamp" {:type :timestamp
+                          :queryable? true
+                          :field :fs.producer_timestamp}
+    "producer" {:type :string
+                :queryable? true
+                :field :producers.name}
+    "environment" {:type :string
+                   :queryable? true
+                   :field :environments.environment}}
+
+   :selection {:from [[:factsets :fs]]
+               :left-join [:environments
+                           [:= :fs.environment_id :environments.id]
+                           :producers
+                           [:= :producers.id :fs.producer_id]]}
+
+   :relationships (merge certname-relations
+                         {"environments" {:local-columns ["environment"]
+                                          :foreign-columns ["name"]}
+                          "producers" {:local-columns ["producer"]
+                                       :foreign-columns ["name"]}})
+
+   :alias "factsets"
+   :entity :factsets
+   :source-table "factsets"
+   :subquery? false})
+
 (def factsets-query
   "Query for the top level facts query"
+  (map->Query factsets-query-base))
+
+(def factsets-with-packages-query
+  "Query for factsets with the package_inventory reconstructed (used for sync)"
   (map->Query
-    {:projections
-     {"timestamp" {:type :timestamp
-                   :queryable? true
-                   :field :timestamp}
-      "facts" {:type :queryable-json
-               :queryable? true
-               :field {:select [(h/row-to-json :facts_data)]
-                       :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))")
-                                          :data]
-                                         [(hsql-hash-as-href "fs.certname" :factsets :facts)
-                                          :href]]
-                                :from [[{:select [[:key :name] :value :certname]
-                                         :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
-                                        :t]]}
-                               :facts_data]]}}
-      "certname" {:type :string
-                  :queryable? true
-                  :field :fs.certname}
-      "hash" {:type :string
-              :queryable? true
-              :field (hsql-hash-as-str :fs.hash)}
-      "producer_timestamp" {:type :timestamp
-                            :queryable? true
-                            :field :fs.producer_timestamp}
-      "producer" {:type :string
-                  :queryable? true
-                  :field :producers.name}
-      "environment" {:type :string
-                     :queryable? true
-                     :field :environments.environment}}
-
-     :selection {:from [[:factsets :fs]]
-                 :left-join [:environments
-                             [:= :fs.environment_id :environments.id]
-                             :producers
-                             [:= :producers.id :fs.producer_id]]}
-
-     :relationships (merge certname-relations
-                           {"environments" {:local-columns ["environment"]
-                                            :foreign-columns ["name"]}
-                            "producers" {:local-columns ["producer"]
-                                         :foreign-columns ["name"]}})
-
-     :alias "factsets"
-     :entity :factsets
-     :source-table "factsets"
-     :subquery? false}))
+    (-> factsets-query-base
+        (assoc-in [:projections "package_inventory"]
+                  {:type :array
+                   :queryable? false
+                   :field :package_inventory.packages})
+        (update-in
+          [:selection :left-join]
+          conj
+          :certnames
+          [:= :certnames.certname :fs.certname]
+          [{:select [[:certname_packages.certname_id :certname_id]
+                     [:%array_agg.p.triple :packages]]
+            :from [:certname_packages]
+            :left-join [[{:select [:id
+                                  [(htypes/array [:name :version :provider]) :triple]]
+                         :from [:packages]} :p]
+                        [:= :p.id :certname_packages.package_id]]
+            :group-by [:certname_id]} :package_inventory]
+          [:= :package_inventory.certname_id :certnames.id]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL

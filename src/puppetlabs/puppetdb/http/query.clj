@@ -35,6 +35,7 @@
    (s/optional-key :include_total) (s/maybe s/Bool)
    (s/optional-key :pretty) (s/maybe s/Bool)
    (s/optional-key :include_facts_expiration) (s/maybe s/Bool)
+   (s/optional-key :include_package_inventory) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
    (s/optional-key :distinct_resources) (s/maybe s/Bool)
@@ -269,6 +270,7 @@
       (update-when [:include_total] coerce-to-boolean)
       (update-when [:pretty] coerce-to-boolean)
       (update-when [:include_facts_expiration] coerce-to-boolean)
+      (update-when [:include_package_inventory] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))
 
 (defn get-req->query
@@ -281,6 +283,7 @@
       (update-when ["counts_filter"] json/parse-strict-string true)
       (update-when ["pretty"] coerce-to-boolean)
       (update-when ["include_facts_expiration"] coerce-to-boolean)
+      (update-when ["include_package_inventory"] coerce-to-boolean)
       keywordize-keys))
 
 (defn post-req->query
@@ -317,7 +320,8 @@
         req
         (let [param-spec (-> param-spec
                              (update :optional conj "pretty")
-                             (update :optional conj "include_facts_expiration"))
+                             (update :optional conj "include_facts_expiration")
+                             (update :optional conj "include_package_inventory"))
               query-map (create-query-map req param-spec parse-fn)
               pretty-print (:pretty query-map
                                     (get-in req [:globals :pretty-print]))]

@@ -1119,7 +1119,10 @@
                                       "e" "1"}
                 "domain" "testing.com"
                 "hostname" "foo4"
-                "uptime_seconds" "6000"}]
+                "uptime_seconds" "6000"}
+        package-inventory [["package1" "1.2.3" "provider1"]
+                           ["package2" "3.2.1" "provider1"]
+                           ["package3" "5" "provider2"]]]
     (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
@@ -1129,24 +1132,28 @@
                              :values facts1
                              :timestamp test-time
                              :environment "DEV"
+                             :package_inventory package-inventory
                              :producer_timestamp test-time
                              :producer "bar1"})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
+                             :package_inventory package-inventory
                              :producer_timestamp (to-timestamp "2013-01-01")
                              :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp test-time
                              :environment "PROD"
+                             :package_inventory package-inventory
                              :producer_timestamp test-time
                              :producer "bar3"})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp test-time
                              :environment "PROD"
+                             :package_inventory package-inventory
                              :producer_timestamp test-time
                              :producer "bar4"})
       (scf-store/deactivate-node! "foo4"))))
@@ -1181,7 +1188,7 @@
          "environment" "DEV"
          "certname" "foo1"
          "producer" "bar1"
-         "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
+         "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"}
 
         {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
                   "data" [{"name" "uptime_seconds"
@@ -1196,7 +1203,7 @@
          "certname" "foo2"
          "producer_timestamp" "2013-01-01T00:00:00.000Z"
          "producer" "bar2"
-         "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}
+         "hash" "39ad058afe565c797e925a862394d1bf457cf592"}
 
         {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo3/facts")
                   "data" [{"name" "domain"
@@ -1209,7 +1216,7 @@
          "environment" "PROD"
          "certname" "foo3"
          "producer" "bar3"
-         "hash" "f1122885dd4393bd1b786751384728bd1ca97bab"}]))
+         "hash" "f78da40ed4ad5f8009bf1e9e2963e44a86cfef00"}]))
 
 (deftest-http-app factset-paging-results
   [[version endpoint] factsets-endpoints
@@ -1359,7 +1366,7 @@
                "producer" "bar1"
                "environment" "DEV"
                "certname" "foo1"
-               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"})))
+               "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"})))
       (is (= (munge-factsets-response (into [] (second responses)))
              (map munge-factset-response
                   [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo1/facts")
@@ -1382,7 +1389,7 @@
                     "producer" "bar1"
                     "environment" "DEV"
                     "certname" "foo1"
-                    "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
+                    "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"}
 
                    {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
                              "data" [{"name" "my_structured_fact"
@@ -1401,7 +1408,7 @@
                     "producer" "bar2"
                     "environment" "DEV"
                     "certname" "foo2"
-                    "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}])))
 
       (is (= (munge-factsets-response (into [] (nth responses 2)))
              (map munge-factset-response
@@ -1422,7 +1429,7 @@
                     "producer" "bar2"
                     "environment" "DEV"
                     "certname" "foo2"
-                    "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}])))
       (is (= (munge-factsets-response (into [] (nth responses 3)))
              (map munge-factset-response
                   [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
@@ -1442,10 +1449,10 @@
                     "producer" "bar2"
                     "environment" "DEV"
                     "certname" "foo2"
-                    "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}])))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
-               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}]))
+               "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"}]))
      (is (= (munge-factsets-response (into [] (nth responses 5)))
             (map munge-factset-response
                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
@@ -1465,7 +1472,7 @@
                    "producer" "bar2"
                    "environment" "DEV"
                    "certname" "foo2"
-                   "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))))))
+                   "hash" "39ad058afe565c797e925a862394d1bf457cf592"}]))))))
 
 (deftest-http-app factset-subqueries
   [[version endpoint] factsets-endpoints
@@ -1572,7 +1579,7 @@
                                  {"name" "test#~delimiter" "value" "foo"}
                                  {"name" "uptime_seconds" "value" "4000"}}
                         "href" "/pdb/query/v4/factsets/foo1/facts"}
-               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"
+               "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"
                "producer_timestamp" "2014-10-28T20:26:21.727Z"
                "producer" "bar1"
                "timestamp" "2014-10-28T20:26:21.727Z"}))))))
@@ -1900,6 +1907,184 @@
         :body
         slurp
         json/parse-string)))
+
+(deftest-http-app factset-with-package-inventory-queries
+  [[version endpoint] factsets-endpoints
+   method [:get :post]]
+  (populate-for-structured-tests reference-time)
+
+  (testing "query with only include_package_inventory param should not fail"
+    (let [response (query-response method endpoint nil {:include_package_inventory true})]
+      (assert-success! response)
+      (slurp (:body response))))
+
+  (testing "factsets with package inventory query should ignore deactivated nodes"
+    (let [responses (json/parse-string (slurp (:body (query-response
+                                                       method endpoint))))]
+      (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
+
+  (testing "factset queries should return appropriate results"
+    (let [queries [["=" "certname" "foo1"]
+                   ["=" "environment" "DEV"]
+                   ["<" "timestamp" "2014-01-01"]
+                   ["<" "producer_timestamp" "2014-01-01"]
+                   ["extract" ["certname" "hash"]
+                   ["=" "certname" "foo1"]]
+                   ["=" "producer" "bar2"]]
+          responses (map (comp json/parse-string
+                               slurp
+                               :body
+                               #(query-response method endpoint % {:include_package_inventory true}))
+                         queries)]
+      (is (= (munge-factset-response (into {} (first responses)))
+             (munge-factset-response
+              {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo1/facts")
+                        "data" [{"name" "domain"
+                                 "value" "testing.com"}
+                                {"name" "my_structured_fact"
+                                 "value"
+                                 {"a" 1
+                                  "b" 3.14
+                                  "c" ["a" "b" "c"]
+                                  "d" {"n" ""}
+                                  "e" "1"
+                                  "f" nil}}
+                                {"name" "test#~delimiter"
+                                 "value" "foo"}
+                                {"name" "uptime_seconds"
+                                 "value" "4000"}]}
+               "timestamp" reference-time
+               "producer_timestamp" reference-time
+               "producer" "bar1"
+               "package_inventory" [["package1" "1.2.3" "provider1"]
+                                    ["package2" "3.2.1" "provider1"]
+                                    ["package3" "5" "provider2"]]
+               "environment" "DEV"
+               "certname" "foo1"
+               "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"})))
+      (is (= (munge-factsets-response (into [] (second responses)))
+             (map munge-factset-response
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo1/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       "f" nil}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "4000"}
+                                     {"name" "test#~delimiter"
+                                      "value" "foo"}]}
+                    "timestamp" reference-time
+                    "producer_timestamp" reference-time
+                    "producer" "bar1"
+                    "package_inventory" [["package1" "1.2.3" "provider1"]
+                                         ["package2" "3.2.1" "provider1"]
+                                         ["package3" "5" "provider2"]]
+                    "environment" "DEV"
+                    "certname" "foo1"
+                    "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"}
+
+                   {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
+                    "package_inventory" [["package1" "1.2.3" "provider1"]
+                                         ["package2" "3.2.1" "provider1"]
+                                         ["package3" "5" "provider2"]]
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}])))
+
+      (is (= (munge-factsets-response (into [] (nth responses 2)))
+             (map munge-factset-response
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
+                    "package_inventory" [["package1" "1.2.3" "provider1"]
+                                         ["package2" "3.2.1" "provider1"]
+                                         ["package3" "5" "provider2"]]
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}])))
+
+      (is (= (munge-factsets-response (into [] (nth responses 3)))
+             (map munge-factset-response
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
+                    "package_inventory" [["package1" "1.2.3" "provider1"]
+                                         ["package2" "3.2.1" "provider1"]
+                                         ["package3" "5" "provider2"]]
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}])))
+      (is (= (into [] (nth responses 4))
+             [{"certname" "foo1"
+               "hash" "e9e19bca48ab42c44687822415df77b47fa41e64"}]))
+
+      (is (= (munge-factsets-response (into [] (nth responses 5)))
+             (map munge-factset-response
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
+                    "package_inventory" [["package1" "1.2.3" "provider1"]
+                                         ["package2" "3.2.1" "provider1"]
+                                         ["package3" "5" "provider2"]]
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}]))))))
 
 (deftest-http-app fact-contents-queries
   [[version endpoint] fact-contents-endpoints
