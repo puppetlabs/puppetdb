@@ -35,6 +35,7 @@
   ;; puppetdb-command->metadata-command (defined below) will have to be modified
   ;; in order to establish a "preferred" metadata name for each command
   {"catalog" "replace catalog"
+   "inputs" "replace catalog inputs"
    "facts" "replace facts"
    "rm-node" "deactivate node"
    "report" "store report"

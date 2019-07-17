@@ -200,3 +200,17 @@
                                                 :group  "root"
                                                 :source "my_file_source"
                                                 :user   "root"}}))}})
+
+
+(def catalog-inputs
+  {:basic
+   {:certname         "basic.catalogs.com"
+    :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :producer_timestamp "2014-07-10T22:33:54.781Z"
+    :inputs [["hiera" "puppetdb::globals::version"]
+             ["hiera" "puppetdb::disable_cleartext"]
+             ["hiera" "puppetdb::disable_ssl"]]
+    }})
+
+(def wire-catalog-inputs
+  {1 catalog-inputs})

@@ -1978,3 +1978,47 @@
     (set-certname-facts-expiration "foo" false stamp-2)
     (is (= [{:certid id :expire false :updated stamp-2}]
            (query-to-vec "select * from certname_fact_expiration")))))
+
+(deftest-db adding-catalog-inputs-for-certname
+  (is (= [] (query-to-vec "select * from catalog_inputs")))
+  (let [stamp-1 (to-timestamp (now))
+        stamp-2 (to-timestamp (time/plus (now) (time/seconds 1)))
+        id (-> "select id from certnames where certname = 'foo'"
+               query-to-vec first :id)]
+    (add-certname! "foo")
+    (replace-catalog! (assoc catalog :producer_timestamp stamp-1 :certname "foo"))
+    (is (= [] (query-to-vec "select * from catalog_inputs")))
+    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp nil :catalog_inputs_uuid nil}]
+           (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
+
+    (replace-catalog-inputs! "foo"
+                             (:catalog_uuid catalog)
+                             [["hiera", "puppetdb::globals::version"]]
+                             stamp-1)
+    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::globals::version"}]
+           (query-to-vec "select * from catalog_inputs")))
+    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-1 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+           (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
+
+    ;; Changes for newer time, removes old inputs, supports multiple inputs
+    (replace-catalog-inputs! "foo"
+                             (:catalog_uuid catalog)
+                             [["hiera", "puppetdb::disable_ssl"]
+                              ["hiera", "puppetdb::disable_cleartext"]]
+                             stamp-2)
+    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}
+            {:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}]
+           (query-to-vec "select * from catalog_inputs")))
+    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+           (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
+
+    ;; No effect if time is <=
+    (replace-catalog-inputs! "foo"
+                             (:catalog_uuid catalog)
+                             [["hiera", "puppetdb::globals::version"]]
+                             stamp-1)
+    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}
+            {:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}]
+           (query-to-vec "select * from catalog_inputs")))
+    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+           (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))))

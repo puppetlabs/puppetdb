@@ -40,7 +40,7 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :refer [ago now to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [ago now to-timestamp from-sql-date before?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
@@ -215,6 +215,7 @@
   "Delete the given host from the db"
   [certname]
   {:pre [certname]}
+  (jdbc/delete! :catalog_inputs ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
 
@@ -823,6 +824,46 @@
     (sutils/sql-hash-as-str "hash") certname]
    (comp :catalog first sql/result-set-seq)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Catalog inputs updates/changes
+
+(defn delete-catalog-inputs! [certid]
+  (jdbc/delete! :catalog_inputs ["certname_id = ?" certid]))
+
+(defn store-catalog-inputs!
+  [certid inputs]
+    (jdbc/insert-multi! :catalog_inputs
+                        [:certname_id :type :name]
+                        (map #(apply vector certid %) inputs)))
+
+(defn update-catalog-input-metadata!
+  [certid catalog-uuid last-updated]
+  (jdbc/update! :certnames
+                {:catalog_inputs_uuid catalog-uuid :catalog_inputs_timestamp last-updated}
+                ["id = ?" certid]))
+
+(defn certname-id-and-timestamp [certname]
+  (-> (jdbc/query (hcore/format
+                    {:select [:id :catalog_inputs_timestamp]
+                     :from [:certnames]
+                     :where [:= :certname certname]}))
+      first))
+
+(pls/defn-validated replace-catalog-inputs!
+  [certname :- s/Str
+   catalog_uuid :- s/Str
+   inputs :- [[s/Str]]
+   updated :- pls/Timestamp]
+  (jdbc/with-db-transaction []
+    (let [updated (to-timestamp updated)
+          catalog-uuid (sutils/munge-uuid-for-storage catalog_uuid)
+          {certid :id old-ts :catalog_inputs_timestamp} (certname-id-and-timestamp certname)]
+      (when (or (nil? old-ts)
+                (before? (from-sql-date old-ts) (from-sql-date updated)))
+        (delete-catalog-inputs! certid)
+        (store-catalog-inputs! certid inputs)
+        (update-catalog-input-metadata! certid catalog-uuid updated)))))
+
 ;; ## Database compaction
 
 (defn delete-unassociated-params!
@@ -1418,6 +1459,7 @@
                      left outer join factsets fs on c.certname = fs.certname
                      left outer join reports r on c.latest_report_id = r.id
                      left outer join certname_fact_expiration cfe on c.id = cfe.certid
+                     left outer join catalog_inputs ci on c.id = ci.certname_id
                    where c.deactivated is null
                      and c.expired is null
                      and (cats.producer_timestamp is null
@@ -1427,10 +1469,12 @@
                      and (r.producer_timestamp is null
                           or r.producer_timestamp < ?)"
            "         and (cfe.updated is null"
-           "              or (cfe.expire and cfe.updated < ?)))"
+           "              or (cfe.expire and cfe.updated < ?))"
+           "         and (c.catalog_inputs_timestamp is null"
+           "              or c.catalog_inputs_timestamp < ?))"
            "  returning certname")
           expired-ts
-          stale-start-ts stale-start-ts stale-start-ts stale-start-ts))))
+          stale-start-ts stale-start-ts stale-start-ts stale-start-ts stale-start-ts))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.

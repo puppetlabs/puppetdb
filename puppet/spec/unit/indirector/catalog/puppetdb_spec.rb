@@ -40,7 +40,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should POST the catalog command as a JSON string" do
-      command_payload = subject.munge_catalog(catalog, Time.now.utc, options)
+      command_payload, _inputs = subject.munge_catalog(catalog, Time.now.utc, options)
       http.expects(:post).with do |uri, body, headers|
         command_payload.delete("producer_timestamp")
         assert_command_req(command_payload, body)
@@ -399,7 +399,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <<| |>>
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -415,7 +415,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <<| |>>
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -443,7 +443,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           notify { target: }
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should_not include(edge)
         end
@@ -469,7 +469,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <| |>
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -485,7 +485,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <| |>
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -501,7 +501,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           realize Notify[target]
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -517,7 +517,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           realize Notify[source]
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -545,7 +545,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           notify { target: }
           MANIFEST
 
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should_not include(edge)
         end
@@ -561,7 +561,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         }
         MANIFEST
 
-        result = subject.munge_catalog(catalog, Time.now.utc)
+        result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
@@ -581,7 +581,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         }
         MANIFEST
 
-        result = subject.munge_catalog(catalog, Time.now.utc)
+        result, _inputs = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Package', 'title' => 'foo'},
                 'target' => {'type' => 'Notify', 'title' => 'hello'},
@@ -657,13 +657,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource[:require] = 'Notify[completely_different]'
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
 
-        result = subject.munge_catalog(catalog, Time.now.utc)
+        result, inputs = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
                 'relationship' => 'required-by'}
 
         result['edges'].should include(edge)
+        inputs.should be_nil
       end
 
       context "when dealing with file resources and trailing slashes in their titles" do
@@ -672,13 +673,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
           other_resource = Puppet::Resource.new(:file, resource_title)
           resource[:require] = "File[#{require_title}]"
           Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
-          result = subject.munge_catalog(catalog, Time.now.utc)
+          result, inputs = subject.munge_catalog(catalog, Time.now.utc)
 
           edge = {'source' => {'type' => 'File', 'title' => resource_title},
                   'target' => {'type' => 'Notify', 'title' => 'anyone'},
                   'relationship' => 'required-by'}
 
           result['edges'].should include(edge)
+          inputs.should be_nil
         end
 
         it "should make an edge if the other end is a file resource with a missing trailing slash" do
@@ -703,13 +705,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource[:require] = 'Exec[completely_different]'
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
 
-        result = subject.munge_catalog(catalog, Time.now.utc)
+        result, inputs = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Exec', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
                 'relationship' => 'required-by'}
 
         result['edges'].should include(edge)
+        inputs.should be_nil
       end
 
       it "should not include virtual resources" do
@@ -717,19 +720,51 @@ describe Puppet::Resource::Catalog::Puppetdb do
         @notify { something: }
         MANIFEST
 
-        result = subject.munge_catalog(catalog, Time.now.utc)
+        result, inputs = subject.munge_catalog(catalog, Time.now.utc)
 
         result['resources'].each do |res|
           [res['type'], res['title']].should_not == ['Notify', 'something']
         end
+
+        inputs.should be_nil
       end
 
       it "should have the correct set of keys" do
-        result = subject.munge_catalog(catalog, Time.now.utc)
+        result, inputs = subject.munge_catalog(catalog, Time.now.utc)
 
         result.keys.should =~ ['certname', 'version', 'edges', 'resources',
           'transaction_uuid', 'environment', 'producer_timestamp', "code_id",
           "job_id", "catalog_uuid", "producer"]
+        inputs.should be_nil
+      end
+
+      context 'when given catalog inputs' do
+        before :each do
+        end
+
+        it 'should remove inputs from catalog hash' do
+          catalog_hash = catalog.to_data_hash.merge({ 'inputs' => [['hiera', 'puppetdb::globals::version']] })
+          catalog.expects(:to_data_hash).returns(catalog_hash)
+          result, inputs = subject.munge_catalog(catalog, Time.now.utc)
+
+          result['inputs'].should be_nil
+          inputs[:inputs].should eq([['hiera', 'puppetdb::globals::version']])
+        end
+
+        it 'should construct input payload' do
+          catalog_hash = catalog.to_data_hash.merge({ 'inputs' => [['hiera', 'puppetdb::globals::version']] })
+          catalog.expects(:to_data_hash).returns(catalog_hash)
+
+          timestamp = Time.now.utc
+          result, inputs = subject.munge_catalog(catalog, timestamp)
+
+          inputs.should eq({
+            certname: 'node',
+            catalog_uuid: result['catalog_uuid'],
+            producer_timestamp: Puppet::Util::Puppetdb.to_wire_time(timestamp),
+            inputs: [['hiera', 'puppetdb::globals::version']]
+          })
+        end
       end
 
       context 'when dealing with TagSets' do

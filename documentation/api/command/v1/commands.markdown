@@ -16,6 +16,7 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [reportv8]: ../../wire_format/report_format_v8.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 [expirev1]: ../../wire_format/configure_expiration_format_v1.html
+[inputsv1]: ../../wire_format/replace_catalog_inputs_v1.html
 
 Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:
@@ -217,6 +218,12 @@ not facts should be expired for a given `certname`.
 > *Note*: this is an experimental command, which might be altered or
 > removed in a future release, and for the time being, PuppetDB
 > exports will not include this information.
+
+### "replace catalog inputs", version 1
+
+Submit a set of information about "inputs" to a catalog such as hiera data, external function calls, etc.
+Each piece of information has a type and a name such as `["hiera", "puppetdb::globals::version"]`, see the
+[replace catalog inputs wire format v1][inputsv1] for more details.
 
 ## Examples using `curl`
 

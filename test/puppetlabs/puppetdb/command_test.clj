@@ -54,7 +54,7 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue
-             :refer [catalog->command-req facts->command-req report->command-req deactivate->command-req]]
+             :refer [catalog->command-req catalog-inputs->command-req facts->command-req report->command-req deactivate->command-req]]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
@@ -696,6 +696,50 @@
              (scf-store/catalog-resources (:certname_id
                                            (scf-store/latest-catalog-metadata
                                             "basic.wire-catalogs.com"))))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Catalog Input Command Tests
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def catalog-inputs-versions
+  "Supported catalog inputs versions"
+  [:v1])
+
+(deftest replace-catalog-inputs-test
+  (dotestseq [version catalog-inputs-versions
+              :let [version-num (version-kwd->num version)
+                    {:keys [certname] :as catalog-inputs} (-> wire-catalog-inputs
+                                                              (get-in [version-num :basic])
+                                                              (assoc :producer_timestamp (now)))
+                    make-cmd-req #(catalog-inputs->command-req version-num catalog-inputs)
+                    make-another-cmd-req #(catalog-inputs->command-req version-num (-> catalog-inputs
+                                                                                       (assoc :certname "foo")))]]
+    (testing (str (command-names :replace-catalog-inputs) " " version)
+      (let [inputs [{:type "hiera" :name "puppetdb::globals::version"}
+                    {:type "hiera" :name "puppetdb::disable_cleartext"}
+                    {:type "hiera" :name "puppetdb::disable_ssl"}]]
+
+        (testing "with catalog inputs it should store the inputs"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q (make-cmd-req)))
+            (is (= inputs
+                   (query-to-vec "SELECT type, name FROM catalog_inputs")))
+            (is (= 0 (task-count delay-pool)))
+            (is (empty? (fs/list-dir (:path dlo))))))
+
+        (testing "submitting multiple catalog inputs processed succesfully"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q (make-cmd-req)))
+            (handle-message (queue/store-command q (make-another-cmd-req)))
+            (is (= (into inputs inputs) ; expect 2 copies of each input
+                   (query-to-vec "SELECT type, name FROM catalog_inputs")))
+            (is (= [{:certname "basic.catalogs.com"}
+                    {:certname "foo"}]
+                   (query-to-vec "SELECT certname FROM certnames")))
+            (is (= 0 (task-count delay-pool)))
+            (is (empty? (fs/list-dir (:path dlo))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
