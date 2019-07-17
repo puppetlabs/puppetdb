@@ -41,6 +41,9 @@
                  :rec eng/fact-names-query}
     :factsets {:munge (constantly identity)
                :rec eng/factsets-query}
+    ;; Not a real entity, requested via query param
+    :factsets-with-packages {:munge facts/munge-package-inventory
+                             :rec eng/factsets-with-packages-query}
     :catalogs {:munge (constantly identity)
                :rec eng/catalog-query}
     :nodes {:munge (constantly identity)
@@ -84,28 +87,31 @@
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
-  [query entity version paging-options]
+  [query entity version query-options]
   {:pre  [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
-          (or (not (:include_total paging-options))
+          (or (not (:include_total query-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
 
   (cond
     (= :aggregate-event-counts entity)
-    (aggregate-event-counts/query->sql version query paging-options)
+    (aggregate-event-counts/query->sql version query query-options)
 
     (= :event-counts entity)
-    (event-counts/query->sql version query paging-options)
+    (event-counts/query->sql version query query-options)
 
-    (and (= :events entity) (:distinct_resources paging-options))
-    (events/legacy-query->sql false version query paging-options)
+    (and (= :events entity) (:distinct_resources query-options))
+    (events/legacy-query->sql false version query query-options)
 
     :else
-    (let [query-rec (get-in @entity-fn-idx [entity :rec])
+    (let [query-rec (if (and (:include_package_inventory query-options)
+                             (= entity :factsets))
+                      (get-in @entity-fn-idx [:factsets-with-packages :rec])
+                      (get-in @entity-fn-idx [entity :rec]))
           columns (orderable-columns query-rec)]
-      (paging/validate-order-by! columns paging-options)
-      (eng/compile-user-query->sql query-rec query paging-options))))
+      (paging/validate-order-by! columns query-options)
+      (eng/compile-user-query->sql query-rec query query-options))))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
@@ -168,7 +174,10 @@
          query-options (->> (dissoc query-map :query)
                             utils/strip-nil-values
                             (merge {:limit nil :offset nil :order_by nil}
-                                   paging-options))]
+                                   paging-options))
+         entity (cond
+                  (and (= entity :factsets) (:include_package_inventory query-options)) :factsets-with-packages
+                  :else entity)]
      {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
 
 (pls/defn-validated produce-streaming-body

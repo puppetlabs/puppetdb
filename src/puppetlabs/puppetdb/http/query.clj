@@ -34,6 +34,7 @@
    (s/optional-key :ast_only) (s/maybe s/Bool)
    (s/optional-key :include_total) (s/maybe s/Bool)
    (s/optional-key :pretty) (s/maybe s/Bool)
+   (s/optional-key :include_package_inventory) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
    (s/optional-key :distinct_resources) (s/maybe s/Bool)
@@ -267,6 +268,7 @@
       (update-when [:offset] parse-offset)
       (update-when [:include_total] coerce-to-boolean)
       (update-when [:pretty] coerce-to-boolean)
+      (update-when [:include_package_inventory] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))
 
 (defn get-req->query
@@ -278,6 +280,7 @@
       (update-when ["order_by"] parse-order-by-json)
       (update-when ["counts_filter"] json/parse-strict-string true)
       (update-when ["pretty"] coerce-to-boolean)
+      (update-when ["include_package_inventory"] coerce-to-boolean)
       keywordize-keys))
 
 (defn post-req->query
@@ -312,7 +315,9 @@
      (handler
       (if puppetdb-query
         req
-        (let [param-spec (update param-spec :optional conj "pretty")
+        (let [param-spec (-> param-spec
+                             (update :optional conj "pretty")
+                             (update :optional conj "include_package_inventory"))
               query-map (create-query-map req param-spec parse-fn)
               pretty-print (:pretty query-map
                                     (get-in req [:globals :pretty-print]))]
