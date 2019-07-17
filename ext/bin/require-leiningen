@@ -4,7 +4,7 @@ set -uexo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
-default=2.8.1
+default=2.9.1
 
 cmdname="$(basename "$0")"
 
@@ -13,7 +13,7 @@ usage() { echo "Usage: $cmdname VERSION INSTALLDIR_IF_NEEDED"; }
 misuse() { usage 1>&2; exit 2; }
 
 declare -A known_hash
-known_hash[2.8.1]=b7f9c70341d638022c1c2d74867c50aeb608d2d9e7cd2a94b8f191bf6a9e1a6e
+known_hash[2.9.1]=32acacc8354627724d27231bed8fa190d7df0356972e2fd44ca144c084ad4fc7
 
 test "$#" -eq 2 || misuse
 
