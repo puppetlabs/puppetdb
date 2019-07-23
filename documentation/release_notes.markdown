@@ -18,6 +18,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrade_policy]: ./versioning_policy.html#upgrades
 [facts]: ./api/query/v4/facts.html
 
+## PuppetDB 6.4.0
+
+### Bug fixes
+
+- This bug affects Puppet Enterprise (PE) only. After a restart or downtime, PuppetDB did not sync its package inventory, resulting in PuppetDB nodes with desynced fact hashes. [PDB-4266](https://tickets.puppetlabs.com/browse/PDB-4266)
+
 ## PuppetDB 6.3.4
 
 ### Bug fixes
