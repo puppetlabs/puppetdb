@@ -1642,6 +1642,13 @@
    "DROP AGGREGATE IF EXISTS md5_agg(BYTEA)"
    "DROP FUNCTION IF EXISTS dual_md5(BYTEA, BYTEA)"))
 
+(defn autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports []
+  (jdbc/do-commands
+   "ALTER TABLE factsets  SET ( autovacuum_vacuum_scale_factor=0.80 )"
+   "ALTER TABLE catalogs  SET ( autovacuum_vacuum_scale_factor=0.75 )"
+   "ALTER TABLE certnames SET ( autovacuum_vacuum_scale_factor=0.75 )"
+   "ALTER TABLE reports   SET ( autovacuum_vacuum_scale_factor=0.01 )"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1693,7 +1700,8 @@
    67 (fn [])
    68 support-fact-expiration-configuration
    69 add-resource-events-pk
-   70 migrate-md5-to-sha1-hashes})
+   70 migrate-md5-to-sha1-hashes
+   71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports})
 
 (def desired-schema-version (apply max (keys migrations)))
 
