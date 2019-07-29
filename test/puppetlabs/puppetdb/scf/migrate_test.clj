@@ -1263,3 +1263,19 @@
       (is (contains? procs "dual_sha1"))
       (is (not (contains? procs "md5_agg")))
       (is (not (contains? procs "dual_md5"))))))
+
+(deftest autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports-test
+  (clear-db-for-testing!)
+  ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
+  (fast-forward-to-migration! desired-schema-version)
+  (let [values {"factsets" "0.80"
+                "catalogs" "0.75"
+                "certnames" "0.75"
+                "reports" "0.01"}]
+    (doall
+     (map (fn [[table factor]]
+            (is (seq (jdbc/query-to-vec
+                      (format "SELECT reloptions FROM pg_class WHERE relname = '%s' AND CAST(reloptions as text) LIKE '{autovacuum_vacuum_scale_factor=%s}'"
+                              table factor)))))
+          values)))
+  )
