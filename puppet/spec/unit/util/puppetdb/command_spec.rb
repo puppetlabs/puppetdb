@@ -16,7 +16,7 @@ describe Puppet::Util::Puppetdb::Command do
   describe "#submit" do
     let(:http) { mock 'http' }
     before(:each) do
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Network::HttpPool.expects(:connection).returns http
     end
 
     context "when the submission succeeds" do

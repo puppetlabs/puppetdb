@@ -20,7 +20,7 @@ describe "node face: status" do
 
   it "should fetch the status of each node" do
     http = stub 'http'
-    Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+    Puppet::Network::HttpPool.stubs(:connection).returns(http)
 
     nodes = %w[a b c d e]
     nodes.each do |node|
@@ -32,7 +32,7 @@ describe "node face: status" do
 
   it "should CGI escape the node names" do
     http = stub 'http'
-    Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+    Puppet::Network::HttpPool.stubs(:connection).returns(http)
 
     node = "foo/+*&bar"
 

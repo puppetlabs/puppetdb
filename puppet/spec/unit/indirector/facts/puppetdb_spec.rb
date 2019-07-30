@@ -18,7 +18,7 @@ describe Puppet::Node::Facts::Puppetdb do
   before :each do
     Puppet::Util::Puppetdb.config.stubs(:server_urls).returns [URI("https://localhost:8282")]
     Puppet::Node::Facts.indirection.stubs(:terminus).returns(subject)
-    Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+    Puppet::Network::HttpPool.stubs(:connection).returns(http)
     create_environmentdir("my_environment")
   end
 

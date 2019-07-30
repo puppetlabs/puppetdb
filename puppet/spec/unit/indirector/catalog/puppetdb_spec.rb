@@ -32,7 +32,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
     before :each do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Network::HttpPool.expects(:connection).returns http
     end
 
     def save

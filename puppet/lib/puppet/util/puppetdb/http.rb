@@ -134,7 +134,8 @@ module Puppet::Util::Puppetdb
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
-          http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
+          ssl_context = Puppet.lookup(:ssl_context)
+          http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
 
           response = Timeout.timeout(config.server_url_timeout) do
             http_callback.call(http, route)
@@ -170,7 +171,8 @@ module Puppet::Util::Puppetdb
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
-          http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
+          ssl_context = Puppet.lookup(:ssl_context)
+          http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
 
           response = Timeout.timeout(config.server_url_timeout) do
             http_callback.call(http, route)

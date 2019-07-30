@@ -41,7 +41,7 @@ describe Puppet::Util::Puppetdb::Http do
   describe "#action" do
     describe "for request_type=:query" do
       it "call the proc argument with a correct path" do
-         Puppet::Network::HttpPool.expects(:http_instance).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).returns(http1)
          http1.expects(:get).with("/foo/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
          described_class.action("/bar/baz", :query) do |http_instance, path|
@@ -50,8 +50,8 @@ describe Puppet::Util::Puppetdb::Http do
        end
 
        it "should not fail over when the first url works" do
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).never
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).never
 
          http1.expects(:get).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
@@ -64,8 +64,8 @@ describe Puppet::Util::Puppetdb::Http do
        end
 
        it "fails over to the next url when it can't connect" do
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
          http1.expects(:get).with("/foo/baz", {}).raises SystemCallError, "Connection refused"
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -79,8 +79,8 @@ describe Puppet::Util::Puppetdb::Http do
        end
 
        it "fails over to the next url on a server error" do
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
          http1.expects(:get).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -94,8 +94,8 @@ describe Puppet::Util::Puppetdb::Http do
        end
 
        it "raises an exception when all urls fail" do
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
          http1.expects(:get).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
@@ -108,8 +108,8 @@ describe Puppet::Util::Puppetdb::Http do
        end
 
        it "fails over after IOError" do
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
          http1.expects(:get).with("/foo/baz", {}).raises IOError
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -123,8 +123,8 @@ describe Puppet::Util::Puppetdb::Http do
        end
 
        it "times out and rolls to the next url" do
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
          http1.expects(:get).with("/foo/baz", {}).raises Timeout::Error
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -140,9 +140,9 @@ describe Puppet::Util::Puppetdb::Http do
        it "doesn't sends queries to hosts in submit_only_server_urls" do
          config.stubs(:submit_only_server_urls).returns [URI("https://server3:8282/qux")]
 
-         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
-         Puppet::Network::HttpPool.expects(:http_instance).with("server3", 8282).never
+         Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+         Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
+         Puppet::Network::HttpPool.expects(:connection).with("server3", 8282, anything).never
 
          http1.expects(:get).with("/foo/baz", {}).raises SystemCallError, "Connection refused"
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -157,8 +157,8 @@ describe Puppet::Util::Puppetdb::Http do
 
        describe "when sticky_read_failover is false" do
          it "retries the first host after failover" do
-           Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1).at_least_once
-           Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2).at_least_once
+           Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1).at_least_once
+           Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2).at_least_once
 
            http1.expects(:get).with("/foo/baz", {}).returns(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")).twice
            http2.expects(:get).with("/bar/baz", {}).returns(Net::HTTPOK.new('1.1', 200, 'OK')).twice
@@ -185,8 +185,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
          it "reuses the same host after failover" do
-           Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1).at_least_once
-           Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2).at_least_once
+           Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1).at_least_once
+           Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2).at_least_once
 
            http1.expects(:get).with("/foo/baz", {}).returns(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")).once
            http2.expects(:get).with("/bar/baz", {}).returns(Net::HTTPOK.new('1.1', 200, 'OK')).twice
@@ -216,8 +216,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "should try to post to all URLs" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -231,8 +231,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "fails over to the next url when it can't connect" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).raises SystemCallError, "Connection refused"
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -246,8 +246,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "fails over to the next url when one service is unavailable" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
@@ -261,8 +261,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "raises an exception when all urls fail" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
@@ -277,8 +277,8 @@ describe Puppet::Util::Puppetdb::Http do
         it "raises an exception when min_successful_submissions is not met" do
           config.stubs(:min_successful_submissions).returns 2
 
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).raises SystemCallError, "Connection refused"
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -293,8 +293,8 @@ describe Puppet::Util::Puppetdb::Http do
         it "works when min_successful_submissions is met" do
           config.stubs(:min_successful_submissions).returns 2
 
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -310,9 +310,9 @@ describe Puppet::Util::Puppetdb::Http do
         it "sends commands to hosts in submit_only_server_urls" do
           config.stubs(:submit_only_server_urls).returns [URI("https://server3:8282/qux")]
 
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server3", 8282).returns(http3)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server3", 8282, anything).returns(http3)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -333,8 +333,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "should try to post to only the first URL if it succeeds" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).never
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).never
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
           http2.expects(:post).with("/bar/baz", {}).never
@@ -348,8 +348,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "fails over to the next url when it can't connect" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).raises SystemCallError, "Connection refused"
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
@@ -363,8 +363,8 @@ describe Puppet::Util::Puppetdb::Http do
         end
 
         it "raises an exception when all urls fail" do
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
@@ -379,9 +379,9 @@ describe Puppet::Util::Puppetdb::Http do
         it "sends commands to hosts in submit_only_server_urls" do
           config.stubs(:submit_only_server_urls).returns [URI("https://server3:8282/qux")]
 
-          Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2)
-          Puppet::Network::HttpPool.expects(:http_instance).with("server3", 8282).returns(http3)
+          Puppet::Network::HttpPool.expects(:connection).with("server1", 8080, anything).returns(http1)
+          Puppet::Network::HttpPool.expects(:connection).with("server2", 8181, anything).returns(http2)
+          Puppet::Network::HttpPool.expects(:connection).with("server3", 8282, anything).returns(http3)
 
           http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
           http2.expects(:post).with("/bar/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")

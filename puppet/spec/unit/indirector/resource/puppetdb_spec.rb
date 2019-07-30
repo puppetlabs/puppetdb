@@ -32,7 +32,7 @@ describe Puppet::Resource::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
-      Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+      Puppet::Network::HttpPool.stubs(:connection).returns(http)
       http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
 
       search("exec").should == []
@@ -45,7 +45,7 @@ describe Puppet::Resource::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
-      Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+      Puppet::Network::HttpPool.stubs(:connection).returns(http)
       http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
 
       Puppet.expects(:deprecation_warning).with do |msg|
@@ -91,7 +91,7 @@ describe Puppet::Resource::Puppetdb do
         response.stubs(:body).returns body
 
         http = stub 'http'
-        Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+        Puppet::Network::HttpPool.stubs(:connection).returns(http)
         http.stubs(:get).with("/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}", subject.headers, options).returns response
       end
 
