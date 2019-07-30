@@ -1612,6 +1612,24 @@
     "     check ((expire is not null and updated is not null)"
     "             or (expire is null and updated is null)))"]))
 
+(defn add-support-for-catalog-inputs []
+  (jdbc/do-commands
+   "ALTER TABLE certnames ADD COLUMN catalog_inputs_timestamp TIMESTAMP WITH TIME ZONE"
+   "ALTER TABLE certnames ADD COLUMN catalog_inputs_uuid uuid")
+
+  (jdbc/do-commands
+   ["CREATE TABLE catalog_inputs"
+    "  (certname_id BIGINT NOT NULL,"
+    "   type TEXT NOT NULL,"
+    "   name TEXT NOT NULL,"
+    "   CONSTRAINT catalog_inputs_certname_id_fkey"
+    "     FOREIGN KEY (certname_id) REFERENCES certnames(id) ON DELETE CASCADE)"])
+
+  ;; TODO: figure out what additional indexes we want in the catalog inputs table
+  (jdbc/do-commands
+   "CREATE INDEX catalog_inputs_certname_id_index ON catalog_inputs (certname_id)"))
+
+
 (defn migrate-md5-to-sha1-hashes []
   ;; Existing puppetdb installations will have a dual_md5 function
   ;; and a md5_agg aggregate function. We are replacing them with
@@ -1701,7 +1719,8 @@
    68 support-fact-expiration-configuration
    69 add-resource-events-pk
    70 migrate-md5-to-sha1-hashes
-   71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports})
+   71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports
+   72 add-support-for-catalog-inputs})
 
 (def desired-schema-version (apply max (keys migrations)))
 
