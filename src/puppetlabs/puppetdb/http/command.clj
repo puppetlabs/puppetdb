@@ -26,6 +26,7 @@
 (def min-supported-commands
   {"configure expiration" 1
    "replace catalog" 6
+   "replace catalog inputs" 1
    "replace facts" 4
    "store report" 5
    "deactivate node" 3})

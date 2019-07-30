@@ -10,8 +10,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
       current_time = Time.now
-      catalog = munge_catalog(request.instance, current_time, extract_extra_request_data(request))
+      catalog, inputs = munge_catalog(request.instance, current_time, extract_extra_request_data(request))
       submit_command(request.key, catalog, CommandReplaceCatalog, 9, current_time.clone.utc)
+      submit_command(request.key, inputs, CommandReplaceCatalogInputs, 1, current_time.clone.utc) if inputs
     end
   end
 
@@ -48,6 +49,19 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     nil
   end
 
+  def munge_catalog_inputs(hash)
+    inputs = hash.delete('inputs')
+
+    return if inputs.nil?
+
+    {
+      certname: hash['certname'],
+      catalog_uuid: hash['catalog_uuid'],
+      producer_timestamp: hash['producer_timestamp'],
+      inputs: inputs
+    }
+  end
+
   def munge_catalog(catalog, producer_timestamp, extra_request_data = {})
     profile("Munge catalog", [:puppetdb, :catalog, :munge]) do
       data = profile("Convert catalog to JSON data hash", [:puppetdb, :catalog, :convert_to_hash]) do
@@ -75,7 +89,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_producer(data, Puppet[:node_name_value])
       redact_sensitive_params(data)
 
-      data
+      inputs = munge_catalog_inputs(data)
+
+      [data, inputs]
     end
   end
 
@@ -453,7 +469,8 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
            'resources',
            'code_id',
            'job_id',
-           'catalog_uuid'].include?(k)
+           'catalog_uuid',
+           'inputs'].include?(k)
       end
     end
   end

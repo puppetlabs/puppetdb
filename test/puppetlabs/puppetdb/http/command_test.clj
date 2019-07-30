@@ -126,7 +126,7 @@
            (is (= ["Content-Type"] (keys headers)))
            (is (http/json-utf8-ctype? (headers "Content-Type")))
            (is (= (:error (json/parse-string body true))
-                  "Supported commands are configure expiration, deactivate node, replace catalog, replace facts, store report. Received 'null'.")))))
+                  "Supported commands are configure expiration, deactivate node, replace catalog, replace catalog inputs, replace facts, store report. Received 'null'.")))))
 
      (testing "should not do checksum verification if no checksum is provided"
        (tqueue/with-stockpile q

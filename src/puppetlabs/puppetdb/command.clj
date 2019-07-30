@@ -302,6 +302,21 @@
         (assoc :payload validated-payload)
         (replace-catalog* start-time db))))
 
+;; Catalog input replacement
+
+(defn replace-catalog-inputs
+  [{:keys [id received payload]}
+   start-time db]
+  (let [{:keys [certname inputs catalog_uuid]
+         stamp :producer_timestamp
+         :or {stamp (now)}} payload]
+    (when (seq inputs)
+      (jdbc/with-transacted-connection' db :repeatable-read
+        (scf-storage/maybe-activate-node! certname stamp)
+        (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp))
+      (log-command-processed-messsage id received start-time
+                                      :catalog-inputs certname))))
+
 ;; Fact replacement
 
 (defn rm-facts-by-regex [facts-blacklist fact-map]
@@ -427,7 +442,8 @@
         "replace facts" (replace-facts command start db blacklist-config)
         "store report" (store-report command start db)
         "deactivate node" (deactivate-node command start db)
-        "configure expiration" (configure-expiration command start db)))))
+        "configure expiration" (configure-expiration command start db)
+        "replace catalog inputs" (replace-catalog-inputs command start db)))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"

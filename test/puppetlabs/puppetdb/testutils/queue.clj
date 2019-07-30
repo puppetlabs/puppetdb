@@ -54,6 +54,15 @@
                         identity
                         (coerce-to-stream catalog)))
 
+(defn catalog-inputs->command-req [version {:keys [certname name] :as catalog-inputs}]
+  (q/create-command-req "replace catalog inputs"
+                        version
+                        (or certname name)
+                        (ks/timestamp (now))
+                        ""
+                        identity
+                        (coerce-to-stream catalog-inputs)))
+
 (defn facts->command-req [version {:keys [certname name] :as facts}]
   (q/create-command-req "replace facts"
                         version
