@@ -36,7 +36,7 @@ describe processor do
 
       expected_body = subject.report_to_hash(Time.now.utc).to_json
 
-      Puppet::Network::HttpPool.expects(:http_instance).returns(http)
+      Puppet::Network::HttpPool.expects(:connection).returns(http)
       http.expects(:post).with {|path, body, headers|
         expect(path).to include(Puppet::Util::Puppetdb::Command::CommandsUrl)
 

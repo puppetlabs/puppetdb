@@ -27,7 +27,7 @@ describe Puppet::Node::Puppetdb do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
     let(:http)     { mock 'http' }
     before :each do
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Network::HttpPool.expects(:connection).returns http
     end
 
     it "should POST a '#{CommandDeactivateNode}' command" do
