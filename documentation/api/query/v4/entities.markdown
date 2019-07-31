@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Entities"
+title: "Entities"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/entities.html"
 ---
