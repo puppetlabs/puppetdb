@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2 » Metrics API » v1 » Upgrading to PuppetDB 4 or newer"
+title: "Metrics API changes in PuppetDB 4"
 layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/changes-from-puppetdb-v3.html"
 ---

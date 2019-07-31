@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Summary-stats endpoint"
+title: "Summary-stats endpoint"
 layout: default
 ---
 
