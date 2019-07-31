@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Server time endpoint"
+title: "Server time endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/meta/v1/server-time.html"
 ---

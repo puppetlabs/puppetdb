@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: Metrics endpoint"
+title: "Metrics endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 ---

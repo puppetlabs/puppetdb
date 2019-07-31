@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2: State overview endpoint"
+title: "State overview endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/state-overview.html"
 ---
