@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Query paging"
+title: "Query paging"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/paging.html"
 ---

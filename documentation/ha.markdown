@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: PuppetDB HA"
+title: "High Availability (HA)"
 layout: default
 ---
 

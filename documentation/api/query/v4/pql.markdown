@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2 » Puppet query language (PQL) » Reference guide"
+title: "Puppet Query Language (PQL) reference guide"
 layout: default
 ---
 
