@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Catalogs endpoint"
+title: "Catalogs endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 ---

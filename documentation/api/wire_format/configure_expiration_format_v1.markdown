@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Configure expiration wire format, version 1 (experimental)"
+title: "Configure expiration wire format, version 1 (experimental)"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/configure_expiration_v1.html"
 ---
