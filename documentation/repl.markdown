@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Debugging with remote REPL"
+title: "Debugging with remote REPL"
 layout: default
 canonical: "/puppetdb/latest/repl.html"
 ---
