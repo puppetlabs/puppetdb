@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Replace catalog inputs wire format, version 1 (experimental)"
+title: "Replace catalog inputs wire format, version 1 (experimental)"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/replace_catalog_inputs_v1.html"
 ---
