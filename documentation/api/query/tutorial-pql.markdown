@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.2 » Puppet query language (PQL) » Tutorial"
+title: "Puppet Query Language (PQL) tutorial"
 layout: default
 ---
 
@@ -16,8 +16,8 @@ layout: default
 [cli_install]: ../../pdb_client_tools.html
 [examples]: ./examples-pql.html
 
-This page walks through the construction of several types of PuppetDB PQL
-queries. We use the **version 4 API** in all examples.
+This page walks through the construction of several types of Puppet
+Query Language (PQL) queries. We use the **version 4 API** in all examples.
 
 Other resources you may also find useful include:
 
