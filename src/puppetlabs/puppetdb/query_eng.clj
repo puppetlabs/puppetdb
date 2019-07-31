@@ -41,6 +41,9 @@
                  :rec eng/fact-names-query}
     :factsets {:munge (constantly identity)
                :rec eng/factsets-query}
+    ;; Not a real entity, requested via query param
+    :factsets-with-packages {:munge facts/munge-package-inventory
+                             :rec eng/factsets-with-packages-query}
     :catalogs {:munge (constantly identity)
                :rec eng/catalog-query}
     :nodes {:munge (constantly identity)
@@ -105,9 +108,16 @@
     (events/legacy-query->sql false version query query-options)
 
     :else
-    (let [query-rec (if (and (:include_facts_expiration query-options)
+    (let [query-rec (cond
+                      (and (:include_facts_expiration query-options)
                              (= entity :nodes))
                       (get-in @entity-fn-idx [:nodes-with-fact-expiration :rec])
+
+                      (and (:include_package_inventory query-options)
+                           (= entity :factsets))
+                      (get-in @entity-fn-idx [:factsets-with-packages :rec])
+
+                      :else
                       (get-in @entity-fn-idx [entity :rec]))
           columns (orderable-columns query-rec)]
       (paging/validate-order-by! columns query-options)
@@ -174,7 +184,10 @@
          query-options (->> (dissoc query-map :query)
                             utils/strip-nil-values
                             (merge {:limit nil :offset nil :order_by nil}
-                                   paging-options))]
+                                   paging-options))
+         entity (cond
+                  (and (= entity :factsets) (:include_package_inventory query-options)) :factsets-with-packages
+                  :else entity)]
      {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
 
 (pls/defn-validated produce-streaming-body

@@ -12,6 +12,11 @@
    "id" "foo"
    "operatingsystem" "Debian"})
 
+(def base-package-inventory
+  [["ntp" "4.2.8" "apt"]
+   ["puppet-agent" "6.6.0" "apt"]
+   ["nokogiri" "4.5.6" "gem"]])
+
 (defn create-host-facts
   "Create a map for `node` suitable for spitting to a tarball
    used by import/export/anonymize"

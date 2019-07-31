@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB: Community projects and add-ons"
+title: "Community projects and add-ons"
 layout: default
 canonical: "/puppetdb/latest/community_add_ons.html"
 ---

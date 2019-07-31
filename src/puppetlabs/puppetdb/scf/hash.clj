@@ -223,6 +223,13 @@
   and producer.
   "
   [fact-data]
-  (-> fact-data
-    (dissoc :timestamp :producer_timestamp :producer)
-    generic-identity-hash))
+  (-> ;; If the :package_inventory is not a seq (ie. empty) in fact-data
+      ;; we remove package-inventory key entirely because an absent
+      ;; and empty package inventory are stored identically so there's no
+      ;; way to tell them apart during sync, and we need the the hashing
+      ;; to be consistent.
+      (if (seq (:package_inventory fact-data))
+        fact-data
+        (dissoc fact-data :package_inventory))
+      (dissoc :timestamp :producer_timestamp :producer)
+      generic-identity-hash))
