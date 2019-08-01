@@ -15,6 +15,7 @@ pool:
 
 variables:
   NAMESPACE: puppet
+  CONTAINER_NAME: puppetdb
 
 steps:
 - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
@@ -34,14 +35,14 @@ steps:
   name: hostinfo
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Lint-Dockerfile -Name puppetdb
-  displayName: Lint PuppetDB Dockerfile
+    Lint-Dockerfile -Name $ENV:CONTAINER_NAME
+  displayName: Lint $(CONTAINER_NAME) Dockerfile
   name: lint_dockerfiles
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Build-Container -Name puppetdb -Namespace $ENV:NAMESPACE -Context .
-  displayName: Build PuppetDB Container
-  name: build_puppetdb_container
+    Build-Container -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE -Context .
+  displayName: Build $(CONTAINER_NAME) Container
+  name: build_container
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
     Initialize-TestEnv
@@ -49,17 +50,17 @@ steps:
   name: test_prepare
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Invoke-ContainerTest -Name puppetdb -Namespace $ENV:NAMESPACE
-  displayName: Test PuppetDB
-  name: test_puppetdb
+    Invoke-ContainerTest -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE
+  displayName: Test $(CONTAINER_NAME)
+  name: test_container
 - task: PublishTestResults@2
-  displayName: Publish PuppetDB test results
+  displayName: Publish $(CONTAINER_NAME) test results
   inputs:
     testResultsFormat: 'JUnit'
     testResultsFiles: 'docker/TEST-*.xml'
-    testRunTitle: PuppetDB Test Results
+    testRunTitle: $(CONTAINER_NAME) Test Results
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Clear-ContainerBuilds -Name puppetdb -Namespace $ENV:NAMESPACE
+    Clear-ContainerBuilds -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE
   displayName: Container Cleanup
   condition: always()
