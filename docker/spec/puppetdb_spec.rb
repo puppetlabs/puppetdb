@@ -50,6 +50,6 @@ describe 'puppetdb container specs' do
   end
 
   it 'should have a "running" puppetdb container' do
-    expect(wait_on_puppetdb_status()).to eq('running')
+    expect(wait_on_service_health('puppetdb', 300)).to eq('healthy')
   end
 end
