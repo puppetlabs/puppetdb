@@ -8,9 +8,9 @@ pr:
     - '*'
 
 pool:
-  # self-hosted agent on Windows 10 1709 environment
+  # self-hosted agent on Windows 10 1903 environment
   # includes newer Docker engine with LCOW enabled, new build of LCOW image
-  # includes Ruby 2.5, Go 1.10, Node.js 10.10, hadolint
+  # includes Ruby 2.5, Go 1.10, Node.js 10.10
   name: Default
 
 variables:
