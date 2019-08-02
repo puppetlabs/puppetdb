@@ -3,7 +3,7 @@ if (test_config[:install_mode] == :upgrade_oldest) \
 
   step "Clean out puppet5 repos to prepare for puppet6 upgrade" do
     # skip this step for rhel8 beacause it only installs puppet6 in upgrade_oldest
-    if test_config[:install_mode] == :upgrade_oldest && !is_rhel8
+    if test_config[:install_mode] == :upgrade_oldest && !(is_rhel8 || is_rhel7fips)
       databases.each do |database|
 
         # need to remove puppet5 repos to avoid conflicts when upgrading

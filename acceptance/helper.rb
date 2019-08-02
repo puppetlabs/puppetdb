@@ -31,6 +31,13 @@ module PuppetDBExtensions
                          [:install, :upgrade_latest, :upgrade_oldest], "install type",
                          "INSTALL_TYPE", :install)
 
+    platform_version =
+      get_option_value(options[:platform_version],
+                       [:puppet5, :puppet6],
+                       "Puppet Platform Repo Version",
+                       "PLATFORM_VERSION",
+                       :puppet5)
+
     validate_package_version =
         get_option_value(options[:puppetdb_validate_package_version],
             [:true, :false], "'validate package version'",
@@ -109,6 +116,7 @@ module PuppetDBExtensions
       :os_families => os_families,
       :install_type => install_type,
       :install_mode => install_mode,
+      :platform_version => platform_version,
       :validate_package_version => validate_package_version == :true,
       :expected_rpm_version => expected_rpm_version,
       :expected_deb_version => expected_deb_version,
@@ -261,7 +269,7 @@ module PuppetDBExtensions
                       0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
                       "https://#{host.node_name}:8081/#{test_route}", [35, 60])
-  rescue RuntimeError => e
+  rescue RuntimeError => _e
     display_last_logs(host)
     raise
   end
@@ -274,12 +282,43 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'redhat8-64-1'
   end
 
+  def is_rhel7fips
+    return test_config[:os_families].has_key? 'redhatfips7-64-1'
+  end
+
+  # This specifies which puppet platform repo to initialize in order
+  # to find packages.
+  #
+  # For upgrade_oldest tests it must match the result of oldest_supported
+  #
+  # TODO: when testing X.0.0-SNAPSHOT one of install/upgrade_latest tests
+  # will fail because those two tests will need to use different repos
+  def puppet_repo_version
+    case test_config[:install_mode]
+    when :install, :upgrade_latest
+      test_config[:platform_version]
+    when :upgrade_oldest
+      # Redhat8 and Redhat7-fips only have builds starting
+      # somewhere in the 6 series.
+      if is_rhel8 || is_rhel7fips
+        :puppet6
+      else
+        :puppet5
+      end
+    end
+  end
+
+  # This accounts for packages we added _after_ we released the oldest
+  # supported version of PuppetDB. Its version must be available in the
+  # platform version returned by puppet_repo_version above
   def oldest_supported
     # account for bionic/rhel8 not having build before certian versions
     if is_bionic
       '5.2.4'
     elsif is_rhel8
       '6.0.3'
+    elsif is_rhel7fips
+      '6.4.0'
     else
       '5.2.0'
     end
@@ -599,7 +638,7 @@ module PuppetDBExtensions
           queue_size = Integer(result.stdout.chomp)
         end
       end
-    rescue Timeout::Error => e
+    rescue Timeout::Error => _e
       raise "Queue took longer than allowed #{timeout} seconds to empty"
     end
   end
@@ -829,7 +868,7 @@ EOS
         /^(el|centos)-(\d+)-(.+)$/.match(host.platform)
         variant = ($1 == 'centos') ? 'el' : $1
         version = $2
-        arch = $3
+        _arch = $3
 
         if nightly && puppet_platform == :puppet6
           ## puppet6 repos
