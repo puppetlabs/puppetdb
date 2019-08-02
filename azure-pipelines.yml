@@ -8,17 +8,19 @@ pr:
     - '*'
 
 pool:
-  # self-hosted agent on Windows 10 1709 environment
+  # self-hosted agent on Windows 10 1903 environment
   # includes newer Docker engine with LCOW enabled, new build of LCOW image
-  # includes Ruby 2.5, Go 1.10, Node.js 10.10, hadolint
+  # includes Ruby 2.5, Go 1.10, Node.js 10.10
   name: Default
 
 variables:
   NAMESPACE: puppet
+  CONTAINER_NAME: puppetdb
 
 steps:
 - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
   clean: true  # whether to fetch clean each time
+
 - powershell: |
     $gemfile = Join-Path -Path (Get-Location) -ChildPath 'docker/Gemfile'
     $gempath = Join-Path -Path (Get-Location) -ChildPath 'docker/.bundle/gems'
@@ -27,39 +29,47 @@ steps:
     bundle install
   displayName: Fetch Dependencies
   name: fetch_deps
+
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
     Write-HostDiagnostics
   displayName: Diagnostic Host Information
   name: hostinfo
+
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Lint-Dockerfile -Name puppetdb
-  displayName: Lint PuppetDB Dockerfile
-  name: lint_dockerfiles
+    Lint-Dockerfile -Name $ENV:CONTAINER_NAME
+  displayName: Lint $(CONTAINER_NAME) Dockerfile
+  name: lint_dockerfile
+
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Build-Container -Name puppetdb -Namespace $ENV:NAMESPACE -Context .
-  displayName: Build PuppetDB Container
-  name: build_puppetdb_container
+    Build-Container -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE -PathOrUri .
+  displayName: Build $(CONTAINER_NAME) Container
+  name: build_container
+
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
     Initialize-TestEnv
   displayName: Prepare Test Environment
   name: test_prepare
+
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Invoke-ContainerTest -Name puppetdb -Namespace $ENV:NAMESPACE
-  displayName: Test PuppetDB
-  name: test_puppetdb
+    Invoke-ContainerTest -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE
+  displayName: Test $(CONTAINER_NAME)
+  name: test_container
+
 - task: PublishTestResults@2
-  displayName: Publish PuppetDB test results
+  displayName: Publish $(CONTAINER_NAME) test results
   inputs:
     testResultsFormat: 'JUnit'
     testResultsFiles: 'docker/TEST-*.xml'
-    testRunTitle: PuppetDB Test Results
+    testRunTitle: $(CONTAINER_NAME) Test Results
+
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Clear-ContainerBuilds -Name puppetdb -Namespace $ENV:NAMESPACE
+    Clear-BuildState -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE
   displayName: Container Cleanup
+  timeoutInMinutes: 3
   condition: always()
