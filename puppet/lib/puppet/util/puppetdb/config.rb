@@ -14,9 +14,11 @@ module Puppet::Util::Puppetdb
         :server_url_timeout          => 30,
         :include_unchanged_resources => false,
         :min_successful_submissions => 1,
-        :submit_only_server_urls   => "",
-        :command_broadcast         => false,
-        :sticky_read_failover      => false
+        :submit_only_server_urls    => "",
+        :command_broadcast          => false,
+        :sticky_read_failover       => false,
+        :fact_names_blacklist       => "",
+        :fact_names_blacklist_regex => ""
       }
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -67,7 +69,9 @@ module Puppet::Util::Puppetdb
            :min_successful_submissions,
            :submit_only_server_urls,
            :command_broadcast,
-           :sticky_read_failover].include?(k))
+           :sticky_read_failover,
+           :fact_names_blacklist,
+           :fact_names_blacklist_regex].include?(k))
       end
 
       parsed_urls = config_hash[:server_urls].split(",").map {|s| s.strip}
@@ -101,6 +105,10 @@ module Puppet::Util::Puppetdb
         raise "min_successful_submissions (#{config_hash[:min_successful_submissions]}) must be less than "\
           "or equal to the number of server_urls (#{config_hash[:server_urls].length})"
       end
+
+      config_hash[:fact_names_blacklist] = config_hash[:fact_names_blacklist].split(",").map {|s| s.strip}
+
+      config_hash[:fact_names_blacklist_regex] = config_hash[:fact_names_blacklist_regex].split(",").map {|s| s.strip}
 
       self.new(config_hash)
     rescue => detail
@@ -145,6 +153,14 @@ module Puppet::Util::Puppetdb
 
     def sticky_read_failover
       config[:sticky_read_failover]
+    end
+
+    def fact_names_blacklist
+      config[:fact_names_blacklist]
+    end
+
+    def fact_names_blacklist_regex
+      config[:fact_names_blacklist_regex]
     end
 
     # @!group Private instance methods
