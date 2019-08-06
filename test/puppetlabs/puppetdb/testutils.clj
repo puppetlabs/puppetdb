@@ -56,7 +56,7 @@
     `(do ~@body)
     (let [case-versions (remove keyword? (take-nth 2 bindings))]
       `(doseq ~bindings
-         (testing (str "Testing case " '~case-versions)
+         (testing (str "Testing case " ~(vec case-versions))
            ~@body)))))
 
 (defmacro without-jmx
