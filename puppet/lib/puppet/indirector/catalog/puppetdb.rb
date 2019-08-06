@@ -50,9 +50,12 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   end
 
   def munge_catalog_inputs(hash)
-    inputs = hash.delete('inputs')
+    recorder = Puppet.lookup(:lookup_key_recorder) { nil }
+    return unless recorder && recorder.respond_to?(:lookups) && !recorder.lookups.empty?
 
-    return if inputs.nil?
+    inputs = recorder.lookups.map do |key, _count|
+      ['hiera', key]
+    end
 
     {
       certname: hash['certname'],

@@ -742,21 +742,12 @@ describe Puppet::Resource::Catalog::Puppetdb do
         before :each do
         end
 
-        it 'should remove inputs from catalog hash' do
-          catalog_hash = catalog.to_data_hash.merge({ 'inputs' => [['hiera', 'puppetdb::globals::version']] })
-          catalog.expects(:to_data_hash).returns(catalog_hash)
-          result, inputs = subject.munge_catalog(catalog, Time.now.utc)
-
-          result['inputs'].should be_nil
-          inputs[:inputs].should eq([['hiera', 'puppetdb::globals::version']])
-        end
-
         it 'should construct input payload' do
-          catalog_hash = catalog.to_data_hash.merge({ 'inputs' => [['hiera', 'puppetdb::globals::version']] })
-          catalog.expects(:to_data_hash).returns(catalog_hash)
-
           timestamp = Time.now.utc
-          result, inputs = subject.munge_catalog(catalog, timestamp)
+          recorder = stub(lookups: ['puppetdb::globals::version'])
+          result, inputs = Puppet.override(lookup_key_recorder: recorder) do
+            subject.munge_catalog(catalog, timestamp)
+          end
 
           inputs.should eq({
             certname: 'node',
