@@ -16,6 +16,7 @@ pool:
 variables:
   NAMESPACE: puppet
   CONTAINER_NAME: puppetdb
+  LINT_IGNORES: DL3008 DL3018 DL4000 DL4001
 
 workspace:
   clean: resources
@@ -41,7 +42,7 @@ steps:
 
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Lint-Dockerfile -Name $ENV:CONTAINER_NAME
+    Lint-Dockerfile -Name $ENV:CONTAINER_NAME -Ignore ($ENV:LINT_IGNORES -split ' ')
   displayName: Lint $(CONTAINER_NAME) Dockerfile
   name: lint_dockerfile
 
