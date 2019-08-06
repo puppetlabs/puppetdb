@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [reportv8]: ../../wire_format/report_format_v8.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 [expirev1]: ../../wire_format/configure_expiration_format_v1.html
-[inputsv1]: ../../wire_format/replace_catalog_inputs_v1.html
+[inputsv1]: ../../wire_format/catalog_inputs_format_v1.html
 
 Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:

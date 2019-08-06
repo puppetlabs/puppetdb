@@ -1,7 +1,7 @@
 ---
 title: "Replace catalog inputs wire format, version 1 (experimental)"
 layout: default
-canonical: "/puppetdb/latest/api/wire_format/replace_catalog_inputs_v1.html"
+canonical: "/puppetdb/latest/api/wire_format/catalog_inputs_format_v1.html"
 ---
 
 The v1 `replace catalog inputs` command tells PuppetDB to replace the current
