@@ -16,6 +16,8 @@ pool:
 variables:
   NAMESPACE: puppet
   CONTAINER_NAME: puppetdb
+  CONTAINER_BUILD_PATH: .
+  LINT_IGNORES: DL3008 DL3018 DL4000 DL4001
 
 steps:
 - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
@@ -38,13 +40,13 @@ steps:
 
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Lint-Dockerfile -Name $ENV:CONTAINER_NAME
+    Lint-Dockerfile -Name $ENV:CONTAINER_NAME -Ignore ($ENV:LINT_IGNORES -split ' ')
   displayName: Lint $(CONTAINER_NAME) Dockerfile
   name: lint_dockerfile
 
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Build-Container -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE -PathOrUri .
+    Build-Container -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE -PathOrUri $ENV:CONTAINER_BUILD_PATH
   displayName: Build $(CONTAINER_NAME) Container
   name: build_container
 
