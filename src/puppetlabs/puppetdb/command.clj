@@ -315,7 +315,7 @@
         (scf-storage/maybe-activate-node! certname stamp)
         (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp))
       (log-command-processed-messsage id received start-time
-                                      :catalog-inputs certname))))
+                                      :replace-catalog-inputs certname))))
 
 ;; Fact replacement
 
