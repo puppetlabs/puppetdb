@@ -38,9 +38,9 @@ The following environment variables are supported:
 
   The port of the Postgres host to use when performing initial health checks and when connecting to the database. Defaults to '5432'.
 
-- `PUPPETDB_DATABASE_CONNECTION`
+- `PUPPETDB_POSTGRES_DATABASE`
 
-  The value for the 'subname' field in puppetdb/conf.d/database.conf. Defaults to '//$PUPPETDB_POSTGRES_HOSTNAME:$PUPPETDB_POSTGRES_PORT/puppetdb', which is '//postgres:5432/puppetdb' by default
+  The database name in Postgres. Defaults to 'puppetdb'.
 
 - `PUPPETDB_USER`
 
@@ -86,6 +86,11 @@ The following environment variables are supported:
 - `PUPPETSERVER_PORT`
 
   The port for the puppetserver instance. This determines where to request certificates from. Defaults to '8140'.
+
+- `DNS_ALT_NAMES`
+
+  Subject Alternative Names to be included on the SSL certificate. Defaults to empty string.
+  Note the Puppet CA must be configured to allow Subject Alternative Names, by default it rejects them.
 
 ## Analytics Data Collection
 

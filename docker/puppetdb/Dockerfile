@@ -27,7 +27,7 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false
 ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_POSTGRES_HOSTNAME="postgres"
 ENV PUPPETDB_POSTGRES_PORT="5432"
-ENV PUPPETDB_DATABASE_CONNECTION="//${PUPPETDB_POSTGRES_HOSTNAME}:${PUPPETDB_POSTGRES_PORT}/puppetdb"
+ENV PUPPETDB_POSTGRES_DATABASE="puppetdb"
 ENV LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
@@ -70,7 +70,7 @@ RUN mkdir -p $LOGDIR
 
 RUN addgroup $GROUP && adduser -S $USER -G $GROUP
 
-ADD https://raw.githubusercontent.com/puppetlabs/pupperware/ee8fed9d036df5b878e5de7042bea64a3ee6906d/shared/ssl.sh /ssl.sh
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba96f963d71bd074d063b17/shared/ssl.sh /ssl.sh
 RUN chmod +x /ssl.sh
 COPY docker/puppetdb/ssl-setup.sh /
 RUN chmod +x /ssl-setup.sh
