@@ -43,6 +43,7 @@
    "package-inventory" {:columns ["certname"]}
    "inventory" {:columns ["certname"]}
    "catalogs" {:columns ["certname"]}
+   "catalog_input_contents" {:columns ["certname"]}
    "nodes" {:columns ["certname"]}
    "facts" {:columns ["certname"]}
    "fact_contents" {:columns ["certname"]}
@@ -714,6 +715,36 @@
      :entity :catalogs
      :subquery? false
      :source-table "catalogs"}))
+
+(def catalog-input-contents-query
+  "Query for the top level catalog-input-contents entity"
+  (map->Query
+    {:projections
+     {"certname" {:type :string
+                  :queryable? true
+                  :field :certnames.certname}
+      "producer_timestamp" {:type :timestamp
+                            :queryable? true
+                            :field :certnames.catalog_inputs_timestamp}
+      "catalog_uuid" {:type :string
+                      :queryable? true
+                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)}
+      "name" {:type :string
+              :queryable? true
+              :field :catalog_inputs.name}
+      "type" {:type :string
+              :queryable? true
+              :field :catalog_inputs.type}}
+     :selection {:from [:catalog_inputs]
+                 :left-join [:certnames
+                             [:= :certnames.id :catalog_inputs.certname_id]]}
+     :relationships (merge certname-relations
+                           {"certnames" {:local-columns ["certname" "catalog_uuid"]
+                                         :foreign-columns ["certname" "catalog_inputs_uuid"]}})
+     :entity :catalog-input-contents
+     :alias "catalog_input_contents"
+     :subquery? false
+     :source-table "catalog_inputs"}))
 
 (def edges-query
   "Query for catalog edges"
@@ -1412,6 +1443,7 @@
 
 (def user-name->query-rec-name
   {"select_catalogs" catalog-query
+   "select_catalog_input_contents" catalog-input-contents-query
    "select_edges" edges-query
    "select_environments" environments-query
    "select_producers" producers-query

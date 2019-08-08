@@ -46,6 +46,8 @@
                              :rec eng/factsets-with-packages-query}
     :catalogs {:munge (constantly identity)
                :rec eng/catalog-query}
+    :catalog-input-contents {:munge (constantly identity)
+                             :rec eng/catalog-input-contents-query}
     :nodes {:munge (constantly identity)
             :rec eng/nodes-query}
     ;; Not a real entity name of course -- requested by query parameter.
