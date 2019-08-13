@@ -52,6 +52,7 @@
                 "/resources" handlers/resources-routes
                 "/catalogs" handlers/catalog-routes
                 "/catalog-input-contents" handlers/catalog-input-contents-routes
+                "/catalog-inputs" handlers/catalog-inputs-routes
                 "/events" handlers/events-routes
                 "/event-counts" handlers/event-counts-routes
                 "/aggregate-event-counts" handlers/agg-event-counts-routes

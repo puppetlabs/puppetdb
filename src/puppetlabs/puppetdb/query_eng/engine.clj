@@ -37,6 +37,10 @@
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
 
+; The use of 'column' here is a misnomer. This refers to the result of
+; a query and the top level keys used should match up to query entities
+; and the values of 'columns', 'local-column', and 'foreign-column'
+; should match up to projections of their respective query entities
 (def certname-relations
   {"factsets" {:columns ["certname"]}
    "reports" {:columns ["certname"]}
@@ -44,6 +48,7 @@
    "inventory" {:columns ["certname"]}
    "catalogs" {:columns ["certname"]}
    "catalog_input_contents" {:columns ["certname"]}
+   "catalog_inputs" {:columns ["certname"]}
    "nodes" {:columns ["certname"]}
    "facts" {:columns ["certname"]}
    "fact_contents" {:columns ["certname"]}
@@ -746,6 +751,35 @@
      :subquery? false
      :source-table "catalog_inputs"}))
 
+(def catalog-inputs-query
+  "Query for the catalog-inputs entity"
+  (map->Query
+    {:projections
+     {"certname" {:type :string
+                  :queryable? true
+                  :field :certnames.certname}
+      "producer_timestamp" {:type :timestamp
+                            :queryable? true
+                            :field :certnames.catalog_inputs_timestamp}
+      "catalog_uuid" {:type :string
+                      :queryable? true
+                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)}
+      "inputs" {:type :array
+                :queryable? true
+                :field :ci.inputs}}
+     :selection {:from [:certnames]
+                 :left-join [[{:select [:certname_id
+                                        [(hcore/raw "array_agg(array[catalog_inputs.type, name])") :inputs]]
+                              :from [:catalog_inputs]
+                              :group-by [:certname_id]} :ci]
+                             [:= :certnames.id :ci.certname_id]]}
+     :relationships certname-relations
+
+     :entity :catalog-inputs
+     :alias "catalog_inputs"
+     :subquery? false
+     :source-table "certnames"}))
+
 (def edges-query
   "Query for catalog edges"
   (map->Query {:projections {"certname" {:type :string
@@ -1444,6 +1478,7 @@
 (def user-name->query-rec-name
   {"select_catalogs" catalog-query
    "select_catalog_input_contents" catalog-input-contents-query
+   "select_catalog_inputs" catalog-inputs-query
    "select_edges" edges-query
    "select_environments" environments-query
    "select_producers" producers-query

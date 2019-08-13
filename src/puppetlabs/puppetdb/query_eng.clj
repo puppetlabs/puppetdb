@@ -17,6 +17,7 @@
             [puppetlabs.puppetdb.query.facts :as facts]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.resources :as resources]
+            [puppetlabs.puppetdb.query.catalog-inputs :as inputs]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
@@ -48,6 +49,8 @@
                :rec eng/catalog-query}
     :catalog-input-contents {:munge (constantly identity)
                              :rec eng/catalog-input-contents-query}
+    :catalog-inputs {:munge inputs/munge-catalog-inputs
+                             :rec eng/catalog-inputs-query}
     :nodes {:munge (constantly identity)
             :rec eng/nodes-query}
     ;; Not a real entity name of course -- requested by query parameter.
