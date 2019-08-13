@@ -1,5 +1,6 @@
-FROM clojure:lein-alpine AS builder
-RUN apk add --no-cache make
+FROM clojure:openjdk-8-lein AS builder
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends make
 # Install only dependencies
 WORKDIR /app
 COPY project.clj /app/
@@ -11,8 +12,11 @@ COPY . /app
 RUN lein with-profile uberjar uberjar
 
 
-FROM openjdk:8-jre-alpine
-RUN apk add --no-cache tini curl openssl bind-tools
+FROM openjdk:8-jre-slim-buster
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/puppetdb.jar /
 
 ARG vcs_ref
@@ -68,7 +72,7 @@ COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
 RUN mkdir -p $LOGDIR
 
-RUN addgroup $GROUP && adduser -S $USER -G $GROUP
+RUN addgroup $GROUP && adduser --system $USER --ingroup $GROUP
 
 ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba96f963d71bd074d063b17/shared/ssl.sh /ssl.sh
 RUN chmod +x /ssl.sh
@@ -85,7 +89,7 @@ COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
 EXPOSE 8080 8081
 
-ENTRYPOINT ["/sbin/tini", "-g", "--", "/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/docker-entrypoint.sh"]
 CMD ["services"]
 
 COPY docker/puppetdb/healthcheck.sh /
