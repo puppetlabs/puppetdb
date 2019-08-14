@@ -69,7 +69,8 @@
             [puppetlabs.puppetdb.scf.storage :as scf]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning])
   (:import [org.postgresql.util PGobject]
-           [java.time LocalDate]))
+           [java.time LocalDate]
+           (java.sql Timestamp)))
 
 (defn init-through-2-3-8
   []
@@ -1525,119 +1526,6 @@
 
   {::vacuum-analyze #{"factsets"}})
 
-(defn add-resource-events-pk
-  ([]
-   (add-resource-events-pk 1000))
-  ([batch-size]
-  (jdbc/do-commands
-   "CREATE TABLE resource_events_transform (
-      event_hash bytea NOT NULL PRIMARY KEY,
-      report_id bigint NOT NULL,
-      certname_id bigint NOT NULL,
-      status text NOT NULL,
-      \"timestamp\" timestamp with time zone NOT NULL,
-      resource_type text NOT NULL,
-      resource_title text NOT NULL,
-      property text,
-      new_value text,
-      old_value text,
-      message text,
-      file text DEFAULT NULL::character varying,
-      line integer,
-      name text,
-      containment_path text[],
-      containing_class text,
-      corrective_change boolean)")
-
-  ;; null values are not considered equal in postgresql indexes,
-  ;; therefore the existing unique constraint did not function
-  ;; as intended. this will replace the unique constraint with
-  ;; a primary key that is a hash of the four columns used to
-  ;; consider uniqueness.
-
-  ;; since the unique constraint could allow duplicates to exist
-  ;; in the table, we have to keep a running set of the hashes
-  ;; we've encountered during the migration to avoid inserting
-  ;; duplicates into the new table.
-
-  (jdbc/call-with-query-rows
-   ["select
-     report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
-     new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
-   from resource_events"]
-   (fn [rows]
-     (let [event-count (-> "select count(*) from resource_events"
-                           jdbc/query-to-vec first :count)
-           last-logged (atom (.getTime (java.util.Date.)))
-           events-migrated (atom 0)
-           old-cols [:report_id :certname_id :status :timestamp :resource_type
-                     :resource_title :property :new_value :old_value :message
-                     :file :line :containment_path :containing_class
-                     :corrective_change]
-           new-cols (into [:event_hash] old-cols)
-           update-row (apply juxt (comp sutils/munge-hash-for-storage
-                                        hash/resource-event-identity-pkey)
-                                  old-cols)
-           ;; Retrieve event_hash string from PGobject produced by sutils
-           row->id (fn [row] (-> row first .getValue))
-           insert->hash (fn [batch]
-                          (when (seq batch)
-                            (jdbc/insert-multi! :resource_events_transform
-                                                new-cols
-                                                batch))
-                          (let [now (.getTime (java.util.Date.))]
-                            (when (> (- now @last-logged) 60000)
-                              (maplog :info
-                                      {:migration 69 :at @events-migrated :of event-count}
-                                      #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
-                              (reset! last-logged now)))
-                          ;; Return hashes for each row directly instead of
-                          ;; reading them back from the DB via the return
-                          ;; value of insert-multi!
-                          (map row->id batch))
-           dedupe-and-insert (fn [hashes-seen batch]
-                               (swap! events-migrated + (count batch))
-                               (->> batch
-                                    (map update-row)
-                                    ;; Remove any duplicates in current batch
-                                    (group-by row->id)
-                                    (map (comp first last))
-                                    ;; Remove any duplicates in previous batches
-                                    (filter #(-> % row->id hashes-seen nil?))
-                                    insert->hash
-                                    (reduce conj hashes-seen)))]
-       (reduce dedupe-and-insert
-               #{}
-               (partition batch-size batch-size [] rows)))))
-
-  (jdbc/do-commands
-   "DROP TABLE resource_events"
-
-   "ALTER TABLE resource_events_transform RENAME TO resource_events"
-
-   "ALTER INDEX resource_events_transform_pkey RENAME TO resource_events_pkey"
-
-   "CREATE INDEX resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
-
-   "CREATE INDEX resource_events_property_idx ON resource_events USING btree (property)"
-
-   "CREATE INDEX resource_events_reports_id_idx ON resource_events USING btree (report_id)"
-
-   "CREATE INDEX resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")"
-
-   "CREATE INDEX resource_events_resource_title_idx ON resource_events USING btree (resource_title)"
-
-   "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events USING btree (status) WHERE corrective_change"
-
-   "CREATE INDEX resource_events_status_idx ON resource_events USING btree (status)"
-
-   "CREATE INDEX resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")"
-
-   "ALTER TABLE ONLY resource_events
-      ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
-
-  {::vaccum-analyze #{"resource_events"}}))
-
 (defn support-fact-expiration-configuration []
   ;; Note that a missing row implies "true", i.e. expiration should
   ;; behave as it always had, and as it does for agent managed nodes.
@@ -1709,8 +1597,7 @@
 
 (defn reporting-partitioned-tables []
   (jdbc/do-commands
-   ;; yes, this is lossy - this is temporary
-   "DROP TABLE resource_events"
+   "ALTER TABLE resource_events RENAME TO resource_events_premigrate"
 
    "CREATE TABLE resource_events (
       event_hash bytea NOT NULL PRIMARY KEY,
@@ -1759,7 +1646,71 @@
     (doall
      (map (fn [week-offset]
             (partitioning/create-resource-events-partition (.plusWeeks now week-offset)))
-          weeks))))
+          weeks)))
+
+  ;; null values are not considered equal in postgresql indexes,
+  ;; therefore the existing unique constraint did not function
+  ;; as intended. this will replace the unique constraint with
+  ;; a primary key that is a hash of the four columns used to
+  ;; consider uniqueness.
+
+  ;; since the unique constraint could allow duplicates to exist
+  ;; in the table, we have to keep a running set of the hashes
+  ;; we've encountered during the migration to avoid inserting
+  ;; duplicates into the new table.
+
+  (let [event-count (-> "select count(*) from resource_events"
+                        jdbc/query-to-vec first :count)
+        last-logged (atom (.getTime (java.util.Date.)))]
+   (jdbc/call-with-query-rows
+    ["select
+       report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
+       new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
+     from resource_events_premigrate"]
+    (fn [rows]
+      (dorun
+       (map partitioning/create-resource-events-partition
+            (set (map #(-> ^Timestamp (:timestamp %)
+                           .toLocalDateTime
+                           .toLocalDate) rows))))
+      (reduce (fn [hashes-seen [row i]]
+                (let [now (.getTime (java.util.Date.))]
+                  (when (> (- now @last-logged) 60000)
+                    (maplog :info
+                            {:migration 73 :at i :of event-count}
+                            #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
+                    (reset! last-logged now)))
+                (conj hashes-seen
+                      (let [hash-str (hash/resource-event-identity-pkey row)]
+                        (when-not (hashes-seen hash-str)
+                          (jdbc/insert-multi! "resource_events"
+                                              (list (assoc row :event_hash
+                                                               (sutils/munge-hash-for-storage hash-str)))))
+                        hash-str)))
+              #{}
+              (map vector rows (range event-count))))))
+
+  (jdbc/do-commands
+   "DROP TABLE resource_events_premigrate"
+
+   "CREATE INDEX resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
+
+   "CREATE INDEX resource_events_property_idx ON resource_events USING btree (property)"
+
+   "CREATE INDEX resource_events_reports_id_idx ON resource_events USING btree (report_id)"
+
+   "CREATE INDEX resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")"
+
+   "CREATE INDEX resource_events_resource_title_idx ON resource_events USING btree (resource_title)"
+
+   "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events USING btree (status) WHERE corrective_change"
+
+   "CREATE INDEX resource_events_status_idx ON resource_events USING btree (status)"
+
+   "CREATE INDEX resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")"
+
+   "ALTER TABLE ONLY resource_events
+      ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1811,7 +1762,8 @@
    ;; to the hash to avoid these sorts of collisions
    67 (fn [])
    68 support-fact-expiration-configuration
-   69 add-resource-events-pk
+   ;; replaced by reporting-partitioned-tables
+   69 (fn [])
    70 migrate-md5-to-sha1-hashes
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports
    72 add-support-for-catalog-inputs
