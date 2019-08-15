@@ -18,7 +18,7 @@ mycertname="${CERTNAME:-$HOSTNAME}"
 #
 #   usage
 #
-function usage() {
+usage() {
   echo "Usage: ${ssl_command} [-if]"
   echo "Configuration helper for enabling SSL for PuppetDB."
   echo
@@ -46,7 +46,7 @@ function usage() {
 #
 #   backupfile "/etc/myconfig"
 #
-function backupfile() {
+backupfile() {
   # Create the global array if it doesn't already exist
   if [ -z $backupfile_list ]; then
     # backupfile_list=()
@@ -78,7 +78,7 @@ function backupfile() {
 #     echo "element1 exists in the array"
 #   fi
 #
-function contains() {
+contains() {
 #   local n=$#
 #   local value=${!n}
 #   for ((i=1;i < $#;i++)); do
@@ -103,7 +103,7 @@ function contains() {
 #
 #    replaceline "^$mysetting.*" "mysetting = myvalue" /etc/myconfig
 #
-function replaceline {
+replaceline() {
   backupfile $3
   tmp=$3.tmp.`date +%s`
   sed "s/$1/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3 > $tmp
@@ -120,7 +120,7 @@ function replaceline {
 #
 #    commentline "^$mysetting.*" /etc/myconfig
 #
-function commentline {
+commentline() {
   backupfile $2
   tmp=$2.tmp.`date +%s`
   sed "/$1/ s/^/# /" $2 > $tmp
@@ -136,7 +136,7 @@ function commentline {
 #
 #    appendline "mysetting = myvalue" /etc/myconfig
 #
-function appendline {
+appendline() {
   backupfile $2
   tmp=$2.tmp.`date +%s`
   cat $2 > ${tmp}
@@ -148,7 +148,7 @@ function appendline {
 # SSL directory.
 #
 # This expects various environment variables to have already been set to work.
-function copy_pem_from_puppet {
+copy_pem_from_puppet() {
   # orig_files=($orig_ca_file $orig_private_file $orig_public_file)
   orig_files="$orig_ca_file $orig_private_file $orig_public_file"
   # for orig_file in "${orig_files[@]}"; do
@@ -429,7 +429,7 @@ else
   echo "Error: Unable to find PuppetDB Jetty configuration at ${jettyfile} so unable to provide automatic configuration for that file."
   echo
   echo "   Confirm the file exists in the path specified before running the"
-  echo "   tool again. The file should have been created automatically when" 
+  echo "   tool again. The file should have been created automatically when"
   echo "   the package was installed."
 fi
 
