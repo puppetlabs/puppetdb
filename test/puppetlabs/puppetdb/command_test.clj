@@ -739,6 +739,29 @@
                     {:certname "foo"}]
                    (query-to-vec "SELECT certname FROM certnames")))
             (is (= 0 (task-count delay-pool)))
+            (is (empty? (fs/list-dir (:path dlo)))))))
+
+
+      (testing "duplicate catalog inputs are suppressed"
+        (let [cmd (-> (get-in wire-catalog-inputs [version-num :basic])
+                      (assoc :certname "foo" :producer_timestamp (now))
+                      (update :inputs #(concat % %)))
+              req (catalog-inputs->command-req version-num cmd)
+              expected-inputs (->> (:inputs cmd)
+                                   distinct
+                                   (map #(hash-map :certname "foo"
+                                                   :type (nth % 0)
+                                                   :name (nth % 1)))
+                                   set)
+              get-inputs #(query-to-vec
+                           (str "SELECT certname, type, name FROM catalog_inputs"
+                                "  inner join certnames on certnames.id = certname_id"))]
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q req))
+            (let [actual (get-inputs)]
+              (is (= expected-inputs (set actual)))
+              (is (= (count expected-inputs) (count actual))))
+            (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

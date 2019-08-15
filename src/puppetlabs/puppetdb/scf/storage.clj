@@ -834,7 +834,10 @@
   [certid inputs]
     (jdbc/insert-multi! :catalog_inputs
                         [:certname_id :type :name]
-                        (map #(apply vector certid %) inputs)))
+                        (sequence (comp
+                                   (map #(apply vector certid %))
+                                   (distinct))
+                                  inputs)))
 
 (defn update-catalog-input-metadata!
   [certid catalog-uuid last-updated]
