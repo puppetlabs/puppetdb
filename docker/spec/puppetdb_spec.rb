@@ -31,7 +31,7 @@ describe 'puppetdb container specs' do
 
     # fire up the cluster and wait for puppetdb creation in postgres
     run_command('docker-compose --no-ansi up --detach')
-    wait_on_postgres_db('puppetdb')
+    wait_on_service_health('postgres', 90)
   end
 
   after(:all) do

@@ -9,6 +9,12 @@ services:
       - POSTGRES_PASSWORD=puppetdb
       - POSTGRES_USER=puppetdb
       - POSTGRES_DB=puppetdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=puppetdb --dbname=puppetdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
     expose:
       - 5432
     volumes:
