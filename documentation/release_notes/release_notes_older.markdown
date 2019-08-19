@@ -41,6 +41,13 @@ PuppetDB 5.1.6 is a PE-only release.
   errors during shutdown has been fixed.
   ([PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952))
 
+### Contributors
+
+Austin Blatt, Britt Gresham, Claire Cadman, David Lutterkort, Ethan J.
+Brown, Garrett Guillotte, Heston Hoffman, Iristyle, Jarret Lavallee,
+Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob Browning, Robert Roland,
+and Zachary Kent
+
 ## 5.1.5
 
 PuppetDB 5.1.5 is a bug-fix release.
