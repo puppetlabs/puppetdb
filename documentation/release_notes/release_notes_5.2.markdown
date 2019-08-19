@@ -41,6 +41,11 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - **Storing catalogs with Unicode Unicode alphanumeric tags.** PuppetDB now successfully stores catalogs with Unicode alphanumeric tags.  [PDB-4326](https://tickets.puppetlabs.com/browse/PDB-4326)
 
+### Contributors
+
+Austin Blatt, Chris Roddy, Erik Hansen, Heston Hoffman, Jean Bond, Rob
+Browning, Robert Roland, Wyatt Alt, and Zachary Kent
+
 ## PuppetDB 5.2.8
 
 ### New features
@@ -56,6 +61,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 - **Errors when using the** `in` **operator with** `"act_only":true`. Valid PQL queries, which use the `in` operator to compare against an array, that are being converted to AST via the `ast_only` option no longer throw a `NullPointerException`.  [PDB-4232](https://tickets.puppetlabs.com/browse/PDB-4232)
 
 - **Errors when using the** `in` **operator with arrays**. PuppetDB would give an error if you used the `in` operator with an array of fact values or any array that did not have just one element. PuppetDB now accepts an array of fact values unless it finds an actual type mismatch. [PDB-4199](https://tickets.puppetlabs.com/browse/PDB-4199)
+
+### Contributors
+
+Austin Blatt, Charlie Sharpsteen, Ethan J. Brown, Heston Hoffman,
+Iristyle, Molly Waggett, Nate Wolfe, Rob Browning, Robert Roland,
+Wyatt Alt, Zachary Kent, and donoghuc
 
 ## 5.2.7
 
@@ -76,6 +87,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 ### Security
 
 - We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
+
+### Contributors
+
+Austin Blatt, Brandon High, David Lutterkort, Ethan J. Brown, Heston
+Hoffman, Iristyle, Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob
+Browning, Robert Roland, and Zachary Kent
 
 ## 5.2.6
 
@@ -98,7 +115,7 @@ PuppetDB 5.2.6 is a security, new feature, and bug-fix release.
 - Previously http submission with `command_broadcast` enabled returned the last response. As a result, a failure would be shown if the last connection produced a 503 response, even though there was a successful PuppetDB response and the minimum successful responses had been met. This issue does not occur with responses that raised an exception. Because the Puppet `http_pool` does not raise 503 as an exception, this issue can be seen when the PuppetDB is in maintenance mode. This is now fixed and changes the behavior to send the last successful response when the minimum successful submissions have been met. [PDB-4020](https://tickets.puppetlabs.com/browse/PDB-4020)
 - The find/fix database connection errors after clj-parent 2.0 dep upgrades has now been fixed. [PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952)
 
-###Contributors
+### Contributors
 Austin Blatt, Britt Gresham, Claire Cadman, Ethan J. Brown, Garrett Guillotte, Jarret Lavallee, Molly Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary Kent
 
 ## 5.2.5
