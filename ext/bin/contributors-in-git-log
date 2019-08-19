@@ -1,0 +1,29 @@
+"""": # -*-python-*-
+command -v python3 > /dev/null && exec python3 "$0" "$@"
+command -v python2 > /dev/null && exec python2 "$0" "$@"
+echo "error: unable to find python3 or python2" 1>&2; exit 2
+"""
+from __future__ import print_function
+
+import os, re, sys
+from subprocess import check_output
+from textwrap import fill
+
+if len(sys.argv) != 2:
+    print('Usage: contributors-in-git-log <revision range>', file=sys.stderr)
+    print(' e.g.: contributors-in-git-log 6.0.0..6.0.1', file=sys.stderr)
+    sys.exit(2)
+
+stdout = sys.stdout.buffer
+ignore = frozenset([b'Jenkins CI'])
+
+authors = check_output(('git', 'log', '--pretty=%aN', sys.argv[1]))
+authors = sorted(set(a for a in authors.splitlines() if a not in ignore))
+
+if len(authors) == 1:
+    stdout.write(authors[0])
+else:
+    out = b', '.join(authors[:-1]) + b', and ' + authors[-1] + b'\n'
+    out = check_output(('fold', '-sw', '72'), input=out)
+    out = re.sub(br' +$', b'', out, flags=re.MULTILINE)
+    stdout.write(out)
