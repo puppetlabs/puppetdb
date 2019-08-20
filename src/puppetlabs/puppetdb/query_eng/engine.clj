@@ -743,9 +743,7 @@
      :selection {:from [:catalog_inputs]
                  :left-join [:certnames
                              [:= :certnames.id :catalog_inputs.certname_id]]}
-     :relationships (merge certname-relations
-                           {"certnames" {:local-columns ["certname" "catalog_uuid"]
-                                         :foreign-columns ["certname" "catalog_inputs_uuid"]}})
+     :relationships certname-relations
      :entity :catalog-input-contents
      :alias "catalog_input_contents"
      :subquery? false
