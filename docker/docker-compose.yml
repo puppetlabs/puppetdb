@@ -10,7 +10,8 @@ services:
       - POSTGRES_USER=puppetdb
       - POSTGRES_DB=puppetdb
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready --username=puppetdb --dbname=puppetdb"]
+      # existence check for puppetdb database
+      test: [ 'CMD-SHELL', "psql --username=puppetdb puppetdb -c ''" ]
       interval: 10s
       timeout: 5s
       retries: 6
