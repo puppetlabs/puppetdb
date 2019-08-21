@@ -1,5 +1,5 @@
 (def pdb-version "6.5.1-SNAPSHOT")
-(def clj-parent-version "2.6.0")
+(def clj-parent-version "4.0.4")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -59,6 +59,7 @@
 (def pdb-dev-deps
   (concat
    '[[ring/ring-mock]
+     [org.bouncycastle/bcpkix-jdk15on]
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
@@ -168,11 +169,11 @@
                  [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
-                 [com.taoensso/nippy]
+                 [com.taoensso/nippy :exclusions [org.tukaani/xz]]
                  [digest "1.4.3"]
                  [fast-zip-visit "1.0.2"]
                  [instaparse]
-                 [me.raynes/fs]
+                 [clj-commons/fs]
                  [metrics-clojure]
                  [robert/hooke "1.3.0"]
                  [slingshot]
@@ -214,7 +215,7 @@
 
   :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
             [lein-cloverage "1.0.6"]
-            [lein-parent "0.3.5"]
+            [lein-parent "0.3.7"]
             [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
@@ -283,7 +284,8 @@
                                  ;; integration tests cycle jruby a lot, which chews through permgen
                                  ^:replace ["-XX:MaxPermSize=500M"]
                                  [])}
-             :uberjar {:aot ~pdb-aot-namespaces}}
+             :uberjar {:aot ~pdb-aot-namespaces}
+             :provided {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]}}
 
   :jar-exclusions [#"leiningen/"]
 

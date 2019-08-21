@@ -175,7 +175,7 @@
            (assoc :jetty (merge cert-config
                                 {:ssl-port 0
                                  :ssl-host "0.0.0.0"
-                                 :ssl-protocols "TLSv1,TLSv1.1"}))
+                                 :ssl-protocols "TLSv1,TLSv1.1,TLSv1.2"}))
            (assoc-in [:puppetdb :certificate-whitelist] (str whitelist-file)))
        (fn []
          (pl-http/get (str (utils/base-url->str (assoc *base-url* :version :v4))
