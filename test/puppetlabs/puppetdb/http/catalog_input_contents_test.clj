@@ -1,67 +1,21 @@
 (ns puppetlabs.puppetdb.http.catalog-input-contents-test
   (:require
-   [cheshire.core :as json]
    [clojure.test :refer :all]
-   [puppetlabs.puppetdb.command :refer [process-command!]]
-   [puppetlabs.puppetdb.command.constants :refer [command-names]]
-   [puppetlabs.puppetdb.testutils.db :refer [*db*]]
-   [puppetlabs.puppetdb.time :as time]
    [puppetlabs.puppetdb.http :as http]
+   [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds
+                                                         validate-response-and-get-body
+                                                         cmds->expected-inputs
+                                                         process-replace-inputs]]
    [puppetlabs.puppetdb.testutils.http
     :refer [deftest-http-app
             query-response
             vector-param]]))
 
 (def endpoints [[:v4 "/v4/catalog-input-contents"]])
-(def catalog-inputs-version 1)
-
-(defn sample-input-cmds []
-  ;; For now, the tests expect all the non-input fields to be unique
-  ;; among these test hosts, and for there to be no optional fields.
-  {"host-1"
-   {:certname "host-1"
-    :producer_timestamp (time/now)
-    :catalog_uuid "6c2a2b15-1c1e-4081-a723-e9b40989d1e5"
-    :inputs [["hiera" "puppetdb::globals::version"]
-             ["hiera" "puppetdb::disable_cleartext"]]}
-   "host-2"
-   {:certname "host-2"
-    :producer_timestamp (do (Thread/sleep 1) (time/now))
-    :catalog_uuid "80a1f1d2-1bd3-4f68-86db-74b3d0d96f95"
-    :inputs [["hiera" "puppetdb::globals::version"]
-             ["hiera" "puppetdb::disable_ssl"]]}})
-
-(defn cmds->expected-inputs [cmds]
-  (mapcat (fn [cmd]
-            (let [stamp (time/to-string (:producer_timestamp cmd))]
-              (for [[type name] (:inputs cmd)]
-                (-> cmd
-                    (dissoc :inputs)
-                    (assoc :type type :name name :producer_timestamp stamp)))))
-          cmds))
-
-(defn process-replace-inputs
-  "Submits an appropriate replace catalog inputs for the provided map
-  which must be the wire format data."
-  [payload]
-  (process-command!
-   {:command (command-names :replace-catalog-inputs)
-    :payload payload
-    :received (time/now)
-    :version catalog-inputs-version
-    :certname (:certname payload)}
-   *db*
-   nil))
-
-(defn validate-response-and-get-body [{:keys [status headers body]}]
-  (is (= 200 status))
-  (is (= {"Content-Type" "application/json; charset=utf-8"} headers))
-  (-> body slurp (json/parse-string true)))
 
 (deftest-http-app catalog-input-contents-queries
   [[version endpoint] endpoints
-   ;;method [:get :post]
-   method [:post]]
+   method [:get :post]]
   (let [input-cmds (sample-input-cmds)
         all-expected (cmds->expected-inputs (vals input-cmds))
         query-inputs #(-> (apply query-response method endpoint %&)
