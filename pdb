@@ -3,6 +3,8 @@
 set -e
 
 jar="${PDB_JAR:-target/puppetdb.jar}"
+bcprov="${BCPROV_JAR:-$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/1.60/bcprov-jdk15on-1.60.jar}"
+bcpkix="${BCPKIX_JAR:-$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/1.60/bcpkix-jdk15on-1.60.jar}"
 
 if ! test -e "$jar"; then
     printf 'Unable to find the puppetdb jar %q; have you run "lein uberjar"?\n' \
@@ -10,4 +12,17 @@ if ! test -e "$jar"; then
     exit 2
 fi
 
-exec java -cp "$jar" clojure.main -m puppetlabs.puppetdb.core "$@"
+if ! test -e "$bcprov"; then
+    printf 'Unable to find the bouncy castle provider jar %q; have you run "lein deps"?\n' \
+           "$bcprov" 1>&2
+    exit 2
+fi
+
+if ! test -e "$bcpkix"; then
+    printf 'Unable to find the bouncy castle provider jar %q; have you run "lein deps"?\n' \
+           "$bcpkix" 1>&2
+    exit 2
+fi
+
+
+exec java -cp "$jar:$bcprov:$bcpkix" clojure.main -m puppetlabs.puppetdb.core "$@"
