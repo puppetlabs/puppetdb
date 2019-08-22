@@ -22,7 +22,7 @@ describe 'puppetdb container specs' do
 
     # fire up the cluster and wait for puppetdb creation in postgres
     docker_compose_up()
-    wait_on_service_health('postgres', 90)
+    wait_on_service_health('postgres')
   end
 
   after(:all) do
@@ -37,10 +37,10 @@ describe 'puppetdb container specs' do
   end
 
   it 'should have started puppetdb' do
-    expect(get_service_container('puppetdb', 60)).to_not be_empty
+    expect(get_service_container('puppetdb')).to_not be_empty
   end
 
   it 'should have a "running" puppetdb container' do
-    expect(wait_on_service_health('puppetdb', 300)).to eq('healthy')
+    expect(wait_on_service_health('puppetdb')).to eq('healthy')
   end
 end
