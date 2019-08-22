@@ -120,17 +120,17 @@ jobs:
       script: *run-integration-tests
 
     # === integration with current platform
-    - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6
-      script: *run-integration-tests
+      #- stage: ❧ pdb tests
+      #  env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6
+      #  script: *run-integration-tests
 
-    - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6/rich
-      script: *run-integration-tests
+      #- stage: ❧ pdb tests
+      #env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6/rich
+      #script: *run-integration-tests
 
-    - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-6.4.x/srv-6.3.x/pg-9.6/rich
-      script: *run-integration-tests
+      #- stage: ❧ pdb tests
+      #env: PDB_TEST=int/openjdk8/pup-6.4.x/srv-6.3.x/pg-9.6/rich
+      #script: *run-integration-tests
 
     # === rspec tests
     - stage: ❧ pdb tests
