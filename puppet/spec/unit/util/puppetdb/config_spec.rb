@@ -152,7 +152,7 @@ CONF
           config = described_class.load
         end.to raise_error(/PuppetDB 'server_urls' must be https, found 'http:\/\/foo.something-different.com'/)
       end
-      
+
       it "should fail if given a URL path" do
         uri_string = ""
         write_config <<CONF
@@ -316,6 +316,18 @@ CONF
         config = described_class.load
         config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
         config.sticky_read_failover.should == true
+      end
+
+      it "should read verify_client_certificate" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+verify_client_certificate = false
+CONF
+
+        config = described_class.load
+        config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
+        config.verify_client_certificate.should == false
       end
 
     end

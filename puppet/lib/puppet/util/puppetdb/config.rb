@@ -13,10 +13,11 @@ module Puppet::Util::Puppetdb
         :soft_write_failure          => false,
         :server_url_timeout          => 30,
         :include_unchanged_resources => false,
-        :min_successful_submissions => 1,
-        :submit_only_server_urls   => "",
-        :command_broadcast         => false,
-        :sticky_read_failover      => false
+        :min_successful_submissions  => 1,
+        :submit_only_server_urls     => "",
+        :command_broadcast           => false,
+        :sticky_read_failover        => false,
+        :verify_client_certificate   => true
       }
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -67,7 +68,8 @@ module Puppet::Util::Puppetdb
            :min_successful_submissions,
            :submit_only_server_urls,
            :command_broadcast,
-           :sticky_read_failover].include?(k))
+           :sticky_read_failover,
+           :verify_client_certificate].include?(k))
       end
 
       parsed_urls = config_hash[:server_urls].split(",").map {|s| s.strip}
@@ -81,6 +83,7 @@ module Puppet::Util::Puppetdb
       config_hash[:min_successful_submissions] = config_hash[:min_successful_submissions].to_i
       config_hash[:command_broadcast] = Puppet::Util::Puppetdb.to_bool(config_hash[:command_broadcast])
       config_hash[:sticky_read_failover] = Puppet::Util::Puppetdb.to_bool(config_hash[:sticky_read_failover])
+      config_hash[:verify_client_certificate] = Puppet::Util::Puppetdb.to_bool(config_hash[:verify_client_certificate])
 
       if config_hash[:soft_write_failure] and config_hash[:min_successful_submissions] > 1
         raise "soft_write_failure cannot be enabled when min_successful_submissions is greater than 1"
@@ -145,6 +148,10 @@ module Puppet::Util::Puppetdb
 
     def sticky_read_failover
       config[:sticky_read_failover]
+    end
+
+    def verify_client_certificate
+      config[:verify_client_certificate]
     end
 
     # @!group Private instance methods

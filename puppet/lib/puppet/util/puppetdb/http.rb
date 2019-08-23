@@ -116,7 +116,7 @@ module Puppet::Util::Puppetdb
       end
     end
 
-    def self.failover_action(path_suffix, server_urls, sticky, http_callback)
+    def self.failover_action(path_suffix, server_urls, sticky, ssl_context = nil, http_callback)
       response = nil
       response_error = nil
       config = Puppet::Util::Puppetdb.config
@@ -134,8 +134,11 @@ module Puppet::Util::Puppetdb
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
-          ssl_context = Puppet.lookup(:ssl_context)
-          http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
+          if ssl_context.nil?
+            http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
+          else
+            http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
+          end
 
           response = Timeout.timeout(config.server_url_timeout) do
             http_callback.call(http, route)
@@ -160,7 +163,7 @@ module Puppet::Util::Puppetdb
       response
     end
 
-    def self.broadcast_action(path_suffix, server_urls, http_callback)
+    def self.broadcast_action(path_suffix, server_urls, ssl_context = nil, http_callback)
       response = nil
       response_error = nil
       last_success = nil
@@ -171,8 +174,11 @@ module Puppet::Util::Puppetdb
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
-          ssl_context = Puppet.lookup(:ssl_context)
-          http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
+          if ssl_context.nil?
+            http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
+          else
+            http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
+          end
 
           response = Timeout.timeout(config.server_url_timeout) do
             http_callback.call(http, route)
@@ -207,15 +213,38 @@ module Puppet::Util::Puppetdb
     def self.action(path_suffix, request_mode, &http_callback)
       config = Puppet::Util::Puppetdb.config
 
+      if Gem::Version.new(Puppet.version) < Gem::Version.new("6.4.0")
+        ssl_context = nil
+      elsif config.verify_client_certificate
+        ssl_context = Puppet.lookup(:ssl_context)
+      else
+        require 'puppet/ssl/ssl_provider'
+
+        # If we're not doing full client validation, we at least check the CA.
+        # This hands off settings to puppet.conf for the CA cert path, CRL and revocation checks
+        cert_provider = Puppet::X509::CertProvider.new
+        cacerts = cert_provider.load_cacerts(required: true)
+
+        case Puppet[:certificate_revocation]
+        when :chain, :leaf
+          crls = cert_provider.load_crls(required: true)
+        else
+          crls = []
+        end
+
+        ssl_provider = Puppet::SSL::SSLProvider.new
+        ssl_context = ssl_provider.create_root_context(cacerts: cacerts, crls: crls, revocation: Puppet[:certificate_revocation])
+      end
+
       case request_mode
       when :query
-        self.failover_action(path_suffix, config.server_urls, config.sticky_read_failover, http_callback)
+        self.failover_action(path_suffix, config.server_urls, config.sticky_read_failover, ssl_context, http_callback)
       when :command
         submit_server_urls = config.server_urls + config.submit_only_server_urls
         if config.command_broadcast
-          self.broadcast_action(path_suffix, submit_server_urls, http_callback)
+          self.broadcast_action(path_suffix, submit_server_urls, ssl_context, http_callback)
         else
-          self.failover_action(path_suffix, submit_server_urls, false, http_callback)
+          self.failover_action(path_suffix, submit_server_urls, false, ssl_context, http_callback)
         end
       else
         raise Puppet::Error, "Unknown request mode: #{request_mode}"
