@@ -30,3 +30,20 @@ catalog inputs that PuppetDB has received for any nodes. ([PDB-4371](https://tic
 ### Bug fixes
 
  - We've updated the default auto-vacuum settings for several tables which PuppetDB was vacuuming more frequently than neccessary. These changes will apply once at the next upgrade. [PDB-3745](https://tickets.puppetlabs.com/browse/PDB-3745)
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Iristyle, Josh Partlow,
+Nate Wolfe, Nick Walker, Patrick Carlisle, Rob Browning, and Robert
+Roland
+
+## PuppetDB 6.4.0
+
+### Bug fixes
+
+- This bug affects Puppet Enterprise (PE) only. After a restart or downtime, PuppetDB did not sync its package inventory, resulting in PuppetDB nodes with desynced fact hashes. [PDB-4266](https://tickets.puppetlabs.com/browse/PDB-4266)
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Iristyle, Jean Bond, Markus Opolka,
+Morgan Rhodes, Nate Wolfe, Rob Browning, Robert Roland, and Zachary Kent

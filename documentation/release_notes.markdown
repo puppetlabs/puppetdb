@@ -1,1 +1,1 @@
-release_notes/release_notes_6.5.markdown
+release_notes/release_notes_latest.markdown
