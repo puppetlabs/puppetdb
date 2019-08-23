@@ -246,3 +246,298 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 ### Contributors
 Karel Březina, Katie Lawhorn, Mike Eller, Rob Browning, Russell Mull,
 Scott Walker, Thomas Hallgren, Wyatt Alt, and Zachary Kent
+
+## 5.1.6
+
+PuppetDB 5.1.6 is a PE-only release.
+
+### Bug fixes
+
+- The jackson-databind dependency has been upgraded to 2.9.8 to fix
+  CVE-2018-5968, CVE-2018-19360, CVE-2018-19361, and CVE-2018-19362.
+  ([PDB-4364](https://tickets.puppetlabs.com/browse/PDB-4364))
+
+- When an invalid / malformed timestamp was passed in a PQL query, it
+  was treated as a null, giving back an unexpected query result. The
+  timestamp is now validated, and an error is returned to the user.
+  ([PDB-4015](https://tickets.puppetlabs.com/browse/PDB-4015))
+
+- When there are processing errors during an initial HA sync PuppetDB
+  should now defer commands to the local queue as originally intended,
+  (PE Only). ([PDB-4117](https://tickets.puppetlabs.com/browse/PDB-4117))
+
+- A problem that could cause harmless, but noisy database connection
+  errors during shutdown has been fixed.
+  ([PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952))
+
+### Contributors
+
+Austin Blatt, Britt Gresham, Claire Cadman, David Lutterkort, Ethan J.
+Brown, Garrett Guillotte, Heston Hoffman, Iristyle, Jarret Lavallee,
+Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob Browning, Robert Roland,
+and Zachary Kent
+
+## 5.1.5
+
+PuppetDB 5.1.5 is a bug-fix release.
+
+### Bug fixes
+
+-   Passing the `node_state` filter criteria as part of a conjuction operator (`and` and `or`) didn't work in previous versions of PuppetDB. PuppetDB 5.1.5 resolves this issue. ([PDB-3808](https://tickets.puppetlabs.com/browse/PDB-3808))
+
+-   If you submitted a malformed message to the command queue in previous versions of PuppetDB, the command queue would grow upon receiving the message but would not reduce in size when the message was discarded. PuppetDB 5.1.5 correctly reduces the command queue size when a malformed message is submitted to the queue. ([PDB-3830](https://tickets.puppetlabs.com/browse/PDB-3830))
+
+-   When the PE package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.1.5 now removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
+
+### Contributors
+Andrew Roetker, Garrett Guillotte, Molly Waggett, Morgan Rhodes,
+Nekototori, Nick Walker, Rob Browning, Russell Mull, and Zachary Kent
+
+## 5.1.4
+
+PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
+
+### Bug fixes
+
+-   PuppetDB's `jackson-databind` dependency is updated to 2.9.1, which contains a fix to a security issue. This library is only used in the structured logging module, so most users should be unaffected.
+
+### Contributors
+Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zachary Kent
+
+5.1.3
+-----
+
+PuppetDB 5.1.3 includes bugfixes and performance improvements.
+
+### Bug Fixes
+* A recent fact data migration should no longer crash when the existing
+  data has unexpected null value representations.
+  ([PDB-3692](https://tickets.puppetlabs.com/browse/PDB-3692))
+
+### Improvements
+* An optional facts blacklist feature has been added to the PDB config file
+  that allows users to specify facts that will be ignored during ingestion.
+  ([PDB-3630](https://tickets.puppetlabs.com/browse/PDB-3630))
+
+### Contributors
+Morgan Rhodes, Rob Browning, Russell Mull, and Zachary Kent
+
+5.1.1
+-----
+PuppetDB 5.1.1 is a bugfix release.
+
+### Bug Fixes
+* This release contains a fix for a uniqueness bug in the recent fact data
+  migration.
+  ([PDB-3692](https://tickets.puppetlabs.com/browse/PDB-3692))
+
+### Contributors
+Morgan Rhodes, Rob Browning, Russell Mull, and Zachary Kent
+
+5.1.0
+-----
+
+PuppetDB 5.1.0 is a bugfix and performance release. It contains significant
+schema migrations, most notably for fact storage. It also improves handling of
+binary data in several places.
+
+### Upgrading
+
+* Before upgrading you should ensure you have as much free disk space as you
+  have data. Database schema changes (also known as migrations) may require
+  temporary duplication of table data and may mean you have to wait during the
+  upgrade as these migrations run.
+
+### Improvements
+
+* Improve data storage performance by optimizing the query which
+  updates the contents of the fact_values table.
+  ([PDB-3639](https://tickets.puppetlabs.com/browse/PDB-3639))
+
+* PuppetDB no longer sends redundant "SET TRANSACTION READ COMMITTED"
+  commands to the database.
+  ([PDB-3195](https://tickets.puppetlabs.com/browse/PDB-3195))
+
+### Bug Fixes
+
+* PuppetDB 4.4.x and 5.0.x updated fact storage to optimize write throughput. It
+  unfortunately had negative consequences on query performance under heavy load.
+  This rolls back to the older (4.3.x) fact storage style, which has worse write
+  performance but better query performance.
+  ([PDB-3611](https://tickets.puppetlabs.com/browse/PDB-3611))
+
+* PuppetDB has historically had issues dealing with binary data. Specifically,
+  unicode-escaped null characters cannot be stored in PostgreSQL. The release
+  directly configures the JSON library used by PuppetDB to replace such
+  characters, which should completely eliminate the problem in a large class of
+  cases. ([PDB-3648](https://tickets.puppetlabs.com/browse/PDB-3648))
+
+* The puppetdb terminus would fail if the catalog contained resources using the
+  "alias" metaparameter, causing the agent run to fail. This is a regression
+  introduced in Puppet 5.
+  ([PDB-3620](https://tickets.puppetlabs.com/browse/PDB-3620))
+
+* Some text fields in puppetdb (notably report.config_version) had
+  artificial size limits applied to them in the database schema. These limits
+  have been removed.
+  ([PDB-3400](https://tickets.puppetlabs.com/browse/PDB-3400))
+
+* PuppetDB now filters null bytes in Resource Events fields; this fixes a
+  problem when dealing with certain entries in the Windows registry which
+  contain the value '\0' by default.
+  ([PDB-3058](https://tickets.puppetlabs.com/browse/PDB-3058))
+
+### Contributors
+Britt Gresham, Dan Lidral-PorterJoe Pinsonault, Jorie Tappa, Josh Cooper,
+Melissa Stone, Mike Eller, Rob Browning, Romain Tartière, Russell Mull,
+Scott Walker, and Wyatt Alt
+
+5.0.1
+-----
+
+PuppetDB 5.0.1 is a major release with new features, improved
+performance, and some backward incompatibilities.  Notable
+incompatibilities include the requirement of Puppet Server 5 or newer,
+Puppet Agent 5 or newer, JVM 8 or newer, PostgreSQL 9.6 or newer, and
+the fact that the root query endpoint now filters inactive nodes by
+default.
+
+For anyone tracking PuppetDB development at
+https://github.com/puppetlabs/puppetdb, note that as of this release,
+there will no longer be a stable branch.  All development for older
+"Y" releases (X.Y.Z) will happen on the relevant version branch, for
+example (4.4.x).
+
+### Upgrading
+
+* PuppetDB requires PostgreSQL 9.6 or newer.  Support for versions
+  prior to 9.6 have been retired.  Please upgrade PostgreSQL to 9.6 or
+  newer before upgrading PuppetDB, and please enable the
+  [pg\_trgm][pg\_trgm] extension, as explained
+  [here][configure\_postgres].  The official PostgreSQL repository
+  packages are recommended.  See the
+  [YUM](https://wiki.postgresql.org/wiki/YUM\_Installation)
+  instructions or the [Apt](https://wiki.postgresql.org/wiki/Apt)
+  instructions for further details.
+  ([PDB-2950](https://tickets.puppetlabs.com/browse/PDB-2950))
+
+* Before upgrading, make sure all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Before upgrading you should ensure you have as much free disk space
+  as you have data. Database schema changes (also known as migrations)
+  may require temporary duplication of table data and may mean you
+  have to wait during the upgrade as these migrations run.
+
+* PuppetDB is no longer compatible with agent and server versions
+  older than 5.0.0.
+  ([PDB-3558](https://tickets.puppetlabs.com/browse/PDB-3558))
+
+* PQL queries and structured queries issued to the root query endpoint
+  now automatically exclude deactivated and expired nodes.  This has
+  always been the case for other query endpoints, and is usually what
+  you want.  To target only inactive nodes, you can specify
+  `node_state = 'inactive'`; for all both active and inactive, use
+  `node_state = 'any'`.
+  ([PDB-3420](https://tickets.puppetlabs.com/browse/PDB-3420))
+
+### Downgrading
+
+* If you attempt to downgrade to a previous version of PuppetDB, in addition to
+  wiping the database you will need to clear the queue by deleting
+  your `vardir`.
+
+### Deprecations and retirements
+
+* The deprecated `dlo-compression-interval` and
+  `dlo-compression-threshold` options have been removed.
+  ([PDB-3552](https://tickets.puppetlabs.com/browse/PDB-3552))
+
+* The previously deprecated "puppetdb import" and "puppetdb export"
+  command line tools have been retired.  They have been replaced with
+  the "puppet db import" and "puppet db export" commands, which are
+  included in puppet-client-tools.  See
+  https://docs.puppet.com/puppetdb/latest/pdb\_client\_tools.html and
+  https://docs.puppet.com/puppetdb/latest/anonymization.html for
+  further information.
+  ([PDB-3306](https://tickets.puppetlabs.com/browse/PDB-3306))
+
+### Improvements
+
+* PuppetDB ships with better defaults for `node-purge-ttl` and
+  `node-ttl`.  `node-purge-ttl` defaults to 14 days if left
+  unconfigured so that old unused information is automatically flushed
+  from the database.  `node-ttl` defaults to 7 days, auto-expiring
+  nodes which haven't checked in in a week.  These changes match the
+  existing behavior of Puppet Enterprise.  To retain the old behavior,
+  set `node-ttl` and `node-purge-ttl` to "0s" in your PuppetDB
+  configuration file.
+  ([PDB-3318](https://tickets.puppetlabs.com/browse/PDB-3318))
+
+* PuppetDB no longer purges all eligible nodes during its periodic
+  garbage collections.  Now it only purges up to 25 each time, but
+  this value can be adjusted by the `node-purge-gc-batch-limit`
+  configuration setting.  It is now also possible to specify a
+  purge\_nodes batch\_limit for admin/cmd endpoint clean commands.
+  ([PDB-3546](https://tickets.puppetlabs.com/browse/PDB-3546))
+
+* Report storage has been optimized by requiring fewer tables to be
+  consulted when updating the record of the latest report.
+  ([PDB-3529](https://tickets.puppetlabs.com/browse/PDB-3529))
+
+* The performance of some queries involving each node's latest report
+  has been improved.
+  ([PDB-3518](https://tickets.puppetlabs.com/browse/PDB-3518))
+
+* PuppetDB was using more memory than necessary when creating query
+  results, which could occasionally result in out-of-memory errors
+  when performing queries with very large result sets.  Its memory
+  footprint should now be lower overall, and those errors should no
+  longer occur.
+  ([PDB-3467](https://tickets.puppetlabs.com/browse/PDB-3467))
+
+* PuppetDB should now shut down with a non-zero exit status when it
+  detects an unsupported PostgreSQL version.  Previously it might hang
+  while trying to exit.
+  ([PDB-3541](https://tickets.puppetlabs.com/browse/PDB-3541))
+
+* Command processing errors due to malformed data now cause the
+  command to be delivered to the discard directory (dead letter
+  office), instead of remaining in the queue forever.
+  ([PDB-3566](https://tickets.puppetlabs.com/browse/PDB-3566))
+
+* PuppetDB was leaving unused "edge" records in the database.  For
+  most users this had very little impact, but they could pile up over
+  time as nodes are purged if
+  [node-purge-ttl](https://docs.puppet.com/puppetdb/5.0/configure.html#node-purge-ttl)
+  is non-zero.  The unused edges will now be removed on upgrade and
+  continuously cleaned up when they are no longer needed.
+  ([PDB-3515](https://tickets.puppetlabs.com/browse/PDB-3515))
+
+* PuppetDB no longer prints a warning when a command request doesn't
+  include a Content-Length header, because it's less important with the
+  stockpile queue.
+  ([PDB-3567](https://tickets.puppetlabs.com/browse/PDB-3567))
+
+* PuppetDB now filters null bytes in Resource Events fields.  This
+  fixes a problem when dealing with certain entries in the Windows
+  registry which contain the value '\0' by default.
+  ([PDB-3058](https://tickets.puppetlabs.com/browse/PDB-3058))
+
+* A change in puppet's handling of resource titles
+  ([PUP-7605](https://tickets.puppetlabs.com/browse/PUP-7605)) has
+  been accommodated.
+  ([PDB-3595](https://tickets.puppetlabs.com/browse/PDB-3595))
+
+### Contributors
+
+Adrien Thebo, Andrew Roetker, Gert Drapers, Jennifer Shehane, Jeremy
+Barlow, John Duarte, Michelle Fredette, Moses Mendoza, Nick Fagerlund,
+Nick Walker, Rob Browning, Russell Mull, Ruth Linehan, Ryan Senior,
+Spencer McElmurry, Thomas Hallgren, Wayne Warren, Wyatt Alt, and Zak
+Kent
+
+5.0.0
+-----
+
+PuppetDB 5.0.0 was not released due to a packaging error.
