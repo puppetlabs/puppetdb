@@ -42,6 +42,11 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - **Storing catalogs with Unicode Unicode alphanumeric tags.** PuppetDB now successfully stores catalogs with Unicode alphanumeric tags.  [PDB-4326](https://tickets.puppetlabs.com/browse/PDB-4326)
 
+### Contributors
+
+Austin Blatt, Chris Roddy, Erik Hansen, Heston Hoffman, Iristyle, Jean
+Bond, Rob Browning, Robert Roland, Wyatt Alt, and Zachary Kent
+
 ## PuppetDB 6.0.3
 
 ### New features
@@ -58,9 +63,13 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - **Errors when using the** `in` **operator with arrays**. PuppetDB would give an error if you used the `in` operator with an array of fact values or any array that did not have just one element. PuppetDB now accepts an array of fact values unless it finds an actual type mismatch. [PDB-4199](https://tickets.puppetlabs.com/browse/PDB-4199)
 
---- 
+### Contributors
 
-## 6.0.2
+Austin Blatt, Charlie Sharpsteen, Ethan J. Brown, Heston Hoffman,
+Iristyle, Molly Waggett, Nate Wolfe, Rob Browning, Robert Roland, Wyatt
+Alt, Zachary Kent, and donoghuc
+
+## PuppetDB 6.0.2
 
 ### Improvements
 
@@ -80,7 +89,13 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
 
-## 6.0.1
+### Contributors
+
+Austin Blatt, Brandon High, Claire Cadman, David Lutterkort, Erik
+Dalén, Ethan J. Brown, Heston Hoffman, Iristyle, Molly Waggett, Morgan
+Rhodes, Nate Wolfe, Rob Browning, Robert Roland, and Zachary Kent
+
+## PuppetDB 6.0.1
 
 PuppetDB 6.0.1 is a new feature and bug-fix release.
 
