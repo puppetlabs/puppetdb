@@ -24,6 +24,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - Puppet DB database migrations failed due to a bug in the most recent releases of PostgreSQL 9.4.23, 9.5.18, 9.6.14, 10.9, and 11.4. This release does not change migration behavior, but includes changes to PuppetDB's database migration to avoid triggering the issue. See [PostgreSQL bug #15865](https://www.postgresql.org/message-id/15865-17940eacc8f8b081%40postgresql.org) for details about the issue. [PDB-4422](https://tickets.puppetlabs.com/browse/PDB-4422)
 
+### Contributors
+
+Austin Blatt, Heston Hoffman, Robert Roland, and Zachary Kent
+
 ## PuppetDB 6.3.3
 
 ### New features and improvements
@@ -43,6 +47,11 @@ canonical: "/puppetdb/latest/release_notes.html"
 - PuppetDB now logs the correct error when an attempt to query a remote PuppetDB server for sync fails. Previously, PuppetDB was incorrectly reporting a `FileNotFoundException`.
  [PUP-3592](https://tickets.puppetlabs.com/browse/PDB-3592)
 
+### Contributors
+
+Austin Blatt, Erik Hansen, Heston Hoffman, Jean Bond, Rob Browning,
+Robert Roland, Wyatt Alt, and Zachary Kent
+
 ## PuppetDB 6.3.1
 
 ### New features and improvements
@@ -57,6 +66,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - **Resource event duplicates in reports.** Puppet agent was sending duplicate events for failing `exec` calls, causing PuppetDB report inserts to fail. This fix adds additional columns to the primary key calculation for events, and ignores duplicate rows at insert. [PDB-4315](https://tickets.puppetlabs.com/browse/PDB-4315)
 
+### Contributors
+
+Austin Blatt, Chris Roddy, Heston Hoffman, Iristyle, Jean Bond, Rob
+Browning, Robert Roland, and Zachary Kent
 
 ## PuppetDB 6.3.0
 
@@ -76,3 +89,45 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - **Errors when using the** `in` **operator with arrays**. PuppetDB would give an error if you used the `in` operator with an array of fact values or any array that did not have just one element. PuppetDB now accepts an array of fact values unless it finds an actual type mismatch. [PDB-4199](https://tickets.puppetlabs.com/browse/PDB-4199)
 
+## PuppetDB 6.2.0
+
+### New features
+
+- **Improved PostgreSQL support.** PuppetDB is now compatible with PostgreSQL version 10 and later. [PDB-3857](https://tickets.puppetlabs.com/browse/PDB-3857)
+
+- **New Puppet Query Language (PQL) operators.** You can now use the negative operators `!=` and `!~`. [PDB-3471](https://tickets.puppetlabs.com/browse/PDB-3471)
+
+### Bug fixes
+
+- **PuppetDB no longer causes PostgreSQL to create large amounts of temporary files during garbage collection.** This issue caused PostgreSQL's log to flood if the `log_temp_files` option was set to a small enough value. [PDB-3924](https://tickets.puppetlabs.com/browse/PDB-3924)
+
+### Security
+
+- **Removed jackson-databind dependency.** We've blacklisted the jackson-databind dependency to resolve several security issues. [PDB-4236](https://tickets.puppetlabs.com/browse/PDB-4236)
+
+### Contributors
+
+Austin Blatt, David Lutterkort, Heston Hoffman, Morgan Rhodes, Nate
+Wolfe, Rob Browning, Robert Roland, Wyatt Alt, and Zachary Kent
+
+## PuppetDB 6.1.0
+
+### New features
+
+- **PuppetDB's code is now compiled ahead-of-time**. This, along with a decrease in work at startup for simple commands, should notably decrease PuppetDB's startup time. For more on Ahead-of-time compilations, see [Ahead-of-time Compilation and Class Generation](https://clojure.org/reference/compilation).
+[PDB-4108](https://tickets.puppetlabs.com/browse/PDB-4108)
+
+### Bug fixes
+
+- **(PE Only) PuppetDB no longer syncs reports that are older than the `report-ttl`, but have not yet been garbage collected.** PuppetDB would sync reports when it performed an initial garbage collection on startup, and then sync reports from its remote, which likely had not performed garbage collection as recently.
+[PDB-4158](https://tickets.puppetlabs.com/browse/PDB-4158)
+- **PuppetDB skips unnecessary work when ingesting commands.** PuppetDB wasn't pulling `producer-timestamp` out of the incoming query parameters for `submit` command requests. This caused PuppetDB to not have the necessary information to tombstone obsolete commands if multiple `store facts` or `store catalog` commands were submitted for the same `certname` while the earlier commands were still in the queue waiting to be processed.
+[PDB-4177](https://tickets.puppetlabs.com/browse/PDB-4177)
+- **Improved error handling for invalid or malformed timestamps.** If you passed an invalid or malformed timestamp in a PQL query, PuppetDB treated it as a `null`, giving back an unexpected query result.
+[PDB-4015](https://tickets.puppetlabs.com/browse/PDB-4015)
+
+### Contributors
+
+Austin Blatt, Daniel Kessler, Ethan J. Brown, Heston Hoffman, Iristyle,
+Molly Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary
+Kent
