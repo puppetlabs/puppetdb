@@ -239,6 +239,15 @@
               (create-query-handler version "catalog-input-contents"
                                     http-q/restrict-query-to-active-nodes)))))
 
+(pls/defn-validated catalog-inputs-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+   (cmdi/routes
+    (cmdi/ANY "" []
+              (create-query-handler version "catalog-inputs"
+                                    http-q/restrict-query-to-active-nodes)))))
+
+
 (pls/defn-validated facts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query

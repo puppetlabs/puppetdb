@@ -1,23 +1,27 @@
-(ns puppetlabs.puppetdb.http.catalog-input-contents-test
+(ns puppetlabs.puppetdb.http.catalog-inputs-test
   (:require
+   [cheshire.core :as json]
    [clojure.test :refer :all]
+   [puppetlabs.puppetdb.command :refer [process-command!]]
+   [puppetlabs.puppetdb.command.constants :refer [command-names]]
+   [puppetlabs.puppetdb.time :as time]
    [puppetlabs.puppetdb.http :as http]
    [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds
                                                          validate-response-and-get-body
-                                                         cmds->expected-inputs
+                                                         stringify-timestamp
                                                          process-replace-inputs]]
    [puppetlabs.puppetdb.testutils.http
     :refer [deftest-http-app
             query-response
             vector-param]]))
 
-(def endpoints [[:v4 "/v4/catalog-input-contents"]])
+(def endpoints [[:v4 "/v4/catalog-inputs"]])
 
-(deftest-http-app catalog-input-contents-queries
+(deftest-http-app catalog-inputs-queries
   [[version endpoint] endpoints
    method [:get :post]]
   (let [input-cmds (sample-input-cmds)
-        all-expected (cmds->expected-inputs (vals input-cmds))
+        all-expected (stringify-timestamp (vals input-cmds))
         query-inputs #(-> (apply query-response method endpoint %&)
                           validate-response-and-get-body)]
     (process-replace-inputs (input-cmds "host-1"))
@@ -28,7 +32,7 @@
       (is (= (set all-expected) (set inputs))))
 
     (let [cmd (input-cmds "host-1")
-          exp (set (cmds->expected-inputs [cmd]))]
+          exp (set (stringify-timestamp [cmd]))]
       (testing "certname match"
         (let [resp (query-inputs ["=" "certname" "host-1"])]
           (is (= (count exp) (count resp)))
@@ -39,21 +43,6 @@
           (is (= exp (set resp)))))
       (testing "catalog_uuid match"
         (let [resp (query-inputs ["=" "catalog_uuid" (:catalog_uuid cmd)])]
-          (is (= (count exp) (count resp)))
-          (is (= exp (set resp)))))
-      (testing "input type match"  ;; currently everything
-        (let [resp (query-inputs ["=" "type" "hiera"])]
-          (is (= (count all-expected) (count resp)))
-          (is (= (set all-expected) (set resp)))))
-      (testing "input name match"
-        (let [resp (query-inputs ["=" "name" "puppetdb::globals::version"])
-              exp (set (filter #(= "puppetdb::globals::version" (:name %))
-                               all-expected))]
-          (is (= (count exp) (count resp)))
-          (is (= exp (set resp))))
-        (let [resp (query-inputs ["=" "name" "puppetdb::disable_cleartext"])
-              exp (set (filter #(= "puppetdb::disable_cleartext" (:name %))
-                               all-expected))]
           (is (= (count exp) (count resp)))
           (is (= exp (set resp))))))
 
@@ -73,7 +62,7 @@
                                 ["group_by" "certname"]])
             exp (for [[_ cmd] input-cmds]
                   {:certname (:certname cmd)
-                   :count (count (:inputs cmd))})]
+                   :count 1})]
         (is (= (count exp) (count resp)))
         (is (= (set exp) (set resp)))))
 
@@ -112,19 +101,9 @@
         (let [resp (query-inputs ["extract" "certname"
                                   ["in" "certname"
                                    ["extract" "certname"
-                                    ["select_catalog_input_contents"
+                                    ["select_catalog_inputs"
                                      ["=" "certname" "host-1"]]]]])
               exp (->> (filter #(= "host-1" (:certname %)) all-expected)
-                       (map #(select-keys % [:certname])))]
-          (is (= (count exp) (count resp)))
-          (is (= (set exp) (set resp))))
-        (let [resp (query-inputs ["extract" "certname"
-                                  ["in" "name"
-                                   ["extract" "name"
-                                    ["select_catalog_input_contents"
-                                     ["in" "name"
-                                      ["array" ["puppetdb::globals::version"]]]]]]])
-              exp (->> (filter #(= "puppetdb::globals::version" (:name %)) all-expected)
                        (map #(select-keys % [:certname])))]
           (is (= (count exp) (count resp)))
           (is (= (set exp) (set resp)))))
@@ -132,40 +111,20 @@
       (testing "(newer) \"from\" syntax"
        (let [resp (query-inputs ["extract" "certname"
                                  ["in" "certname"
-                                  ["from" "catalog_input_contents"
+                                  ["from" "catalog_inputs"
                                    ["extract" "certname"
                                     ["=" "certname" "host-1"]]]]])
              exp (->> (filter #(= "host-1" (:certname %)) all-expected)
-                      (map #(select-keys % [:certname])))]
-         (is (= (count exp) (count resp)))
-         (is (= (set exp) (set resp))))
-       (let [resp (query-inputs ["extract" "certname"
-                                 ["in" "name"
-                                  ["from" "catalog_input_contents"
-                                   ["extract" "name"
-                                    ["in" "name"
-                                     ["array" ["puppetdb::globals::version"]]]]]]])
-             exp (->> (filter #(= "puppetdb::globals::version" (:name %)) all-expected)
                       (map #(select-keys % [:certname])))]
          (is (= (count exp) (count resp)))
          (is (= (set exp) (set resp)))))
 
       (testing "implicit"
         (let [resp (query-inputs ["extract" "certname"
-                                  ["subquery" "catalog_input_contents"
+                                  ["subquery" "catalog_inputs"
                                    ["=" "catalog_uuid" "80a1f1d2-1bd3-4f68-86db-74b3d0d96f95"]]])
               exp (->> (filter #(= "80a1f1d2-1bd3-4f68-86db-74b3d0d96f95" (:catalog_uuid %))
                                all-expected)
-                       (map #(select-keys % [:certname])))]
-          (is (= (count exp) (count resp)))
-          (is (= (set exp) (set resp))))
-        (let [resp (query-inputs ["extract" "certname"
-                                  ["subquery" "catalog_input_contents"
-                                   ["in" "name"
-                                    ["array" ["puppetdb::globals::version"]]]]])
-              hosts (->> (filter #(= "puppetdb::globals::version" (:name %)) all-expected)
-                         (map :certname) set)
-              exp (->> (filter #(hosts (:certname %)) all-expected)
                        (map #(select-keys % [:certname])))]
           (is (= (count exp) (count resp)))
           (is (= (set exp) (set resp))))))))
