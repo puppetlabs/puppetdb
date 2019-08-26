@@ -304,10 +304,10 @@
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
 
-  :aliases {"gem" ["with-profie" "install-gems"
+  :aliases {"gem" ["with-profile" "install-gems,dev"
                    "trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
                    "--config" "./test-resources/puppetserver/puppetserver.conf"]
-            "install-gems" ["with-profile" "install-gems"
+            "install-gems" ["with-profile" "install-gems,dev"
                             "trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
                             ~puppetserver-test-dep-gem-list
                             "--config" "./test-resources/puppetserver/puppetserver.conf"]
