@@ -182,6 +182,14 @@ or
 
     ["extract", [["function", "count"]]]
 
+#### Extracting a subtree
+
+The JSON fields that support dot notation for hash descendance also support
+dot notation for extracting a subtree. See the Dot notation section below
+for more information.
+
+    ["extract", ["facts.os.family"]]
+
 ### `function`
 
 The **function** operator is used to call a function on the result of a
@@ -282,6 +290,24 @@ valid queries would include
 
 *    ["=", "partitions.match(\"sda.*\").mount", "/home"]
 
+### Dotted Projections
+
+Dot notation is also supported for extracting a subtree of JSON fields.
+For example you can query the inventory endpoint with
+
+    ["extract", ["trusted.certname", "facts.system_uptime"]]
+
+To get a response with only the elements you've asked for
+
+    {
+        "trusted.certname": "mbp.local",
+        "facts.system_uptime.uptime": {
+            "days" : 0,
+            "hours" : 1,
+            "uptime" : "1:52 hours",
+            "seconds" : 6733
+        }
+    }
 
 ## Context operators
 

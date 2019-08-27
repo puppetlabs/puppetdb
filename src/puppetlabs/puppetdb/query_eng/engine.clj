@@ -37,6 +37,11 @@
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
 
+(defn is-dotted-projection?
+  [projection]
+  ;; If the projection has a dot it must be of the form fact.foo
+  (str/includes? projection "."))
+
 ; The use of 'column' here is a misnomer. This refers to the result of
 ; a query and the top level keys used should match up to query entities
 ; and the values of 'columns', 'local-column', and 'foreign-column'
@@ -205,11 +210,15 @@
                                             :queryable? true
                                             :field :environments.environment}
                              "facts" {:type :queryable-json
+                                      :projectable-json? true
                                       :queryable? true
-                                      :field (hcore/raw "(fs.stable||fs.volatile)")}
+                                      :field (hcore/raw "(fs.stable||fs.volatile)")
+                                      :field-type :raw}
                              "trusted" {:type :queryable-json
+                                        :projectable-json? true
                                         :queryable? true
-                                        :field (hcore/raw "(fs.stable||fs.volatile)->'trusted'")}}
+                                        :field (hcore/raw "(fs.stable||fs.volatile)->'trusted'")
+                                        :field-type :raw}}
 
                :selection {:from [[:factsets :fs]]
                            :left-join [:environments
@@ -851,8 +860,10 @@
                                      :queryable? true
                                      :field :line}
                              "parameters" {:type :queryable-json
+                                           :projectable-json? true
                                            :queryable? true
-                                           :field :rpc.parameters}}
+                                           :field :rpc.parameters
+                                           :field-type :keyword}}
 
                :selection {:from [[:catalog_resources :resources]]
                            :join [:certnames
@@ -1195,6 +1206,16 @@
        (remove (comp :query-only? val))
        keys))
 
+(defn projectable-json-fields
+  "Returns a list of fields of queryable json fields that
+   are marked that they support projectable json extraction."
+  [{:keys [projections]}]
+  (->> projections
+       (filter (comp #(and (= :queryable-json (:type %))
+                           (:projectable-json? %))
+                     val))
+       keys))
+
 (defn compile-fnexpression
   ([expr]
    (compile-fnexpression expr true))
@@ -1213,6 +1234,15 @@
                                                    [:is-not :deactivated nil]
                                                    [:is-not :expired nil]]}}))
 
+(defn quote-dotted-projections
+  [projection]
+  (when (> (count projection) 63)
+    (throw (IllegalArgumentException.
+             (tru "Projected field name ''{0}'' exceeds current maximum length of 63 characters" (count projection) projection))))
+  (if (is-dotted-projection? projection)
+    (jdbc/double-quote projection)
+    projection))
+
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity subquery?]}]
@@ -1223,7 +1253,7 @@
                  (vec (concat (->> projections
                                    (remove (comp :query-only? second))
                                    (mapv (fn [[name {:keys [field]}]]
-                                           [field name])))
+                                           [field (quote-dotted-projections name)])))
                               fs)))
         new-selection (-> (cond-> selection (not subquery?) wrap-with-inactive-nodes-cte)
                           (assoc :select select)
@@ -1235,7 +1265,7 @@
   [query]
   (-> query
       honeysql-from-query
-      hcore/format
+      (hcore/format :allow-dashed-names? true)
       first
       log/spy))
 
@@ -1775,13 +1805,35 @@
   (contains? (ks/keyset user-name->query-rec-name)
              (first expr)))
 
+(defn create-json-subtree-projection
+  [dotted-field projections]
+  (let [json-path (map utils/maybe-strip-escaped-quotes (su/dotted-query->path dotted-field))
+        stringify-field (fn [{:keys [field field-type]}]
+                          (case field-type
+                            :keyword (name field)
+                            :raw (:s field)
+                            (throw (IllegalArgumentException.
+                                     (tru "Cannot determine field type for field ''{0}''" field)))))]
+  {:type :json
+   :queryable? false
+   :field (hcore/raw
+            (jdbc/create-json-path-extraction
+              ; Extract the original field as a string
+              (->> json-path
+                   first
+                   projections
+                   stringify-field)
+              (rest json-path)))}))
+
 (defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
    `column-list`. Updating :projected-fields causes the select in the SQL query
    to be modified."
   [{:keys [projections] :as query-rec} column-list expr]
   (let [names->fields (fn [names projections]
-                        (mapv #(vector % (projections %))
+                        (mapv #(if (is-dotted-projection? %)
+                                 (vector % (create-json-subtree-projection % projections))
+                                 (vector % (projections %)))
                               names))]
     (if (or (nil? expr)
             (not (subquery-expression? expr)))
@@ -2122,9 +2174,12 @@
 (declare push-down-context)
 
 (defn unsupported-fields
-  [field allowed-fields]
+  [field allowed-fields allowed-json-extracts]
   (let [supported-calls (set (map #(vector "function" %) (keys pdb-fns->pg-fns)))]
-    (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
+    (remove #(or (contains? (set allowed-fields) %)
+                 (contains? supported-calls (take 2 %))
+                 (and (is-dotted-projection? %)
+                      (contains? (set allowed-json-extracts) (first (str/split % #"\.")))))
             (ks/as-collection field))))
 
 (defn validate-query-operation-fields
@@ -2132,8 +2187,8 @@
   message string if some of the fields are invalid.
 
   Error-action and error-context parameters help in formatting different error messages."
-  [field allowed-fields query-name error-action error-context]
-  (let [invalid-fields (unsupported-fields field allowed-fields)]
+  [field allowed-fields allowed-json-extracts query-name error-action error-context]
+  (let [invalid-fields (unsupported-fields field allowed-fields allowed-json-extracts)]
     (when (> (count invalid-fields) 0)
       (format "%s unknown '%s' %s %s%s. Acceptable fields are %s"
               error-action
@@ -2165,6 +2220,7 @@
                       column-validation-message (validate-query-operation-fields
                                                  column
                                                  (queryable-fields nested-qc)
+                                                 (projectable-json-fields nested-qc)
                                                  (:alias nested-qc)
                                                  "Can't extract" "")]
 
@@ -2231,9 +2287,11 @@
             [["extract" field & _]]
             (let [query-context (:query-context (meta node))
                   extractable-fields (projectable-fields query-context)
+                  extractable-json-fields (projectable-json-fields query-context)
                   column-validation-message (validate-query-operation-fields
                                               field
                                               extractable-fields
+                                              extractable-json-fields
                                               (:alias query-context)
                                               "Can't extract" "")]
               (when column-validation-message
@@ -2259,6 +2317,7 @@
                   column-validation-message (validate-query-operation-fields
                                              field
                                              (queryable-fields query-context)
+                                             []
                                              (:alias query-context)
                                              "Can't match on" "for 'in'")]
               (when column-validation-message

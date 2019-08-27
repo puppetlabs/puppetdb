@@ -31,7 +31,9 @@
            :operatingsystem "Debian"
            :some_version "1.3.7+build.11.e0f985a"
            :uptime_seconds 4000
-           :my_weird_fact {:blah {:dotted.thing {:dashed-thing {(keyword "quoted\"thing") "foo"}}}}
+           :my_weird_fact {:blah {:dotted.thing {:dashed-thing {(keyword "quoted\"thing") "foo"}}
+                                  (keyword "single'quoted") "bar"
+                                  (keyword "double\"quoted") "baz"}}
            :double_quote "foo\"bar"
            :backslash "foo\\bar"}})
 
@@ -72,6 +74,29 @@
 
      ["=" "facts.kernel" "Linux"]
      #{response1}
+
+     ["extract" "facts.kernel" ["=" "facts.kernel" "Linux"]]
+     #{{:facts.kernel (get-in response1 [:facts :kernel])}}
+
+     ["extract" "facts.my_structured_fact" ["=" "facts.kernel" "Linux"]]
+     #{{:facts.my_structured_fact (get-in response1 [:facts :my_structured_fact])}}
+
+     ;; TODO: Remove this when the length issue is fixed as it'll be a useles duplicate at that time
+     ["extract" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\"" ["=" "facts.kernel" "Linux"]]
+     #{{(keyword "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\"")
+        (get-in response1 [:facts :my_weird_fact :blah :dotted.thing :dashed-thing])}}
+
+     ;; TODO: Remove this when the length issue is fixed as it'll be a useles duplicate at that time
+     ["extract" "facts.my_weird_fact.blah.\"double\"quoted\"" ["=" "facts.my_weird_fact.blah.\"double\"quoted\"" "baz"]]
+     #{{(keyword "facts.my_weird_fact.blah.\"double\"quoted\"") "baz"}}
+
+     ;; TODO: Once the length fix is merged this test will serve to test both dashes and double quotes
+     ; ["extract" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"" ["=" "facts.kernel" "Linux"]]
+     ; #{{(keyword "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"")
+     ;    (get-in response1 [:facts :my_weird_fact :blah :dotted.thing :dashed-thing (keyword "quoted\"thing")])}}
+
+     ["extract" "facts.my_weird_fact.blah.\"single'quoted\"" ["=" "facts.my_weird_fact.blah.\"single'quoted\"" "bar"]]
+     #{{(keyword "facts.my_weird_fact.blah.\"single'quoted\"") "bar"}}
 
      ["~" "facts.kernel" "Li.*"]
      #{response1}

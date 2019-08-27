@@ -234,6 +234,27 @@ nodes { certname in inventory[certname] { facts.osfamily = "Windows" } and
 } ]
 ```
 
+### Fact, report status filtering with dot notation
+
+Get only the `certname`, `os.family` and `puppetversion` for all nodes whose most recent
+report indicated a failure.
+
+```
+inventory[certname, facts.os.family, facts.puppetversion] {
+  certname in nodes { latest_report_status = "failed" }
+}
+```
+
+Output:
+
+```json
+[ {
+  "certname" : "server.vm",
+  "facts.os.family": "Debian",
+  "facts.puppetversion": "6.8.1"
+} ]
+```
+
 ***
 
 ### Timestamp filtering
