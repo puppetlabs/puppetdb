@@ -302,7 +302,12 @@ to the result of the form supplied to this method."
             ["=" "environment" "DEV"]
             ["group_by" "type"]]
            #{{:type "File" :count 1}
-             {:type "Notify" :count 1}}))))
+             {:type "Notify" :count 1}}
+
+           ["extract" ["certname" "parameters.ensure"]
+            ["=" "type" "File"]]
+           #{{:certname "one.local" :parameters.ensure "file"}
+             {:certname "two.local" :parameters.ensure "file"}}))))
 
 (deftest-http-app paging-results
   [[version endpoint] endpoints
