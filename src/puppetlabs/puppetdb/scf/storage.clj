@@ -50,7 +50,8 @@
            [java.util Arrays]
            [org.postgresql.util PGobject]
            [org.joda.time Period]
-           [java.sql Timestamp]))
+           [java.sql Timestamp]
+           (java.time LocalDateTime Instant ZoneId)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1398,6 +1399,13 @@
    the specified date/time."
   [time]
   {:pre [(kitchensink/datetime? time)]}
+
+  ;(let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
+  ;      older-than (LocalDateTime/ofInstant (Instant/ofEpochMilli (.getMillis time)) (ZoneId/of "UTC"))
+  ;      start-of-week (partitioning/start-of-week older-than)
+  ;      iso-year ()
+  ;      ]
+  ;  )
   (jdbc/delete! :resource_events ["timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

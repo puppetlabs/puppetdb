@@ -22,7 +22,7 @@
         today (LocalDate/now)
         week-range (range -4 4)
         dates (map #(.plusWeeks today %) week-range)
-        part-names (map #(partitioning/iso-week-year-suffix %) dates)]
+        part-names (map #(partitioning/day-suffix %) dates)]
     (apply-migration-for-testing! 73)
 
     (is (= {:index-diff (into
@@ -427,17 +427,17 @@
                                 :same nil}]
                               cat
                               (map (fn [date-of-week]
-                                     (let [part-name (partitioning/iso-week-year-suffix date-of-week)
+                                     (let [part-name (partitioning/day-suffix date-of-week)
                                            table-name (str "resource_events_" part-name)
                                            date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss")
-                                           start-of-first-day (.format date-formatter
-                                                                       (partitioning/start-of-week date-of-week))
-                                           start-of-next-week (.format date-formatter
-                                                                       (partitioning/start-of-week (.plusDays date-of-week 7)))]
+                                           start-of-day (.format date-formatter
+                                                                       (.atStartOfDay date-of-week))
+                                           end-of-day (.format date-formatter
+                                                                       (.atStartOfDay (.plusDays date-of-week 1)))]
                                        [{:left-only nil
                                          :right-only {:constraint_name
                                                       (format "(((\"timestamp\" >= '%s'::timestamp without time zone) AND (\"timestamp\" < '%s'::timestamp without time zone)))"
-                                                              start-of-first-day start-of-next-week)
+                                                              start-of-day end-of-day)
                                                       :table_name table-name
                                                       :constraint_type "CHECK"
                                                       :initially_deferred "NO"

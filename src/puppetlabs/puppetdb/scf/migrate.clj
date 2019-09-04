@@ -1623,9 +1623,9 @@
    DECLARE
      tablename varchar;
    BEGIN
-     SELECT FORMAT('resource_events_%s_W%s',
-                   EXTRACT(ISOYEAR FROM NEW.\"timestamp\")::varchar,
-                   TO_CHAR(EXTRACT(WEEK FROM NEW.\"timestamp\"), 'FM00')) INTO tablename;
+     SELECT FORMAT('resource_events_%s_%s',
+                   EXTRACT(YEAR FROM NEW.\"timestamp\")::varchar,
+                   TO_CHAR(EXTRACT(DOY FROM NEW.\"timestamp\"), 'FM000')) INTO tablename;
 
      EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
      USING NEW;

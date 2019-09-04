@@ -6,22 +6,17 @@
   (:import [java.time LocalDateTime LocalTime Year LocalDate]
            [java.time.temporal TemporalAdjusters WeekFields IsoFields]))
 
-(defn iso-week-year-suffix
+(defn- coerce-date
   [date]
-  (let [week-fields (WeekFields/ISO)
-        week-field (.weekOfWeekBasedYear week-fields)
-        week-num (.get date week-field)
-        year (.get date (IsoFields/WEEK_BASED_YEAR))]
-    (format "%d_w%02d" year week-num)))
+  (if (instance? LocalDateTime date)
+    (.toLocalDate date)
+    date))
 
-(defn start-of-week
+(defn day-suffix
   [date]
-  (let [date (if (instance? LocalDateTime date)
-               (.toLocalDate date)
-               date)
-        week-fields (WeekFields/ISO)
-        first-day (.with date (TemporalAdjusters/previousOrSame (.getFirstDayOfWeek week-fields)))]
-    (LocalDateTime/of first-day LocalTime/MIN)))
+  (let [day (.getDayOfYear date)
+        year (.getYear date)]
+    (format "%d_%03d" year day)))
 
 (s/defn create-partition
   [base-table :- s/Str
@@ -30,17 +25,17 @@
    index-fn :- (s/fn-schema
                 (s/fn :- [s/Str] [full-table-name :- s/Str
                                   iso-year-week :- s/Str]))]
-  (let [start-of-first-day (start-of-week date)
-        start-of-next-week (start-of-week (.plusDays start-of-first-day 7))
+  (let [start-of-day (.atStartOfDay date)
+        start-of-next-day (.atStartOfDay (.plusDays date 1))
 
-        table-name-suffix (iso-week-year-suffix date)
+        table-name-suffix (day-suffix date)
         full-table-name (format "%s_%s" base-table table-name-suffix)]
     (apply jdbc/do-commands-outside-txn
            (concat [(format (str "CREATE TABLE IF NOT EXISTS %s ("
                                  " CHECK ( %s >= '%s'::timestamp AND %s < '%s'::timestamp )"
                                  ") INHERITS (%s)")
                             full-table-name
-                            date-column start-of-first-day date-column start-of-next-week
+                            date-column start-of-day date-column start-of-next-day
                             base-table)]
                    (index-fn full-table-name table-name-suffix)))))
 
