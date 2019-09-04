@@ -331,6 +331,12 @@
   ([base-url certname]
    (certname-query base-url "/catalogs" certname)))
 
+(defn get-all-catalog-inputs
+  ([base-url]
+   (-> (query-url-str base-url "/catalog-inputs")
+       get-or-throw
+       :body)))
+
 (defn get-summary-stats []
   (-> (admin-url-str "/summary-stats")
       get-or-throw
