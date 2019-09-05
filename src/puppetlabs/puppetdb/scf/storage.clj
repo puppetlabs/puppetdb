@@ -40,7 +40,7 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :refer [ago now to-timestamp from-sql-date before?]]
+            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
@@ -51,7 +51,7 @@
            [org.postgresql.util PGobject]
            [org.joda.time Period]
            [java.sql Timestamp]
-           (java.time LocalDateTime Instant ZoneId)))
+           (java.time Instant LocalDate LocalDateTime Year ZoneId)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1387,26 +1387,37 @@
                    (when update-latest-report?
                      (update-latest-report! certname report-id producer_timestamp))))))))))
 
+(defn delete-resource-events-older-than!
+  "Delete all resource events in the database by dropping any partition older than the day of the year of the given date.
+  Note: this ignores the time in the given timestamp, rounding to the day."
+  [date]
+  {:pre [(kitchensink/datetime? date)]}
+
+  (let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
+        expire-date (.toLocalDate (time/joda-datetime->java-zoneddatetime date))]
+
+    (doall
+     (map (fn [table-entry] (jdbc/do-commands
+                             (format "drop table %s" (:tablename table-entry))))
+          (filter (fn [table-entry]
+                    (let [table (:tablename table-entry)
+                          parts (str/split table #"_")
+                          table-year (Integer/parseInt (get parts 2))
+                          table-day (Integer/parseInt (get parts 3))
+                          table-date (LocalDate/ofYearDay table-year table-day)]
+                      (.isBefore table-date expire-date)))
+                  tables)))))
+
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to
    the specified date/time."
   [time]
   {:pre [(kitchensink/datetime? time)]}
+  ;; force a resource-events GC. prior to partitioning, this would have happened
+  ;; via a cascade when the report was deleted, but now we just drop whole tables
+  ;; of resource events.
+  (delete-resource-events-older-than! time)
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
-
-(defn delete-resource-events-older-than!
-  "Delete all resource events in the database which have an `timestamp` that is prior to
-   the specified date/time."
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-
-  ;(let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
-  ;      older-than (LocalDateTime/ofInstant (Instant/ofEpochMilli (.getMillis time)) (ZoneId/of "UTC"))
-  ;      start-of-week (partitioning/start-of-week older-than)
-  ;      iso-year ()
-  ;      ]
-  ;  )
-  (jdbc/delete! :resource_events ["timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

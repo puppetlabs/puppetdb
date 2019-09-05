@@ -62,3 +62,5 @@ checkouts
 /ext/test-conf/puppetserver-ref-requested
 /puppet/state/
 /puppetserver/
+
+.nrepl-port

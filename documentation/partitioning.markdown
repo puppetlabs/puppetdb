@@ -1,27 +1,22 @@
 # Partitioning in PuppetDB
 
 PuppetDB will use partitioning for its timeseries data, specifically `reports`
-and `resource_events`. This will enable more efficient queries and management
-of the storage of this data, and reduce the need for using `VACUUM` on this
-data.
+and `resource_events`. The primary goal of partitioning is to reduce the burden
+of managing deleted data with `VACUUM`. Any query performance improvements are a
+secondary concern.
 
 Initial implementation is focused on the `resource_events` table.
 
 ## Partitions
 
-Data will be partitioned on ISO 8601 week number and year. Example:
+Data will be partitioned on days (aka Julian calendar dates). Example:
 
-Week 1, 2019: `resource_events_2019_W01`
+May 1, 2019: `resource_events_2019_121`
 
-Week 30, 2021: `resource_events_2021_W30`
+December 31, 2020: `resource_events_2020_366`
 
 When the TTL is reached, any partitions older than the TTL will be dropped.
-This means it is possible to retain data slightly longer than the TTL. For
-example, if the TTL is set to 5 days, it will take 7 days before the data is
-dropped from the database.
-
-If this is a concern in queries, we can mitigate this by adding additional
-`WHERE` clauses to queries dynamically to take TTL into account.
+The TTL is rounded to the nearest day.
 
 Partitions will be created in accordance with the [PostgreSQL documentation](https://www.postgresql.org/docs/9.6/ddl-partitioning.html)
 
@@ -30,7 +25,7 @@ may be an option.
 
 ## Migration
 
-During migration, the week-year partition for the current date and &plusmn; 4 weeks will be created.
+During migration, the partition for the current date and &plusmn; 4 weeks will be created.
 
 Existing data will be migrated into the new partitioned table similarly to the existing migrations. This can cause new partitions
 to be created if necessary.
@@ -42,11 +37,10 @@ due to the nature of creating the partitions. This ensures we don't have a lengt
 
 The base table is created with the same schema as the pre-partitioned table.
 
-A database-side function is created to route `INSERT` statements to the proper partition by extracting the ISO week and ISO year from
+A database-side function is created to route `INSERT` statements to the proper partition by extracting the Julian date from
 the `timestamp` column. This function is called via a `BEFORE INSERT` trigger on the base table.
 
-Each partition has a `CHECK` constraint limiting it to the date ranges that apply for that given ISO week. These dates are
-calculated in Clojure, using the Java 8 `java.time` APIs.
+Each partition has a `CHECK` constraint limiting it to the hours that apply for that day.
 
 ## Caveats
 

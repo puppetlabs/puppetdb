@@ -20,8 +20,8 @@
 
   (let [before-migration (schema-info-map *db*)
         today (LocalDate/now)
-        week-range (range -4 4)
-        dates (map #(.plusWeeks today %) week-range)
+        days-range (range -4 4)
+        dates (map #(.plusDays today %) days-range)
         part-names (map #(partitioning/day-suffix %) dates)]
     (apply-migration-for-testing! 73)
 

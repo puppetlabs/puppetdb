@@ -1642,11 +1642,11 @@
   ;; create range of partitioned tables
 
   (let [now (LocalDate/now)
-        weeks (range -4 4)]
+        days (range -4 4)]
     (doall
-     (map (fn [week-offset]
-            (partitioning/create-resource-events-partition (.plusWeeks now week-offset)))
-          weeks)))
+     (map (fn [day-offset]
+            (partitioning/create-resource-events-partition (.plusDays now day-offset)))
+          days)))
 
   ;; null values are not considered equal in postgresql indexes,
   ;; therefore the existing unique constraint did not function
