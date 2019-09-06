@@ -530,7 +530,7 @@
      (doto config
        (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
        (.setAutoCommit false)
-       (.setInitializationFailFast false)
+       (.setInitializationFailTimeout -1)
        (.setTransactionIsolation "TRANSACTION_READ_COMMITTED"))
      (some->> pool-name (.setPoolName config))
      (some->> connection-timeout (.setConnectionTimeout config))
