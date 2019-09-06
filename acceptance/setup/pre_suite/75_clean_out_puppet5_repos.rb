@@ -16,7 +16,12 @@ if (test_config[:install_mode] == :upgrade_oldest) \
         # install puppet 6 directly to prepare for upgrade
         install_puppet_agent_on(database, {:puppet_collection => "puppet6"})
         on(database, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
-        install_package(database, 'puppetserver')
+
+        if get_os_family(database) == :debian
+          database.install_package('puppetserver', '-o Dpkg::Options::="--force-confnew"')
+        else
+          install_package(database, 'puppetserver')
+        end
       end
     end
   end
