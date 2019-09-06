@@ -33,4 +33,4 @@
    :store_report latest-report-version
    :replace_facts latest-facts-version
    :configure_expiration latest-configure-expiration-version
-   :replace-catalog-inputs latest-catalog-inputs-version})
+   :replace_catalog_inputs latest-catalog-inputs-version})
