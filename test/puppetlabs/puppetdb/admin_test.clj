@@ -24,12 +24,18 @@
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.time :refer [now]]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]))
+            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds]]
+            [puppetlabs.puppetdb.time :as time]))
 
 (use-fixtures :each tu/call-with-test-logging-silenced)
 
 (deftest test-basic-roundtrip
-  (let [export-out-file (tu/temp-file "export-test" ".tar.gz")]
+  (let [export-out-file (tu/temp-file "export-test" ".tar.gz")
+        catalog-input-cmd (-> (sample-input-cmds)
+                              (get "host-1")
+                              (update :certname (constantly example-certname))
+                              (update :producer_timestamp time/to-string))]
 
     (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
@@ -57,6 +63,16 @@
                                     cmd-consts/latest-configure-expiration-version
                                     example-configure-expiration-true)
        (scf-storage/maybe-activate-node! "i_dont_have_an_expiration_setting" (now))
+
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "replace catalog inputs"
+                                    cmd-consts/latest-catalog-inputs-version
+                                    catalog-input-cmd)
+
+       (is (= catalog-input-cmd
+              (-> (svc-utils/pdb-cmd-url)
+                  svc-utils/get-all-catalog-inputs
+                  first)))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -93,7 +109,12 @@
          (is (= (sort-by :certname example-nodes)
                 (sort-by :certname
                          (map #(select-keys % [:certname :expires_facts :expires_facts_updated])
-                              nodes)))))))))
+                              nodes)))))
+
+       (is (= catalog-input-cmd
+              (-> (svc-utils/pdb-cmd-url)
+                  svc-utils/get-all-catalog-inputs
+                  first)))))))
 
 (deftest test-anonymized-export
   (doseq [profile (keys anon/anon-profiles)]
@@ -110,6 +131,14 @@
                                       "store report" cmd-consts/latest-report-version example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "replace facts" cmd-consts/latest-facts-version example-facts)
+
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "replace catalog inputs"
+                                      cmd-consts/latest-catalog-inputs-version
+                                      (-> (sample-input-cmds)
+                                          (get "host-1")
+                                          (update :certname (constantly example-certname))
+                                          (update :producer_timestamp time/to-string)))
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))

@@ -48,7 +48,8 @@
           "factsets" ["facts" (str (:certname datum) export-file-ext)]
           "catalogs" ["catalogs" (export-filename datum)]
           "reports" ["reports" (export-filename datum)]
-          "nodes-with-fact-expiration" ["configure_expiration" (export-filename datum)])]
+          "nodes-with-fact-expiration" ["configure_expiration" (export-filename datum)]
+          "catalog-inputs" ["catalog_inputs" (export-filename datum)])]
     {:file-suffix command-file-name
      :contents (json/generate-pretty-string datum)}))
 
@@ -68,7 +69,10 @@
                :json-encoded-fields [:facts]}
    "nodes-with-fact-expiration" {:query->wire-fn nodes/nodes-query->configure-expiration-wire-v1
                                  :anonymize-fn anon/anonymize-configure-expiration
-                                 :json-encoded-fields []}})
+                                 :json-encoded-fields []}
+   "catalog-inputs" {:query->wire-fn identity
+                     :anonymize-fn anon/anonymize-catalog-inputs
+                     :json-encoded-fields []}})
 
 (def export-order
   "Order is important here because we have to make sure the fact expiration status

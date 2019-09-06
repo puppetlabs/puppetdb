@@ -43,7 +43,8 @@
   (some-fn (make-certname-matcher "catalogs" true)
            (make-certname-matcher "reports" true)
            (make-certname-matcher "facts" false)
-           (make-certname-matcher "configure_expiration" true)))
+           (make-certname-matcher "configure_expiration" true)
+           (make-certname-matcher "catalog_inputs" true)))
 
 (defn-validated process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
@@ -87,6 +88,11 @@
         (log/info (trs "Importing node expiration from archive entry ''{0}''" path))
         (command-fn' :configure-expiration
                      (:configure_expiration command-versions)))
+      "catalog_inputs"
+      (do
+        (log/info (trs "Importing catalog input from archive entry ''{0}''" path))
+        (command-fn' :replace-catalog-inputs
+                     (:replace_catalog_inputs command-versions)))
       nil)))
 
 (def metadata-path

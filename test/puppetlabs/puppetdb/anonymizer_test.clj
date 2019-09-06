@@ -245,6 +245,19 @@
       (is (= 2 (count result)))
       (is (not (= input result))))))
 
+(deftest test-anonymize-catalog-inputs-input
+  (testing "should return a collection of 2"
+    (is (coll? (anonymize-catalog-inputs-input ["type" "value"] {} {})))
+    (is (= 2 (count (anonymize-catalog-inputs-input ["type" "value"] {} {}))))))
+
+(deftest test-anonymize-catalog-inputs-inputs
+  (testing "should return a collection of the same length"
+    (let [input [["type1" "val1"] ["type2" "val2"]]
+          result (anonymize-catalog-inputs-inputs input {} {})]
+      (is (vector? result))
+      (is (= 2 (count result)))
+      (is (not (= input result))))))
+
 (deftest test-capitalize-resource-type
   (testing "should change a resource type to upcase format like Foo::Bar"
     (let [input  "foo::bar"

@@ -139,6 +139,8 @@
        :type (random-type-name)
        :title (random-string (max 10 (count value)))
        :parameter-name (random-string-alpha (max 10 (count value)))
+       :catalog-input-type (random-string-alpha (max 10 (count value)))
+       :catalog-input-value (random-string-alpha (max 10 (count value)))
        :text (anonymize-text value)
        :message (random-string (max 10 (count value)))
        :file (random-pp-path)
@@ -225,6 +227,22 @@
   {:pre  [(map? parameters)]
    :post [(map? %)]}
   (into {} (map #(anonymize-parameter % context config) parameters)))
+
+(defn anonymize-catalog-inputs-input
+  "Anonymize a catalog-inputs input [type value] pair"
+  [input context config]
+  {:pre  [(coll? input)]
+   :post [(coll? %)]}
+  (let [[type val] input]
+    [(anonymize-leaf type :catalog-input-type context config)
+     (anonymize-leaf val :catalog-input-value context config)]))
+
+(defn anonymize-catalog-inputs-inputs
+  "Anonymize the catalog-inputs inputs type/value pairs"
+  [inputs context config]
+  {:pre  [(coll? inputs)]
+   :post [(coll? %)]}
+  (into [] (map #(anonymize-catalog-inputs-input % context config) inputs)))
 
 (defn capitalize-resource-type
   "Converts a downcase resource type to an upcase version such as Foo::Bar"
@@ -449,6 +467,14 @@
     (-> wire-node
         (update "certname" anonymize-leaf :node context config))))
 
+(defn anonymize-catalog-inputs
+  "Anonymize a set of catalog inputs"
+  [config wire-catalog-inputs]
+  (let [context {"node" (get wire-catalog-inputs "certname")}]
+    (-> wire-catalog-inputs
+        (update "certname" anonymize-leaf :node context config)
+        (update "inputs" anonymize-catalog-inputs-inputs context config))))
+
 (def anon-profiles
   ^{:doc "Hard coded rule engine profiles indexed by profile name"}
   {
@@ -502,6 +528,10 @@
                                                                          "/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
                                             "anonymize" true}
                                            ]
+                        "catalog-input-type" [
+                                              ;; leave catalog-input types alone
+                                              {"context" {} "anonymize" false}
+                                              ]
                         "line" [
                                 ;; Line numbers without file names does not give away a lot
                                 {"context" {} "anonymize" false}
@@ -554,6 +584,9 @@
                    "parameter-name" [
                                      {"context" {} "anonymize" false}
                                      ]
+                   "catalog-input-type" [
+                                         {"context" {} "anonymize" false}
+                                         ]
                    "line" [
                            {"context" {} "anonymize" false}
                            ]
@@ -596,10 +629,12 @@
                     "type" [ {"context" {} "anonymize" false} ]
                     "title" [ {"context" {} "anonymize" false} ]
                     "parameter-name" [ {"context" {} "anonymize" false} ]
+                    "catalog-input-type" [ {"context" {} "anonymize" false} ]
                     "line" [ {"context" {} "anonymize" false} ]
                     "file" [ {"context" {} "anonymize" false} ]
                     "message" [ {"context" {} "anonymize" false} ]
                     "parameter-value" [ {"context" {} "anonymize" false} ]
+                    "catalog-input-value" [ {"context" {} "anonymize" false} ]
                     "transaction_uuid" [ {"context" {} "anonymize" false} ]
                     "fact-name" [{"context" {} "anonymize" false}]
                     "fact-value" [{"context" {} "anonymize" false}]
