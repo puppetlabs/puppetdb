@@ -284,8 +284,14 @@
                                  ;; integration tests cycle jruby a lot, which chews through permgen
                                  ^:replace ["-XX:MaxPermSize=500M"]
                                  [])}
-             :uberjar {:aot ~pdb-aot-namespaces}
-             :provided {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]}}
+             ; We only want to include bouncycastle in the FOSS uberjar.
+             ; PE should be handled by selecting the proper bouncycastle jar
+             ; at runtime (standard/fips)
+             :uberjar {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
+                       :aot ~pdb-aot-namespaces}
+             :fips {:exclusions [org.bouncycastle/bcpkix-jdk15on]
+                    :dependencies [[org.bouncycastle/bcpkix-fips]
+                                   [org.bouncycastle/bc-fips]]}}
 
   :jar-exclusions [#"leiningen/"]
 
