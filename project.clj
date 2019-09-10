@@ -257,6 +257,10 @@
                                                ;; Hopefully we can remove those `nil`s (if we care)
                                                ;; and this comment when lein 2.7.2 is available.
 
+                                               ;; ezbake does not use the uberjar profile so we need
+                                               ;; to duplicate this dependency here
+                                               [org.bouncycastle/bcpkix-jdk15on nil]
+
                                                ;; we need to explicitly pull in our parent project's
                                                ;; clojure version here, because without it, lein
                                                ;; brings in its own version, and older versions of
