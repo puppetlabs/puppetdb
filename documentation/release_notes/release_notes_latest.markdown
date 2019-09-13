@@ -18,6 +18,23 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrade_policy]: ./versioning_policy.html#upgrades
 [facts]: ./api/query/v4/facts.html
 
+## PuppetDB 6.6.0
+
+### New features and improvements
+
+
+
+### Bug fixes
+
+- A change in the `puppetdb-termini` package for 6.5.0 broke SSL connections that
+  did not use Puppet's CA. This fix adds the `verify_client_connection`. By
+  default, `verify_client_connection` only allows SSL connections authenticated by the
+  Puppet CA. When set to `false`, it allows the use of other SSL connections. [PDB-4487](https://tickets.puppetlabs.com/browse/PDB-4487)
+
+- Fixed an issue where package upgrades on CentOS 6 would sometimes fail when
+  upgrading from older versions of PuppetDB (for example, 5.2) to more recent versions
+  (for example, 6.3+). [PDB-4373](https://tickets.puppetlabs.com/browse/PDB-4373)
+
 ## PuppetDB 6.5.0
 
 ### New features and improvements
