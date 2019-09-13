@@ -786,12 +786,13 @@
       "inputs" {:type :array
                 :queryable? true
                 :field :ci.inputs}}
-     :selection {:from [[{:select [:certname_id
+     :selection {:from [:certnames]
+                 :join [[{:select [:certname_id
                                    [(hcore/raw "array_agg(array[catalog_inputs.type, name])") :inputs]]
                           :from [:catalog_inputs]
-                          :group-by [:certname_id]} :ci]]
-                 :left-join [:certnames
-                             [:= :certnames.id :ci.certname_id]]}
+                          :group-by [:certname_id]} :ci]
+                        [:= :certnames.id :ci.certname_id]]
+                 :where [:<> :certnames.catalog_inputs_timestamp nil]}
      :relationships certname-relations
 
      :entity :catalog-inputs
