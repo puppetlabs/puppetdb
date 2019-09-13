@@ -1540,22 +1540,29 @@
   ;; we've encountered during the migration to avoid inserting
   ;; duplicates into the new table.
 
-  (jdbc/call-with-query-rows
-   ["select
+  (let [event-count (-> "select count(*) from resource_events"
+                        jdbc/query-to-vec first :count)
+        last-logged (atom (.getTime (java.util.Date.)))]
+    (jdbc/call-with-query-rows
+     ["select
        report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
        new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
      from resource_events"]
-   (fn [rows]
-     (reduce (fn [hashes-seen row]
-               (conj hashes-seen
-                     (let [hash-str (hash/resource-event-identity-pkey row)]
-                       (when-not (hashes-seen hash-str)
-                         (jdbc/insert-multi! "resource_events_transform"
-                                             (list (assoc row :event_hash
-                                                          (sutils/munge-hash-for-storage hash-str)))))
-                       hash-str)))
-             #{}
-             rows)))
+     (fn [rows]
+       (reduce (fn [hashes-seen [row i]]
+                 (let [now (.getTime (java.util.Date.))]
+                   (when (> (- now @last-logged) 60000)
+                     (log/info (trs "Migrated {0} of {1} events" i event-count))
+                     (reset! last-logged now)))
+                 (conj hashes-seen
+                       (let [hash-str (hash/resource-event-identity-pkey row)]
+                         (when-not (hashes-seen hash-str)
+                           (jdbc/insert-multi! "resource_events_transform"
+                                               (list (assoc row :event_hash
+                                                            (sutils/munge-hash-for-storage hash-str)))))
+                         hash-str)))
+               #{}
+               (map vector rows (range event-count))))))
 
   (jdbc/do-commands
    "DROP TABLE resource_events"
