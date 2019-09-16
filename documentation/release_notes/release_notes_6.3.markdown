@@ -50,7 +50,7 @@ Austin Blatt, Heston Hoffman, Robert Roland, and Zachary Kent
 ### Contributors
 
 Austin Blatt, Erik Hansen, Heston Hoffman, Jean Bond, Rob Browning,
-Robert Roland, Wyatt Alt, and Zachary Kent
+Robert Roland, Wyatt Alt, and Zak Kent
 
 ## PuppetDB 6.3.1
 
@@ -68,8 +68,8 @@ Robert Roland, Wyatt Alt, and Zachary Kent
 
 ### Contributors
 
-Austin Blatt, Chris Roddy, Heston Hoffman, Iristyle, Jean Bond, Rob
-Browning, Robert Roland, and Zachary Kent
+Austin Blatt, Chris Roddy, Ethan J. Brown, Heston Hoffman, Jean Bond,
+Rob Browning, Robert Roland, and Zak Kent
 
 ## PuppetDB 6.3.0
 
@@ -88,6 +88,12 @@ Browning, Robert Roland, and Zachary Kent
 - **Errors when using the** `in` **operator with** `"act_only":true`. Valid PQL queries, which use the `in` operator to compare against an array, that are being converted to AST via the `ast_only` option no longer throw a `NullPointerException`.  [PDB-4232](https://tickets.puppetlabs.com/browse/PDB-4232)
 
 - **Errors when using the** `in` **operator with arrays**. PuppetDB would give an error if you used the `in` operator with an array of fact values or any array that did not have just one element. PuppetDB now accepts an array of fact values unless it finds an actual type mismatch. [PDB-4199](https://tickets.puppetlabs.com/browse/PDB-4199)
+
+### Contributors
+
+Austin Blatt, Cas Donoghue, Charlie Sharpsteen, Ethan J. Brown, Heston
+Hoffman, Maggie Dreyer, Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob
+Browning, Robert Roland, and Zak Kent
 
 ## PuppetDB 6.2.0
 
@@ -108,7 +114,7 @@ Browning, Robert Roland, and Zachary Kent
 ### Contributors
 
 Austin Blatt, David Lutterkort, Heston Hoffman, Morgan Rhodes, Nate
-Wolfe, Rob Browning, Robert Roland, Wyatt Alt, and Zachary Kent
+Wolfe, Rob Browning, Robert Roland, Wyatt Alt, and Zak Kent
 
 ## PuppetDB 6.1.0
 
@@ -128,6 +134,5 @@ Wolfe, Rob Browning, Robert Roland, Wyatt Alt, and Zachary Kent
 
 ### Contributors
 
-Austin Blatt, Daniel Kessler, Ethan J. Brown, Heston Hoffman, Iristyle,
-Molly Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary
-Kent
+Austin Blatt, Daniel Kessler, Ethan J. Brown, Heston Hoffman, Molly
+Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zak Kent
