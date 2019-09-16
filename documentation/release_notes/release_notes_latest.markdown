@@ -33,6 +33,11 @@ canonical: "/puppetdb/latest/release_notes.html"
   upgrading from older versions of PuppetDB (for example, 5.2) to more recent versions
   (for example, 6.3+). [PDB-4373](https://tickets.puppetlabs.com/browse/PDB-4373)
 
+### Contributors
+
+Austin Blatt, Craig Watson, Ethan J. Brown, Heston Hoffman, Nate Wolfe,
+Rob Browning, Robert Roland, and Zak Kent
+
 ## PuppetDB 6.5.0
 
 ### New features and improvements
