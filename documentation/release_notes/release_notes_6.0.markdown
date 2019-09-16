@@ -44,8 +44,8 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ### Contributors
 
-Austin Blatt, Chris Roddy, Erik Hansen, Heston Hoffman, Iristyle, Jean
-Bond, Rob Browning, Robert Roland, Wyatt Alt, and Zachary Kent
+Austin Blatt, Chris Roddy, Erik Hansen, Ethan J. Brown, Heston Hoffman,
+Jean Bond, Rob Browning, Robert Roland, Wyatt Alt, and Zak Kent
 
 ## PuppetDB 6.0.3
 
@@ -65,9 +65,9 @@ Bond, Rob Browning, Robert Roland, Wyatt Alt, and Zachary Kent
 
 ### Contributors
 
-Austin Blatt, Charlie Sharpsteen, Ethan J. Brown, Heston Hoffman,
-Iristyle, Molly Waggett, Nate Wolfe, Rob Browning, Robert Roland, Wyatt
-Alt, Zachary Kent, and donoghuc
+Austin Blatt, Cas Donoghue, Charlie Sharpsteen, Ethan J. Brown, Heston
+Hoffman, Molly Waggett, Nate Wolfe, Rob Browning, Robert Roland, Wyatt
+Alt, and Zak Kent
 
 ## PuppetDB 6.0.2
 
@@ -92,8 +92,8 @@ Alt, Zachary Kent, and donoghuc
 ### Contributors
 
 Austin Blatt, Brandon High, Claire Cadman, David Lutterkort, Erik
-Dalén, Ethan J. Brown, Heston Hoffman, Iristyle, Molly Waggett, Morgan
-Rhodes, Nate Wolfe, Rob Browning, Robert Roland, and Zachary Kent
+Dalén, Ethan J. Brown, Heston Hoffman, Molly Waggett, Morgan Rhodes,
+Nate Wolfe, Rob Browning, Robert Roland, and Zak Kent
 
 ## PuppetDB 6.0.1
 
@@ -109,7 +109,9 @@ PuppetDB 6.0.1 is a new feature and bug-fix release.
 - PuppetDB should interpret JDK version numbers correctly when evaluating compatibility at startup. Previously, it was not accounting for the switch from the "1.10..." to 10..." format in newer versions of the JDK. [PDB-4141](https://tickets.puppetlabs.com/browse/PDB-4141)
 
 ### Contributors
-Austin Blatt, Claire Cadman, Ethan J. Brown, Michelle Fredette, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary Kent
+
+Austin Blatt, Claire Cadman, Ethan J. Brown, Michelle Fredette, Morgan
+Rhodes, Rob Browning, Robert Roland, and Zak Kent
 
 ## PuppetDB 6.0.0
 
@@ -159,5 +161,5 @@ when the minimum successful submissions have been met. ([PDB-4020](https://ticke
 
 ### Contributors
 
-Austin Blatt, Britt Gresham, Charlie Sharpsteen, Garrett Guillotte, Jarret Lavallee
-Molly Waggett, Morgan Rhodes, Rob Browning, and Zachary Kent
+Austin Blatt, Charlie Sharpsteen, Garrett Guillotte, Morgan Rhodes, Rob
+Browning, and Zak Kent
