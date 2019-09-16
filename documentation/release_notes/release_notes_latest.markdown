@@ -22,8 +22,6 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ### New features and improvements
 
-
-
 ### Bug fixes
 
 - A change in the `puppetdb-termini` package for 6.5.0 broke SSL connections that
@@ -50,9 +48,8 @@ catalog inputs that PuppetDB has received for any nodes. ([PDB-4371](https://tic
 
 ### Contributors
 
-Austin Blatt, Ethan J. Brown, Heston Hoffman, Iristyle, Josh Partlow,
-Nate Wolfe, Nick Walker, Patrick Carlisle, Rob Browning, and Robert
-Roland
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Josh Partlow, Nate Wolfe,
+Nick Walker, Patrick Carlisle, Rob Browning, and Robert Roland
 
 ## PuppetDB 6.4.0
 
@@ -62,5 +59,5 @@ Roland
 
 ### Contributors
 
-Austin Blatt, Ethan J. Brown, Iristyle, Jean Bond, Markus Opolka,
-Morgan Rhodes, Nate Wolfe, Rob Browning, Robert Roland, and Zachary Kent
+Austin Blatt, Ethan J. Brown, Jean Bond, Markus Opolka, Morgan Rhodes,
+Nate Wolfe, Rob Browning, Robert Roland, and Zak Kent
