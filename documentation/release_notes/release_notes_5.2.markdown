@@ -44,7 +44,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 ### Contributors
 
 Austin Blatt, Chris Roddy, Erik Hansen, Heston Hoffman, Jean Bond, Rob
-Browning, Robert Roland, Wyatt Alt, and Zachary Kent
+Browning, Robert Roland, Wyatt Alt, and Zak Kent
 
 ## PuppetDB 5.2.8
 
@@ -64,9 +64,9 @@ Browning, Robert Roland, Wyatt Alt, and Zachary Kent
 
 ### Contributors
 
-Austin Blatt, Charlie Sharpsteen, Ethan J. Brown, Heston Hoffman,
-Iristyle, Molly Waggett, Nate Wolfe, Rob Browning, Robert Roland,
-Wyatt Alt, Zachary Kent, and donoghuc
+Austin Blatt, Cas Donoghue, Charlie Sharpsteen, Ethan J. Brown, Heston
+Hoffman, Molly Waggett, Nate Wolfe, Rob Browning, Robert Roland, Wyatt
+Alt, and Zak Kent
 
 ## 5.2.7
 
@@ -91,8 +91,8 @@ Wyatt Alt, Zachary Kent, and donoghuc
 ### Contributors
 
 Austin Blatt, Brandon High, David Lutterkort, Ethan J. Brown, Heston
-Hoffman, Iristyle, Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob
-Browning, Robert Roland, and Zachary Kent
+Hoffman, Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob
+Browning, Robert Roland, and Zak Kent
 
 ## 5.2.6
 
@@ -116,7 +116,7 @@ PuppetDB 5.2.6 is a security, new feature, and bug-fix release.
 - The find/fix database connection errors after clj-parent 2.0 dep upgrades has now been fixed. [PDB-3952](https://tickets.puppetlabs.com/browse/PDB-3952)
 
 ### Contributors
-Austin Blatt, Britt Gresham, Claire Cadman, Ethan J. Brown, Garrett Guillotte, Jarret Lavallee, Molly Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zachary Kent
+Austin Blatt, Britt Gresham, Claire Cadman, Ethan J. Brown, Garrett Guillotte, Jarret Lavallee, Molly Waggett, Morgan Rhodes, Rob Browning, Robert Roland, and Zak Kent
 
 ## 5.2.5
 
@@ -151,7 +151,7 @@ PuppetDB 5.2.4 is a minor bug-fix release.
 
 ### Contributors
 
-Garrett Guillotte, Morgan Rhodes, Rob Browning, and Zachary Kent
+Garrett Guillotte, Morgan Rhodes, Rob Browning, and Zak Kent
 
 ## 5.2.3
 
@@ -172,7 +172,7 @@ PuppetDB 5.2.2 is a bug-fix release.
 -   When the Puppet Enterprise (PE) package inspector is configured, duplicate package data can sometimes be submitted from the `gem` and similar package providers. PuppetDB 5.2.2 removes these duplicates, instead of rejecting the data as in previous versions of PuppetDB. ([PDB-3862](https://tickets.puppetlabs.com/browse/PDB-3862))
 
 ### Contributors
-Andrew Roetker, Garrett Guillotte, and Zachary Kent
+Andrew Roetker, Garrett Guillotte, and Zak Kent
 
 ## 5.2.1
 
@@ -186,7 +186,7 @@ PuppetDB 5.2.1 is a bug-fix release that improves facts query performance and im
 
 ### Contributors
 Garrett Guillotte, Morgan Rhodes, Nick Walker, Rob Browning, Russell
-Mull, and Zachary Kent
+Mull, and Zak Kent
 
 ## 5.2.0
 
@@ -245,7 +245,7 @@ Upgrading is expected to be straightforward, but in light of the recent changes 
 
 ### Contributors
 Karel Březina, Katie Lawhorn, Mike Eller, Rob Browning, Russell Mull,
-Scott Walker, Thomas Hallgren, Wyatt Alt, and Zachary Kent
+Scott Walker, Thomas Hallgren, Wyatt Alt, and Zak Kent
 
 ## 5.1.6
 
@@ -273,9 +273,9 @@ PuppetDB 5.1.6 is a PE-only release.
 ### Contributors
 
 Austin Blatt, Britt Gresham, Claire Cadman, David Lutterkort, Ethan J.
-Brown, Garrett Guillotte, Heston Hoffman, Iristyle, Jarret Lavallee,
+Brown, Garrett Guillotte, Heston Hoffman, Jarret Lavallee,
 Molly Waggett, Morgan Rhodes, Nate Wolfe, Rob Browning, Robert Roland,
-and Zachary Kent
+and Zak Kent
 
 ## 5.1.5
 
@@ -291,7 +291,7 @@ PuppetDB 5.1.5 is a bug-fix release.
 
 ### Contributors
 Andrew Roetker, Garrett Guillotte, Molly Waggett, Morgan Rhodes,
-Nekototori, Nick Walker, Rob Browning, Russell Mull, and Zachary Kent
+Nekototori, Nick Walker, Rob Browning, Russell Mull, and Zak Kent
 
 ## 5.1.4
 
@@ -302,7 +302,7 @@ PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
 -   PuppetDB's `jackson-databind` dependency is updated to 2.9.1, which contains a fix to a security issue. This library is only used in the structured logging module, so most users should be unaffected.
 
 ### Contributors
-Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zachary Kent
+Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zak Kent
 
 5.1.3
 -----
@@ -320,7 +320,7 @@ PuppetDB 5.1.3 includes bugfixes and performance improvements.
   ([PDB-3630](https://tickets.puppetlabs.com/browse/PDB-3630))
 
 ### Contributors
-Morgan Rhodes, Rob Browning, Russell Mull, and Zachary Kent
+Morgan Rhodes, Rob Browning, Russell Mull, and Zak Kent
 
 5.1.1
 -----
@@ -332,7 +332,7 @@ PuppetDB 5.1.1 is a bugfix release.
   ([PDB-3692](https://tickets.puppetlabs.com/browse/PDB-3692))
 
 ### Contributors
-Morgan Rhodes, Rob Browning, Russell Mull, and Zachary Kent
+Morgan Rhodes, Rob Browning, Russell Mull, and Zak Kent
 
 5.1.0
 -----
