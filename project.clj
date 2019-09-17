@@ -229,6 +229,11 @@
                  :deploy-via :lein-deploy}
 
   :uberjar-name "puppetdb.jar"
+
+  ;; WARNING: these configuration options are
+  ;; also set in PE's project.clj changes to things like
+  ;; the main namespace and start timeout need to be updated
+  ;; there as well
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"
