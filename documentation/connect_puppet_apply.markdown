@@ -33,19 +33,45 @@ You will need to take the following steps to configure your standalone nodes to 
 
 PuppetDB requires client authentication (CA) for its SSL connections, and the PuppetDB-termini require SSL to talk to PuppetDB. You must configure Puppet and PuppetDB to work around this double-bind by using one of the following options:
 
-### Option A: Set up an SSL proxy for PuppetDB
+### Option A (Recommended): Issue certificates to all Puppet nodes
 
-1. Edit [the `[jetty]` section of the PuppetDB config files][jetty] to remove all SSL-related settings.
-2. Install a general-purpose web server (like Apache or NGINX) on the PuppetDB server.
-3. Configure the web server to listen on port 8081 with SSL enabled and proxy all traffic to `localhost:8080` (or whatever unencrypted hostname and port were set in [jetty.ini][jetty]). The proxy server can use any certificate --- as long as Puppet has never downloaded a CA certificate from a Puppet master, it will not verify the proxy server's certificate. If your nodes have downloaded CA certificates, you must either make sure the proxy server's certificate was signed by the same CA, or delete the CA certificate.
-
-### Option B: Issue certificates to all Puppet nodes
+This option is recommended, it is better tested, and what the Puppet team optimizes for when they're developing.
 
 When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet master's certificate authority. You can issue certificates to every node by setting up a Puppet master server with dummy manifests, running `puppet agent --test` one time on every node, signing every certificate request on the Puppet master, and running `puppet agent --test` again on every node.
 
 Do the same on your PuppetDB node, then [re-run the SSL setup script][ssl_script] (which usually runs automatically during installation). PuppetDB will now trust connections from your Puppet nodes.
 
 You will have to sign a certificate for every new node you add to your site.
+
+### Option B: Set up an SSL proxy for PuppetDB
+
+Before you head down this path, please consider if signing certificates with Puppet Server will work for you.
+This option requires more work on your part to set up, and does not allow you to provide
+SSL to PuppetDB without a signed certificate, but it will allow you to provide SSL connections to PuppetDB using an existing CA.
+If you have an existing CA you would like to use, you can [set up Puppet Server as an intermediate CA](https://puppet.com/docs/puppetserver/latest/intermediate_ca.html#set-up-puppet-as-an-intermediate-ca-with-an-external-root) and then follow the instructions in Option A.
+
+1. Edit [the `[jetty]` section of the PuppetDB config files][jetty] to remove all SSL-related settings.
+2. Install a general-purpose web server (like Apache or NGINX) on the PuppetDB server.
+3. Configure the web server to listen on port 8081 with SSL enabled and proxy all traffic to `localhost:8080` (or whatever unencrypted hostname and port were set in [jetty.ini][jetty]).
+   The cacert used will need to be signed.
+
+If you use this option, you'll need to add these settings in addition
+to the general ones specified below. The cacert supplied to `localcacert`
+should be the one that signs the SSL proxy cert for PuppetDB.
+
+Add this to your `puppetdb.conf`
+```
+[main]
+verify_client_certificate = false
+```
+
+Add this to your `puppet.conf`
+```
+[main]
+localcacert = /etc/path/to/cacert/ca.crt
+certificate_revocation = false
+```
+
 
 ## Step 2: Install terminus plugins on every Puppet node
 
@@ -100,9 +126,8 @@ You can specify the contents of [puppetdb.conf][puppetdb_conf] directly in your 
 
 PuppetDB's port for secure traffic defaults to 8081. Puppet **requires** use of PuppetDB's
 secure HTTPS port. You cannot use the unencrypted, plain HTTP port.
-If you are providing SSL via a proxy like nginx (Option A in Step 1) then you need to set
-`verify_client_certificate` to `false`, otherwise Puppet will attempt to verify that
-your certificate was issued by the Puppet Master.
+If you are providing SSL via a proxy like nginx (Option B in Step 1) refer there for
+a few extra configuration options that you will need.
 
 For availability reasons, there is a setting named `soft_write_failure` that will cause the PuppetDB-termini to fail in a soft manner if PuppetDB is not accessible for command submission. This means that users who are either not using storeconfigs or only exporting resources will still have their catalogs compile during a PuppetDB outage.
 
