@@ -63,6 +63,7 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.hash :as hash]
+            [puppetlabs.structured-logging.core :refer [maplog]]
             [clojure.set :as set]
             [clojure.string :as str])
   (:import [org.postgresql.util PGobject]))
@@ -1552,7 +1553,9 @@
        (reduce (fn [hashes-seen [row i]]
                  (let [now (.getTime (java.util.Date.))]
                    (when (> (- now @last-logged) 60000)
-                     (log/info (trs "Migrated {0} of {1} events" i event-count))
+                     (maplog :info
+                             {:migration 69 :at i :of event-count}
+                             #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
                      (reset! last-logged now)))
                  (conj hashes-seen
                        (let [hash-str (hash/resource-event-identity-pkey row)]
