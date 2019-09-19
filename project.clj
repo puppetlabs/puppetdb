@@ -157,6 +157,7 @@
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
                  [puppetlabs/stockpile "0.0.4"]
+                 [puppetlabs/structured-logging]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
