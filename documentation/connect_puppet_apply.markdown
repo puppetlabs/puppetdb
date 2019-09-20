@@ -27,7 +27,7 @@ PuppetDB can be used with standalone Puppet deployments where each node runs `pu
 * Store facts in PuppetDB
 * Send reports to PuppetDB (optional)
 
-You will need to take the following steps to configure your standalone nodes to connect to PuppetDB. Note that because you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.**
+You must take the following steps to configure your standalone nodes to connect to PuppetDB. Note that because you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.**
 
 ## Step 1: Configure SSL
 
@@ -35,7 +35,7 @@ PuppetDB requires client authentication (CA) for its SSL connections, and the Pu
 
 ### Option A (Recommended): Issue certificates to all Puppet nodes
 
-This option is recommended, it is better tested, and what the Puppet team optimizes for when they're developing.
+This option is recommended. The Puppet team optimizes for this option when they're developing, and it is better tested.
 
 When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet master's certificate authority. You can issue certificates to every node by setting up a Puppet master server with dummy manifests, running `puppet agent --test` one time on every node, signing every certificate request on the Puppet master, and running `puppet agent --test` again on every node.
 
