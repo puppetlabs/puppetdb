@@ -100,6 +100,25 @@
                             "="
                             [:integer "100"]]]]]]
 
+    "inventory [certname] {facts.foo[0].bar[10] = 100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo[0]" "bar[10]"]
+                            "="
+                            [:integer "100"]]]]]]
+
+    ;; whitespace optional
+    "inventory[certname,facts.foo,facts.bar]{facts.foo.bar=100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"] [:field "facts" "foo"] [:field "facts" "bar"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo" "bar"] "=" [:integer "100"]]]]]]
+
     "inventory [certname] {facts.foo.\"dotted.string\" = 100}"
     [:from
      "inventory"
