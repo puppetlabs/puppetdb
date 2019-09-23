@@ -462,7 +462,8 @@
           command-chan (async/chan
                          (queue/sorted-command-buffer
                           max-enqueued
-                          #(cmd/update-counter! :invalidated %1 %2 inc!)))
+                          (fn [cmd ver] (cmd/update-counter! :invalidated cmd ver inc!))
+                          (fn [cmd ver] (cmd/update-counter! :ignored cmd ver inc!))))
           emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
           maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
           [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config)

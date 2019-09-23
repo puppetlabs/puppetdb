@@ -111,6 +111,7 @@ following `<item>`s:
   previously enqueued commands
 * `queue-time`: histogram of the time commands have spent waiting in the queue
 * `depth`: number of currently enqueued commands
+* `ignored`: number of obsolete commands that have been ignored
 * `size`: histogram of submitted command sizes (i.e. HTTP Content-Lengths)
 
 For example: `puppetlabs.puppetdb.mq:name=global.seen`.
@@ -128,6 +129,7 @@ integer command version, and `<item>` must be one of the following:
 * `retried`: meter measuring commands scheduled for retrial
 * `retry-counts`: histogram of retry counts (until success or discard)
 * `discarded`: meter measuring commands discarded as invalid
+* `ignored`: number of obsolete commands that have been ignored
 * `processing-time`: timing statistics for the processing of
   previously enqueued commands
 
