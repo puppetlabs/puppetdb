@@ -183,6 +183,12 @@
      ["extract" ["a" "b" "c"]
       ["=" "a" 1]]]
 
+    ;; TODO: When PDB-3284 is fixed, we can remove the final space in PQL
+    "inventory[facts.os.family,facts.os.release]{facts.os.family =\"Debian\"}"
+    ["from" "inventory"
+     ["extract" ["facts.os.family" "facts.os.release"]
+      ["=" "facts.os.family" "Debian"]]]
+
     ;; Functions
 
     "nodes[count(a)] {}"
