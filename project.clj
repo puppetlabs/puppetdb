@@ -1,4 +1,4 @@
-(def pdb-version "6.6.1-SNAPSHOT")
+(def pdb-version "6.7.0-SNAPSHOT")
 (def clj-parent-version "4.2.0")
 
 (defn true-in-env? [x]
@@ -272,7 +272,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.1.0"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.1.4"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but
