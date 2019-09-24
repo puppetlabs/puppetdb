@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ "$CONSUL_ENABLED" = "true" ]; then
-  ipaddress="$(ifconfig eth0 | grep 'inet' | tr -s ' ' | cut -d ' ' -f 3)"
+  ipaddress="$(ifconfig $NETWORK_INTERFACE | grep 'inet' | tr -s ' ' | cut -d ' ' -f 3)"
 
   cat <<SERVICEDEF > /puppet-service.json
 {
