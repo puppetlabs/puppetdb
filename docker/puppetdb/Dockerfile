@@ -63,7 +63,8 @@ ENV CONFIG="/etc/puppetlabs/puppetdb/conf.d"
 ENV BOOTSTRAP_CONFIG="/etc/puppetlabs/puppetdb/bootstrap.cfg"
 ENV SERVICE_STOP_RETRIES=60
 
-COPY docker/puppetdb/logging /etc/puppetlabs/puppetdb/logging/
+COPY docker/puppetdb/logback.xml /etc/puppetlabs/puppetdb/logback.xml
+COPY docker/puppetdb/request-logging.xml /etc/puppetlabs/puppetdb/request-logging.xml
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
 RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
