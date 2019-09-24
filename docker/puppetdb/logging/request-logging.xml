@@ -5,10 +5,10 @@
         </encoder>
     </appender>
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/puppetlabs/puppetdb/puppetdb-access.log</file>
+        <file>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-access.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/var/log/puppetlabs/puppetdb/puppetdb-access-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-access-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
             <maxFileSize>200MB</maxFileSize>
             <maxHistory>90</maxHistory>

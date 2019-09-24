@@ -9,10 +9,10 @@
     </appender>
 
     <appender name="F1" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/puppetlabs/puppetdb/puppetdb.log</file>
+        <file>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/var/log/puppetlabs/puppetdb/puppetdb-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
             <maxFileSize>200MB</maxFileSize>
             <maxHistory>90</maxHistory>
@@ -27,11 +27,11 @@
     <logger name="org.springframework.jms.connection" level="warn"/>
 
     <appender name="STATUS" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/puppetlabs/puppetdb/puppetdb-status.log</file>
+        <file>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-status.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>/var/log/puppetlabs/puppetdb/puppetdb-status-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-status-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
             <maxFileSize>200MB</maxFileSize>
             <maxHistory>90</maxHistory>
