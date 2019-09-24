@@ -1,11 +1,56 @@
-<configuration scan="true">
+<configuration scan="true" scanPeriod="60 seconds">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
+            <!-- default pattern
+              %d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5p [%c{2}] %m%n
+            -->
             <pattern>%d %-5p [%c{2}] %m%n</pattern>
         </encoder>
     </appender>
 
+    <appender name="F1" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/var/log/puppetlabs/puppetdb/puppetdb.log</file>
+        <append>true</append>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>/var/log/puppetlabs/puppetdb/puppetdb-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
+            <maxFileSize>200MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5p [%c{2}] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Supress internal Spring Framework logging -->
+    <logger name="org.springframework.jms.connection" level="warn"/>
+
+    <appender name="STATUS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/var/log/puppetlabs/puppetdb/puppetdb-status.log</file>
+        <append>true</append>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>/var/log/puppetlabs/puppetdb/puppetdb-status-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
+            <maxFileSize>200MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <!-- note that this will only log the JSON message (%m) and a newline (%n)-->
+            <pattern>%m%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- without additivity="false", the status log messages will be sent to every other appender as well-->
+    <logger name="puppetlabs.trapperkeeper.services.status.status-debug-logging" level="debug" additivity="false">
+        <appender-ref ref="STATUS"/>
+    </logger>
+
     <root level="info">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="${logappender:-DUMMY}" />
+        <appender-ref ref="F1" />
     </root>
 </configuration>

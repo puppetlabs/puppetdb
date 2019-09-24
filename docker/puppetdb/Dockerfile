@@ -66,8 +66,6 @@ ENV SERVICE_STOP_RETRIES=60
 COPY docker/puppetdb/logging /etc/puppetlabs/puppetdb/logging/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/logback.xml /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/request-logging.xml /etc/puppetlabs/puppetdb/
 RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
 
 RUN addgroup $GROUP && adduser --system $USER --ingroup $GROUP
