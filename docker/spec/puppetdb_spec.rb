@@ -6,10 +6,6 @@ require 'net/http'
 describe 'puppetdb container specs' do
   include Pupperware::SpecHelpers
 
-  VOLUMES = [
-    'pgdata'
-  ]
-
   before(:all) do
     require_test_image()
     status = docker_compose('version')[:status]
@@ -17,8 +13,6 @@ describe 'puppetdb container specs' do
       fail "`docker-compose` must be installed and available in your PATH"
     end
     teardown_cluster()
-    # LCOW requires directories to exist
-    create_host_volume_targets(ENV['VOLUME_ROOT'], VOLUMES)
 
     # fire up the cluster and wait for puppetdb creation in postgres
     docker_compose_up()
