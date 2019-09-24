@@ -104,7 +104,5 @@ HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/he
 VOLUME /etc/puppetlabs/puppet/ssl
 # puppetdb data
 VOLUME /opt/puppetlabs/server/data/puppetdb
-# log files
-VOLUME /var/log/puppetlabs
 
 COPY docker/puppetdb/Dockerfile /
