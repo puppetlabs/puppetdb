@@ -1,6 +1,22 @@
 version: '3.5'
 
 services:
+  puppet:
+    hostname: puppet
+    domainname: test
+    image: puppet/puppetserver:latest
+    environment:
+      - PUPPERWARE_ANALYTICS_ENABLED=${PUPPERWARE_ANALYTICS_ENABLED:-false}
+      - PUPPETSERVER_HOSTNAME=puppet.test
+      - CA_ALLOW_SUBJECT_ALT_NAMES=true
+      - PUPPETDB_SERVER_URLS=https://puppetdb.test:8081
+    ports:
+      - 8140:8140
+    dns_search: test
+    networks:
+      puppetdb_test:
+        aliases:
+         - puppet.test
   postgres:
     hostname: postgres
     domainname: test
@@ -35,12 +51,13 @@ services:
       - PUPPETDB_POSTGRES_HOSTNAME=postgres.test
       - PUPPETDB_PASSWORD=puppetdb
       - PUPPETDB_USER=puppetdb
-      - USE_PUPPETSERVER=false
+      - PUPPETSERVER_HOSTNAME=puppet.test
     ports:
       - 8080
       - 8081
     depends_on:
       - postgres
+      - puppet
     dns_search: 'test'
     networks:
       puppetdb_test:
