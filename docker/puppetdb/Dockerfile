@@ -66,8 +66,6 @@ ENV SERVICE_STOP_RETRIES=60
 COPY docker/puppetdb/logging /etc/puppetlabs/puppetdb/logging/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/logback.xml /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/request-logging.xml /etc/puppetlabs/puppetdb/
 RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
 
 RUN addgroup $GROUP && adduser --system $USER --ingroup $GROUP
@@ -76,8 +74,6 @@ ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba9
 RUN chmod +x /ssl.sh
 COPY docker/puppetdb/ssl-setup.sh /
 RUN chmod +x /ssl-setup.sh
-
-VOLUME /etc/puppetlabs/puppet/ssl/
 
 ADD https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh /wtfc.sh
 RUN chmod +x /wtfc.sh
@@ -98,5 +94,11 @@ RUN chmod +x /healthcheck.sh
 # Probe failure during --start-period will not be counted towards the maximum number of retries
 HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/healthcheck.sh"]
 
+# VOLUME definitions are always at end of Dockerfile to address an LCOW bug
+# https://github.com/moby/moby/issues/39892
+# generated certs
+VOLUME /etc/puppetlabs/puppet/ssl
+# puppetdb data
+VOLUME /opt/puppetlabs/server/data/puppetdb
 
 COPY docker/puppetdb/Dockerfile /
