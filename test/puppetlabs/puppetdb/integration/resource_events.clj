@@ -35,6 +35,7 @@
           (let [new-datetime (-> (ZonedDateTime/now (ZoneId/of "UTC"))
                                  (.minusDays 2))
                 new-timestamp (-> new-datetime
+                                  (.toInstant)
                                   Timestamp/from)]
             (partitioning/create-resource-events-partition new-datetime)
             (jdbc/call-with-query-rows

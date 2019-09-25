@@ -525,7 +525,7 @@
                               (map (fn [date-of-week]
                                      (let [part-name (str/lower-case (partitioning/date-suffix date-of-week))
                                            table-name (str "resource_events_" part-name)
-                                           date-formatter (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ssX")
+                                           date-formatter (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ssx")
                                                                      (ZoneId/systemDefault))
                                            start-of-day (.format date-formatter
                                                                  (.truncatedTo date-of-week (ChronoUnit/DAYS)))

@@ -1022,6 +1022,7 @@
   (let [current-time (to-timestamp (now))]
     (jdbc/with-db-connection *db*
       (clear-db-for-testing!)
+
       (fast-forward-to-migration! 72)
 
       (jdbc/insert! :report_statuses
@@ -1095,7 +1096,7 @@
 
         ;; Run with a batch size of 2 to ensure de-duplication occurs over
         ;; batches.
-        (apply-migration-for-testing! 69 2)
+        (apply-migration-for-testing! 73 2)
 
         (let [hashes (map :event_hash
                           (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
