@@ -51,7 +51,9 @@
            [org.postgresql.util PGobject]
            [org.joda.time Period]
            [java.sql Timestamp]
-           (java.time Instant LocalDate LocalDateTime Year ZoneId)))
+           (java.time Instant LocalDate LocalDateTime Year ZoneId ZonedDateTime)
+           (java.time.temporal ChronoUnit)
+           (java.time.format DateTimeFormatter)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1372,8 +1374,9 @@
                          (dorun
                           (map partitioning/create-resource-events-partition
                                (set (map #(-> ^Timestamp (:timestamp %)
-                                              .toLocalDateTime
-                                              .toLocalDate) resource_events))))
+                                              (.toInstant)
+                                              (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                              (.truncatedTo (ChronoUnit/DAYS))) resource_events))))
                          (->> resource_events
                               (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                               (map adjust-event)
@@ -1394,7 +1397,7 @@
   {:pre [(kitchensink/datetime? date)]}
 
   (let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
-        expire-date (.toLocalDate (time/joda-datetime->java-zoneddatetime date))]
+        expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
 
     (doall
      (map (fn [table-entry] (jdbc/do-commands
@@ -1402,9 +1405,11 @@
           (filter (fn [table-entry]
                     (let [table (:tablename table-entry)
                           parts (str/split table #"_")
-                          table-year (Integer/parseInt (get parts 2))
-                          table-day (Integer/parseInt (get parts 3))
-                          table-date (LocalDate/ofYearDay table-year table-day)]
+                          table-full-date (get parts 2)
+                          table-year (Integer/parseInt (subs table-full-date 0 4))
+                          table-month (Integer/parseInt (subs table-full-date 4 6))
+                          table-day (Integer/parseInt (subs table-full-date 6 8))
+                          table-date (ZonedDateTime/of table-year table-month table-day 0 0 0 0 (ZoneId/of "UTC"))]
                       (.isBefore table-date expire-date)))
                   tables)))))
 

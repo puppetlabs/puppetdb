@@ -1623,9 +1623,8 @@
    DECLARE
      tablename varchar;
    BEGIN
-     SELECT FORMAT('resource_events_%s_%s',
-                   EXTRACT(YEAR FROM NEW.\"timestamp\")::varchar,
-                   TO_CHAR(EXTRACT(DOY FROM NEW.\"timestamp\"), 'FM000')) INTO tablename;
+     SELECT FORMAT('resource_events_%sZ',
+                   TO_CHAR(NEW.\"timestamp\" AT TIME ZONE 'UTC', 'YYYYMMDD')) INTO tablename;
 
      EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
      USING NEW;

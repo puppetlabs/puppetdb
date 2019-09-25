@@ -8,9 +8,11 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps]]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning]
-            [puppetlabs.puppetdb.scf.migrate-test :refer [apply-migration-for-testing! fast-forward-to-migration!]])
-  (:import (java.time LocalDate)
-           (java.time.format DateTimeFormatter)))
+            [puppetlabs.puppetdb.scf.migrate-test :refer [apply-migration-for-testing! fast-forward-to-migration!]]
+            [clojure.string :as str])
+  (:import (java.time ZonedDateTime ZoneId)
+           (java.time.format DateTimeFormatter)
+           (java.time.temporal ChronoUnit)))
 
 (use-fixtures :each tdb/call-with-test-db)
 
@@ -19,10 +21,10 @@
   (fast-forward-to-migration! 72)
 
   (let [before-migration (schema-info-map *db*)
-        today (LocalDate/now)
+        today (ZonedDateTime/now (ZoneId/of "UTC"))
         days-range (range -4 4)
         dates (map #(.plusDays today %) days-range)
-        part-names (map #(partitioning/day-suffix %) dates)]
+        part-names (map #(str/lower-case (partitioning/date-suffix %)) dates)]
     (apply-migration-for-testing! 73)
 
     (is (= {:index-diff (into
@@ -427,16 +429,17 @@
                                 :same nil}]
                               cat
                               (map (fn [date-of-week]
-                                     (let [part-name (partitioning/day-suffix date-of-week)
+                                     (let [part-name (str/lower-case (partitioning/date-suffix date-of-week))
                                            table-name (str "resource_events_" part-name)
-                                           date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss")
+                                           date-formatter (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ssX")
+                                                                     (ZoneId/systemDefault))
                                            start-of-day (.format date-formatter
-                                                                       (.atStartOfDay date-of-week))
+                                                                 (.truncatedTo date-of-week (ChronoUnit/DAYS)))
                                            end-of-day (.format date-formatter
-                                                                       (.atStartOfDay (.plusDays date-of-week 1)))]
+                                                               (.plusDays (.truncatedTo date-of-week (ChronoUnit/DAYS)) 1))]
                                        [{:left-only nil
                                          :right-only {:constraint_name
-                                                      (format "(((\"timestamp\" >= '%s'::timestamp without time zone) AND (\"timestamp\" < '%s'::timestamp without time zone)))"
+                                                      (format "(((\"timestamp\" >= '%s'::timestamp with time zone) AND (\"timestamp\" < '%s'::timestamp with time zone)))"
                                                               start-of-day end-of-day)
                                                       :table_name table-name
                                                       :constraint_type "CHECK"

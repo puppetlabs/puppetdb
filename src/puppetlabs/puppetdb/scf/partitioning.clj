@@ -3,39 +3,49 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [schema.core :as s])
-  (:import [java.time LocalDateTime LocalTime Year LocalDate]
-           [java.time.temporal TemporalAdjusters WeekFields IsoFields]))
+  (:import [java.time LocalDateTime LocalDate ZoneId ZonedDateTime]
+           [java.time.temporal ChronoUnit]
+           (java.time.format DateTimeFormatter)))
 
-(defn- coerce-date
+(defn date-suffix
   [date]
-  (if (instance? LocalDateTime date)
-    (.toLocalDate date)
-    date))
+  (let [formatter (.withZone (DateTimeFormatter/BASIC_ISO_DATE) (ZoneId/of "UTC"))]
+    (.format date formatter)))
 
-(defn day-suffix
+(defn to-zoned-date-time
   [date]
-  (let [day (.getDayOfYear date)
-        year (.getYear date)]
-    (format "%d_%03d" year day)))
+  (cond
+    (instance? LocalDateTime date) (.atZone date (ZoneId/of "UTC"))
+    (instance? LocalDate date) (.atStartOfDay date (ZoneId/of "UTC"))
+    (instance? ZonedDateTime date) (.withZoneSameInstant date (ZoneId/of "UTC"))
+    :else (throw (ex-info (str "Unhandled date type " (type date)) {:date date}))))
 
 (s/defn create-partition
   [base-table :- s/Str
    date-column :- s/Str
-   date :- java.time.LocalDate
+   date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime)
    index-fn :- (s/fn-schema
                 (s/fn :- [s/Str] [full-table-name :- s/Str
                                   iso-year-week :- s/Str]))]
-  (let [start-of-day (.atStartOfDay date)
-        start-of-next-day (.atStartOfDay (.plusDays date 1))
+  (let [date (to-zoned-date-time date)                      ;; guarantee a ZonedDateTime, so our suffix ends in Z
+        start-of-day (-> date
+                         (.truncatedTo (ChronoUnit/DAYS)))  ;; this is a ZonedDateTime
+        start-of-next-day (-> start-of-day
+                              (.plusDays 1))
+        date-formatter (DateTimeFormatter/ISO_OFFSET_DATE_TIME)
 
-        table-name-suffix (day-suffix date)
+        table-name-suffix (date-suffix date)
         full-table-name (format "%s_%s" base-table table-name-suffix)]
     (apply jdbc/do-commands-outside-txn
            (concat [(format (str "CREATE TABLE IF NOT EXISTS %s ("
-                                 " CHECK ( %s >= '%s'::timestamp AND %s < '%s'::timestamp )"
+                                 " CHECK ( %s >= TIMESTAMP WITH TIME ZONE '%s' AND %s < TIMESTAMP WITH TIME ZONE '%s' )"
                                  ") INHERITS (%s)")
                             full-table-name
-                            date-column start-of-day date-column start-of-next-day
+                            ;; this will write the constraint in UTC. note: when you read this back from the database,
+                            ;; you will get it in local time.
+                            ;; example: constraint will have 2019-09-21T00:00:00Z but upon querying, you'll see 2019-09-21 17:00:00-07
+                            ;; this is just the database performing i18n
+                            date-column (.format start-of-day date-formatter) date-column (.format start-of-next-day date-formatter)
                             base-table)]
                    (index-fn full-table-name table-name-suffix)))))
 
