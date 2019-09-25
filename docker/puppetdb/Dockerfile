@@ -32,7 +32,7 @@ ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_POSTGRES_HOSTNAME="postgres"
 ENV PUPPETDB_POSTGRES_PORT="5432"
 ENV PUPPETDB_POSTGRES_DATABASE="puppetdb"
-ENV SSLDIR=/etc/puppetlabs/puppet/ssl
+ENV SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs
 ENV CERTNAME=puppetdb
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
@@ -97,9 +97,7 @@ HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/he
 
 # VOLUME definitions are always at end of Dockerfile to address an LCOW bug
 # https://github.com/moby/moby/issues/39892
-# generated certs
-VOLUME /etc/puppetlabs/puppet/ssl
-# puppetdb data
+# puppetdb data and generated certs
 VOLUME /opt/puppetlabs/server/data/puppetdb
 
 COPY docker/puppetdb/Dockerfile /
