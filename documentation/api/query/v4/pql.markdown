@@ -74,6 +74,18 @@ for each node, with a regex filter across certname:
 In this case, this would return only the certname field of nodes starting with
 `web`.
 
+### Whitespace
+
+In PQL, whitespace is optional, except around word operators like `and` and `or`.
+Use whitespace to make your queries more human readable. For example the following
+two queries are identical and will give you the same results, but the one with spaces
+is a much more readable way to write PQL.
+```
+nodes[certname,latest_report_status]{report_timestamp<="2016-08-03 00:00:00"}
+
+nodes[certname, latest_report_status]{ report_timestamp <= "2016-08-03 00:00:00" }
+```
+
 ## Entities
 
 The entity or context of a query (or subquery) defines what results you will get
