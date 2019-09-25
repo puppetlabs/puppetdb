@@ -1596,48 +1596,51 @@
    "ALTER TABLE certnames SET ( autovacuum_vacuum_scale_factor=0.75 )"
    "ALTER TABLE reports   SET ( autovacuum_vacuum_scale_factor=0.01 )"))
 
-(defn reporting-partitioned-tables []
-  (jdbc/do-commands
-   "ALTER TABLE resource_events RENAME TO resource_events_premigrate"
+(defn reporting-partitioned-tables
+  ([]
+   (reporting-partitioned-tables 1000))
+  ([batch-size]
+   (jdbc/do-commands
+    "ALTER TABLE resource_events RENAME TO resource_events_premigrate"
 
-   "CREATE TABLE resource_events (
-      event_hash bytea NOT NULL PRIMARY KEY,
-      report_id bigint NOT NULL,
-      certname_id bigint NOT NULL,
-      status text NOT NULL,
-      \"timestamp\" timestamp with time zone NOT NULL,
-      resource_type text NOT NULL,
-      resource_title text NOT NULL,
-      property text,
-      new_value text,
-      old_value text,
-      message text,
-      file text DEFAULT NULL::character varying,
-      line integer,
-      name text,
-      containment_path text[],
-      containing_class text,
-      corrective_change boolean)"
+    "CREATE TABLE resource_events (
+       event_hash bytea NOT NULL PRIMARY KEY,
+       report_id bigint NOT NULL,
+       certname_id bigint NOT NULL,
+       status text NOT NULL,
+       \"timestamp\" timestamp with time zone NOT NULL,
+       resource_type text NOT NULL,
+       resource_title text NOT NULL,
+       property text,
+       new_value text,
+       old_value text,
+       message text,
+       file text DEFAULT NULL::character varying,
+       line integer,
+       name text,
+       containment_path text[],
+       containing_class text,
+       corrective_change boolean)"
 
-   "CREATE OR REPLACE FUNCTION resource_events_insert_trigger()
-   RETURNS TRIGGER AS $$
-   DECLARE
-     tablename varchar;
-   BEGIN
-     SELECT FORMAT('resource_events_%sZ',
-                   TO_CHAR(NEW.\"timestamp\" AT TIME ZONE 'UTC', 'YYYYMMDD')) INTO tablename;
+    "CREATE OR REPLACE FUNCTION resource_events_insert_trigger()
+    RETURNS TRIGGER AS $$
+    DECLARE
+      tablename varchar;
+    BEGIN
+      SELECT FORMAT('resource_events_%sZ',
+                    TO_CHAR(NEW.\"timestamp\" AT TIME ZONE 'UTC', 'YYYYMMDD')) INTO tablename;
 
-     EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
-     USING NEW;
+      EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
+      USING NEW;
 
-     RETURN NULL;
-   END;
-   $$
-   LANGUAGE plpgsql;"
+      RETURN NULL;
+    END;
+    $$
+    LANGUAGE plpgsql;"
 
-   "CREATE TRIGGER insert_resource_events_trigger
-   BEFORE INSERT ON resource_events
-   FOR EACH ROW EXECUTE PROCEDURE resource_events_insert_trigger();")
+    "CREATE TRIGGER insert_resource_events_trigger
+    BEFORE INSERT ON resource_events
+    FOR EACH ROW EXECUTE PROCEDURE resource_events_insert_trigger();")
 
   ;; create range of partitioned tables
 
@@ -1659,38 +1662,57 @@
 
   (let [event-count (-> "select count(*) from resource_events_premigrate"
                         jdbc/query-to-vec first :count)
-        last-logged (atom (.getTime (java.util.Date.)))]
+        last-logged (atom (.getTime (java.util.Date.)))
+        events-migrated (atom 0)]
    (jdbc/call-with-query-rows
     ["select
-       report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
-       new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
-     from resource_events_premigrate"]
-   (fn [rows]
-     (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
-                                 (.toInstant)
-                                 (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
-                                 (.truncatedTo (ChronoUnit/DAYS))) rows))]
-       (partitioning/create-resource-events-partition date))
-     (reduce (fn [hashes-seen [row i]]
-               (let [now (.getTime (java.util.Date.))]
-                 (when (> (- now @last-logged) 60000)
-                   (maplog :info
-                           {:migration 69 :at i :of event-count}
-                           #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
-                   (reset! last-logged now)))
-               (conj hashes-seen
-                     (let [hash-str (hash/resource-event-identity-pkey row)]
-                       (when-not (hashes-seen hash-str)
-                         (jdbc/insert-multi! "resource_events"
-                                             (list (assoc row :event_hash
-                                                              (sutils/munge-hash-for-storage hash-str)))))
-                       hash-str)))
-             #{}
-             (map vector rows (range event-count))))))
+        report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
+        new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
+      from resource_events_premigrate"]
+    (fn [rows]
+      (let [old-cols [:report_id :certname_id :status :timestamp :resource_type
+                      :resource_title :property :new_value :old_value :message
+                      :file :line :containment_path :containing_class
+                      :corrective_change]
+            new-cols (into [:event_hash] old-cols)
+            update-row (apply juxt (comp sutils/munge-hash-for-storage
+                                         hash/resource-event-identity-pkey)
+                              old-cols)
+            ;; Retrieve event_hash string from PGobject produced by sutils
+            row->id (fn [row] (-> row first .getValue))
+            insert->hash (fn [batch]
+                           (when (seq batch)
+                             (jdbc/insert-multi! :resource_events
+                                                 new-cols
+                                                 batch))
+                           (let [now (.getTime (java.util.Date.))]
+                             (when (> (- now @last-logged) 60000)
+                               (maplog :info
+                                       {:migration 73 :at @events-migrated :of event-count}
+                                       #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
+                               (reset! last-logged now)))
+                           ;; Return hashes for each row directly instead of
+                           ;; reading them back from the DB via the return
+                           ;; value of insert-multi!
+                           (map row->id batch))
+            dedupe-and-insert (fn [hashes-seen batch]
+                                (swap! events-migrated + (count batch))
+                                (->> batch
+                                     (map update-row)
+                                     ;; Remove any duplicates in current batch
+                                     (group-by row->id)
+                                     (map (comp first last))
+                                     ;; Remove any duplicates in previous batches
+                                     (filter #(-> % row->id hashes-seen nil?))
+                                     insert->hash
+                                     (reduce conj hashes-seen)))]
+        (reduce dedupe-and-insert
+                #{}
+                (partition batch-size batch-size [] rows))))))
 
   (jdbc/do-commands
    ;; Indexes are created on the individual partitions, not on the base table
-   "DROP TABLE resource_events_premigrate"))
+   "DROP TABLE resource_events_premigrate")))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
