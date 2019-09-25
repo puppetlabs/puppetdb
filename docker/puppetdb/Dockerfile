@@ -14,7 +14,7 @@ RUN lein with-profile uberjar uberjar
 
 FROM openjdk:8-jre-slim-buster
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat gettext && \
+    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/puppetdb.jar /
@@ -32,6 +32,7 @@ ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_POSTGRES_HOSTNAME="postgres"
 ENV PUPPETDB_POSTGRES_PORT="5432"
 ENV PUPPETDB_POSTGRES_DATABASE="puppetdb"
+# NOTE: SSLDIR should never be set externally or it will break jetty.ini
 ENV SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs
 ENV CERTNAME=puppetdb
 ENV PUPPETDB_USER=puppetdb

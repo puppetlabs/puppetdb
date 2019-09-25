@@ -6,6 +6,10 @@ if [ ! -f "${SSLDIR}/certs/${CERTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ];
   DNS_ALT_NAMES="${HOSTNAME},${DNS_ALT_NAMES}" /ssl.sh "$CERTNAME"
   openssl pkcs8 -inform PEM -outform DER -in ${SSLDIR}/private_keys/${CERTNAME}.pem -topk8 -nocrypt -out ${SSLDIR}/private_keys/${CERTNAME}.pk8
 
+  # for Jetty to use statically named files
+  ln -s ${SSLDIR}/private_keys/${CERTNAME}.pem ${SSLDIR}/private_keys/private.pem
+  ln -s ${SSLDIR}/certs/${CERTNAME}.pem ${SSLDIR}/certs/public.pem
+
   # make sure Java apps running as puppetdb can read these files
   chown -R puppetdb:puppetdb ${SSLDIR}
 
