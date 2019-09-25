@@ -4,7 +4,7 @@
 if [ ! -f "${SSLDIR}/certs/${CERTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ]; then
   set -e
 
-  DNS_ALT_NAMES="${HOSTNAME},${DNS_ALT_NAMES}" /ssl.sh "$CERTNAME"
+  DNS_ALT_NAMES="${HOSTNAME},$(hostname -s),$(hostname -f),${DNS_ALT_NAMES}" /ssl.sh "$CERTNAME"
 fi
 
 # cert files are present from Puppetserver OR have been user supplied
