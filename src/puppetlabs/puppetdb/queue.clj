@@ -361,7 +361,8 @@
 (deftype SortedCommandBuffer [^TreeMap fifo-queue
                               ^HashMap certnames-map
                               ^long max-entries
-                              ^clojure.lang.IFn delete-update-fn]
+                              ^clojure.lang.IFn delete-update-fn
+                              ^clojure.lang.IFn ignore-update-fn]
   async-protos/Buffer
   (full? [this]
     (>= (.size fifo-queue) max-entries))
@@ -401,6 +402,7 @@
                     (:id maybe-old-command)
                     (assoc maybe-old-command :delete? true))
               (.put fifo-queue (:id cmdref) cmdref)
+              (ignore-update-fn (:command maybe-old-command) (:version maybe-old-command))
               (delete-update-fn (:command maybe-old-command) (:version maybe-old-command)))
 
             :else
@@ -420,12 +422,12 @@
 
 (defn sorted-command-buffer
   ([^long n]
-   (sorted-command-buffer n (constantly nil)))
-  ([^long n ^clojure.lang.IFn delete-update-fn]
+   (sorted-command-buffer n (constantly nil) (constantly nil)))
+  ([^long n ^clojure.lang.IFn delete-update-fn ignore-update-fn]
    ;; accepting a function here is a hack to get around a cyclic dependency
    ;; between this ns, mq-listener.clj, and dlo.clj. My hope is we'll be able
    ;; to get rid of it somehow when we refactor mq-listener and command.clj.
-   (SortedCommandBuffer. (TreeMap.) (HashMap.) n delete-update-fn)))
+   (SortedCommandBuffer. (TreeMap.) (HashMap.) n delete-update-fn ignore-update-fn)))
 
 (defn make-cmd-event
   "Given a cmdref and kind return a cmd-event-map which is suitable to be put
