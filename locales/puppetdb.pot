@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 623ab99df40ad1b366eb9cb10874c5551ddb1f30\n"
+"X-Git-Ref: 2ed912ae6d1dd589708fb879fccaa9bb50ef0b78\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -838,6 +838,11 @@ msgid "Caught PSQL processing exception"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid ""
+"Projected field name ''{0}'' exceeds current maximum length of 63 characters"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "All values in 'array' must be the same type."
 msgstr ""
 
@@ -875,6 +880,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "{0} requires exactly two arguments"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "Cannot determine field type for field ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
