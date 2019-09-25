@@ -1,8 +1,9 @@
 #!/bin/sh
 
-if [ ! -f "/etc/puppetlabs/puppet/ssl/certs/${HOSTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ]; then
+if [ ! -f "${SSLDIR}/certs/${CERTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ]; then
   set -e
-  DNS_ALT_NAMES="${DNS_ALT_NAMES}" /ssl.sh "$HOSTNAME"
+
+  DNS_ALT_NAMES="${HOSTNAME},${DNS_ALT_NAMES}" /ssl.sh "$CERTNAME"
 fi
 if [ ! -d "/etc/puppetlabs/puppetdb/ssl" ] && [ "$USE_PUPPETSERVER" = true ]; then
   /ssl-setup.sh -f
