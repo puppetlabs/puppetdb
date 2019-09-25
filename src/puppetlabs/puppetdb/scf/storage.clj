@@ -1356,7 +1356,7 @@
                                               maybe-resources
                                               maybe-corrective-change
                                               (jdbc/insert! :reports))]
-                   (when-not (empty? resource_events)
+                   (when (seq resource_events)
                      (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
                            adjust-event #(-> %
                                              maybe-corrective-change
@@ -1364,34 +1364,32 @@
                                                     :certname_id certname-id))
                            add-event-hash #(-> %
                                                ;; this cannot be merged with the function above, because the report-id
-                                               ;; field *has* to be exist first
+                                               ;; field *has* to exist first
                                                (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
                                                                        (sutils/munge-hash-for-storage))))
                            ;; group by the hash, and choose the oldest (aka first) of any duplicates.
                            remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
-
-                       (do
-                         (dorun
-                          (map partitioning/create-resource-events-partition
-                               (set (map #(-> ^Timestamp (:timestamp %)
-                                              (.toInstant)
-                                              (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
-                                              (.truncatedTo (ChronoUnit/DAYS))) resource_events))))
-                         (->> resource_events
-                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                              (map adjust-event)
-                              (map add-event-hash)
-                              ;; ON CONFLICT does *not* work properly in partitions, see:
-                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-                              ;; section 5.10.6
-                              remove-dupes
-                              insert!
-                              dorun)))
+                       (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
+                                                   (.toInstant)
+                                                   (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                                   (.truncatedTo (ChronoUnit/DAYS))) resource_events))]
+                         (partitioning/create-resource-events-partition date))
+                       (->> resource_events
+                            (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                            (map adjust-event)
+                            (map add-event-hash)
+                            ;; ON CONFLICT does *not* work properly in partitions, see:
+                            ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+                            ;; section 5.10.6
+                            remove-dupes
+                            insert!
+                            dorun))
                    (when update-latest-report?
                      (update-latest-report! certname report-id producer_timestamp))))))))))
 
 (defn delete-resource-events-older-than!
-  "Delete all resource events in the database by dropping any partition older than the day of the year of the given date.
+  "Delete all resource events in the database by dropping any partition older than the day of the year of the given
+  date.
   Note: this ignores the time in the given timestamp, rounding to the day."
   [date]
   {:pre [(kitchensink/datetime? date)]}
@@ -1399,19 +1397,18 @@
   (let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
 
-    (doall
-     (map (fn [table-entry] (jdbc/do-commands
-                             (format "drop table %s" (:tablename table-entry))))
-          (filter (fn [table-entry]
-                    (let [table (:tablename table-entry)
-                          parts (str/split table #"_")
-                          table-full-date (get parts 2)
-                          table-year (Integer/parseInt (subs table-full-date 0 4))
-                          table-month (Integer/parseInt (subs table-full-date 4 6))
-                          table-day (Integer/parseInt (subs table-full-date 6 8))
-                          table-date (ZonedDateTime/of table-year table-month table-day 0 0 0 0 (ZoneId/of "UTC"))]
-                      (.isBefore table-date expire-date)))
-                  tables)))))
+    (doseq [table-entry (filter (fn [table-entry]
+                                  (let [table (:tablename table-entry)
+                                        parts (str/split table #"_")
+                                        table-full-date (get parts 2)
+                                        table-year (Integer/parseInt (subs table-full-date 0 4))
+                                        table-month (Integer/parseInt (subs table-full-date 4 6))
+                                        table-day (Integer/parseInt (subs table-full-date 6 8))
+                                        table-date (ZonedDateTime/of table-year table-month table-day 0 0 0 0 (ZoneId/of "UTC"))]
+                                    (.isBefore table-date expire-date)))
+                                tables)]
+      (jdbc/do-commands
+       (format "drop table if exists %s cascade" (:tablename table-entry))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to

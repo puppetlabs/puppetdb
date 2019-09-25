@@ -394,6 +394,9 @@ value is set higher than `report-ttl`, it will have no effect.
 
 If unset, the default value is 14 days.
 
+Note: this value is in UTC days - any value will be rounded to the nearest day.
+Example: 14 hours will be 1 day, 25 hours will be 2 days.
+
 See `node-ttl` above for the format of this value.
 
 ### `subname`

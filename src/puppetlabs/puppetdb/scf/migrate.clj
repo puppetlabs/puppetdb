@@ -69,8 +69,9 @@
             [puppetlabs.puppetdb.scf.storage :as scf]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning])
   (:import [org.postgresql.util PGobject]
-           [java.time LocalDate]
-           (java.sql Timestamp)))
+           [java.time LocalDate ZonedDateTime ZoneId]
+           (java.sql Timestamp)
+           (java.time.temporal ChronoUnit)))
 
 (defn init-through-2-3-8
   []
@@ -1640,12 +1641,10 @@
 
   ;; create range of partitioned tables
 
-  (let [now (LocalDate/now)
+  (let [now (ZonedDateTime/now)
         days (range -4 4)]
-    (doall
-     (map (fn [day-offset]
-            (partitioning/create-resource-events-partition (.plusDays now day-offset)))
-          days)))
+    (doseq [day-offset days]
+      (partitioning/create-resource-events-partition (.plusDays now day-offset))))
 
   ;; null values are not considered equal in postgresql indexes,
   ;; therefore the existing unique constraint did not function
@@ -1658,7 +1657,7 @@
   ;; we've encountered during the migration to avoid inserting
   ;; duplicates into the new table.
 
-  (let [event-count (-> "select count(*) from resource_events"
+  (let [event-count (-> "select count(*) from resource_events_premigrate"
                         jdbc/query-to-vec first :count)
         last-logged (atom (.getTime (java.util.Date.)))]
    (jdbc/call-with-query-rows
@@ -1666,50 +1665,32 @@
        report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
        new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
      from resource_events_premigrate"]
-    (fn [rows]
-      (dorun
-       (map partitioning/create-resource-events-partition
-            (set (map #(-> ^Timestamp (:timestamp %)
-                           .toLocalDateTime
-                           .toLocalDate) rows))))
-      (reduce (fn [hashes-seen [row i]]
-                (let [now (.getTime (java.util.Date.))]
-                  (when (> (- now @last-logged) 60000)
-                    (maplog :info
-                            {:migration 73 :at i :of event-count}
-                            #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
-                    (reset! last-logged now)))
-                (conj hashes-seen
-                      (let [hash-str (hash/resource-event-identity-pkey row)]
-                        (when-not (hashes-seen hash-str)
-                          (jdbc/insert-multi! "resource_events"
-                                              (list (assoc row :event_hash
-                                                               (sutils/munge-hash-for-storage hash-str)))))
-                        hash-str)))
-              #{}
-              (map vector rows (range event-count))))))
+   (fn [rows]
+     (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
+                                 (.toInstant)
+                                 (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                 (.truncatedTo (ChronoUnit/DAYS))) rows))]
+       (partitioning/create-resource-events-partition date))
+     (reduce (fn [hashes-seen [row i]]
+               (let [now (.getTime (java.util.Date.))]
+                 (when (> (- now @last-logged) 60000)
+                   (maplog :info
+                           {:migration 69 :at i :of event-count}
+                           #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
+                   (reset! last-logged now)))
+               (conj hashes-seen
+                     (let [hash-str (hash/resource-event-identity-pkey row)]
+                       (when-not (hashes-seen hash-str)
+                         (jdbc/insert-multi! "resource_events"
+                                             (list (assoc row :event_hash
+                                                              (sutils/munge-hash-for-storage hash-str)))))
+                       hash-str)))
+             #{}
+             (map vector rows (range event-count))))))
 
   (jdbc/do-commands
-   "DROP TABLE resource_events_premigrate"
-
-   "CREATE INDEX resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
-
-   "CREATE INDEX resource_events_property_idx ON resource_events USING btree (property)"
-
-   "CREATE INDEX resource_events_reports_id_idx ON resource_events USING btree (report_id)"
-
-   "CREATE INDEX resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")"
-
-   "CREATE INDEX resource_events_resource_title_idx ON resource_events USING btree (resource_title)"
-
-   "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events USING btree (status) WHERE corrective_change"
-
-   "CREATE INDEX resource_events_status_idx ON resource_events USING btree (status)"
-
-   "CREATE INDEX resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")"
-
-   "ALTER TABLE ONLY resource_events
-      ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
+   ;; Indexes are created on the individual partitions, not on the base table
+   "DROP TABLE resource_events_premigrate"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."

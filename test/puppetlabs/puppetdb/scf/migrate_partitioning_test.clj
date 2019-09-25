@@ -28,7 +28,31 @@
     (apply-migration-for-testing! 73)
 
     (is (= {:index-diff (into
-                         [{:left-only nil
+                         [{:left-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_timestamp_idx"
+                                       :index_keys ["\"timestamp\""]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_containing_class_idx"
+                                       :index_keys ["containing_class"]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only nil
                            :right-only {:schema "public"
                                         :table "resource_events"
                                         :index "resource_events_pkey"
@@ -42,8 +66,71 @@
                            :same nil}
                           {:left-only {:schema "public"
                                        :table "resource_events"
+                                       :index "resource_events_property_idx"
+                                       :index_keys ["property"]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_reports_id_idx"
+                                       :index_keys ["report_id"]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_resource_title_idx"
+                                       :index_keys ["resource_title"]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_status_for_corrective_change_idx"
+                                       :index_keys ["status"]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial true
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
+                                       :index "resource_events_resource_timestamp"
+                                       :index_keys ["resource_type" "resource_title" "\"timestamp\""]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
                                        :index "resource_events_unique"
-                                       :index_keys ["report_id" "resource_type" "resource_title" "property"]
+                                       :index_keys ["report_id"
+                                                    "resource_type"
+                                                    "resource_title"
+                                                    "property"]
                                        :type "btree"
                                        :unique? true
                                        :functional? false
@@ -419,6 +506,13 @@
                                              :constraint_type "PRIMARY KEY"
                                              :initially_deferred "NO"
                                              :deferrable? "NO"}
+                                :same nil}
+                               {:left-only {:constraint_name "resource_events_report_id_fkey"
+                                            :table_name "resource_events"
+                                            :constraint_type "FOREIGN KEY"
+                                            :initially_deferred "NO"
+                                            :deferrable? "NO"}
+                                :right-only nil
                                 :same nil}
                                {:left-only {:constraint_name "resource_events_unique"
                                             :table_name "resource_events"

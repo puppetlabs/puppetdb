@@ -12,8 +12,9 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning])
-  (:import [java.time LocalDateTime ZoneOffset]
-           [java.sql Timestamp]))
+
+  (:import (java.time ZonedDateTime ZoneId)
+           (java.sql Timestamp)))
 
 (defn read-gc-count-metric []
   ;; metrics are global, so...
@@ -31,30 +32,27 @@
       ;; must insert a new row.
       (testing "update resource event timestamp to be at least two days old"
         (jdbc/with-db-connection (int/server-info pg)
-          (let [new-datetime (-> (LocalDateTime/now)
+          (let [new-datetime (-> (ZonedDateTime/now (ZoneId/of "UTC"))
                                  (.minusDays 2))
                 new-timestamp (-> new-datetime
-                                  (.toInstant ZoneOffset/UTC)
                                   Timestamp/from)]
-            (partitioning/create-resource-events-partition (.toLocalDate new-datetime))
+            (partitioning/create-resource-events-partition new-datetime)
             (jdbc/call-with-query-rows
              ["select
                  report_id, certname_id, status, resource_type, resource_title, property,
                  new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
                from resource_events"]
              (fn [rows]
-               (doall
-                (map (fn [row]
-                       (let [hash-str (hash/resource-event-identity-pkey row)]
-                         (jdbc/insert-multi! "resource_events"
-                                             (list (assoc row :event_hash (sutils/munge-hash-for-storage hash-str)
-                                                          :timestamp new-timestamp)))))
-                     rows)))))))
+               (doseq [row rows]
+                 (let [hash-str (hash/resource-event-identity-pkey row)]
+                   (jdbc/insert-multi! "resource_events"
+                                       (list (assoc row :event_hash (sutils/munge-hash-for-storage hash-str)
+                                                        :timestamp new-timestamp))))))))))
 
       (testing "Verify we have resource events"
         (is (= 2 (count (int/pql-query pdb "events { timestamp > 0 }"))))))
 
-    (testing "Sleep for one second to make sure we have a ttl to exceed"
+    (testing "Sleep for some time to make sure we have a ttl to exceed"
       (Thread/sleep 10))
 
     (let [initial-gc-count (counters/value (:resource-events-purges pdb-services/admin-metrics))]

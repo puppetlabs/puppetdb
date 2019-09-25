@@ -3,8 +3,9 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [schema.core :as s])
-  (:import [java.time LocalDateTime LocalDate ZoneId ZonedDateTime]
-           [java.time.temporal ChronoUnit]
+
+  (:import (java.time LocalDateTime LocalDate ZoneId ZonedDateTime)
+           (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
 
 (defn date-suffix
