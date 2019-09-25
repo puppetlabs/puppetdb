@@ -14,7 +14,7 @@ RUN lein with-profile uberjar uberjar
 
 FROM openjdk:8-jre-slim-buster
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat && \
+    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat gettext && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/puppetdb.jar /
@@ -83,8 +83,6 @@ RUN addgroup $GROUP && adduser --system $USER --ingroup $GROUP
 
 ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba96f963d71bd074d063b17/shared/ssl.sh /ssl.sh
 RUN chmod +x /ssl.sh
-COPY docker/puppetdb/ssl-setup.sh /
-RUN chmod +x /ssl-setup.sh
 
 ADD https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh /wtfc.sh
 RUN chmod +x /wtfc.sh
