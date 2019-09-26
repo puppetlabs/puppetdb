@@ -62,8 +62,11 @@ class Puppet::Util::Puppetdb::Command
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path|
-          http_instance.post(path, payload, headers, {:compress => :gzip,
-                                                      :metric_id => [:puppetdb, :command, command]})
+          req_headers = headers
+          # custom header used in PDB to reject large compressed commands and update the size metric
+          req_headers["X-Uncompressed-Length"] = payload.bytesize.to_s
+          http_instance.post(path, payload, req_headers, {:compress => :gzip,
+                                                          :metric_id => [:puppetdb, :command, command]})
         end
       end
 

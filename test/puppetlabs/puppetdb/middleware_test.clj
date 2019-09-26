@@ -210,6 +210,34 @@
           (is (thrown-with-msg? java.io.IOException
                                 #"Stream Closed"
                                 (.available (:body post-req))))))
+
+      (testing "should fail on large compressed requests when X-Uncompressed-Length is set"
+        (let [post-req {:headers {"x-uncompressed-length" "1000"}
+                        :request-method :post
+                        :body (java.io.FileInputStream. test-file)}]
+          (is (= {:status 413
+                  :headers {"Content-Type" http/error-response-content-type}
+                  :body "Command rejected due to size exceeding max-command-size"}
+                 (middleware-fn post-req)))))
+
+      (testing "should log warning when X-Uncompressed-Length header value is invalid"
+        (let [post-req {:headers {"x-uncompressed-length" "3.14"}
+                        :request-method :post
+                        :body (java.io.FileInputStream. test-file)}]
+          (with-log-output logz
+            ;; if the X-Uncompressed-Length header can't be converted to an integer it is
+            ;; ignored and we don't update metrics or use it to reject commands based on size
+            (is (= post-req (middleware-fn post-req)))
+            (is (= 1 (count (logs-matching #"^The X-Uncompressed-Length value 3.14 cannot be converted to a long" @logz)))))))
+
+      (testing "should log warning when neither Content-Length or X-Uncompressed-Length is set"
+        (let [post-req {:headers {}
+                        :request-method :post
+                        :body (java.io.FileInputStream. test-file)}]
+          (with-log-output logz
+            (is (= post-req (middleware-fn post-req)))
+            (is (= 1 (count (logs-matching #"^Neither Content-Length or X-Uncompressed-Length header is set" @logz)))))))
+
       (testing "should have no affect on small content"
         (let [post-req {:headers {"content-length" "10"}
                         :request-method :post
