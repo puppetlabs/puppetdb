@@ -38,4 +38,21 @@
                        ["puppetdb" "facts" "find"]
                        ["puppetdb" "query"]
                        ["puppetdb" "resource" "search"]}
-                     (set (map :metric-id metrics)))))))))))
+                     (set (map :metric-id metrics)))))))))
+
+    (testing "PuppetDB metrics are updated for compressed commands"
+      ;; the terminus is configured to send gzipped commands without a
+      ;; 'Content-Length' header this test checks that the custom
+      ;; 'X-Uncompressed-Length' header updates the PDB size metric
+      (let [size-metrics-url (str "https://localhost:"
+                                  (-> pdb int/server-info :base-url :port)
+                                  "/metrics/v2/read/puppetlabs.puppetdb.mq:name=global.size")
+            metrics-resp (svc-utils/get-ssl size-metrics-url)]
+        (is (= 200 (:status metrics-resp)))
+        ;; assert that the size metric has been updated and no values are 0.0
+        (is (->> metrics-resp
+                 :body
+                 :value
+                 vals
+                 (map #(not= 0.0 %))
+                 (every? true?)))))))
