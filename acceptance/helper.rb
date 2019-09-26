@@ -278,6 +278,10 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'ubuntu1804-64-1'
   end
 
+  def is_buster()
+    return test_config[:os_families].has_key? 'debian10-64-1'
+  end
+
   def is_rhel8()
     return test_config[:os_families].has_key? 'redhat8-64-1'
   end
@@ -298,9 +302,9 @@ module PuppetDBExtensions
     when :install, :upgrade_latest
       test_config[:platform_version]
     when :upgrade_oldest
-      # Redhat8 and Redhat7-fips only have builds starting
-      # somewhere in the 6 series.
-      if is_rhel8 || is_rhel7fips
+      # Redhat8, Redhat7-fips, Debian 10
+      # only have builds starting somewhere in the 6 series.
+      if is_rhel8 || is_rhel7fips || is_buster
         :puppet6
       else
         :puppet5
@@ -319,6 +323,8 @@ module PuppetDBExtensions
       '6.0.3'
     elsif is_rhel7fips
       '6.4.0'
+    elsif is_buster
+      '6.7.0'
     else
       '5.2.0'
     end
@@ -395,6 +401,8 @@ module PuppetDBExtensions
       "#{version}jessie"
     elsif host['platform'].include?('debian-9')
       "#{version}stretch"
+    elsif host['platform'].include?('debian-10')
+      "#{version}buster"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
