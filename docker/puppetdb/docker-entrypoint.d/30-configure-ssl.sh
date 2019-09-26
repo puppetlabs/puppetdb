@@ -10,6 +10,8 @@ if [ ! -f "${SSLDIR}/certs/${CERTNAME}.pem" ] && [ "$USE_PUPPETSERVER" = true ];
   ln -s ${SSLDIR}/private_keys/${CERTNAME}.pem ${SSLDIR}/private_keys/private.pem
   ln -s ${SSLDIR}/certs/${CERTNAME}.pem ${SSLDIR}/certs/public.pem
 
+  sed -i '/^# ssl-/s/^# //g' /etc/puppetlabs/puppetdb/conf.d/jetty.ini
+
   # make sure Java apps running as puppetdb can read these files
   chown -R puppetdb:puppetdb ${SSLDIR}
 
