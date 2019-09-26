@@ -1522,7 +1522,10 @@
 
   {::vacuum-analyze #{"factsets"}})
 
-(defn add-resource-events-pk []
+(defn add-resource-events-pk
+  ([]
+   (add-resource-events-pk 1000))
+  ([batch-size]
   (jdbc/do-commands
    "CREATE TABLE resource_events_transform (
       event_hash bytea NOT NULL PRIMARY KEY,
@@ -1554,31 +1557,55 @@
   ;; we've encountered during the migration to avoid inserting
   ;; duplicates into the new table.
 
-  (let [event-count (-> "select count(*) from resource_events"
-                        jdbc/query-to-vec first :count)
-        last-logged (atom (.getTime (java.util.Date.)))]
-    (jdbc/call-with-query-rows
-     ["select
-       report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
-       new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
-     from resource_events"]
-     (fn [rows]
-       (reduce (fn [hashes-seen [row i]]
-                 (let [now (.getTime (java.util.Date.))]
-                   (when (> (- now @last-logged) 60000)
-                     (maplog :info
-                             {:migration 69 :at i :of event-count}
-                             #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
-                     (reset! last-logged now)))
-                 (conj hashes-seen
-                       (let [hash-str (hash/resource-event-identity-pkey row)]
-                         (when-not (hashes-seen hash-str)
-                           (jdbc/insert-multi! "resource_events_transform"
-                                               (list (assoc row :event_hash
-                                                            (sutils/munge-hash-for-storage hash-str)))))
-                         hash-str)))
+  (jdbc/call-with-query-rows
+   ["select
+     report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
+     new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
+   from resource_events"]
+   (fn [rows]
+     (let [event-count (-> "select count(*) from resource_events"
+                           jdbc/query-to-vec first :count)
+           last-logged (atom (.getTime (java.util.Date.)))
+           events-migrated (atom 0)
+           old-cols [:report_id :certname_id :status :timestamp :resource_type
+                     :resource_title :property :new_value :old_value :message
+                     :file :line :containment_path :containing_class
+                     :corrective_change]
+           new-cols (into [:event_hash] old-cols)
+           update-row (apply juxt (comp sutils/munge-hash-for-storage
+                                        hash/resource-event-identity-pkey)
+                                  old-cols)
+           ;; Retrieve event_hash string from PGobject produced by sutils
+           row->id (fn [row] (-> row first .getValue))
+           insert->hash (fn [batch]
+                          (when (seq batch)
+                            (jdbc/insert-multi! :resource_events_transform
+                                                new-cols
+                                                batch))
+                          (let [now (.getTime (java.util.Date.))]
+                            (when (> (- now @last-logged) 60000)
+                              (maplog :info
+                                      {:migration 69 :at @events-migrated :of event-count}
+                                      #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
+                              (reset! last-logged now)))
+                          ;; Return hashes for each row directly instead of
+                          ;; reading them back from the DB via the return
+                          ;; value of insert-multi!
+                          (map row->id batch))
+           dedupe-and-insert (fn [hashes-seen batch]
+                               (swap! events-migrated + (count batch))
+                               (->> batch
+                                    (map update-row)
+                                    ;; Remove any duplicates in current batch
+                                    (group-by row->id)
+                                    (map (comp first last))
+                                    ;; Remove any duplicates in previous batches
+                                    (filter #(-> % row->id hashes-seen nil?))
+                                    insert->hash
+                                    (reduce conj hashes-seen)))]
+       (reduce dedupe-and-insert
                #{}
-               (map vector rows (range event-count))))))
+               (partition batch-size batch-size [] rows)))))
 
   (jdbc/do-commands
    "DROP TABLE resource_events"
@@ -1606,7 +1633,7 @@
    "ALTER TABLE ONLY resource_events
       ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
 
-  {::vaccum-analyze #{"resource_events"}})
+  {::vaccum-analyze #{"resource_events"}}))
 
 (defn support-fact-expiration-configuration []
   ;; Note that a missing row implies "true", i.e. expiration should
