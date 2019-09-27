@@ -74,7 +74,7 @@ COPY docker/puppetdb/logback.xml /etc/puppetlabs/puppetdb/logback.xml
 COPY docker/puppetdb/request-logging.xml /etc/puppetlabs/puppetdb/request-logging.xml
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
-RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
+RUN mkdir -p /opt/puppetlabs/server/data/puppetdb/logs
 
 RUN addgroup $GROUP && adduser --system $USER --ingroup $GROUP
 
