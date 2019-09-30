@@ -100,7 +100,8 @@
   (let [{:keys [app base-url]} (start-test-puppetdb "test-resources/integration-bootstrap.cfg"
                                                     "test-resources/integration-puppetdb.conf"
                                                     (ks/deep-merge config-overrides
-                                                                   {:database (server-info postgres-server)})
+                                                                   {:database (server-info postgres-server)
+                                                                    :puppetdb {:disable-update-checking "true"}})
                                                     10)
         {:keys [host port]} base-url]
     (PuppetDBTestServer. {:base-url base-url
