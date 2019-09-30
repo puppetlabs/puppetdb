@@ -19,9 +19,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 [facts]: ./api/query/v4/facts.html
 [puppet_apply]: ./connect_puppet_apply.html
 
-## PuppetDB 6.6.0
+## PuppetDB 6.7.0
 
 ### New features and improvements
+
+- **Debian 10 support** - PuppetDB packages are now available for Debian 10. These packages require Java 11 to be installed, rather than Java 8. [PDB-4469](https://tickets.puppetlabs.com/browse/PDB-4469)  
+
+- **New `ignored` metric.** The `ignored` metric tracks the number of obsolete
+  commands since the last restart. For more on the `ignored` metric, see
+  [Metrics endpoint][metrics]. [PDB-4278](https://tickets.puppetlabs.com/browse/PDB-4278)
+
+- **Return a specific fact or resource paramater with `inventory` and `resources` endpoints.** You can now use dot notation
+  with `inventory` and `resources` endpoints to return a specific fact or resource parameter instead of the
+  entire JSON file [PDB-2634](https://tickets.puppetlabs.com/browse/PDB-2634). 
+  
+  For examples of using dot notation in PQL and AST, see the following: 
+  - [Puppet Query Language (PQL) examples](./api/query/examples-pql.markdown) 
+  - [AST query language (AST)](./api/query/v4/ast.markdown)
+
+### Bug fixes
+
+- Fixed an issue where PQL queries with dot notation required an extra
+  space to terminate the dotted field. For example, `inventory[]{
+  facts.os.family="Debian" }` would fail because PuppetDB parsed the `=` operator as part of the dotted field. [PDB-3284](https://tickets.puppetlabs.com/browse/PDB-3284)
+
+## PuppetDB 6.6.0
 
 ### Bug fixes
 
