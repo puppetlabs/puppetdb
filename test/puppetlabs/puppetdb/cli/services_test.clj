@@ -211,11 +211,13 @@
                  [9 4]
                  [9 5]]]
         (with-redefs [sutils/db-metadata (delay {:database nil :version v})]
-          (try+
+          (try
            (initialize-schema *db* config)
-           (catch [:type ::svcs/unsupported-database] {:keys [current oldest]}
-             (is (= v current))
-             (is (= expected-oldest oldest))))))
+           (catch clojure.lang.ExceptionInfo e
+             (let [{:keys [kind current oldest]} (ex-data e)]
+               (is (= ::svcs/unsupported-database kind))
+               (is (= v current))
+               (is (= expected-oldest oldest)))))))
       (with-redefs [sutils/db-metadata (delay {:database nil :version [9 6]})]
         (is (do
               ;; Assumes initialize-schema is idempotent, which it is
