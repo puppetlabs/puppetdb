@@ -222,6 +222,24 @@
               (initialize-schema *db* config)
               true))))))
 
+(deftest unsupported-database-settings-trigger-shutdown
+  (svc-utils/with-single-quiet-pdb-instance
+    (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
+                     conf/get-config)
+          settings (request-database-settings *db*)]
+      (doseq [[setting err-value] [[:standard_conforming_strings "off"]]]
+        (try
+         (verify-database-settings (map #(when (= (:name %) (name setting))
+                                           (assoc % :setting err-value))
+                                        settings))
+         (catch clojure.lang.ExceptionInfo e
+           (let [{:keys [kind failed-validation]} (ex-data e)]
+             (is (= ::svcs/invalid-database-configuration kind))
+             (is (= (get-in failed-validation [setting :actual]) err-value))))))
+        (is (do
+              (verify-database-settings settings)
+              true)))))
+
 (defn purgeable-nodes [node-purge-ttl]
   (let [horizon (time/to-timestamp (time/ago node-purge-ttl))]
     (jdbc/query-to-vec
