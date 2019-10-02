@@ -86,11 +86,11 @@
                                     :values facts}
                                    "replace facts" 5))
                deactivate (fn [certname stamp]
-                            (do-cmd {:producer_timstamp stamp
-                                :certname certname}
+                            (do-cmd {:producer_timestamp stamp
+                                     :certname certname}
                                     "deactivate node" 3))
                set-expire (fn [certname stamp expire-facts?]
-                            (do-cmd {:producer_timstamp stamp
+                            (do-cmd {:producer_timestamp stamp
                                      :certname certname
                                      :expire {:facts expire-facts?}}
                                     "configure expiration" 1))
