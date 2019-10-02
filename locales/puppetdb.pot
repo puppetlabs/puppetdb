@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 3475651bd445ffad00aca26e63c5dcca7092a26e\n"
+"X-Git-Ref: ad63d8c01d7caef065cfe5573f8a35fef0bec698\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -700,7 +700,18 @@ msgid "content type {0} not supported"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
+msgid "The X-Uncompressed-Length value {0} cannot be converted to a long."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
 msgid "Processing command with a content-length of {0} bytes"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid ""
+"Neither Content-Length or X-Uncompressed-Length header is set.\n"
+"                            This {0} command will not be counted in command "
+"size metrics"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
