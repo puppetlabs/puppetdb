@@ -136,13 +136,13 @@
                  (is (= "bar" (-> result first (get "certname"))))
                  (is (tc/after? (now)
                                 (-> result first (get "expired") parse-wire-datetime))))
-               (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
-                   {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
-                  (facts))
+               (is (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
+                       {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                      (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
                (is (= [{"certname" "foo" "expired" nil}] (nodes)))
-               (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
-                  (facts))))
+               (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                      (facts)))))
 
            (testing "changing expiration from false to true allows expire/purge"
              (let [start-time (now)]
@@ -153,11 +153,11 @@
                  (is (= "foo" (-> result first (get "certname"))))
                  (is (tc/after? (now)
                                 (-> result first (get "expired") parse-wire-datetime))))
-               (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
-                  (facts))
+               (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                      (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
                (is (= [] (nodes)))
-               (= [] (facts))))
+               (is (= [] (facts)))))
 
            (testing "nodes with unexpirable facts deactivate properly"
              (set-expire "foo" (now) false)
