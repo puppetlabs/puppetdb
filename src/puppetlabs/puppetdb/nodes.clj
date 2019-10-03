@@ -38,7 +38,9 @@
    :latest_report_corrective_change (s/maybe s/Bool)
    :latest_report_job_id (s/maybe s/Str)
    :expires_facts (s/maybe s/Bool)
-   :expires_facts_updated (s/maybe pls/Timestamp)})
+   :expires_facts_updated (s/maybe pls/Timestamp)
+   :expirable (s/maybe s/Bool)
+   :expirable_updated (s/maybe pls/Timestamp)})
 
 (pls/defn-validated nodes-query->configure-expiration-wire-v1
   :- [configure-expiration-wireformat-schema]

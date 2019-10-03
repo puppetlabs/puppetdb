@@ -89,15 +89,16 @@
                             (do-cmd {:producer_timestamp stamp
                                      :certname certname}
                                     "deactivate node" 3))
-               set-expire (fn [certname stamp expire-facts?]
+               set-expire (fn [cmd-type certname stamp expire-facts?]
                             (do-cmd {:producer_timestamp stamp
                                      :certname certname
-                                     :expire {:facts expire-facts?}}
+                                     :expire {cmd-type expire-facts?}}
                                     "configure expiration" 1))
                compare-certs #(compare (get %1 "certname") (get %2 "certname"))
                nodes (fn []
                        (->> {:query ["from" "nodes"
-                                     ["extract" ["certname" "expired"]
+                                     ["extract" ["certname" "expired"
+                                                 "expirable" "expirable_updated"]
                                       ["or"
                                        ["=" "node_state" "active"]
                                        ["=" "node_state" "inactive"]]]]}
@@ -119,20 +120,24 @@
                             (map #(update % "facts" (fn [v] (get v "data"))))
                             (sort compare-certs)))]
 
-           (testing "facts don't expire/purge when expire configured to false"
+           (testing "facts/nodes don't expire/purge when expire configured to false"
              (let [start-time (now)]
-               (set-expire "foo" (now) false)
+               (set-expire :facts "foo" (now) false)
+               (set-expire :node "zzz" start-time false)
                (add-catalog "foo" (now))
                (add-facts "foo" (now) {:x 1})
                (add-facts "bar" (now) {:y 1})
                (Thread/sleep (inc lifetime-ms))
-               (is (= [{"certname" "bar" "expired" nil}
-                       {"certname" "foo" "expired" nil}]
+               (is (= [{"certname" "bar" "expired" nil "expirable" nil "expirable_updated" nil}
+                       {"certname" "foo" "expired" nil "expirable" nil "expirable_updated" nil}
+                       {"certname" "zzz" "expired" nil "expirable" false "expirable_updated" (str start-time)}]
                       (nodes)))
                (cli-svc/clean pdb ["expire_nodes"])
                (let [result (nodes)]
-                 (is (= 2 (count result)))
-                 (is (= {"certname" "foo" "expired" nil} (second result)))
+                 (is (= 3 (count result)))
+                 (is (= [{"certname" "foo" "expired" nil "expirable" nil "expirable_updated" nil}
+                         {"certname" "zzz" "expired" nil "expirable" false "expirable_updated" (str start-time)}]
+                        (rest result)))
                  (is (= "bar" (-> result first (get "certname"))))
                  (is (tc/after? (now)
                                 (-> result first (get "expired") parse-wire-datetime))))
@@ -140,36 +145,51 @@
                        {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                       (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
-               (is (= [{"certname" "foo" "expired" nil}] (nodes)))
+               (is (= [{"certname" "foo" "expired" nil "expirable" nil "expirable_updated" nil}
+                       {"certname" "zzz" "expired" nil "expirable" false "expirable_updated" (str start-time)}]
+                      (nodes)))
                (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                       (facts)))))
 
            (testing "changing expiration from false to true allows expire/purge"
              (let [start-time (now)]
-               (set-expire "foo" (now) true)
+               (set-expire :facts "foo" (now) true)
+               (set-expire :node "zzz" (now) true)
                (cli-svc/clean pdb ["expire_nodes"])
                (let [result (nodes)]
-                 (is (= 1 (count result)))
+                 (is (= 2 (count result)))
                  (is (= "foo" (-> result first (get "certname"))))
+                 (is (= "zzz" (-> result second (get "certname"))))
                  (is (tc/after? (now)
-                                (-> result first (get "expired") parse-wire-datetime))))
+                                (-> result first (get "expired") parse-wire-datetime)))
+                 (is (tc/after? (now)
+                                (-> result second (get "expired") parse-wire-datetime))))
                (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
                       (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
                (is (= [] (nodes)))
                (is (= [] (facts)))))
 
-           (testing "nodes with unexpirable facts deactivate properly"
-             (set-expire "foo" (now) false)
-             (add-catalog "foo" (now))
-             (add-facts "foo" (now) {:x 1})
-             (is (= [{"certname" "foo" "expired" nil}] (nodes)))
-             (cli-svc/clean pdb [])
-             (is (= [{"certname" "foo" "expired" nil}] (nodes)))
-             (deactivate "foo" (now))
-             (is (= [{"certname" "foo" "expired" nil}] (nodes)))
-             (cli-svc/clean pdb [])
-             (is (= [] (nodes))))))))))
+           (testing "nodes with explictly managed lifetimes deactivate properly"
+             (let [start-time (now)]
+               (set-expire :facts "foo" (now) false)
+               (set-expire :node "zzz" start-time false)
+               (add-catalog "foo" (now))
+               (add-facts "foo" (now) {:x 1})
+               (is (= [{"certname" "foo" "expired" nil "expirable" nil "expirable_updated" nil}
+                       {"certname" "zzz" "expired" nil "expirable" false "expirable_updated" (str start-time)}]
+                      (nodes)))
+               (cli-svc/clean pdb [])
+               (is (= [{"certname" "foo" "expired" nil "expirable" nil "expirable_updated" nil}
+                       {"certname" "zzz" "expired" nil "expirable" false "expirable_updated" (str start-time)}]
+                      (nodes)))
+               (deactivate "foo" (now))
+               (deactivate "zzz" (now))
+               (is (= [{"certname" "foo" "expired" nil "expirable" nil "expirable_updated" nil}
+                       {"certname" "zzz" "expired" nil "expirable" false "expirable_updated" (str start-time)}]
+                      (nodes)))
+               (cli-svc/clean pdb [])
+               (is (= [] (nodes)))))))))))
 
 (deftest test-zero-gc-interval
   (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]

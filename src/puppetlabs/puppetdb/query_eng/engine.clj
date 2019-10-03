@@ -271,7 +271,13 @@
                                         :field :catalog_environment.environment}
                  "report_environment" {:type :string
                                        :queryable? true
-                                       :field :reports_environment.environment}}
+                                       :field :reports_environment.environment}
+                 "expirable" {:type :boolean
+                              :queryable? true
+                              :field :certnames.expirable}
+                 "expirable_updated" {:type :timestamp
+                                      :queryable? true
+                                      :field :certnames.expirable_updated}}
 
    :relationships certname-relations
 
