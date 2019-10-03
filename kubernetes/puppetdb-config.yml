@@ -1,6 +1,7 @@
 ---
 apiVersion: v1
 kind: ConfigMap
+# TODO: uggh, why are we doing this here?
 metadata:
   name: puppetdb-config
 data:

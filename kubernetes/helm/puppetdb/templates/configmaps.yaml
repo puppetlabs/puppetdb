@@ -9,6 +9,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 data:
+  # TODO: I'm not so sure we should be doing this like this
   logback: |
     <configuration scan="true">
       <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

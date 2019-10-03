@@ -49,14 +49,16 @@ spec:
         ports:
         - containerPort: 8080
         - containerPort: 8081
+        #TODO: all this stuff is wrong now
         volumeMounts:
         - mountPath: /etc/puppetlabs/puppetdb/conf.d
           name: config
         - mountPath: /etc/puppetlabs/puppetdb/ssl
           name: ssl
-        - mountPath: /var/puppetdb
+        - mountPath: /opt/puppetlabs/server/data/puppetdb
           name: vardir
       volumes:
+      #TODO: this doesn't make sense in containers anymore really
       - name: config
         configMap:
           name: puppetdb-config
