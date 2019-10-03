@@ -319,6 +319,18 @@
           "    where excluded.updated > cfe.updated")
      [expire? updated certname])))
 
+(pls/defn-validated set-certname-node-expiration
+  [certname :- s/Str
+   expire? :- s/Bool
+   updated :- pls/Timestamp]
+  (let [updated (to-timestamp updated)]
+    (jdbc/do-prepared
+     (str "INSERT INTO certnames(certname, expirable, expirable_updated)"
+          "VALUES (?, ?, ?)"
+          "ON CONFLICT(certname)"
+          "DO UPDATE SET expirable = ?, expirable_updated = ?")
+     [certname expire? updated expire? updated])))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
 
@@ -1427,10 +1439,12 @@
                      and (r.producer_timestamp is null
                           or r.producer_timestamp < ?)"
            "         and (cfe.updated is null"
-           "              or (cfe.expire and cfe.updated < ?)))"
+           "              or (cfe.expire and cfe.updated < ?))"
+           "         and (c.expirable_updated is null"
+           "              or (c.expirable and c.expirable_updated < ?)))"
            "  returning certname")
           expired-ts
-          stale-start-ts stale-start-ts stale-start-ts stale-start-ts))))
+          stale-start-ts stale-start-ts stale-start-ts stale-start-ts stale-start-ts))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.

@@ -1636,6 +1636,11 @@
     "     check ((expire is not null and updated is not null)"
     "             or (expire is null and updated is null)))"]))
 
+(defn add-node-expiration-columns-to-certnames []
+  (jdbc/do-commands
+   "ALTER TABLE certnames ADD COLUMN expirable_updated TIMESTAMP WITH TIME ZONE DEFAULT NULL"
+   "ALTER TABLE certnames ADD COLUMN expirable BOOL DEFAULT NULL"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1686,7 +1691,8 @@
    ;; to the hash to avoid these sorts of collisions
    67 (fn [])
    68 support-fact-expiration-configuration
-   69 add-resource-events-pk})
+   69 add-resource-events-pk
+   70 add-node-expiration-columns-to-certnames})
 
 (def desired-schema-version (apply max (keys migrations)))
 

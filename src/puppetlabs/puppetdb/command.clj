@@ -399,11 +399,15 @@
    start-time db]
   (let [certname (:certname payload)
         stamp (:producer_timestamp payload (now))
-        expire-facts? (get-in payload [:expire :facts])]
-    (when-not (nil? expire-facts?)
+        expire-facts? (get-in payload [:expire :facts])
+        expire-nodes? (get-in payload [:expire :node])]
+    (when-not (and (nil? expire-facts?) (nil? expire-nodes?))
       (jdbc/with-transacted-connection db
         (scf-storage/maybe-activate-node! certname stamp)
-        (scf-storage/set-certname-facts-expiration certname expire-facts? stamp))
+        (when-not (nil? expire-facts?)
+          (scf-storage/set-certname-facts-expiration certname expire-facts? stamp))
+        (when-not (nil? expire-nodes?)
+          (scf-storage/set-certname-node-expiration certname expire-nodes? stamp)))
       (log-command-processed-messsage id received start-time
                                       :configure-expiration certname))))
 
