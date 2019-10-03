@@ -56,6 +56,10 @@ group :test do
   gem 'mocha', '~> 1.0'
 end
 
+group :development do
+  gem 'httparty'
+end
+
 # This is a workaround for a bug in bundler, where it likes to look at ruby
 # version deps regardless of what groups you want or not. This lets us
 # conditionally shortcut evaluation entirely.
