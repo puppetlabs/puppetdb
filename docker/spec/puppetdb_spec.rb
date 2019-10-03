@@ -24,8 +24,4 @@ describe 'puppetdb container specs' do
   it 'should have started puppetdb' do
     expect(get_service_container('puppetdb')).to_not be_empty
   end
-
-  it 'should have a "running" puppetdb container' do
-    expect(wait_on_service_health('puppetdb')).to eq('healthy')
-  end
 end
