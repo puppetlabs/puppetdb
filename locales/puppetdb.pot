@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: ad63d8c01d7caef065cfe5573f8a35fef0bec698\n"
+"X-Git-Ref: 6ea4ef5bf2294dff896add28c92eaf4d11b085ec\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -290,6 +290,23 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Invalid database configuration settings: "
+msgstr ""
+
+#. This is used to construct a list of invalid database settings
+#.
+#. 0 : The name of a database setting
+#. 1 : The expected value of that database setting
+#. 2 : The actual value of that database setting
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Unkown fatal start error {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
