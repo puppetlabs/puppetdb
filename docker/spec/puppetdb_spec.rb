@@ -1,29 +1,20 @@
-require 'timeout'
-require 'json'
-require 'rspec'
-require 'net/http'
+include Pupperware::SpecHelpers
+
+RSpec.configure do |c|
+  c.before(:suite) do
+    ENV['PUPPETDB_IMAGE'] = require_test_image
+    pull_images('puppetdb')
+    teardown_cluster()
+    docker_compose_up()
+  end
+
+  c.after(:suite) do
+    emit_logs
+    teardown_cluster()
+  end
+end
 
 describe 'puppetdb container specs' do
-  include Pupperware::SpecHelpers
-
-  before(:all) do
-    require_test_image()
-    status = docker_compose('version')[:status]
-    if status.exitstatus != 0
-      fail "`docker-compose` must be installed and available in your PATH"
-    end
-    teardown_cluster()
-
-    # fire up the cluster and wait for puppetdb creation in postgres
-    docker_compose_up()
-    wait_on_service_health('postgres')
-  end
-
-  after(:all) do
-    emit_logs()
-    teardown_cluster()
-  end
-
   it 'should have installed postgres extensions' do
     installed_extensions = get_postgres_extensions
     expect(installed_extensions).to match(/^\s+pg_trgm\s+/)
@@ -32,9 +23,5 @@ describe 'puppetdb container specs' do
 
   it 'should have started puppetdb' do
     expect(get_service_container('puppetdb')).to_not be_empty
-  end
-
-  it 'should have a "running" puppetdb container' do
-    expect(wait_on_service_health('puppetdb')).to eq('healthy')
   end
 end
