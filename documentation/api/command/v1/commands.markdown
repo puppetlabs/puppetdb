@@ -88,6 +88,15 @@ first. The response will contain the following additional keys:
 * `error`, `exception`: If the command was processed but an error occurred,
   these two fields provide the specifics of what went wrong.
 
+### Custom headers
+
+When submitting a compressed command body you should indicate the uncompressed
+command size by setting the following custom header:
+`X-Uncompressed-Length: <uncompressed length in bytes>`.
+This header is used to update command size metrics and compared against
+`max-command-size` when `reject-large-commands` is set to true. All commands
+sent from the PuppetDB termini now include this header by default.
+
 ## Command semantics
 
 Commands are processed _asynchronously_. If PuppetDB returns a 200
