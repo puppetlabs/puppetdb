@@ -1,5 +1,5 @@
 (def pdb-version "6.7.1-SNAPSHOT")
-(def clj-parent-version "4.2.0")
+(def clj-parent-version "4.2.4")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -59,7 +59,6 @@
 (def pdb-dev-deps
   (concat
    '[[ring/ring-mock]
-     [org.bouncycastle/bcpkix-jdk15on]
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
@@ -247,11 +246,32 @@
   ;; "test"].  See the :testutils profile below.
   :classifiers  {:test :testutils}
 
-  :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies ~pdb-dev-deps
-                   :injections [(do
-                                  (require 'schema.core)
-                                  (schema.core/set-fn-validation! true))]}
+  :profiles {:defaults {:resource-paths ["test-resources"]
+                        :dependencies ~pdb-dev-deps
+                        :injections [(do
+                                       (require 'schema.core)
+                                       (schema.core/set-fn-validation! true))]}
+             :dev [:defaults
+                   {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]}]
+             :fips [:defaults
+                    {:dependencies [[org.bouncycastle/bcpkix-fips]
+                                    [org.bouncycastle/bc-fips]
+                                    [org.bouncycastle/bctls-fips]]
+
+                     ;; this only ensures that we run with the proper profiles
+                     ;; during testing. This JVM opt will be set in the puppet module
+                     ;; that sets up the JVM classpaths during installation.
+                     :jvm-opts ~(let [version (System/getProperty "java.version")
+                                      [major minor _] (clojure.string/split version #"\.")
+                                      unsupported-ex (ex-info "Unsupported major Java version. Expects 8 or 11."
+                                                       {:major major
+                                                        :minor minor})]
+                                  (condp = (java.lang.Integer/parseInt major)
+                                    1 (if (= 8 (java.lang.Integer/parseInt minor))
+                                        ["-Djava.security.properties==dev-resources/jdk8-fips-security"]
+                                        (throw unsupported-ex))
+                                    11 ["-Djava.security.properties==dev-resources/jdk11-fips-security"]
+                                    (throw unsupported-ex)))}]
              :ezbake {:dependencies ^:replace [;; NOTE: we need to explicitly pass in `nil` values
                                                ;; for the version numbers here in order to correctly
                                                ;; inherit the versions from our parent project.
@@ -298,10 +318,7 @@
              ; PE should be handled by selecting the proper bouncycastle jar
              ; at runtime (standard/fips)
              :uberjar {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
-                       :aot ~pdb-aot-namespaces}
-             :fips {:exclusions [org.bouncycastle/bcpkix-jdk15on]
-                    :dependencies [[org.bouncycastle/bcpkix-fips]
-                                   [org.bouncycastle/bc-fips]]}}
+                       :aot ~pdb-aot-namespaces}}
 
   :jar-exclusions [#"leiningen/"]
 
