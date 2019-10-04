@@ -35,7 +35,7 @@ aliases:
     ext/bin/test-config --set pgver "$pgver"
     ext/bin/test-config --set pgport 34335
     ext/bin/check-spec-env "$PDB_TEST"
-    ext/bin/boxed-core-tests -- lein test
+    ext/bin/boxed-core-tests -- lein with-profiles "${LEIN_PROFILES:-dev}" test
     ext/bin/run-external-tests
 
   - &run-integration-tests |
@@ -56,7 +56,7 @@ aliases:
     PDB_TEST_RICH_DATA="$(ext/travisci/spec-includes "$PDB_TEST" rich)"
     export PDB_TEST_RICH_DATA
     ext/bin/check-spec-env "$PDB_TEST"
-    ext/bin/boxed-integration-tests -- lein test :integration
+    ext/bin/boxed-integration-tests -- lein with-profiles "${LEIN_PROFILES:-dev}" test :integration
 
   - &run-spec-tests |
     set -e
@@ -84,6 +84,10 @@ jobs:
     # === core+ext tests
     - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      script: *run-core-and-ext-tests
+
+    - stage: ❧ pdb tests with FIPS
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6 LEIN_PROFILES=fips
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
