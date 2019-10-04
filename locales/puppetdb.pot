@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 623ab99df40ad1b366eb9cb10874c5551ddb1f30\n"
+"X-Git-Ref: c1364b1d8ebd9ab65bd1466bae23758cee3390e6\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -205,18 +205,6 @@ msgid "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "error: "
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/tk_util.clj
-#: src/puppetlabs/puppetdb/cli/util.clj
-msgid "error:"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/util.clj
-msgid "PuppetDB doesn''t support JDK {0}"
-msgstr ""
-
 msgid "Invalid database configuration settings: "
 msgstr ""
 
@@ -231,6 +219,15 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Unkown fatal start error {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/tk_util.clj
+#: src/puppetlabs/puppetdb/cli/util.clj
+msgid "error:"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/util.clj
+msgid "PuppetDB doesn''t support JDK {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
