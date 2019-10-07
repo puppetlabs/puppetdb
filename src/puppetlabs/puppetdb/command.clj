@@ -58,6 +58,7 @@
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
+            [puppetlabs.puppetdb.nodes :as nodes]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -394,7 +395,7 @@
         (assoc :payload validated-payload)
         (store-report* start-time db))))
 
-(defn configure-expiration
+(defn configure-expiration*
   [{:keys [id received payload]}
    start-time db]
   (let [certname (:certname payload)
@@ -406,6 +407,14 @@
         (scf-storage/set-certname-facts-expiration certname expire-facts? stamp))
       (log-command-processed-messsage id received start-time
                                       :configure-expiration certname))))
+
+(defn configure-expiration
+  [{:keys [payload] :as command} start-time db]
+  (configure-expiration* (upon-error-throw-fatality
+                          (assoc command :payload
+                                 (s/validate nodes/configure-expiration-wireformat-schema payload)))
+                         start-time
+                         db))
 
 ;; ## Command processors
 
