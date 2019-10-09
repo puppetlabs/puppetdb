@@ -37,7 +37,7 @@
 
         table-name-suffix (date-suffix date)
         full-table-name (format "%s_%s" base-table table-name-suffix)]
-    (apply jdbc/do-commands-outside-txn
+    (apply jdbc/do-commands
            (concat [(format (str "CREATE TABLE IF NOT EXISTS %s ("
                                  " CHECK ( %s >= TIMESTAMP WITH TIME ZONE '%s' AND %s < TIMESTAMP WITH TIME ZONE '%s' )"
                                  ") INHERITS (%s)")

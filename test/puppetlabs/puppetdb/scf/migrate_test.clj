@@ -18,7 +18,9 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]])
+  (:import (java.time ZoneId ZonedDateTime)
+           (java.sql Timestamp)))
 
 (use-fixtures :each tdb/call-with-test-db)
 
@@ -1019,7 +1021,11 @@
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
 
 (deftest migration-73-adds-hashes-to-resource-events
-  (let [current-time (to-timestamp (now))]
+  (let [current-time (to-timestamp (now))
+        ;; known date that has issues
+        other-date (-> (ZonedDateTime/of 2015 10 9 16 42 54 94 (ZoneId/of "-07:00"))
+                       (.toInstant)
+                       (Timestamp/from))]
     (jdbc/with-db-connection *db*
       (clear-db-for-testing!)
 
@@ -1062,7 +1068,7 @@
                   :resource_type "File"
                   :status "success"
                   :resource_title "tmp-directory"
-                  :timestamp current-time
+                  :timestamp other-date
                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                   :message "created"}
             row2 {:new_value "\"directory\"",
@@ -1077,7 +1083,7 @@
                   :resource_type "File",
                   :status "success",
                   :resource_title "tmp-directory",
-                  :timestamp current-time
+                  :timestamp other-date
                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                   :message "created"}]
         (jdbc/insert-multi!
@@ -1116,7 +1122,7 @@
                           :resource_type "File"
                           :status "success"
                           :resource_title "tmp-directory"
-                          :timestamp current-time
+                          :timestamp other-date
                           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                           :message "created"})
               expected2 (shash/resource-event-identity-pkey
@@ -1132,7 +1138,7 @@
                           :resource_type "File"
                           :status "success"
                           :resource_title "tmp-directory"
-                          :timestamp current-time
+                          :timestamp other-date
                           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                           :message "created"})
 

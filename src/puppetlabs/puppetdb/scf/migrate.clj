@@ -1598,7 +1598,7 @@
 
 (defn reporting-partitioned-tables
   ([]
-   (reporting-partitioned-tables 1000))
+   (reporting-partitioned-tables 500))
   ([batch-size]
    (jdbc/do-commands
     "ALTER TABLE resource_events RENAME TO resource_events_premigrate"
@@ -1695,9 +1695,18 @@
                            ;; reading them back from the DB via the return
                            ;; value of insert-multi!
                            (map row->id batch))
+            ensure-partitions (fn [batch]
+                                (when (seq batch)
+                                  (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
+                                                              (.toInstant)
+                                                              (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                                              (.truncatedTo (ChronoUnit/DAYS))) batch))]
+                                    (partitioning/create-resource-events-partition date)))
+                                batch)
             dedupe-and-insert (fn [hashes-seen batch]
                                 (swap! events-migrated + (count batch))
                                 (->> batch
+                                     ensure-partitions
                                      (map update-row)
                                      ;; Remove any duplicates in current batch
                                      (group-by row->id)
