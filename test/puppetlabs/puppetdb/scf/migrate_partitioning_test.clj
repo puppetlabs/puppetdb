@@ -562,14 +562,6 @@
                                                       :deferrable? "NO"}
                                          :same nil}
                                         {:left-only nil
-                                         :right-only {:constraint_name
-                                                      (str "resource_events_report_id_fkey_" part-name)
-                                                      :table_name table-name
-                                                      :constraint_type "FOREIGN KEY"
-                                                      :initially_deferred "NO"
-                                                      :deferrable? "NO"}
-                                         :same nil}
-                                        {:left-only nil
                                          :right-only {:constraint_name "resource_title IS NOT NULL"
                                                       :table_name table-name
                                                       :constraint_type "CHECK"

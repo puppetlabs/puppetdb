@@ -82,10 +82,4 @@
               iso-week-year full-table-name)
 
       (format "CREATE UNIQUE INDEX IF NOT EXISTS resource_events_hash_%s ON %s (event_hash)"
-              iso-week-year full-table-name)
-
-      (format "ALTER TABLE ONLY %s DROP CONSTRAINT IF EXISTS resource_events_report_id_fkey_%s"
-              full-table-name iso-week-year)
-
-      (format "ALTER TABLE ONLY %s ADD CONSTRAINT resource_events_report_id_fkey_%s FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"
-              full-table-name iso-week-year)])))
+              iso-week-year full-table-name)])))

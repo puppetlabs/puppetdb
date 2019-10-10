@@ -1660,6 +1660,18 @@
   ;; we've encountered during the migration to avoid inserting
   ;; duplicates into the new table.
 
+   ;; pre-create partitions
+   (log/info (trs "Creating partitions based on unique days in resource_events"))
+   (jdbc/call-with-query-rows
+    ["select distinct date_trunc('day', \"timestamp\" AT TIME ZONE 'UTC') as rowdate
+      from resource_events_premigrate"]
+    (fn [rows]
+      (doseq [row rows]
+        (partitioning/create-resource-events-partition (-> (:rowdate row)
+                                                           (.toInstant)
+                                                           (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                                           (.truncatedTo (ChronoUnit/DAYS)))))))
+
   (let [event-count (-> "select count(*) from resource_events_premigrate"
                         jdbc/query-to-vec first :count)
         last-logged (atom (.getTime (java.util.Date.)))
@@ -1695,18 +1707,9 @@
                            ;; reading them back from the DB via the return
                            ;; value of insert-multi!
                            (map row->id batch))
-            ensure-partitions (fn [batch]
-                                (when (seq batch)
-                                  (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
-                                                              (.toInstant)
-                                                              (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
-                                                              (.truncatedTo (ChronoUnit/DAYS))) batch))]
-                                    (partitioning/create-resource-events-partition date)))
-                                batch)
             dedupe-and-insert (fn [hashes-seen batch]
                                 (swap! events-migrated + (count batch))
                                 (->> batch
-                                     ensure-partitions
                                      (map update-row)
                                      ;; Remove any duplicates in current batch
                                      (group-by row->id)
