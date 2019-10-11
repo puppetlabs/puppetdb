@@ -1694,9 +1694,12 @@
             row->id (fn [row] (-> row first .getValue))
             insert->hash (fn [batch]
                            (when (seq batch)
-                             (jdbc/insert-multi! :resource_events
-                                                 new-cols
-                                                 batch))
+                             (doseq [g (group-by (fn [o] (-> (get o 4)
+                                                             (partitioning/to-zoned-date-time)
+                                                             (partitioning/date-suffix))) batch)]
+                               (jdbc/insert-multi! (str "resource_events_" (first g))
+                                                   new-cols
+                                                   (last g))))
                            (let [now (.getTime (java.util.Date.))]
                              (when (> (- now @last-logged) 60000)
                                (maplog :info

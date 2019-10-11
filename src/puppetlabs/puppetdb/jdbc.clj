@@ -563,6 +563,7 @@
        (.setAutoCommit false)
        (.setInitializationFailTimeout -1)
        (.setTransactionIsolation "TRANSACTION_READ_COMMITTED"))
+     (.setProperty (.getDataSourceProperties config) "reWriteBatchedInserts" "true")
      (some->> pool-name (.setPoolName config))
      (some->> connection-timeout (.setConnectionTimeout config))
      (some->> maximum-pool-size (.setMaximumPoolSize config))

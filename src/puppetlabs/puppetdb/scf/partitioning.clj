@@ -19,6 +19,9 @@
     (instance? LocalDateTime date) (.atZone date (ZoneId/of "UTC"))
     (instance? LocalDate date) (.atStartOfDay date (ZoneId/of "UTC"))
     (instance? ZonedDateTime date) (.withZoneSameInstant date (ZoneId/of "UTC"))
+    (instance? java.sql.Timestamp date) (-> date
+                                            (.toInstant)
+                                            (ZonedDateTime/ofInstant (ZoneId/of "UTC")))
     :else (throw (ex-info (str "Unhandled date type " (type date)) {:date date}))))
 
 (s/defn create-partition
