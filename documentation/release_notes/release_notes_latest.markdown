@@ -19,6 +19,21 @@ canonical: "/puppetdb/latest/release_notes.html"
 [facts]: ./api/query/v4/facts.html
 [puppet_apply]: ./connect_puppet_apply.html
 
+## PuppetDB 6.7.1
+
+### Bug fixes
+
+- Fixed an issue where PuppetDB terminated a migration with a Postgres exception
+  if `standard_conforming_strings` was not set to `true`. PuppetDB now verifies
+  the setting before checking if any migrations are necessary. [PDB-4509](https://tickets.puppetlabs.com/browse/PDB-4509)  
+
+- Fixed a bug that prevented command size metrics from being recorded and the
+  `max-command-size` config option from working properly.
+  [PDB-4502](https://tickets.puppetlabs.com/browse/PDB-4502)
+  
+- This release restores the cipher suites required to connect to Puppet Server using
+  TLS versions TLSv1.0 and TLSv1.1. [PDB-4513](https://tickets.puppetlabs.com/browse/PDB-4513)
+
 ## PuppetDB 6.7.0
 
 ### New features and improvements
