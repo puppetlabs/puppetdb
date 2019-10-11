@@ -80,7 +80,7 @@
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.i18n.core :refer [trs tru]])
   (:import [java.util.concurrent.locks ReentrantLock]
-           [org.joda.time Period]))
+           [org.joda.time Period DateTime]))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
@@ -182,14 +182,18 @@
   [resource-events-ttl db]
   {:pre [(map? db)
          (period? resource-events-ttl)]}
-  (try
-    (kitchensink/demarcate
-     (format "sweep of stale resource events (threshold: %s)"
-             (format-period resource-events-ttl))
-     (jdbc/with-transacted-connection db
-       (scf-store/delete-resource-events-older-than! (ago resource-events-ttl))))
-    (catch Exception e
-      (log/error e (trs "Error while sweeping resource events")))))
+  ;; apply a day floor on this - we can't be more granular than a day here.
+  (let [rounded-date (-> (ago resource-events-ttl)
+                         (.dayOfYear)
+                         (.roundFloorCopy))]
+   (try
+     (kitchensink/demarcate
+      (format "sweep of stale resource events (threshold: %s)"
+              rounded-date)
+      (jdbc/with-transacted-connection db
+                                       (scf-store/delete-resource-events-older-than! rounded-date)))
+     (catch Exception e
+       (log/error e (trs "Error while sweeping resource events"))))))
 
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.

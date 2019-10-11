@@ -1258,7 +1258,7 @@
         new-selection (-> (cond-> selection (not subquery?) wrap-with-inactive-nodes-cte)
                           (assoc :select select)
                           (cond-> group-by (assoc :group-by group-by)))]
-    (log/spy new-selection)))
+    new-selection))
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
@@ -1266,8 +1266,7 @@
   (-> query
       honeysql-from-query
       (hcore/format :allow-dashed-names? true)
-      first
-      log/spy))
+      first))
 
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))

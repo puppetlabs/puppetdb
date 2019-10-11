@@ -27,6 +27,9 @@
       (testing "Run agent once to populate database"
         (int/run-puppet-as "ttl-agent" ps pdb "notify { 'irrelevant manifest': }"))
 
+      (testing "Verify the agent run created an event"
+        (is (= 1 (count (int/pql-query pdb "events { timestamp > 0 }")))))
+
       ;; You can't update the timestamp of a row inside the partitioned tables, because
       ;; that will violate the check constraint on the partition. To accomplish this, you
       ;; must insert a new row.
@@ -51,28 +54,28 @@
                                                         :timestamp new-timestamp))))))))))
 
       (testing "Verify we have resource events"
-        (is (= 2 (count (int/pql-query pdb "events { timestamp > 0 }"))))))
+        (is (= 2 (count (int/pql-query pdb "events { timestamp > 0 }")))))
 
-    (testing "Sleep for some time to make sure we have a ttl to exceed"
-      (Thread/sleep 10))
+      (testing "Sleep for some time to make sure we have a ttl to exceed"
+        (Thread/sleep 10))
 
-    (let [initial-gc-count (counters/value (:resource-events-purges pdb-services/admin-metrics))]
-      ;; this TTL will be rounded to 1 day at execution time
-      (with-open [pdb (int/run-puppetdb pg {:database {:resource-events-ttl "1h"}})]
-        (let [start-time (System/currentTimeMillis)]
-          (loop []
-            (cond
-              (> (- (System/currentTimeMillis) start-time) tu/default-timeout-ms)
-              (throw (ex-info "Timeout waiting for pdb gc to happen" {}))
+      (let [initial-gc-count (counters/value (:resource-events-purges pdb-services/admin-metrics))]
+        ;; this TTL will be rounded to 1 day at execution time
+        (with-open [pdb (int/run-puppetdb pg {:database {:resource-events-ttl "1h"}})]
+          (let [start-time (System/currentTimeMillis)]
+            (loop []
+              (cond
+                (> (- (System/currentTimeMillis) start-time) tu/default-timeout-ms)
+                (throw (ex-info "Timeout waiting for pdb gc to happen" {}))
 
-              (> (read-gc-count-metric) initial-gc-count)
-              true ;; gc happened
+                (> (read-gc-count-metric) initial-gc-count)
+                true ;; gc happened
 
-              :default
-              (do
-                (Thread/sleep 250)
-                (recur)))))
+                :default
+                (do
+                  (Thread/sleep 250)
+                  (recur)))))
 
-        ;; should be one left - the one that's got a timestamp of today
-        (testing "Verify that the resource events have been deleted"
-          (is (= 1 (count (int/pql-query pdb "events { timestamp > 0 }")))))))))
+          ;; should be one left - the one that's got a timestamp of today
+          (testing "Verify that the resource events have been deleted"
+            (is (= 1 (count (int/pql-query pdb "events { timestamp > 0 }"))))))))))
