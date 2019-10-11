@@ -21,6 +21,7 @@
 (def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
 (def latest-report-version (apply max (get supported-command-versions "store report")))
 (def latest-facts-version (apply max (get supported-command-versions "replace facts")))
+(def latest-deactivate-node-version (apply max (get supported-command-versions "deactivate node")))
 
 (def latest-command-versions
   {:replace_catalog latest-catalog-version
