@@ -14,7 +14,7 @@ RUN lein with-profile uberjar uberjar
 
 FROM openjdk:8-jre-slim-buster
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat && \
+    apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat net-tools && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/puppetdb.jar /
