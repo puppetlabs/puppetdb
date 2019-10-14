@@ -278,6 +278,12 @@
         (finally
           (.unlock lock))))))
 
+(defn- delete-node-from-puppetdb [context certname]
+  "Implements the PuppetDBServer delete-node method, see the protocol
+   for further information"
+  (jdbc/with-transacted-connection (get-in context [:shared-globals :scf-write-db])
+    (scf-store/delete-certname! certname)))
+
 (defn maybe-check-for-updates
   [config read-db job-pool]
   (if (conf/foss? config)
@@ -603,7 +609,9 @@
      and :producer-ts entries for each command PDB has either ingested or
      finished processing. The {:kind ::queue/queue-loaded} map is used to
      indicate that the queue/message-loader has finished loading any existing
-     commands from the stockpile queue when PDB starts up."))
+     commands from the stockpile queue when PDB starts up.")
+  (delete-node [this certname]
+    "Immediately delete all data for the provided certname"))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -665,6 +673,9 @@
 
   (clean [this] (clean this #{}))
   (clean [this what] (clean-puppetdb (service-context this) (get-config) what))
+
+  (delete-node [this certname]
+               (delete-node-from-puppetdb (service-context this) certname))
 
   (cmd-event-mult [this] (-> this service-context :cmd-event-mult)))
 
