@@ -1,4 +1,4 @@
-(def pdb-version "6.3.5-SNAPSHOT")
+(def pdb-version "6.3.6-SNAPSHOT")
 (def clj-parent-version "2.6.0")
 
 (defn true-in-env? [x]
@@ -157,6 +157,7 @@
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
                  [puppetlabs/stockpile "0.0.4"]
+                 [puppetlabs/structured-logging]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
@@ -221,6 +222,11 @@
                  :deploy-via :lein-deploy}
 
   :uberjar-name "puppetdb.jar"
+
+  ;; WARNING: these configuration options are
+  ;; also set in PE's project.clj changes to things like
+  ;; the main namespace and start timeout need to be updated
+  ;; there as well
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"

@@ -183,6 +183,11 @@
      ["extract" ["a" "b" "c"]
       ["=" "a" 1]]]
 
+    "inventory[facts.os.family, facts.os.release] { facts.os.family = \"Debian\" }"
+    ["from" "inventory"
+     ["extract" ["facts.os.family" "facts.os.release"]
+      ["=" "facts.os.family" "Debian"]]]
+
     ;; Functions
 
     "nodes[count(a)] {}"

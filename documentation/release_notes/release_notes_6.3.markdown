@@ -18,6 +18,32 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrade_policy]: ./versioning_policy.html#upgrades
 [facts]: ./api/query/v4/facts.html
 
+## PuppetDB 6.3.5
+
+### New features and improvements
+
+- **New `ignored` metric.** The `ignored` metric tracks the number of obsolete
+  commands since the last restart. For more on the `ignored` metric, see[Metrics
+  endpoint][metrics]. [PDB-4278](https://tickets.puppetlabs.com/browse/PDB-4278)
+
+### Bug fixes
+
+- Fixed an issue where PQL queries with dot notation required an extra
+  space to terminate the dotted field. For example,
+  `inventory[]{facts.os.family="Debian" }` would fail because PuppetDB parsed
+  the `=` operator as part of the dotted field.
+  [PDB-3284](https://tickets.puppetlabs.com/browse/PDB-3284)
+
+- Fixed an issue where PuppetDB terminated a migration with a Postgres exception
+  if `standard_conforming_strings` was not set to `true`. PuppetDB now verifies
+  the setting before checking if any migrations are necessary. [PDB-4509](https://tickets.puppetlabs.com/browse/PDB-4509)  
+
+- Fixed a bug that prevented command size metrics from being recorded and the
+  `max-command-size` config option from working properly.
+  [PDB-4502](https://tickets.puppetlabs.com/browse/PDB-4502)
+  
+- Fixed an issue where package upgrades on CentOS 6 would sometimes fail when upgrading from older versions of PuppetDB (for example, 5.2) to more recent versions (for example, 6.3+). [PDB-4373](https://tickets.puppetlabs.com/browse/PDB-4373)  
+
 ## PuppetDB 6.3.4
 
 ### Bug fixes

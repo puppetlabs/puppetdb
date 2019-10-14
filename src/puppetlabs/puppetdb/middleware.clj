@@ -265,15 +265,24 @@
   [app reject-large-commands? max-command-size]
   (fn [req]
     (if (= :post (:request-method req))
-      (let [length-in-bytes (request/content-length req)]
+      (let [length-in-bytes (or (when-let [length (get-in req [:headers "x-uncompressed-length"])]
+                                  (try
+                                    (Long/parseLong length)
+                                    (catch NumberFormatException e
+                                      (log/warn (trs "The X-Uncompressed-Length value {0} cannot be converted to a long."
+                                                     length)))))
+                                (request/content-length req))]
 
-        (when length-in-bytes
-          (log/debug (trs "Processing command with a content-length of {0} bytes" length-in-bytes))
-          (let [{:strs [command version]} (:query-params req)]
-            (update! (cmd/global-metric :size) length-in-bytes)
-            (when (and command version)
-              (cmd/create-metrics-for-command! command version)
-              (update! (cmd/cmd-metric command version :size) length-in-bytes))))
+        (let [{:strs [command version]} (:query-params req)]
+          (if length-in-bytes
+            (do (log/debug (trs "Processing command with a content-length of {0} bytes" length-in-bytes))
+                (update! (cmd/global-metric :size) length-in-bytes)
+                (when (and command version)
+                  (cmd/create-metrics-for-command! command version)
+                  (update! (cmd/cmd-metric command version :size) length-in-bytes)))
+            (log/warn (trs "Neither Content-Length or X-Uncompressed-Length header is set.
+                            This {0} command will not be counted in command size metrics"
+                           command))))
 
         (if (and length-in-bytes
                  reject-large-commands?

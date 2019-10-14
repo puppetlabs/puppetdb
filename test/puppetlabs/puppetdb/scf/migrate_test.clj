@@ -25,9 +25,9 @@
 (use-fixtures :each tdb/call-with-test-db)
 
 (defn apply-migration-for-testing!
-  [i]
+  [i & args]
   (let [migration (migrations i)
-        result (migration)]
+        result (apply migration args)]
     (record-migration! i)
     result))
 
@@ -1066,58 +1066,54 @@
          :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
 
       (let [[id1] (map :id
-                       (query-to-vec "SELECT id from reports order by certname"))]
+                       (query-to-vec "SELECT id from reports order by certname"))
+            row1 {:new_value "\"directory\""
+                  :corrective_change false,
+                  :property nil
+                  :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+                  :report_id id1
+                  :old_value "\"absent\""
+                  :containing_class "Foo"
+                  :certname_id 1
+                  :line 11
+                  :resource_type "File"
+                  :status "success"
+                  :resource_title "tmp-directory"
+                  :timestamp current-time
+                  :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                  :message "created"}
+            row2 {:new_value "\"directory\"",
+                  :corrective_change false,
+                  :property "ensure",
+                  :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+                  :report_id id1,
+                  :old_value "\"absent\"",
+                  :containing_class "Foo",
+                  :certname_id 1,
+                  :line 11,
+                  :resource_type "File",
+                  :status "success",
+                  :resource_title "tmp-directory",
+                  :timestamp current-time
+                  :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                  :message "created"}]
         (jdbc/insert-multi!
          :resource_events
-         [{:new_value "\"directory\"",
-           :corrective_change false,
-           :property "ensure",
-           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
-           :report_id id1,
-           :old_value "\"absent\"",
-           :containing_class "Foo",
-           :certname_id 1,
-           :line 11,
-           :resource_type "File",
-           :status "success",
-           :resource_title "tmp-directory",
-           :timestamp current-time
-           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-           :message "created"}
+         [;; First batch: new row and a duplicate of it
+          row1
+          row1
 
-          ;; make a few duplicates
-          {:new_value "\"directory\""
-           :corrective_change false,
-           :property nil
-           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
-           :report_id id1
-           :old_value "\"absent\""
-           :containing_class "Foo"
-           :certname_id 1
-           :line 11
-           :resource_type "File"
-           :status "success"
-           :resource_title "tmp-directory"
-           :timestamp current-time
-           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-           :message "created"}
-          {:new_value "\"directory\""
-           :corrective_change false
-           :property nil
-           :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
-           :report_id id1
-           :old_value "\"absent\""
-           :containing_class "Foo"
-           :certname_id 1
-           :line 11
-           :resource_type "File"
-           :status "success"
-           :resource_title "tmp-directory"
-           :timestamp current-time
-           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-           :message "created"}])
+          ;; Second batch: new row and duplicate from first batch
+          row1
+          row2
 
-        (apply-migration-for-testing! 69)
+          ;; Third batch: two duplicates (migration should skip insert)
+          row1
+          row1])
+
+        ;; Run with a batch size of 2 to ensure de-duplication occurs over
+        ;; batches.
+        (apply-migration-for-testing! 69 2)
 
         (let [hashes (map :event_hash
                           (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))

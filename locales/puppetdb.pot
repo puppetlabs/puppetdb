@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 3475651bd445ffad00aca26e63c5dcca7092a26e\n"
+"X-Git-Ref: c1364b1d8ebd9ab65bd1466bae23758cee3390e6\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -205,7 +205,20 @@ msgid "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "error: "
+msgid "Invalid database configuration settings: "
+msgstr ""
+
+#. This is used to construct a list of invalid database settings
+#.
+#. 0 : The name of a database setting
+#. 1 : The expected value of that database setting
+#. 2 : The actual value of that database setting
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Unkown fatal start error {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/tk_util.clj
@@ -623,7 +636,18 @@ msgid "content type {0} not supported"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
+msgid "The X-Uncompressed-Length value {0} cannot be converted to a long."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
 msgid "Processing command with a content-length of {0} bytes"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid ""
+"Neither Content-Length or X-Uncompressed-Length header is set.\n"
+"                            This {0} command will not be counted in command "
+"size metrics"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
@@ -1010,6 +1034,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "[8/8] Indexing facts table..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Migrated {0} of {1} events"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj

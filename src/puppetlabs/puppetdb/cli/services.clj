@@ -74,7 +74,7 @@
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+ try+]]
+            [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
@@ -313,10 +313,45 @@
     (future-cancel command-loader))
   context)
 
+;; A map of required postgres settings and their expected value.
+;; PuppetDB will refuse to start unless ALL of these values
+;; match the actual database configuration settings.
+(def required-pg-settings
+  {:standard_conforming_strings "on"})
+
+(defn verify-database-setting
+  "Given m, a map of database settings, verify 'expected', which has the form
+  [setting-name expected-value]."
+  [m [setting value]]
+  (let [map-path [setting :setting]]
+    (when-not (= (get-in m map-path) value)
+      {setting {:expected value :actual (get-in m map-path)}})))
+
+(defn request-database-settings
+  [db-conn-pool]
+  (jdbc/with-db-connection
+    db-conn-pool
+    (jdbc/query "show all;" )))
+
+(defn verify-database-settings
+  "Ensure the database configuration does not have any settings known
+  to break PuppetDB. If an invalid database configuration is found, throws
+  {:kind ::invalid-database-configuration :failed-validation failed-map}"
+  [database-settings]
+  (let [munged-settings (apply merge
+                               (map (fn [h]
+                                      {(keyword (:name h)) (dissoc h :name)})
+                                    database-settings))
+        invalid-settings (remove nil? (map #(verify-database-setting munged-settings %) required-pg-settings))]
+    (when (seq invalid-settings)
+      (throw (ex-info "One or more postgres settings failed validation"
+                      {:kind ::invalid-database-configuration
+                       :failed-validation (apply merge invalid-settings)})))))
+
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
   true iff any migrations were run.  Throws
-  {:type ::unsupported-database :current version :oldest version} if
+  {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
@@ -324,9 +359,10 @@
           oldest (get-in config [:database :min-required-version]
                            scf-store/oldest-supported-db)]
       (when (neg? (compare current oldest))
-        (throw+ {:type ::unsupported-database
-                 :current current
-                 :oldest oldest}))
+        (throw (ex-info "Database version too old"
+                        {:kind ::unsupported-database
+                         :current current
+                         :oldest oldest})))
       @sutils/db-metadata
       (let [migrated? (migrate! db-conn-pool)]
         (indexes! config)
@@ -337,8 +373,10 @@
   connection using a transient connection pool derived from the
   `write-db-config`.  Blocks until the initialization is complete, and
   then returns an unspecified value.  Throws exceptions on errors.
-  Throws {:type ::unsupported-database :current version :oldest
-  version} if the current database is not supported."
+  Throws {:kind ::unsupported-database :current version :oldest
+  version} if the current database is not supported. Throws
+  {:kind ::invalid-database-configuration :failed-validation failed-map}
+  if the database contains a disallowed setting."
   [write-db-config config]
   ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
   ;; will then cause the pool connection to throw a (generic)
@@ -357,6 +395,7 @@
                         (.setName "PuppetDB migration pool closer"))]
       (.addShutdownHook runtime on-shutdown)
       (try
+        (verify-database-settings (request-database-settings {:datasource db-pool}))
         (loop [i 0
                last-ex nil]
           (let [result (try
@@ -430,8 +469,9 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn start-puppetdb
-  "Throws {:type ::unsupported-database :current version :oldest version} if
-  the current database is not supported."
+  "Throws {:kind ::unsupported-database :current version :oldest version} if
+  the current database is not supported. If a database setting is configured
+  incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
   [context config service get-registered-endpoints upgrade-and-exit?]
   {:pre [(map? context)
          (map? config)]
@@ -468,7 +508,8 @@
               command-chan (async/chan
                             (queue/sorted-command-buffer
                              (:max-enqueued developer)
-                             #(cmd/update-counter! :invalidated %1 %2 inc!)))
+                             (fn [cmd ver] (cmd/update-counter! :invalidated cmd ver inc!))
+                             (fn [cmd ver] (cmd/update-counter! :ignored cmd ver inc!))))
               [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config)
                                                                 maybe-send-cmd-event!
                                                                 cmd-event-ch)
@@ -513,6 +554,30 @@
          (second current)
          (first oldest)
          (second oldest)))
+
+(defn invalid-conf-msg
+  [invalid-settings]
+  (str (trs "Invalid database configuration settings: ")
+       (str/join ", "
+                  ;; This is used to construct a list of invalid database settings
+                  ;;
+                  ;; 0 : The name of a database setting
+                  ;; 1 : The expected value of that database setting
+                  ;; 2 : The actual value of that database setting
+                  (map (fn [[k v]] (trs "''{0}'' (expected ''{1}'', got ''{2}'')" (name k) (:expected v) (:actual v)))
+                       invalid-settings))))
+
+(defn log-start-error
+  [e]
+  (let [data (ex-data e)
+        kind (:kind data)
+        msg (case kind
+              ::unsupported-database (db-unsupported-msg (:current data) (:oldest data))
+              ::invalid-database-configuration (invalid-conf-msg (:failed-validation data))
+              (trs "Unkown fatal start error {0}" e))]
+    (utils/println-err msg)
+    (log/error msg)
+    msg))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -562,7 +627,7 @@
                  ;; https://bugs.openjdk.java.net/browse/JDK-8176254
                  :stop-status (atom #{}))))
   (start [this context]
-         (try+
+         (try
           (let [config (get-config)
                 upgrade? (get-in config [:global :upgrade-and-exit?])
                 context (start-puppetdb context config this
@@ -572,12 +637,8 @@
               ;; all we needed to do.
               (request-shutdown))
             context)
-          (catch [:type ::unsupported-database] {:keys [current oldest]}
-            (let [msg (db-unsupported-msg current oldest)]
-              (utils/println-err (str (trs "error: ") msg))
-              (log/error msg)
-              ;; Until TK-445 is resolved, we won't be able to avoid the
-              ;; backtrace on exit this causes.
+          (catch clojure.lang.ExceptionInfo e
+            (let [msg (log-start-error e)]
               (shutdown-on-error (service-id this)
                                  #(throw (Exception. msg)))))))
 
