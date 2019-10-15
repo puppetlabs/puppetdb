@@ -1660,6 +1660,10 @@
         true)
       (do
         (log/info (trs "There are no pending migrations"))
+        ;; Always analyze these since we had a good long period where
+        ;; the post-migration analysis above wasn't actually working,
+        ;; and since this shouldn't be expensive.
+        (analyze small-tables)
         false))))
 
 (defn migrate! [db-connection-pool]
