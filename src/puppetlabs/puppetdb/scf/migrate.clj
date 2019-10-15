@@ -1615,7 +1615,17 @@
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
         known-migrations (apply sorted-set (keys migrations))
-        small-tables ["value_types" "report_statuses"]]
+        small-tables (set ["value_types" "report_statuses"])
+        analyze (fn [tables]
+                  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
+                                      jdbc/query-to-vec
+                                      (map :tablename)
+                                      set)
+                        tables (filter exists? tables)]
+                    (log/info (trs "Updating table statistics for: {0}"
+                                   (str/join ", " tables)))
+                    (apply jdbc/do-commands-outside-txn
+                           (map #(str "vacuum analyze " %) tables))))]
 
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
@@ -1633,21 +1643,20 @@
                    unexpected))))
 
     (if-let [pending (seq (pending-migrations))]
-      (let [tables-to-analyze (jdbc/with-db-transaction []
-                                (->> pending
-                                     (map (fn [[version migration]]
-                                            (let [t0 (now)]
-                                              (log/info (trs "Applying database migration version {0}" version))
-                                              (let [result (migration)]
-                                                (record-migration! version)
-                                                result)
-                                              (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                             version (in-millis (interval t0 (now))))))))
-                                     (filter map?)
-                                     (map ::vacuum-analyze)
-                                     (apply set/union small-tables)
-                                     sort))]
-        (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables-to-analyze)))
+      (let [tables (jdbc/with-db-transaction []
+                     (->> pending
+                          (map (fn [[version migration]]
+                                 (log/info (trs "Applying database migration version {0}" version))
+                                 (let [t0 (now)]
+                                   (let [result (migration)]
+                                     (record-migration! version)
+                                     (log/info (trs "Applied database migration version {0} in {1} ms"
+                                                    version (in-millis (interval t0 (now)))))
+                                     result))))
+                          (filter map?)
+                          (map ::vacuum-analyze)
+                          (apply set/union small-tables)))]
+        (analyze tables)
         true)
       (do
         (log/info (trs "There are no pending migrations"))
