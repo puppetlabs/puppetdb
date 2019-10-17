@@ -9,7 +9,8 @@
                                                     wrap-with-illegal-argument-catch
                                                     verify-accepts-json
                                                     verify-content-type
-                                                    make-pdb-handler]]
+                                                    make-pdb-handler
+                                                    verify-sync-version]]
             [ring.util.response :as rr]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.http.handlers :as handlers]
@@ -71,6 +72,7 @@
                       wrap-with-illegal-argument-catch
                       verify-accepts-json
                       (verify-content-type ["application/json"])
+                      verify-sync-version
                       (wrap-with-metrics (atom {}) http/leading-uris)
                       (wrap-with-globals get-shared-globals))]
       (handler req))))

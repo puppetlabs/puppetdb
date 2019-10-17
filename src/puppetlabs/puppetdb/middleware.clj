@@ -25,7 +25,8 @@
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [puppetlabs.puppetdb.command :as cmd]))
+            [puppetlabs.puppetdb.command :as cmd]
+            [puppetlabs.puppetdb.constants :as constants]))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -309,6 +310,42 @@
              http/status-entity-too-large))
           (app req)))
       (app req))))
+
+;; for testing via with-redefs
+(defn get-sync-ver []
+  constants/pdb-sync-ver)
+
+(defn verify-sync-version
+  "Check that the x-pdb-sync-ver header of an incoming requests matches the
+   pdb-sync-ver locally. This header is only sent from pe-puppetdb sync requests
+   and a mismatch indicates that one pdb has upgraded in an incompatible way
+   before the other. In this case all sync requests will return 409s until both
+   sides have been upgraded and have matching sync versions. If the header is
+   present but improperly formatted returns a 400 error response."
+  [app]
+  (fn [{{:strs [x-pdb-sync-ver]} :headers :as req}]
+    (let [maybe-sync-ver (try
+                           (some-> x-pdb-sync-ver Integer/parseInt)
+                           (catch NumberFormatException e
+                             {:error true :input x-pdb-sync-ver}))]
+      (cond
+        (nil? maybe-sync-ver) (app req)
+
+        (integer? maybe-sync-ver)
+        (if (= (get-sync-ver) maybe-sync-ver)
+          (app req)
+          (http/error-response
+           (tru "Conflicting PDB sync versions, each PDB syncing must be on the same version")
+           409))
+
+        (:error maybe-sync-ver)
+        (http/error-response
+         (tru "The x-pdb-sync-ver header: {0} cannot be converted to an int."
+              (:input maybe-sync-ver)))
+
+        :else (http/error-response
+               (tru "Unknown sync version check state")
+               500)))))
 
 (defn wrap-with-puppetdb-middleware
   "Default middleware for puppetdb webservers."
