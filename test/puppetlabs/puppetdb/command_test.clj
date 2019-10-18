@@ -7,7 +7,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants
              :refer [latest-catalog-version latest-facts-version
-                     latest-configure-expiration-version]]
+                     latest-configure-expiration-version
+                     latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
@@ -1064,6 +1065,22 @@
                                                                          identity
                                                                          (tqueue/coerce-to-stream bad-command))))
         (is (empty? (query-to-vec "SELECT * FROM certname_fact_expiration")))
+        (is (= 0 (task-count delay-pool)))
+        (is (seq (fs/list-dir (:path dlo))))))))
+
+(deftest deactivate-node-bad-payload
+  (let [bad-command (json/generate-string
+                     {"invalid-key" "missing-certname"})]
+    (testing "should discard the message"
+      (with-message-handler {:keys [handle-message dlo delay-pool q]}
+        (handle-message (queue/store-command q (queue/create-command-req "deactivate node"
+                                                                         latest-deactivate-node-version
+                                                                         "foo.example.com"
+                                                                         (ks/timestamp (now))
+                                                                         ""
+                                                                         identity
+                                                                         (tqueue/coerce-to-stream bad-command))))
+        (is (empty? (query-to-vec "SELECT * FROM certnames")))
         (is (= 0 (task-count delay-pool)))
         (is (seq (fs/list-dir (:path dlo))))))))
 

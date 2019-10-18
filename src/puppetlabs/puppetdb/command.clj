@@ -348,7 +348,6 @@
 (defn deactivate-node-wire-v1->wire-3 [deactive-node]
   (-> deactive-node
       (json/parse-string true)
-      upon-error-throw-fatality
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
@@ -362,12 +361,15 @@
     (log-command-processed-messsage id received start-time :deactivate-node certname)))
 
 (defn deactivate-node [{:keys [payload version] :as command} start-time db]
-  (-> command
-      (assoc :payload (case version
-                        1 (deactivate-node-wire-v1->wire-3 payload)
-                        2 (deactivate-node-wire-v2->wire-3 payload)
-                        payload))
-      (deactivate-node* start-time db)))
+  (let [validated-payload (upon-error-throw-fatality
+                           (s/validate nodes/deactivate-node-wireformat-schema
+                                       (case version
+                                         1 (deactivate-node-wire-v1->wire-3 payload)
+                                         2 (deactivate-node-wire-v2->wire-3 payload)
+                                         payload)))]
+    (-> command
+        (assoc :payload validated-payload)
+        (deactivate-node* start-time db))))
 
 ;; Report submission
 

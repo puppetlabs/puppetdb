@@ -611,7 +611,7 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService request-shutdown shutdown-on-error]]
+   [:ShutdownService request-shutdown]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -639,8 +639,7 @@
             context)
           (catch clojure.lang.ExceptionInfo e
             (let [msg (log-start-error e)]
-              (shutdown-on-error (service-id this)
-                                 #(throw (Exception. msg)))))))
+              (throw (Exception. msg))))))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
