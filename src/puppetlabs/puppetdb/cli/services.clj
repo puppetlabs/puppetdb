@@ -611,8 +611,7 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:DefaultedConfig get-config]
-   [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService request-shutdown shutdown-on-error]]
+   [:WebroutingService add-ring-handler get-registered-endpoints]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -627,13 +626,13 @@
                  ;; support jdk < 10.
                  ;; https://bugs.openjdk.java.net/browse/JDK-8176254
                  :stop-status (atom #{}))))
-  (start [this context]
-         (try
-          (start-puppetdb context (get-config) this get-registered-endpoints)
-          (catch clojure.lang.ExceptionInfo e
-            (let [msg (log-start-error e)]
-              (shutdown-on-error (service-id this)
-                                 #(throw (Exception. msg)))))))
+  (start
+   [this context]
+   (try
+     (start-puppetdb context (get-config) this get-registered-endpoints)
+     (catch clojure.lang.ExceptionInfo e
+       (let [msg (log-start-error e)]
+         (throw (Exception. msg))))))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
