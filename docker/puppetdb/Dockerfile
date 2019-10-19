@@ -98,11 +98,11 @@ CMD ["services"]
 
 COPY docker/puppetdb/healthcheck.sh /
 RUN chmod +x /healthcheck.sh
-# The start-period is just a wild guess how long it takes PuppetDB to come
-# up in the worst case. The other timing parameters are set so that it
-# takes at most a minute to realize that PuppetDB has failed.
+# The start-period describes how long it takes PuppetDB to come
+# up in the worst case (LCOW). The other timing parameters are set so that it
+# takes at most 2 minutes to realize that PuppetDB has failed.
 # Probe failure during --start-period will not be counted towards the maximum number of retries
-HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/healthcheck.sh"]
+HEALTHCHECK --start-period=3m --interval=10s --timeout=10s --retries=12 CMD ["/healthcheck.sh"]
 
 # VOLUME definitions are always at end of Dockerfile to address an LCOW bug
 # https://github.com/moby/moby/issues/39892
