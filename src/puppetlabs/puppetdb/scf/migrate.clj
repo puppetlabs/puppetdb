@@ -1798,23 +1798,6 @@
     (into (sorted-map)
           (select-keys migrations pending))))
 
-(defn- sql-or-die
-  "Calls (f) and returns its result.  If f throws an SQLException,
-  logs the exception and its parent and then calls (flush-and-exit 1)"
-  [f]
-  ;; Here we've preserved existing behavior, but this may warrant
-  ;; further consideration later.  If possible, we might want to
-  ;; avoid flush-and-exit in favor of careful exception
-  ;; handling (cf. PDB-1118).
-  (try
-    (f)
-    (catch java.sql.SQLException e
-      (log/error e (trs "Caught SQLException during migration"))
-      (when-let [next (.getNextException e)]
-        (log/error next (trs "Unravelled exception")))
-      (binding [*out* *err*] (flush)) (flush)
-      (flush-and-exit 1))))
-
 (defn previous-migrations
   "Returns the list of migration numbers that existed before the
   current known set. These migrations can't be upgraded from, but are
@@ -1831,18 +1814,22 @@
        (into known-migrations)
        (difference applied-migrations)))
 
-(defn migrate!
-  "Migrates database to the latest schema version. Does nothing if
-  database is already at the latest schema version.  Requires a
-  connection pool because some operations may require an indepdendent
-  database connection.
-
-  This function will return true iff any migrations were run."
+(defn run-migrations
   [db-connection-pool]
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
         known-migrations (apply sorted-set (keys migrations))
-        small-tables ["value_types" "report_statuses"]]
+        small-tables (set ["value_types" "report_statuses"])
+        analyze (fn [tables]
+                  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
+                                      jdbc/query-to-vec
+                                      (map :tablename)
+                                      set)
+                        tables (filter exists? tables)]
+                    (log/info (trs "Updating table statistics for: {0}"
+                                   (str/join ", " tables)))
+                    (apply jdbc/do-commands-outside-txn
+                           (map #(str "vacuum analyze " %) tables))))]
 
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
@@ -1860,25 +1847,43 @@
                    unexpected))))
 
     (if-let [pending (seq (pending-migrations))]
-      (let [tables-to-analyze (jdbc/with-db-transaction []
-                                (->> pending
-                                     (map (fn [[version migration]]
-                                            (let [t0 (now)]
-                                            (log/info (trs "Applying database migration version {0}" version))
-                                            (sql-or-die (fn [] (let [result (migration)]
-                                                                    (record-migration! version)
-                                                                    result)))
-                                            (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                           version (in-millis (interval t0 (now))))))))
-                                     (filter map?)
-                                     (map ::vacuum-analyze)
-                                     (apply set/union small-tables)
-                                     sort))]
-        (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables-to-analyze)))
+      (let [tables (jdbc/with-db-transaction []
+                     (->> pending
+                          (map (fn [[version migration]]
+                                 (log/info (trs "Applying database migration version {0}" version))
+                                 (let [t0 (now)]
+                                   (let [result (migration)]
+                                     (record-migration! version)
+                                     (log/info (trs "Applied database migration version {0} in {1} ms"
+                                                    version (in-millis (interval t0 (now)))))
+                                     result))))
+                          (filter map?)
+                          (map ::vacuum-analyze)
+                          (apply set/union small-tables)))]
+        (analyze tables)
         true)
       (do
         (log/info (trs "There are no pending migrations"))
+        ;; Always analyze these since we had a good long period where
+        ;; the post-migration analysis above wasn't actually working,
+        ;; and since this shouldn't be expensive.
+        (analyze small-tables)
         false))))
+
+(defn migrate! [db-connection-pool]
+  "Migrates database to the latest schema version. Does nothing if
+  database is already at the latest schema version.  Requires a
+  connection pool because some operations may require an indepdendent
+  database connection.  Returns true if there were any migrations."
+  (try
+    (run-migrations db-connection-pool)
+    (catch java.sql.SQLException e
+      (log/error e (trs "Caught SQLException during migration"))
+      (loop [ex (.getNextException e)]
+        (when ex
+          (log/error ex (trs "Unraveled exception"))
+          (recur (.getNextException ex))))
+      (throw e))))
 
 ;; SPECIAL INDEX HANDLING
 

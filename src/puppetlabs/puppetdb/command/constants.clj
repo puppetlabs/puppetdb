@@ -27,6 +27,7 @@
 (def latest-facts-version (apply max (get supported-command-versions "replace facts")))
 (def latest-configure-expiration-version (apply max (get supported-command-versions "configure expiration")))
 (def latest-catalog-inputs-version (apply max (get supported-command-versions "replace catalog inputs")))
+(def latest-deactivate-node-version (apply max (get supported-command-versions "deactivate node")))
 
 (def latest-command-versions
   {:replace_catalog latest-catalog-version
