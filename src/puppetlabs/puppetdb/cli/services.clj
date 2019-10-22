@@ -406,7 +406,8 @@
   ;; SQLException.
   (with-open [db-pool (-> (assoc write-db-config
                                  :pool-name "PDBMigrationsPool"
-                                 :connection-timeout 3000)
+                                 :connection-timeout 3000
+                                 :rewrite-batched-inserts "true")
                           (jdbc/make-connection-pool database-metrics-registry))]
     (let [runtime (Runtime/getRuntime)
           on-shutdown (doto (Thread.
