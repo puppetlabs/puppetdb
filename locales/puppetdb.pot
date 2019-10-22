@@ -1054,11 +1054,7 @@ msgid "Migrated {0} of {1} events"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Caught SQLException during migration"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Unravelled exception"
+msgid "Updating table statistics for: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1092,11 +1088,15 @@ msgid "Applied database migration version {0} in {1} ms"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Updating table statistics for: {0}"
+msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "There are no pending migrations"
+msgid "Caught SQLException during migration"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Unraveled exception"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
