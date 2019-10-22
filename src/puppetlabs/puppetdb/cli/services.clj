@@ -394,10 +394,10 @@
                         (.setName "PuppetDB migration pool closer"))]
       (.addShutdownHook runtime on-shutdown)
       (try
-        (verify-database-settings (request-database-settings {:datasource db-pool}))
         (loop [i 0
                last-ex nil]
           (let [result (try
+                         (verify-database-settings (request-database-settings {:datasource db-pool}))
                          (initialize-schema {:datasource db-pool} config)
                          true
                          (catch java.sql.SQLTransientConnectionException ex
