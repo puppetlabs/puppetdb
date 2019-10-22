@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 6ea4ef5bf2294dff896add28c92eaf4d11b085ec\n"
+"X-Git-Ref: 1651f368a53c4a3611b027793a5f3a0cd5be39ea\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1122,11 +1122,7 @@ msgid "[8/8] Indexing facts table..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Caught SQLException during migration"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Unravelled exception"
+msgid "Updating table statistics for: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1160,11 +1156,15 @@ msgid "Applied database migration version {0} in {1} ms"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Updating table statistics for: {0}"
+msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "There are no pending migrations"
+msgid "Caught SQLException during migration"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Unraveled exception"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
