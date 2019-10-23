@@ -18,6 +18,13 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.11
+
+### Bug fixes
+
+- Fixed an issue that caused PuppetDB to shut down if the initial Postgres
+  connection failed. PuppetDB now retries the connection if it fails.
+
 ## PuppetDB 5.2.10
 
 ### New features and improvements
