@@ -20,7 +20,7 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def i18n-version "0.8.0")
+(def i18n-version "0.9.0")
 
 (def need-permgen?
   (= "1.7" (System/getProperty "java.specification.version")))
@@ -217,6 +217,8 @@
             [lein-cloverage "1.0.6"]
             [lein-parent "0.3.7"]
             [puppetlabs/i18n ~i18n-version]]
+
+  :prep-tasks [["i18n" "make"] "compile" "javac"]
 
   :lein-release {:scm        :git
                  :deploy-via :lein-deploy}
