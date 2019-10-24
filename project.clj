@@ -167,9 +167,8 @@
                  ;; Various
                  [cheshire]
                  [clj-stacktrace]
-                 [clj-time]
+                 [clj-time "0.15.2"]
                  [com.rpl/specter "0.5.7"]
-                 [com.taoensso/nippy :exclusions [org.tukaani/xz]]
                  [digest "1.4.3"]
                  [fast-zip-visit "1.0.2"]
                  [instaparse]

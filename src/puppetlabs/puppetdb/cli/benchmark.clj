@@ -54,15 +54,17 @@
             [slingshot.slingshot :refer [try+ throw+]]
             [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
             [clojure.core.match :as cm]
-            [taoensso.nippy :as nippy]
+            [clojure.tools.reader.edn :as edn]
             [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.nio :refer [get-path]])
+            [puppetlabs.puppetdb.nio :refer [get-path]]
+            [clj-time.coerce :as coerce])
   (:import
    [clojure.core.async.impl.protocols Buffer]
    [java.io ByteArrayInputStream]
    [java.nio.file.attribute FileAttribute]
    [java.nio.file Files OpenOption]
-   [java.util ArrayDeque]))
+   [java.util ArrayDeque]
+   (java.nio.charset Charset)))
 
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is
@@ -354,14 +356,15 @@
   (full? [this] false)
   (remove! [this]
     (let [path (.poll q)
-          result (nippy/thaw (Files/readAllBytes path))]
+          result (edn/read {:readers coerce/data-readers}
+                  (java.io.PushbackReader. (Files/newBufferedReader path (Charset/forName "UTF-8"))))]
       (Files/delete path)
       result))
 
   (add!* [this item]
     (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
                                      (into-array FileAttribute []))]
-      (Files/write path (nippy/freeze item) (into-array OpenOption []))
+      (Files/write path (.getBytes (pr-str item) "UTF-8") (into-array OpenOption []))
       (.add q path)))
 
   (close-buf! [this]
