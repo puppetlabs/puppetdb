@@ -18,7 +18,7 @@
 (def configure-expiration-wireformat-schema
   {:certname s/Str
    :expire expire-wireformat-schema
-   :producer_timestamp (s/maybe pls/Timestamp)})
+   (s/optional-key :producer_timestamp) (s/maybe pls/Timestamp)})
 
 (def nodes-wireformat-schema
   {:certname s/Str
@@ -49,3 +49,7 @@
               {:certname (:certname x)
                :expire {:facts (:expires_facts x)}
                :producer_timestamp (:expires_facts_updated x)}))))
+
+(def deactivate-node-wireformat-schema
+  {:certname s/Str
+   (s/optional-key :producer_timestamp) (s/maybe pls/Timestamp)})
