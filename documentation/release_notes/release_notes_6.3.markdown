@@ -18,6 +18,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrade_policy]: ./versioning_policy.html#upgrades
 [facts]: ./api/query/v4/facts.html
 
+## PuppetDB 6.3.6
+
+### Bug fixes
+
+- Fixed an issue that caused PuppetDB to shut down if the initial Postgres
+  connection failed. PuppetDB now retries the connection if it fails.
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Rob Browning, Robert
+Roland, and Zak Kent
+
 ## PuppetDB 6.3.5
 
 ### New features and improvements
@@ -43,6 +55,11 @@ canonical: "/puppetdb/latest/release_notes.html"
   [PDB-4502](https://tickets.puppetlabs.com/browse/PDB-4502)
   
 - Fixed an issue where package upgrades on CentOS 6 would sometimes fail when upgrading from older versions of PuppetDB (for example, 5.2) to more recent versions (for example, 6.3+). [PDB-4373](https://tickets.puppetlabs.com/browse/PDB-4373)  
+
+### Contributors
+
+Austin Blatt, Charlie Sharpsteen, Eric Griswold, Jean Bond, Molly
+Waggett, Rob Browning, Robert Roland, Scot Kreienkamp, and Zak Kent
 
 ## PuppetDB 6.3.4
 
