@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.export
+  (:refer-clojure :exclude (with-open))
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -19,7 +20,8 @@
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]]))
+            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.puppetdb.withopen :refer [with-open]]))
 
 (def export-metadata-file-name "export-metadata.json")
 (def query-api-version :v4)

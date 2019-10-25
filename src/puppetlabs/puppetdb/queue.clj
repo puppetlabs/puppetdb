@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.queue
+  (:refer-clojure :exclude (with-open))
   (:import [java.nio.charset StandardCharsets]
-           [java.io InputStreamReader BufferedReader InputStream]
+           [java.io InputStreamReader BufferedReader InputStream Closeable]
            [java.util TreeMap HashMap]
            [java.nio.file Files LinkOption]
            [java.nio.file.attribute FileAttribute]
@@ -28,7 +29,8 @@
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
+            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]
+            [puppetlabs.puppetdb.withopen :refer [with-open]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -266,7 +268,7 @@
 
 (defn wrap-decompression-stream
   [file-extension command-stream]
-  (case file-extension
+  (condp = file-extension
     nil command-stream
     "" command-stream
     "gz" (GzipCompressorInputStream. command-stream)
@@ -291,15 +293,15 @@
     (when stream
       (with-open [command-stream stream]
         (assoc cmdref
-               ;; Don't explicitly buffer the compressed data stream.
-               ;; Testing has revealed that buffering the stream
-               ;; feeding the decompressor can reduce json throughput
-               ;; by up to 400x.  Note that stream->json will already
-               ;; be applying a BufferedReader to the incoming bytes.
-               :payload (stream->json (wrap-decompression-stream
-                                       compression
-                                       command-stream))
-               :entry entry)))))
+          ;; Don't explicitly buffer the compressed data stream.
+          ;; Testing has revealed that buffering the stream
+          ;; feeding the decompressor can reduce json throughput
+          ;; by up to 400x.  Note that stream->json will already
+          ;; be applying a BufferedReader to the incoming bytes.
+          :payload (stream->json (wrap-decompression-stream
+                                  compression
+                                  command-stream))
+          :entry entry)))))
 
 (defn cons-attempt [cmdref exception]
   (update cmdref :attempts conj {:exception exception

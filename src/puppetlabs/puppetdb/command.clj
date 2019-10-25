@@ -51,7 +51,8 @@
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
   (:import [java.util.concurrent Semaphore]
-           [org.joda.time DateTime])
+           [org.joda.time DateTime]
+           [java.io Closeable])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
@@ -269,7 +270,7 @@
     (finally
       (.release write-semaphore)
       (when command-stream
-        (.close command-stream)))))
+        (.close ^Closeable command-stream)))))
 
 (defn log-command-processed-messsage [id received-time start-time command-kw certname & [opts]]
   ;; manually stringify these to avoid locale-specific formatting
