@@ -19,6 +19,19 @@ canonical: "/puppetdb/latest/release_notes.html"
 [facts]: ./api/query/v4/facts.html
 [puppet_apply]: ./connect_puppet_apply.html
 
+
+## PuppetDB 6.7.2
+
+### Bug fixes
+
+- Fixed an issue that caused PuppetDB to shut down if the initial Postgres
+  connection failed. PuppetDB now retries the connection if it fails.
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Morgan Rhodes, Nate
+Wolfe, Rob Browning, Robert Roland, and Zak Kent
+
 ## PuppetDB 6.7.1
 
 ### Bug fixes
@@ -33,6 +46,11 @@ canonical: "/puppetdb/latest/release_notes.html"
   
 - This release restores the cipher suites required to connect to Puppet Server using
   TLS versions TLSv1.0 and TLSv1.1. [PDB-4513](https://tickets.puppetlabs.com/browse/PDB-4513)
+
+### Contributors
+
+Austin Blatt, Eric Griswold, Ethan J. Brown, Heston Hoffman, Molly
+Waggett, Robert Roland, Scot Kreienkamp, Vadym Chepkov, and Zak Kent
 
 ## PuppetDB 6.7.0
 
