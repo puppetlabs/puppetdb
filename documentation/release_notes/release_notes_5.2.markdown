@@ -18,6 +18,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.11
+
+### Bug fixes
+
+- Fixed an issue that caused PuppetDB to shut down if the initial Postgres
+  connection failed. PuppetDB now retries the connection if it fails.
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Rob Browning, Robert
+Roland, and Zak Kent
+
 ## PuppetDB 5.2.10
 
 ### New features and improvements
@@ -40,6 +52,11 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - Fixed a bug that prevented command size metrics from being recorded and the
   `max-command-size` config option from working properly. [PDB-4502](https://tickets.puppetlabs.com/browse/PDB-4502)
+
+### Contributors
+
+Austin Blatt, Eric Griswold, Heston Hoffman, Molly Waggett, Rob
+Browning, Robert Roland, Scot Kreienkamp, and Zak Kent
 
 ## PuppetDB 5.2.9
 

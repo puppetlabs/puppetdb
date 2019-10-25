@@ -100,15 +100,18 @@ namespace :release do
     response = HTTParty.get(url)
     json = response.parsed_response
 
-    if json['maxResults'] <= json['total']
+    if ! json['errorMessages'].nil?
+      for msg in json['errorMessages']
+        puts "Jira query error: '#{msg}'"
+      end
+    elsif json['maxResults'] <= json['total']
       url = "#{jql_search}?maxResults=#{json['total']}&jql=fixVersion='#{fix_version}'"
       response = HTTParty.get(url)
       json = response.parsed_response
     end
 
     jira_issues = []
-    require 'pry'
-    json['issues'].each do |issue|
+    json['issues']&.each do |issue|
       # puts issue['key']
       jira_issues.push({
         id: issue['id'],
