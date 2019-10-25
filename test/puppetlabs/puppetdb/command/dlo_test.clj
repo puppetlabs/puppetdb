@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.command.dlo-test
+  (:refer-clojure :exclude (with-open))
   (:require
    [clojure.java.io :as io]
    [clojure.string :as str]
@@ -15,7 +16,8 @@
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.testutils.queue :refer [catalog->command-req]]
    [puppetlabs.puppetdb.time :as coerce-time]
-   [puppetlabs.stockpile.queue :as stock])
+   [puppetlabs.stockpile.queue :as stock]
+   [puppetlabs.puppetdb.withopen :refer [with-open]])
   (:import
    [java.nio.file Files]))
 

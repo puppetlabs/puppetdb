@@ -38,6 +38,7 @@
      data may linger in the database. We periodically sweep the
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
+  (:refer-clojure :exclude (with-open))
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -78,9 +79,12 @@
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
-            [puppetlabs.i18n.core :refer [trs tru]])
+            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.puppetdb.withopen :refer [with-open]])
   (:import [java.util.concurrent.locks ReentrantLock]
-           [org.joda.time Period DateTime]))
+           [org.joda.time Period]
+           [org.joda.time Period DateTime]
+           [java.io Closeable]))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
@@ -329,9 +333,9 @@
     (log/info (trs "Periodic activities halted"))
     (log/info (trs "Forcibly terminating periodic activities")))
   (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
-    (.close ds))
+    (.close ^Closeable ds))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
-    (.close ds))
+    (.close ^Closeable ds))
   (when-let [command-loader (:command-loader context)]
     (future-cancel command-loader))
   context)
@@ -412,7 +416,7 @@
     (let [runtime (Runtime/getRuntime)
           on-shutdown (doto (Thread.
                              #(try
-                                (.close db-pool)
+                                (.close ^Closeable db-pool)
                                 (catch Exception ex
                                   ;; Nothing to do but log it...
                                   (log/error ex (trs "Unable to close migration pool")))))
