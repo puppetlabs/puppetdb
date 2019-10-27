@@ -8,6 +8,7 @@ ENV PUPPETDB_VERSION="$version"
 ENV DUMB_INIT_VERSION="1.2.1"
 ENV UBUNTU_CODENAME="xenial"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
+ENV LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
 ENV PUPPETDB_NODE_TTL=7d
@@ -39,7 +40,8 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install --no-install-recommends -y puppet-agent puppetdb && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p $LOGDIR
 
 COPY puppetdb /etc/default/
 COPY logging /etc/puppetlabs/puppetdb/logging

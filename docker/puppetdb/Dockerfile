@@ -25,6 +25,7 @@ ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream"
 
 ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
+ENV LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
 ENV PUPPETDB_NODE_TTL=7d
@@ -59,9 +60,7 @@ ENV SERVICE_STOP_RETRIES=60
 COPY docker/puppetdb/logging /etc/puppetlabs/puppetdb/logging/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/logback.xml /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/request-logging.xml /etc/puppetlabs/puppetdb/
-RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
+RUN mkdir -p $LOGDIR
 
 RUN addgroup $GROUP && adduser -S $USER -G $GROUP
 
