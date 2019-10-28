@@ -25,12 +25,16 @@ ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream"
 
 ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_DATABASE_CONNECTION="//postgres:5432/puppetdb"
+ENV LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 ENV PUPPETDB_USER=puppetdb
 ENV PUPPETDB_PASSWORD=puppetdb
 ENV PUPPETDB_NODE_TTL=7d
 ENV PUPPETDB_NODE_PURGE_TTL=14d
 ENV PUPPETDB_REPORT_TTL=14d
-ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
+# NOTE: Docker ENV values cannot consume other ENV values, so full path to $LOGDIR is specified for -Xloggc
+# this value may be set by users, keeping in mind that some of these values are mandatory
+# -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
+ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:/opt/puppetlabs/server/data/puppetdb/logs/puppetdb_gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=16 -XX:GCLogFileSize=64m"
 # used by entrypoint to determine if puppetserver should be contacted for config
 # set to false when container tests are run
 ENV USE_PUPPETSERVER=true
@@ -59,9 +63,7 @@ ENV SERVICE_STOP_RETRIES=60
 COPY docker/puppetdb/logging /etc/puppetlabs/puppetdb/logging/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/logback.xml /etc/puppetlabs/puppetdb/
-COPY resources/ext/config/request-logging.xml /etc/puppetlabs/puppetdb/
-RUN mkdir -p /opt/puppetlabs/server/data/puppetdb
+RUN mkdir -p $LOGDIR
 
 RUN addgroup $GROUP && adduser -S $USER -G $GROUP
 
