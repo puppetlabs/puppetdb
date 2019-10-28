@@ -9,10 +9,10 @@
     </appender>
 
     <appender name="F1" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb.log</file>
+        <file>${LOGDIR}/puppetdb.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>${LOGDIR}/puppetdb-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
             <maxFileSize>200MB</maxFileSize>
             <maxHistory>90</maxHistory>
@@ -23,15 +23,22 @@
         </encoder>
     </appender>
 
+    <!-- Supress internal ActiveMQ logging -->
+    <logger name="org.apache.activemq" level="warn"/>
+
     <!-- Supress internal Spring Framework logging -->
     <logger name="org.springframework.jms.connection" level="warn"/>
 
+    <!-- Lower the log level for ActiveMQ KahaDB MessageDatabase -->
+    <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
+        level="info"/>
+
     <appender name="STATUS" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-status.log</file>
+        <file>${LOGDIR}/puppetdb-status.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>/opt/puppetlabs/server/data/puppetdb/logs/puppetdb-status-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>${LOGDIR}/puppetdb-status-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <!-- each file should be at most 200MB, keep 90 days worth of history, but at most 1GB total-->
             <maxFileSize>200MB</maxFileSize>
             <maxHistory>90</maxHistory>
