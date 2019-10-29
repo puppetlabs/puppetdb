@@ -32,6 +32,7 @@ ENV PUPPETDB_VERSION="$version"
 ENV PUPPETDB_POSTGRES_HOSTNAME="postgres"
 ENV PUPPETDB_POSTGRES_PORT="5432"
 ENV PUPPETDB_POSTGRES_DATABASE="puppetdb"
+ENV LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 # NOTE: SSLDIR should never be set externally or it will break jetty.ini
 ENV SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs
 ENV CERTNAME=puppetdb
@@ -40,7 +41,10 @@ ENV PUPPETDB_PASSWORD=puppetdb
 ENV PUPPETDB_NODE_TTL=7d
 ENV PUPPETDB_NODE_PURGE_TTL=14d
 ENV PUPPETDB_REPORT_TTL=14d
-ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m"
+# NOTE: Docker ENV values cannot consume other ENV values, so full path to $LOGDIR is specified for -Xloggc
+# this value may be set by users, keeping in mind that some of these values are mandatory
+# -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
+ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:/opt/puppetlabs/server/data/puppetdb/logs/puppetdb_gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=16 -XX:GCLogFileSize=64m"
 # used by entrypoint to determine if puppetserver should be contacted for config
 # set to false when container tests are run
 ENV USE_PUPPETSERVER=true
@@ -74,7 +78,7 @@ COPY docker/puppetdb/logback.xml /etc/puppetlabs/puppetdb/logback.xml
 COPY docker/puppetdb/request-logging.xml /etc/puppetlabs/puppetdb/request-logging.xml
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY resources/puppetlabs/puppetdb/bootstrap.cfg /etc/puppetlabs/puppetdb/
-RUN mkdir -p /opt/puppetlabs/server/data/puppetdb/logs
+RUN mkdir -p $LOGDIR
 
 RUN addgroup $GROUP && adduser --system $USER --ingroup $GROUP
 
