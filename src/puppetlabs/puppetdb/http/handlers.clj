@@ -131,9 +131,11 @@
 ;; Routes
 
 ;; query parameter sets
+(def global-params {:optional []})
 (def paging-params {:optional paging/query-params})
 (def pretty-params {:optional ["pretty"]})
-(def typical-params (merge-param-specs paging-params
+(def typical-params (merge-param-specs global-params
+                                       paging-params
                                        pretty-params
                                        {:optional ["include_package_inventory"]}))
 
@@ -182,12 +184,14 @@
    (cmdi/ANY ["/" :hash "/metrics"] []
              (-> (report-data-responder version "report_metrics")
                  (parent-check version :report :hash)
-                 (validate-query-params pretty-params)))
+                 (validate-query-params (merge-param-specs global-params
+                                                           pretty-params))))
 
    (cmdi/ANY ["/" :hash "/logs"] []
              (-> (report-data-responder version "report_logs")
                  (parent-check version :report :hash)
-                 (validate-query-params pretty-params)))))
+                 (validate-query-params (merge-param-specs global-params
+                                                           pretty-params))))))
 
 (pls/defn-validated resources-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -325,9 +329,7 @@
     (cmdi/ANY "" []
               (create-query-handler version "nodes" http-q/restrict-query-to-active-nodes))
     (cmdi/context ["/" (route-param :node)]
-                  (cmdi/ANY "" []
-                            (-> (node-status version)
-                                (validate-query-params pretty-params)))
+                  (cmdi/ANY "" [] (node-status version))
                   (cmdi/context "/facts"
                                 (-> (facts-routes version)
                                     (append-handler http-q/restrict-query-to-node)
@@ -347,7 +349,8 @@
    (cmdi/context ["/" (route-param :environment)]
                  (cmdi/ANY "" []
                    (validate-query-params (environment-status version)
-                                          pretty-params))
+                                          (merge-param-specs global-params
+                                                             pretty-params)))
 
                  (wrap-with-parent-check
                   (cmdi/routes
@@ -392,7 +395,8 @@
    (cmdi/context ["/" (route-param :producer)]
                  (cmdi/ANY "" []
                    (validate-query-params (producer-status version)
-                                          pretty-params))
+                                          (merge-param-specs global-params
+                                                             pretty-params)))
                  (wrap-with-parent-check
                   (cmdi/routes
                    (extract-query
@@ -442,10 +446,11 @@
 (pls/defn-validated agg-event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
-   {:required ["summarize_by"]
-    :optional ["query" "counts_filter" "count_by"
-               "distinct_resources" "distinct_start_time"
-               "distinct_end_time"]}
+   (merge-param-specs global-params
+                      {:required ["summarize_by"]
+                       :optional ["query" "counts_filter" "count_by"
+                                  "distinct_resources" "distinct_start_time"
+                                  "distinct_end_time"]})
    (cmdi/ANY "" []
              (create-query-handler version
                                    "aggregate_event_counts"))))
