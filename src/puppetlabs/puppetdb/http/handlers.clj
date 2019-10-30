@@ -134,7 +134,7 @@
 ;; Routes
 
 ;; query parameter sets
-(def global-params {:optional []})
+(def global-params {:optional ["include_facts_expiration"]})
 (def paging-params {:optional paging/query-params})
 (def pretty-params {:optional ["pretty"]})
 (def typical-params (merge-param-specs global-params
@@ -332,9 +332,7 @@
     (cmdi/ANY "" []
               (create-query-handler version "nodes" http-q/restrict-query-to-active-nodes))
     (cmdi/context ["/" (route-param :node)]
-                  (cmdi/ANY "" []
-                            (-> (node-status version)
-                                (validate-query-params {:optional ["include_facts_expiration"]})))
+                  (cmdi/ANY "" [] (node-status version))
                   (cmdi/context "/facts"
                                 (-> (facts-routes version)
                                     (append-handler http-q/restrict-query-to-node)

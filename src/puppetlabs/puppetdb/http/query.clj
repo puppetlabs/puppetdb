@@ -318,9 +318,7 @@
      (handler
       (if puppetdb-query
         req
-        (let [param-spec (-> param-spec
-                             (update :optional conj "include_facts_expiration"))
-              query-map (create-query-map req param-spec parse-fn)
+        (let [query-map (create-query-map req param-spec parse-fn)
               pretty-print (:pretty query-map
                                     (get-in req [:globals :pretty-print]))]
           (-> req
