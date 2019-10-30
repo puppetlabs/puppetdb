@@ -170,6 +170,18 @@
                           :else
                           (app req))))
 
+(defn merge-param-specs
+  [& specs]
+  (letfn [(assoc-distinct-vals [result key & maps]
+            (cond-> result
+              (some key maps) (assoc key (distinct (mapcat key maps)))))]
+    (reduce (fn [result spec]
+              (-> (merge result spec)
+                  (assoc-distinct-vals :required result spec)
+                  (assoc-distinct-vals :optional result spec)))
+            nil
+            specs)))
+
 (defn validate-no-query-params
   "Ring middleware that verifies that there are no query params on the request.
   Convenience method for endpoints that do not support any query params.  If the
