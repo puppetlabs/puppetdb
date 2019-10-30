@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [ring.util.request :as request]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -146,16 +147,15 @@
                                http/status-unsupported-type)))
       (app req))))
 
-(defn validate-query-params
+(def params-schema {(s/optional-key :optional) [s/Str]
+                    (s/optional-key :required) [s/Str]})
+
+(defn-validated validate-query-params
   "Ring middleware that verifies that the query params in the request are legal
   based on the map `param-specs`, which contains a list of `:required` and
   `:optional` query parameters. If the validation fails, a 400 Bad Request is
   returned, with an explanation of the invalid parameters."
-  [app param-specs]
-  {:pre [(map? param-specs)
-         (= #{} (kitchensink/keyset (dissoc param-specs :required :optional)))
-         (every? string? (:required param-specs))
-         (every? string? (:optional param-specs))]}
+  [app param-specs :- params-schema]
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
                           (kitchensink/excludes-some params (:required param-specs))

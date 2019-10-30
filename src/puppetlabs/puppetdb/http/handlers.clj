@@ -5,7 +5,8 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body
                                                    stream-query-result]]
-            [puppetlabs.puppetdb.middleware :refer [validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [params-schema
+                                                    validate-query-params
                                                     parent-check
                                                     handler-schema]]
             [puppetlabs.comidi :as cmdi]
@@ -17,9 +18,6 @@
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.i18n.core :refer [trs]]))
-
-(def params-schema {(s/optional-key :optional) [s/Str]
-                    (s/optional-key :required) [s/Str]})
 
 ;; General route/handler construction functions
 
