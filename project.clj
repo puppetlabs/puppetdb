@@ -90,7 +90,7 @@
     ;;   CVE-2017-7658 (PDB-4161)
     ;;   CVE-2018-19360 CVE-2018-19361 CVE-2018-19362 (PDB-4364)
     ;; (logstash depends on jackson-databind)
-    [com.fasterxml.jackson.core/jackson-databind "2.9.8"]])
+    [com.fasterxml.jackson.core/jackson-databind "2.9.10"]])
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
