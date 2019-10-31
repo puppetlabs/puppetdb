@@ -133,7 +133,9 @@
 ;; query parameter sets
 (def paging-params {:optional paging/query-params})
 (def pretty-params {:optional ["pretty"]})
-(def typical-params (merge-param-specs paging-params pretty-params))
+(def typical-params (merge-param-specs paging-params
+                                       pretty-params
+                                       {:optional ["include_package_inventory"]}))
 
 (pls/defn-validated root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
