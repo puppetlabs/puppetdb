@@ -309,7 +309,7 @@ FROM pg_index AS idx
   JOIN pg_namespace AS NS ON i.relnamespace = NS.OID
   JOIN pg_user AS U ON i.relowner = U.usesysid
 WHERE NOT nspname LIKE 'pg%'
-ORDER BY i.relname ASC;")
+ORDER BY idx.indrelid :: REGCLASS, i.relname;")
 
 (defn db->index-map
   "Converts the metadata columns from their database names/formats to

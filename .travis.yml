@@ -86,8 +86,12 @@ jobs:
       env: PDB_TEST=core+ext/openjdk8/pg-9.6
       script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests with FIPS
+    - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk8/pg-9.6 LEIN_PROFILES=fips
+      script: *run-core-and-ext-tests
+
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/openjdk8/pg-12
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
