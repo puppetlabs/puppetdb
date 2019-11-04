@@ -2,7 +2,8 @@
   "Handles all work related to database table partitioning"
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [schema.core :as s])
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs]])
 
   (:import (java.time LocalDateTime LocalDate ZoneId ZonedDateTime)
            (java.time.temporal ChronoUnit)
@@ -22,7 +23,7 @@
     (instance? java.sql.Timestamp date) (-> date
                                             (.toInstant)
                                             (ZonedDateTime/ofInstant (ZoneId/of "UTC")))
-    :else (throw (ex-info (str "Unhandled date type " (type date)) {:date date}))))
+    :else (throw (ex-info (trs "Unhandled date type {0}" (type date)) {:date date}))))
 
 (s/defn create-partition
   [base-table :- s/Str
