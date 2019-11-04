@@ -2541,11 +2541,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn compile-user-query->sql
-  "Given a user provided query and a Query instance, convert the
-   user provided query to SQL and extract the parameters, to be used
-   in a prepared statement"
-  [query-rec user-query & [{:keys [include_total] :as query-options}]]
+(defn compile-query
+  "Given a user provided query and a Query instance, converts the user
+  provided query to the requested target.  Current targets are
+  either :parameterized-plan or :sql.  For :sql, returns the SQL and
+  extracted parameters, to be used in a prepared statement.
+  For :parameterized-plan, returns the final plan and parameters that
+  would be used to generate the :sql result."
+  [query-rec user-query {:keys [include_total] :as query-options} target]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
   (let [allowed-fields (map keyword (queryable-fields query-rec))
@@ -2553,13 +2556,27 @@
                                 (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))
         [query-rec user-query] (rewrite-fact-query query-rec user-query)
-        {:keys [plan params]} (->> user-query
-                                   (push-down-context query-rec)
-                                   expand-user-query
-                                   optimize-user-query
-                                   (convert-to-plan query-rec paging-options)
-                                   extract-all-params)
-        sql (plan->sql plan paging-options)
-        paged-sql (jdbc/paged-sql sql paging-options)]
-    (cond-> {:results-query (apply vector paged-sql params)}
-      include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
+        parameterized-plan (->> user-query
+                                (push-down-context query-rec)
+                                expand-user-query
+                                optimize-user-query
+                                (convert-to-plan query-rec paging-options)
+                                extract-all-params)]
+    (case target
+      :parameterized-plan parameterized-plan
+      :sql (let [{:keys [plan params]} parameterized-plan
+                 sql (plan->sql plan paging-options)
+                 paged-sql (jdbc/paged-sql sql paging-options)]
+             (cond-> {:results-query (apply vector paged-sql params)}
+               include_total (assoc :count-query
+                                    (apply vector (jdbc/count-sql sql)
+                                           params)))))))
+
+(defn compile-user-query->sql
+  "Given a user provided query and a Query instance, convert the
+   user provided query to SQL and extract the parameters, to be used
+   in a prepared statement."
+  ([query-rec user-query]
+   (compile-query query-rec user-query {} :sql))
+  ([query-rec user-query query-options]
+   (compile-query query-rec user-query query-options :sql)))
