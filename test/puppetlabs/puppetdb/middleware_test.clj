@@ -247,3 +247,22 @@
                        :query-params {"foo" "bar"}}]
           (is (= post-req (middleware-fn post-req)))
           (is (= get-req (middleware-fn get-req))))))))
+
+(defn setify-map-vals [m]
+  (into {} (for [[k v] m] [k (set v)])))
+
+(deftest merge-param-specs-behavior
+  (is (= nil (merge-param-specs)))
+  (is (= {:optional ["x"] :required ["y"]}
+         (merge-param-specs {:optional ["x"] :required ["y"]})))
+  (is (= {:optional ["x"] :required ["y"] :x :y}
+         (merge-param-specs {:optional ["x"] :required ["y"]} {:x :y})))
+  (is (= {:optional (set ["x" "z"]) :required (set ["y"])}
+         (setify-map-vals
+          (merge-param-specs {:optional ["x"] :required ["y"]}
+                             {:optional ["z"]}))))
+  (is (= {:optional (set ["x" "z"]) :required (set ["v" "w" "y"])}
+         (setify-map-vals
+          (merge-param-specs {:optional ["x"] :required ["y"]}
+                             {:optional ["z"]
+                              :required ["v" "w"]})))))
