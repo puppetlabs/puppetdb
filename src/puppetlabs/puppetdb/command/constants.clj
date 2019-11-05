@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.command.constants
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [clojure.string :as str]))
 
 (def command-names
   {:replace-catalog "replace catalog"
@@ -27,3 +28,7 @@
   {:replace_catalog latest-catalog-version
    :store_report latest-report-version
    :replace_facts latest-facts-version})
+
+(defn normalize-command-name [command]
+  "Normalize command name from an incoming request's query param"
+  (str/replace command "_" " "))

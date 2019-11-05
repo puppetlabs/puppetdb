@@ -55,4 +55,37 @@
                  :value
                  vals
                  (map #(not= 0.0 %))
-                 (every? true?)))))))
+                 (every? true?)))))
+
+    (testing "PuppetDB doesn't create duplicate command metrics"
+      (let [bulk-metrics-req (fn [metrics]
+                               (let [{:keys [status body]}
+                                     (svc-utils/post-ssl (str "https://localhost:"
+                                                              (-> pdb int/server-info :base-url :port)
+                                                              "/metrics/v1/mbeans")
+                                                         metrics)]
+                                 {:status status
+                                  :body (-> body slurp json/parse-string)}))
+
+            ;; these metrics use the normalized command name and should be populated
+            normalized-metrics (bulk-metrics-req ["puppetlabs.puppetdb.mq:name=replace facts.5.seen"
+                                                  "puppetlabs.puppetdb.mq:name=store report.8.seen"
+                                                  "puppetlabs.puppetdb.mq:name=replace catalog.9.seen"])
+
+            ;; these metrics were the duplicates being seen in PDB-3417 they use
+            ;; the command name from the query param before normalization and shouldn't be populated
+            improper-metrics (bulk-metrics-req ["puppetlabs.puppetdb.mq:name=replace_facts.5.seen"
+                                                "puppetlabs.puppetdb.mq:name=store_report.8.seen"
+                                                "puppetlabs.puppetdb.mq:name=replace_catalog.9.seen"])]
+
+        ;; check that normalized metrics are populated
+        (let [{:keys [status body]} normalized-metrics]
+          (is (= 200 status))
+          (is (= 3 (count body)))
+          (is (every? some? body)))
+
+        ;; check that the improperly formated metrics are no longer being created
+        (let [{:keys [status body]} improper-metrics]
+          (is (= 200 status))
+          (is (= 3 (count body)))
+          (is (every? nil? body)))))))
