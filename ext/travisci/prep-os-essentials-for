@@ -80,7 +80,7 @@ case "$flavor" in
                      postgresql-client-common postgresql-client postgresql-common
                 sudo -i apt-get -y install \
                      postgresql-9.6 postgresql-contrib-9.6 \
-                     postgresql-11
+                     postgresql-11 postgresql-12
                 ;;
         esac
         mkdir -p ext/travisci/local
