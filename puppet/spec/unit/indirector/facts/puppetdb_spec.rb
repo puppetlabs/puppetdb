@@ -111,8 +111,12 @@ describe Puppet::Node::Facts::Puppetdb do
     it 'should return trusted data' do
       node = Puppet::Node.new('my_certname')
       trusted = subject.get_trusted_info(node)
+      # External key added by PUP-9994, Puppet 6.11.0
+      if trusted.has_key?('external')
+        expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'testing',
+                               'extensions'=>{}, 'external'=>{"trusted_testhelper"=>true}, 'hostname'=>'testing', 'domain'=>nil})
       # Extra keys domain & hostname introduced by PUP-5097, Puppet 4.3.0
-      if trusted.has_key?("domain")
+      elsif trusted.has_key?("domain")
         expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'testing',
                                'extensions'=>{}, 'hostname'=>'testing', 'domain'=>nil})
       else
@@ -132,8 +136,12 @@ describe Puppet::Node::Facts::Puppetdb do
       node = Puppet::Node.new('my_certname', :parameters => {'clientcert' => 'trusted_certname'})
       trusted = subject.get_trusted_info(node)
 
+      # External key added by PUP-9994, Puppet 6.11.0
+      if trusted.has_key?('external')
+        expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'trusted_certname',
+                               'extensions'=>{}, 'external'=>{}, 'hostname'=>'trusted_certname', 'domain'=>nil})
       # Extra keys domainname & hostname introduced by PUP-5097, Puppet 4.3.0
-      if trusted.has_key?("domain")
+      elsif trusted.has_key?("domain")
         expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'trusted_certname',
                                'extensions'=>{}, 'hostname'=>'trusted_certname', 'domain'=>nil})
       else
