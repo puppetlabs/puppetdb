@@ -64,11 +64,14 @@
 
 ;; Handlers checking for a single entity
 
+(def global-engine-params
+  "Parameters that should always be forwarded from the incoming query to
+  the engine."
+  [:include_facts_expiration])
+
 (defn status-response
   "Executes `query` and if a result is found, calls `found-fn` with
   that result, returns 404 otherwise."
-  ([version query globals found-fn not-found-response]
-   (status-response version query globals found-fn not-found-response {}))
   ([version query globals found-fn not-found-response query-params]
    (if-let [query-result (first (stream-query-result version query query-params globals))]
      (http/json-response (found-fn query-result))
@@ -77,25 +80,27 @@
 (defn catalog-status
   "Produces a response body for a request to retrieve the catalog for the node in route-params"
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [node (:node route-params)]
       (status-response version
                        ["from" "catalogs" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        #(s/validate catalog-query-schema
                                     (kitchensink/mapvals sutils/parse-db-json [:edges :resources] %))
-                       (http/status-not-found-response "catalog" node)))))
+                       (http/status-not-found-response "catalog" node)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn factset-status
   "Produces a response body for a request to retrieve the factset for the node in route-params"
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [node (:node route-params)]
       (status-response version
                        ["from" "factsets" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "factset" node)))))
+                       (http/status-not-found-response "factset" node)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn node-status
   "Produce a response body for a single environment."
@@ -107,29 +112,31 @@
                        (http-q/narrow-globals globals)
                        identity
                        (http/status-not-found-response "node" node)
-                       (select-keys puppetdb-query [:include_facts_expiration])))))
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn environment-status
   "Produce a response body for a single environment."
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [environment (:environment route-params)]
       (status-response version
                        ["from" "environments" ["=" "name" environment]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "environment" environment)))))
+                       (http/status-not-found-response "environment" environment)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn producer-status
   "Produce a response body for a single producer."
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [producer (:producer route-params)]
       (status-response version
                        ["from" "producers" ["=" "name" producer]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "producer" producer)))))
+                       (http/status-not-found-response "producer" producer)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 ;; Routes
 
