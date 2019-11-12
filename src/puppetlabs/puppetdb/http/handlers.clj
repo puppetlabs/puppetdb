@@ -5,7 +5,9 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body
                                                    stream-query-result]]
-            [puppetlabs.puppetdb.middleware :refer [validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [merge-param-specs
+                                                    params-schema
+                                                    validate-query-params
                                                     parent-check
                                                     handler-schema]]
             [puppetlabs.comidi :as cmdi]
@@ -18,17 +20,12 @@
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.i18n.core :refer [trs]]))
 
-(def params-schema {(s/optional-key :optional) [s/Str]
-                    (s/optional-key :required) [s/Str]})
-
 ;; General route/handler construction functions
 
 (pls/defn-validated extract-query :- bidi-schema/RoutePair
-  ([routes :- bidi-schema/RoutePair]
-   (extract-query {:optional paging/query-params} routes))
-  ([param-spec :- params-schema
-    routes :- bidi-schema/RoutePair]
-   (cmdi/wrap-routes routes #(http-q/extract-query % param-spec))))
+  [param-spec :- params-schema
+   routes :- bidi-schema/RoutePair]
+  (cmdi/wrap-routes routes #(http-q/extract-query % param-spec)))
 
 (pls/defn-validated append-handler :- bidi-schema/RoutePair
   [route :- bidi-schema/RoutePair
@@ -53,20 +50,6 @@
    route-param-key :- s/Keyword]
   (cmdi/wrap-routes route #(parent-check % version entity route-param-key)))
 
-(pls/defn-validated root-routes :- bidi-schema/RoutePair
-  [version :- s/Keyword]
-  (let [no-certname-entities #{"fact_paths" "environments" "packages"}
-        get-entity #(some-> % :puppetdb-query :query second)]
-    (cmdi/ANY "" []
-              (-> (comp (http-q/query-handler version)
-                        (fn [req]
-                          (cond
-                            (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
-                            (no-certname-entities (get-entity req)) req
-                            :else (http-q/restrict-query-to-active-nodes req))))
-                  (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
-                                             :required ["query"]})))))
-
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.
    `entity` should be either :metrics or :logs."
@@ -81,11 +64,14 @@
 
 ;; Handlers checking for a single entity
 
+(def global-engine-params
+  "Parameters that should always be forwarded from the incoming query to
+  the engine."
+  [:include_facts_expiration])
+
 (defn status-response
   "Executes `query` and if a result is found, calls `found-fn` with
   that result, returns 404 otherwise."
-  ([version query globals found-fn not-found-response]
-   (status-response version query globals found-fn not-found-response {}))
   ([version query globals found-fn not-found-response query-params]
    (if-let [query-result (first (stream-query-result version query query-params globals))]
      (http/json-response (found-fn query-result))
@@ -94,25 +80,27 @@
 (defn catalog-status
   "Produces a response body for a request to retrieve the catalog for the node in route-params"
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [node (:node route-params)]
       (status-response version
                        ["from" "catalogs" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        #(s/validate catalog-query-schema
                                     (kitchensink/mapvals sutils/parse-db-json [:edges :resources] %))
-                       (http/status-not-found-response "catalog" node)))))
+                       (http/status-not-found-response "catalog" node)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn factset-status
   "Produces a response body for a request to retrieve the factset for the node in route-params"
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [node (:node route-params)]
       (status-response version
                        ["from" "factsets" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "factset" node)))))
+                       (http/status-not-found-response "factset" node)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn node-status
   "Produce a response body for a single environment."
@@ -124,42 +112,68 @@
                        (http-q/narrow-globals globals)
                        identity
                        (http/status-not-found-response "node" node)
-                       (select-keys puppetdb-query [:include_facts_expiration])))))
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn environment-status
   "Produce a response body for a single environment."
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [environment (:environment route-params)]
       (status-response version
                        ["from" "environments" ["=" "name" environment]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "environment" environment)))))
+                       (http/status-not-found-response "environment" environment)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 (defn producer-status
   "Produce a response body for a single producer."
   [version]
-  (fn [{:keys [globals route-params]}]
+  (fn [{:keys [globals puppetdb-query route-params]}]
     (let [producer (:producer route-params)]
       (status-response version
                        ["from" "producers" ["=" "name" producer]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "producer" producer)))))
+                       (http/status-not-found-response "producer" producer)
+                       (select-keys puppetdb-query global-engine-params)))))
 
 ;; Routes
+
+;; query parameter sets
+(def global-params {:optional ["include_facts_expiration"]})
+(def paging-params {:optional paging/query-params})
+(def pretty-params {:optional ["pretty"]})
+(def typical-params (merge-param-specs global-params
+                                       paging-params
+                                       pretty-params
+                                       {:optional ["include_package_inventory"]}))
+
+(pls/defn-validated root-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (let [no-certname-entities #{"fact_paths" "environments" "packages"}
+        get-entity #(some-> % :puppetdb-query :query second)]
+    (cmdi/ANY "" []
+              (-> (comp (http-q/query-handler version)
+                        (fn [req]
+                          (cond
+                            (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
+                            (no-certname-entities (get-entity req)) req
+                            :else (http-q/restrict-query-to-active-nodes req))))
+                  (http-q/extract-query-pql
+                   (merge-param-specs typical-params
+                                      {:optional ["ast_only"]
+                                       :required ["query"]}))))))
 
 (pls/defn-validated events-routes :- bidi-schema/RoutePair
   "Ring app for querying events"
   [version :- s/Keyword]
   (extract-query
-   {:optional (concat
-               ["query"
-                "distinct_resources"
-                "distinct_start_time"
-                "distinct_end_time"]
-               paging/query-params)}
+   (merge-param-specs typical-params
+                      {:optional ["query"
+                                  "distinct_resources"
+                                  "distinct_start_time"
+                                  "distinct_end_time"]})
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "events")))))
@@ -168,6 +182,7 @@
   [version :- s/Keyword]
   (cmdi/routes
    (extract-query
+    typical-params
     (cmdi/ANY "" []
               (create-query-handler version "reports")))
 
@@ -179,16 +194,19 @@
    (cmdi/ANY ["/" :hash "/metrics"] []
              (-> (report-data-responder version "report_metrics")
                  (parent-check version :report :hash)
-                 (validate-query-params {:optional ["pretty"]})))
+                 (validate-query-params (merge-param-specs global-params
+                                                           pretty-params))))
 
    (cmdi/ANY ["/" :hash "/logs"] []
              (-> (report-data-responder version "report_logs")
                  (parent-check version :report :hash)
-                 (validate-query-params {:optional ["pretty"]})))))
+                 (validate-query-params (merge-param-specs global-params
+                                                           pretty-params))))))
 
 (pls/defn-validated resources-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "resources"  http-q/restrict-query-to-active-nodes))
@@ -207,12 +225,14 @@
 (pls/defn-validated edge-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/ANY "" []
              (create-query-handler version "edges" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated catalog-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
 
     (cmdi/ANY "" []
@@ -234,6 +254,7 @@
 (pls/defn-validated catalog-input-contents-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "catalog-input-contents"
@@ -242,6 +263,7 @@
 (pls/defn-validated catalog-inputs-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "catalog-inputs"
@@ -251,6 +273,7 @@
 (pls/defn-validated facts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "facts" http-q/restrict-query-to-active-nodes))
@@ -271,6 +294,7 @@
 (pls/defn-validated inventory-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+    typical-params
     (cmdi/routes
       (cmdi/ANY "" []
                 (create-query-handler version "inventory"
@@ -279,6 +303,7 @@
 (pls/defn-validated packages-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "packages")))))
@@ -286,6 +311,7 @@
 (pls/defn-validated package-inventory-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+    typical-params
     (cmdi/routes
       (cmdi/ANY "" []
                 (create-query-handler version "package_inventory"
@@ -297,6 +323,7 @@
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "factsets" http-q/restrict-query-to-active-nodes))
@@ -312,6 +339,7 @@
 (pls/defn-validated fact-names-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/ANY "" []
              (comp
               (fn [{:keys [params globals puppetdb-query]}]
@@ -325,15 +353,12 @@
 (pls/defn-validated node-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "nodes" http-q/restrict-query-to-active-nodes))
     (cmdi/context ["/" (route-param :node)]
-                  (cmdi/ANY "" []
-                            (-> (node-status version)
-                                (validate-query-params {:optional ["pretty"
-                                                                   "include_facts_expiration"]})))
-
+                  (cmdi/ANY "" [] (node-status version))
                   (cmdi/context "/facts"
                                 (-> (facts-routes version)
                                     (append-handler http-q/restrict-query-to-node)
@@ -347,37 +372,42 @@
   [version :- s/Keyword]
   (cmdi/routes
    (extract-query
+    typical-params
     (cmdi/ANY "" []
               (create-query-handler version "environments")))
    (cmdi/context ["/" (route-param :environment)]
                  (cmdi/ANY "" []
                    (validate-query-params (environment-status version)
-                                          {:optional ["pretty"]}))
+                                          (merge-param-specs global-params
+                                                             pretty-params)))
 
                  (wrap-with-parent-check
                   (cmdi/routes
                    (extract-query
+                    typical-params
                     (cmdi/context "/facts"
                                   (-> (facts-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
 
                    (extract-query
+                    typical-params
                     (cmdi/context "/resources"
                                   (-> (resources-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
 
                    (extract-query
+                    typical-params
                     (cmdi/context "/reports"
                                   (-> (reports-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
 
                    (extract-query
-                    {:optional (concat
-                                ["query"
+                    (merge-param-specs
+                     typical-params
+                     {:optional ["query"
                                  "distinct_resources"
                                  "distinct_start_time"
-                                 "distinct_end_time"]
-                                paging/query-params)}
+                                 "distinct_end_time"]})
 
                     (cmdi/context "/events"
                                   (-> (events-routes version)
@@ -388,25 +418,30 @@
   [version :- s/Keyword]
   (cmdi/routes
    (extract-query
+    typical-params
     (cmdi/ANY "" []
               (create-query-handler version "producers")))
    (cmdi/context ["/" (route-param :producer)]
                  (cmdi/ANY "" []
                    (validate-query-params (producer-status version)
-                                          {:optional ["pretty"]}))
+                                          (merge-param-specs global-params
+                                                             pretty-params)))
                  (wrap-with-parent-check
                   (cmdi/routes
                    (extract-query
+                    typical-params
                     (cmdi/context "/factsets"
                                   (-> (factset-routes version)
                                       (append-handler http-q/restrict-query-to-producer))))
 
                   (extract-query
+                    typical-params
                     (cmdi/context "/catalogs"
                                   (-> (catalog-routes version)
                                       (append-handler http-q/restrict-query-to-producer))))
 
                    (extract-query
+                    typical-params
                     (cmdi/context "/reports"
                                   (-> (reports-routes version)
                                       (append-handler http-q/restrict-query-to-producer)))))
@@ -415,33 +450,36 @@
 (pls/defn-validated fact-contents-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/ANY "" []
              (create-query-handler version "fact_contents" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated fact-path-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   typical-params
    (cmdi/ANY "" []
              (create-query-handler version "fact_paths"))))
 
 (pls/defn-validated event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
-   {:required ["summarize_by"]
-    :optional (concat ["counts_filter" "count_by"
-                       "distinct_resources" "distinct_start_time"
-                       "distinct_end_time"]
-                      paging/query-params)}
+   (merge-param-specs typical-params
+                      {:required ["summarize_by"]
+                       :optional ["counts_filter" "count_by"
+                                  "distinct_resources" "distinct_start_time"
+                                  "distinct_end_time"]})
    (cmdi/ANY "" []
              (create-query-handler version "event_counts"))))
 
 (pls/defn-validated agg-event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
-   {:required ["summarize_by"]
-    :optional ["query" "counts_filter" "count_by"
-               "distinct_resources" "distinct_start_time"
-               "distinct_end_time"]}
+   (merge-param-specs global-params
+                      {:required ["summarize_by"]
+                       :optional ["query" "counts_filter" "count_by"
+                                  "distinct_resources" "distinct_start_time"
+                                  "distinct_end_time"]})
    (cmdi/ANY "" []
              (create-query-handler version
                                    "aggregate_event_counts"))))

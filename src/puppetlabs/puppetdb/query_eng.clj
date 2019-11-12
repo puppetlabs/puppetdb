@@ -114,6 +114,8 @@
 
     :else
     (let [query-rec (cond
+                      ;; Move this so that we always look for
+                      ;; include_facts_expiration (PDB-4586).
                       (and (:include_facts_expiration query-options)
                              (= entity :nodes))
                       (get-in @entity-fn-idx [:nodes-with-fact-expiration :rec])
