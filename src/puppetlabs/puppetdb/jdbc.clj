@@ -355,6 +355,37 @@
   (str (name field)
        (when (= order :descending) " DESC")))
 
+(defn escape-single-quotes
+  "Quote a string for SQL single quotes"
+  [s]
+  (str/replace s "'" "''"))
+
+(defn single-quote
+  "Given a string quote with single quotes and do proper SQL string escaping."
+  [s]
+  (str "'" (escape-single-quotes s) "'"))
+
+(defn escape-double-quotes
+  "Quote a string for SQL double quotes"
+  [s]
+  (str/replace s "\"" "\"\""))
+
+(defn double-quote
+  "Given a string quote with double quotes and do proper SQL string escaping."
+  [s]
+  (str "\"" (escape-double-quotes s) "\""))
+
+(defn create-json-path-extraction
+  "Given a base json field and a path of keys to traverse, construct the proper
+  SQL query of the form base->'key'->'key2'..."
+  [field path]
+   (str field
+        (when (seq path)
+          (->> (map single-quote path)
+               (str/join "->")
+               ;; prefix for the first arrow in field->'key1'...
+               (str "->")))))
+
 (pls/defn-validated paged-sql :- String
   "Given a sql string and a map of paging options, return a modified SQL string
   that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
