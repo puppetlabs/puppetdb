@@ -24,24 +24,22 @@
 
 (def ^:private validate-clean-command (s/validator clean-command-schema))
 
-(defn- invalid-clean-command-info [command]
+(defn- invalid-command-info [command validator]
   (try+
-   (validate-clean-command command)
+   (validator command)
    nil
    (catch [:type :schema.core/error] ex
      ex)))
 
-(defn- handle-clean-req [req clean]
-  (let [body (slurp (:body req))
-        command (json/parse-string body true)
-        invalid-info (invalid-clean-command-info command)]
+(defn- handle-clean-req [body cmd clean]
+  (let [invalid-info (invalid-command-info cmd validate-clean-command)]
     (cond
       invalid-info
       (http/bad-request-response (i18n/tru "Invalid command {0}: {1}"
                                            (pr-str body)
                                            (pr-str (:error invalid-info))))
 
-      (deref (future (clean (:payload command))))
+      (deref (future (clean (:payload cmd))))
       (http/json-response {:ok true})
 
       :else
@@ -51,11 +49,40 @@
         :details nil}
        http/status-conflict))))
 
+(def delete-command-schema
+  {:command (s/eq "delete")
+   :version (s/eq 1)
+   :payload {:certname s/Str}})
+
+(def ^:private validate-delete-command (s/validator delete-command-schema))
+
+(defn- handle-delete-req [body cmd delete-node]
+  (let [invalid-info (invalid-command-info cmd validate-delete-command)]
+    (if invalid-info
+      (http/bad-request-response (i18n/tru "Invalid command {0}: {1}"
+                                           (pr-str body)
+                                           (pr-str (:error invalid-info))))
+      (do
+        (let [certname (-> cmd :payload :certname)]
+          (delete-node certname)
+          (http/json-response {:deleted certname}))))))
+
+(defn- handle-cmd-req [req clean delete-node]
+  (let [body (slurp (:body req))
+        cmd (json/parse-string body true)]
+    (case (:command cmd)
+      "clean" (handle-clean-req body cmd clean)
+      "delete" (handle-delete-req body cmd delete-node)
+      (http/bad-request-response (i18n/tru "Invalid command {0}: {1}"
+                                           (pr-str body)
+                                           "Valid commands types are: 'clean' and 'delete'")))))
+
 (pls/defn-validated admin-routes :- bidi-schema/RoutePair
   [submit-command-fn :- (s/pred fn?)
    query-fn :- (s/pred fn?)
    get-shared-globals :- (s/pred fn?)
-   clean :- (s/pred fn?)]
+   clean :- (s/pred fn?)
+   delete-node :- (s/pred fn?)]
   (cmdi/context "/v1"
                 (cmdi/context "/archive"
                               (cmdi/wrap-routes
@@ -69,13 +96,14 @@
                                                                     (format "puppetdb-export-%s.tgz" (now)))))
                 (cmdi/context "/cmd"
                               (cmdi/POST "" request
-                                         (handle-clean-req request clean)))
+                                         (handle-cmd-req request clean delete-node)))
                 (cmdi/ANY "/summary-stats" []
                           (ss/collect-metadata get-shared-globals))))
 
 (defn build-app
-  [submit-command-fn query-fn get-shared-globals clean]
+  [submit-command-fn query-fn get-shared-globals clean delete-node]
   (mid/make-pdb-handler (admin-routes submit-command-fn
                                       query-fn
                                       get-shared-globals
-                                      clean)))
+                                      clean
+                                      delete-node)))
