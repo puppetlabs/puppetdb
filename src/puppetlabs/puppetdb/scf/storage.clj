@@ -40,15 +40,20 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :refer [ago now to-timestamp from-sql-date before?]]
+            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
-            [puppetlabs.puppetdb.cheshire :as json])
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.scf.partitioning :as partitioning])
   (:import [java.security MessageDigest]
            [java.util Arrays]
            [org.postgresql.util PGobject]
-           [org.joda.time Period]))
+           [org.joda.time Period]
+           [java.sql Timestamp]
+           (java.time Instant LocalDate LocalDateTime Year ZoneId ZonedDateTime)
+           (java.time.temporal ChronoUnit)
+           (java.time.format DateTimeFormatter)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1350,34 +1355,71 @@
                                               maybe-environment
                                               maybe-resources
                                               maybe-corrective-change
-                                              (jdbc/insert! :reports))
-                       adjust-event #(-> %
-                                        maybe-corrective-change
-                                        (assoc :report_id report-id
-                                               :certname_id certname-id))
-                       add-event-hash #(-> %
-                                           ;; this cannot be merged with the function above, because the report-id
-                                           ;; field *has* to be exist first
-                                           (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
-                                                                   (sutils/munge-hash-for-storage))))]
-                   (when-not (empty? resource_events)
-                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x {:on-conflict "do nothing"}))]
+                                              (jdbc/insert! :reports))]
+                   (when (seq resource_events)
+                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
+                           adjust-event #(-> %
+                                             maybe-corrective-change
+                                             (assoc :report_id report-id
+                                                    :certname_id certname-id))
+                           add-event-hash #(-> %
+                                               ;; this cannot be merged with the function above, because the report-id
+                                               ;; field *has* to exist first
+                                               (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
+                                                                       (sutils/munge-hash-for-storage))))
+                           ;; group by the hash, and choose the oldest (aka first) of any duplicates.
+                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
+                       (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
+                                                   (.toInstant)
+                                                   (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                                   (.truncatedTo (ChronoUnit/DAYS))) resource_events))]
+                         (partitioning/create-resource-events-partition date))
                        (->> resource_events
                             (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                             (map adjust-event)
                             (map add-event-hash)
+                            ;; ON CONFLICT does *not* work properly in partitions, see:
+                            ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+                            ;; section 5.10.6
+                            remove-dupes
                             insert!
-                            dorun)))
+                            dorun))
                    (when update-latest-report?
-                     (update-latest-report! certname report-id producer_timestamp)))))))))
+                     (update-latest-report! certname report-id producer_timestamp))))))))))
+
+(defn delete-resource-events-older-than!
+  "Delete all resource events in the database by dropping any partition older than the day of the year of the given
+  date.
+  Note: this ignores the time in the given timestamp, rounding to the day."
+  [date]
+  {:pre [(kitchensink/datetime? date)]}
+
+  (let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
+        expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
+
+    (doseq [table-entry (filter (fn [table-entry]
+                                  (let [table (:tablename table-entry)
+                                        parts (str/split table #"_")
+                                        table-full-date (get parts 2)
+                                        table-year (Integer/parseInt (subs table-full-date 0 4))
+                                        table-month (Integer/parseInt (subs table-full-date 4 6))
+                                        table-day (Integer/parseInt (subs table-full-date 6 8))
+                                        table-date (ZonedDateTime/of table-year table-month table-day 0 0 0 0 (ZoneId/of "UTC"))]
+                                    (.isBefore table-date expire-date)))
+                                tables)]
+      (jdbc/do-commands
+       (format "drop table if exists %s cascade" (:tablename table-entry))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to
    the specified date/time."
   [time]
   {:pre [(kitchensink/datetime? time)]}
+  ;; force a resource-events GC. prior to partitioning, this would have happened
+  ;; via a cascade when the report was deleted, but now we just drop whole tables
+  ;; of resource events.
+  (delete-resource-events-older-than! time)
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

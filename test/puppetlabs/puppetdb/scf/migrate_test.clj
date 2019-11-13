@@ -19,8 +19,8 @@
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]])
-  (:import [java.sql SQLIntegrityConstraintViolationException]
-           [org.postgresql.util PSQLException]))
+  (:import (java.time ZoneId ZonedDateTime)
+           (java.sql Timestamp)))
 
 (use-fixtures :each tdb/call-with-test-db)
 
@@ -1020,11 +1020,16 @@
               :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
 
-(deftest migration-69-adds-hashes-to-resource-events
-  (let [current-time (to-timestamp (now))]
+(deftest migration-73-adds-hashes-to-resource-events
+  (let [current-time (to-timestamp (now))
+        ;; known date that has issues
+        other-date (-> (ZonedDateTime/of 2015 10 9 16 42 54 94 (ZoneId/of "-07:00"))
+                       (.toInstant)
+                       (Timestamp/from))]
     (jdbc/with-db-connection *db*
       (clear-db-for-testing!)
-      (fast-forward-to-migration! 68)
+
+      (fast-forward-to-migration! 72)
 
       (jdbc/insert! :report_statuses
                     {:status "testing1" :id 1})
@@ -1063,7 +1068,7 @@
                   :resource_type "File"
                   :status "success"
                   :resource_title "tmp-directory"
-                  :timestamp current-time
+                  :timestamp other-date
                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                   :message "created"}
             row2 {:new_value "\"directory\"",
@@ -1078,7 +1083,7 @@
                   :resource_type "File",
                   :status "success",
                   :resource_title "tmp-directory",
-                  :timestamp current-time
+                  :timestamp other-date
                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                   :message "created"}]
         (jdbc/insert-multi!
@@ -1097,7 +1102,7 @@
 
         ;; Run with a batch size of 2 to ensure de-duplication occurs over
         ;; batches.
-        (apply-migration-for-testing! 69 2)
+        (apply-migration-for-testing! 73 2)
 
         (let [hashes (map :event_hash
                           (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
@@ -1117,7 +1122,7 @@
                           :resource_type "File"
                           :status "success"
                           :resource_title "tmp-directory"
-                          :timestamp current-time
+                          :timestamp other-date
                           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                           :message "created"})
               expected2 (shash/resource-event-identity-pkey
@@ -1133,7 +1138,7 @@
                           :resource_type "File"
                           :status "success"
                           :resource_title "tmp-directory"
-                          :timestamp current-time
+                          :timestamp other-date
                           :containment_path (sutils/to-jdbc-varchar-array ["foo"])
                           :message "created"})
 
@@ -1147,84 +1152,6 @@
 
           (is (= ["foo"]
                  containment-path)))))))
-
-(deftest migration-67-schema-diff
-  (clear-db-for-testing!)
-  (fast-forward-to-migration! 68)
-  (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 69)
-    (is (= {:index-diff [{:left-only nil
-                          :right-only {:schema "public"
-                                       :table "resource_events"
-                                       :index "resource_events_pkey"
-                                       :index_keys ["event_hash"]
-                                       :type "btree"
-                                       :unique? true
-                                       :functional? false
-                                       :is_partial false
-                                       :primary? true
-                                       :user "pdb_test"}
-                          :same nil}
-                         {:left-only {:schema "public"
-                                      :table "resource_events"
-                                      :index "resource_events_unique"
-                                      :index_keys ["report_id" "resource_type" "resource_title" "property"]
-                                      :type "btree"
-                                      :unique? true
-                                      :functional? false
-                                      :is_partial false
-                                      :primary? false
-                                      :user "pdb_test"}
-                          :right-only nil
-                          :same nil}]
-            :table-diff [{:left-only nil
-                          :right-only {:numeric_scale nil
-                                       :column_default nil
-                                       :character_octet_length nil
-                                       :datetime_precision nil
-                                       :nullable? "NO"
-                                       :character_maximum_length nil
-                                       :numeric_precision nil
-                                       :numeric_precision_radix nil
-                                       :data_type "bytea"
-                                       :column_name "event_hash"
-                                       :table_name "resource_events"}
-                          :same nil}
-                         {:left-only nil
-                          :right-only {:numeric_scale nil
-                                       :column_default nil
-                                       :character_octet_length 1073741824
-                                       :datetime_precision nil
-                                       :nullable? "YES"
-                                       :character_maximum_length nil
-                                       :numeric_precision nil
-                                       :numeric_precision_radix nil
-                                       :data_type "text"
-                                       :column_name "name"
-                                       :table_name "resource_events"}
-                          :same nil}]
-            :constraint-diff [{:left-only nil
-                               :right-only {:constraint_name "event_hash IS NOT NULL"
-                                            :table_name "resource_events"
-                                            :constraint_type "CHECK"
-                                            :initially_deferred "NO"
-                                            :deferrable? "NO"}
-                               :same nil}
-                              {:left-only nil
-                               :right-only {:constraint_name "resource_events_pkey"
-                                            :table_name "resource_events"
-                                            :constraint_type "PRIMARY KEY"
-                                            :initially_deferred "NO"
-                                            :deferrable? "NO"}
-                               :same nil}
-                              {:left-only {:constraint_name "resource_events_unique"
-                                           :table_name "resource_events"
-                                           :constraint_type "UNIQUE"
-                                           :initially_deferred "NO"
-                                           :deferrable? "NO"}
-                               :right-only nil
-                               :same nil}]}
-           (diff-schema-maps before-migration (schema-info-map *db*))))))
 
 (deftest migration-70-schema-diff
   (clear-db-for-testing!)
@@ -1273,5 +1200,4 @@
             (is (seq (jdbc/query-to-vec
                       (format "SELECT reloptions FROM pg_class WHERE relname = '%s' AND CAST(reloptions as text) LIKE '{autovacuum_vacuum_scale_factor=%s}'"
                               table factor)))))
-          values)))
-  )
+          values))))

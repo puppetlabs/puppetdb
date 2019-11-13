@@ -5,7 +5,8 @@
    related to time; it is mostly based off of the `Period` class from
    Java's JodaTime library."
   (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
-           (org.joda.time Period ReadablePeriod PeriodType DateTime DateTimeZone))
+           (org.joda.time Period ReadablePeriod PeriodType DateTime DateTimeZone)
+           (java.time ZonedDateTime ZoneId))
   (:require [clj-time.coerce :as tc]
             [clj-time.core]
             [clj-time.format :as tf]
@@ -307,3 +308,16 @@
     (some-> (or (parse-iso-z s) (parse-offset-iso s))
             ;; temporary migration shim
             (-> .toEpochMilli (DateTime. DateTimeZone/UTC)))))
+
+(defn joda-datetime->java-zoneddatetime
+  "Convert a org.joda.time.DateTime object to a java.time.ZonedDateTime"
+  [date]
+  (ZonedDateTime/of
+   (.getYear date)
+   (.getMonthOfYear date)
+   (.getDayOfMonth date)
+   (.getHourOfDay date)
+   (.getMinuteOfHour date)
+   (.getSecondOfMinute date)
+   (.getMillisOfSecond date)
+   (ZoneId/of (.getID (.getZone date)))))

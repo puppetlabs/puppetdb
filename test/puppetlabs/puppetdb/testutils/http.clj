@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils])
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [clojure.tools.logging :as log])
   (:import
    [java.io ByteArrayInputStream]))
 
@@ -65,8 +66,9 @@
   ([method endpoint] (query-result method endpoint nil))
   ([method endpoint query] (query-result method endpoint query {}))
   ([method endpoint query params & optional-handlers]
-   (apply #(ordered-query-result method endpoint query params set %)
-          (or optional-handlers [identity]))))
+   (testing (str "Running query " query)
+     (apply #(ordered-query-result method endpoint query params set %)
+            (or optional-handlers [identity])))))
 
 (defn internal-request
   "Create a ring request as it would look after passing through all of the

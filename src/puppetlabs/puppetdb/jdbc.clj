@@ -552,7 +552,8 @@
             conn-lifetime
             read-only?
             pool-name
-            maximum-pool-size]
+            maximum-pool-size
+            rewrite-batched-inserts]
      :as db-spec}
     metrics-registry]
    (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
@@ -563,6 +564,8 @@
        (.setAutoCommit false)
        (.setInitializationFailTimeout -1)
        (.setTransactionIsolation "TRANSACTION_READ_COMMITTED"))
+     (when rewrite-batched-inserts
+       (.setProperty (.getDataSourceProperties config) "reWriteBatchedInserts" rewrite-batched-inserts))
      (some->> pool-name (.setPoolName config))
      (some->> connection-timeout (.setConnectionTimeout config))
      (some->> maximum-pool-size (.setMaximumPoolSize config))
