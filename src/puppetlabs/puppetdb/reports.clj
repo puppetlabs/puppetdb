@@ -187,7 +187,7 @@
                      :corrective_change))))
 
 (pls/defn-validated munge-resource-events-for-v8
-  [resource-events :- resource-events-expanded-query-schema]
+  [resource-events :- (s/maybe resource-events-expanded-query-schema)]
   (->> resource-events
        :data
        (map #(dissoc %
