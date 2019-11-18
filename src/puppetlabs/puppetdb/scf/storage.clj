@@ -1383,9 +1383,9 @@
                             ;; section 5.10.6
                             remove-dupes
                             insert!
-                            dorun))
+                            dorun)))
                    (when update-latest-report?
-                     (update-latest-report! certname report-id producer_timestamp))))))))))
+                     (update-latest-report! certname report-id producer_timestamp)))))))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given

@@ -4,7 +4,9 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.time :refer [now plus seconds]]))
+            [puppetlabs.puppetdb.time :refer [now plus seconds]]
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
+            [puppetlabs.puppetdb.query-eng :as eng]))
 
 (defn change-certname
   "Changes [:certname certname] anywhere in `data` to `new-certname`"
@@ -94,3 +96,16 @@
 
 (defn deactivate-node [certname]
   (scf-store/deactivate-node! certname))
+
+(defn node-for-certname
+  "Convenience function; given a certname, return the corresponding node."
+  [version certname]
+  {:pre  [(string? certname)]
+   :post [(or (nil? %)
+              (map? %))]}
+  (first
+    (eng/stream-query-result version
+                             ["from" "nodes" ["=" "certname" certname]]
+                             {}
+                             {:scf-read-db *db*
+                              :url-prefix "/pdb"})))

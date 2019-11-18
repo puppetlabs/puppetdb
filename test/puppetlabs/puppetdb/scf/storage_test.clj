@@ -22,6 +22,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :refer :all]
             [puppetlabs.puppetdb.testutils.events :refer :all]
+            [puppetlabs.puppetdb.testutils.nodes :refer :all]
             [puppetlabs.puppetdb.random :as random]
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
@@ -1832,7 +1833,36 @@
         (store-example-report! report2 timestamp)
         (delete-reports-older-than! (-> 3 days ago))
         (is (= #{}
-               (set (query-resource-events :latest ["=" "report" report1-hash] {}))))))))
+               (set (query-resource-events :latest ["=" "report" report1-hash] {})))))))
+
+  (deftest-db report-with-no-events
+              (let [node (:certname report)
+                    stored-report (store-example-report!
+                                    (-> report
+                                        (dissoc :resource_events :events)
+                                        (assoc :producer_timestamp timestamp
+                                               :start_time timestamp
+                                               :end_time timestamp))
+                                    timestamp)
+                    report-hash (:hash stored-report)]
+                (testing "node is visible after store with no events"
+                  (is (= {:deactivated nil
+                          :latest_report_hash report-hash
+                          :facts_environment nil
+                          :cached_catalog_status "not_used"
+                          :report_environment "DEV"
+                          :latest_report_corrective_change nil
+                          :catalog_environment nil
+                          :facts_timestamp nil
+                          :latest_report_noop false
+                          :expired nil
+                          :latest_report_noop_pending true
+                          :report_timestamp (to-timestamp timestamp)
+                          :certname node
+                          :catalog_timestamp nil
+                          :latest_report_job_id nil
+                          :latest_report_status "unchanged"}
+                         (node-for-certname :v4 node)))))))
 
 (deftest test-catalog-schemas
   (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))
