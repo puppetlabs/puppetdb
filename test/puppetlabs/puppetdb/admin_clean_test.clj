@@ -6,6 +6,7 @@
             [metrics.timers :as timers]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.http :as http]
@@ -19,6 +20,9 @@
                      with-test-db]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
+            [puppetlabs.puppetdb.testutils.cli
+             :refer [get-nodes get-catalogs get-factsets get-reports
+                     example-catalog example-report example-facts]]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -202,3 +206,73 @@
 
 (deftest admin-clean-counts (check-counts clean-counts))
 (deftest admin-clean-timers (check-counts clean-timer-counts))
+
+(defn post-data [certname type]
+  (let [cmds {:catalog
+              {:version cmd-consts/latest-catalog-version
+               :cmd "replace catalog"
+               :data (update example-catalog :certname (constantly certname))}
+
+              :factset
+              {:version cmd-consts/latest-facts-version
+               :cmd "replace facts"
+               :data (update example-facts :certname (constantly certname))}
+
+              :report
+              {:version cmd-consts/latest-report-version
+               :cmd "store report"
+               :data (update example-report :certname (constantly certname))}}
+        {:keys [cmd version data]} (type cmds)]
+    (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) certname cmd version data)))
+
+(defn assert-node-count [n]
+  (is (= n (count (get-nodes)))))
+
+(defn assert-node-data [n certname]
+  (is (= n (count (get-factsets certname))))
+  (is (= n (count (get-reports certname))))
+  (is (= n (count (get-catalogs certname)))))
+
+(defn- delete-cmd [certname]
+  {:command "delete"
+   :version 1
+   :payload {:certname certname}})
+
+(defn- post-delete [certname]
+  (post-admin "cmd" (delete-cmd certname)))
+
+(deftest delete-command
+  (with-pdb-with-no-gc
+    (dorun (map (partial post-data "node-1")
+                [:catalog :factset :report]))
+    (dorun (map (partial post-data "node-2")
+                [:catalog :factset :report]))
+    (assert-node-data 1 "node-1")
+    (assert-node-data 1 "node-2")
+    (assert-node-count 2)
+    (is (= http/status-ok (:status (post-delete "node-1"))))
+    (is (= http/status-ok (:status (post-delete "node-2"))))
+    (assert-node-data 0 "node-1")
+    (assert-node-data 0 "node-2")
+    (assert-node-count 0)))
+
+(deftest delete-command-basic
+  (with-pdb-with-no-gc
+    (is (= http/status-bad-request
+           (:status (post-admin "cmd"
+                                {:command "bad-cmd-name"
+                                 :version 1
+                                 :payload {:certname "node-1"}}))))
+    (is (= http/status-bad-request
+           (:status (post-admin "cmd"
+                                {:command "delete"
+                                 :version 5
+                                 :payload {:certname "bad-version"}}))))
+    (is (= http/status-bad-request
+           (:status (post-admin "cmd"
+                                {:command "delete"
+                                 :version 1
+                                 :payload "invalid-payload"}))))
+    (let [{:keys [status body]} (post-delete "node-1")]
+      (is (= http/status-ok status))
+      (is (= {:deleted "node-1"} (-> body slurp (json/parse-string true)))))))
