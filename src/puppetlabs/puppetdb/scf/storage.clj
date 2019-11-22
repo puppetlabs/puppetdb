@@ -220,6 +220,10 @@
   "Delete the given host from the db"
   [certname]
   {:pre [certname]}
+  ;; With partitioning, we must execute this delete on every active partition
+  (doseq [table (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")]
+    (jdbc/delete! (:tablename table) ["certname_id in (select id from certnames where certname=?)" certname]))
+  (jdbc/delete! :reports ["certname=?" certname])
   (jdbc/delete! :catalog_inputs ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
