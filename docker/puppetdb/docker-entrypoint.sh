@@ -10,6 +10,10 @@ for f in /docker-entrypoint.d/*.sh; do
     "$f"
 done
 
-exec java $PUPPETDB_JAVA_ARGS -cp /puppetdb.jar \
-    clojure.main -m puppetlabs.puppetdb.core "$@" \
-    -c /etc/puppetlabs/puppetdb/conf.d/
+if [ "$IS_RELEASE" = "true" ]; then
+  exec /opt/puppetlabs/bin/puppetdb "$@"
+else
+  exec java $PUPPETDB_JAVA_ARGS -cp /puppetdb.jar \
+       clojure.main -m puppetlabs.puppetdb.core "$@" \
+       -c /etc/puppetlabs/puppetdb/conf.d/
+fi
