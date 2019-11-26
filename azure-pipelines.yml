@@ -17,7 +17,9 @@ variables:
   NAMESPACE: puppet
   CONTAINER_NAME: puppetdb
   CONTAINER_BUILD_PATH: .
-  LINT_IGNORES: DL3008 DL3018 DL3020 DL4000 DL4001
+  CONTAINER_NAME2: puppetdb-base
+  LINT_IGNORES: DL3008 DL3018 DL3020 DL4000 DL4001 DL3028
+  BUILD_OPTIONS: --memory 4g
 
 workspace:
   clean: resources
@@ -52,7 +54,21 @@ steps:
 
 - powershell: |
     . "$(bundle show pupperware)/ci/build.ps1"
-    Build-Container -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE -PathOrUri $ENV:CONTAINER_BUILD_PATH
+    Lint-Dockerfile -Name $ENV:CONTAINER_NAME2 -Ignore ($ENV:LINT_IGNORES -split ' ')
+  displayName: Lint $(CONTAINER_NAME2) Dockerfile
+  timeoutInMinutes: 1
+  name: lint_base_dockerfile
+
+- powershell: |
+    . "$(bundle show pupperware)/ci/build.ps1"
+    Build-Container -Name $ENV:CONTAINER_NAME2 -Namespace $ENV:NAMESPACE
+  displayName: Build $(CONTAINER_NAME2) Container
+  timeoutInMinutes: 5
+  name: build_base_container
+
+- powershell: |
+    . "$(bundle show pupperware)/ci/build.ps1"
+    Build-Container -Name $ENV:CONTAINER_NAME -Namespace $ENV:NAMESPACE -Pull $false -PathOrUri $ENV:CONTAINER_BUILD_PATH -AdditionalOptions ($ENV:BUILD_OPTIONS -split ' ')
   displayName: Build $(CONTAINER_NAME) Container
   timeoutInMinutes: 10
   name: build_container
