@@ -37,7 +37,7 @@ unless (test_config[:skip_presuite_provisioning])
       when :debian
         on database, "apt-get install -y --force-yes libnss3"
       when :redhat
-        on database, "yum update -y nss"
+        on database, "yum install -y nss && yum update -y nss"
       when :fedora
         on database, "yum update -y nss"
       else
