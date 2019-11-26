@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 2ed912ae6d1dd589708fb879fccaa9bb50ef0b78\n"
+"X-Git-Ref: 9d8edc5d10c309987dc359356b5e0dc0699df540\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1049,6 +1049,20 @@ msgstr ""
 msgid "[8/8] Indexing facts table..."
 msgstr ""
 
+#. null values are not considered equal in postgresql indexes,
+#. therefore the existing unique constraint did not function
+#. as intended. this will replace the unique constraint with
+#. a primary key that is a hash of the four columns used to
+#. consider uniqueness.
+#. since the unique constraint could allow duplicates to exist
+#. in the table, we have to keep a running set of the hashes
+#. we've encountered during the migration to avoid inserting
+#. duplicates into the new table.
+#. pre-create partitions
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating partitions based on unique days in resource_events"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Migrated {0} of {1} events"
 msgstr ""
@@ -1121,6 +1135,10 @@ msgstr ""
 msgid ""
 " Run the command:nn    CREATE EXTENSION pg_trgm;nnas the database super user "
 "on the PuppetDB database to correctnthis, then restart PuppetDB.n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/partitioning.clj
+msgid "Unhandled date type {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
