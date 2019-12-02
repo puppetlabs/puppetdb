@@ -9,7 +9,7 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.license="Apache-2.0" \
       org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
       org.label-schema.schema-version="1.0" \
-      org.label-schema.dockerfile="/Dockerfile-release"
+      org.label-schema.dockerfile="/release.Dockerfile"
 
 RUN wget https://apt.puppetlabs.com/puppet6-release-"$UBUNTU_CODENAME".deb && \
     dpkg -i puppet6-release-"$UBUNTU_CODENAME".deb && \
@@ -31,4 +31,4 @@ LABEL org.label-schema.vcs-ref="$vcs_ref" \
       org.label-schema.version="$version" \
       org.label-schema.build-date="$build_date"
 
-COPY Dockerfile-release /
+COPY release.Dockerfile /
