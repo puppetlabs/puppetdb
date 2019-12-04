@@ -1,0 +1,37 @@
+name: Docker test and publish
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@master
+      - name: Set up Ruby 2.6
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: 2.6.x
+      - run: gem install bundler
+      - name: Lint container
+        working-directory: docker
+        run: |
+          make lint
+      - name: Build container
+        env:
+          PUPPERWARE_ANALYTICS_STREAM: production
+          IS_LATEST: true
+        working-directory: docker
+        run: make build test
+      - name: Publish container
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          IS_LATEST: true
+        working-directory: docker
+        run: |
+          docker login -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_PASSWORD"
+          make publish
