@@ -154,7 +154,7 @@
                                      :line 15}]}]
 
       (testing "should return sorted predictable string output"
-        (is (= "3016159f704726b486f8b42309773ec625e2f3b7"
+        (is (= "f0dc33b54c9eea0a83444fa1fecfe6a2b2b6db39"
                (report-identity-hash sample))))
 
       (testing "should return the same value twice"
@@ -224,7 +224,7 @@
         (is (= hash tweaked-hash)
             (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
-(deftest report-dedupe
+(deftest report-dupe-only-events-differ
   (let [report-query->hash (comp report-identity-hash
                                  normalize-report
                                  reports/report-query->wire-v8)
@@ -235,9 +235,8 @@
         report2-hash (report-query->hash report2)
         report3-hash (report-query->hash
                       (update-in report [:resource_events :data] rest))]
-    (testing "Reports with the same metadata but different events should have different hashes"
-      (is (not= report-hash report2-hash))
-      (is (not= report-hash report3-hash)))
+    (testing "Reports with the same metadata but different events should have the same hashes"
+      (is (= report-hash report2-hash report3-hash)))
 
     (testing "Reports with different metadata but the same events should have different hashes"
       (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))

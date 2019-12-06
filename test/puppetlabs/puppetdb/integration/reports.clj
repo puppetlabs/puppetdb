@@ -232,7 +232,7 @@
                               "  message => 'Hi my_agent' "
                               "}"))
 
-      (let [[report] (int/pql-query pdb "reports { certname = 'my_agent' }")
+      (let [[report] (int/pql-query pdb "reports { certname = 'my_agent' and noop = false }")
             metrics (get-href pdb (get-in report [:metrics :href]))
             logs  (get-href pdb (get-in report [:logs :href]))]
 
