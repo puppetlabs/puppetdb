@@ -223,7 +223,8 @@
   ;; With partitioning, we must execute this delete on every active partition
   (doseq [table (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")]
     (jdbc/delete! (:tablename table) ["certname_id in (select id from certnames where certname=?)" certname]))
-  (jdbc/delete! :reports ["certname=?" certname])
+  (doseq [table (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'reports_%'")]
+    (jdbc/delete! (:tablename table) ["certname=?" certname]))
   (jdbc/delete! :catalog_inputs ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
@@ -1331,7 +1332,14 @@
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
                              (query-to-vec report-hash)
                              seq)
+                 (partitioning/create-reports-partition (-> ^Timestamp producer_timestamp
+                                                            (.toInstant)
+                                                            (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
+                                                            (.truncatedTo (ChronoUnit/DAYS))))
                  (let [certname-id (certname-id certname)
+                       table-name (str "reports_" (-> producer_timestamp
+                                                      (partitioning/to-zoned-date-time)
+                                                      (partitioning/date-suffix)))
                        row-map {:hash shash
                                 :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
                                 :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
@@ -1359,7 +1367,7 @@
                                               maybe-environment
                                               maybe-resources
                                               maybe-corrective-change
-                                              (jdbc/insert! :reports))]
+                                              (jdbc/insert! table-name))]
                    (when (seq resource_events)
                      (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
                            adjust-event #(-> %
@@ -1391,20 +1399,18 @@
                    (when update-latest-report?
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
-(defn delete-resource-events-older-than!
-  "Delete all resource events in the database by dropping any partition older than the day of the year of the given
-  date.
-  Note: this ignores the time in the given timestamp, rounding to the day."
-  [date]
-  {:pre [(kitchensink/datetime? date)]}
+(defn drop-partitions-older-than!
+  [table-prefix date]
+  {:pre [(kitchensink/datetime? date)
+         (string? table-prefix)]}
 
-  (let [tables (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")
+  (let [tables (jdbc/query-to-vec (str "select tablename from pg_tables where tablename like '" table-prefix "_%'"))
         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
 
     (doseq [table-entry (filter (fn [table-entry]
                                   (let [table (:tablename table-entry)
                                         parts (str/split table #"_")
-                                        table-full-date (get parts 2)
+                                        table-full-date (last parts)
                                         table-year (Integer/parseInt (subs table-full-date 0 4))
                                         table-month (Integer/parseInt (subs table-full-date 4 6))
                                         table-day (Integer/parseInt (subs table-full-date 6 8))
@@ -1412,7 +1418,15 @@
                                     (.isBefore table-date expire-date)))
                                 tables)]
       (jdbc/do-commands
-       (format "drop table if exists %s cascade" (:tablename table-entry))))))
+        (format "drop table if exists %s cascade" (:tablename table-entry))))))
+
+(defn delete-resource-events-older-than!
+  "Delete all resource events in the database by dropping any partition older than the day of the year of the given
+  date.
+  Note: this ignores the time in the given timestamp, rounding to the day."
+  [date]
+  {:pre [(kitchensink/datetime? date)]}
+  (drop-partitions-older-than! "resource_events" date))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to
@@ -1423,7 +1437,15 @@
   ;; via a cascade when the report was deleted, but now we just drop whole tables
   ;; of resource events.
   (delete-resource-events-older-than! time)
-  (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
+  (drop-partitions-older-than! "reports" time)
+  ;; since we cannot cascade back to the certnames table anymore, go clean up
+  ;; the latest_report_id column after a GC
+  (jdbc/do-commands
+    "UPDATE certnames SET latest_report_id = NULL
+     WHERE certname IN (SELECT DISTINCT certnames.certname
+                        FROM certnames
+                        LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)
+                        WHERE reports.id IS NULL)"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

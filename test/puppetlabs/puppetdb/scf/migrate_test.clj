@@ -1280,8 +1280,7 @@
   (fast-forward-to-migration! desired-schema-version)
   (let [values {"factsets" "0.80"
                 "catalogs" "0.75"
-                "certnames" "0.75"
-                "reports" "0.01"}]
+                "certnames" "0.75"}]
     (doseq [[table factor] values]
       (is (= [{:reloptions [(format "autovacuum_vacuum_scale_factor=%s" factor)]}]
              (jdbc/query-to-vec
@@ -1299,3 +1298,109 @@
              (jdbc/query-to-vec
                (format "SELECT reloptions FROM pg_class WHERE relname = '%s' AND CAST(reloptions as text) LIKE '{autovacuum_analyze_scale_factor=%s}'"
                        table factor)))))))
+
+(deftest migration-74-changes-hash-of-reports
+  (let [current-time (to-timestamp (now))
+        old-hash-fn (fn [{:keys [certname puppet_version report_format configuration_version
+                                 start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
+                      (hash/generic-identity-hash
+                        {:certname certname
+                         :puppet_version puppet_version
+                         :report_format report_format
+                         :configuration_version configuration_version
+                         :start_time start_time
+                         :end_time end_time
+                         :producer_timestamp producer_timestamp
+                         :resource_events (sort (map hash/resource-event-identity-string resource_events))
+                         :transaction_uuid transaction_uuid}))
+
+        report {:transaction_uuid (sutils/munge-uuid-for-storage
+                                    "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+                :configuration_version "thisisacoolconfigversion"
+                :certname "a.com"
+                :puppet_version "0.0.0"
+                :report_format 1
+                :start_time current-time
+                :end_time current-time
+                :receive_time current-time
+                :producer_timestamp current-time
+                :environment_id 0
+                :status_id 1
+                :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+                :logs (sutils/munge-json-for-storage [{:bar "baz"}])}]
+
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 73)
+
+      (jdbc/insert! :report_statuses
+                    {:status "testing1" :id 1})
+      (jdbc/insert! :environments {:id 0 :environment "testing"})
+      (jdbc/insert! :certnames {:certname "a.com"})
+
+      (jdbc/insert-multi!
+        :reports
+        ;; these two reports will end up with the same hash when events
+        ;; are removed from the hash calculation. to start with, we need
+        ;; to save them to the database using the *old* hashing function
+        [(assoc report :hash (sutils/munge-hash-for-storage
+                               (old-hash-fn
+                                 (assoc report :resource_events [{:new_value "\"directory\"",
+                                                                  :corrective_change false,
+                                                                  :property "ensure",
+                                                                  :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+                                                                  :report_id 1,
+                                                                  :old_value "\"absent\"",
+                                                                  :containing_class "Foo",
+                                                                  :certname_id 1,
+                                                                  :line 11,
+                                                                  :resource_type "File",
+                                                                  :status "success",
+                                                                  :resource_title "tmp-directory",
+                                                                  :timestamp current-time
+                                                                  :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                                                                  :message "created"}]))))
+         (assoc report :hash (sutils/munge-hash-for-storage
+                               (old-hash-fn report)))])
+
+      (let [[id1] (map :id
+                       (query-to-vec "SELECT id from reports order by certname"))
+
+            event {:new_value "\"directory\"",
+                   :corrective_change false,
+                   :property "ensure",
+                   :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp",
+                   :report_id id1,
+                   :old_value "\"absent\"",
+                   :containing_class "Foo",
+                   :certname_id 1,
+                   :line 11,
+                   :resource_type "File",
+                   :status "success",
+                   :resource_title "tmp-directory",
+                   :timestamp current-time
+                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                   :message "created"}]
+        (jdbc/insert-multi!
+          :resource_events
+          [(assoc event :event_hash (sutils/munge-hash-for-storage
+                                      (hash/resource-event-identity-pkey event)))]))
+
+      (apply-migration-for-testing! 74)
+
+      (let [hashes (map :hash
+                        (query-to-vec "SELECT encode(hash, 'hex') AS hash from reports"))
+
+            expected (hash/report-identity-hash
+                       {:transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
+                        :configuration_version "thisisacoolconfigversion"
+                        :certname "a.com"
+                        :puppet_version "0.0.0"
+                        :report_format 1
+                        :start_time current-time
+                        :end_time current-time
+                        :producer_timestamp current-time})]
+        (is (= 1
+               (count hashes)))
+        (is (= expected
+               (first hashes)))))))
