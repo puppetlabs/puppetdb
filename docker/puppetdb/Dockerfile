@@ -21,9 +21,16 @@ ARG version="6.0.0"
 # published images should use "production" for this build_arg
 ARG pupperware_analytics_stream="dev"
 
-ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
-    PUPPERWARE_ANALYTICS_ENABLED=false \
-    PUPPETDB_VERSION="$version" \
+LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
+      org.label-schema.vendor="Puppet" \
+      org.label-schema.url="https://github.com/puppetlabs/puppetdb" \
+      org.label-schema.name="PuppetDB" \
+      org.label-schema.license="Apache-2.0" \
+      org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
+      org.label-schema.schema-version="1.0" \
+      org.label-schema.dockerfile="/Dockerfile"
+
+ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_POSTGRES_HOSTNAME="postgres" \
     PUPPETDB_POSTGRES_PORT="5432" \
     PUPPETDB_POSTGRES_DATABASE="puppetdb" \
@@ -56,32 +63,39 @@ ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
     BOOTSTRAP_CONFIG="/etc/puppetlabs/puppetdb/bootstrap.cfg" \
     SERVICE_STOP_RETRIES=60
 
-LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
-      org.label-schema.vendor="Puppet" \
-      org.label-schema.url="https://github.com/puppetlabs/puppetdb" \
-      org.label-schema.name="PuppetDB" \
-      org.label-schema.license="Apache-2.0" \
-      org.label-schema.version="$version" \
-      org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
-      org.label-schema.vcs-ref="$vcs_ref" \
-      org.label-schema.build-date="$build_date" \
-      org.label-schema.schema-version="1.0" \
-      org.label-schema.dockerfile="/Dockerfile"
+EXPOSE 8080 8081
+
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/docker-entrypoint.sh"]
+CMD ["services"]
 
 COPY docker/puppetdb/logback.xml \
      docker/puppetdb/request-logging.xml \
      resources/puppetlabs/puppetdb/bootstrap.cfg \
      /etc/puppetlabs/puppetdb/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
+COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
+
+# The start-period describes how long it takes PuppetDB to come
+# up in the worst case (LCOW). The other timing parameters are set so that it
+# takes at most 2 minutes to realize that PuppetDB has failed.
+# Probe failure during --start-period will not be counted towards the maximum number of retries
+HEALTHCHECK --start-period=3m --interval=10s --timeout=10s --retries=12 CMD ["/healthcheck.sh"]
 
 ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba96f963d71bd074d063b17/shared/ssl.sh \
     https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh \
     docker/puppetdb/docker-entrypoint.sh \
     docker/puppetdb/healthcheck.sh \
     /
-COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
 COPY --from=builder /app/target/puppetdb.jar /
+
+# dyanmic LABELs and ENV vars placed lower for the sake of Docker layer caching
+ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
+    PUPPETDB_VERSION="$version"
+
+LABEL org.label-schema.version="$version" \
+      org.label-schema.vcs-ref="$vcs_ref" \
+      org.label-schema.build-date="$build_date"
 
 RUN mkdir -p $LOGDIR && \
     addgroup $GROUP && adduser --system $USER --ingroup $GROUP && \
@@ -90,17 +104,6 @@ RUN mkdir -p $LOGDIR && \
     apt-get install -y --no-install-recommends tini curl openssl dnsutils netcat net-tools && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-EXPOSE 8080 8081
-
-ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/docker-entrypoint.sh"]
-CMD ["services"]
-
-# The start-period describes how long it takes PuppetDB to come
-# up in the worst case (LCOW). The other timing parameters are set so that it
-# takes at most 2 minutes to realize that PuppetDB has failed.
-# Probe failure during --start-period will not be counted towards the maximum number of retries
-HEALTHCHECK --start-period=3m --interval=10s --timeout=10s --retries=12 CMD ["/healthcheck.sh"]
 
 # VOLUME definitions are always at end of Dockerfile to address an LCOW bug
 # https://github.com/moby/moby/issues/39892
