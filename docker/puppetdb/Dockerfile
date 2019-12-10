@@ -76,10 +76,9 @@ COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 
 ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba96f963d71bd074d063b17/shared/ssl.sh \
     https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh \
+    docker/puppetdb/docker-entrypoint.sh \
+    docker/puppetdb/healthcheck.sh \
     /
-COPY docker/puppetdb/docker-entrypoint.sh \
-     docker/puppetdb/healthcheck.sh \
-     /
 COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
 COPY --from=builder /app/target/puppetdb.jar /
