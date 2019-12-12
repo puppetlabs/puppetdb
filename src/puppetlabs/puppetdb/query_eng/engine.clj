@@ -200,7 +200,8 @@
 ;;; Queryable Entities
 (def inventory-query
   "Query for inventory"
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :inventory
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :certnames.certname}
                              "timestamp" {:type :timestamp
@@ -238,7 +239,8 @@
                :subquery? false}))
 
 (def nodes-query-base
-  {:projections {"certname" {:type :string
+  {::which-query :nodes
+   :projections {"certname" {:type :string
                              :queryable? true
                              :field :certnames.certname}
                  "deactivated" {:type :string
@@ -325,6 +327,7 @@
 (def nodes-query-with-fact-expiration
   "Query for nodes entities, mostly used currently for subqueries"
   (map->Query (-> nodes-query-base
+                  (assoc ::which-query :nodes-with-fact-expiration)
                   (assoc-in [:projections "expires_facts"]
                             {:type :boolean
                              :queryable? true
@@ -340,7 +343,8 @@
 
 (def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
-  (map->Query {:projections {"res_param_resource" {:type :string
+  (map->Query {::which-query :resource-params
+               :projections {"res_param_resource" {:type :string
                                                    :queryable? true
                                                    :field (hsql-hash-as-str :resource)}
                              "res_param_name" {:type :string
@@ -357,7 +361,8 @@
 
 (def fact-paths-query
   "Query for the resource-params query, mostly used as a subquery"
-  (map->Query {:projections {"type" {:type :string
+  (map->Query {::which-query :fact-paths
+               :projections {"type" {:type :string
                                      :queryable? true
                                      :field :vt.type}
                              "path" {:type :path
@@ -384,7 +389,8 @@
                :subquery? false}))
 
 (def fact-names-query
-  (map->Query {:projections {"name" {:type :string
+  (map->Query {::which-query :fact-names
+               :projections {"name" {:type :string
                                      :queryable? true
                                      :field :name}}
                :selection {:from [[:fact_paths :fp]]
@@ -395,7 +401,8 @@
 
 (def facts-query
   "Query structured facts."
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :facts
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :fs.certname}
                              "environment" {:type :string
@@ -428,7 +435,8 @@
 
 (def fact-contents-query
   "Query for fact nodes"
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :fact-contents
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :fs.certname}
                              "environment" {:type :string
@@ -478,7 +486,8 @@
 (def report-logs-query
   "Query intended to be used by the `/reports/<hash>/logs` endpoint
   used for digging into the logs for a specific report."
-  (map->Query {:projections {"logs" {:type :json
+  (map->Query {::which-query :report-logs
+               :projections {"logs" {:type :json
                                      :queryable? false
                                      :field (h/coalesce :logs
                                                         (h/scast :logs_json :jsonb))}
@@ -496,7 +505,8 @@
 (def report-metrics-query
   "Query intended to be used by the `/reports/<hash>/metrics` endpoint
   used for digging into the metrics for a specific report."
-  (map->Query {:projections {"metrics" {:type :json
+  (map->Query {::which-query :report-metrics
+               :projections {"metrics" {:type :json
                                         :queryable? false
                                         :field (h/coalesce :reports.metrics
                                                            (h/scast :reports.metrics_json :jsonb))}
@@ -514,7 +524,8 @@
 (def reports-query
   "Query for the reports entity"
   (map->Query
-    {:projections
+    {::which-query :reports
+     :projections
      {"hash" {:type :string
               :queryable? true
               :field (hsql-hash-as-str :reports.hash)}
@@ -642,7 +653,8 @@
 (def catalog-query
   "Query for the top level catalogs entity"
   (map->Query
-    {:projections
+    {::which-query :catalog
+     :projections
      {"version" {:type :string
                  :queryable? true
                  :field :c.catalog_version}
@@ -789,7 +801,8 @@
 
 (def edges-query
   "Query for catalog edges"
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :edges
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :edges.certname}
                              "relationship" {:type :string
@@ -829,7 +842,8 @@
 
 (def resources-query
   "Query for the top level resource entity"
-  (map->Query {:projections {"certname" {:type  :string
+  (map->Query {::which-query :resources
+               :projections {"certname" {:type  :string
                                          :queryable? true
                                          :field :c.certname}
                              "environment" {:type :string
@@ -892,7 +906,8 @@
 
 (def report-events-query
   "Query for the top level reports entity"
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :report-events
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :reports.certname}
                              "configuration_version" {:type :string
@@ -980,7 +995,8 @@
                :source-table "resource_events"}))
 
 (def inactive-nodes-query
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :inactive-nodes
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :inactive_nodes.certname}}
                :selection {:from [:inactive_nodes]}
@@ -990,7 +1006,8 @@
 
 (def latest-report-query
   "Usually used as a subquery of reports"
-  (map->Query {:projections {"latest_report_hash" {:type :string
+  (map->Query {::which-query :latest-report
+               :projections {"latest_report_hash" {:type :string
                                                    :queryable? true
                                                    :field (hsql-hash-as-str :reports.hash)}}
                :selection {:from [:certnames]
@@ -1005,7 +1022,8 @@
 
 (def latest-report-id-query
   "Usually used as a subquery of reports"
-  (map->Query {:projections {"latest_report_id" {:type :numeric
+  (map->Query {::which-query :latest-report-id
+               :projections {"latest_report_id" {:type :numeric
                                                  :queryable? true
                                                  :field :certnames.latest_report_id}}
                :selection {:from [:certnames]}
@@ -1015,7 +1033,8 @@
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
-  (map->Query {:projections {"name" {:type :string
+  (map->Query {::which-query :environments
+               :projections {"name" {:type :string
                                      :queryable? true
                                      :field :environment}}
                :selection {:from [:environments]}
@@ -1046,7 +1065,8 @@
 
 (def producers-query
   "Basic producers query, more useful when used with subqueries"
-  (map->Query {:projections {"name" {:type :string
+  (map->Query {::which-query :producers
+               :projections {"name" {:type :string
                                     :queryable? true
                                     :field :name}}
               :selection {:from [:producers]}
@@ -1065,7 +1085,8 @@
 
 (def packages-query
   "Basic packages query"
-  (map->Query {:projections {"package_name" {:type :string
+  (map->Query {::which-query :packages
+               :projections {"package_name" {:type :string
                                              :queryable? true
                                              :field :p.name}
                              "version" {:type :string
@@ -1082,7 +1103,8 @@
 
 (def package-inventory-query
   "Packages and the machines they are installed on"
-  (map->Query {:projections {"certname" {:type :string
+  (map->Query {::which-query :package-inventory
+               :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :certnames.certname}
                              "package_name" {:type :string
@@ -1108,7 +1130,8 @@
                :source-table packages"}))
 
 (def factsets-query-base
-  {:projections
+  {::which-query :factsets
+   :projections
    {"timestamp" {:type :timestamp
                  :queryable? true
                  :field :timestamp}
@@ -1164,6 +1187,7 @@
   "Query for factsets with the package_inventory reconstructed (used for sync)"
   (map->Query
     (-> factsets-query-base
+        (assoc ::which-query :factsets-with-packages)
         (assoc-in [:projections "package_inventory"]
                   {:type :array
                    :queryable? false
