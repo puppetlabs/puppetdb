@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
+            [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.i18n.core :refer [tru trs]]
             [clojure.set :refer [map-invert]]
@@ -23,8 +24,30 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [clojure.string :as string]
             [clojure.walk :as walk])
-  (:import [honeysql.types SqlCall SqlRaw]
-           [org.postgresql.util PGobject]))
+  (:import
+   (clojure.lang ExceptionInfo)
+   [honeysql.types SqlCall SqlRaw]
+   [org.postgresql.util PGobject]))
+
+
+;; Queries must opt-in to the drop-joins optimization, and even then,
+;; it's not yet necessarily safe if the query has top-level
+;; aggregates.  Before opting in, we should feel confident that
+;; removing any one the query's top-level joins won't affect the
+;; result set in a material way.  Ignoring the aggregates question,
+;; this should be true (for example) for queries that only have
+;; top-level left-joins (:left-join), but might not be true for
+;; queries with other joins like :inner-join or :join, unless say, the
+;; right side is known to have exactly one matching row for any row on
+;; the left in all cases (and so it's the same as a left-join).
+
+(def always-enable-drop-unused-joins?
+  "When set to true, act as if the opimization has been requested for
+  every query.  This is unsafe in general, and this is only intended
+  for testing.  Will be set to true if the environment variable
+  PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS is set to always at startup."
+  (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS")))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
@@ -196,30 +219,42 @@
   [column-keyword]
   (-> column-keyword name (str "::text") hcore/raw))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
+
+;; The :join-deps must refer to the name if there's only a name, or
+;; the alias when there is one, i.e. the dep for :factsets is just
+;; :factsets, but for [:factsets :fs] is :fs.
+
 (def inventory-query
   "Query for inventory"
   (map->Query {::which-query :inventory
+               :can-drop-unused-joins? true
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :certnames.certname}
+                                         :field :certnames.certname
+                                         :join-deps #{:certnames}}
                              "timestamp" {:type :timestamp
                                           :queryable? true
-                                          :field :fs.timestamp}
+                                          :field :fs.timestamp
+                                          :join-deps #{:fs}}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :environments.environment}
+                                            :field :environments.environment
+                                            :join-deps #{:environments}}
                              "facts" {:type :queryable-json
                                       :projectable-json? true
                                       :queryable? true
                                       :field (hcore/raw "(fs.stable||fs.volatile)")
-                                      :field-type :raw}
+                                      :field-type :raw
+                                      :join-deps #{:fs}}
                              "trusted" {:type :queryable-json
                                         :projectable-json? true
                                         :queryable? true
                                         :field (hcore/raw "(fs.stable||fs.volatile)->'trusted'")
-                                        :field-type :raw}}
+                                        :field-type :raw
+                                        :join-deps #{:fs}}}
 
                :selection {:from [[:factsets :fs]]
                            :left-join [:environments
@@ -240,59 +275,77 @@
 
 (def nodes-query-base
   {::which-query :nodes
+   :can-drop-unused-joins? true
    :projections {"certname" {:type :string
                              :queryable? true
-                             :field :certnames.certname}
+                             :field :certnames.certname
+                             :join-deps #{:certnames}}
                  "deactivated" {:type :string
                                 :queryable? true
-                                :field :certnames.deactivated}
+                                :field :certnames.deactivated
+                                :join-deps #{:certnames}}
                  "expired" {:type :timestamp
                             :queryable? true
-                            :field :certnames.expired}
+                            :field :certnames.expired
+                            :join-deps #{:certnames}}
                  "facts_environment" {:type :string
                                       :queryable? true
-                                      :field :facts_environment.environment}
+                                      :field :facts_environment.environment
+                                      :join-deps #{:facts_environment :fs}}
                  "catalog_timestamp" {:type :timestamp
                                       :queryable? true
-                                      :field :catalogs.timestamp}
+                                      :field :catalogs.timestamp
+                                      :join-deps #{:catalogs}}
                  "facts_timestamp" {:type :timestamp
                                     :queryable? true
-                                    :field :fs.timestamp}
+                                    :field :fs.timestamp
+                                    :join-deps #{:fs}}
                  "report_timestamp" {:type :timestamp
                                      :queryable? true
-                                     :field :reports.end_time}
+                                     :field :reports.end_time
+                                     :join-deps #{:reports}}
                  "latest_report_hash" {:type :string
                                        :queryable? true
-                                       :field (hsql-hash-as-str
-                                               :reports.hash)}
+                                       :field (hsql-hash-as-str :reports.hash)
+                                       :join-deps #{:reports}}
                  "latest_report_noop" {:type :boolean
                                        :queryable? true
-                                       :field :reports.noop}
+                                       :field :reports.noop
+                                       :join-deps #{:reports}}
                  "latest_report_noop_pending" {:type :boolean
                                                :queryable? true
-                                               :field :reports.noop_pending}
+                                               :field :reports.noop_pending
+                                               :join-deps #{:reports}}
                  "latest_report_status" {:type :string
                                          :queryable? true
-                                         :field :report_statuses.status}
+                                         :field :report_statuses.status
+                                         :join-deps #{:report_statuses :reports}}
                  "latest_report_corrective_change" {:type :boolean
                                                     :queryable? true
-                                                    :field :reports.corrective_change}
+                                                    :field :reports.corrective_change
+                                                    :join-deps #{:reports}}
                  "latest_report_job_id" {:type :string
                                          :queryable? true
-                                         :field :reports.job_id}
+                                         :field :reports.job_id
+                                         :join-deps #{:reports}}
                  "cached_catalog_status" {:type :string
                                           :queryable? true
-                                          :field :reports.cached_catalog_status}
+                                          :field :reports.cached_catalog_status
+                                          :join-deps #{:reports}}
                  "catalog_environment" {:type :string
                                         :queryable? true
-                                        :field :catalog_environment.environment}
+                                        :field :catalog_environment.environment
+                                        :join-deps #{:catalog_environment :catalogs}}
                  "report_environment" {:type :string
                                        :queryable? true
-                                       :field :reports_environment.environment}}
+                                       :field :reports_environment.environment
+                                       :join-deps #{:reports_environment :reports}}}
 
    :relationships certname-relations
 
    :selection {:from [:certnames]
+               ;; The join names here must match the values in
+               ;; :join-deps above, i.e. :foo or [:foo :bar].
                :left-join [:catalogs
                            [:= :catalogs.certname :certnames.certname]
 
@@ -326,16 +379,20 @@
 
 (def nodes-query-with-fact-expiration
   "Query for nodes entities, mostly used currently for subqueries"
+  ;; These changes are still safe wrt drop-unused-joins, so we leave
+  ;; it enabled.
   (map->Query (-> nodes-query-base
                   (assoc ::which-query :nodes-with-fact-expiration)
                   (assoc-in [:projections "expires_facts"]
                             {:type :boolean
                              :queryable? true
-                             :field (hcore/raw "coalesce(certname_fact_expiration.expire, true)")})
+                             :field (hcore/raw "coalesce(certname_fact_expiration.expire, true)")
+                             :join-deps #{:certname_fact_expiration}})
                   (assoc-in [:projections "expires_facts_updated"]
                             {:type :timestamp
                              :queryable? true
-                             :field :certname_fact_expiration.updated})
+                             :field :certname_fact_expiration.updated
+                             :join-deps #{:certname_fact_expiration}})
                   (update-in [:selection :left-join]
                              #(conj %
                                     :certname_fact_expiration
@@ -343,6 +400,7 @@
 
 (def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
+  ;; Don't opt-in to drop-unused-joins; it'd be an expensive no-op
   (map->Query {::which-query :resource-params
                :projections {"res_param_resource" {:type :string
                                                    :queryable? true
@@ -362,22 +420,27 @@
 (def fact-paths-query
   "Query for the resource-params query, mostly used as a subquery"
   (map->Query {::which-query :fact-paths
+               :can-drop-unused-joins? true
                :projections {"type" {:type :string
                                      :queryable? true
-                                     :field :vt.type}
+                                     :field :vt.type
+                                     :join-deps #{:vt}}
                              "path" {:type :path
                                      :queryable? true
-                                     :field :path}
+                                     :field :path
+                                     :join-deps #{:fp}}
                              "name" {:type :string
                                      :queryable? true
-                                     :field :name}
+                                     :field :name
+                                     :join-deps #{:fp}}
                              "depth" {:type :numeric
                                       :queryable? true
                                       :query-only? true
-                                      :field :fp.depth}}
+                                      :field :fp.depth
+                                      :join-deps #{:fp}}}
                :selection {:from [[:fact_paths :fp]]
-                           :join [[:value_types :vt]
-                                  [:= :fp.value_type_id :vt.id]]
+                           :left-join [[:value_types :vt]
+                                       [:= :fp.value_type_id :vt.id]]
                            :where [:!= :fp.value_type_id 5]}
 
                :relationships {;; Children - direct
@@ -389,6 +452,7 @@
                :subquery? false}))
 
 (def fact-names-query
+  ;; Don't opt-in to drop-unused-joins since it can't do anything here
   (map->Query {::which-query :fact-names
                :projections {"name" {:type :string
                                      :queryable? true
@@ -402,18 +466,23 @@
 (def facts-query
   "Query structured facts."
   (map->Query {::which-query :facts
+               :can-drop-unused-joins? true
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :fs.certname}
+                                         :field :fs.certname
+                                         :join-deps #{:fs}}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :env.environment}
+                                            :field :env.environment
+                                            :join-deps #{:env}}
                              "name" {:type :string
                                      :queryable? true
-                                     :field :fs.key}
+                                     :field :fs.key
+                                     :join-deps #{:fs}}
                              "value" {:type :jsonb-scalar
                                       :queryable? true
-                                      :field :fs.value}}
+                                      :field :fs.value
+                                      :join-deps #{:fs}}}
                :selection {:from [[(hcore/raw
                                     (str "(select certname,"
                                          "        environment_id,"
@@ -436,21 +505,27 @@
 (def fact-contents-query
   "Query for fact nodes"
   (map->Query {::which-query :fact-contents
+               :can-drop-unused-joins? true
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :fs.certname}
+                                         :field :fs.certname
+                                         :join-deps #{:fs}}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :env.environment}
+                                            :field :env.environment
+                                            :join-deps #{:env}}
                              "path" {:type :path
                                      :queryable? true
-                                     :field :fs.path}
+                                     :field :fs.path
+                                     :join-deps #{:fs}}
                              "name" {:type :string
                                      :queryable? true
-                                     :field :fs.name}
+                                     :field :fs.name
+                                     :join-deps #{:fs}}
                              "value" {:type :jsonb-scalar
                                       :queryable? true
-                                      :field :value}}
+                                      :field :value
+                                      :join-deps #{:fs}}}
                :selection {:from [[(hcore/raw
                                     (str "(select certname,"
                                          "        jsonb_extract_path(stable||volatile,"
@@ -486,6 +561,7 @@
 (def report-logs-query
   "Query intended to be used by the `/reports/<hash>/logs` endpoint
   used for digging into the logs for a specific report."
+  ;; Don't opt-in to drop-unused-joins; it'd be an expensive no-op atm
   (map->Query {::which-query :report-logs
                :projections {"logs" {:type :json
                                      :queryable? false
@@ -505,6 +581,7 @@
 (def report-metrics-query
   "Query intended to be used by the `/reports/<hash>/metrics` endpoint
   used for digging into the metrics for a specific report."
+  ;; Don't opt-in to drop-unused-joins; it'd be an expensive no-op atm
   (map->Query {::which-query :report-metrics
                :projections {"metrics" {:type :json
                                         :queryable? false
@@ -525,84 +602,109 @@
   "Query for the reports entity"
   (map->Query
     {::which-query :reports
+     :can-drop-unused-joins? true
      :projections
      {"hash" {:type :string
               :queryable? true
-              :field (hsql-hash-as-str :reports.hash)}
+              :field (hsql-hash-as-str :reports.hash)
+              :join-deps #{:reports}}
       "certname" {:type :string
                   :queryable? true
-                  :field :reports.certname}
+                  :field :reports.certname
+                  :join-deps #{:reports}}
       "noop_pending" {:type :boolean
                       :queryable? true
-                      :field :reports.noop_pending}
+                      :field :reports.noop_pending
+                      :join-deps #{:reports}}
       "puppet_version" {:type :string
                         :queryable? true
-                        :field :reports.puppet_version}
+                        :field :reports.puppet_version
+                        :join-deps #{:reports}}
       "report_format" {:type :numeric
                        :queryable? true
-                       :field :reports.report_format}
+                       :field :reports.report_format
+                       :join-deps #{:reports}}
       "configuration_version" {:type :string
                                :queryable? true
-                               :field :reports.configuration_version}
+                               :field :reports.configuration_version
+                               :join-deps #{:reports}}
       "start_time" {:type :timestamp
                     :queryable? true
-                    :field :reports.start_time}
+                    :field :reports.start_time
+                    :join-deps #{:reports}}
       "end_time" {:type :timestamp
                   :queryable? true
-                  :field :reports.end_time}
+                  :field :reports.end_time
+                  :join-deps #{:reports}}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
-                            :field :reports.producer_timestamp}
+                            :field :reports.producer_timestamp
+                            :join-deps #{:reports}}
       "producer" {:type :string
                   :queryable? true
-                  :field :producers.name}
+                  :field :producers.name
+                  :join-deps #{:producers}}
       "corrective_change" {:type :string
                            :queryable? true
-                           :field :reports.corrective_change}
+                           :field :reports.corrective_change
+                           :join-deps #{:reports}}
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
                          :from [[{:select
                                   [[(h/coalesce :metrics (h/scast :metrics_json :jsonb)) :data]
                                    [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :metrics)
-                                    :href]]} :t]]}}
+                                    :href]]} :t]]}
+                 :join-deps #{:reports}}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
                       :from [[{:select
                                [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
                                 [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
-                                 :href]]} :t]]}}
+                                 :href]]} :t]]}
+              :join-deps #{:reports}}
       "receive_time" {:type :timestamp
                       :queryable? true
-                      :field :reports.receive_time}
+                      :field :reports.receive_time
+                      :join-deps #{:reports}}
       "transaction_uuid" {:type :string
                           :queryable? true
-                          :field (hsql-uuid-as-str :reports.transaction_uuid)}
+                          :field (hsql-uuid-as-str :reports.transaction_uuid)
+                          :join-deps #{:reports}}
       "catalog_uuid" {:type :string
                       :queryable? true
-                      :field (hsql-uuid-as-str :reports.catalog_uuid)}
+                      :field (hsql-uuid-as-str :reports.catalog_uuid)
+                      :join-deps #{:reports}}
       "noop" {:type :boolean
               :queryable? true
-              :field :reports.noop}
+              :field :reports.noop
+              :join-deps #{:reports}}
       "code_id" {:type :string
                  :queryable? true
-                 :field :reports.code_id}
+                 :field :reports.code_id
+                 :join-deps #{:reports}}
       "job_id" {:type :string
                 :queryable? true
-                :field :reports.job_id}
+                :field :reports.job_id
+                :join-deps #{:reports}}
       "cached_catalog_status" {:type :string
                                :queryable? true
-                               :field :reports.cached_catalog_status}
+                               :field :reports.cached_catalog_status
+                               :join-deps #{:reports}}
       "environment" {:type :string
                      :queryable? true
-                     :field :environments.environment}
+                     :field :environments.environment
+                     :join-deps #{:environments}}
       "status" {:type :string
                 :queryable? true
-                :field :report_statuses.status}
+                :field :report_statuses.status
+                :join-deps #{:report_statuses}}
+
       "latest_report?" {:type :string
                         :queryable? true
-                        :query-only? true}
+                        :query-only? true
+                        :join-deps #{}}
       "resource_events" {:type :json
                          :queryable? false
                          :field {:select [(h/row-to-json :event_data)]
@@ -626,7 +728,8 @@
                                                     :re.name]
                                                    :from [[:resource_events :re]]
                                                    :where [:= :reports.id :re.report_id]} :t]]}
-                                         :event_data]]}}}
+                                         :event_data]]}
+                         :join-deps #{:reports}}}
      :selection {:from [:reports]
                  :left-join [:environments
                              [:= :environments.id :reports.environment_id]
@@ -654,37 +757,48 @@
   "Query for the top level catalogs entity"
   (map->Query
     {::which-query :catalog
+     :can-drop-unused-joins? true
      :projections
      {"version" {:type :string
                  :queryable? true
-                 :field :c.catalog_version}
+                 :field :c.catalog_version
+                 :join-deps #{:c}}
       "certname" {:type :string
                   :queryable? true
-                  :field :c.certname}
+                  :field :c.certname
+                  :join-deps #{:c}}
       "hash" {:type :string
               :queryable? true
-              :field (hsql-hash-as-str :c.hash)}
+              :field (hsql-hash-as-str :c.hash)
+              :join-deps #{:c}}
       "transaction_uuid" {:type :string
                           :queryable? true
-                          :field (hsql-uuid-as-str :c.transaction_uuid)}
+                          :field (hsql-uuid-as-str :c.transaction_uuid)
+                          :join-deps #{:c}}
       "catalog_uuid" {:type :string
                       :queryable? true
-                      :field (hsql-uuid-as-str :c.catalog_uuid)}
+                      :field (hsql-uuid-as-str :c.catalog_uuid)
+                      :join-deps #{:c}}
       "code_id" {:type :string
                  :queryable? true
-                 :field :c.code_id}
+                 :field :c.code_id
+                 :join-deps #{:c}}
       "job_id" {:type :string
                 :queryable? true
-                :field :c.job_id}
+                :field :c.job_id
+                :join-deps #{:c}}
       "environment" {:type :string
                      :queryable? true
-                     :field :e.environment}
+                     :field :e.environment
+                     :join-deps #{:e}}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
-                            :field :c.producer_timestamp}
+                            :field :c.producer_timestamp
+                            :join-deps #{:c}}
       "producer" {:type :string
                   :queryable? true
-                  :field :producers.name}
+                  :field :producers.name
+                  :join-deps #{:producers}}
       "resources" {:type :json
                    :queryable? false
                    :field {:select [(h/row-to-json :resource_data)]
@@ -698,7 +812,8 @@
                                                     [:= :rpc.resource :cr.resource]]
                                              :where [:= :cr.certname_id :certnames.id]}
                                             :t]]}
-                                   :resource_data]]}}
+                                   :resource_data]]}
+                   :join-deps #{:c :certnames}}
       "edges" {:type :json
                :queryable? false
                :field {:select [(h/row-to-json :edge_data)]
@@ -719,7 +834,8 @@
                                                  [:= :targets.certname_id :certnames.id]]]
                                          :where [:= :edges.certname :c.certname]}
                                         :t]]}
-                               :edge_data]]}}}
+                               :edge_data]]}
+               :join-deps #{:c :certnames}}}
 
      :selection {:from [[:catalogs :c]]
                  :left-join [[:environments :e]
@@ -745,22 +861,29 @@
 (def catalog-input-contents-query
   "Query for the top level catalog-input-contents entity"
   (map->Query
-    {:projections
+    {::which-query :catalog-input-contents
+     :can-drop-unused-joins? true
+     :projections
      {"certname" {:type :string
                   :queryable? true
-                  :field :certnames.certname}
+                  :field :certnames.certname
+                  :join-deps #{:certnames}}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
-                            :field :certnames.catalog_inputs_timestamp}
+                            :field :certnames.catalog_inputs_timestamp
+                            :join-deps #{:certnames}}
       "catalog_uuid" {:type :string
                       :queryable? true
-                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)}
+                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)
+                      :join-deps #{:certnames}}
       "name" {:type :string
               :queryable? true
-              :field :catalog_inputs.name}
+              :field :catalog_inputs.name
+              :join-deps #{:catalog_inputs}}
       "type" {:type :string
               :queryable? true
-              :field :catalog_inputs.type}}
+              :field :catalog_inputs.type
+              :join-deps #{:catalog_inputs}}}
      :selection {:from [:catalog_inputs]
                  :left-join [:certnames
                              [:= :certnames.id :catalog_inputs.certname_id]]}
@@ -773,19 +896,25 @@
 (def catalog-inputs-query
   "Query for the catalog-inputs entity"
   (map->Query
-    {:projections
+   {::which-query :catalog-inputs
+    :can-drop-unused-joins? true
+    :projections
      {"certname" {:type :string
                   :queryable? true
-                  :field :certnames.certname}
+                  :field :certnames.certname
+                  :join-deps #{:certnames}}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
-                            :field :certnames.catalog_inputs_timestamp}
+                            :field :certnames.catalog_inputs_timestamp
+                            :join-deps #{:certnames}}
       "catalog_uuid" {:type :string
                       :queryable? true
-                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)}
+                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)
+                      :join-deps #{:certnames}}
       "inputs" {:type :array
                 :queryable? true
-                :field :ci.inputs}}
+                :field :ci.inputs
+                :join-deps #{:ci}}}
      :selection {:from [:certnames]
                  :join [[{:select [:certname_id
                                    [(hcore/raw "array_agg(array[catalog_inputs.type, name])") :inputs]]
@@ -802,7 +931,8 @@
 
 (def edges-query
   "Query for catalog edges"
-  (map->Query {::which-query :edges
+  ;; Safe or unsafe for drop-joins? (PDB-4588)
+  (map->Query {::which-query :edges-query
                :projections {"certname" {:type :string
                                          :queryable? true
                                          :field :edges.certname}
@@ -843,7 +973,8 @@
 
 (def resources-query
   "Query for the top level resource entity"
-  (map->Query {::which-query :resources
+  ;; Safe or unsafe for drop-joins? (PDB-4588)
+  (map->Query {::which-query :resources-query
                :projections {"certname" {:type  :string
                                          :queryable? true
                                          :field :c.certname}
@@ -907,6 +1038,7 @@
 
 (def report-events-query
   "Query for the top level reports entity"
+  ;; Safe or unsafe for drop-joins? (PDB-4588)
   (map->Query {::which-query :report-events
                :projections {"certname" {:type :string
                                          :queryable? true
@@ -1018,6 +1150,7 @@
 
 (def latest-report-query
   "Usually used as a subquery of reports"
+  ;; Can't usefully drop joins, since the single join is the only projection
   (map->Query {::which-query :latest-report
                :projections {"latest_report_hash" {:type :string
                                                    :queryable? true
@@ -1116,18 +1249,23 @@
 (def package-inventory-query
   "Packages and the machines they are installed on"
   (map->Query {::which-query :package-inventory
+               :can-drop-unused-joins? true
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :certnames.certname}
+                                         :field :certnames.certname
+                                         :join-deps #{:certnames :cp}}
                              "package_name" {:type :string
                                              :queryable? true
-                                             :field :p.name}
+                                             :field :p.name
+                                             :join-deps #{:p}}
                              "version" {:type :string
                                         :queryable? true
-                                        :field :p.version}
+                                        :field :p.version
+                                        :join-deps #{:p}}
                              "provider" {:type :string
                                          :queryable? true
-                                         :field :p.provider}}
+                                         :field :p.provider
+                                         :join-deps #{:p}}}
 
                :selection {:from [[:packages :p]]
                            :join [[:certname_packages :cp]
@@ -1143,10 +1281,12 @@
 
 (def factsets-query-base
   {::which-query :factsets
+   :can-drop-unused-joins? true
    :projections
    {"timestamp" {:type :timestamp
                  :queryable? true
-                 :field :timestamp}
+                 :field :timestamp
+                 :join-deps #{:fs}}
     "facts" {:type :queryable-json
              :queryable? true
              :field {:select [(h/row-to-json :facts_data)]
@@ -1157,22 +1297,28 @@
                               :from [[{:select [[:key :name] :value :fs.certname]
                                        :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
                                       :t]]}
-                             :facts_data]]}}
+                             :facts_data]]}
+             :join-deps #{:fs}}
     "certname" {:type :string
                 :queryable? true
-                :field :fs.certname}
+                :field :fs.certname
+                :join-deps #{:fs}}
     "hash" {:type :string
             :queryable? true
-            :field (hsql-hash-as-str :fs.hash)}
+            :field (hsql-hash-as-str :fs.hash)
+            :join-deps #{:fs}}
     "producer_timestamp" {:type :timestamp
                           :queryable? true
-                          :field :fs.producer_timestamp}
+                          :field :fs.producer_timestamp
+                          :join-deps #{:fs}}
     "producer" {:type :string
                 :queryable? true
-                :field :producers.name}
+                :field :producers.name
+                :join-deps #{:producers}}
     "environment" {:type :string
                    :queryable? true
-                   :field :environments.environment}}
+                   :field :environments.environment
+                   :join-deps #{:environments}}}
 
    :selection {:from [[:factsets :fs]]
                :left-join [:environments
@@ -1203,7 +1349,8 @@
         (assoc-in [:projections "package_inventory"]
                   {:type :array
                    :queryable? false
-                   :field :package_inventory.packages})
+                   :field :package_inventory.packages
+                   :join-deps #{:certnames :package_inventory}})
         (update-in
           [:selection :left-join]
           conj
@@ -1869,7 +2016,9 @@
                    first
                    projections
                    stringify-field)
-              (rest json-path)))}))
+              (rest json-path)))
+   ;; json-path will be something like ("facts" "kernel" ...)
+   :join-deps (get-in projections [(first json-path) :join-deps])}))
 
 (defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
@@ -2019,6 +2168,7 @@
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
+            ;; operator-function-clause
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["function" f & args] value]]
             (map->FnBinaryExpression {:operator op
                                       :function f
@@ -2539,6 +2689,247 @@
                    " "
                    (trs "Check your query and try again."))))))
 
+(defn simple-coll? [x] (and (coll? x) (not (map? x))))
+
+(defn extract-deps [m plan]
+  (cm/match
+   m
+
+   ;; operator-field-clause (see query-eng-test)
+   {:operator _
+    :column {:field (f :guard keyword?)
+             :join-deps (deps :guard set?)}}
+   deps
+
+   ;; jsonb-type-equal-clause (see compiler above and query-eng-test)
+   ;; {:operator "=" :function "jsonb_typeof" :args [maybe-field] :value "?"}
+   {:function "jsonb_typeof"
+    :operator "="
+    :args ([(field :guard string?)] :seq)}
+   (if-let [deps (get-in plan [:projections field :join-deps])]
+     deps
+     (throw (ex-info "Unexpected jsonb_typeof when extracting deps"
+                     {:kind ::cannot-drop-joins
+                      ::why :unexpected-jsonb-typeof})))
+
+   ;; subquery-clause
+   {:subquery _
+    :column ([& columns] :seq)}
+   (if (and (every? map? columns)
+            (every? keyword? (map :field columns))
+            (every? set? (map :join-deps columns)))
+     (apply set/union (map :join-deps columns))
+     (throw (ex-info "Unexpected subquery when extracting deps"
+                     {:kind ::cannot-drop-joins
+                      ::why :unexpected-subquery})))
+
+   ;; dotted-match-filter-clause (as one source -- see tests)
+   ;; same shape as dotted-filter-clause (cf. extract-where-deps-from-clause)
+   {:field _
+    :column-data {:join-deps (deps :guard set?)}}
+   deps
+
+  :else
+  (throw (ex-info "Unexpected plan node when extracting deps"
+                  {:kind ::cannot-drop-joins
+                   ::why :unexpected-plan-node}))))
+
+(defn extract-where-deps-from-clause
+  [clause plan]
+  (cond
+    (:column clause)
+    (let [col (:column clause)]
+      (cond
+        ;; e.g.
+        ;; {:operator :=,
+        ;;  :column
+        ;;  {:type :string,
+        ;;   :queryable? true,
+        ;;   :field :fs.certname,
+        ;;   :join-deps #{:fs}},
+        ;;  :value "?"}
+        ;; single-column-clause
+        (:join-deps col) (:join-deps col)
+
+        ;; e.g.
+        ;; {:column
+        ;;  ({:type :string,
+        ;;    :queryable? true,
+        ;;    :field :certnames.certname,
+        ;;    :join-deps #{:certnames}}),
+        ;;  :subquery ...}
+        ;; multiple-column-clause
+        (and (simple-coll? col)
+             (every? map? col)
+             (every? keyword? (map :field col))
+             (every? set? (map :join-deps col)))
+        (apply set/union (map :join-deps col))
+
+        :else
+        (throw (ex-info (str "Unexpected column when extracting deps: "
+                             (class clause) " " clause)
+                        {:kind ::cannot-drop-joins
+                         ::why :unexpected-column}))))
+    ;; e.g.
+    ;; {:clauses
+    ;;  ({:operator :=,
+    ;;    :column
+    ;;    {:type :string,
+    ;;     :queryable? true,
+    ;;     :field :fs.certname,
+    ;;     :join-deps #{:fs}},
+    ;;    :value "?"}
+    ;;   {:clause
+    ;;    {:column
+    ;;     ({:type :string,
+    ;;       :queryable? true,
+    ;;       :field :fs.certname,
+    ;;       :join-deps #{:fs}}),
+    ;;     :subquery ...}})}
+    ;; clauses-clause
+    (:clauses clause)
+    (let [c (:clauses clause)]
+      (if (simple-coll? c)
+        (apply set/union (map #(extract-deps % plan) c))
+        (throw (ex-info (str "Unexpected clauses when extracting deps: "
+                             (class clause) " " clause)
+                        {:kind ::cannot-drop-joins
+                         ::why :unexpected-clauses}))))
+    ;; e.g.
+    ;; {:clause
+    ;;  {:column
+    ;;   ({:type :string,
+    ;;     :queryable? true,
+    ;;     :field :certnames.certname,
+    ;;     :join-deps #{:certnames}}),
+    ;;   :subquery ... }}
+    ;; clause-clause
+    (:clause clause)
+    (if (map? clause)
+      (extract-deps (:clause clause) plan)
+      (throw (ex-info (str "Unexpected clause when extracting deps: "
+                           (class clause) " " clause)
+                      {:kind ::cannot-drop-joins
+                       ::why :unexpected-clause})))
+
+    ;; e.g.
+    ;; {:field "facts",
+    ;;  :column-data
+    ;;  {:type :queryable-json,
+    ;;   :projectable-json? true,
+    ;;   :queryable? true,
+    ;;   :field {:s "(fs.stable||fs.volatile)"},
+    ;;   :field-type :raw,
+    ;;   :join-deps #{:fs}},
+    ;;  :value ("?" "?"),
+    ;;  :operator :>}
+    ;; dotted-filter-clause (cf. extract-deps)
+    (and (:field clause) (set? (get-in clause [:column-data :join-deps])))
+    (get-in clause [:column-data :join-deps])
+
+    :else
+    (throw (ex-info (str "Unexpected where clause when extracting deps: "
+                         (class clause) " " clause)
+                    {:kind ::cannot-drop-joins
+                     ::why :unexpected-where}))))
+
+(defn extract-where-deps [plan]
+  (if-let [where (:where plan)]
+    (if-let [clauses (:clauses where)]
+      (apply set/union (map #(extract-where-deps-from-clause % plan)
+                            clauses))
+      (extract-where-deps-from-clause where plan))
+    #{}))
+
+;; FIXME: add dotted test?
+(defn required-by-projections [plan]
+  (let [proj-info (:projections plan)
+        fields (or (:project-fields plan)
+                   ;; If we wanted to generalize this to apply to the
+                   ;; plan recursively, i.e. subqueries, could
+                   ;; convert-to-plan be relevant?
+                   (do
+                     (->> (:projected-fields plan)
+                          ;; Is this not supposed to be a map already?
+                          ;; i.e. wondering if we might have a
+                          ;; conversion bug elsewhere...
+                          (into {})
+                          (remove (comp :query-only? val))
+                          keys)))
+        ;; Now we need just the base name, i.e. facts.kernel -> facts
+        basename #(let [path-or-field (su/dotted-query->path %)]
+                    (if (coll? path-or-field)
+                      (first path-or-field)
+                      path-or-field))
+        required-joins (map #(get-in proj-info [% :join-deps])
+                            (map basename fields))]
+    (assert (not-any? nil? required-joins))
+    (apply set/union required-joins)))
+
+(defn maybe-drop-unused-joins [{:keys [plan] :as incoming}]
+  ;; Right now, this only looks at top-level joins.  Only enable this
+  ;; for joins where we "know" it's OK.
+  (if-not (:can-drop-unused-joins? plan)
+    (do
+      (log/debug (trs "Not dropping unused joins from query (disallowed)"))
+      incoming)
+    ;; {:projections
+    ;;  {"latest_report_corrective_change"
+    ;;   {:type :boolean,
+    ;;    :queryable? true,
+    ;;    :field :reports.corrective_change,
+    ;;    :join-deps #{:reports}},
+    ;;   "deactivated"
+    ;;   {:type :string,
+    ;;    :queryable? true,
+    ;;    :field :certnames.deactivated,
+    ;;    :join-deps #{:certnames}},
+    ;;   ...}
+    (try
+      (log/debug (trs "Attempting to drop unused joins from query"))
+      (when (:call plan)
+        (throw (ex-info "Cannot handle function calls yet"
+                        {:kind ::cannot-drop-joins
+                         ::why :unsupported-function-calls})))
+      (let [proj-reqs (required-by-projections plan)]
+        (if (empty? proj-reqs)
+          incoming
+          (let [where-reqs (extract-where-deps plan)
+                required? (set/union proj-reqs where-reqs)
+                join-key? #{:full-join
+                            :join
+                            :left-join
+                            :merge-full-join
+                            :merge-join
+                            :merge-left-join
+                            :merge-right-join
+                            :right-join}
+                need-join? (fn [[table spec]]
+                             ;; table e.g. :factsets or [:factsets :fs]
+                             ;; spec e.g. [:= :certnames.certname :fs.certname]
+                             (let [name (cond-> table (coll? table) second)]
+                               (assert (keyword? name))
+                               (required? name)))
+                drop-joins (fn [result k v]
+                             (if-not (join-key? k)
+                               result
+                               (assoc result
+                                      k (vec (apply concat
+                                                    (filter need-join?
+                                                            (partition 2 v)))))))
+                selection (reduce-kv drop-joins
+                                     (:selection plan)
+                                     (:selection plan))
+                result (assoc plan :selection selection)]
+            (assoc incoming :plan result))))
+      (catch ExceptionInfo ex
+        (if (= ::cannot-drop-joins (:kind (ex-data ex)))
+          (do
+            (log/debug (str ex))
+            incoming)
+          (throw ex))))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -2557,12 +2948,18 @@
                                 (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))
         [query-rec user-query] (rewrite-fact-query query-rec user-query)
+        optimize-joins (if (or always-enable-drop-unused-joins?
+                               ;; Why paging-options?  See PDB-1936
+                               (:optimize_drop_unused_joins paging-options))
+                         maybe-drop-unused-joins
+                         identity)
         parameterized-plan (->> user-query
                                 (push-down-context query-rec)
                                 expand-user-query
                                 optimize-user-query
                                 (convert-to-plan query-rec paging-options)
-                                extract-all-params)]
+                                extract-all-params
+                                optimize-joins)]
     (case target
       :parameterized-plan parameterized-plan
       :sql (let [{:keys [plan params]} parameterized-plan

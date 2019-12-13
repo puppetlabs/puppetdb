@@ -67,7 +67,7 @@
 (def global-engine-params
   "Parameters that should always be forwarded from the incoming query to
   the engine."
-  [:include_facts_expiration])
+  [:optimize_drop_unused_joins :include_facts_expiration])
 
 (defn status-response
   "Executes `query` and if a result is found, calls `found-fn` with
@@ -141,7 +141,9 @@
 ;; Routes
 
 ;; query parameter sets
-(def global-params {:optional ["include_facts_expiration"]})
+(def global-params {:optional ["optimize_drop_unused_joins"
+                               "include_facts_expiration"
+                               "include_package_inventory"]})
 (def paging-params {:optional paging/query-params})
 (def pretty-params {:optional ["pretty"]})
 (def typical-params (merge-param-specs global-params
