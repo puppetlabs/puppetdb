@@ -452,7 +452,7 @@ alone.
 
 The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
-1000.
+3000.
 
 ### `facts-blacklist`
 
