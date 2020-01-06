@@ -1596,6 +1596,11 @@
    "ALTER TABLE certnames SET ( autovacuum_vacuum_scale_factor=0.75 )"
    "ALTER TABLE reports   SET ( autovacuum_vacuum_scale_factor=0.01 )"))
 
+;; for testing via with-redefs
+;; used to account for the possibility of the name column being added in the
+;; original version of migration 69 before a user has applied migration 73
+(defn migration-69-stub [])
+
 (defn reporting-partitioned-tables
   ([]
    (reporting-partitioned-tables 500))
@@ -1675,55 +1680,76 @@
   (let [event-count (-> "select count(*) from resource_events_premigrate"
                         jdbc/query-to-vec first :count)
         last-logged (atom (.getTime (java.util.Date.)))
-        events-migrated (atom 0)]
-   (jdbc/call-with-query-rows
-    ["select
-        report_id, certname_id, status, \"timestamp\", resource_type, resource_title, property,
-        new_value, old_value, message, file, line, containment_path, containing_class, corrective_change
-      from resource_events_premigrate"]
-    (fn [rows]
+        events-migrated (atom 0)
+        ;; The name column was added in migration 69 before being replaced
+        ;; by this migration. If a user has already applied the old version
+        ;; of migration 69 account for the existing data in the name column.
+        name-column? (->
+                      "select exists (select 1
+                                       from information_schema.columns
+                                       where table_schema='public'
+                                       and table_name='resource_events_premigrate'
+                                       and column_name='name');"
+                      jdbc/query-to-vec
+                      first
+                      :exists)]
+    (jdbc/call-with-query-rows
+     [(format
+       "select * from (
+                      select
+                      report_id,
+                      certname_id,
+                      status,
+                      timestamp,
+                      resource_type,
+                      resource_title,
+                      property,
+                      new_value,
+                      old_value,
+                      message,
+                      file,
+                      line,
+                      containment_path,
+                      containing_class,
+                      corrective_change,
+                      %s
+                      row_number() over ( partition by
+                                            report_id, resource_type, resource_title, property, timestamp,
+                                            status, old_value, new_value, message, file, line
+                                          order by timestamp asc )
+                    from resource_events_premigrate
+                  ) as sub
+                  where row_number = 1"
+       (if name-column? "name," ""))]
+     (fn [rows]
       (let [old-cols [:report_id :certname_id :status :timestamp :resource_type
                       :resource_title :property :new_value :old_value :message
                       :file :line :containment_path :containing_class
                       :corrective_change]
+            old-cols (if name-column?
+                       (conj old-cols :name)
+                       old-cols)
             new-cols (into [:event_hash] old-cols)
             update-row (apply juxt (comp sutils/munge-hash-for-storage
                                          hash/resource-event-identity-pkey)
                               old-cols)
-            ;; Retrieve event_hash string from PGobject produced by sutils
-            row->id (fn [row] (-> row first .getValue))
             insert->hash (fn [batch]
-                           (when (seq batch)
-                             (doseq [g (group-by (fn [o] (-> (get o 4)
-                                                             (partitioning/to-zoned-date-time)
-                                                             (partitioning/date-suffix))) batch)]
-                               (jdbc/insert-multi! (str "resource_events_" (first g))
-                                                   new-cols
-                                                   (last g))))
-                           (let [now (.getTime (java.util.Date.))]
-                             (when (> (- now @last-logged) 60000)
-                               (maplog :info
-                                       {:migration 73 :at @events-migrated :of event-count}
-                                       #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
-                               (reset! last-logged now)))
-                           ;; Return hashes for each row directly instead of
-                           ;; reading them back from the DB via the return
-                           ;; value of insert-multi!
-                           (map row->id batch))
-            dedupe-and-insert (fn [hashes-seen batch]
-                                (swap! events-migrated + (count batch))
-                                (->> batch
-                                     (map update-row)
-                                     ;; Remove any duplicates in current batch
-                                     (group-by row->id)
-                                     (map (comp first last))
-                                     ;; Remove any duplicates in previous batches
-                                     (filter #(-> % row->id hashes-seen nil?))
-                                     insert->hash
-                                     (reduce conj hashes-seen)))]
-        (reduce dedupe-and-insert
-                #{}
-                (partition batch-size batch-size [] rows))))))
+                           (swap! events-migrated + (count batch))
+                           (let [batch (map update-row batch)]
+                             (when (seq batch)
+                               (doseq [g (group-by (fn [o] (-> (get o 4)
+                                                               (partitioning/to-zoned-date-time)
+                                                               (partitioning/date-suffix))) batch)]
+                                 (jdbc/insert-multi! (str "resource_events_" (first g))
+                                                     new-cols
+                                                     (last g))))
+                             (let [now (.getTime (java.util.Date.))]
+                               (when (> (- now @last-logged) 60000)
+                                 (maplog :info
+                                         {:migration 73 :at @events-migrated :of event-count}
+                                         #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
+                                 (reset! last-logged now)))))]
+        (dorun (map insert->hash (partition batch-size batch-size [] rows)))))))
 
   (jdbc/do-commands
    ;; Indexes are created on the individual partitions, not on the base table
@@ -1780,7 +1806,7 @@
    67 (fn [])
    68 support-fact-expiration-configuration
    ;; replaced by reporting-partitioned-tables
-   69 (fn [])
+   69 migration-69-stub
    70 migrate-md5-to-sha1-hashes
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports
    72 add-support-for-catalog-inputs

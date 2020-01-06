@@ -1020,6 +1020,78 @@
               :value nil}]
            (jdbc/query-to-vec "select value_type_id, value from fact_values")))))
 
+(deftest migration-73-accounts-for-possible-name-data-created-in-migration-69
+  ;; This test simulates a situtation where a user has already applied the original
+  ;; version of migration 69 which added a name column to the resource_events table
+  ;; before it was replaced by migration 73. This tests checks that any existing data
+  ;; in the resource_events name column won't be dropped during migration 73.
+  (let [current-time (to-timestamp (now))
+        other-date (-> (ZonedDateTime/of 2015 10 9 16 42 54 94 (ZoneId/of "-07:00"))
+                       (.toInstant)
+                       (Timestamp/from))]
+      (jdbc/with-db-connection *db*
+        (clear-db-for-testing!)
+        ;; mimic the original behavior of migration 69 adding the name column to resource_events
+        (with-redefs [migrations (assoc migrations 69 (fn []
+                                                        (jdbc/do-commands
+                                                         "AlTER TABLE resource_events ADD COLUMN name text;")))]
+          (fast-forward-to-migration! 72))
+
+        (jdbc/insert! :report_statuses
+                      {:status "testing1" :id 1})
+        (jdbc/insert! :environments {:id 0 :environment "testing"})
+        (jdbc/insert! :certnames {:certname "a.com"})
+
+        (jdbc/insert-multi!
+         :reports
+         [{:hash (sutils/munge-hash-for-storage "01")
+           :transaction_uuid (sutils/munge-uuid-for-storage
+                              "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+           :configuration_version "thisisacoolconfigversion"
+           :certname "a.com"
+           :puppet_version "0.0.0"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :producer_timestamp current-time
+           :environment_id 0
+           :status_id 1
+           :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+           :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+
+        (let [[id1] (map :id
+                         (query-to-vec "SELECT id from reports order by certname"))
+              row1 {:new_value "\"directory\""
+                    :corrective_change false,
+                    :property nil
+                    :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+                    :report_id id1
+                    :old_value "\"absent\""
+                    :containing_class "Foo"
+                    :certname_id 1
+                    :line 11
+                    :resource_type "File"
+                    :name "keep-this-name-value"
+                    :status "success"
+                    :resource_title "tmp-directory"
+                    :timestamp other-date
+                    :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                    :message "created"}]
+
+          (jdbc/insert-multi! :resource_events [row1])
+          (apply-migration-for-testing! 73 2)
+
+          (let [hashes (map :event_hash
+                            (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
+                hashes-set (set hashes)
+                expected1 (shash/resource-event-identity-pkey row1)
+                resource-event (first (query-to-vec "SELECT * FROM resource_events"))]
+
+            (is (= 1 (count hashes)))
+            (is (contains? hashes-set expected1))
+            (is (= "keep-this-name-value" (:name resource-event))))))))
+
 (deftest migration-73-adds-hashes-to-resource-events
   (let [current-time (to-timestamp (now))
         ;; known date that has issues
@@ -1035,6 +1107,7 @@
                     {:status "testing1" :id 1})
       (jdbc/insert! :environments {:id 0 :environment "testing"})
       (jdbc/insert! :certnames {:certname "a.com"})
+      (jdbc/insert! :certnames {:certname "b.com"})
 
       (jdbc/insert-multi!
        :reports
@@ -1052,10 +1125,42 @@
          :environment_id 0
          :status_id 1
          :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+         :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
+
+        {:hash (sutils/munge-hash-for-storage "02")
+         :transaction_uuid (sutils/munge-uuid-for-storage
+                            "aaaaaaaa-2222-bbbb-bbbb-222222222222")
+         :configuration_version "thisisacoolconfigversion"
+         :certname "a.com"
+         :puppet_version "0.0.0"
+         :report_format 1
+         :start_time (to-timestamp (now))
+         :end_time (to-timestamp (now))
+         :receive_time (to-timestamp (now))
+         :producer_timestamp (to-timestamp (now))
+         :environment_id 0
+         :status_id 1
+         :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+         :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
+
+        {:hash (sutils/munge-hash-for-storage "03")
+         :transaction_uuid (sutils/munge-uuid-for-storage
+                            "cccccccc-2222-bbbb-bbbb-222222222222")
+         :configuration_version "thisisacoolconfigversion"
+         :certname "b.com"
+         :puppet_version "0.0.0"
+         :report_format 1
+         :start_time (to-timestamp (now))
+         :end_time (to-timestamp (now))
+         :receive_time (to-timestamp (now))
+         :producer_timestamp (to-timestamp (now))
+         :environment_id 0
+         :status_id 1
+         :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
          :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
 
-      (let [[id1] (map :id
-                       (query-to-vec "SELECT id from reports order by certname"))
+      (let [[id1 id2 id3] (map :id
+                               (query-to-vec "SELECT id from reports order by certname"))
             row1 {:new_value "\"directory\""
                   :corrective_change false,
                   :property nil
@@ -1085,20 +1190,22 @@
                   :resource_title "tmp-directory",
                   :timestamp other-date
                   :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-                  :message "created"}]
+                  :message "created"}
+
+            ;; matching events from same certname but diff report
+            row3 (assoc row1 :report_id id2)
+            row4 (assoc row2 :report_id id2)
+
+            ;; matching events from diff certname
+            row5 (assoc row1 :report_id id3)
+            row6 (assoc row2 :report_id id3)]
         (jdbc/insert-multi!
          :resource_events
-         [;; First batch: new row and a duplicate of it
-          row1
-          row1
-
-          ;; Second batch: new row and duplicate from first batch
-          row1
-          row2
-
-          ;; Third batch: two duplicates (migration should skip insert)
-          row1
-          row1])
+         ;; Due to a bug in PUP-9586 and related PDB-4315 it was possible for
+         ;; there to be duplicate rows where property was set to null in resource_events.
+         ;; All duplicate rows should be filtered out in the migration's sql
+         ;; query before the batched insert takes place.
+         [row1 row1 row1 row2 row3 row3 row4 row5 row5 row6])
 
         ;; Run with a batch size of 2 to ensure de-duplication occurs over
         ;; batches.
@@ -1109,46 +1216,25 @@
 
               hashes-set (set hashes)
 
-              expected1 (shash/resource-event-identity-pkey
-                         {:new_value "\"directory\""
-                          :corrective_change false
-                          :property "ensure"
-                          :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
-                          :report_id id1
-                          :old_value "\"absent\""
-                          :containing_class "Foo"
-                          :certname_id 1
-                          :line 11
-                          :resource_type "File"
-                          :status "success"
-                          :resource_title "tmp-directory"
-                          :timestamp other-date
-                          :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-                          :message "created"})
-              expected2 (shash/resource-event-identity-pkey
-                         {:new_value "\"directory\""
-                          :corrective_change false
-                          :property nil
-                          :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
-                          :report_id id1
-                          :old_value "\"absent\""
-                          :containing_class "Foo"
-                          :certname_id 1
-                          :line 11
-                          :resource_type "File"
-                          :status "success"
-                          :resource_title "tmp-directory"
-                          :timestamp other-date
-                          :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-                          :message "created"})
+              expected1 (shash/resource-event-identity-pkey row1)
+              expected2 (shash/resource-event-identity-pkey row2)
+              expected3 (shash/resource-event-identity-pkey row3)
+              expected4 (shash/resource-event-identity-pkey row4)
+              expected5 (shash/resource-event-identity-pkey row5)
+              expected6 (shash/resource-event-identity-pkey row6)
 
               [containment-path] (map :containment_path
                                       (query-to-vec "SELECT containment_path FROM resource_events"))]
-          (is (= 2
+
+          (is (= 6
                  (count hashes)))
 
           (is (contains? hashes-set expected1))
           (is (contains? hashes-set expected2))
+          (is (contains? hashes-set expected3))
+          (is (contains? hashes-set expected4))
+          (is (contains? hashes-set expected5))
+          (is (contains? hashes-set expected6))
 
           (is (= ["foo"]
                  containment-path)))))))
