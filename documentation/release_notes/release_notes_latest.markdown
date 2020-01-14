@@ -21,6 +21,33 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.8.0
+
+### New features and improvements
+
+- **New `resource-events-ttl` configuration parameter.** Use the
+  `resource-events-ttl` configuration parameter to automatically delete report events older
+  than the specified time. The parameter rounds up to the nearest day.
+  For example, `14h` rounds up to `1d`. For more information, see [Configuring
+  PuppetDB](./configure.html#resource-events-ttl).
+  [PDB-2487](https://tickets.puppetlabs.com/browse/PDB-2487)
+
+- **New `delete` command.** Use the `delete` command to immediately delete the
+  data associated with a certname. For more information, see [Commands
+  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+
+### Bug fixes
+
+- Resolved an issue where an unreachable
+  PostgreSQL server could cause PuppetDB to exhaust its connection pool,
+  requiring a restart.
+  [PDB-4579](https://tickets.puppetlabs.com/browse/PDB-4579)
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Manuel Laug, Molly Waggett, Morgan
+Rhodes, Nick Walker, Rob Browning, Robert Roland, and Zak Kent
+
 ## PuppetDB 6.7.3
 
 ### Bug fixes
