@@ -215,6 +215,8 @@
   "Delete the given host from the db"
   [certname]
   {:pre [certname]}
+  (jdbc/delete! :resource_events ["certname_id in (select id from certnames where certname=?)" certname])
+  (jdbc/delete! :reports ["certname=?" certname])
   (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
 

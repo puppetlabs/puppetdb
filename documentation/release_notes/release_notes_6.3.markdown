@@ -18,6 +18,30 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrade_policy]: ./versioning_policy.html#upgrades
 [facts]: ./api/query/v4/facts.html
 
+---
+
+## PuppetDB 6.3.7
+
+### New features and improvements
+
+- **New `delete` command.** Use the `delete` command to immediately delete the
+  data associated with a certname. For more information, see [Commands
+  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+
+### Bug fixes
+
+- Resolved an issue where an unreachable
+  PostgreSQL server could cause PuppetDB to exhaust its connection pool,
+  requiring a restart.
+  [PDB-4579](https://tickets.puppetlabs.com/browse/PDB-4579)
+
+- This release includes various security improvements.
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Markus Opolka, Morgan
+Rhodes, Nate Wolfe, Rob Browning, Robert Roland, and Zak Kent
+
 ## PuppetDB 6.3.6
 
 ### Bug fixes

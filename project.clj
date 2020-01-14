@@ -1,5 +1,5 @@
-(def pdb-version "6.3.7-SNAPSHOT")
-(def clj-parent-version "2.6.0")
+(def pdb-version "6.3.8-SNAPSHOT")
+(def clj-parent-version "2.7.4")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -62,7 +62,6 @@
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
-     [org.flatland/ordered "1.5.7"]
      [org.clojure/test.check "0.9.0"]
      [com.gfredericks/test.chuck "0.2.7"
       :exclusions [com.andrewmcveigh/cljs-time]]
@@ -160,6 +159,9 @@
                  [puppetlabs/structured-logging]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
+                 ;; trapperkeeper began pulling in clj-parent's 1.5.3
+                 ;; which is not compatible with java 11
+                 [org.flatland/ordered "1.5.7"]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
                  [puppetlabs/trapperkeeper-metrics]
                  [puppetlabs/trapperkeeper-status]

@@ -16,14 +16,14 @@ unless (test_config[:skip_presuite_provisioning])
     master_os = test_config[:os_families][master.name]
     case master_os
     when :debian
-      on master, "apt-get -y install python"
+      on master, "DEBIAN_FRONTEND=noninteractive apt-get -y install python"
     end
 
     databases.each do |database|
       os = test_config[:os_families][database.name]
       case os
       when :debian
-        on database, "apt-get -y install python"
+        on database, "DEBIAN_FRONTEND=noninteractive apt-get -y install python"
       end
     end
   end
@@ -37,7 +37,7 @@ unless (test_config[:skip_presuite_provisioning])
       when :debian
         on database, "apt-get install -y --force-yes libnss3"
       when :redhat
-        on database, "yum update -y nss"
+        on database, "yum install -y nss && yum update -y nss"
       when :fedora
         on database, "yum update -y nss"
       else

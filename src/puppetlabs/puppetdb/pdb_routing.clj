@@ -35,7 +35,7 @@
   (compojure/context uri [] route))
 
 (defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
-                       query-fn clean-fn]
+                       query-fn clean-fn delete-node-fn]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])]
     (map #(apply wrap-with-context %)
          (partition
@@ -56,7 +56,8 @@
            "/admin" (admin/build-app enqueue-command-fn
                                      query-fn
                                      db-cfg
-                                     clean-fn)]))))
+                                     clean-fn
+                                     delete-node-fn)]))))
 
 (defn pdb-app [root maint-mode-fn app-routes]
   (compojure/context root []
@@ -94,7 +95,7 @@
 
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer clean shared-globals query set-url-prefix]
+   [:PuppetDBServer clean delete-node shared-globals query set-url-prefix]
    [:PuppetDBCommandDispatcher enqueue-command]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
    [:DefaultedConfig get-config]
@@ -118,7 +119,8 @@
                                          augmented-globals
                                          enqueue-command
                                          query
-                                         clean))
+                                         clean
+                                         delete-node))
                (mid/wrap-cert-authn cert-whitelist)
                mid/wrap-with-puppetdb-middleware))
 
