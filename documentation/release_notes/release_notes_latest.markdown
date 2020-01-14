@@ -19,6 +19,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 [facts]: ./api/query/v4/facts.html
 [puppet_apply]: ./connect_puppet_apply.html
 
+## PuppetDB 6.7.3
+
+This release includes various security improvements.
 
 ## PuppetDB 6.7.2
 
