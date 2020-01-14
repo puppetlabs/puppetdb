@@ -19,6 +19,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 [facts]: ./api/query/v4/facts.html
 [puppet_apply]: ./connect_puppet_apply.html
 
+---
+
+## PuppetDB 6.7.3
+
+### Bug fixes
+
+- This release includes various security improvements.
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Heston Hoffman, Markus Opolka, Morgan
+Rhodes, and Nate Wolfe
 
 ## PuppetDB 6.7.2
 
