@@ -131,7 +131,7 @@ include this JSON map:
 [Using `curl` from localhost][curl]:
 
 ``` sh
-$ curl -X POST http://localhost:8080/pdb/admin/v1/delete \
+$ curl -X POST http://localhost:8080/pdb/admin/v1/cmd \
        -H 'Accept: application/json' \
        -H 'Content-Type: application/json' \
        -d '{"command": "delete",
