@@ -18,6 +18,25 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.12
+
+### New features and improvements
+
+- **New `delete` command.** Use the `delete` command to immediately delete the
+  data associated with a certname. For more information, see [Commands
+  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+
+### Bug fixes
+
+- Resolved an issue where an unreachable
+  PostgreSQL server could cause PuppetDB to exhaust its connection pool,
+  requiring a restart.
+  [PDB-4579](https://tickets.puppetlabs.com/browse/PDB-4579)
+  
+- This release includes various security improvements.
+
+### Contributors
+
 ## PuppetDB 5.2.11
 
 ### Bug fixes
