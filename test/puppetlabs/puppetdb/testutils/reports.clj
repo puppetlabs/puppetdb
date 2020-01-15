@@ -29,7 +29,8 @@
                             ["from" "reports" ["=" "hash" hash]]
                             {}
                             {:scf-read-db *db*
-                             :url-prefix "/pdb"})))
+                             :url-prefix "/pdb"
+                             :node-purge-ttl (time-coerce/parse-period "14d")})))
 
 (defn store-example-report!
   "Store an example report (from examples/report.clj) for use in tests.  Params:

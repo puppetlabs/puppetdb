@@ -9,12 +9,12 @@
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
-            [puppetlabs.puppetdb.time :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now parse-period]]))
 
 (deftest test-plan-sql
   (let [col1 {:type :string :field :foo}
         col2 {:type :string :field :bar}]
-    (are [sql plan] (= sql (plan->sql plan))
+    (are [sql plan] (= sql (plan->sql plan {:node-purge-ttl (parse-period "14d")}))
 
          [:or [:= (:field col1) "?"]]
          (->BinaryExpression := col1 "?")
@@ -40,17 +40,19 @@
          (->NullExpression col1 true)
 
          [:is-not (:field col1) nil]
-         (->NullExpression col1 false)
+         (->NullExpression col1 false))))
 
-         "WITH inactive_nodes AS (SELECT certname FROM certnames WHERE (deactivated IS NOT NULL OR expired IS NOT NULL)) SELECT table.foo AS foo FROM table WHERE (1 = 1)"
-         (map->Query {:projections {"foo" {:type :string
+(deftest test-plan-cte
+  (is (re-matches
+         #"WITH inactive_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL AND deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\) OR \(expired IS NOT NULL and expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\), active_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NULL AND expired IS NULL\)\) SELECT table.foo AS foo FROM table WHERE \(1 = 1\)"
+         (plan->sql (map->Query {:projections {"foo" {:type :string
                                            :queryable? true
                                            :field :table.foo}}
                       :alias "thefoo"
                       :subquery? false
                       :where (->BinaryExpression := 1 1)
                       :selection {:from [:table]}
-                      :source-table "table"}))))
+                      :source-table "table"}) {:node-purge-ttl (parse-period "14d")}))))
 
 (deftest test-extract-params
 
@@ -73,9 +75,9 @@
          (expand-user-query [["=" "prop" "foo"]])))
 
   (is (= [["=" "prop" "foo"]
-          ["not" ["in" "certname"
-                  ["extract" "certname"
-                   ["select_inactive_nodes"]]]]]
+          ["in" "certname"
+           ["extract" "certname"
+            ["select_active_nodes"]]]]
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["node" "active"] true]])))
   (is (= [["=" "prop" "foo"]

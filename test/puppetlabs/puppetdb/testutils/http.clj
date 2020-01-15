@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -84,7 +85,8 @@
       :globals (merge {:update-server "FOO"
                        :scf-read-db          *db*
                        :scf-write-db         *db*
-                       :product-name         "puppetdb"}
+                       :product-name         "puppetdb"
+                       :node-purge-ttl       (t/parse-period "14d")}
                       global-overrides)}))
 
 (defn internal-request-post
@@ -111,7 +113,8 @@
   ([f adjust-globals]
    (let [get-shared-globals #(adjust-globals {:scf-read-db *db*
                                               :scf-write-db *db*
-                                              :url-prefix ""})]
+                                              :url-prefix ""
+                                              :node-purge-ttl (t/parse-period "14d")})]
      (binding [*app* (wrap-with-puppetdb-middleware
                       (server/build-app get-shared-globals))]
        (f)))))

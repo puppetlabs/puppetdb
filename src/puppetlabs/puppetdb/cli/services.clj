@@ -486,7 +486,7 @@
                 puppetdb command-processing
                 emit-cmd-events?]} config
         {:keys [pretty-print max-enqueued]} developer
-        {:keys [gc-interval]} database
+        {:keys [gc-interval node-purge-ttl]} database
         {:keys [disable-update-checking]} puppetdb
         {:keys [cmd-event-mult cmd-event-ch]} context
 
@@ -522,6 +522,7 @@
                    :dlo (dlo/initialize (get-path stockdir "discard")
                                         (get-in metrics-registries
                                                 [:dlo :registry]))
+                   :node-purge-ttl node-purge-ttl
                    :command-chan command-chan
                    :cmd-event-mult cmd-event-mult
                    :maybe-send-cmd-event! maybe-send-cmd-event!}
@@ -664,7 +665,7 @@
   (query [this version query-expr paging-options row-callback-fn]
          (let [sc (service-context this)
                query-options (-> (get sc :shared-globals)
-                                 (select-keys [:scf-read-db :warn-experimental])
+                                 (select-keys [:scf-read-db :warn-experimental :node-purge-ttl])
                                  (assoc :url-prefix @(get sc :url-prefix)))]
            (qeng/stream-query-result version
                                      query-expr
