@@ -1668,7 +1668,7 @@
    ;; pre-create partitions
    (log/info (trs "Creating partitions based on unique days in resource_events"))
    (jdbc/call-with-query-rows
-    ["select distinct date_trunc('day', \"timestamp\" AT TIME ZONE 'UTC') as rowdate
+    ["select distinct date_trunc('day', \"timestamp\") as rowdate
       from resource_events_premigrate"]
     (fn [rows]
       (doseq [row rows]
