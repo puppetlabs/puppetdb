@@ -26,6 +26,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - Database migrations would fail for timezones with positive UTC offsets. [PDB-4626](https://tickets.puppetlabs.com/browse/PDB-4626)
 
+### Contributors
+
+Austin Blatt, Heston Hoffman, Reinhard Vicinus, Robert Roland, and Zak Kent
+
 ## PuppetDB 6.8.0
 
 ### New features and improvements
