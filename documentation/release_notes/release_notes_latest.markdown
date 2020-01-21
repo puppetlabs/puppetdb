@@ -20,6 +20,11 @@ canonical: "/puppetdb/latest/release_notes.html"
 [puppet_apply]: ./connect_puppet_apply.html
 
 ---
+## PuppetDB 6.8.1
+
+### Bug fixes
+
+- Database migrations would fail for timezones with positive UTC offsets. [PDB-4626](https://tickets.puppetlabs.com/browse/PDB-4626)
 
 ## PuppetDB 6.8.0
 
