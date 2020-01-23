@@ -45,8 +45,6 @@ case "$OSTYPE" in
         sudo rm -f /etc/apt/sources.list.d/couchdb*
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
         apt_get_update
-
-        sudo -i apt-get install ruby2.3-dev ruby-bundler ruby-rspec
     ;;
 esac
 
