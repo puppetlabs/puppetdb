@@ -45,6 +45,11 @@ case "$OSTYPE" in
         sudo rm -f /etc/apt/sources.list.d/couchdb*
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
         apt_get_update
+
+        # see https://github.com/pyenv/pyenv/issues/789
+        # When using the system python pyenv prepends /usr/bin to the path
+        # which breaks anything that tries to override system defaults, like rvm/rbenv
+        pyenv global 3.7.1
     ;;
 esac
 
