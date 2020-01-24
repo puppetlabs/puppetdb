@@ -87,11 +87,6 @@ jobs:
       env: PDB_TEST=rspec/pup-5.5.x
       script: *run-spec-tests
 
-    - stage: ❧ pdb tests
-      env: PDB_TEST=rspec/pup-5.3.x
-      script: *run-spec-tests
-
-
     # ==== osx
 
     # === core+ext tests
