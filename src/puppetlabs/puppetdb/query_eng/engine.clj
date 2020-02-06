@@ -17,7 +17,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -920,6 +920,17 @@
                :entity :events
                :source-table "resource_events"}))
 
+(def active-nodes-query
+  (map->Query {::which-query :active-nodes
+               :projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :active_nodes.certname}}
+               :selection {:from [:active_nodes]}
+               :subquery? false
+               :alias "active_nodes"
+               :source-table "active_nodes"}))
+
+
 (def inactive-nodes-query
   (map->Query {::which-query :inactive-nodes
                :projections {"certname" {:type :string
@@ -1165,18 +1176,28 @@
                      [honeysql-fncall (get pg-fns->pdb-fns function)]
                      honeysql-fncall)))))
 
-(defn wrap-with-inactive-nodes-cte
+(defn wrap-with-node-state-cte
   "Wrap a selection in a CTE representing expired or deactivated certnames"
-  [selection]
-  (assoc selection :with {:inactive_nodes {:select [:certname]
+  [selection node-purge-ttl]
+  (let [timestamp (-> node-purge-ttl t/ago t/to-string)]
+    (assoc selection :with {:inactive_nodes {:select [:certname]
+                                             :from [:certnames]
+                                             ;; Since we use our own bespoke parameter extraction, we cannot use any parameters
+                                             ;; in this wrapping honeysql cte, so we have to format the string ourselves.
+                                             ;; If we can switch to using honeysql for parameter extraction, we can define this
+                                             ;; filter in honeysql and let it convert the timestamps to SQL.
+                                             :where (hcore/raw
+                                                      (str "(deactivated IS NOT NULL AND deactivated > '" timestamp "')"
+                                                           " OR (expired IS NOT NULL and expired > '" timestamp "')"))}
+                            :active_nodes {:select [:certname]
                                            :from [:certnames]
-                                           :where [:or
-                                                   [:is-not :deactivated nil]
-                                                   [:is-not :expired nil]]}}))
+                                           :where [:and
+                                                   [:is :deactivated nil]
+                                                   [:is :expired nil]]}})))
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity subquery?]}]
+  [{:keys [projected-fields group-by call selection projections entity subquery?]} {:keys  [node-purge-ttl]}]
   (let [fs (seq (map (comp hcore/raw :statement) call))
         select (if (and fs
                         (empty? projected-fields))
@@ -1186,33 +1207,33 @@
                                    (mapv (fn [[name {:keys [field]}]]
                                            [field name])))
                               fs)))
-        new-selection (-> (cond-> selection (not subquery?) wrap-with-inactive-nodes-cte)
+        new-selection (-> (cond-> selection (not subquery?) (wrap-with-node-state-cte node-purge-ttl))
                           (assoc :select select)
                           (cond-> group-by (assoc :group-by group-by)))]
     (log/spy new-selection)))
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
-  [query]
+  [query options]
   (-> query
-      honeysql-from-query
+      (honeysql-from-query options)
       hcore/format
       first
       log/spy))
 
 (defprotocol SQLGen
-  (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
+  (-plan->sql [query options] "Given the `query` plan node, convert it to a SQL string"))
 
 (extend-protocol SQLGen
   Query
-  (-plan->sql [{:keys [projections projected-fields where] :as query}]
+  (-plan->sql [{:keys [projections projected-fields where] :as query} options]
     (s/validate [projection-schema] projected-fields)
     (let [has-where? (boolean where)
           has-projections? (not (empty? projected-fields))
           sql (-> query
                   (utils/update-cond has-where?
                                      [:selection]
-                                     #(hsql/merge-where % (-plan->sql where)))
+                                     #(hsql/merge-where % (-plan->sql where options)))
                   ;; Note that even if has-projections? is false, the
                   ;; projections are still relevant.
                   ;; i.e. projected-fields doesn't tell the
@@ -1221,14 +1242,14 @@
                   (utils/update-cond has-projections?
                                      [:projections]
                                      (constantly projected-fields))
-                  sql-from-query)]
+                  (sql-from-query options))]
 
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
 
   InExpression
-  (-plan->sql [{:keys [column subquery] :as this}]
+  (-plan->sql [{:keys [column subquery] :as this} options]
     ;; 'column' is actually a vector of columns.
     (s/validate [column-schema] column)
     ;; if a field has type jsonb, cast that field in the subquery to jsonb
@@ -1240,21 +1261,21 @@
           coercions (mapv convert-type inner-columns inner-types outer-types)]
       [:in fields
        {:select coercions
-        :from [[(-plan->sql subquery) :sub]]}]))
+        :from [[(-plan->sql subquery options) :sub]]}]))
 
   JsonContainsExpression
-  (-plan->sql [{:keys [field column-data array-in-path]}]
+  (-plan->sql [{:keys [field column-data array-in-path]} options]
     (su/json-contains (if (instance? SqlRaw (:field column-data))
                         (-> column-data :field :s)
                         field)
                       array-in-path))
 
   FnBinaryExpression
-  (-plan->sql [{:keys [value function args operator]}]
+  (-plan->sql [{:keys [value function args operator]} options]
     (su/fn-binary-expression operator function args))
 
   JsonbPathBinaryExpression
-  (-plan->sql [{:keys [field value column-data operator]}]
+  (-plan->sql [{:keys [field value column-data operator]} options]
     (su/jsonb-path-binary-expression operator
                                      (if (instance? SqlRaw (:field column-data))
                                        (-> column-data :field :s)
@@ -1262,14 +1283,14 @@
                                      value))
 
   JsonbScalarRegexExpression
-  (-plan->sql [{:keys [field]}]
+  (-plan->sql [{:keys [field]} options]
     (su/jsonb-scalar-regex field))
 
   BinaryExpression
-  (-plan->sql [{:keys [column operator value]}]
+  (-plan->sql [{:keys [column operator value]} options]
     (apply vector
            :or
-           (map #(vector operator (-plan->sql %1) (-plan->sql %2))
+           (map #(vector operator (-plan->sql %1 options) (-plan->sql %2 options))
                 (cond
                   (map? column) [(:field column)]
                   (vector? column) (mapv :field column)
@@ -1277,29 +1298,29 @@
                 (utils/vector-maybe value))))
 
   InArrayExpression
-  (-plan->sql [{:keys [column]}]
+  (-plan->sql [{:keys [column]} options]
     (s/validate column-schema column)
     (su/sql-in-array (:field column)))
 
   ArrayBinaryExpression
-  (-plan->sql [{:keys [column]}]
+  (-plan->sql [{:keys [column]} options]
     (s/validate column-schema column)
     (su/sql-array-query-string (:field column)))
 
   RegexExpression
-  (-plan->sql [{:keys [column]}]
+  (-plan->sql [{:keys [column]} options]
     (s/validate column-schema column)
     (su/sql-regexp-match (:field column)))
 
   ArrayRegexExpression
-  (-plan->sql [{:keys [column]}]
+  (-plan->sql [{:keys [column]} options]
     (s/validate column-schema column)
     (su/sql-regexp-array-match (:field column)))
 
   NullExpression
-  (-plan->sql [{:keys [column] :as expr}]
+  (-plan->sql [{:keys [column] :as expr} options]
     (s/validate column-schema column)
-    (let [lhs (-plan->sql (:field column))
+    (let [lhs (-plan->sql (:field column) options)
           json? (= :jsonb-scalar (:type column))]
       (if (:null? expr)
         (if json?
@@ -1310,25 +1331,25 @@
           [:is-not lhs nil]))))
 
   AndExpression
-  (-plan->sql [expr]
-    (concat [:and] (map -plan->sql (:clauses expr))))
+  (-plan->sql [expr options]
+    (concat [:and] (map #(-plan->sql % options) (:clauses expr))))
 
   OrExpression
-  (-plan->sql [expr]
-    (concat [:or] (map -plan->sql (:clauses expr))))
+  (-plan->sql [expr options]
+    (concat [:or] (map #(-plan->sql % options) (:clauses expr))))
 
   NotExpression
-  (-plan->sql [expr]
-    [:not (-plan->sql (:clause expr))])
+  (-plan->sql [expr options]
+    [:not (-plan->sql (:clause expr) options)])
 
   Object
-  (-plan->sql [obj]
+  (-plan->sql [obj options]
     obj))
 
 (defn plan->sql
   "Convert `query` to a SQL string"
-  [query]
-  (-plan->sql query))
+  [query options]
+  (-plan->sql query options))
 
 (defn binary-expression?
   "True if the plan node is a binary expression"
@@ -1447,6 +1468,7 @@
    "select_fact_contents" fact-contents-query
    "select_fact_paths" fact-paths-query
    "select_nodes" nodes-query
+   "select_active_nodes" active-nodes-query
    "select_inactive_nodes" inactive-nodes-query
    "select_latest_report" latest-report-query
    "select_latest_report_id" latest-report-id-query
@@ -1545,9 +1567,9 @@
 
             [["=" "node_state" value]]
             (case (str/lower-case (str value))
-              "active" ["not" ["in" "certname"
-                               ["extract" "certname"
-                                ["select_inactive_nodes"]]]]
+              "active" ["in" "certname"
+                        ["extract" "certname"
+                         ["select_active_nodes"]]]
               "inactive" ["in" "certname"
                           ["extract" "certname"
                            ["select_inactive_nodes"]]]
@@ -1873,7 +1895,7 @@
 (defn try-parse-timestamp
   "Try to convert a string to a timestamp, throwing an exception if it fails"
   [ts]
-  (or (to-timestamp ts)
+  (or (t/to-timestamp ts)
       (throw (IllegalArgumentException. (tru "''{0}'' is not a valid timestamp value" ts)))))
 
 (defn user-node->plan-node
@@ -1937,7 +1959,7 @@
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "timestamp"
                                                                    java.sql.Timestamp
-                                                                   (map to-timestamp value))})
+                                                                   (map t/to-timestamp value))})
                 :integer
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "bigint"
@@ -2400,11 +2422,11 @@
   "Given a user provided query and a Query instance, convert the
    user provided query to SQL and extract the parameters, to be used
    in a prepared statement"
-  [query-rec user-query & [{:keys [include_total] :as paging-options}]]
+  [query-rec user-query & [{:keys [include_total] :as query-options}]]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
   (let [allowed-fields (map keyword (queryable-fields query-rec))
-        paging-options (some->> paging-options
+        paging-options (some->> query-options
                                 (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))
         [query-rec user-query] (rewrite-fact-query query-rec user-query)
@@ -2414,7 +2436,7 @@
                                    optimize-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
-        sql (plan->sql plan)
+        sql (plan->sql plan paging-options)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

@@ -11,7 +11,7 @@
             [puppetlabs.puppetdb.generative.overridable-generators :as gen]
             [puppetlabs.puppetdb.generative.generators :as pdb-gen]
             [puppetlabs.puppetdb.examples.reports :as example-reports]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
+            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime parse-period]]))
 
 (def ten-timestamps #{"2016-12-19T23:30:00.000Z"
                       "2016-12-19T23:31:00.000Z"
@@ -47,7 +47,9 @@
                              ["from" "catalogs"]
                              {:order_by [[:certname :descending]
                                          [:producer_timestamp :descending]]}
-                             {:scf-read-db db, :url-prefix "/pdb"})
+                             {:scf-read-db db
+                              :url-prefix "/pdb"
+                              :node-purge-ttl (parse-period "14d")})
        (map (fn [row]
               (-> row
                   (update :resources #(json/parse (str % ) true))
@@ -59,7 +61,9 @@
                                  ["from" "factsets"]
                                  {:order_by [[:certname :descending]
                                              [:producer_timestamp :descending]]}
-                                 {:scf-read-db db, :url-prefix "/pdb"})
+                                 {:scf-read-db db
+                                  :url-prefix "/pdb"
+                                  :node-purge-ttl (parse-period "14d")})
        (map (fn [row]
               (-> row
                   (update :facts #(json/parse (str % ) true))
@@ -70,7 +74,9 @@
                                  ["from" "reports"]
                                  {:order_by [[:certname :descending]
                                              [:producer_timestamp :descending]]}
-                                 {:scf-read-db db, :url-prefix "/pdb"})
+                                 {:scf-read-db db
+                                  :url-prefix "/pdb"
+                                  :node-purge-ttl (parse-period "14d")})
        (map (fn [row]
               (-> row
                   (update :logs #(json/parse (str %) true))
@@ -82,7 +88,10 @@
   (qeng/stream-query-result :v4
                             ["from" "nodes"]
                             {:order_by [[:certname :descending]]}
-                            {:scf-read-db db, :url-prefix "/pdb"}) )
+                            {:scf-read-db db
+                             :url-prefix "/pdb"
+                             :node-purge-ttl (parse-period "14d")}) )
+
 
 (defn state-snapshot [db]
   {:nodes (all-nodes db)
