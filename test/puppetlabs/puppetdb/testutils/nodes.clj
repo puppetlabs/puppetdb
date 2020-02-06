@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.time :refer [now plus seconds]]
+            [puppetlabs.puppetdb.time :refer [parse-period now plus seconds]]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
             [puppetlabs.puppetdb.query-eng :as eng]))
 
@@ -108,4 +108,5 @@
                              ["from" "nodes" ["=" "certname" certname]]
                              {}
                              {:scf-read-db *db*
-                              :url-prefix "/pdb"})))
+                              :url-prefix "/pdb"
+                              :node-purge-ttl (parse-period "14d")})))
