@@ -98,9 +98,7 @@
                nodes (fn []
                        (->> {:query ["from" "nodes"
                                      ["extract" ["certname" "expired"]
-                                      ["or"
-                                       ["=" "node_state" "active"]
-                                       ["=" "node_state" "inactive"]]]]}
+                                      ["=" "node_state" "any"]]]}
                             (svc-utils/post (svc-utils/query-url-str ""))
                             :body
                             slurp
@@ -109,9 +107,7 @@
                facts (fn []
                        (->> {:query ["from" "factsets"
                                      ["extract" ["certname" "facts"]
-                                      ["or"
-                                       ["=" "node_state" "active"]
-                                       ["=" "node_state" "inactive"]]]]}
+                                      ["=" "node_state" "any"]]]}
                             (svc-utils/post (svc-utils/query-url-str ""))
                             :body
                             slurp
