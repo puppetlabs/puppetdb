@@ -367,11 +367,12 @@
 (defn narrow-globals
   "Reduces the number of globals to limit their reach in the codebase"
   [globals]
-  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print]))
+  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print :node-purge-ttl]))
 
 (defn valid-query?
-  [scf-read-db version query-map]
-  (let [{:keys [remaining-query entity query-options]} (qeng/user-query->engine-query version query-map)]
+  [scf-read-db version query-map query-options]
+  (let [{:keys [remaining-query entity query-options]}
+        (qeng/user-query->engine-query version query-map (:node-purge-ttl query-options))]
     (jdbc/with-db-connection scf-read-db
       (when (qeng/query->sql remaining-query entity version query-options)
         true))))
@@ -379,8 +380,9 @@
 (defn query-handler
   [version]
   (fn [{:keys [params globals puppetdb-query]}]
-    (if (and (:ast_only puppetdb-query) (valid-query? (:scf-read-db globals) version puppetdb-query))
-      (http/json-response (:query puppetdb-query))
-      (qeng/produce-streaming-body version
-                              (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                              (narrow-globals globals)))))
+    (let [query-options (narrow-globals globals)]
+      (if (and (:ast_only puppetdb-query) (valid-query? (:scf-read-db globals) version puppetdb-query query-options))
+        (http/json-response (:query puppetdb-query))
+        (qeng/produce-streaming-body version
+                                (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                                query-options)))))

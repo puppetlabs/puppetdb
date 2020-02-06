@@ -526,6 +526,7 @@
         globals {:scf-read-db read-db
                  :scf-write-db write-db
                  :pretty-print (:pretty-print developer)
+                 :node-purge-ttl (:node-purge-ttl database)
                  :cmd-event-mult cmd-event-mult
                  :maybe-send-cmd-event! maybe-send-cmd-event!}]
 
@@ -701,7 +702,7 @@
   (query [this version query-expr paging-options row-callback-fn]
          (let [sc (service-context this)
                query-options (-> (get sc :shared-globals)
-                                 (select-keys [:scf-read-db :warn-experimental])
+                                 (select-keys [:scf-read-db :warn-experimental :node-purge-ttl])
                                  (assoc :url-prefix @(get sc :url-prefix)))]
            (qeng/stream-query-result version
                                      query-expr

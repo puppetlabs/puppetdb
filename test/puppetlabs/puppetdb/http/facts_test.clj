@@ -38,7 +38,7 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp parse-period] :as t]))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
@@ -350,7 +350,8 @@
     {:certname "foo4", :environment "DEV", :name "uptime_seconds", :value 6000}
     {:certname "foo4", :environment "DEV", :name "hostname", :value "foo4"}]
 
-   ;; ...and for all nodes, regardless of active/inactive status
+   ;; Can ask for nodes regardless of active/inactive status
+   ;; In an HA setup, these are the nodes that will be kept in sync
    ["or" ["=" ["node" "active"] true]
          ["=" ["node" "active"] false]]
    [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
@@ -373,7 +374,36 @@
     {:certname "foo4", :environment "DEV", :name "kernel", :value "Linux"}
     {:certname "foo4", :environment "DEV", :name "domain", :value "testing.com"}
     {:certname "foo4", :environment "DEV", :name "uptime_seconds", :value 6000}
-    {:certname "foo4", :environment "DEV", :name "hostname", :value "foo4"}]))
+    {:certname "foo4", :environment "DEV", :name "hostname", :value "foo4"}]
+
+   ;; ...and for all nodes in the database regardless of status
+   ["=" "node_state" "any"]
+   [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}
+    {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}
+    {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}
+    {:certname "foo4", :environment "DEV", :name "operatingsystem", :value "RedHat"}
+    {:certname "foo4", :environment "DEV", :name "kernel", :value "Linux"}
+    {:certname "foo4", :environment "DEV", :name "domain", :value "testing.com"}
+    {:certname "foo4", :environment "DEV", :name "uptime_seconds", :value 6000}
+    {:certname "foo4", :environment "DEV", :name "hostname", :value "foo4"}
+    {:certname "foo5", :environment "DEV", :name "operatingsystem", :value "RedHat"}
+    {:certname "foo5", :environment "DEV", :name "kernel", :value "Linux"}
+    {:certname "foo5", :environment "DEV", :name "domain", :value "testing.com"}
+    {:certname "foo5", :environment "DEV", :name "uptime_seconds", :value 6000}
+    {:certname "foo5", :environment "DEV", :name "hostname", :value "foo5"}]))
 
 
 (defn versioned-well-formed-tests
@@ -506,6 +536,7 @@
     (server/build-app #(hash-map :scf-read-db read-db
                                  :scf-write-db write-db
                                  :product-name "puppetdb"
+                                 :node-purge-ttl (parse-period "14d")
                                  :url-prefix "/pdb")))))
 
 (deftest-http-app fact-queries
@@ -532,12 +563,18 @@
                 "hostname" "foo4"
                 "kernel" "Linux"
                 "operatingsystem" "RedHat"
+                "uptime_seconds" 6000}
+        facts5 {"domain" "testing.com"
+                "hostname" "foo5"
+                "kernel" "Linux"
+                "operatingsystem" "RedHat"
                 "uptime_seconds" 6000}]
     (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
       (scf-store/add-certname! "foo4")
+      (scf-store/add-certname! "foo5")
       (scf-store/add-facts! {:certname "foo1"
                              :values facts1
                              :timestamp (now)
@@ -562,7 +599,16 @@
                              :environment "DEV"
                              :producer_timestamp (now)
                              :producer "bar4"})
-      (scf-store/deactivate-node! "foo4"))
+      (scf-store/add-facts! {:certname "foo5"
+                             :values facts5
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer_timestamp (-> 16 t/days t/ago)
+                             :producer "bar5"})
+      (scf-store/deactivate-node! "foo4")
+      ; This is simulating a node that was deactivated before node-purge-ttl but
+      ; has not been garbage collected. It should be neither active nor inactive
+      (scf-store/deactivate-node! "foo5" (-> 15 t/days t/ago)))
 
     (testing "query without param should not fail"
       (let [response (query-response method endpoint)]

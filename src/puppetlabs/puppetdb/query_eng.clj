@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:import [org.postgresql.util PGobject])
+  (:import [org.postgresql.util PGobject]
+           [org.joda.time Period])
   (:require [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
@@ -142,6 +143,7 @@
 (def query-options-schema
   {:scf-read-db s/Any
    :url-prefix String
+   :node-purge-ttl Period
    (s/optional-key :warn-experimental) Boolean
    (s/optional-key :pretty-print) (s/maybe Boolean)})
 
@@ -179,8 +181,8 @@
     :else obj))
 
 (defn user-query->engine-query
-  ([version query-map] (user-query->engine-query version query-map false))
-  ([version query-map warn-experimental]
+  ([version query-map node-purge-ttl] (user-query->engine-query version query-map node-purge-ttl false))
+  ([version query-map node-purge-ttl warn-experimental]
    (let [query (:query query-map)
          {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
                                                           version query warn-experimental)
@@ -190,7 +192,7 @@
                                 utils/strip-nil-values)
          query-options (->> (dissoc query-map :query)
                             utils/strip-nil-values
-                            (merge {:limit nil :offset nil :order_by nil}
+                            (merge {:node-purge-ttl node-purge-ttl :limit nil :offset nil :order_by nil}
                                    paging-options))
          entity (cond
                   (and (= entity :factsets) (:include_package_inventory query-options)) :factsets-with-packages
@@ -205,10 +207,11 @@
   [version :- s/Keyword
    query-map
    options :- query-options-schema]
-  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
+  (let [{:keys [scf-read-db url-prefix node-purge-ttl warn-experimental pretty-print]
          :or {warn-experimental true
               pretty-print false}} options
-        {:keys [query remaining-query entity query-options]} (user-query->engine-query version query-map warn-experimental)]
+        {:keys [query remaining-query entity query-options]}
+        (user-query->engine-query version query-map node-purge-ttl warn-experimental)]
 
     (try
       (jdbc/with-transacted-connection scf-read-db

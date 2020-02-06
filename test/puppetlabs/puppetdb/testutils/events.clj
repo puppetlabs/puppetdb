@@ -5,7 +5,7 @@
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.time :refer [to-string to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [to-string to-timestamp parse-period]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -65,4 +65,5 @@
                             ["from" "events" query]
                             query-options
                             {:scf-read-db *db*
-                             :url-prefix "/pdb"})))
+                             :url-prefix "/pdb"
+                             :node-purge-ttl (parse-period "14d")})))
