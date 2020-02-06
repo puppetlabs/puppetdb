@@ -434,11 +434,7 @@
   {:left-join
    [:environments [:= :fs.environment_id :environments.id]
 
-    :producers
-    [:= :fs.producer_id :producers.id]
-
-    :certnames
-    [:= :fs.certname :certnames.certname]]})
+    :certnames [:= :fs.certname :certnames.certname]]})
 
 ;;; The drop joins related *-clause tests below refer to labeled
 ;;; clauses in query-eng.engine, e.g. dotted-match-filter-clause.

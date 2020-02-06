@@ -260,9 +260,6 @@
                            :left-join [:environments
                                        [:= :fs.environment_id :environments.id]
 
-                                       :producers
-                                       [:= :fs.producer_id :producers.id]
-
                                        :certnames
                                        [:= :fs.certname :certnames.certname]]}
 
