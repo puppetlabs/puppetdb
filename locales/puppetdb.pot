@@ -1,13 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Puppet <docs@puppet.com>
-# This file is distributed under the same license as the PACKAGE package.
+# This file is distributed under the same license as the puppetlabs.puppetdb package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9d8edc5d10c309987dc359356b5e0dc0699df540\n"
+"X-Git-Ref: beb6e9a80688180ddbe9e1186051b8644da8dc27\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -221,8 +221,7 @@ msgstr ""
 msgid "Unkown fatal start error {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/cli/tk_util.clj
-#: src/puppetlabs/puppetdb/cli/util.clj
+#: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
 msgid "error:"
 msgstr ""
 
@@ -662,6 +661,19 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid "Command rejected due to size exceeding max-command-size"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid ""
+"Conflicting PDB sync versions, each PDB syncing must be on the same version"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid "The x-pdb-sync-ver header: {0} cannot be converted to an int."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid "Unknown sync version check state"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pdb_routing.clj
