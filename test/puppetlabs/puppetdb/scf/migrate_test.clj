@@ -1273,7 +1273,34 @@
       (is (not (contains? procs "md5_agg")))
       (is (not (contains? procs "dual_md5"))))))
 
-(deftest autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports-test
+
+(deftest migration-74-adds-catalog-resoureces-file-idx
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 73)
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 74)
+    (is (= {:index-diff (set
+                          [{:left-only nil
+                            :right-only
+                            {:schema "public"
+                             :table "catalog_resources"
+                             :index "catalog_resources_file_idx"
+                             :index_keys ["file"]
+                             :type "gin"
+                             :unique? false
+                             :functional? false
+                             :is_partial true
+                             :primary? false
+                             :user "pdb_test"}
+                            :same nil}])
+            :table-diff nil
+            :constraint-diff nil}
+           (update
+             (diff-schema-maps before-migration (schema-info-map *db*))
+             :index-diff
+             set)))))
+
+(deftest autovacuum-vacuum-scale-factor-test
   (clear-db-for-testing!)
   ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
   (fast-forward-to-migration! desired-schema-version)
@@ -1281,9 +1308,19 @@
                 "catalogs" "0.75"
                 "certnames" "0.75"
                 "reports" "0.01"}]
-    (doall
-     (map (fn [[table factor]]
-            (is (seq (jdbc/query-to-vec
-                      (format "SELECT reloptions FROM pg_class WHERE relname = '%s' AND CAST(reloptions as text) LIKE '{autovacuum_vacuum_scale_factor=%s}'"
-                              table factor)))))
-          values))))
+    (doseq [[table factor] values]
+      (is (= [{:reloptions [(format "autovacuum_vacuum_scale_factor=%s" factor)]}]
+             (jdbc/query-to-vec
+               (format "SELECT reloptions FROM pg_class WHERE relname = '%s' AND CAST(reloptions as text) LIKE '{autovacuum_vacuum_scale_factor=%s}'"
+                       table factor)))))))
+
+(deftest autovacuum-analyze-scale-factor-test
+  (clear-db-for-testing!)
+  ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
+  (fast-forward-to-migration! desired-schema-version)
+  (let [values {"catalog_resources" "0.01"}]
+    (doseq [[table factor] values]
+      (is (= [{:reloptions [(format "autovacuum_analyze_scale_factor=%s" factor)]}]
+             (jdbc/query-to-vec
+               (format "SELECT reloptions FROM pg_class WHERE relname = '%s' AND CAST(reloptions as text) LIKE '{autovacuum_analyze_scale_factor=%s}'"
+                       table factor)))))))
