@@ -69,9 +69,10 @@
             [puppetlabs.puppetdb.scf.storage :as scf]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning])
   (:import [org.postgresql.util PGobject]
-           [java.time LocalDate ZonedDateTime ZoneId]
+           [java.time LocalDate ZonedDateTime ZoneId OffsetDateTime]
            (java.sql Timestamp)
-           (java.time.temporal ChronoUnit)))
+           (java.time.temporal ChronoUnit)
+           (java.time.format DateTimeFormatter)))
 
 (defn init-through-2-3-8
   []
@@ -1606,46 +1607,56 @@
    (reporting-partitioned-tables 500))
   ([batch-size]
    (jdbc/do-commands
-    "ALTER TABLE resource_events RENAME TO resource_events_premigrate"
+     "ALTER TABLE resource_events RENAME TO resource_events_premigrate"
 
-    "CREATE TABLE resource_events (
-       event_hash bytea NOT NULL PRIMARY KEY,
-       report_id bigint NOT NULL,
-       certname_id bigint NOT NULL,
-       status text NOT NULL,
-       \"timestamp\" timestamp with time zone NOT NULL,
-       resource_type text NOT NULL,
-       resource_title text NOT NULL,
-       property text,
-       new_value text,
-       old_value text,
-       message text,
-       file text DEFAULT NULL::character varying,
-       line integer,
-       name text,
-       containment_path text[],
-       containing_class text,
-       corrective_change boolean)"
+     "CREATE TABLE resource_events (
+        event_hash bytea NOT NULL PRIMARY KEY,
+        report_id bigint NOT NULL,
+        certname_id bigint NOT NULL,
+        status text NOT NULL,
+        \"timestamp\" timestamp with time zone NOT NULL,
+        resource_type text NOT NULL,
+        resource_title text NOT NULL,
+        property text,
+        new_value text,
+        old_value text,
+        message text,
+        file text DEFAULT NULL::character varying,
+        line integer,
+        name text,
+        containment_path text[],
+        containing_class text,
+        corrective_change boolean)"
 
-    "CREATE OR REPLACE FUNCTION resource_events_insert_trigger()
-    RETURNS TRIGGER AS $$
-    DECLARE
-      tablename varchar;
-    BEGIN
-      SELECT FORMAT('resource_events_%sZ',
-                    TO_CHAR(NEW.\"timestamp\" AT TIME ZONE 'UTC', 'YYYYMMDD')) INTO tablename;
+     "CREATE OR REPLACE FUNCTION resource_events_insert_trigger()
+     RETURNS TRIGGER AS $$
+     DECLARE
+       tablename varchar;
+     BEGIN
+       SELECT FORMAT('resource_events_%sZ',
+                     TO_CHAR(NEW.\"timestamp\" AT TIME ZONE 'UTC', 'YYYYMMDD')) INTO tablename;
 
-      EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
-      USING NEW;
+       EXECUTE 'INSERT INTO ' || tablename || ' SELECT ($1).*'
+       USING NEW;
 
-      RETURN NULL;
-    END;
-    $$
-    LANGUAGE plpgsql;"
+       RETURN NULL;
+     END;
+     $$
+     LANGUAGE plpgsql;"
 
-    "CREATE TRIGGER insert_resource_events_trigger
-    BEFORE INSERT ON resource_events
-    FOR EACH ROW EXECUTE PROCEDURE resource_events_insert_trigger();")
+     "CREATE TRIGGER insert_resource_events_trigger
+     BEFORE INSERT ON resource_events
+     FOR EACH ROW EXECUTE PROCEDURE resource_events_insert_trigger();"
+
+     "CREATE OR REPLACE FUNCTION find_resource_events_unique_dates()
+     RETURNS TABLE (rowdate DATE)
+     AS $$
+     DECLARE
+     BEGIN
+       EXECUTE 'SET local timezone to ''UTC''';
+       RETURN QUERY SELECT DISTINCT \"timestamp\"::DATE AS rowdate FROM resource_events_premigrate;
+     END;
+     $$ language plpgsql;")
 
   ;; create range of partitioned tables
 
@@ -1667,15 +1678,26 @@
 
    ;; pre-create partitions
    (log/info (trs "Creating partitions based on unique days in resource_events"))
-   (jdbc/call-with-query-rows
-    ["select distinct date_trunc('day', \"timestamp\") as rowdate
-      from resource_events_premigrate"]
-    (fn [rows]
-      (doseq [row rows]
-        (partitioning/create-resource-events-partition (-> (:rowdate row)
-                                                           (.toInstant)
-                                                           (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
-                                                           (.truncatedTo (ChronoUnit/DAYS)))))))
+   ;; PDB-4641 - PostgreSQL returns dates in the client's timezone. What we need
+   ;; to do here is force the connection into UTC. We want the date of the event,
+   ;; in UTC, so that we can create the partition for it. To do this, we have
+   ;; the find_resource_events_unique_dates plpgsql function above. For the duration
+   ;; of this migration transaction, dates will be displayed in UTC.
+   ;; If the timezone is in the local timezone (say, EST, or CEST), you get the date
+   ;; in that timezone with the time cut off. So, 2020-01-30T05:00:00Z, which truncates
+   ;; to 2020-01-30 using the pgsql date functions. In reality, this is actually
+   ;; 2020-01-31 in UTC, which is the date we need for creating the partition successfully.
+   (let [current-timezone (:current_setting (first (jdbc/query-to-vec "SELECT current_setting('TIMEZONE')")))]
+     (jdbc/call-with-query-rows
+       ["select rowdate from find_resource_events_unique_dates()"]
+       (fn [rows]
+         (doseq [row rows]
+           (partitioning/create-resource-events-partition (-> (:rowdate row)
+                                                              (.toLocalDate)
+                                                              (.atStartOfDay (ZoneId/of "UTC")))))))
+     (jdbc/do-commands
+       ;; restore the transaction's timezone setting after creating the partitions
+       (str "SET local timezone to '" current-timezone "'")))
 
   (let [event-count (-> "select count(*) from resource_events_premigrate"
                         jdbc/query-to-vec first :count)
@@ -1753,7 +1775,8 @@
 
   (jdbc/do-commands
    ;; Indexes are created on the individual partitions, not on the base table
-   "DROP TABLE resource_events_premigrate")))
+   "DROP TABLE resource_events_premigrate"
+   "DROP FUNCTION find_resource_events_unique_dates()")))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
