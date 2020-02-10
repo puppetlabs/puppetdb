@@ -517,6 +517,18 @@ module PuppetDBExtensions
         password => 'puppetdb',
         grant    => 'all',
       }
+      # create the pg_trgm extension
+      if $facts['os']['family'] == 'Debian' {
+        $pg_trgm_package = 'postgresql-contrib'
+      } else {
+        $pg_trgm_package = 'postgresql96-contrib'
+      }
+      postgresql::server::extension { 'puppetdb_pg_trgm':
+        schema    => 'public',
+        database  => 'puppetdb',
+        extension => 'pg_trgm',
+        package_name => $pg_trgm_package,
+      }
     EOS
     manifest
   end
