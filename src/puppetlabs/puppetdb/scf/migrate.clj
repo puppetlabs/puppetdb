@@ -1755,12 +1755,6 @@
    ;; Indexes are created on the individual partitions, not on the base table
    "DROP TABLE resource_events_premigrate")))
 
-(defn add-gin-index-on-catalog-resources-file
-  []
-  (jdbc/do-commands
-    "create index catalog_resources_file_idx on catalog_resources using gin (file gin_trgm_ops) where file is not null"
-    "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
-
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1816,8 +1810,7 @@
    70 migrate-md5-to-sha1-hashes
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports
    72 add-support-for-catalog-inputs
-   73 reporting-partitioned-tables
-   74 add-gin-index-on-catalog-resources-file})
+   73 reporting-partitioned-tables})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1959,7 +1952,14 @@
     (log/info (trs "Creating additional index `packages_name_trgm`"))
     (jdbc/do-commands
      ["create index packages_name_trgm on packages"
-      "  using gin (name gin_trgm_ops)"])))
+      "  using gin (name gin_trgm_ops)"]))
+
+  (when-not (sutils/index-exists? "catalog_resources_file_trgm")
+    (log/info (trs "Creating additional index `catalog_resources_file_trgm`"))
+    (jdbc/do-commands
+      ["create index catalog_resources_file_trgm on catalog_resources"
+       " using gin (file gin_trgm_ops) where file is not null"]
+      "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)")))
 
 (defn ensure-report-id-index []
   (when-not (sutils/index-exists? "idx_reports_compound_id")
@@ -1979,11 +1979,13 @@
   (jdbc/with-db-transaction []
     (if (sutils/pg-extension? "pg_trgm")
       (trgm-indexes!)
-      (log/warn
-       (str
-        (trs "Missing PostgreSQL extension `pg_trgm`")
-        "\n\n"
-        (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
-        " "
-        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n")))))
+      (do
+        (log/warn (trs "DEPRECATED: The `pg_trgm` extension will be required in PDB 7.0.0"))
+        (log/warn
+         (str
+          (trs "Missing PostgreSQL extension `pg_trgm`")
+          "\n\n"
+          (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
+          " "
+          (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n"))))))
   (ensure-report-id-index))
