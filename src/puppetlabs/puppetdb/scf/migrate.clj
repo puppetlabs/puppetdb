@@ -1755,12 +1755,6 @@
    ;; Indexes are created on the individual partitions, not on the base table
    "DROP TABLE resource_events_premigrate")))
 
-(defn add-gin-index-on-catalog-resources-file
-  []
-  (jdbc/do-commands
-    "create index catalog_resources_file_idx on catalog_resources using gin (file gin_trgm_ops) where file is not null"
-    "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
-
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1816,8 +1810,7 @@
    70 migrate-md5-to-sha1-hashes
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames-reports
    72 add-support-for-catalog-inputs
-   73 reporting-partitioned-tables
-   74 add-gin-index-on-catalog-resources-file})
+   73 reporting-partitioned-tables})
 
 (def desired-schema-version (apply max (keys migrations)))
 
