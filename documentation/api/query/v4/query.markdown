@@ -112,3 +112,38 @@ would be recorded as a string like "Deferred({'name' => 'join',
 ## Tutorial and tips
 
 For a walkthrough on constructing queries, see [the query tutorial page][tutorial]. For quick tips on using curl to make ad hoc queries, see [the curl tips page][curl].
+
+## Experimental query optimization
+
+> *Note*: this feature is experimental and may be altered or removed
+> in a future release, and while it is expected to be safe to enable
+> it for queries that fall within the constraints described below,
+> some caution is still advisable.  If something were to go wrong,
+> the result set returned by the query might be incorrect.
+
+PuppetDB has an experimental query optimizer that may be able to
+substantially decrease the cost (and correspondingly decrease the
+response time) of some queries.  It does this by attempting to avoid
+retrieving unnecessary data when generating a response.
+
+At the moment, this optimization can only be applied for queries that
+ask for a subset of the available query response fields, for example,
+a query against the nodes endpoint that only extracts the `certname`.
+Further, for any given query it may or may not have any effect at all,
+and the effect, if any, may vary across PuppetDB releases.  It is also
+not currrently safe to apply the optimization to queries that include
+aggregate/grouping operations or functions.
+
+To enable the optimization for a query that does not include simply
+add `optimize_drop_unused_joins=true` as a parameter.  For now, the
+result data should be treated with some caution, and at a minimum, you
+may want to inspect the results of the query to make sure that the
+optimizer doesn't affect the result set.  If you'd like to determine
+wheter or not PuppetDB attempted to optimize a query, any efforts
+are logged at debug level.
+
+(If you happen to have `diff` and `jq` installed, you should be able
+ to compare the results of a given query with and without the
+ optimizer by saving the data in each case to a file and then running
+ a command like this:
+ `diff -u <(jq -S . result-1.json) <(jq -S . result-2.json)`.)

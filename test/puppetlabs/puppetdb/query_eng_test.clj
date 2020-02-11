@@ -391,3 +391,167 @@
       (is (= false (:expires_facts result)))
       (is (-> result :expires_facts_updated time/parse-wire-datetime
               time/date-time?)))))
+
+
+;;;; drop-joins optimization tests
+
+(defn compiled-selects [[rec q] drop?]
+  (-> (compile-query rec q
+                     (when drop? {:optimize_drop_unused_joins true})
+                     :parameterized-plan)
+      (get-in [:plan :selection])
+      (dissoc :from)))
+
+(def normal-facts-joins
+  {:left-join [[:environments :env] [:= :fs.environment_id :env.id]]})
+
+(def normal-nodes-joins
+  {:left-join
+   [:catalogs
+    [:= :catalogs.certname :certnames.certname]
+
+    [:factsets :fs]
+    [:= :certnames.certname :fs.certname]
+
+    :reports
+    [:and
+     [:= :certnames.certname :reports.certname]
+     [:= :certnames.latest_report_id :reports.id]]
+
+    [:environments :catalog_environment]
+    [:= :catalog_environment.id :catalogs.environment_id]
+
+    :report_statuses
+    [:= :reports.status_id :report_statuses.id]
+
+    [:environments :facts_environment]
+    [:= :facts_environment.id :fs.environment_id]
+
+    [:environments :reports_environment]
+    [:= :reports_environment.id :reports.environment_id]]})
+
+(def normal-inventory-joins
+  {:left-join
+   [:environments [:= :fs.environment_id :environments.id]
+
+    :certnames [:= :fs.certname :certnames.certname]]})
+
+;;; The drop joins related *-clause tests below refer to labeled
+;;; clauses in query-eng.engine, e.g. dotted-match-filter-clause.
+
+(deftest joins-dropped-for-trivial-nodes-query
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" "certname"]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+
+(deftest factsets-not-dropped-from-nodes-for-facts-env
+  ;; An indirect join dependency
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" "facts_environment"]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join [[:factsets :fs]
+                          [:= :certnames.certname :fs.certname]
+
+                          [:environments :facts_environment]
+                          [:= :facts_environment.id :fs.environment_id]]}
+             (compiled-selects q :drop-joins))))))
+
+(deftest reports-not-dropped-from-nodes-for-latest-report-status
+  ;; An indirect join dependency
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" "latest_report_status"]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join [:reports
+                          [:and
+                           [:= :certnames.certname :reports.certname]
+                           [:= :certnames.latest_report_id :reports.id]]
+                          :report_statuses
+                          [:= :reports.status_id :report_statuses.id]]}
+             (compiled-selects q :drop-joins))))))
+
+(deftest catalogs-not-dropped-from-nodes-for-catalog-env
+  ;; An indirect join dependency
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" "catalog_environment"]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join [:catalogs
+                          [:= :catalogs.certname :certnames.certname]
+
+                          [:environments :catalog_environment]
+                          [:= :catalog_environment.id :catalogs.environment_id]]}
+             (compiled-selects q :drop-joins))))))
+
+(deftest reports-not-dropped-from-nodes-for-report-env
+  ;; An indirect join dependency
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" "report_environment"]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join [:reports
+                          [:and
+                           [:= :certnames.certname :reports.certname]
+                           [:= :certnames.latest_report_id :reports.id]]
+                          [:environments :reports_environment]
+                          [:= :reports_environment.id :reports.environment_id]]}
+             (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-extract-deps-operator-field-clause
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [facts-query ["extract" "certname" ["=" "certname" "host1"]]]]
+      (is (= normal-facts-joins (compiled-selects q nil)))
+      (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-extract-deps-jsonb-type-equal-clause
+  ;; This also involves the extract-where-deps clauses-clause
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [facts-query ["extract" "name"
+                          ["and" ["=" "name" "kernel"] ["=" "value" "Linux"]]]]]
+      (is (= (assoc normal-facts-joins
+                    :selection-params ["kernel" "kernel" "kernel"])
+             (compiled-selects q nil)))
+      (is (= {:left-join [] :selection-params ["kernel" "kernel" "kernel"]}
+             (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-extract-deps-subquery-clause
+  ;; This also involves the extract-where-deps single-column-clause
+  ;; This also involves the extract-where-deps multiple-column-clause
+  ;; This also involves the extract-where-deps clause-clause
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" "certname"
+                          ["or"
+                           ["=" "node_state" "active"]
+                           ["=" "node_state" "inactive"]]]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-dotted-filter-clause
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [inventory-query ["extract" "certname"
+                              [">" "facts.system_uptime.hours" 0]]]]
+      (is (= normal-inventory-joins (compiled-selects q nil)))
+      (is (= {:left-join [:certnames [:= :fs.certname :certnames.certname]]}
+             (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-dotted-match-filter-clause
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (with-test-db ;; required by fact_paths query in expand-query-node
+      (with-transacted-connection *db*
+        ;; Need fact in order for the engine to create the right shape query
+        (scf-store/add-certname! "foo1")
+        (scf-store/add-facts! {:certname "foo1"
+                               :values  {"trusted" {"certname" "foo1"}}
+                               :timestamp (now)
+                               :environment "DEV"
+                               :producer_timestamp (now)
+                               :producer "bar1"}))
+      ;; match() and node_state filters are required in order to
+      ;; generate the appropriate query plan
+      (let [q [inventory-query ["extract" ["facts"]
+                                ["and"
+                                 ["=" "node_state" "active"]
+                                 ["="
+                                  "facts.match(\"trust.*\").certname"
+                                  "pg1.vm"]]]]]
+        (is (= normal-inventory-joins (compiled-selects q nil)))
+        (is (= {:left-join [:certnames [:= :fs.certname :certnames.certname]]}
+               (compiled-selects q :drop-joins)))))))
