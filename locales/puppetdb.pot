@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: beb6e9a80688180ddbe9e1186051b8644da8dc27\n"
+"X-Git-Ref: 98e72cad54be186737e505380578be5c39e45ae6\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -984,6 +984,14 @@ msgstr ""
 msgid ""
 "Your initial query must be of the form: [\"from\",<entity>,(<optional-"
 "query>)]."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "Not dropping unused joins from query (disallowed)"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "Attempting to drop unused joins from query"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
