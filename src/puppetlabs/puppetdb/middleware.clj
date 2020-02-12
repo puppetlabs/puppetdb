@@ -26,7 +26,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [puppetlabs.puppetdb.command :as cmd]
-            [puppetlabs.puppetdb.constants :as constants]))
+            [puppetlabs.puppetdb.constants :as constants]
+            [puppetlabs.puppetdb.command.constants :as const]))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -291,8 +292,10 @@
             (do (log/debug (trs "Processing command with a content-length of {0} bytes" length-in-bytes))
                 (update! (cmd/global-metric :size) length-in-bytes)
                 (when (and command version)
-                  (cmd/create-metrics-for-command! command version)
-                  (update! (cmd/cmd-metric command version :size) length-in-bytes)))
+                  (let [command (const/normalize-command-name command)]
+                    ;; command name must be normalized so correct metrics are updated
+                    (cmd/create-metrics-for-command! command version)
+                    (update! (cmd/cmd-metric command version :size) length-in-bytes))))
             (log/warn (trs "Neither Content-Length or X-Uncompressed-Length header is set.
                             This {0} command will not be counted in command size metrics"
                            command))))

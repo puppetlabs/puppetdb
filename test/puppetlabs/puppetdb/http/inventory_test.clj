@@ -20,10 +20,10 @@
   {:certname "bar.com"
    :timestamp nil
    :environment "DEV"
-   :trusted {:foo {:baz "bar"}}
+   :trusted {:foo {:baz "bar" :bin nil}}
    :facts {:domain "testing.com"
            :hostname "bar.com"
-           :trusted {:foo {:baz "bar"}}
+           :trusted {:foo {:baz "bar" :bin nil}}
            :kernel "Linux"
            :array_fact {:foo ["biz" "baz"]}
            :my_structured_fact {:foo {:bar 1
@@ -35,7 +35,8 @@
                                   (keyword "single'quoted") "bar"
                                   (keyword "double\"quoted") "baz"}}
            :double_quote "foo\"bar"
-           :backslash "foo\\bar"}})
+           :backslash "foo\\bar"
+           :custom {:nested {:fact nil}}}})
 
 (def inventory2
   {:certname "foo.com"
@@ -147,7 +148,29 @@
      #{response1}
 
      ["~" "facts.backslash" "^foo\\\\bar$"]
-     #{response1})))
+     #{response1}
+
+     ["null?" "facts.custom.nested.fact" true]
+     #{response1}
+
+     ["null?" "trusted.foo.bin" true]
+     #{response1}
+
+     ["null?" "trusted.foo.baz" false]
+     #{response1 response2 response3}
+
+     ["null?" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"" false]
+     #{response1}
+
+     ["null?" "trusted.path.doesnt.exist" false]
+     #{}
+
+     ["null?" "facts.path.doesnt.exist" true]
+     #{}
+
+     ;; TODO figure out what behavior we want for queries with null w/o a dotted path
+     ["null?" "facts" true]
+     #{})))
 
 (deftest-http-app inventory-queries
   [[version endpoint] inventory-endpoints

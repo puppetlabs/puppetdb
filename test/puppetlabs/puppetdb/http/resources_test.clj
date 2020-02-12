@@ -95,6 +95,12 @@ to the result of the form supplied to this method."
         (testing query
           (is (= (query-result (query-response method endpoint query)) result)))))
 
+    (testing "null? operator on dotted paths"
+      (doseq [[query result] [[["null?" "parameters.path.doesnt.exist" true] #{}]
+                              [["null?" "parameters.path.doesnt.exist" false] #{}]
+                              [["null?" "parameters.ensure" false] #{foo1 bar1}]]]
+        (is (= (query-result (query-response method endpoint query)) result))))
+
     (testing "fact subqueries are supported"
       (let [{:keys [body status]}
             (query-response method endpoint
