@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 98e72cad54be186737e505380578be5c39e45ae6\n"
+"X-Git-Ref: 0eb85a17ffd48a73371b19d542fd9097a138141e\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1139,6 +1139,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Creating additional index `packages_name_trgm`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating additional index `catalog_resources_file_trgm`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "DEPRECATED: The `pg_trgm` extension will be required in PDB 7.0.0"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
