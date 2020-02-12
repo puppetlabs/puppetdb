@@ -1649,12 +1649,12 @@
      FOR EACH ROW EXECUTE PROCEDURE resource_events_insert_trigger();"
 
      "CREATE OR REPLACE FUNCTION find_resource_events_unique_dates()
-     RETURNS TABLE (rowdate DATE)
+     RETURNS TABLE (rowdate TIMESTAMP WITH TIME ZONE)
      AS $$
      DECLARE
      BEGIN
        EXECUTE 'SET local timezone to ''UTC''';
-       RETURN QUERY SELECT DISTINCT \"timestamp\"::DATE AS rowdate FROM resource_events_premigrate;
+       RETURN QUERY SELECT DISTINCT date_trunc('day', \"timestamp\") AS rowdate FROM resource_events_premigrate;
      END;
      $$ language plpgsql;")
 
@@ -1693,8 +1693,7 @@
        (fn [rows]
          (doseq [row rows]
            (partitioning/create-resource-events-partition (-> (:rowdate row)
-                                                              (.toLocalDate)
-                                                              (.atStartOfDay (ZoneId/of "UTC")))))))
+                                                              (.toInstant))))))
      (jdbc/do-commands
        ;; restore the transaction's timezone setting after creating the partitions
        (str "SET local timezone to '" current-timezone "'")))

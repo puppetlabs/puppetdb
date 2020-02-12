@@ -5,7 +5,7 @@
             [schema.core :as s]
             [puppetlabs.i18n.core :refer [trs]])
 
-  (:import (java.time LocalDateTime LocalDate ZoneId ZonedDateTime)
+  (:import (java.time LocalDateTime LocalDate ZoneId ZonedDateTime Instant)
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
 
@@ -23,12 +23,13 @@
     (instance? java.sql.Timestamp date) (-> date
                                             (.toInstant)
                                             (ZonedDateTime/ofInstant (ZoneId/of "UTC")))
+    (instance? Instant date) (.atZone date (ZoneId/of "UTC"))
     :else (throw (ex-info (trs "Unhandled date type {0}" (type date)) {:date date}))))
 
 (s/defn create-partition
   [base-table :- s/Str
    date-column :- s/Str
-   date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime)
+   date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime Instant)
    index-fn :- (s/fn-schema
                 (s/fn :- [s/Str] [full-table-name :- s/Str
                                   iso-year-week :- s/Str]))]
@@ -56,7 +57,7 @@
 
 (defn create-resource-events-partition
   "Creates a partition in the resource_events table"
-  [date]
+  [^Instant date]
   (create-partition
    "resource_events" "\"timestamp\""
    date
