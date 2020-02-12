@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.http.command
   (:require [clojure.set :as set]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.command.constants :refer [command-names
+                                                           normalize-command-name]]
             [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension
                                                supported-content-encodings]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
@@ -128,7 +129,7 @@
 (defn-validated normalize-new-request
   [{:keys [params body] :as req} :- new-request-schema]
   (-> req
-      (update-in [:params "command"] str/replace "_" " ")
+      (update-in [:params "command"] normalize-command-name)
       (update-in [:params "version"] #(Integer/parseInt %))))
 
 (def old-request-schema

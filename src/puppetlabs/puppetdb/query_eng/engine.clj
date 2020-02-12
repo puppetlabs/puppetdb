@@ -1320,8 +1320,11 @@
   NullExpression
   (-plan->sql [{:keys [column] :as expr} options]
     (s/validate column-schema column)
-    (let [lhs (-plan->sql (:field column) options)
-          json? (= :jsonb-scalar (:type column))]
+    (let [queryable-json? (= :queryable-json (:type column))
+          lhs (if queryable-json?
+                (name (h/extract-sql (:field column)))
+                (-plan->sql (:field column) options))
+          json? (or queryable-json? (= :jsonb-scalar (:type column)))]
       (if (:null? expr)
         (if json?
           (su/jsonb-null? lhs true)
@@ -2016,8 +2019,18 @@
                        value op)))))
 
             [["null?" column-name value]]
-            (let [cinfo (get-in query-rec [:projections column-name])]
-              (map->NullExpression {:column cinfo :null? value}))
+            (let [maybe-dotted-path (str/split column-name #"\.")
+                  cinfo (get-in query-rec [:projections (first maybe-dotted-path)])]
+
+              (if (and (= :queryable-json (:type cinfo))
+                       (seq? (rest maybe-dotted-path)))
+                (let [field (name (h/extract-sql (:field cinfo)))
+                      dotted-path (->> maybe-dotted-path rest (str/join "."))
+                      json-path (map utils/maybe-strip-escaped-quotes (su/dotted-query->path dotted-path))
+                      path-extraction-field (jdbc/create-json-path-extraction field json-path)]
+                  (map->NullExpression {:column (assoc cinfo :field (hcore/raw path-extraction-field))
+                                        :null? value}))
+                (map->NullExpression {:column cinfo :null? value})))
 
             [["~" column-name value]]
             (let [colname (first (str/split column-name #"\."))
