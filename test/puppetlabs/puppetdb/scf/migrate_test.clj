@@ -1025,72 +1025,73 @@
   ;; version of migration 69 which added a name column to the resource_events table
   ;; before it was replaced by migration 73. This tests checks that any existing data
   ;; in the resource_events name column won't be dropped during migration 73.
-  (let [current-time (to-timestamp (now))
-        other-date (-> (ZonedDateTime/of 2015 10 9 16 42 54 94 (ZoneId/of "-07:00"))
-                       (.toInstant)
-                       (Timestamp/from))]
-      (jdbc/with-db-connection *db*
-        (clear-db-for-testing!)
-        ;; mimic the original behavior of migration 69 adding the name column to resource_events
-        (with-redefs [migrations (assoc migrations 69 (fn []
-                                                        (jdbc/do-commands
-                                                         "AlTER TABLE resource_events ADD COLUMN name text;")))]
-          (fast-forward-to-migration! 72))
+  (doseq [hour (range 0 24)]
+    (let [current-time (to-timestamp (now))
+          other-date (-> (ZonedDateTime/of 2015 10 9 hour 42 54 94 (ZoneId/of "-07:00"))
+                         (.toInstant)
+                         (Timestamp/from))]
+        (jdbc/with-db-connection *db*
+          (clear-db-for-testing!)
+          ;; mimic the original behavior of migration 69 adding the name column to resource_events
+          (with-redefs [migrations (assoc migrations 69 (fn []
+                                                          (jdbc/do-commands
+                                                           "AlTER TABLE resource_events ADD COLUMN name text;")))]
+            (fast-forward-to-migration! 72))
 
-        (jdbc/insert! :report_statuses
-                      {:status "testing1" :id 1})
-        (jdbc/insert! :environments {:id 0 :environment "testing"})
-        (jdbc/insert! :certnames {:certname "a.com"})
+          (jdbc/insert! :report_statuses
+                        {:status "testing1" :id 1})
+          (jdbc/insert! :environments {:id 0 :environment "testing"})
+          (jdbc/insert! :certnames {:certname "a.com"})
 
-        (jdbc/insert-multi!
-         :reports
-         [{:hash (sutils/munge-hash-for-storage "01")
-           :transaction_uuid (sutils/munge-uuid-for-storage
-                              "bbbbbbbb-2222-bbbb-bbbb-222222222222")
-           :configuration_version "thisisacoolconfigversion"
-           :certname "a.com"
-           :puppet_version "0.0.0"
-           :report_format 1
-           :start_time current-time
-           :end_time current-time
-           :receive_time current-time
-           :producer_timestamp current-time
-           :environment_id 0
-           :status_id 1
-           :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
-           :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
+          (jdbc/insert-multi!
+           :reports
+           [{:hash (sutils/munge-hash-for-storage "01")
+             :transaction_uuid (sutils/munge-uuid-for-storage
+                                "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+             :configuration_version "thisisacoolconfigversion"
+             :certname "a.com"
+             :puppet_version "0.0.0"
+             :report_format 1
+             :start_time current-time
+             :end_time current-time
+             :receive_time current-time
+             :producer_timestamp current-time
+             :environment_id 0
+             :status_id 1
+             :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+             :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
 
-        (let [[id1] (map :id
-                         (query-to-vec "SELECT id from reports order by certname"))
-              row1 {:new_value "\"directory\""
-                    :corrective_change false,
-                    :property nil
-                    :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
-                    :report_id id1
-                    :old_value "\"absent\""
-                    :containing_class "Foo"
-                    :certname_id 1
-                    :line 11
-                    :resource_type "File"
-                    :name "keep-this-name-value"
-                    :status "success"
-                    :resource_title "tmp-directory"
-                    :timestamp other-date
-                    :containment_path (sutils/to-jdbc-varchar-array ["foo"])
-                    :message "created"}]
+          (let [[id1] (map :id
+                           (query-to-vec "SELECT id from reports order by certname"))
+                row1 {:new_value "\"directory\""
+                      :corrective_change false,
+                      :property nil
+                      :file "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+                      :report_id id1
+                      :old_value "\"absent\""
+                      :containing_class "Foo"
+                      :certname_id 1
+                      :line 11
+                      :resource_type "File"
+                      :name "keep-this-name-value"
+                      :status "success"
+                      :resource_title "tmp-directory"
+                      :timestamp other-date
+                      :containment_path (sutils/to-jdbc-varchar-array ["foo"])
+                      :message "created"}]
 
-          (jdbc/insert-multi! :resource_events [row1])
-          (apply-migration-for-testing! 73 2)
+            (jdbc/insert-multi! :resource_events [row1])
+            (apply-migration-for-testing! 73 2)
 
-          (let [hashes (map :event_hash
-                            (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
-                hashes-set (set hashes)
-                expected1 (shash/resource-event-identity-pkey row1)
-                resource-event (first (query-to-vec "SELECT * FROM resource_events"))]
+            (let [hashes (map :event_hash
+                              (query-to-vec "SELECT encode(event_hash, 'hex') AS event_hash from resource_events"))
+                  hashes-set (set hashes)
+                  expected1 (shash/resource-event-identity-pkey row1)
+                  resource-event (first (query-to-vec "SELECT * FROM resource_events"))]
 
-            (is (= 1 (count hashes)))
-            (is (contains? hashes-set expected1))
-            (is (= "keep-this-name-value" (:name resource-event))))))))
+              (is (= 1 (count hashes)))
+              (is (contains? hashes-set expected1))
+              (is (= "keep-this-name-value" (:name resource-event)))))))))
 
 (deftest migration-73-adds-hashes-to-resource-events
   (let [current-time (to-timestamp (now))
