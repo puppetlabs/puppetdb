@@ -20,6 +20,14 @@ canonical: "/puppetdb/latest/release_notes.html"
 [puppet_apply]: ./connect_puppet_apply.html
 
 ---
+## PuppetDB 6.9.0
+
+### Bug fixes 
+
+- Previously, when a node had purged after a deactivate node command and a garbage collection had run on the local PuppetDB, the node was deleted. The remote PuppetDB also had this deactivated node present, but did not run a garbage collection. When the local PuppetDB attempted to sync from the remote it synced back the node it just garbage collected. This resulted in a ping-pong effect and PuppetDB would not purge the node. This sync has been deactivated. [PDB-4479](https://tickets.puppetlabs.com/browse/PDB-4479)
+
+### Contributors
+
 ## PuppetDB 6.8.1
 
 ### Bug fixes
