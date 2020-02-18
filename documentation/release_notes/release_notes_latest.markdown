@@ -35,6 +35,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 - Database migrations could fail if there were long periods of inactivity in the `resource_events`, table and a client's server wasn't using UTC.[PDB-4641](https://tickets.puppetlabs.com/browse/PDB-4641)
 
+### Contributors
+
+Austin Blatt, Morgan Rhodes, Rob Browning, Robert Roland, and Zak Kent
+
 
 ## PuppetDB 6.8.1
 
