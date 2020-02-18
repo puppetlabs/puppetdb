@@ -20,6 +20,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 [puppet_apply]: ./connect_puppet_apply.html
 
 ---
+## PuppetDB 6.9.0
+
+### New features and improvements
+
+- **File indexing on `catalog_resources`.** After you configure the PostgreSQL `pg_trgm` extension, PuppetDB adds an index to the file column on the `catalog_resources` table. [PDB-4640](https://tickets.puppetlabs.com/browse/PDB-4640)
+  > **Note:** As of this release, running PostgreSQL without the `pg_trgm` extension is deprecated. 
+
+- **Improved queries.** PuppetDB now has an [experimental query optimizer](./api/query/v4/query#experimental_query_optimization) that may be able to substantially decrease the cost and response time of some queries. [PDB-4512](https://tickets.puppetlabs.com/browse/PDB-4512)
+
+### Bug fixes
+
+- Fixed an issue affecting PE installations where PuppetDB would fail to purge a deactivated node. [PDB-4479](https://tickets.puppetlabs.com/browse/PDB-4479) 
+
+- Database migrations could fail if there were long periods of inactivity in the `resource_events`, table and a client's server wasn't using UTC.[PDB-4641](https://tickets.puppetlabs.com/browse/PDB-4641)
+
+
 ## PuppetDB 6.8.1
 
 ### Bug fixes
