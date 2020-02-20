@@ -994,6 +994,24 @@ pull data from each other. For each remote, you must provide:
 
 You should not configure PuppetDB to sync with itself.
 
+### `entity-time-limit`
+
+Set the maximum time that an entity can sync for (default: `"30m"`). PuppetDB
+syncs one entity (`catalogs`, `factsets`, `reports`, and `nodes`) at a time.
+While the sync is running it keeps a query open on the PostgreSQL database that
+will prevent the removal of old rows. If that connection is open long enough,
+it can degrade database performance. You shouldn't need to modify this setting
+unless you are experiencing an issue.
+
+### `initial-report-threshold`
+
+PuppetDB's initial sync, which occurs during startup, will only sync reports
+newer than `initial-report-threshold` (default: `"14d"`). While starting up,
+PuppetDB will not respond to queries or accept command submissions, so this can
+be used to get PuppetDB online faster, at the expense that it could return query
+responses that are not up to date. Subsequent periodic syncs will transfer the
+remaining data.
+
 #### HOCON
 
 If you are using HOCON to configure PuppetDB, use the following structure in
