@@ -261,7 +261,7 @@
                                           [7 3]
                                           [100 0]]]
         (clear-db-for-testing!)
-        (migrate! *db*)
+        (migrate!)
         (dotimes [i 10]
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)

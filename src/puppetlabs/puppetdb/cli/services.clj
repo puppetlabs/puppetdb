@@ -369,7 +369,7 @@
                          :current current
                          :oldest oldest})))
       @sutils/db-metadata
-      (let [migrated? (migrate! db-conn-pool)]
+      (let [migrated? (migrate!)]
         (indexes! config)
         migrated?))))
 

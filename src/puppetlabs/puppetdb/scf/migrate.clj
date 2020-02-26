@@ -1608,7 +1608,7 @@
        (difference applied-migrations)))
 
 (defn run-migrations
-  [db-connection-pool]
+  []
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
         known-migrations (apply sorted-set (keys migrations))
@@ -1663,13 +1663,13 @@
         (analyze small-tables)
         false))))
 
-(defn migrate! [db-connection-pool]
+(defn migrate! []
   "Migrates database to the latest schema version. Does nothing if
   database is already at the latest schema version.  Requires a
   connection pool because some operations may require an indepdendent
   database connection.  Returns true if there were any migrations."
   (try
-    (run-migrations db-connection-pool)
+    (run-migrations)
     (catch java.sql.SQLException e
       (log/error e (trs "Caught SQLException during migration"))
       (loop [ex (.getNextException e)]
