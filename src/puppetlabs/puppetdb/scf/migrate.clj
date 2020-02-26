@@ -1570,18 +1570,15 @@
   {:post  [(sorted? %)
            (set? %)
            (apply < 0 %)]}
-  (try
-    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
-          results (jdbc/with-db-transaction []  (query-to-vec query))]
-      (apply sorted-set (map :version results)))
-    (catch java.sql.SQLException e
-      (let [message (.getMessage e)
-            sql-state (.getSQLState e)]
-        (if (and (or (= sql-state "42P01") ; postgresql: undefined_table
-                     (= sql-state "42501")) ; hsqldb: user lacks privilege or object not found
-                 (re-find #"(?i)schema_migrations" message))
-          (sorted-set)
-          (throw e))))))
+  (jdbc/with-db-transaction []
+    (if-not (->> ["select 1 from pg_catalog.pg_tables where tablename = 'schema_migrations'"]
+                 jdbc/query-to-vec
+                 seq)
+      (sorted-set)
+      (->> "SELECT version FROM schema_migrations ORDER BY version"
+           query-to-vec
+           (map :version)
+           (apply sorted-set)))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
