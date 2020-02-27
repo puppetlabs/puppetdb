@@ -332,11 +332,8 @@
     (when-not (= (get-in m map-path) value)
       {setting {:expected value :actual (get-in m map-path)}})))
 
-(defn request-database-settings
-  [db-conn-pool]
-  (jdbc/with-db-connection
-    db-conn-pool
-    (jdbc/query "show all;" )))
+(defn request-database-settings []
+  (jdbc/query "show all;"))
 
 (defn verify-database-settings
   "Ensure the database configuration does not have any settings known
@@ -353,25 +350,40 @@
                       {:kind ::invalid-database-configuration
                        :failed-validation (apply merge invalid-settings)})))))
 
-(defn initialize-schema
-  "Ensures the database is migrated to the latest version, and returns
-  true iff any migrations were run.  Throws
+(defn verify-database-version
+  "Verifies that the available database version is acceptable.  Throws
   {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported."
-  [db-conn-pool config]
-  (jdbc/with-db-connection db-conn-pool
-    (let [current (:version @sutils/db-metadata)
-          oldest (get-in config [:database :min-required-version]
-                           scf-store/oldest-supported-db)]
-      (when (neg? (compare current oldest))
-        (throw (ex-info "Database version too old"
-                        {:kind ::unsupported-database
-                         :current current
-                         :oldest oldest})))
-      @sutils/db-metadata
-      (let [migrated? (migrate!)]
-        (indexes! config)
-        migrated?))))
+  [config]
+  (let [current (:version @sutils/db-metadata)
+        oldest (get-in config [:database :min-required-version]
+                       scf-store/oldest-supported-db)]
+    (when (neg? (compare current oldest))
+      (throw (ex-info "Database version too old"
+                      {:kind ::unsupported-database
+                       :current current
+                       :oldest oldest})))
+    @sutils/db-metadata))
+
+(defn require-valid-db
+  [config]
+  (verify-database-version config)
+  (verify-database-settings (request-database-settings)))
+
+(defn initialize-schema
+  "Ensures the database is migrated to the latest version, and returns
+  true iff any migrations were run.  Assumes the database status,
+  version, etc. has already been validated."
+  [config]
+  (let [migrated? (migrate!)]
+    (indexes! config)
+    migrated?))
+
+(defn prep-db
+  [datasource config]
+  (jdbc/with-db-connection datasource
+    (require-valid-db config)
+    (initialize-schema config)))
 
 (defn init-with-db
   "Performs all initialization operations requiring a database
@@ -403,8 +415,7 @@
         (loop [i 0
                last-ex nil]
           (let [result (try
-                         (verify-database-settings (request-database-settings {:datasource db-pool}))
-                         (initialize-schema {:datasource db-pool} config)
+                         (prep-db {:datasource db-pool} config)
                          true
                          (catch java.sql.SQLTransientConnectionException ex
                            ;; When coupled with the 3000ms timout, this
@@ -478,9 +489,6 @@
   the current database is not supported. If a database setting is configured
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
   [context config service get-registered-endpoints]
-  {:pre [(map? context)
-         (map? config)]
-   :post [(map? %)]}
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing
