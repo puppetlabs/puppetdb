@@ -7,6 +7,12 @@ on:
 
 jobs:
   build-and-publish:
+    env:
+      PUPPERWARE_ANALYTICS_STREAM: production
+      IS_LATEST: true
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+
     runs-on: ubuntu-latest
 
     steps:
@@ -16,22 +22,33 @@ jobs:
         with:
           ruby-version: 2.6.x
       - run: gem install bundler
-      - name: Lint container
-        working-directory: docker
-        run: |
-          make lint
       - name: Build container
-        env:
-          PUPPERWARE_ANALYTICS_STREAM: production
-          IS_LATEST: true
         working-directory: docker
-        run: make build test
+        run: make lint build test
       - name: Publish container
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          IS_LATEST: true
         working-directory: docker
         run: |
           docker login -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_PASSWORD"
           make publish
+      - name: Build release container
+        env:
+          IS_RELEASE: true
+        working-directory: docker
+        run: |
+          make prep
+          if [ $? -eq 0 ]; then
+            make lint build test
+          else
+            echo "Skipping release container building and testing"
+          fi
+      - name: Publish release container
+        env:
+          IS_RELEASE: true
+        working-directory: docker
+        run: |
+          make prep
+          if [ $? -eq 0 ]; then
+            make publish
+          else
+            echo "Skipping release container publishing"
+          fi

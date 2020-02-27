@@ -12,6 +12,18 @@ export GEMFILE = $(PWD)/Gemfile
 
 ifeq ($(IS_RELEASE),true)
 	VERSION ?= $(shell echo $(git_describe) | sed 's/-.*//')
+	# to work around failures that occur between when the repo is tagged and when the package
+	# is actually shipped, see if this version exists in dujour
+	PUBLISHED_VERSION ?= $(shell curl --silent 'https://updates.puppetlabs.com/?product=puppetdb&version=$(VERSION)' | jq '."version"' | tr -d '"')
+	# For our containers built from packages, we want those to be built once then never changed
+	# so check to see if that container already exists on dockerhub
+	CONTAINER_EXISTS = $(shell DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $(NAMESPACE)/puppetdb:$(VERSION) > /dev/null 2>&1; echo $$?)
+ifeq ($(CONTAINER_EXISTS),0)
+	SKIP_BUILD ?= true
+else ifneq ($(VERSION),$(PUBLISHED_VERSION))
+	SKIP_BUILD ?= true
+endif
+
 	LATEST_VERSION ?= latest
 	dockerfile := release.Dockerfile
 	dockerfile_context := puppetdb
@@ -25,6 +37,10 @@ endif
 prep:
 	@git fetch --unshallow 2> /dev/null ||:
 	@git fetch origin 'refs/tags/*:refs/tags/*'
+ifeq ($(SKIP_BUILD),true)
+	@echo "SKIP_BUILD is true, exiting with 1"
+	@exit 1
+endif
 
 lint:
 ifeq ($(hadolint_available),0)
