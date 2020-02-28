@@ -1607,22 +1607,12 @@
        (into known-migrations)
        (difference applied-migrations)))
 
-(defn run-migrations
+(defn require-valid-schema
+  "Returns true if the database is ready for use, otherwise throws."
   []
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
-        known-migrations (apply sorted-set (keys migrations))
-        small-tables (set ["value_types" "report_statuses"])
-        analyze (fn [tables]
-                  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
-                                      jdbc/query-to-vec
-                                      (map :tablename)
-                                      set)
-                        tables (filter exists? tables)]
-                    (log/info (trs "Updating table statistics for: {0}"
-                                   (str/join ", " tables)))
-                    (apply jdbc/do-commands-outside-txn
-                           (map #(str "vacuum analyze " %) tables))))]
+        known-migrations (apply sorted-set (keys migrations))]
 
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
@@ -1638,7 +1628,22 @@
       (throw (IllegalStateException.
               (trs "Your PuppetDB database contains a schema migration numbered {0}, but this version of PuppetDB does not recognize that version."
                    unexpected))))
+    true))
 
+(defn run-migrations
+  []
+  (let [small-tables (set ["value_types" "report_statuses"])
+        analyze (fn [tables]
+                  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
+                                      jdbc/query-to-vec
+                                      (map :tablename)
+                                      set)
+                        tables (filter exists? tables)]
+                    (log/info (trs "Updating table statistics for: {0}"
+                                   (str/join ", " tables)))
+                    (apply jdbc/do-commands-outside-txn
+                           (map #(str "vacuum analyze " %) tables))))]
+    (require-valid-schema)
     (if-let [pending (seq (pending-migrations))]
       (let [tables (jdbc/with-db-transaction []
                      (->> pending
