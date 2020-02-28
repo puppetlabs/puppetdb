@@ -24,7 +24,7 @@
     (println (str/join "\n" usage-lines))))
 
 (defn run-command
-  "Does the real work of invoking a command by attempting to result it and
+  "Does the real work of invoking a command by attempting to resolve it and
    passing in args. `success-fn` is a no-arg function that is called when the
    command successfully executes.  `fail-fn` is called when a bad command is given
    or a failure executing a command."
