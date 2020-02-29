@@ -62,7 +62,8 @@
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate
-             :refer [migrate! indexes! pending-migrations require-valid-schema]]
+             :refer [migrate! indexes! pending-migrations
+                     require-valid-schema desired-schema-version]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -513,9 +514,14 @@
         {:keys [disable-update-checking]} puppetdb
         {:keys [cmd-event-mult cmd-event-ch]} context
 
-        write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")
+        write-db (jdbc/pooled-datasource (assoc database
+                                                :pool-name "PDBWritePool"
+                                                :expected-schema desired-schema-version)
                                          database-metrics-registry)
-        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool")
+        read-db (jdbc/pooled-datasource (assoc read-database
+                                               :read-only? true
+                                               :pool-name "PDBReadPool"
+                                               :expected-schema desired-schema-version)
                                         database-metrics-registry)]
 
     (when-let [v (version/version)]
