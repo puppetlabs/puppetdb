@@ -1630,43 +1630,42 @@
                    unexpected))))
     true))
 
+(defn analyze-if-exists [tables]
+  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
+                      jdbc/query-to-vec
+                      (map :tablename)
+                      set)
+        tables (filter exists? tables)]
+    (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables)))
+    (apply jdbc/do-commands-outside-txn
+           (map #(str "vacuum analyze " %) tables))))
+
 (defn run-migrations
   []
+  (require-valid-schema)
   (let [small-tables (set ["value_types" "report_statuses"])
-        analyze (fn [tables]
-                  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
-                                      jdbc/query-to-vec
-                                      (map :tablename)
-                                      set)
-                        tables (filter exists? tables)]
-                    (log/info (trs "Updating table statistics for: {0}"
-                                   (str/join ", " tables)))
-                    (apply jdbc/do-commands-outside-txn
-                           (map #(str "vacuum analyze " %) tables))))]
-    (require-valid-schema)
-    (if-let [pending (seq (pending-migrations))]
-      (let [tables (jdbc/with-db-transaction []
-                     (->> pending
-                          (map (fn [[version migration]]
-                                 (log/info (trs "Applying database migration version {0}" version))
-                                 (let [t0 (now)]
-                                   (let [result (migration)]
-                                     (record-migration! version)
-                                     (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                    version (in-millis (interval t0 (now)))))
-                                     result))))
-                          (filter map?)
-                          (map ::vacuum-analyze)
-                          (apply set/union small-tables)))]
-        (analyze tables)
-        true)
-      (do
-        (log/info (trs "There are no pending migrations"))
-        ;; Always analyze these since we had a good long period where
-        ;; the post-migration analysis above wasn't actually working,
-        ;; and since this shouldn't be expensive.
-        (analyze small-tables)
-        false))))
+        tables (jdbc/with-db-transaction []
+                 (when-let [pending (seq (pending-migrations))]
+                   (->> pending
+                        (map (fn [[version migration]]
+                               (log/info (trs "Applying database migration version {0}"
+                                              version))
+                               (let [t0 (now)]
+                                 (let [result (migration)]
+                                   (record-migration! version)
+                                   (log/info (trs "Applied database migration version {0} in {1} ms"
+                                                  version (in-millis (interval t0 (now)))))
+                                   result))))
+                        (filter map?)
+                        (map ::vacuum-analyze)
+                        seq)))]
+    (when-not tables
+      (log/info (trs "There are no pending migrations")))
+    ;; Always analyze these since we had a good long period where
+    ;; the post-migration analysis above wasn't actually working,
+    ;; and since this shouldn't be expensive.
+    (analyze-if-exists (apply set/union small-tables tables))
+    (not (empty? tables))))
 
 (defn migrate! []
   "Migrates database to the latest schema version. Does nothing if
