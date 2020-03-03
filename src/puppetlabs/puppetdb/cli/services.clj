@@ -61,7 +61,8 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
+            [puppetlabs.puppetdb.scf.migrate
+             :refer [migrate! indexes! pending-migrations require-valid-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -77,9 +78,11 @@
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.i18n.core :refer [trs tru]])
-  (:import [javax.jms ExceptionListener]
-           [java.util.concurrent.locks ReentrantLock]
-           [org.joda.time Period]))
+  (:import
+   (clojure.lang ExceptionInfo)
+   [javax.jms ExceptionListener]
+   [java.util.concurrent.locks ReentrantLock]
+   [org.joda.time Period]))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
@@ -379,11 +382,23 @@
     (indexes! config)
     migrated?))
 
+(defn require-current-schema
+  []
+  (require-valid-schema)
+  (when-let [pending (seq (pending-migrations))]
+    (let [m (str
+             (trs "Database is not fully migrated and migration is disallowed.")
+             (trs "  Missing migrations: {0}" (mapv first pending)))]
+      (throw (ex-info m {:kind ::migration-required
+                         :pending pending})))))
+
 (defn prep-db
   [datasource config]
   (jdbc/with-db-connection datasource
     (require-valid-db config)
-    (initialize-schema config)))
+    (if (get-in config [:database :migrate?])
+      (initialize-schema config)
+      (require-current-schema))))
 
 (defn init-with-db
   "Performs all initialization operations requiring a database
@@ -582,18 +597,36 @@
                   (map (fn [[k v]] (trs "''{0}'' (expected ''{1}'', got ''{2}'')" (name k) (:expected v) (:actual v)))
                        invalid-settings))))
 
-(defn log-start-error
-  [e]
-  (let [data (ex-data e)
-        kind (:kind data)
-        msg (case kind
-              ::unsupported-database (db-unsupported-msg (:current data) (:oldest data))
-              ::invalid-database-configuration (invalid-conf-msg (:failed-validation data))
-              (trs "Unkown fatal start error {0}" e))
-        attn (utils/attention-msg msg)]
-    (utils/println-err attn)
-    (log/error attn)
-    msg))
+(defn start-puppetdb-or-shutdown
+  [context config service get-registered-endpoints shutdown-on-error]
+  {:pre [(map? context)
+         (map? config)]
+   :post [(map? %)]}
+  (try
+    (start-puppetdb context config service get-registered-endpoints)
+    (catch ExceptionInfo ex
+      (let [{:keys [kind] :as data} (ex-data ex)
+            stop (fn [msg]
+                   (let [msg (utils/attention-msg msg)]
+                     (utils/println-err msg)
+                     (log/error msg)
+                     ;; This will become a custom exit request once
+                     ;; trapperkeeper supports it.
+                     (shutdown-on-error
+                      (service-id service)
+                      #(throw ex))))]
+        (case kind
+          ::unsupported-database
+          (stop (db-unsupported-msg (:current data) (:oldest data)))
+
+          ::invalid-database-configuration
+          (stop (invalid-conf-msg (:failed-validation data)))
+
+          ::migration-required
+          (stop (.getMessage ex))
+
+          ;; Unrecognized -- pass it on.
+          (throw ex))))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -628,7 +661,8 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:DefaultedConfig get-config]
-   [:WebroutingService add-ring-handler get-registered-endpoints]]
+   [:WebroutingService add-ring-handler get-registered-endpoints]
+   [:ShutdownService shutdown-on-error]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -645,11 +679,9 @@
                  :stop-status (atom #{}))))
   (start
    [this context]
-   (try
-     (start-puppetdb context (get-config) this get-registered-endpoints)
-     (catch clojure.lang.ExceptionInfo e
-       (let [msg (log-start-error e)]
-         (throw (Exception. msg))))))
+   (start-puppetdb-or-shutdown context (get-config) this
+                               get-registered-endpoints
+                               shutdown-on-error))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
