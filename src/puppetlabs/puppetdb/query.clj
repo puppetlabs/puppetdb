@@ -382,7 +382,7 @@
       (throw (IllegalArgumentException.
               (i18n/tru "Can't extract unknown {0} field ''{1}''. Acceptable fields are: {2}"
                         (name subquery-type) field (str/join ", " (sort (queryable-fields subquery-type query-api-version)))))))
-    {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
+    {:where (format "SELECT DISTINCT r1.%s FROM (%s) r1" field subselect)
      :params params}))
 
 (defn compile-in
