@@ -73,7 +73,8 @@
      :statements-cache-size (pls/defaulted-maybe s/Int 0)
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
      :facts-blacklist pls/Blacklist
-     :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")}))
+     :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
+     :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -109,7 +110,8 @@
    (s/optional-key :password) String
    (s/optional-key :syntax_pgs) String
    (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
-   :facts-blacklist-type String})
+   :facts-blacklist-type String
+   :schema-check-interval s/Int})
 
 (def write-database-config-out
   "Schema for parsed/processed database config that includes write database params"

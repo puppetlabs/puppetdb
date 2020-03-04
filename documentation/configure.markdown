@@ -467,6 +467,13 @@ legal value), the names will be matched as [Java regular
 expresions][java-patterns].  See the `facts-blacklist` description
 above for additional information.
 
+### `schema-check-interval`
+
+This controls how often, in milliseconds, to check the schema version PuppetDB
+is compatible with against the database's schema version. The default is every
+30 seconds. If a mismatch is detected PuppetDB will exit with an error message
+suggesting appropriate action. If set to zero, this check is disabled.
+
 ## Deprecated settings
 
 ### `classname`
