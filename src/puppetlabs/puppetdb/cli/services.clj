@@ -401,6 +401,18 @@
       (initialize-schema config)
       (require-current-schema))))
 
+(defn- require-db-connection-as [datasource migrator]
+  (jdbc/with-db-connection datasource
+    (let [current-user (jdbc/current-user)]
+      (when-not (= current-user migrator)
+        (throw
+         (ex-info (format "Connected to database as %s, not migrator %s"
+                          (pr-str current-user)
+                          (pr-str migrator))
+                  {:kind ::connected-as-wrong-user
+                   :expected migrator
+                   :actual current-user}))))))
+
 (defn init-with-db
   "Performs all initialization operations requiring a database
   connection using a transient connection pool derived from the
@@ -414,43 +426,48 @@
   ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
-  (with-open [db-pool (-> (assoc write-db-config
-                                 :pool-name "PDBMigrationsPool"
-                                 :connection-timeout 3000)
-                          (jdbc/make-connection-pool database-metrics-registry))]
-    (let [runtime (Runtime/getRuntime)
-          on-shutdown (doto (Thread.
-                             #(try
-                                (.close db-pool)
-                                (catch Exception ex
-                                  ;; Nothing to do but log it...
-                                  (log/error ex (trs "Unable to close migration pool")))))
-                        (.setName "PuppetDB migration pool closer"))]
-      (.addShutdownHook runtime on-shutdown)
-      (try
-        (loop [i 0
-               last-ex nil]
-          (let [result (try
-                         (prep-db {:datasource db-pool} config)
-                         true
-                         (catch java.sql.SQLTransientConnectionException ex
-                           ;; When coupled with the 3000ms timout, this
-                           ;; is intended to log a duplicate message no
-                           ;; faster than once per minute.
-                           (when (or (not= (str ex) (str last-ex))
-                                     (zero? (mod i 20)))
-                             (log/error (str (trs "Will retry database connection after temporary failure: ")
-                                             ex)))
-                           ex))]
-            (if (true? result)
-              result
-              (recur (inc i) result))))
-        (finally
-          (try
-            (.removeShutdownHook runtime on-shutdown)
-            (catch IllegalStateException ex
-              ;; Ignore, because we're already shutting down.
-              nil)))))))
+  (let [migrator (:migrator-username write-db-config)]
+    (with-open [db-pool (-> (assoc write-db-config
+                                   :pool-name "PDBMigrationsPool"
+                                   :connection-timeout 3000
+                                   :user migrator
+                                   :password (:migrator-password write-db-config))
+                            (jdbc/make-connection-pool database-metrics-registry))]
+      (let [runtime (Runtime/getRuntime)
+            on-shutdown (doto (Thread.
+                               #(try
+                                  (.close db-pool)
+                                  (catch Exception ex
+                                    ;; Nothing to do but log it...
+                                    (log/error ex (trs "Unable to close migration pool")))))
+                          (.setName "PuppetDB migration pool closer"))]
+        (.addShutdownHook runtime on-shutdown)
+        (try
+          (loop [i 0
+                 last-ex nil]
+            (let [result (try
+                           (let [datasource {:datasource db-pool}]
+                             (require-db-connection-as datasource migrator)
+                             (prep-db datasource config))
+                           true
+                           (catch java.sql.SQLTransientConnectionException ex
+                             ;; When coupled with the 3000ms timout, this
+                             ;; is intended to log a duplicate message no
+                             ;; faster than once per minute.
+                             (when (or (not= (str ex) (str last-ex))
+                                       (zero? (mod i 20)))
+                               (log/error (str (trs "Will retry database connection after temporary failure: ")
+                                               ex)))
+                             ex))]
+              (if (true? result)
+                result
+                (recur (inc i) result))))
+          (finally
+            (try
+              (.removeShutdownHook runtime on-shutdown)
+              (catch IllegalStateException ex
+                ;; Ignore, because we're already shutting down.
+                nil))))))))
 
 (defn db-config->clean-request
   [config]

@@ -60,9 +60,11 @@
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
-     :username String
      :user String
+     :username String
      :password String
+     :migrator-username String
+     :migrator-password String
      :syntax_pgs String
      :read-only? (pls/defaulted-maybe String "false")
      :partition-conn-min (pls/defaulted-maybe s/Int 1)
@@ -105,9 +107,11 @@
    :connection-timeout s/Int
    :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
-   (s/optional-key :username) String
    (s/optional-key :user) String
+   (s/optional-key :username) String
    (s/optional-key :password) String
+   (s/optional-key :migrator-username) String
+   (s/optional-key :migrator-password) String
    (s/optional-key :syntax_pgs) String
    (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
    :facts-blacklist-type String
@@ -267,6 +271,25 @@
          (s/validate database-config-out)
          (assoc config :read-database))))
 
+(defn configure-db
+  [config]
+  (letfn [(ensure-migrator-info [config]
+            ;; match puppetdb.jdbc/make-connection-pool
+            (let [username (get-in config
+                                   [:database :username]
+                                   (get-in config [:database :user]))]
+              (-> config
+                  (assoc-in [:database :username] username)
+                  (update-in [:database :migrator-username] #(or % username))
+                  (update-in [:database :migrator-password]
+                             #(or % (get-in config [:database :password]))))))]
+    (-> config
+        (configure-section :database
+                           write-database-config-in
+                           write-database-config-out)
+        ensure-migrator-info
+        configure-read-db)))
+
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
@@ -299,8 +322,7 @@
    to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
-      (configure-section :database write-database-config-in write-database-config-out)
-      configure-read-db
+      configure-db
       configure-command-processing
       configure-puppetdb))
 

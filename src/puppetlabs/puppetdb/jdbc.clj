@@ -654,3 +654,6 @@
     (str "in ("
          (str/join "," (repeat (count coll) inner))
          ")")))
+
+(defn current-user []
+  (-> (query-to-vec "select user as user") first :user))
