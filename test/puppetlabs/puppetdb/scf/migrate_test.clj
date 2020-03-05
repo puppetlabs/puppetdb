@@ -296,8 +296,8 @@
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
       (migrate!)
-      (indexes! db-config)
-      (indexes! db-config))))
+      (indexes!)
+      (indexes!))))
 
 (deftest test-hash-field-not-nullable
   (jdbc/with-db-connection *db*

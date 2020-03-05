@@ -1715,7 +1715,7 @@
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
-  [config]
+  []
   (jdbc/with-db-transaction []
     (if (sutils/pg-extension? "pg_trgm")
       (trgm-indexes!)
@@ -1734,5 +1734,5 @@
   version, etc. has already been validated."
   [config]
   (let [migrated? (migrate!)]
-    (indexes! config)
+    (indexes!)
     migrated?))
