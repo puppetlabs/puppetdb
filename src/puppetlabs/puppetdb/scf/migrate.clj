@@ -1518,8 +1518,8 @@
    33 add-certname-id-to-certnames
    34 add-certname-id-to-resource-events
    ;; This dummy migration ensures that even databases that were up to
-   ;; date when the "vacuum analyze" code was added to run-migrations
-   ;; will still analyze their existing databases.
+   ;; date when the analyze-tables code was added will still analyze
+   ;; their existing databases.
    35 (fn [] true)
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
@@ -1644,11 +1644,22 @@
     (apply jdbc/do-commands-outside-txn
            (map #(str "vacuum analyze " %) tables))))
 
+(defn- analyze-tables
+  [requested]
+  {:pre [(or (nil? requested) (set? requested))]}
+  ;; Always analyze these small tables since we had a good long period
+  ;; where the post-migration analysis above wasn't actually working,
+  ;; and since this shouldn't be expensive.
+  (let [small-tables (set ["value_types" "report_statuses"])]
+    (analyze-if-exists (set/union small-tables requested))))
+
 (defn run-migrations
+  "Migrates database to the latest schema version. Does nothing if
+  database is already at the latest schema version.  Returns a set of
+  tables that should be analyzed if there were any migrations."
   []
   (require-valid-schema)
-  (let [small-tables (set ["value_types" "report_statuses"])
-        tables (jdbc/with-db-transaction []
+  (let [tables (jdbc/with-db-transaction []
                  (when-let [pending (seq (pending-migrations))]
                    (->> pending
                         (map (fn [[version migration]]
@@ -1662,14 +1673,10 @@
                                    result))))
                         (filter map?)
                         (map ::vacuum-analyze)
-                        seq)))]
-    (when-not tables
+                        (apply set/union))))]
+    (when-not (empty? tables)
       (log/info (trs "There are no pending migrations")))
-    ;; Always analyze these since we had a good long period where
-    ;; the post-migration analysis above wasn't actually working,
-    ;; and since this shouldn't be expensive.
-    (analyze-if-exists (apply set/union small-tables tables))
-    (not (empty? tables))))
+    tables))
 
 
 ;; SPECIAL INDEX HANDLING
@@ -1721,9 +1728,10 @@
   version, etc. has already been validated."
   []
   (try
-    (let [migrated? (run-migrations)]
+    (let [tables-to-analyze (run-migrations)]
+      (analyze-tables tables-to-analyze)
       (indexes!)
-      migrated?)
+      (not (empty? tables-to-analyze)))
     (catch java.sql.SQLException e
       (log/error e (trs "Caught SQLException during migration"))
       (loop [ex (.getNextException e)]
