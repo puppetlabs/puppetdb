@@ -391,7 +391,7 @@
   (jdbc/with-db-connection datasource
     (require-valid-db config)
     (if (get-in config [:database :migrate?])
-      (initialize-schema config)
+      (initialize-schema)
       (require-current-schema))))
 
 (defn- require-db-connection-as [datasource migrator]

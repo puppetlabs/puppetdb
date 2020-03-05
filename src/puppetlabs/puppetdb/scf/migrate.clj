@@ -1732,7 +1732,7 @@
   "Ensures the database is migrated to the latest version, and returns
   true if and only if any migrations were run.  Assumes the database status,
   version, etc. has already been validated."
-  [config]
+  []
   (let [migrated? (migrate!)]
     (indexes!)
     migrated?))
