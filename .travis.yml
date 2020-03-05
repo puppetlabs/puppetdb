@@ -79,8 +79,10 @@ aliases:
     set +x
 
 jobs:
-  include:
+  allow_failures:
+    - os: osx
 
+  include:
     # === core+ext tests
     - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk8/pg-9.6
@@ -178,10 +180,6 @@ jobs:
       rvm: 2.5.5
       env: DOCKER_COMPOSE_VERSION=1.25.0-rc2
       script: *run-docker-tests
-
-matrix:
-  allow_failures:
-  - os: osx
 
 on_success: ext/travisci/on-success
 
