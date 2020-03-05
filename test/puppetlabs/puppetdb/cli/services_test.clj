@@ -10,7 +10,7 @@
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :as time :refer [now to-string]]
@@ -263,7 +263,7 @@
                                           [7 3]
                                           [100 0]]]
         (clear-db-for-testing!)
-        (migrate!)
+        (initialize-schema)
         (dotimes [i 10]
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)

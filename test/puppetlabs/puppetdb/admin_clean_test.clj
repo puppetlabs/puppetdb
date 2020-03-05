@@ -11,7 +11,7 @@
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
             [puppetlabs.puppetdb.testutils.db
@@ -155,7 +155,7 @@
                                               [[3 4] 3]
                                               [[100] 0]]]
           (clear-db-for-testing!)
-          (migrate!)
+          (initialize-schema)
           (dotimes [i 10]
             (let [name (str "foo-" i)]
               (scf-store/add-certname! name)

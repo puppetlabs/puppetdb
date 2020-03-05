@@ -47,7 +47,7 @@
     (testing "should return nothing if the *db* is completely migrated"
       (jdbc/with-db-connection *db*
         (clear-db-for-testing!)
-        (migrate!)
+        (initialize-schema)
         (is (empty? (pending-migrations)))))
 
     (testing "should return missing migrations if the *db* is partially migrated"
@@ -66,11 +66,11 @@
         (clear-db-for-testing!)
         (is (= (applied-migrations) #{}))
         (testing "should migrate the database"
-          (migrate!)
+          (initialize-schema)
           (is (= (applied-migrations) expected-migrations)))
 
         (testing "should not do anything the second time"
-          (migrate!)
+          (initialize-schema)
           (is (= (applied-migrations) expected-migrations)))
 
         (testing "should attempt a partial migration if there are migrations missing"
@@ -80,16 +80,16 @@
           (doseq [m (filter (fn [[i migration]] (not= i 36)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
           (is (= (keys (pending-migrations)) '(36)))
-          (migrate!)
+          (initialize-schema)
           (is (= (applied-migrations) expected-migrations))))))
 
   (testing "should throw error if *db* is at a higher schema rev than we support"
     (jdbc/with-transacted-connection *db*
-      (migrate!)
+      (initialize-schema)
       (jdbc/insert! :schema_migrations
                     {:version (inc migrate/desired-schema-version)
                      :time (to-timestamp (now))})
-      (is (thrown? IllegalStateException (migrate!))))))
+      (is (thrown? IllegalStateException (initialize-schema))))))
 
 (deftest migration-29
   (testing "should contain same reports before and after migration"
@@ -295,9 +295,7 @@
 
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
-      (migrate!)
-      (indexes!)
-      (indexes!))))
+      (initialize-schema))))
 
 (deftest test-hash-field-not-nullable
   (jdbc/with-db-connection *db*
@@ -503,7 +501,7 @@
   (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
                         #"Found an old and unuspported database migration.*"
-                        (migrate!))))
+                        (initialize-schema))))
 
 (deftest md5-agg-test
   (with-test-db
@@ -573,7 +571,7 @@
   (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
                         #"Found an old and unuspported database migration.*"
-                        (migrate!))))
+                        (initialize-schema))))
 
 (deftest md5-agg-test
   (with-test-db

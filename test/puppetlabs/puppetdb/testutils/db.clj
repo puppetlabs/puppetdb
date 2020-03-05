@@ -5,7 +5,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :refer [transform-data]]
             [puppetlabs.puppetdb.testutils :refer [pprint-str]]
@@ -64,7 +64,7 @@
       name)))
 
 (defn init-db [db]
-  (jdbc/with-db-connection db (migrate!)))
+  (jdbc/with-db-connection db (initialize-schema)))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
@@ -130,7 +130,7 @@
          "create extension if not exists pgcrypto"))
       (let [cfg (db-user-config template-name)]
         (jdbc/with-db-connection cfg
-          (migrate!)))
+          (initialize-schema)))
       (reset! template-created true))))
 
 (def ^:private test-db-counter (atom 0))

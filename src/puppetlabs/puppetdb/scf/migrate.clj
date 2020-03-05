@@ -1,9 +1,10 @@
 (ns puppetlabs.puppetdb.scf.migrate
   "Schema migrations
 
-   The `migrate!` function can be used to apply all the pending migrations to
-   the database, in ascending order of schema version. Pending is defined as
-   having a schema version greater than the current version in the database.
+   The `initialize-schema` function can be used to prepare the
+  database, applying all the pending migrations to the database, in
+  ascending order of schema version. Pending is defined as having a
+  schema version greater than the current version in the database.
 
    A migration is specified by defining a function of arity 0 and adding it to
    the `migrations` map, along with its schema version. To apply the migration,
@@ -1672,9 +1673,9 @@
 
 (defn migrate! []
   "Migrates database to the latest schema version. Does nothing if
-  database is already at the latest schema version.  Requires a
-  connection pool because some operations may require an indepdendent
-  database connection.  Returns true if there were any migrations."
+  database is already at the latest schema version.  Returns true if
+  there were any migrations.  In most cases, initialize-schema should
+  be called instead."
   (try
     (run-migrations)
     (catch java.sql.SQLException e
