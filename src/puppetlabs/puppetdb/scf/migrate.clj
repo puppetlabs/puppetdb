@@ -1727,3 +1727,12 @@
         " "
         (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n")))))
   (ensure-report-id-index))
+
+(defn initialize-schema
+  "Ensures the database is migrated to the latest version, and returns
+  true if and only if any migrations were run.  Assumes the database status,
+  version, etc. has already been validated."
+  [config]
+  (let [migrated? (migrate!)]
+    (indexes! config)
+    migrated?))

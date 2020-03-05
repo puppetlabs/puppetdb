@@ -62,8 +62,10 @@
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate
-             :refer [migrate! indexes! pending-migrations
-                     require-valid-schema desired-schema-version]]
+             :refer [desired-schema-version
+                     initialize-schema
+                     pending-migrations
+                     require-valid-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -373,15 +375,6 @@
   [config]
   (verify-database-version config)
   (verify-database-settings (request-database-settings)))
-
-(defn initialize-schema
-  "Ensures the database is migrated to the latest version, and returns
-  true iff any migrations were run.  Assumes the database status,
-  version, etc. has already been validated."
-  [config]
-  (let [migrated? (migrate!)]
-    (indexes! config)
-    migrated?))
 
 (defn require-current-schema
   []
