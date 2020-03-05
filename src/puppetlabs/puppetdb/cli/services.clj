@@ -500,17 +500,43 @@
   (when emit-cmd-events?
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
+(defn check-schema-version
+  [desired-schema-version context db service shutdown-on-error]
+  {:pre [(integer? desired-schema-version)]}
+  (when-not (= #{:stopping} @(:stop-status context))
+    (let [schema-version (-> (jdbc/with-transacted-connection db
+                               (jdbc/query "select max(version) from schema_migrations"))
+                             first
+                             :max)]
+      (when-not (= schema-version desired-schema-version)
+        (let [ex-msg (cond
+                       (> schema-version desired-schema-version)
+                       (str
+                        (trs "Please upgrade PuppetDB: ")
+                        (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
+                             schema-version))
+
+                       (< schema-version desired-schema-version)
+                       (str
+                        (trs "Please run PuppetDB with the migrate? option set to true to upgrade your database. ")
+                        (trs "The detected migration level {0} is out of date." schema-version))
+
+                       :else
+                       (throw (Exception. "Unknown state when checking schema versions")))]
+          (shutdown-on-error (service-id service)
+                             #(throw (ex-info ex-msg {:kind ::schema-mismatch}))))))))
+
 (defn start-puppetdb
   "Throws {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported. If a database setting is configured
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
-  [context config service get-registered-endpoints]
+  [context config service get-registered-endpoints shutdown-on-error]
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing
                 emit-cmd-events?]} config
         {:keys [pretty-print max-enqueued]} developer
-        {:keys [gc-interval node-purge-ttl]} database
+        {:keys [gc-interval node-purge-ttl schema-check-interval]} database
         {:keys [disable-update-checking]} puppetdb
         {:keys [cmd-event-mult cmd-event-ch]} context
 
@@ -569,6 +595,14 @@
             gc-interval-millis (to-millis gc-interval)]
         (when-not disable-update-checking
           (maybe-check-for-updates config read-db job-pool))
+        (when (pos? schema-check-interval)
+          (interspaced schema-check-interval
+                       #(check-schema-version desired-schema-version
+                                              context
+                                              (:scf-read-db globals)
+                                              service
+                                              shutdown-on-error)
+                       job-pool))
         (when (pos? gc-interval-millis)
           (let [request (db-config->clean-request database)]
             (interspaced gc-interval-millis
@@ -609,7 +643,7 @@
          (map? config)]
    :post [(map? %)]}
   (try
-    (start-puppetdb context config service get-registered-endpoints)
+    (start-puppetdb context config service get-registered-endpoints shutdown-on-error)
     (catch ExceptionInfo ex
       (let [{:keys [kind] :as data} (ex-data ex)
             stop (fn [msg]
