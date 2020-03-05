@@ -241,11 +241,6 @@
         resource character varying(40) NOT NULL,
         parameters text)"
 
-    ;; schema_migrations table
-    "CREATE TABLE schema_migrations (
-        version integer NOT NULL,
-        \"time\" timestamp without time zone NOT NULL)"
-
     ;; value_types table
     "CREATE TABLE value_types (
         id bigint NOT NULL,
@@ -332,9 +327,6 @@
 
     "ALTER TABLE ONLY resource_params
         ADD CONSTRAINT resource_params_pkey PRIMARY KEY (resource, name)"
-
-    "ALTER TABLE ONLY schema_migrations
-        ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version)"
 
     "ALTER TABLE ONLY value_types
         ADD CONSTRAINT value_types_pkey PRIMARY KEY (id)"
@@ -1508,9 +1500,19 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+(defn require-schema-migrations-table
+  []
+  ;; This must be completely idempotent since we run it as a migration
+  ;; and manually (to make sure it's there for the access lock).
+  (jdbc/do-commands
+   ["create table if not exists schema_migrations"
+    "  (version integer not null primary key,"
+    "   \"time\" timestamp without time zone not null)"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
-  {28 init-through-2-3-8
+  {00 require-schema-migrations-table
+   28 init-through-2-3-8
    29 version-2yz-to-300-migration
    30 add-expired-to-certnames
    31 coalesce-fact-values
@@ -1573,7 +1575,7 @@
   []
   {:post  [(sorted? %)
            (set? %)
-           (apply < 0 %)]}
+           (apply <= 0 %)]}
   (jdbc/with-db-transaction []
     (if-not (->> ["select 1 from pg_catalog.pg_tables where tablename = 'schema_migrations'"]
                  jdbc/query-to-vec
@@ -1589,7 +1591,7 @@
   []
   {:post [(map? %)
           (sorted? %)
-          (apply < 0 (keys %))
+          (apply <= 0 (keys %))
           (<= (count %) (count migrations))]}
   (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
     (into (sorted-map)
@@ -1619,10 +1621,10 @@
         known-migrations (apply sorted-set (keys migrations))]
 
     (when (and latest-applied-migration
-               (< latest-applied-migration (first known-migrations)))
+               (< latest-applied-migration (first (remove zero? known-migrations))))
       (throw (IllegalStateException.
               (str
-               (trs "Found an old and unuspported database migration (migration number {0})." latest-applied-migration)
+               (trs "Found an old and unsupported database migration (migration number {0})." latest-applied-migration)
                " "
                (trs "PuppetDB only supports upgrading from the previous major version to the current major version.")
                " "
@@ -1726,13 +1728,12 @@
   version, etc. has already been validated."
   []
   (try
-    (let [tables-to-analyze
-          (jdbc/with-db-transaction []
-            (let [tables-to-analyze (run-migrations)]
-              (indexes!)
-              tables-to-analyze))]
-      (analyze-tables tables-to-analyze)
-      (not (empty? tables-to-analyze)))
+    (let [tables (jdbc/with-db-transaction []
+                   (let [result (run-migrations)]
+                     (indexes!)
+                     result))]
+      (analyze-tables tables)
+      (not (empty? tables)))
     (catch java.sql.SQLException e
       (log/error e (trs "Caught SQLException during migration"))
       (loop [ex (.getNextException e)]

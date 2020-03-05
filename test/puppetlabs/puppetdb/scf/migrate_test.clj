@@ -53,7 +53,7 @@
     (testing "should return missing migrations if the *db* is partially migrated"
       (jdbc/with-db-connection *db*
         (clear-db-for-testing!)
-        (let [applied '(28 29 31)]
+        (let [applied [00 28 29 31]]
           (doseq [m applied]
             (apply-migration-for-testing! m))
           (is (= (set (keys (pending-migrations)))
@@ -500,7 +500,7 @@
   (jdbc/do-commands "DELETE FROM schema_migrations")
   (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
-                        #"Found an old and unuspported database migration.*"
+                        #"Found an old and unsupported database migration.*"
                         (initialize-schema))))
 
 (deftest md5-agg-test
@@ -570,7 +570,7 @@
   (jdbc/do-commands "DELETE FROM schema_migrations")
   (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
-                        #"Found an old and unuspported database migration.*"
+                        #"Found an old and unsupported database migration.*"
                         (initialize-schema))))
 
 (deftest md5-agg-test
