@@ -1518,8 +1518,8 @@
    33 add-certname-id-to-certnames
    34 add-certname-id-to-resource-events
    ;; This dummy migration ensures that even databases that were up to
-   ;; date when the "vacuum analyze" code was added to migrate! will
-   ;; still analyze their existing databases.
+   ;; date when the "vacuum analyze" code was added to run-migrations
+   ;; will still analyze their existing databases.
    35 (fn [] true)
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
@@ -1671,20 +1671,6 @@
     (analyze-if-exists (apply set/union small-tables tables))
     (not (empty? tables))))
 
-(defn migrate! []
-  "Migrates database to the latest schema version. Does nothing if
-  database is already at the latest schema version.  Returns true if
-  there were any migrations.  In most cases, initialize-schema should
-  be called instead."
-  (try
-    (run-migrations)
-    (catch java.sql.SQLException e
-      (log/error e (trs "Caught SQLException during migration"))
-      (loop [ex (.getNextException e)]
-        (when ex
-          (log/error ex (trs "Unraveled exception"))
-          (recur (.getNextException ex))))
-      (throw e))))
 
 ;; SPECIAL INDEX HANDLING
 
@@ -1734,6 +1720,14 @@
   true if and only if any migrations were run.  Assumes the database status,
   version, etc. has already been validated."
   []
-  (let [migrated? (migrate!)]
-    (indexes!)
-    migrated?))
+  (try
+    (let [migrated? (run-migrations)]
+      (indexes!)
+      migrated?)
+    (catch java.sql.SQLException e
+      (log/error e (trs "Caught SQLException during migration"))
+      (loop [ex (.getNextException e)]
+        (when ex
+          (log/error ex (trs "Unraveled exception"))
+          (recur (.getNextException ex))))
+      (throw e))))
