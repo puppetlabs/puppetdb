@@ -1659,21 +1659,20 @@
   tables that should be analyzed if there were any migrations."
   []
   (require-valid-schema)
-  (let [tables (jdbc/with-db-transaction []
-                 (when-let [pending (seq (pending-migrations))]
-                   (->> pending
-                        (map (fn [[version migration]]
-                               (log/info (trs "Applying database migration version {0}"
-                                              version))
-                               (let [t0 (now)]
-                                 (let [result (migration)]
-                                   (record-migration! version)
-                                   (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                  version (in-millis (interval t0 (now)))))
-                                   result))))
-                        (filter map?)
-                        (map ::vacuum-analyze)
-                        (apply set/union))))]
+  (let [tables (when-let [pending (seq (pending-migrations))]
+                 (->> pending
+                      (map (fn [[version migration]]
+                             (log/info (trs "Applying database migration version {0}"
+                                            version))
+                             (let [t0 (now)]
+                               (let [result (migration)]
+                                 (record-migration! version)
+                                 (log/info (trs "Applied database migration version {0} in {1} ms"
+                                                version (in-millis (interval t0 (now)))))
+                                 result))))
+                      (filter map?)
+                      (map ::vacuum-analyze)
+                      (apply set/union)))]
     (when-not (empty? tables)
       (log/info (trs "There are no pending migrations")))
     tables))
@@ -1710,16 +1709,15 @@
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   []
-  (jdbc/with-db-transaction []
-    (if (sutils/pg-extension? "pg_trgm")
-      (trgm-indexes!)
-      (log/warn
-       (str
-        (trs "Missing PostgreSQL extension `pg_trgm`")
-        "\n\n"
-        (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
-        " "
-        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n")))))
+  (if (sutils/pg-extension? "pg_trgm")
+    (trgm-indexes!)
+    (log/warn
+     (str
+      (trs "Missing PostgreSQL extension `pg_trgm`")
+      "\n\n"
+      (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
+      " "
+      (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n"))))
   (ensure-report-id-index))
 
 (defn initialize-schema
@@ -1728,9 +1726,12 @@
   version, etc. has already been validated."
   []
   (try
-    (let [tables-to-analyze (run-migrations)]
+    (let [tables-to-analyze
+          (jdbc/with-db-transaction []
+            (let [tables-to-analyze (run-migrations)]
+              (indexes!)
+              tables-to-analyze))]
       (analyze-tables tables-to-analyze)
-      (indexes!)
       (not (empty? tables-to-analyze)))
     (catch java.sql.SQLException e
       (log/error e (trs "Caught SQLException during migration"))
