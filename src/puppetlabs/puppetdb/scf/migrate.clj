@@ -1656,71 +1656,76 @@
     (analyze-if-exists (set/union small-tables requested))))
 
 (defn run-migrations
-  "Migrates database to the latest schema version. Does nothing if
-  database is already at the latest schema version.  Returns a set of
-  tables that should be analyzed if there were any migrations."
-  []
-  (require-valid-schema)
-  (let [tables (when-let [pending (seq (pending-migrations))]
-                 (->> pending
-                      (map (fn [[version migration]]
-                             (log/info (trs "Applying database migration version {0}"
-                                            version))
-                             (let [t0 (now)]
-                               (let [result (migration)]
-                                 (record-migration! version)
-                                 (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                version (in-millis (interval t0 (now)))))
-                                 result))))
-                      (filter map?)
-                      (map ::vacuum-analyze)
-                      (apply set/union)))]
+  "Runs the requested migrations.  Returns a set of tables that should
+  be analyzed if there were any migrations."
+  [migrations]
+  (let [tables (->> migrations
+                    (map (fn [[version migration]]
+                           (log/info (trs "Applying database migration version {0}"
+                                          version))
+                           (let [t0 (now)]
+                             (let [result (migration)]
+                               (record-migration! version)
+                               (log/info (trs "Applied database migration version {0} in {1} ms"
+                                              version (in-millis (interval t0 (now)))))
+                               result))))
+                    (filter map?)
+                    (map ::vacuum-analyze)
+                    (apply set/union))]
     (when-not (empty? tables)
-      (log/info (trs "There are no pending migrations")))
-    tables))
+      (log/info (trs "There are no pending migrations"))
+      tables)))
 
 
 ;; SPECIAL INDEX HANDLING
 
-(defn trgm-indexes!
+(defn maybe-create-trgm-indexes
   "Create trgm indexes if they do not currently exist."
   []
-  (when-not (sutils/index-exists? "fact_paths_path_trgm")
-    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
-    (jdbc/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-
-  (when-not (sutils/index-exists? "packages_name_trgm")
-    (log/info (trs "Creating additional index `packages_name_trgm`"))
-    (jdbc/do-commands
-     ["create index packages_name_trgm on packages"
-      "  using gin (name gin_trgm_ops)"])))
+  (if-not (sutils/pg-extension? "pg_trgm")
+    (do
+      (log/warn
+       (str
+        (trs "PostgreSQL extension `pg_trgm` missing.")
+        (trs "  Unable to create the recommended pg_trgm indexes.\n")
+        (trs "To fix, run this on the PuppetDB database as the database super user:\n")
+        (trs "    CREATE EXTENSION pg_trgm;\n")
+        (trs "Then restart PuppetDB.\n")))
+      nil)
+    (do
+      (when-not (sutils/index-exists? "fact_paths_path_trgm")
+        (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
+        (jdbc/do-commands
+         "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
+      (when-not (sutils/index-exists? "packages_name_trgm")
+        (log/info (trs "Creating additional index `packages_name_trgm`"))
+        (jdbc/do-commands
+         ["create index packages_name_trgm on packages"
+          "  using gin (name gin_trgm_ops)"]))
+      nil)))
 
 (defn ensure-report-id-index []
   (when-not (sutils/index-exists? "idx_reports_compound_id")
     (log/info "Indexing reports for id queries")
-
     (jdbc/do-commands
      "create index idx_reports_compound_id on reports
         (producer_timestamp, certname, hash)
         where start_time is not null")
+    #{"reports"}))
 
-    (jdbc/do-commands-outside-txn
-     "vacuum analyze reports")))
-
-(defn indexes!
+(defn create-indexes
   "Create missing indexes for applicable database platforms."
   []
-  (if (sutils/pg-extension? "pg_trgm")
-    (trgm-indexes!)
-    (log/warn
-     (str
-      (trs "Missing PostgreSQL extension `pg_trgm`")
-      "\n\n"
-      (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
-      " "
-      (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n"))))
-  (ensure-report-id-index))
+  (set/union
+   (maybe-create-trgm-indexes)
+   (ensure-report-id-index)))
+
+(defn update-schema
+  []
+  (jdbc/with-db-transaction []
+    (require-valid-schema)
+    (set/union (run-migrations (pending-migrations))
+               (create-indexes))))
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
@@ -1728,10 +1733,7 @@
   version, etc. has already been validated."
   []
   (try
-    (let [tables (jdbc/with-db-transaction []
-                   (let [result (run-migrations)]
-                     (indexes!)
-                     result))]
+    (let [tables (update-schema)]
       (analyze-tables tables)
       (not (empty? tables)))
     (catch java.sql.SQLException e
