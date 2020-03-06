@@ -1723,6 +1723,9 @@
 (defn update-schema
   []
   (jdbc/with-db-transaction []
+    (require-schema-migrations-table)
+    (jdbc/do-commands
+     "lock table schema_migrations in access exclusive mode")
     (require-valid-schema)
     (set/union (run-migrations (pending-migrations))
                (create-indexes))))
