@@ -34,10 +34,7 @@
          ;; will cause HikariCP to create new connections which should all error
          (jdbc/with-transacted-connection
            (tdb/db-admin-config)
-           (jdbc/query
-            (format "SELECT pg_terminate_backend(pid)
-                      FROM pg_stat_activity
-                      WHERE usename = '%s';" (:user *db*))))
+           (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*)))
 
          (loop [retries 0]
            ;; Account for a race condition where connnections kicked out of PG by

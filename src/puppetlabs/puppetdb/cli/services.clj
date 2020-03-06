@@ -391,7 +391,10 @@
   (jdbc/with-db-connection datasource
     (require-valid-db config)
     (if (get-in config [:database :migrate?])
-      (initialize-schema)
+      (let [{{:keys [username migrator-username]} :database} config]
+        (if (= username migrator-username)
+          (initialize-schema)
+          (initialize-schema username (jdbc/current-database))))
       (require-current-schema))))
 
 (defn- require-db-connection-as [datasource migrator]

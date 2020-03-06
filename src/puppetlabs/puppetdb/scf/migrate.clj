@@ -1721,11 +1721,12 @@
    (ensure-report-id-index)))
 
 (defn update-schema
-  []
+  [non-migrator-name db-name]
   (jdbc/with-db-transaction []
     (require-schema-migrations-table)
     (jdbc/do-commands
      "lock table schema_migrations in access exclusive mode")
+    (jdbc/disconnect-role-from-db non-migrator-name db-name)
     (require-valid-schema)
     (set/union (run-migrations (pending-migrations))
                (create-indexes))))
@@ -1734,15 +1735,16 @@
   "Ensures the database is migrated to the latest version, and returns
   true if and only if any migrations were run.  Assumes the database status,
   version, etc. has already been validated."
-  []
-  (try
-    (let [tables (update-schema)]
-      (analyze-tables tables)
-      (not (empty? tables)))
-    (catch java.sql.SQLException e
-      (log/error e (trs "Caught SQLException during migration"))
-      (loop [ex (.getNextException e)]
-        (when ex
-          (log/error ex (trs "Unraveled exception"))
-          (recur (.getNextException ex))))
-      (throw e))))
+  ([] (initialize-schema nil nil))
+  ([non-migrator-name db-name]
+   (try
+     (let [tables (update-schema non-migrator-name db-name)]
+       (analyze-tables tables)
+       (not (empty? tables)))
+     (catch java.sql.SQLException e
+       (log/error e (trs "Caught SQLException during migration"))
+       (loop [ex (.getNextException e)]
+         (when ex
+           (log/error ex (trs "Unraveled exception"))
+           (recur (.getNextException ex))))
+       (throw e)))))

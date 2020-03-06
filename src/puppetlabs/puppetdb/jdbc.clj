@@ -667,3 +667,15 @@
         "  where pg_stat_activity.datname = ?"
         "    and pid <> pg_backend_pid()")
    db))
+
+(defn disconnect-db-role [db user]
+  "Forcibly disconnects all connections from the specified role to the
+  named db.  Requires that the current DB session has sufficient
+  authorization."
+  (query-to-vec
+   (str "select pg_terminate_backend (pg_stat_activity.pid)"
+        "  from pg_stat_activity"
+        "  where pg_stat_activity.datname = ?"
+        "    and pg_stat_activity.usename = ?"
+        "    and pid <> pg_backend_pid()")
+   db user))
