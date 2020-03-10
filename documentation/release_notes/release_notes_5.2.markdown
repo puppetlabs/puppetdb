@@ -20,8 +20,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## PuppetDB 5.2.13
 
-### New features 
+### New features
  - **New `initial-report-threshold` configuration option in sync settings.** On startup, PuppetDB will only sync reports newer than the threshold. Older reports will still be transferred on subsequent periodic syncs. [PDB-3751](https://tickets.puppetlabs.com/browse/PDB-3751)
+
+### Contributors
+
+Austin Blatt, Claire Cadman, and Zak Kent
 
 ## PuppetDB 5.2.12
 
