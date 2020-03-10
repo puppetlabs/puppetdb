@@ -25,6 +25,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 ### New features 
  - **New `initial-report-threshold` configuration option in sync settings.** On startup, PuppetDB will only sync reports newer than the threshold. Older reports will still be transferred on subsequent periodic syncs. [PDB-3751](https://tickets.puppetlabs.com/browse/PDB-3751)
 
+### Contributors
+
+Austin Blatt, Claire Cadman, and Morgan Rhodes
+
 ## PuppetDB 6.9.0
 
 ### New features and improvements
@@ -42,7 +46,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ### Contributors
 
-Austin Blatt, Morgan Rhodes, Rob Browning, Robert Roland, and Zak Kent
+Austin Blatt, Heston Hoffman, Morgan Rhodes, Rob Browning, Robert Roland, and Zak Kent
 
 
 ## PuppetDB 6.8.1
