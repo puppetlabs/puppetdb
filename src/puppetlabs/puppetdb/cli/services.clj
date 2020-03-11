@@ -61,7 +61,8 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
+            [puppetlabs.puppetdb.scf.migrate
+             :refer [migrate! indexes! pending-migrations require-valid-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -77,9 +78,11 @@
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.i18n.core :refer [trs tru]])
-  (:import [javax.jms ExceptionListener]
-           [java.util.concurrent.locks ReentrantLock]
-           [org.joda.time Period]))
+  (:import
+   (clojure.lang ExceptionInfo)
+   [javax.jms ExceptionListener]
+   [java.util.concurrent.locks ReentrantLock]
+   [org.joda.time Period]))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
@@ -332,11 +335,8 @@
     (when-not (= (get-in m map-path) value)
       {setting {:expected value :actual (get-in m map-path)}})))
 
-(defn request-database-settings
-  [db-conn-pool]
-  (jdbc/with-db-connection
-    db-conn-pool
-    (jdbc/query "show all;" )))
+(defn request-database-settings []
+  (jdbc/query "show all;"))
 
 (defn verify-database-settings
   "Ensure the database configuration does not have any settings known
@@ -353,25 +353,52 @@
                       {:kind ::invalid-database-configuration
                        :failed-validation (apply merge invalid-settings)})))))
 
-(defn initialize-schema
-  "Ensures the database is migrated to the latest version, and returns
-  true iff any migrations were run.  Throws
+(defn verify-database-version
+  "Verifies that the available database version is acceptable.  Throws
   {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported."
-  [db-conn-pool config]
-  (jdbc/with-db-connection db-conn-pool
-    (let [current (:version @sutils/db-metadata)
-          oldest (get-in config [:database :min-required-version]
-                           scf-store/oldest-supported-db)]
-      (when (neg? (compare current oldest))
-        (throw (ex-info "Database version too old"
-                        {:kind ::unsupported-database
-                         :current current
-                         :oldest oldest})))
-      @sutils/db-metadata
-      (let [migrated? (migrate! db-conn-pool)]
-        (indexes! config)
-        migrated?))))
+  [config]
+  (let [current (:version @sutils/db-metadata)
+        oldest (get-in config [:database :min-required-version]
+                       scf-store/oldest-supported-db)]
+    (when (neg? (compare current oldest))
+      (throw (ex-info "Database version too old"
+                      {:kind ::unsupported-database
+                       :current current
+                       :oldest oldest})))
+    @sutils/db-metadata))
+
+(defn require-valid-db
+  [config]
+  (verify-database-version config)
+  (verify-database-settings (request-database-settings)))
+
+(defn initialize-schema
+  "Ensures the database is migrated to the latest version, and returns
+  true iff any migrations were run.  Assumes the database status,
+  version, etc. has already been validated."
+  [config]
+  (let [migrated? (migrate!)]
+    (indexes! config)
+    migrated?))
+
+(defn require-current-schema
+  []
+  (require-valid-schema)
+  (when-let [pending (seq (pending-migrations))]
+    (let [m (str
+             (trs "Database is not fully migrated and migration is disallowed.")
+             (trs "  Missing migrations: {0}" (mapv first pending)))]
+      (throw (ex-info m {:kind ::migration-required
+                         :pending pending})))))
+
+(defn prep-db
+  [datasource config]
+  (jdbc/with-db-connection datasource
+    (require-valid-db config)
+    (if (get-in config [:database :migrate?])
+      (initialize-schema config)
+      (require-current-schema))))
 
 (defn init-with-db
   "Performs all initialization operations requiring a database
@@ -403,8 +430,7 @@
         (loop [i 0
                last-ex nil]
           (let [result (try
-                         (verify-database-settings (request-database-settings {:datasource db-pool}))
-                         (initialize-schema {:datasource db-pool} config)
+                         (prep-db {:datasource db-pool} config)
                          true
                          (catch java.sql.SQLTransientConnectionException ex
                            ;; When coupled with the 3000ms timout, this
@@ -478,9 +504,6 @@
   the current database is not supported. If a database setting is configured
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
   [context config service get-registered-endpoints]
-  {:pre [(map? context)
-         (map? config)]
-   :post [(map? %)]}
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing
@@ -574,18 +597,36 @@
                   (map (fn [[k v]] (trs "''{0}'' (expected ''{1}'', got ''{2}'')" (name k) (:expected v) (:actual v)))
                        invalid-settings))))
 
-(defn log-start-error
-  [e]
-  (let [data (ex-data e)
-        kind (:kind data)
-        msg (case kind
-              ::unsupported-database (db-unsupported-msg (:current data) (:oldest data))
-              ::invalid-database-configuration (invalid-conf-msg (:failed-validation data))
-              (trs "Unkown fatal start error {0}" e))
-        attn (utils/attention-msg msg)]
-    (utils/println-err attn)
-    (log/error attn)
-    msg))
+(defn start-puppetdb-or-shutdown
+  [context config service get-registered-endpoints shutdown-on-error]
+  {:pre [(map? context)
+         (map? config)]
+   :post [(map? %)]}
+  (try
+    (start-puppetdb context config service get-registered-endpoints)
+    (catch ExceptionInfo ex
+      (let [{:keys [kind] :as data} (ex-data ex)
+            stop (fn [msg]
+                   (let [msg (utils/attention-msg msg)]
+                     (utils/println-err msg)
+                     (log/error msg)
+                     ;; This will become a custom exit request once
+                     ;; trapperkeeper supports it.
+                     (shutdown-on-error
+                      (service-id service)
+                      #(throw ex))))]
+        (case kind
+          ::unsupported-database
+          (stop (db-unsupported-msg (:current data) (:oldest data)))
+
+          ::invalid-database-configuration
+          (stop (invalid-conf-msg (:failed-validation data)))
+
+          ::migration-required
+          (stop (.getMessage ex))
+
+          ;; Unrecognized -- pass it on.
+          (throw ex))))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -620,7 +661,8 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:DefaultedConfig get-config]
-   [:WebroutingService add-ring-handler get-registered-endpoints]]
+   [:WebroutingService add-ring-handler get-registered-endpoints]
+   [:ShutdownService shutdown-on-error]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -637,11 +679,9 @@
                  :stop-status (atom #{}))))
   (start
    [this context]
-   (try
-     (start-puppetdb context (get-config) this get-registered-endpoints)
-     (catch clojure.lang.ExceptionInfo e
-       (let [msg (log-start-error e)]
-         (throw (Exception. msg))))))
+   (start-puppetdb-or-shutdown context (get-config) this
+                               get-registered-endpoints
+                               shutdown-on-error))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]

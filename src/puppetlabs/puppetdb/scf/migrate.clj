@@ -1570,18 +1570,15 @@
   {:post  [(sorted? %)
            (set? %)
            (apply < 0 %)]}
-  (try
-    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
-          results (jdbc/with-db-transaction []  (query-to-vec query))]
-      (apply sorted-set (map :version results)))
-    (catch java.sql.SQLException e
-      (let [message (.getMessage e)
-            sql-state (.getSQLState e)]
-        (if (and (or (= sql-state "42P01") ; postgresql: undefined_table
-                     (= sql-state "42501")) ; hsqldb: user lacks privilege or object not found
-                 (re-find #"(?i)schema_migrations" message))
-          (sorted-set)
-          (throw e))))))
+  (jdbc/with-db-transaction []
+    (if-not (->> ["select 1 from pg_catalog.pg_tables where tablename = 'schema_migrations'"]
+                 jdbc/query-to-vec
+                 seq)
+      (sorted-set)
+      (->> "SELECT version FROM schema_migrations ORDER BY version"
+           query-to-vec
+           (map :version)
+           (apply sorted-set)))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
@@ -1610,22 +1607,12 @@
        (into known-migrations)
        (difference applied-migrations)))
 
-(defn run-migrations
-  [db-connection-pool]
+(defn require-valid-schema
+  "Returns true if the database is ready for use, otherwise throws."
+  []
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
-        known-migrations (apply sorted-set (keys migrations))
-        small-tables (set ["value_types" "report_statuses"])
-        analyze (fn [tables]
-                  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
-                                      jdbc/query-to-vec
-                                      (map :tablename)
-                                      set)
-                        tables (filter exists? tables)]
-                    (log/info (trs "Updating table statistics for: {0}"
-                                   (str/join ", " tables)))
-                    (apply jdbc/do-commands-outside-txn
-                           (map #(str "vacuum analyze " %) tables))))]
+        known-migrations (apply sorted-set (keys migrations))]
 
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
@@ -1641,38 +1628,52 @@
       (throw (IllegalStateException.
               (trs "Your PuppetDB database contains a schema migration numbered {0}, but this version of PuppetDB does not recognize that version."
                    unexpected))))
+    true))
 
-    (if-let [pending (seq (pending-migrations))]
-      (let [tables (jdbc/with-db-transaction []
-                     (->> pending
-                          (map (fn [[version migration]]
-                                 (log/info (trs "Applying database migration version {0}" version))
-                                 (let [t0 (now)]
-                                   (let [result (migration)]
-                                     (record-migration! version)
-                                     (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                    version (in-millis (interval t0 (now)))))
-                                     result))))
-                          (filter map?)
-                          (map ::vacuum-analyze)
-                          (apply set/union small-tables)))]
-        (analyze tables)
-        true)
-      (do
-        (log/info (trs "There are no pending migrations"))
-        ;; Always analyze these since we had a good long period where
-        ;; the post-migration analysis above wasn't actually working,
-        ;; and since this shouldn't be expensive.
-        (analyze small-tables)
-        false))))
+(defn analyze-if-exists [tables]
+  (let [exists?  (->> "select tablename from pg_catalog.pg_tables"
+                      jdbc/query-to-vec
+                      (map :tablename)
+                      set)
+        tables (filter exists? tables)]
+    (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables)))
+    (apply jdbc/do-commands-outside-txn
+           (map #(str "vacuum analyze " %) tables))))
 
-(defn migrate! [db-connection-pool]
+(defn run-migrations
+  []
+  (require-valid-schema)
+  (let [small-tables (set ["value_types" "report_statuses"])
+        tables (jdbc/with-db-transaction []
+                 (when-let [pending (seq (pending-migrations))]
+                   (->> pending
+                        (map (fn [[version migration]]
+                               (log/info (trs "Applying database migration version {0}"
+                                              version))
+                               (let [t0 (now)]
+                                 (let [result (migration)]
+                                   (record-migration! version)
+                                   (log/info (trs "Applied database migration version {0} in {1} ms"
+                                                  version (in-millis (interval t0 (now)))))
+                                   result))))
+                        (filter map?)
+                        (map ::vacuum-analyze)
+                        seq)))]
+    (when-not tables
+      (log/info (trs "There are no pending migrations")))
+    ;; Always analyze these since we had a good long period where
+    ;; the post-migration analysis above wasn't actually working,
+    ;; and since this shouldn't be expensive.
+    (analyze-if-exists (apply set/union small-tables tables))
+    (not (empty? tables))))
+
+(defn migrate! []
   "Migrates database to the latest schema version. Does nothing if
   database is already at the latest schema version.  Requires a
   connection pool because some operations may require an indepdendent
   database connection.  Returns true if there were any migrations."
   (try
-    (run-migrations db-connection-pool)
+    (run-migrations)
     (catch java.sql.SQLException e
       (log/error e (trs "Caught SQLException during migration"))
       (loop [ex (.getNextException e)]
