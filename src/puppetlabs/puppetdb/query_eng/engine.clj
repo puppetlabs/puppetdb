@@ -86,6 +86,7 @@
 (s/defrecord Query
     [projections :- {s/Str column-schema}
      selection
+     ;; This should be just the top level "from" tables for the query.
      source-tables :- #{s/Keyword}
      alias where subquery? entity call
      group-by limit offset order-by])
@@ -444,7 +445,7 @@
                                                       :foreign-columns ["name"]}})
 
                :alias "fact_nodes"
-               :source-tables #{:factsets}
+               :source-tables #{:factsets :fact_paths}
                :subquery? false}))
 
 (def report-logs-query
@@ -930,7 +931,7 @@
 
                :alias "latest_report"
                :subquery? false
-               :source-tables #{:latest_report}}))
+               :source-tables #{:certnames}}))
 
 (def latest-report-id-query
   "Usually used as a subquery of reports"
@@ -941,7 +942,7 @@
                :selection {:from [:certnames]}
                :alias "latest_report_id"
                :subquery? false
-               :source-tables #{:latest_report_id}}))
+               :source-tables #{:certnames}}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
