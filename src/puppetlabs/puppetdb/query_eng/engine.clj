@@ -1272,9 +1272,9 @@
 
                :relationships certname-relations
 
-               :alias "package_inventory
+               :alias "package_inventory"
                :subquery? false
-               :source-table packages"}))
+               :source-table "packages"}))
 
 (def factsets-query-base
   {::which-query :factsets
