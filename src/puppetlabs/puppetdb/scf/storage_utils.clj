@@ -86,6 +86,31 @@
                    "INNER JOIN pg_namespace pn ON (pp.pronamespace = pn.oid) "
                    "INNER JOIN pg_language pl ON (pp.prolang = pl.oid) "
                    "WHERE pl.lanname NOT IN ('c') "
+                   (if (> 11 (-> @db-metadata :version first))
+                     ;; proisagg boolean was replaced with prokind char in pg11
+                     "AND pp.proisagg = 'f'"
+                     "AND pp.prokind = 'f'")
+                   "AND pn.nspname NOT LIKE 'pg_%'"
+                   "AND pn.nspname <> 'information_schema'")
+        results (jdbc/with-db-transaction [] (jdbc/query-to-vec query))]
+    (map (fn [{:keys [name args]}] (str name "(" args ")"))
+         results)))
+
+(defn sql-current-connection-aggregate-names
+  "Returns the names of all of the functions in the public schema of
+  the current connection's database.  This is most useful for
+  debugging / testing purposes to allow introspection on the
+  database.  (Some of our unit tests rely on this.)."
+  []
+  (let [query (str "SELECT pp.proname as name, pg_catalog.pg_get_function_arguments(pp.oid) as args "
+                   "FROM pg_proc pp "
+                   "INNER JOIN pg_namespace pn ON (pp.pronamespace = pn.oid) "
+                   "INNER JOIN pg_language pl ON (pp.prolang = pl.oid) "
+                   "WHERE pl.lanname NOT IN ('c') "
+                   (if (> 11 (-> @db-metadata :version first))
+                     ;; proisagg boolean was replaced with prokind char in pg11
+                     "AND pp.proisagg = 't'"
+                     "AND pp.prokind = 'a'")
                    "AND pn.nspname NOT LIKE 'pg_%'"
                    "AND pn.nspname <> 'information_schema'")
         results (jdbc/with-db-transaction [] (jdbc/query-to-vec query))]
