@@ -78,6 +78,12 @@
   [sequence-name]
   (jdbc/do-commands (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
 
+(defn drop-aggregate!
+  "Drops a function from the database.  Expects to be called from within a db binding.
+  Exercise extreme caution when calling this function!"
+  [function-name]
+  (jdbc/do-commands (format "DROP AGGREGATE IF EXISTS %s CASCADE" function-name)))
+
 (defn drop-function!
   "Drops a function from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
@@ -97,6 +103,8 @@
      (drop-table! table-name))
    (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
      (drop-sequence! sequence-name))
+   (doseq [aggregate-name (sutils/sql-current-connection-aggregate-names)]
+          (drop-aggregate! aggregate-name))
    (doseq [function-name (sutils/sql-current-connection-function-names)]
           (drop-function! function-name))))
 
