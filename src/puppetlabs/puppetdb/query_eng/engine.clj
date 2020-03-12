@@ -86,7 +86,7 @@
 (s/defrecord Query
     [projections :- {s/Str column-schema}
      selection
-     source-table :- s/Str
+     source-tables :- #{s/Keyword}
      alias where subquery? entity call
      group-by limit offset order-by])
 
@@ -301,7 +301,7 @@
                                        [:environments :reports_environment]
                                        [:= :reports_environment.id :reports.environment_id]]}
 
-               :source-table "certnames"
+               :source-tables #{:certnames}
                :alias "nodes"
                :subquery? false}))
 
@@ -319,7 +319,7 @@
                                                 :field :value}}
                :selection {:from [:resource_params]}
 
-               :source-table "resource_params"
+               :source-tables #{:resource_params}
                :alias "resource_params"
                :subquery? false}))
 
@@ -348,7 +348,7 @@
                                "facts" {:columns ["name"]}
                                "fact_contents" {:columns ["path"]}}
 
-               :source-table "fact_paths"
+               :source-tables #{:fact_paths}
                :alias "fact_paths"
                :subquery? false}))
 
@@ -359,7 +359,7 @@
                                      :field :name}}
                :selection {:from [[:fact_paths :fp]]
                            :modifiers [:distinct]}
-               :source-table "fact_paths"
+               :source-tables #{:fact_paths}
                :alias "fact_names"
                :subquery? false}))
 
@@ -393,7 +393,7 @@
                                       "fact_contents" {:columns ["certname" "name"]}})
 
                :alias "facts"
-               :source-table "factsets"
+               :source-tables #{:factsets}
                :entity :facts
                :subquery? false}))
 
@@ -444,7 +444,7 @@
                                                       :foreign-columns ["name"]}})
 
                :alias "fact_nodes"
-               :source-table "factsets"
+               :source-tables #{:factsets}
                :subquery? false}))
 
 (def report-logs-query
@@ -464,7 +464,7 @@
                :alias "logs"
                :subquery? false
                :entity :reports
-               :source-table "reports"}))
+               :source-tables #{:reports}}))
 
 (def report-metrics-query
   "Query intended to be used by the `/reports/<hash>/metrics` endpoint
@@ -483,7 +483,7 @@
                :alias "metrics"
                :subquery? false
                :entity :reports
-               :source-table "reports"}))
+               :source-tables #{:reports}}))
 
 (def reports-query
   "Query for the reports entity"
@@ -611,7 +611,7 @@
      :alias "reports"
      :subquery? false
      :entity :reports
-     :source-table "reports"}))
+     :source-tables #{:reports}}))
 
 (def catalog-query
   "Query for the top level catalogs entity"
@@ -703,7 +703,7 @@
      :alias "catalogs"
      :entity :catalogs
      :subquery? false
-     :source-table "catalogs"}))
+     :source-tables #{:catalogs}}))
 
 (def edges-query
   "Query for catalog edges"
@@ -744,7 +744,7 @@
 
                :alias "edges"
                :subquery? false
-               :source-table "edges"}))
+               :source-tables #{:edges}}))
 
 (def resources-query
   "Query for the top level resource entity"
@@ -806,7 +806,7 @@
                :alias "resources"
                :subquery? false
                :dotted-fields ["parameters\\..*"]
-               :source-table "catalog_resources"}))
+               :source-tables #{:catalog_resources}}))
 
 (def report-events-query
   "Query for the top level reports entity"
@@ -893,7 +893,7 @@
                :alias "events"
                :subquery? false
                :entity :events
-               :source-table "resource_events"}))
+               :source-tables #{:resource_events}}))
 
 (def active-nodes-query
   (map->Query {::which-query :active-nodes
@@ -903,7 +903,7 @@
                :selection {:from [:active_nodes]}
                :subquery? false
                :alias "active_nodes"
-               :source-table "active_nodes"}))
+               :source-tables #{:active_nodes}}))
 
 
 (def inactive-nodes-query
@@ -914,7 +914,7 @@
                :selection {:from [:inactive_nodes]}
                :subquery? false
                :alias "inactive_nodes"
-               :source-table "inactive_nodes"}))
+               :source-tables #{:inactive_nodes}}))
 
 (def latest-report-query
   "Usually used as a subquery of reports"
@@ -930,7 +930,7 @@
 
                :alias "latest_report"
                :subquery? false
-               :source-table "latest_report"}))
+               :source-tables #{:latest_report}}))
 
 (def latest-report-id-query
   "Usually used as a subquery of reports"
@@ -941,7 +941,7 @@
                :selection {:from [:certnames]}
                :alias "latest_report_id"
                :subquery? false
-               :source-table "latest_report_id"}))
+               :source-tables #{:latest_report_id}}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
@@ -973,7 +973,7 @@
 
                :alias "environments"
                :subquery? false
-               :source-table "environments"}))
+               :source-tables #{:environments}}))
 
 (def producers-query
   "Basic producers query, more useful when used with subqueries"
@@ -993,7 +993,7 @@
 
               :alias "producers"
               :subquery? false
-              :source-table "producers"}))
+              :source-tables #{:producers}}))
 
 (def packages-query
   "Basic packages query"
@@ -1011,7 +1011,7 @@
                :selection {:from [[:packages :p]]}
                :alias "packages"
                :subquery? false
-               :source-table "packages"}))
+               :source-tables #{:packages}}))
 
 (def package-inventory-query
   "Packages and the machines they are installed on"
@@ -1037,9 +1037,9 @@
 
                :relationships certname-relations
 
-               :alias "package_inventory
+               :alias "package_inventory"
                :subquery? false
-               :source-table packages"}))
+               :source-tables #{:packages}}))
 
 (def factsets-query-base
   {::which-query :factsets
@@ -1088,7 +1088,7 @@
 
    :alias "factsets"
    :entity :factsets
-   :source-table "factsets"
+   :source-tables #{:factsets}
    :subquery? false})
 
 (def factsets-query
@@ -1853,7 +1853,7 @@
   [query-rec column expr]
   (let [[fcols cols] (strip-function-calls column)
         coalesce-fact-values (fn [col]
-                               (if (and (= "factsets" (:source-table query-rec))
+                               (if (and (:factsets (:source-tables query-rec))
                                         (= "value" col))
                                  (convert-type "value" :jsonb-scalar :numeric)
                                  (or (get-in query-rec [:projections col :field]) col)))]
