@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+
+set -e
+
+pdb_service=<%= EZBake::Config[:user] %>
+pdb_db_name="$pdb_service"
+pg_port=5432
+<% if EZBake::Config[:build_type] == "pe" %>
+pg_user=pe-postgres
+psql_cmd=/opt/puppetlabs/server/bin/psql
+<% else %>
+pg_user=postgres
+psql_cmd=psql
+<% end %>
+
+function printerr {
+  echo "$@" >&2
+}
+
+function usage {
+  cat <<USAGE
+Usage: puppetdb delete-reports [OPTIONS]
+    --service SERVICE     the puppetdb service name (default: $pdb_service)
+    --db-name NAME        the puppetdb database name (default: $pdb_db_name)
+    --pg-user USER        the postgres system user (default: $pg_user)
+    --pg-port PORT        the postgres port to connect (default: $pg_port)
+    --psql    PATH        the path to the psql command (default: $psql_cmd)
+USAGE
+}
+
+function misuse {
+  usage >&2
+  exit 2
+}
+
+while test $# -gt 0; do
+  case "$1" in
+    --service)
+      shift
+      test $# -gt 0 || misuse
+      pdb_service="$1"
+      shift
+      ;;
+    --db-name)
+      shift
+      test $# -gt 0 || misuse
+      pdb_db_name="$1"
+      shift
+      ;;
+    --pg-user)
+      shift
+      test $# -gt 0 || misuse
+      pg_user="$1"
+      shift
+      ;;
+    --pg-port)
+      shift
+      test $# -gt 0 || misuse
+      pg_port="$1"
+      shift
+      ;;
+    --psql)
+      shift
+      test $# -gt 0 || misuse
+      psql_cmd="$1"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+        misuse
+  esac
+done
+
+printerr "Stopping puppetdb..."
+# Allow service stop to fail to support using
+# delete-reports script on an external postgres
+(service "$pdb_service" stop && printerr "Stopped puppetdb.") || printerr "Failed to stop PuppetDB, continuing."
+
+tmp_dir="$(mktemp -d)"
+tmp_dir="$(cd "$tmp_dir" && pwd)"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+chown "$pg_user:$pg_user" "$tmp_dir"
+
+# Verify that the PuppetDB schema version it the expected value
+# so that we do not incorrectly delete the report data.
+expected_schema_ver=66
+su - "$pg_user" -s /bin/sh -c "$psql_cmd -p $pg_port -d $pdb_db_name -c 'COPY ( SELECT max(version) FROM schema_migrations ) TO STDOUT;' > $tmp_dir/schema_ver"
+actual_schema_ver="$(cat "$tmp_dir/schema_ver")"
+if test "$actual_schema_ver" -ne $expected_schema_ver; then
+  printerr "Current schema version '${actual_schema_ver}' does not match the expected version '$expected_schema_ver'."
+  exit 2
+fi
+
+<%# This MUST match the SQL run by test/puppetlabs/puppetdb/scf/sql_test %>
+cat > "$tmp_dir/delete_reports.sql" <<"DELETE"
+BEGIN TRANSACTION;
+
+ALTER TABLE certnames DROP CONSTRAINT IF EXISTS certnames_reports_id_fkey;
+
+UPDATE certnames SET latest_report_id = NULL;
+TRUNCATE TABLE reports CASCADE;
+
+ALTER TABLE certnames
+  ADD CONSTRAINT certnames_reports_id_fkey
+    FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL;
+
+COMMIT TRANSACTION;
+DELETE
+
+chown "$pg_user:$pg_user" "$tmp_dir/delete_reports.sql"
+
+su - "$pg_user" -s /bin/sh -c "$psql_cmd -p $pg_port -d $pdb_db_name -f $tmp_dir/delete_reports.sql >&2"

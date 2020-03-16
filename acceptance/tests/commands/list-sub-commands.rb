@@ -3,7 +3,7 @@ test_name "list sub-commands" do
 
   step "running puppetdb on its own should list all sub-commands" do
     result = on database, "#{bin_loc}/puppetdb"
-    ["ssl-setup", "foreground"].each do |k|
+    ["delete-reports", "ssl-setup", "foreground"].each do |k|
       assert_match(/#{k}/, result.stdout, "puppetdb command should list #{k} as a sub-command")
     end
   end
