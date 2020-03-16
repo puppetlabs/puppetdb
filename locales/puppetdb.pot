@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 0eb85a17ffd48a73371b19d542fd9097a138141e\n"
+"X-Git-Ref: 790916544cdd06759e8a91c78e1aeac21514bfeb\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1085,6 +1085,15 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Migrated {0} of {1} events"
+msgstr ""
+
+#. pre-create partitions
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating partitions based on unique days in reports"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Migrated {0} of {1} reports"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
