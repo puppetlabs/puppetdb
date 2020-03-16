@@ -146,7 +146,11 @@
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands-outside-txn
        (format "drop database if exists %s" db-qname)
-       (format "create database %s template %s" db-qname template-name)))
+       (format "create database %s template %s" db-qname template-name)
+       ;; Needed by migration coordination tests, at least
+       (format "revoke connect on database %s from public" db-qname)
+       (format "grant connect on database %s to %s"
+               db-qname (jdbc/double-quote (get-in test-env [:user :name])))))
     (db-user-config db-name)))
 
 (def ^:dynamic *db* nil)
