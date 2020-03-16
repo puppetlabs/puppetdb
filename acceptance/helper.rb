@@ -237,6 +237,13 @@ module PuppetDBExtensions
     end
   end
 
+  def check_record_count(endpoint, expected_count)
+    result = on database, %Q|curl -G http://localhost:8080/pdb/query/v4/#{endpoint}|
+    result_records = JSON.parse(result.stdout)
+    assert_equal(expected_count, result_records.length,
+                 "Expected query to return '#{expected_count}' records from /pdb/query/v4/#{endpoint}; returned '#{result_records.length}'")
+  end
+
   # Display the last few log lines for debugging purposes
   #
   # @param host Hostname to display results for

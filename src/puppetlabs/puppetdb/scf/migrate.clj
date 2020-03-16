@@ -1550,6 +1550,9 @@
    63 add-job-id
    64 rededuplicate-facts
    65 varchar-columns-to-text
+   ; Make sure that if you change the structure of reports
+   ; or resource events, you also update the delete-reports
+   ; cli command.
    66 jsonb-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
