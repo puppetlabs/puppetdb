@@ -24,6 +24,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ### New features 
  - **New `initial-report-threshold` configuration option in sync settings.** On startup, PuppetDB will only sync reports newer than the threshold. Older reports will still be transferred on subsequent periodic syncs. [PDB-3751](https://tickets.puppetlabs.com/browse/PDB-3751)
+ 
+### Resolved issue 
+- To prevent information exposure as a result of [CVE-2020-7943](https://puppet.com/security/cve/CVE-2020-7943), the `/metrics/v1` endpoints are disabled by default, and access to the `/metrics/v2` endpoints are restricted to localhost.
 
 ### Contributors
 
