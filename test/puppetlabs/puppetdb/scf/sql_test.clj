@@ -14,10 +14,14 @@
 ; This MUST match the SQL run by resources/ext/cli/delete-reports.erb
 (def delete-reports-sql-commands
   ["BEGIN TRANSACTION"
-   "ALTER TABLE certnames DROP CONSTRAINT IF EXISTS certnames_reports_id_fkey"
    "UPDATE certnames SET latest_report_id = NULL"
-   "TRUNCATE TABLE reports CASCADE"
-   "ALTER TABLE certnames ADD CONSTRAINT \"certnames_reports_id_fkey\" FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"
+   "DO $$ DECLARE
+        r RECORD;
+    BEGIN
+        FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_%' OR tablename LIKE 'reports_%') LOOP
+            EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
+        END LOOP;
+    END $$;"
    "COMMIT TRANSACTION"])
 
 (deftest delete-reports-sql
@@ -42,9 +46,26 @@
             nodes (get-all-nodes)]
         (apply jdbc/do-commands delete-reports-sql-commands)
 
-        (testing "delete_reports.sql doesn't change db schema"
-          (is (= {:index-diff nil, :table-diff nil, :constraint-diff nil}
-                 (diff-schema-maps before-truncation (schema-info-map *db*)))))
+        (testing "delete_reports.sql only deletes partitions"
+          (let [no-right-or-same? (fn [diff]
+                                    ;; Since we are deleting partitions, there shouldn't be anything new
+                                    (is (nil? (get diff :right-only false)))
+                                    (is (nil? (get diff :same false))))
+                check-left-table-name (fn [{:keys [table table_name]}]
+                                        ; The table name is in one of two keys
+                                        (let [table-name (or table table_name)]
+                                          ; Everything deleted should be from a partitioned table
+                                          (is (or (re-matches #"reports_\d\d\d\d\d\d\d\dz" table-name)
+                                                  (re-matches #"resource_events_\d\d\d\d\d\d\d\dz" table-name)))))
+                check-diff (fn [diffs]
+                             (doseq [diff diffs]
+                               (no-right-or-same? diff)
+                               (check-left-table-name (:left-only diff))))
+                schema-diff (diff-schema-maps before-truncation (schema-info-map *db*))]
+
+          (check-diff (:index-diff schema-diff))
+          (check-diff (:table-diff schema-diff))
+          (check-diff (:constaint-diff schema-diff))))
 
         (testing "reports and resource events were deleted"
           (is (empty?  (get-all-reports)))
