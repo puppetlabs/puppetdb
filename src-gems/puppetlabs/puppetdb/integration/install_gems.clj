@@ -11,7 +11,7 @@
     (jruby-core/cli-run! jruby-config "gem" args)))
 
 (defn install-gems [gem-list-name config _]
-  (gem-run! config "install" "facter")
+  (gem-run! config "install" "facter" "-v" "2.5.7")
   (gem-run! config "install" "hiera")
 
   ;; Install the puppetserver vendored gems listed inside its jar; this is where
