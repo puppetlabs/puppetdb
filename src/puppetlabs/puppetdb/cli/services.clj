@@ -566,29 +566,25 @@
         {:keys [cmd-event-mult cmd-event-ch]} context
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
-        write-db (-> (assoc database
-                            :pool-name "PDBWritePool"
-                            :expected-schema desired-schema-version)
-                     (jdbc/pooled-datasource database-metrics-registry))
-        read-db (-> (assoc read-database
-                           :pool-name "PDBReadPool"
-                           :expected-schema desired-schema-version
-                           :read-only? true)
-                    (jdbc/pooled-datasource database-metrics-registry))
-        globals {:scf-read-db read-db
-                 :scf-write-db write-db
-                 :pretty-print (:pretty-print developer)
-                 :node-purge-ttl (:node-purge-ttl database)
-                 :cmd-event-mult cmd-event-mult
-                 :maybe-send-cmd-event! maybe-send-cmd-event!}]
+        clean-lock (ReentrantLock.)
+        context (assoc context  ;; context may be augmented further below
+                       :shared-globals {:pretty-print (:pretty-print developer)
+                                        :node-purge-ttl (:node-purge-ttl database)
+                                        :cmd-event-mult cmd-event-mult
+                                        :maybe-send-cmd-event! maybe-send-cmd-event!}
+                       :clean-lock clean-lock)]
 
     (when-let [v (version/version)]
       (log/info (trs "PuppetDB version {0}" v)))
     (init-with-db database config)
 
     (if upgrade-and-exit?
-      (assoc context :shared-globals globals)
-      (do
+      context
+      (let [read-db (-> (assoc read-database
+                               :pool-name "PDBReadPool"
+                               :expected-schema desired-schema-version
+                               :read-only? true)
+                        (jdbc/pooled-datasource database-metrics-registry))]
         (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
           (pop/initialize-population-metrics! population-registry read-db))
 
@@ -602,13 +598,9 @@
               [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config)
                                                                 maybe-send-cmd-event!
                                                                 cmd-event-ch)
-              globals (assoc globals
-                             :q q
-                             :dlo (dlo/initialize (get-path stockdir "discard")
-                                                  (get-in metrics-registries
-                                                          [:dlo :registry]))
-                             :command-chan command-chan)
-              clean-lock (ReentrantLock.)
+              dlo (dlo/initialize (get-path stockdir "discard")
+                                  (get-in metrics-registries
+                                          [:dlo :registry]))
               command-loader (when load-messages
                                (future
                                  (load-messages command-chan cmd/inc-cmd-depth)))]
@@ -620,14 +612,18 @@
           ;; Pretty much this helper just knows our job-pool and gc-interval
           (let [job-pool (mk-pool)
                 gc-interval-millis (to-millis (:gc-interval database))
-                schema-check-interval (:schema-check-interval database)]
+                schema-check-interval (:schema-check-interval database)
+                write-db (-> (assoc database
+                                    :pool-name "PDBWritePool"
+                                    :expected-schema desired-schema-version)
+                             (jdbc/pooled-datasource database-metrics-registry))]
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
             (when (pos? schema-check-interval)
               (interspaced schema-check-interval
                            #(check-schema-version desired-schema-version
                                                   context
-                                                  (:scf-read-db globals)
+                                                  read-db
                                                   service
                                                   shutdown-on-error)
                            job-pool))
@@ -638,11 +634,16 @@
                                                            database request
                                                            (:stop-status context))
                              job-pool)))
-            (assoc context
-                   :job-pool job-pool
-                   :shared-globals globals
-                   :clean-lock clean-lock
-                   :command-loader command-loader)))))))
+            (-> context
+                (assoc :job-pool job-pool
+                       :command-loader command-loader)
+                (assoc-in [:shared-globals :command-chan] command-chan)
+                (assoc-in [:shared-globals :cmd-event-mult] cmd-event-mult)
+                (assoc-in [:shared-globals :dlo] dlo)
+                (assoc-in [:shared-globals :maybe-send-cmd-event!] maybe-send-cmd-event!)
+                (assoc-in [:shared-globals :q] q)
+                (assoc-in [:shared-globals :scf-read-db] read-db)
+                (assoc-in [:shared-globals :scf-write-db] write-db))))))))
 
 (defn db-unsupported-msg
     "Returns a message describing which databases are supported."
