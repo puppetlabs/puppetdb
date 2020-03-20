@@ -538,83 +538,83 @@
         {:keys [pretty-print max-enqueued]} developer
         {:keys [gc-interval node-purge-ttl schema-check-interval]} database
         {:keys [disable-update-checking]} puppetdb
-        {:keys [cmd-event-mult cmd-event-ch]} context
-
-        write-db (jdbc/pooled-datasource (assoc database
-                                                :pool-name "PDBWritePool"
-                                                :expected-schema desired-schema-version)
-                                         database-metrics-registry)
-        read-db (jdbc/pooled-datasource (assoc read-database
-                                               :read-only? true
-                                               :pool-name "PDBReadPool"
-                                               :expected-schema desired-schema-version)
-                                        database-metrics-registry)]
+        {:keys [cmd-event-mult cmd-event-ch]} context]
 
     (when-let [v (version/version)]
       (log/info (trs "PuppetDB version {0}" v)))
 
     (init-with-db database config)
 
-    (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
-      (pop/initialize-population-metrics! population-registry read-db))
+    (let [read-db (jdbc/pooled-datasource (assoc read-database
+                                                 :read-only? true
+                                                 :pool-name "PDBReadPool"
+                                                 :expected-schema desired-schema-version)
+                                          database-metrics-registry)]
 
-    ;; Error handling here?
-    (let [stockdir (conf/stockpile-dir config)
-          command-chan (async/chan
-                         (queue/sorted-command-buffer
-                          max-enqueued
-                          (fn [cmd ver] (cmd/update-counter! :invalidated cmd ver inc!))
-                          (fn [cmd ver] (cmd/update-counter! :ignored cmd ver inc!))))
-          emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
-          maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
-          [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config)
-                                                            maybe-send-cmd-event!
-                                                            cmd-event-ch)
-          globals {:scf-read-db read-db
-                   :scf-write-db write-db
-                   :pretty-print pretty-print
-                   :q q
-                   :dlo (dlo/initialize (get-path stockdir "discard")
-                                        (get-in metrics-registries
-                                                [:dlo :registry]))
-                   :node-purge-ttl node-purge-ttl
-                   :command-chan command-chan
-                   :cmd-event-mult cmd-event-mult
-                   :maybe-send-cmd-event! maybe-send-cmd-event!}
-          clean-lock (ReentrantLock.)
-          command-loader (when load-messages
-                           (future
-                             (load-messages command-chan cmd/inc-cmd-depth)))]
+      (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
+        (pop/initialize-population-metrics! population-registry read-db))
 
-      ;; send the queue-loaded cmd-event if the command-loader didn't
-      (when-not command-loader
-        (async/>!! cmd-event-ch {:kind ::queue/queue-loaded}))
+      ;; Error handling here?
+      (let [stockdir (conf/stockpile-dir config)
+            command-chan (async/chan
+                          (queue/sorted-command-buffer
+                           max-enqueued
+                           (fn [cmd ver] (cmd/update-counter! :invalidated cmd ver inc!))
+                           (fn [cmd ver] (cmd/update-counter! :ignored cmd ver inc!))))
+            emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
+            maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
+            [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config)
+                                                              maybe-send-cmd-event!
+                                                              cmd-event-ch)
+            dlo (dlo/initialize (get-path stockdir "discard")
+                                (get-in metrics-registries
+                                        [:dlo :registry]))
+            clean-lock (ReentrantLock.)
+            command-loader (when load-messages
+                             (future
+                               (load-messages command-chan cmd/inc-cmd-depth)))]
 
-      ;; Pretty much this helper just knows our job-pool and gc-interval
-      (let [job-pool (mk-pool)
-            gc-interval-millis (to-millis gc-interval)]
-        (when-not disable-update-checking
-          (maybe-check-for-updates config read-db job-pool))
-        (when (pos? schema-check-interval)
-          (interspaced schema-check-interval
-                       #(check-schema-version desired-schema-version
-                                              context
-                                              (:scf-read-db globals)
-                                              service
-                                              shutdown-on-error)
-                       job-pool))
-        (when (pos? gc-interval-millis)
-          (let [request (db-config->clean-request database)]
-            (interspaced gc-interval-millis
-                         #(coordinate-gc-with-shutdown write-db clean-lock
-                                                       database request
-                                                       (:stop-status context))
-                         job-pool)))
-        (assoc context
-               :job-pool job-pool
-               :shared-globals globals
-               :clean-lock clean-lock
-               :command-loader command-loader)))))
+        ;; send the queue-loaded cmd-event if the command-loader didn't
+        (when-not command-loader
+          (async/>!! cmd-event-ch {:kind ::queue/queue-loaded}))
+
+        ;; Pretty much this helper just knows our job-pool and gc-interval
+        (let [job-pool (mk-pool)
+              gc-interval-millis (to-millis gc-interval)
+              write-db (jdbc/pooled-datasource (assoc database
+                                                      :pool-name "PDBWritePool"
+                                                      :expected-schema desired-schema-version)
+                                               database-metrics-registry)]
+          (when-not disable-update-checking
+            (maybe-check-for-updates config read-db job-pool))
+          (when (pos? schema-check-interval)
+            (interspaced schema-check-interval
+                         #(check-schema-version desired-schema-version
+                                                context
+                                                read-db
+                                                service
+                                                shutdown-on-error)
+                         job-pool))
+          (when (pos? gc-interval-millis)
+            (let [request (db-config->clean-request database)]
+              (interspaced gc-interval-millis
+                           #(coordinate-gc-with-shutdown write-db clean-lock
+                                                         database request
+                                                         (:stop-status context))
+                           job-pool)))
+          (assoc context
+                 :job-pool job-pool
+                 :shared-globals {:scf-read-db read-db
+                                  :scf-write-db write-db
+                                  :pretty-print pretty-print
+                                  :q q
+                                  :dlo dlo
+                                  :node-purge-ttl node-purge-ttl
+                                  :command-chan command-chan
+                                  :cmd-event-mult cmd-event-mult
+                                  :maybe-send-cmd-event! maybe-send-cmd-event!}
+                 :clean-lock clean-lock
+                 :command-loader command-loader))))))
 
 (defn db-unsupported-msg
   "Returns a message describing which databases are supported."
