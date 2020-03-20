@@ -605,6 +605,13 @@
        (.setAutoCommit false)
        (.setInitializationFailTimeout -1)
        (.setTransactionIsolation "TRANSACTION_READ_COMMITTED")
+       ;; Because we currently disable autocommit and specify
+       ;; connectionInitSql, we need to set IsolateInternalQueries to
+       ;; true because otherwise hikaricp will run our connection init
+       ;; code which issues a select without committing it, which
+       ;; causes later attempts to (for example) change the isolation
+       ;; level to fail (because the pending transaction already
+       ;; includes that select).
        (.setIsolateInternalQueries true))
      (some->> (when expected-schema
                 (block-on-schema-mismatch expected-schema))
