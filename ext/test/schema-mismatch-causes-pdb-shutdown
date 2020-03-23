@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() { echo 'Usage: [PDB_JAR=JAR] $(basename "$0") --pgbin PGBIN --pgport PGPORT'; }
+misuse() { usage 1>&2; exit 2; }
+
+argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
+declare -A opt
+
+while test $# -gt 0; do
+    case "$1" in
+        --pgbin|--pgport)
+            test $# -gt 1 || misuse
+            opt["${1:2}"]="$2"
+            shift 2
+            ;;
+        *)
+            misuse
+    esac
+done
+
+if test -z "${opt[pgbin]:-}"; then
+    opt[pgbin]="$(ext/bin/test-config --get pgbin)"
+    if test  -z "${opt[pgbin]:-}"; then
+        echo 'Please specify --pgbin or set pgbin with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+if test -z "${opt[pgport]:-}"; then
+    opt[pgport]="$(ext/bin/test-config --get pgport)"
+     if test  -z "${opt[pgport]:-}"; then
+        echo 'Please specify --pgport or set pgport with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+set -x
+
+if test -z "${PDBBOX:-}"; then
+    # No PDBBOX, set one up and run ourselves again
+    tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
+    tmpdir="$(cd "$tmpdir" && pwd)"
+    trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+    # Don't exec (or we'll never run the trap)
+    ext/bin/with-pdbbox --box "$tmpdir/box" \
+                        --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
+                        -- "${argv[@]}"
+    exit 0
+fi
+
+tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+sed -i '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini"
+
+# use upgrade command to init pdb and apply all migrations
+./pdb upgrade -c "$PDBBOX/pdb.ini"
+
+# start pdb in the background
+./pdb services -c "$PDBBOX/pdb.ini" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
+
+# allow time for pdb to start before changing migration level
+while ! grep -F "Finished database garbage collection" "$tmpdir/pdb-out" > /dev/null
+do
+    echo 'Waiting for pdb to start...'
+    cat "$tmpdir/pdb-out" "$tmpdir/pdb-err"
+    sleep 3
+done
+
+# simulate a different pdb completing a new migration
+psql -U puppetdb puppetdb -c 'INSERT INTO schema_migrations (version, time) VALUES (10000, now());'
+
+# wait for the background pdb to notice the migration change and exit
+rc=0
+wait $pdb_pid || rc=$?
+test "$rc" -eq 1
+
+cat "$tmpdir/pdb-out" "$tmpdir/pdb-err"
+grep -F 'Please upgrade PuppetDB' "$tmpdir/pdb-out"

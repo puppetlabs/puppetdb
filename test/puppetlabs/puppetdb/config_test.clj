@@ -175,7 +175,18 @@
                                           write-database-config-in
                                           write-database-config-out)
                        configure-read-db)]
-        (is (= true (get-in config [:database :migrate?])))))))
+        (is (= true (get-in config [:database :migrate?])))))
+
+    (testing "schema-check-interval defaults to 30 seconds"
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"}}
+                       (configure-section :database
+                                          write-database-config-in
+                                          write-database-config-out)
+                       configure-read-db)
+            thirty-seconds-in-millis 30000]
+        (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]

@@ -538,6 +538,47 @@
   [^HikariConfig config metrics-registry]
   (.setMetricRegistry config metrics-registry))
 
+(defn block-on-schema-mismatch
+  "Compares the schema version the local PDB knows about against the version
+  in the database. If these versions don't match it indicates that either a
+  migration has been applied by another PDB or that the local PDB has been
+  upgraded before the needed migration has been applied. Raising an exception
+  here will cause all connection attempts from Hikari to fail until the local
+  PDB has been upgraded or a needed migration is applied"
+  [expected-schema]
+  {:pre [(integer? expected-schema)]}
+  (format
+   (str/join
+    " "
+    ["do $$"
+     "declare"
+     "  db_schema_version integer;"
+     "  expected_max integer = %d;"
+     "begin"
+     "  if exists (select from information_schema.tables"
+     "               where table_schema = 'public'"
+     "                 and table_name = 'schema_migrations')"
+     "  then"
+     "    select max(version) into db_schema_version from schema_migrations;"
+     "    case"
+     "      when db_schema_version > expected_max then"
+     "        raise exception"
+     "          'Please upgrade PuppetDB: your database contains schema
+                 migration %% which is too new for this version of PuppetDB.',
+                 db_schema_version;"
+     "      when db_schema_version < expected_max then"
+     "        raise exception"
+     "          'Please run PuppetDB with the migrate? option set to true
+                 to upgrade your database. The detected migration level %% is
+                 out of date.', db_schema_version;"
+     "      else"
+     "        perform true;"  ; if schema versions match do nothing
+     "    end case;"
+     "  end if;"
+     "end;"
+     "$$ language plpgsql;"])
+   expected-schema))
+
 (defn make-connection-pool
   "Given a DB spec map containing :subprotocol, :subname, :user, and :password
   keys, return a pooled DB spec map (one containing just the :datasource key
@@ -552,7 +593,8 @@
             conn-lifetime
             read-only?
             pool-name
-            maximum-pool-size]
+            maximum-pool-size
+            expected-schema]
      :as db-spec}
     metrics-registry]
    (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
@@ -562,7 +604,11 @@
        (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
        (.setAutoCommit false)
        (.setInitializationFailTimeout -1)
-       (.setTransactionIsolation "TRANSACTION_READ_COMMITTED"))
+       (.setTransactionIsolation "TRANSACTION_READ_COMMITTED")
+       (.setIsolateInternalQueries true))
+     (some->> (when expected-schema
+                (block-on-schema-mismatch expected-schema))
+              (.setConnectionInitSql config))
      (some->> pool-name (.setPoolName config))
      (some->> connection-timeout (.setConnectionTimeout config))
      (some->> maximum-pool-size (.setMaximumPoolSize config))
