@@ -414,6 +414,13 @@ to the `username`.
 This is the password to use when connecting for database migrations.
 Defaults to `password`.
 
+### `migrate?`
+
+When set to `true` (the default), PuppetDB will upgrade the data in
+the database to the latest format at startup.  When `false`, PuppetDB
+will exit with an error status if the format version is not the one it
+expects, whether newer or older.
+
 ### `maximum-pool-size`
 
 From the [HikariCP documentation](https://github.com/brettwooldridge/HikariCP):
