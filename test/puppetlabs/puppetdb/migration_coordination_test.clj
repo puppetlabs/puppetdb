@@ -1,19 +1,25 @@
 (ns puppetlabs.puppetdb.migration-coordination-test
   (:require
+   [clojure.java.jdbc :as sql]
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.command.constants :as cmd-consts]
    [puppetlabs.puppetdb.jdbc :as jdbc]
-   [puppetlabs.puppetdb.scf.migrate :refer [desired-schema-version]]
-   [puppetlabs.puppetdb.testutils.db :as tdb :refer [*db*]]
-   [puppetlabs.puppetdb.testutils.services :as svc-utils]
-   [puppetlabs.puppetdb.time :refer [now to-timestamp]]
-   [puppetlabs.puppetdb.testutils.cli :refer [example-report]]))
+   [puppetlabs.puppetdb.scf.migrate :as migrate :refer [desired-schema-version]]
+   [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
+   [puppetlabs.puppetdb.testutils.cli :refer [example-report]]
+   [puppetlabs.puppetdb.testutils.db :as tdb
+    :refer [*db* test-env with-test-db]]
+   [puppetlabs.puppetdb.testutils.services :as svc-utils
+    :refer [call-with-puppetdb-instance create-temp-config]]
+   [puppetlabs.puppetdb.time :refer [now to-timestamp]])
+  (:import
+   (org.postgresql.util PSQLException)))
 
 (deftest schema-mismatch-causes-new-connections-to-throw-expected-errors
   (doseq [db-upgraded? [true false]]
-    (tdb/with-test-db
-      (svc-utils/call-with-puppetdb-instance
-       (-> (svc-utils/create-temp-config)
+    (with-test-db
+      (call-with-puppetdb-instance
+       (-> (create-temp-config)
            (assoc :database *db*)
            ;; Allow client connections to timeout more quickly to speed test
            (assoc-in [:database :connection-timeout] 300)
@@ -78,3 +84,66 @@
                (do
                  (Thread/sleep 100)
                  (recur (inc retries)))))))))))
+
+(deftest migrator-evicts-non-migrators-and-blocks-connections
+  (with-test-db
+    (let [deref-or-die #(when-not (deref % default-timeout-ms nil)
+                          (throw
+                           (ex-info "test promise deref timed out"
+                                    {:kind ::migrator-evicts-non-migrators-and-blocks-connections})))
+          admin (get-in test-env [:admin :name])
+          admin-pw (get-in test-env [:admin :password])
+          config (-> (create-temp-config)
+                     (assoc :database *db*)
+                     (assoc-in [:database :migrator-username] admin)
+                     (assoc-in [:database :migrator-password] admin-pw))
+          sleep-ex (promise)
+          connect-ex (promise)
+          finished-migrations (promise)
+          hold-migrations #(do
+                             (deliver finished-migrations true)
+                             (deref-or-die connect-ex))]
+      (future
+        ;; Pretend to be a non-migrator -- sleep so we'll be connected
+        ;; when the migrator evicts everyone.
+        (try
+          ;; Note: I think this may keep sleeping, even after the
+          ;; connection is closed if something goes wrong.
+          (jdbc/do-commands "select pg_sleep(60);")
+          (catch Throwable ex
+            (deliver sleep-ex ex)
+            (throw ex))))
+
+      (future
+        (deref-or-die finished-migrations)
+        ;; Try a new connection as the non-migrator to make sure it's
+        ;; rejected.  This must be done from outside the pending
+        ;; migration transaction.
+        (try
+          (sql/query *db* ["select certname from certnames"])
+          (catch Exception ex
+            (deliver connect-ex ex)
+            (throw ex))))
+
+      ;; Add a dummy migration so the migrator will run it.
+      (with-redefs [migrate/migrations (assoc migrate/migrations
+                                              (inc (apply max (keys migrate/migrations)))
+                                              (constantly true))
+                    migrate/note-migrations-finished hold-migrations]
+        (call-with-puppetdb-instance
+         config
+         (fn []
+           ;; Wait for the sleeping non-migrator to be ejected
+           (deref sleep-ex default-timeout-ms nil)
+           (deref connect-ex default-timeout-ms nil))))
+
+      ;; By now we either timed out above, or exceptions are available
+      (let [ex (deref sleep-ex 0 nil)]
+        (is (= PSQLException (class ex)))
+        ;; i.e. "This connection has been closed"
+        (is (= "08003" (some-> ex .getSQLState))))
+
+      (let [ex (deref connect-ex 0 nil)]
+        (is (= PSQLException (class ex)))
+        ;; i.e. "User does not have CONNECT privilege"
+        (is (= "42501" (some-> ex .getSQLState)))))))

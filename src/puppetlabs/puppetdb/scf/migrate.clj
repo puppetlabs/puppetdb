@@ -1720,16 +1720,47 @@
    (maybe-create-trgm-indexes)
    (ensure-report-id-index)))
 
+(defn note-migrations-finished [] true)
+
 (defn update-schema
   [non-migrator-name db-name]
-  (jdbc/with-db-transaction []
-    (require-schema-migrations-table)
-    (jdbc/do-commands
-     "lock table schema_migrations in access exclusive mode")
-    (jdbc/disconnect-role-from-db non-migrator-name db-name)
-    (require-valid-schema)
-    (set/union (run-migrations (pending-migrations))
-               (create-indexes))))
+  {:pre [(or (not non-migrator-name)
+             (and non-migrator-name db-name))]}
+
+  (when non-migrator-name
+    (jdbc/revoke-role-db-access non-migrator-name db-name))
+
+  (try
+    (when non-migrator-name
+      ;; Because the revoke may not actually produce an error when
+      ;; it doesn't work.
+      (when (jdbc/has-database-privilege? non-migrator-name db-name "connect")
+        (throw
+         (ex-info (str "Unable to prevent non-migrator connections during migration ")
+                  {:kind ::unable-to-block-other-pdbs-during-migration})))
+      (jdbc/disconnect-db-role db-name non-migrator-name))
+
+    (jdbc/with-db-transaction []
+      (require-schema-migrations-table)
+      (jdbc/do-commands
+       "lock table schema_migrations in access exclusive mode")
+      (require-valid-schema)
+      (let [tables (set/union (run-migrations (pending-migrations))
+                              (create-indexes))]
+        (note-migrations-finished)
+        tables))
+
+    (finally
+      (when non-migrator-name
+        ;; This won't run if the jvm doesn't quit in a way that lets
+        ;; threads finish (TK's shutdown process does).
+        (try
+          (jdbc/restore-role-db-access non-migrator-name db-name)
+          (catch Throwable ex
+            ;; Don't let this rethrow, so that it won't suppress any
+            ;; pending exception.
+            (log/error
+             ex (trs "Unable to restore db access after migrations"))))))))
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns

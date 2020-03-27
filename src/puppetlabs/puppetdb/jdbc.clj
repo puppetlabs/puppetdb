@@ -10,7 +10,7 @@
             [clojure.string :as str]
             [puppetlabs.puppetdb.time :as pl-time]
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
-            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [schema.core :as s]
             [clojure.math.numeric-tower :as math]
             [puppetlabs.i18n.core :refer [trs]]))
@@ -658,6 +658,14 @@
 (defn current-user []
   (-> (query-to-vec "select user as user") first :user))
 
+(defn current-database []
+  (-> "select current_database();" query-to-vec first :current_database))
+
+(defn-validated has-database-privilege?
+  [user db privilege] :- s/Bool
+  (-> ["select has_database_privilege(?, ?, ?)" user db privilege]
+      query-to-vec first :has_database_privilege))
+
 (defn disconnect-db [db]
   "Forcibly disconnects all connections to the named db.  Requires
   that the current DB session has sufficient authorization."
@@ -679,3 +687,17 @@
         "    and pg_stat_activity.usename = ?"
         "    and pid <> pg_backend_pid()")
    db user))
+
+(defn revoke-role-db-access
+  [role db]
+  ;; revoke commands can't be parameterized with the pgjdbc driver right now
+  (do-commands
+   (format "revoke connect on database %s from %s restrict"
+           (double-quote db) (double-quote role))))
+
+(defn restore-role-db-access
+  [role db]
+  ;; grant commands can't be parameterized with the pgjdbc driver right now
+  (do-commands
+   (format "grant connect on database %s to %s"
+          (double-quote db) (double-quote role))))
