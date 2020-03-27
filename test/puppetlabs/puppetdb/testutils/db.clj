@@ -141,12 +141,12 @@
   (let [n (swap! test-db-counter inc)
         db-name (if-not pdb-test-id
                   (str "pdb_test_" n)
-                  (str "pdb_test_" pdb-test-id "_" n))]
-    (assert (valid-sql-id? db-name))
+                  (str "pdb_test_" pdb-test-id "_" n))
+        db-qname (jdbc/double-quote db-name)]
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands-outside-txn
-       (format "drop database if exists %s" db-name)
-       (format "create database %s template %s" db-name template-name)))
+       (format "drop database if exists %s" db-qname)
+       (format "create database %s template %s" db-qname template-name)))
     (db-user-config db-name)))
 
 (def ^:dynamic *db* nil)
