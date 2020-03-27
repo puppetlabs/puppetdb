@@ -514,7 +514,7 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-schema-version context db service shutdown-on-error]
+  [desired-schema-version context db service request-shutdown]
   {:pre [(integer? desired-schema-version)]}
   (when-not (= #{:stopping} @(:stop-status context))
     (let [schema-version (-> (jdbc/with-transacted-connection db
@@ -536,14 +536,15 @@
 
                        :else
                        (throw (Exception. "Unknown state when checking schema versions")))]
-          (shutdown-on-error (service-id service)
-                             #(throw (ex-info ex-msg {:kind ::schema-mismatch}))))))))
+          (request-shutdown {::tk/exit
+                             {:status 1  ;; Unsuppported by older TK (will be 1)
+                              :messages [[ex-msg *err*]]}}))))))
 
 (defn start-puppetdb
   "Throws {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported. If a database setting is configured
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
-  [context config service get-registered-endpoints shutdown-on-error]
+  [context config service get-registered-endpoints request-shutdown]
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing
@@ -606,7 +607,7 @@
                                                 context
                                                 read-db
                                                 service
-                                                shutdown-on-error)
+                                                request-shutdown)
                          job-pool))
           (when (pos? gc-interval-millis)
             (let [request (db-config->clean-request database)]
@@ -651,23 +652,19 @@
                        invalid-settings))))
 
 (defn start-puppetdb-or-shutdown
-  [context config service get-registered-endpoints shutdown-on-error]
+  [context config service get-registered-endpoints request-shutdown]
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)]}
   (try
-    (start-puppetdb context config service get-registered-endpoints shutdown-on-error)
+    (start-puppetdb context config service get-registered-endpoints request-shutdown)
     (catch ExceptionInfo ex
       (let [{:keys [kind] :as data} (ex-data ex)
             stop (fn [msg]
-                   (let [msg (utils/attention-msg msg)]
-                     (utils/println-err msg)
-                     (log/error msg)
-                     ;; This will become a custom exit request once
-                     ;; trapperkeeper supports it.
-                     (shutdown-on-error
-                      (service-id service)
-                      #(throw ex))))]
+                   (request-shutdown {::tk/exit
+                                      {:status 1  ;; Unsuppported by older TK (will be 1)
+                                       :messages [[msg *err*]]}})
+                   context)]
         (case kind
           ::unsupported-database
           (stop (db-unsupported-msg (:current data) (:oldest data)))
@@ -680,6 +677,29 @@
 
           ;; Unrecognized -- pass it on.
           (throw ex))))))
+
+(defn shutdown-requestor
+  "Returns a shim for TK's request-shutdown that also records the
+  shutdown request in the service context as :shutdown-request.  The
+  shim accepts the TK 3.1+ method's arguments and (somewhat) emulates
+  that newer behavior (until we move to TK 3.1+)."
+  [request-shutdown shutdown-on-error service]
+  ;; Changes to the argument order above will require changes to the
+  ;; unsupported-database-triggers-shutdown test.
+  (fn shutdown [opts]
+    (let [{{:keys [status messages] :as exit-opts} ::tk/exit} opts]
+      (assert (integer? status))
+      (assert (every? string? (map first messages)))
+      (some-> (:shutdown-request (service-context service))
+              (deliver {:opts opts}))
+      (doseq [[msg out] messages
+              :let [msg (utils/attention-msg msg)]]
+        (utils/println-err msg)
+        (log/error msg))
+      (if (zero? status)
+        (request-shutdown)
+        (shutdown-on-error (service-id service)
+                           #(throw (Exception. (apply str (map first messages)))))))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -715,7 +735,7 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService shutdown-on-error]]
+   [:ShutdownService request-shutdown shutdown-on-error]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -729,12 +749,15 @@
                  ;; This coordination is needed until we no longer
                  ;; support jdk < 10.
                  ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-                 :stop-status (atom #{}))))
+                 :stop-status (atom #{})
+                 :shutdown-request (promise))))
   (start
    [this context]
    (start-puppetdb-or-shutdown context (get-config) this
                                get-registered-endpoints
-                               shutdown-on-error))
+                               (shutdown-requestor request-shutdown
+                                                   shutdown-on-error
+                                                   this)))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
