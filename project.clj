@@ -92,7 +92,7 @@
     ;; (logstash depends on jackson-databind)
     [com.fasterxml.jackson.core/jackson-databind "2.9.10"]
     ;; CVE-2020-7943
-    [puppetlabs/trapperkeeper-metrics "1.2.1" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]])
+    [puppetlabs/trapperkeeper-metrics "1.2.2" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]])
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
@@ -167,7 +167,6 @@
                     [puppetlabs/stockpile "0.0.4"]
                     [puppetlabs/tools.namespace "0.2.4.1"]
                     [puppetlabs/trapperkeeper]
-                    [puppetlabs/trapperkeeper-metrics "1.2.1" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
                     [puppetlabs/trapperkeeper-status]
 
                     ;; Various
