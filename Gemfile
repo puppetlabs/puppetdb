@@ -71,6 +71,11 @@ if ENV['NO_ACCEPTANCE'] != 'true'
     else
       # use the pinned version
       gem 'beaker', '~> 4.1'
+      # We are currently stuck on beaker 4.6.0 due to a conflict
+      # between puppet and beaker net-ssh versions. This older version of beaker
+      # is causing acceptance test failures when it pulls in a newer version of pry.
+      # Manually pinning pry back solves the problem.
+      gem 'pry', '0.10.0'
     end
   end
   gem 'beaker-hostgenerator', '1.1.26'
