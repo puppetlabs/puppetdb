@@ -1,13 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Puppet <docs@puppet.com>
-# This file is distributed under the same license as the PACKAGE package.
+# This file is distributed under the same license as the puppetlabs.puppetdb package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 1651f368a53c4a3611b027793a5f3a0cd5be39ea\n"
+"X-Git-Ref: 8136dff5034d9fc033a2cfcdc4af77c066339727\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -275,6 +275,14 @@ msgstr ""
 msgid "Forcibly terminating periodic activities"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Database is not fully migrated and migration is disallowed."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "  Missing migrations: {0}"
+msgstr ""
+
 #. Nothing to do but log it...
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Unable to close migration pool"
@@ -282,6 +290,26 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Will retry database connection after temporary failure: "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Please upgrade PuppetDB: "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"your database contains schema migration {0} which is too new for this "
+"version of PuppetDB."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"Please run PuppetDB with the migrate? option set to true to upgrade your "
+"database. "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "The detected migration level {0} is out of date."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -303,10 +331,6 @@ msgstr ""
 #. 2 : The actual value of that database setting
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Unkown fatal start error {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -1122,10 +1146,6 @@ msgid "[8/8] Indexing facts table..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Updating table statistics for: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Found an old and unuspported database migration (migration number {0})."
 msgstr ""
 
@@ -1145,6 +1165,10 @@ msgstr ""
 msgid ""
 "Your PuppetDB database contains a schema migration numbered {0}, but this "
 "version of PuppetDB does not recognize that version."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Updating table statistics for: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
