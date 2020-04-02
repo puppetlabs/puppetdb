@@ -64,7 +64,7 @@
       name)))
 
 (defn init-db [db]
-  (jdbc/with-db-connection db (migrate! db)))
+  (jdbc/with-db-connection db (migrate!)))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
@@ -130,7 +130,7 @@
          "create extension if not exists pgcrypto"))
       (let [cfg (db-user-config template-name)]
         (jdbc/with-db-connection cfg
-          (migrate! cfg)))
+          (migrate!)))
       (reset! template-created true))))
 
 (def ^:private test-db-counter (atom 0))

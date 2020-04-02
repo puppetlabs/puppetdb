@@ -31,6 +31,7 @@ export PDB_JAR="$(pwd)/target/puppetdb.jar"
 
 run ext/test/top-level-cli
 run ext/test/upgrade-and-exit
+run ext/test/database-migration-config
 
 if test "$failures" -eq 0; then
     echo "failures: $failures" 1>&2

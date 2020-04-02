@@ -212,7 +212,8 @@
                  [9 5]]]
         (with-redefs [sutils/db-metadata (delay {:database nil :version v})]
           (try
-           (initialize-schema *db* config)
+            (jdbc/with-db-connection *db*
+              (prep-db *db* config))
            (catch clojure.lang.ExceptionInfo e
              (let [{:keys [kind current oldest]} (ex-data e)]
                (is (= ::svcs/unsupported-database kind))
@@ -220,15 +221,16 @@
                (is (= expected-oldest oldest)))))))
       (with-redefs [sutils/db-metadata (delay {:database nil :version [9 6]})]
         (is (do
-              ;; Assumes initialize-schema is idempotent, which it is
-              (initialize-schema *db* config)
+              ;; Assumes prep-db is idempotent, which it is
+              (jdbc/with-db-connection *db*
+                (prep-db *db* config))
               true))))))
 
 (deftest unsupported-database-settings-trigger-shutdown
   (svc-utils/with-single-quiet-pdb-instance
     (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
                      conf/get-config)
-          settings (request-database-settings *db*)]
+          settings (request-database-settings)]
       (doseq [[setting err-value] [[:standard_conforming_strings "off"]]]
         (try
          (verify-database-settings (map #(when (= (:name %) (name setting))
@@ -261,7 +263,7 @@
                                           [7 3]
                                           [100 0]]]
         (clear-db-for-testing!)
-        (migrate! *db*)
+        (migrate!)
         (dotimes [i 10]
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)
