@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 790916544cdd06759e8a91c78e1aeac21514bfeb\n"
+"X-Git-Ref: 13d6b20c6c3cb1b89d05fb84847fa70884c09193\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -187,6 +187,14 @@ msgstr ""
 msgid "Forcibly terminating periodic activities"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Database is not fully migrated and migration is disallowed."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "  Missing migrations: {0}"
+msgstr ""
+
 #. Nothing to do but log it...
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Unable to close migration pool"
@@ -218,7 +226,7 @@ msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Unkown fatal start error {0}"
+msgid "error: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
@@ -1097,10 +1105,6 @@ msgid "Migrated {0} of {1} reports"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Updating table statistics for: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Found an old and unuspported database migration (migration number {0})."
 msgstr ""
 
@@ -1120,6 +1124,10 @@ msgstr ""
 msgid ""
 "Your PuppetDB database contains a schema migration numbered {0}, but this "
 "version of PuppetDB does not recognize that version."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Updating table statistics for: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
