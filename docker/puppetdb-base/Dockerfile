@@ -24,11 +24,7 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m" \
 # used by entrypoint to determine if puppetserver should be contacted for config
 # set to false when container tests are run
-    USE_PUPPETSERVER=true \
-    CONSUL_ENABLED=false \
-    CONSUL_HOSTNAME=consul \
-    CONSUL_PORT=8500 \
-    NETWORK_INTERFACE=eth0
+    USE_PUPPETSERVER=true
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \

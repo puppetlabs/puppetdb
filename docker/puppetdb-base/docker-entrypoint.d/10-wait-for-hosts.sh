@@ -7,7 +7,7 @@
 #   PUPPETDB_WAITFORHOST_SECONDS     Number of seconds to wait for DNS names of
 #                                    Postgres and Puppetserver to resolve, defaults to 30
 #   PUPPETDB_WAITFORHEALTH_SECONDS   Number of seconds to wait for health
-#                                    checks of Consul / Puppetserver to succeed, defaults to 360
+#                                    checks of Puppetserver to succeed, defaults to 360
 #                                    to match puppetserver healthcheck max wait
 #   PUPPETDB_WAITFORPOSTGRES_SECONDS Additional number of seconds to wait on Postgres,
 #                                    after PuppetServer is healthy, defaults to 60
@@ -53,22 +53,14 @@ PUPPETDB_WAITFORPOSTGRES_SECONDS=${PUPPETDB_WAITFORPOSTGRES_SECONDS:-60}
 PUPPETDB_WAITFORHEALTH_SECONDS=${PUPPETDB_WAITFORHEALTH_SECONDS:-360}
 PUPPETDB_POSTGRES_HOSTNAME="${PUPPETDB_POSTGRES_HOSTNAME:-postgres}"
 PUPPETSERVER_HOSTNAME="${PUPPETSERVER_HOSTNAME:-puppet}"
-CONSUL_HOSTNAME="${CONSUL_HOSTNAME:-consul}"
-CONSUL_PORT="${CONSUL_PORT:-8500}"
 
 # wait for postgres DNS
 wait_for_host_name_resolution $PUPPETDB_POSTGRES_HOSTNAME $PUPPETDB_WAITFORHOST_SECONDS
 
-# wait for consul / puppetserver DNS, then healthcheck
+# wait for puppetserver DNS, then healthcheck
 if [ "$USE_PUPPETSERVER" = true ]; then
   wait_for_host_name_resolution $PUPPETSERVER_HOSTNAME $PUPPETDB_WAITFORHOST_SECONDS
   HEALTH_COMMAND="curl --silent --fail --insecure 'https://${PUPPETSERVER_HOSTNAME}:"${PUPPETSERVER_PORT:-8140}"/status/v1/simple' | grep -q '^running$'"
-fi
-
-if [ "$CONSUL_ENABLED" = "true" ]; then
-  wait_for_host_name_resolution $CONSUL_HOSTNAME $PUPPETDB_WAITFORHOST_SECONDS
-  # with Consul enabled, wait on Consul instead of Puppetserver
-  HEALTH_COMMAND="curl --silent --fail 'http://${CONSUL_HOSTNAME}:${CONSUL_PORT}/v1/health/checks/puppet' | grep -q '\\"\""Status"\\\"": \\"\""passing\\"\""'"
 fi
 
 if [ -n "$HEALTH_COMMAND" ]; then
