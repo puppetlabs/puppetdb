@@ -8,7 +8,7 @@
    [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
    [puppetlabs.puppetdb.testutils.cli :refer [example-report]]
    [puppetlabs.puppetdb.testutils.db :as tdb
-    :refer [*db* test-env with-test-db]]
+    :refer [*db* clear-db-for-testing! test-env with-test-db]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils
     :refer [call-with-puppetdb-instance create-temp-config]]
    [puppetlabs.puppetdb.time :refer [now to-timestamp]])
@@ -87,6 +87,7 @@
 
 (deftest migrator-evicts-non-migrators-and-blocks-connections
   (with-test-db
+    (clear-db-for-testing!)
     (let [deref-or-die #(when-not (deref % default-timeout-ms nil)
                           (throw
                            (ex-info "test promise deref timed out"
@@ -146,4 +147,13 @@
       (let [ex (deref connect-ex 0 nil)]
         (is (= PSQLException (class ex)))
         ;; i.e. "User does not have CONNECT privilege"
-        (is (= "42501" (some-> ex .getSQLState)))))))
+        (is (= "42501" (some-> ex .getSQLState))))
+
+      ;; Ensure that all the objects created (here by the initial
+      ;; migrations) are owned by the normal user, not the migrator.
+      (jdbc/with-db-connection *db*
+        (is (= "pdb_test"
+               (-> "select tableowner from pg_tables where tablename = 'factsets'"
+                   jdbc/query-to-vec
+                   first
+                   :tableowner)))))))

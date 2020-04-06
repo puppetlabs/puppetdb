@@ -1727,40 +1727,65 @@
   {:pre [(or (not non-migrator-name)
              (and non-migrator-name db-name))]}
 
-  (when non-migrator-name
-    (jdbc/revoke-role-db-access non-migrator-name db-name))
+  ;; When a non-migrator-name is given, assume we're connected to the
+  ;; database as the migrator (e.g. via the PDBMigrationsPool), and
+  ;; then do our part to attempt to prevent concurrent migrations or
+  ;; any access to a database that's at an unexpected migration level.
+  ;; See the connectionInitSql setting for related efforts.
+  (let [coordinate? non-migrator-name
+        orig-user (and coordinate? (jdbc/current-user))]
 
-  (try
-    (when non-migrator-name
-      ;; Because the revoke may not actually produce an error when
-      ;; it doesn't work.
-      (when (jdbc/has-database-privilege? non-migrator-name db-name "connect")
-        (throw
-         (ex-info (str "Unable to prevent non-migrator connections during migration ")
-                  {:kind ::unable-to-block-other-pdbs-during-migration})))
-      (jdbc/disconnect-db-role db-name non-migrator-name))
+    (when coordinate?
+      (log/info
+       (trs "Revoking {0} database access from {1} during migrations"
+            db-name non-migrator-name))
+      (jdbc/revoke-role-db-access non-migrator-name db-name))
 
-    (jdbc/with-db-transaction []
-      (require-schema-migrations-table)
-      (jdbc/do-commands
-       "lock table schema_migrations in access exclusive mode")
-      (require-valid-schema)
-      (let [tables (set/union (run-migrations (pending-migrations))
-                              (create-indexes))]
-        (note-migrations-finished)
-        tables))
+    (try
+      (when coordinate?
+        ;; Because the revoke may not actually produce an error when
+        ;; it doesn't work.
+        (when (jdbc/has-database-privilege? non-migrator-name db-name "connect")
+          (throw
+           (ex-info "Unable to prevent non-migrator connections during migration"
+                    {:kind ::unable-to-block-other-pdbs-during-migration})))
+        (log/info
+         (trs "Disconnecting all {0} connections to {1} database before migrating"
+              non-migrator-name db-name))
+        (jdbc/disconnect-db-role db-name non-migrator-name)
+        ;; Must be non-migrator so new tables, etc. are owned by the normal role.
+        (jdbc/do-commands (str "set role " (jdbc/double-quote non-migrator-name))))
 
-    (finally
-      (when non-migrator-name
-        ;; This won't run if the jvm doesn't quit in a way that lets
-        ;; threads finish (TK's shutdown process does).
-        (try
-          (jdbc/restore-role-db-access non-migrator-name db-name)
-          (catch Throwable ex
-            ;; Don't let this rethrow, so that it won't suppress any
-            ;; pending exception.
-            (log/error
-             ex (trs "Unable to restore db access after migrations"))))))))
+      (jdbc/with-db-transaction []
+        (require-schema-migrations-table)
+        (log/info (trs "Locking migrations table before migrating"))
+        (jdbc/do-commands
+         "lock table schema_migrations in access exclusive mode")
+        (require-valid-schema)
+        (let [tables (set/union (run-migrations (pending-migrations))
+                                (create-indexes))]
+          (note-migrations-finished)
+          tables))
+
+      (finally
+        (when coordinate?
+          ;; This won't run if the jvm doesn't quit in a way that lets
+          ;; threads finish (TK's shutdown process does).
+          (try
+            (log/info
+             (trs "Restoring access to {0} database to {1} after migrating"
+                  db-name non-migrator-name))
+            (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user)))
+            (jdbc/restore-role-db-access non-migrator-name db-name)
+            (catch Throwable ex
+              ;; Don't let this rethrow, so that it won't suppress any
+              ;; pending exception.
+              (log/error
+               ex (trs "Unable to restore db access after migrations"))))
+          (when-not (jdbc/has-database-privilege? non-migrator-name db-name "connect")
+            (throw
+             (ex-info "Unable to restore non-migrator connections after migration "
+                      {:kind ::unable-to-block-other-pdbs-during-migration}))))))))
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
