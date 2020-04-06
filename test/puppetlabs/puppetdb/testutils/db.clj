@@ -87,7 +87,7 @@
 (defn clear-db-for-testing!
   "Completely clears the database specified by config (or the current
   database), dropping all puppetdb tables and other objects that exist
-  within it. Expects to be called from within a db binding.  You
+  within it. Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   ([config]
    (jdbc/with-db-connection config (clear-db-for-testing!)))
