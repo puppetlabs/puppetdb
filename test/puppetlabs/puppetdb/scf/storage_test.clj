@@ -1715,6 +1715,26 @@
        (assoc report
               :puppet_version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
+  (deftest-db report-storage-with-no-partitions
+    ;; The report partition PR will create 8 default partitions
+    ;; The timestamp (now) above will map to one of those paritions
+    ;; so we delete all the partitions to force the storage code
+    ;; to catch the error and create the partition on-demand
+    (jdbc/do-commands
+      "BEGIN TRANSACTION"
+      "UPDATE certnames SET latest_report_id = NULL"
+      "DO $$ DECLARE
+           r RECORD;
+       BEGIN
+           FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_%' OR tablename LIKE 'reports_%') LOOP
+               EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
+           END LOOP;
+       END $$;"
+      "COMMIT TRANSACTION")
+    (store-example-report! report timestamp)
+    (is (= [{:certname certname}]
+        (query-to-vec ["SELECT certname FROM reports"]))))
+
   (deftest-db report-with-event-timestamp
     (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
           offset-report (update-event-timestamps report "2011-01-01T12:00:01-0000")]

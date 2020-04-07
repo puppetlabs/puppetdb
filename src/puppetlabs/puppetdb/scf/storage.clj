@@ -1332,10 +1332,6 @@
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
                              (query-to-vec report-hash)
                              seq)
-                 (partitioning/create-reports-partition (-> ^Timestamp producer_timestamp
-                                                            (.toInstant)
-                                                            (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
-                                                            (.truncatedTo (ChronoUnit/DAYS))))
                  (let [certname-id (certname-id certname)
                        table-name (str "reports_" (-> producer_timestamp
                                                       (partitioning/to-zoned-date-time)
@@ -1381,11 +1377,6 @@
                                                                        (sutils/munge-hash-for-storage))))
                            ;; group by the hash, and choose the oldest (aka first) of any duplicates.
                            remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
-                       (doseq [date (set (map #(-> ^Timestamp (:timestamp %)
-                                                   (.toInstant)
-                                                   (ZonedDateTime/ofInstant (ZoneId/of "UTC"))
-                                                   (.truncatedTo (ChronoUnit/DAYS))) resource_events))]
-                         (partitioning/create-resource-events-partition date))
                        (->> resource_events
                             (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                             (map adjust-event)
@@ -1563,9 +1554,39 @@
 
 (s/defn add-report!
   "Add a report and all of the associated events to the database."
-  [report :- reports/report-wireformat-schema
-   received-timestamp :- pls/Timestamp]
-  (add-report!* report received-timestamp true))
+  ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
+   received-timestamp :- pls/Timestamp
+   db]
+  (add-report! report received-timestamp db true))
+  ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
+   received-timestamp :- pls/Timestamp
+   db
+   update-latest-report?]
+  (let [producer-timestamp (to-timestamp producer_timestamp)
+        store! (fn []
+                 (jdbc/with-transacted-connection db
+                   (maybe-activate-node! certname producer-timestamp)
+                   (add-report!* report received-timestamp update-latest-report?)))]
+    (try
+      (store!)
+      (catch org.postgresql.util.PSQLException e
+        ;; 42P01 undefined table
+        (if (= "42P01" (.getSQLState e))
+          (do
+            ;; One or more partitions didn't exist, so attempt to create all
+            ;; the partitions this report and its resource_events need
+            (jdbc/with-transacted-connection db
+              (partitioning/create-reports-partition
+                producer-timestamp)
+
+              (doseq [date (set (map #(:timestamp %)
+                                     (:resource_events (normalize-report report))))]
+                (partitioning/create-resource-events-partition date)))
+            ;; Now that the partitions exists, attempt store the report again
+            (store!))
+          ;; otherwise throw the error so the command ends up
+          ;; in the DLO
+          (throw e)))))))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
