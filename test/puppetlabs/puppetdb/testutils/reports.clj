@@ -48,8 +48,7 @@
    (let [example-report (reports/report-query->wire-v8 example-report)
          report-hash (shash/report-identity-hash
                       (scf-store/normalize-report example-report))]
-     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
-     (scf-store/add-report!* example-report timestamp update-latest-report?)
+     (scf-store/add-report! example-report timestamp *db* update-latest-report?)
      (report-for-hash :v4 report-hash))))
 
 (defmacro with-or-without-corrective-change

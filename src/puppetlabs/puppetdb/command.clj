@@ -393,9 +393,9 @@
   [{:keys [payload id received]} start-time db]
   (let [{:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
-    (jdbc/with-transacted-connection db
-      (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/add-report! report received))
+    ;; Unlike the other storage functions, add-report! manages its own
+    ;; transaction, so that it can dynamically create table partitions
+    (scf-storage/add-report! report received db)
     (log-command-processed-messsage id received start-time :store-report certname
                                     {:puppet-version puppet_version})))
 

@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.partitioning
   "Handles all work related to database table partitioning"
   (:require [clojure.tools.logging :as log]
+            [clojure.string :as str]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [schema.core :as s]
             [puppetlabs.i18n.core :refer [trs]])
@@ -29,7 +30,9 @@
 (s/defn create-partition
   [base-table :- s/Str
    date-column :- s/Str
-   date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime Instant)
+   date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime Instant java.sql.Timestamp)
+   constraint-fn :- (s/fn-schema
+                     (s/fn :- [s/Str] [iso-year-week :- s/Str]))
    index-fn :- (s/fn-schema
                 (s/fn :- [s/Str] [full-table-name :- s/Str
                                   iso-year-week :- s/Str]))]
@@ -44,7 +47,9 @@
         full-table-name (format "%s_%s" base-table table-name-suffix)]
     (apply jdbc/do-commands
            (concat [(format (str "CREATE TABLE IF NOT EXISTS %s ("
-                                 " CHECK ( %s >= TIMESTAMP WITH TIME ZONE '%s' AND %s < TIMESTAMP WITH TIME ZONE '%s' )"
+                                 (str/join ", "
+                                          (cons "CHECK ( %s >= TIMESTAMP WITH TIME ZONE '%s' AND %s < TIMESTAMP WITH TIME ZONE '%s' )"
+                                                (constraint-fn table-name-suffix)))
                                  ") INHERITS (%s)")
                             full-table-name
                             ;; this will write the constraint in UTC. note: when you read this back from the database,
@@ -61,6 +66,7 @@
   (create-partition
    "resource_events" "\"timestamp\""
    date
+   (constantly [])
    (fn [full-table-name iso-week-year]
      [(format "CREATE INDEX IF NOT EXISTS resource_events_containing_class_idx_%s ON %s USING btree (containing_class)"
               iso-week-year full-table-name)
@@ -95,49 +101,47 @@
   (create-partition
     "reports" "\"producer_timestamp\""
     date
+    (fn [iso-week-year]
+      [(format (str "CONSTRAINT reports_certname_fkey_%s"
+                    " FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE")
+               iso-week-year)
+       (format (str "CONSTRAINT reports_env_fkey_%s"
+                    " FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE")
+               iso-week-year)
+       (format (str "CONSTRAINT reports_prod_fkey_%s"
+                    " FOREIGN KEY (producer_id) REFERENCES producers(id)")
+               iso-week-year)
+       (format (str "CONSTRAINT reports_status_fkey_%s"
+                    " FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
+               iso-week-year)])
     (fn [full-table-name iso-week-year]
-      (let [alter-prefix "DO $$ BEGIN BEGIN "
-            alter-suffix "; EXCEPTION WHEN duplicate_object THEN RETURN; END; END $$;"
-            wrap-alter #(str alter-prefix % alter-suffix)]
-        [(format "CREATE INDEX IF NOT EXISTS idx_reports_compound_id_%s ON %s USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS idx_reports_noop_pending_%s ON %s USING btree (noop_pending) WHERE (noop_pending = true)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS idx_reports_prod_%s ON %s USING btree (producer_id)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS idx_reports_producer_timestamp_%s ON %s USING btree (producer_timestamp)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS idx_reports_producer_timestamp_by_hour_certname_%s ON %s USING btree (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_cached_catalog_status_on_fail_%s ON %s USING btree (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_catalog_uuid_idx_%s ON %s USING btree (catalog_uuid)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_certname_idx_%s ON %s USING btree (certname)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_end_time_idx_%s ON %s USING btree (end_time)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_environment_id_idx_%s ON %s USING btree (environment_id)"
-                 iso-week-year full-table-name)
-         (format "CREATE UNIQUE INDEX IF NOT EXISTS reports_hash_expr_idx_%s ON %s USING btree (encode(hash, 'hex'::text))"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_job_id_idx_%s ON %s USING btree (job_id) WHERE (job_id IS NOT NULL)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_noop_idx_%s ON %s USING btree (noop) WHERE (noop = true)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_status_id_idx_%s ON %s USING btree (status_id)"
-                 iso-week-year full-table-name)
-         (format "CREATE INDEX IF NOT EXISTS reports_tx_uuid_expr_idx_%s ON %s USING btree (((transaction_uuid)::text))"
-                 iso-week-year full-table-name)
-         (wrap-alter (format "ALTER TABLE ONLY %s ADD CONSTRAINT reports_certname_fkey_%s
-               FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
-                             full-table-name iso-week-year))
-         (wrap-alter (format "ALTER TABLE ONLY %s ADD CONSTRAINT reports_env_fkey_%s
-               FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
-                             full-table-name iso-week-year))
-         (wrap-alter (format "ALTER TABLE ONLY %s ADD CONSTRAINT reports_prod_fkey_%s
-               FOREIGN KEY (producer_id) REFERENCES producers(id)"
-                             full-table-name iso-week-year))
-         (wrap-alter (format "ALTER TABLE ONLY %s ADD CONSTRAINT reports_status_fkey_%s
-               FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"
-                             full-table-name iso-week-year))]))))
+      [(format "CREATE INDEX IF NOT EXISTS idx_reports_compound_id_%s ON %s USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_noop_pending_%s ON %s USING btree (noop_pending) WHERE (noop_pending = true)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_prod_%s ON %s USING btree (producer_id)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_producer_timestamp_%s ON %s USING btree (producer_timestamp)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_producer_timestamp_by_hour_certname_%s ON %s USING btree (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_cached_catalog_status_on_fail_%s ON %s USING btree (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_catalog_uuid_idx_%s ON %s USING btree (catalog_uuid)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_certname_idx_%s ON %s USING btree (certname)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_end_time_idx_%s ON %s USING btree (end_time)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_environment_id_idx_%s ON %s USING btree (environment_id)"
+               iso-week-year full-table-name)
+       (format "CREATE UNIQUE INDEX IF NOT EXISTS reports_hash_expr_idx_%s ON %s USING btree (encode(hash, 'hex'::text))"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_job_id_idx_%s ON %s USING btree (job_id) WHERE (job_id IS NOT NULL)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_noop_idx_%s ON %s USING btree (noop) WHERE (noop = true)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_status_id_idx_%s ON %s USING btree (status_id)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_tx_uuid_expr_idx_%s ON %s USING btree (((transaction_uuid)::text))"
+               iso-week-year full-table-name)])))
