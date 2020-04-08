@@ -2006,6 +2006,9 @@
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames
    72 add-support-for-catalog-inputs
    73 resource-events-partitioning
+   ; Make sure that if you change the structure of reports
+   ; or resource events, you also update the delete-reports
+   ; cli command.
    74 reports-partitioning})
 
 (def desired-schema-version (apply max (keys migrations)))

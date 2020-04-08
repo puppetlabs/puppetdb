@@ -205,6 +205,26 @@ msgid "Will retry database connection after temporary failure: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Please upgrade PuppetDB: "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"your database contains schema migration {0} which is too new for this "
+"version of PuppetDB."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"Please run PuppetDB with the migrate? option set to true to upgrade your "
+"database. "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "The detected migration level {0} is out of date."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "PuppetDB version {0}"
 msgstr ""
 

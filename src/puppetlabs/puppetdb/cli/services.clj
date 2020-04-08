@@ -66,7 +66,8 @@
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate
-             :refer [migrate! indexes! pending-migrations require-valid-schema]]
+             :refer [migrate! indexes! pending-migrations
+                     require-valid-schema desired-schema-version]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -529,20 +530,49 @@
   (when emit-cmd-events?
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
+(defn check-schema-version
+  [desired-schema-version context db service shutdown-on-error]
+  {:pre [(integer? desired-schema-version)]}
+  (when-not (= #{:stopping} @(:stop-status context))
+    (let [schema-version (-> (jdbc/with-transacted-connection db
+                               (jdbc/query "select max(version) from schema_migrations"))
+                             first
+                             :max)]
+      (when-not (= schema-version desired-schema-version)
+        (let [ex-msg (cond
+                       (> schema-version desired-schema-version)
+                       (str
+                        (trs "Please upgrade PuppetDB: ")
+                        (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
+                             schema-version))
+
+                       (< schema-version desired-schema-version)
+                       (str
+                        (trs "Please run PuppetDB with the migrate? option set to true to upgrade your database. ")
+                        (trs "The detected migration level {0} is out of date." schema-version))
+
+                       :else
+                       (throw (Exception. "Unknown state when checking schema versions")))]
+          (shutdown-on-error (service-id service)
+                             #(throw (ex-info ex-msg {:kind ::schema-mismatch}))))))))
+
 (defn start-puppetdb
   "Throws {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported. If a database setting is configured
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
-  [context config service get-registered-endpoints upgrade-and-exit?]
+  [context config service get-registered-endpoints shutdown-on-error upgrade-and-exit?]
 
   (let [{:keys [database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
-        write-db (-> (assoc database :pool-name "PDBWritePool")
+        write-db (-> (assoc database
+                            :pool-name "PDBWritePool"
+                            :expected-schema desired-schema-version)
                      (jdbc/pooled-datasource database-metrics-registry))
         read-db (-> (assoc read-database
                            :pool-name "PDBReadPool"
+                           :expected-schema desired-schema-version
                            :read-only? true)
                     (jdbc/pooled-datasource database-metrics-registry))
         globals {:scf-read-db read-db
@@ -589,9 +619,18 @@
 
           ;; Pretty much this helper just knows our job-pool and gc-interval
           (let [job-pool (mk-pool)
-                gc-interval-millis (to-millis (:gc-interval database))]
+                gc-interval-millis (to-millis (:gc-interval database))
+                schema-check-interval (:schema-check-interval database)]
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
+            (when (pos? schema-check-interval)
+              (interspaced schema-check-interval
+                           #(check-schema-version desired-schema-version
+                                                  context
+                                                  (:scf-read-db globals)
+                                                  service
+                                                  shutdown-on-error)
+                           job-pool))
             (when (pos? gc-interval-millis)
               (let [request (db-config->clean-request database)]
                 (interspaced gc-interval-millis
@@ -636,6 +675,7 @@
     (let [upgrade? (get-in config [:global :upgrade-and-exit?])
           context (start-puppetdb context config service
                                   get-registered-endpoints
+                                  shutdown-on-error
                                   (get-in config [:global :upgrade-and-exit?]))]
       (when upgrade?
         (request-shutdown))

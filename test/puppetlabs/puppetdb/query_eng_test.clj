@@ -54,7 +54,8 @@
                       :subquery? false
                       :where (->BinaryExpression := 1 1)
                       :selection {:from [:table]}
-                      :source-table "table"}) {:node-purge-ttl (parse-period "14d")}))))
+                      :source-tables #{:table}})
+                    {:node-purge-ttl (parse-period "14d")}))))
 
 (deftest test-extract-params
 

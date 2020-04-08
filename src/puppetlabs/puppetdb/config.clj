@@ -67,6 +67,7 @@
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
      :facts-blacklist pls/Blacklist
      :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
+     :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))
      ;; completely retired (ignored)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :conn-keep-alive s/Int
@@ -105,6 +106,7 @@
    (s/optional-key :syntax_pgs) String
    (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
    :facts-blacklist-type String
+   :schema-check-interval s/Int
    ;; completely retired (ignored)
    :classname String
    (s/optional-key :conn-keep-alive) Minutes

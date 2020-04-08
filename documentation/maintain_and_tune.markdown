@@ -97,3 +97,32 @@ If you've installed PuppetDB from Puppet packages, you can simply re-run the
 `puppetdb ssl-setup` command. Otherwise, you'll need to again perform the SSL
 configuration steps outlined in
 [the installation instructions](./install_from_source.html).
+
+## Truncate your reports table
+
+**WARNING:** This is a destructive action and should be done with care.
+
+Truncating the reports table will delete all your reports and all their
+associated resource events.  This is primarily helpful for users with large
+databases when upgrades involve expensive database migrations, such as
+upgrading PostgreSQL versions.
+
+### Monolithic installs
+
+For standard installs, where PuppetDB and Postgres run on the same machine, and
+you use Puppet's default user and database names you can delete your reports
+and resource events by running `/opt/puppetlabs/bin/puppetdb delete-reports` as
+root.
+
+### Other configurations
+
+If you are not running a standard install you can follow the general outline
+below.  Be sure to run `puppetdb delete-reports --help` to see if you need to
+customize any of the user or database names for your own install.
+
+The `delete-reports` script lives on the server that runs PuppetDB at
+`/opt/puppetlabs/server/apps/puppetdb/cli/apps/delete-reports`. In order for
+this script to work, you'll need to manually transfer it to the server that is
+running PuppetDB's PostgreSQL and execute it there. It will fail to stop the
+PuppetDB service, because one doesn't exist there, but it will continue and
+delete the reports anyways.
