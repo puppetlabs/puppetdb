@@ -5,7 +5,7 @@ set -e
 pdb_service=<%= EZBake::Config[:user] %>
 pdb_db_name="$pdb_service"
 pg_port=5432
-<% if EZBake::Config[:build_type] == "pe" %>
+<% if EZBake::Config[:is_pe_build] %>
 pg_user=pe-postgres
 psql_cmd=/opt/puppetlabs/server/bin/psql
 <% else %>
