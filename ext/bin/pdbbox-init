@@ -75,6 +75,7 @@ pgbox env pg_ctl start -w
 pg_passwd="$(cd "$PGBOX" && cat pass-admin)"
 admin_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
+migrator_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 
 # This code relies on echo being a function in bash, not a subprocess
 # and "here documents" to prevent passwords from being visible in
@@ -83,6 +84,8 @@ passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 (cd "$pdbbox"
  install -m 0600 /dev/null test-pass
  echo -n "$passwd" > test-pass
+ install -m 0600 /dev/null test-pass-migrator
+ echo -n "$migrator_passwd" > test-pass-migrator
  install -m 0600 /dev/null test-pass-admin
  echo -n "$admin_passwd" > test-pass-admin)
 
@@ -90,6 +93,7 @@ passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
  cat > pgpass <<-EOF
 	# hostname:port:database:username:password
 	*:*:*:pdb_test:$passwd
+	*:*:*:pdb_test_migrator:$migrator_passwd
 	*:*:*:pdb_test_admin:$admin_passwd
 	*:*:*:puppetdb:$passwd
 	*:*:*:postgres:$pg_passwd
@@ -98,6 +102,7 @@ passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 
 pgbox env createuser -dERs pdb_test_admin
 pgbox env createuser -DERS pdb_test
+pgbox env createuser -DERS pdb_test_migrator
 
 tmp_cmds="$(mktemp "$tmp_dir/tmp-cmds-XXXXXX")"
 
@@ -106,10 +111,17 @@ cat "$pdbbox/test-pass" >> "$tmp_cmds"
 echo "';" >> "$tmp_cmds"
 pgbox env psql -f "$tmp_cmds"
 
+echo -n "alter role pdb_test_migrator with password '" > "$tmp_cmds"
+cat "$pdbbox/test-pass-migrator" >> "$tmp_cmds"
+echo "';" >> "$tmp_cmds"
+pgbox env psql -f "$tmp_cmds"
+
 echo -n "alter role pdb_test_admin with password '" > "$tmp_cmds"
 cat "$pdbbox/test-pass-admin" >> "$tmp_cmds"
 echo "';" >> "$tmp_cmds"
 pgbox env psql -f "$tmp_cmds"
+
+pgbox env psql -c 'grant pdb_test to pdb_test_migrator'
 
 setup-pdb()
 {
