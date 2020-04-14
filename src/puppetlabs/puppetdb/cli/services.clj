@@ -545,6 +545,8 @@
   the current database is not supported. If a database setting is configured
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
   [context config service get-registered-endpoints request-shutdown]
+  ;; Note: the unsupported-database-triggers-shutdown test relies on
+  ;; the documented exception behavior and argument order.
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing
@@ -753,6 +755,8 @@
                  :shutdown-request (promise))))
   (start
    [this context]
+   ;; Some tests rely on keeping all the logic out of this function,
+   ;; to test startup errors, etc.
    (start-puppetdb-or-shutdown context (get-config) this
                                get-registered-endpoints
                                (shutdown-requestor request-shutdown

@@ -1720,7 +1720,10 @@
    (maybe-create-trgm-indexes)
    (ensure-report-id-index)))
 
-(defn note-migrations-finished [] true)
+(defn note-migrations-finished
+  "Currently just a hook used during testing."
+  []
+  true)
 
 (defn update-schema
   [non-migrator-name db-name]

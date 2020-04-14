@@ -16,9 +16,10 @@
 
 (def test-env
   (let [user (env :pdb-test-db-user "pdb_test")
+        migrator (env :pdb-test-db-migrator "pdb_test_migrator")
         admin (env :pdb-test-db-admin "pdb_test_admin")]
     ;; Since we're going to use these in raw SQL later (i.e. not via ?).
-    (doseq [[who name] [[:user user] [:admin admin]]]
+    (doseq [[who name] [[:user user] [:migrator migrator] [:admin admin]]]
       (when-not (valid-sql-id? name)
         (binding [*out* *err*]
           (println (format "Invalid test %s name %s" who (pr-str name)))
@@ -28,6 +29,8 @@
      :port (env :pdb-test-db-port 5432)
      :user {:name user
             :password (env :pdb-test-db-user-password "pdb_test")}
+     :migrator {:name migrator
+                :password (env :pdb-test-db-migrator-password "pdb_test_migrator")}
      :admin {:name admin
              :password (env :pdb-test-db-admin-password "pdb_test_admin")}}))
 
@@ -47,13 +50,17 @@
      :user (get-in test-env [:admin :name])
      :password (get-in test-env [:admin :password])}))
 
-(defn db-user-config
+(defn routine-db-config
+  "Returns a config suitable for routine pdb operations (i.e. not
+  admin/superuser operations)."
   [database]
   {:classname "org.postgresql.Driver"
    :subprotocol "postgresql"
    :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
    :user (get-in test-env [:user :name])
    :password (get-in test-env [:user :password])
+   :migrator-username (get-in test-env [:migrator :name])
+   :migrator-password (get-in test-env [:migrator :password])
    :maximum-pool-size 5})
 
 (defn subname->validated-db-name [subname]
@@ -128,10 +135,27 @@
         (jdbc/do-commands-outside-txn
          "create extension if not exists pg_trgm"
          "create extension if not exists pgcrypto"))
-      (let [cfg (db-user-config template-name)]
+      (let [cfg (routine-db-config template-name)]
         (jdbc/with-db-connection cfg
           (initialize-schema)))
       (reset! template-created true))))
+
+(defn- require-suitable-pg-arrangement
+  [{:keys [user migrator-username subname] :as config}]
+  (jdbc/with-db-connection config
+    (let [db (subname->validated-db-name subname)
+          priv? jdbc/has-database-privilege?
+          migrator migrator-username]
+      (when (priv? "public" db "connect")
+        (throw (Exception. "public connect")))
+      (when-not (priv? user db "connect")
+        (throw (Exception. "no user connnect")))
+      (when (priv? user db "connect with grant option")
+        (throw (Exception. "user has connect grant")))
+      (when-not (priv? migrator db "connect with grant option")
+        (throw (Exception. "no migrator connect grant")))
+      (when-not (jdbc/has-role? migrator user "member")
+        (throw (Exception. "migrator not member of user"))))))
 
 (def ^:private test-db-counter (atom 0))
 
@@ -139,19 +163,26 @@
   "Creates a temporary test database.  Prefer with-test-db, etc."
   (ensure-pdb-db-templates-exist)
   (let [n (swap! test-db-counter inc)
-        db-name (if-not pdb-test-id
-                  (str "pdb_test_" n)
-                  (str "pdb_test_" pdb-test-id "_" n))
-        db-qname (jdbc/double-quote db-name)]
+        db (if-not pdb-test-id
+             (str "pdb_test_" n)
+             (str "pdb_test_" pdb-test-id "_" n))
+        db-q (jdbc/double-quote db)
+        config (routine-db-config db)
+        user (get-in test-env [:user :name])
+        user-q (jdbc/double-quote user)
+        migrator (get-in test-env [:migrator :name])
+        migrator-q (jdbc/double-quote migrator)]
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands-outside-txn
-       (format "drop database if exists %s" db-qname)
-       (format "create database %s template %s" db-qname template-name)
-       ;; Needed by migration coordination tests, at least
-       (format "revoke connect on database %s from public" db-qname)
-       (format "grant connect on database %s to %s"
-               db-qname (jdbc/double-quote (get-in test-env [:user :name])))))
-    (db-user-config db-name)))
+       (format "drop database if exists %s" db-q)
+       (format "create database %s template %s" db-q template-name)
+       ;; Needed by migration coordination
+       (format "revoke connect on database %s from public" db-q)
+       (format "grant connect on database %s to %s with grant option" db-q migrator-q)
+       (format "set role %s" migrator-q)
+       (format "grant connect on database %s to %s" db-q user-q)))
+    (require-suitable-pg-arrangement config)
+    config))
 
 (def ^:dynamic *db* nil)
 

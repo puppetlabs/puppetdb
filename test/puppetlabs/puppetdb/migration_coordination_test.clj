@@ -96,12 +96,7 @@
                           (throw
                            (ex-info "test promise deref timed out"
                                     {:kind ::migrator-evicts-non-migrators-and-blocks-connections})))
-          admin (get-in test-env [:admin :name])
-          admin-pw (get-in test-env [:admin :password])
-          config (-> (create-temp-config)
-                     (assoc :database *db*)
-                     (assoc-in [:database :migrator-username] admin)
-                     (assoc-in [:database :migrator-password] admin-pw))
+          config (assoc (create-temp-config) :database *db*)
           sleep-ex (promise)
           connect-ex (promise)
           finished-migrations (promise)

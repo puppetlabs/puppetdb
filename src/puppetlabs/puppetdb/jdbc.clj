@@ -666,6 +666,11 @@
   (-> ["select has_database_privilege(?, ?, ?)" user db privilege]
       query-to-vec first :has_database_privilege))
 
+(defn-validated has-role?
+  [user role privilege] :- s/Bool
+  (-> ["select pg_has_role(?, ?, ?)" user role privilege]
+      query-to-vec first :pg_has_role))
+
 (defn disconnect-db [db]
   "Forcibly disconnects all connections to the named db.  Requires
   that the current DB session has sufficient authorization."
