@@ -191,6 +191,129 @@ ssl-key = $abs_pdbbox/ssl/pdb.key.pem
 disable-update-checking = true
 EOF
 
+cat > "$pdbbox/pe.conf" <<EOF
+global {
+  vardir: "$abs_pdbbox/var"
+  logging-config: "$abs_pdbbox/logback.xml"
+  product-name: "pe-puppetdb"
+  # These certs are used by the RBAC consumer service
+  certs {
+    ssl-ca-cert : "./test-resources/ca.pem"
+    ssl-cert : "./test-resources/localhost.pem"
+    ssl-key : "./test-resources/localhost.key"
+  }
+}
+
+command-processing {
+  threads: 2
+}
+
+puppetdb {
+  certificate-whitelist: "./test-resources/cert-whitelist.txt"
+  disable-update-checking: "true"
+}
+
+database {
+  subname : "//$host:$pgport/puppetdb"
+  user : puppetdb
+  password : "$passwd"
+  maximum-pool-size: 25
+}
+
+nrepl {
+  enabled: false
+  type: nrepl
+  port: 7888
+}
+
+rbac-consumer {
+  api-url: "https://localhost:4433/rbac-api"
+}
+
+rbac-ldap {
+  url: "ldap://localhost:10389"
+  user-dn-template: "uid={0},ou=users,o=myDn"
+}
+
+rbac-embedded-dev-ldap {
+  host: localhost
+  port: 10389
+}
+
+rbac-static {
+  ds-trust-store-cache: "/tmp/rbac"
+}
+
+rbac {
+  password-reset-expiration: 24
+  session-timeout: 60
+  failed-attempts-lockout: 10
+  certificate-whitelist: "./test-resources/cert-whitelist.txt"
+  token-private-key: "./test-resources/localhost.key"
+  token-public-key: "./test-resources/localhost.pem"
+  token-signing-algorithm: "RS512"
+  database {
+    subprotocol: postgresql
+    subname: "//$host:$pgport/puppetdb_rbac"
+    user: puppetdb
+    password: "$passwd"
+    maximum-pool-size: 5
+  }
+}
+
+activity {
+  database {
+    subname: "//$host:$pgport/puppetdb_activity"
+    user: puppetdb
+    password: "$passwd"
+    maximum-pool-size: 5
+  }
+}
+
+webserver {
+  rbac {
+    host: 0.0.0.0
+    port: 4431
+    ssl-host: 0.0.0.0
+    ssl-port: 4433
+    ssl-ca-cert : "./test-resources/ca.pem"
+    ssl-cert : "./test-resources/localhost.pem"
+    ssl-key : "./test-resources/localhost.key"
+    client-auth: want
+  }
+
+  default {
+    host: 0.0.0.0
+    port: 8080
+    ssl-host: 0.0.0.0
+    ssl-port : 8081
+    ssl-ca-cert : "./test-resources/ca.pem"
+    ssl-cert : "./test-resources/localhost.pem"
+    ssl-key : "./test-resources/localhost.key"
+    client-auth: want
+  }
+}
+
+web-router-service {
+  "puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service" : {
+    route: "/pdb"
+    server: default
+  }
+  "puppetlabs.rbac.services.http.api/rbac-http-api-service": {
+    route: "/rbac-api"
+    server: rbac
+  }
+  "puppetlabs.rbac.testutils.services.dev-login/dev-login-service": {
+    route: "/auth"
+    server: rbac
+  }
+  "puppetlabs.activity.services/activity-service": {
+    route: "/activity-api"
+    server: rbac
+  }
+}
+EOF
+
 # do some tuning on PostgreSQL
 
 # generally accepted configuration parameters:
