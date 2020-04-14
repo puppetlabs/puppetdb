@@ -390,7 +390,7 @@
   [datasource config]
   (jdbc/with-db-connection datasource
     (require-valid-db config)
-    (if (get-in config [:database :migrate?])
+    (if (get-in config [:database :migrate])
       (let [{{:keys [username migrator-username]} :database} config]
         (if (= username migrator-username)
           (initialize-schema)
@@ -531,7 +531,7 @@
 
                        (< schema-version desired-schema-version)
                        (str
-                        (trs "Please run PuppetDB with the migrate? option set to true to upgrade your database. ")
+                        (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
                         (trs "The detected migration level {0} is out of date." schema-version))
 
                        :else

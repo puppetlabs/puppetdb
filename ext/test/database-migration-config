@@ -60,8 +60,8 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 # Since we have an empty database, we need all the migrations, so we
 # can just set the option to false to test whether it blocks them.
 
-# Append "migrate? = false" just after the [database] section header
-sed '/\[database\]/a migrate? = false' "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
+# Append "migrate = false" just after the [database] section header
+sed '/\[database\]/a migrate = false' "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
 
 for cmd in services upgrade; do
     rc=0

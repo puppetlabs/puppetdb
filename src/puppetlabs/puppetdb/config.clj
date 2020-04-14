@@ -87,7 +87,7 @@
             :node-purge-ttl (pls/defaulted-maybe String "14d")
             :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
             :node-ttl (pls/defaulted-maybe String "7d")
-            :migrate? (pls/defaulted-maybe String "true")})))
+            :migrate (pls/defaulted-maybe String "true")})))
 
 (def database-config-out
   "Schema for parsed/processed database config"
@@ -125,7 +125,7 @@
           :node-purge-ttl Period
           :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
           :node-ttl Period
-          :migrate? Boolean}))
+          :migrate Boolean}))
 
 (defn half-the-cores*
   "Function for computing half the cores of the system, useful

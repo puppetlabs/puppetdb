@@ -55,7 +55,7 @@
                  resp (-> ex ex-data :response)
                  err-msg (if db-upgraded?
                            "ERROR: Please upgrade PuppetDB"
-                           "ERROR: Please run PuppetDB with the migrate\\? option set to true")]
+                           "ERROR: Please run PuppetDB with the migrate option set to true")]
              (is (= 500 (:status resp)))
              (cond
                (some? (re-find (re-pattern err-msg) (:body resp))) :found

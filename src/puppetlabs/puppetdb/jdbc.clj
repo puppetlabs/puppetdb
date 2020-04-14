@@ -568,7 +568,7 @@
                  db_schema_version;"
      "      when db_schema_version < expected_max then"
      "        raise exception"
-     "          'Please run PuppetDB with the migrate? option set to true
+     "          'Please run PuppetDB with the migrate option set to true
                  to upgrade your database. The detected migration level %% is
                  out of date.', db_schema_version;"
      "      else"

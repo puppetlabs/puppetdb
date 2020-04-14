@@ -414,7 +414,7 @@ to the `username`.
 This is the password to use when connecting for database migrations.
 Defaults to `password`.
 
-### `migrate?`
+### `migrate`
 
 When set to `true` (the default), PuppetDB will upgrade the data in
 the database to the latest format at startup.  When `false`, PuppetDB

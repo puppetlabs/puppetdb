@@ -167,7 +167,7 @@
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
         (is (= (get-in config [:database :maximum-pool-size]) 25))))
 
-    (testing "migrate? defaults to true"
+    (testing "migrate defaults to true"
       (let [config (-> {:database {:classname "something"
                                    :subname "stuff"
                                    :subprotocol "more stuff"}}
@@ -175,7 +175,7 @@
                                           write-database-config-in
                                           write-database-config-out)
                        configure-read-db)]
-        (is (= true (get-in config [:database :migrate?])))))
+        (is (= true (get-in config [:database :migrate])))))
 
     (testing "schema-check-interval defaults to 30 seconds"
       (let [config (-> {:database {:classname "something"
