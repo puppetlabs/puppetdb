@@ -18,6 +18,7 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]))
 
@@ -75,16 +76,18 @@
      :statements-cache-size s/Int
      :subprotocol (pls/defaulted-maybe String "postgresql")}))
 
+(def report-ttl-default "14d")
+
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
   (merge database-config-in
          (all-optional
            {:gc-interval (pls/defaulted-maybe s/Int 60)
-            :report-ttl (pls/defaulted-maybe String "14d")
+            :report-ttl (pls/defaulted-maybe String report-ttl-default)
             :node-purge-ttl (pls/defaulted-maybe String "14d")
             :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
             :node-ttl (pls/defaulted-maybe String "7d")
-            :resource-events-ttl (pls/defaulted-maybe String "14d")
+            :resource-events-ttl String
             :migrate? (pls/defaulted-maybe String "true")})))
 
 (def database-config-out
@@ -122,7 +125,7 @@
           :node-purge-ttl Period
           :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
           :node-ttl Period
-          :resource-events-ttl Period
+          (s/optional-key :resource-events-ttl) Period
           :migrate? Boolean}))
 
 (defn half-the-cores*
@@ -214,6 +217,12 @@
       (str "PuppetDB requires PostgreSQL."
            "  The [database] section must contain an appropriate"
            " \"//host:port/database\" subname setting.")}))
+  (let [{:keys [resource-events-ttl report-ttl]} db-config]
+    (when (and resource-events-ttl
+               (t/period-longer? (t/parse-period resource-events-ttl) (t/parse-period (or report-ttl report-ttl-default))))
+      (throw+
+       {:type ::cli-error
+        :message "The setting for resource-events-ttl must not be longer than report-ttl"})))
   config)
 
 (defn check-fact-regex [fact]
@@ -268,6 +277,18 @@
          (s/validate database-config-out)
          (assoc config :read-database))))
 
+(defn configure-write-db
+  [config]
+  (let [default-events-tll
+        (fn [config]
+          (if (get-in config [:database :resource-events-ttl])
+            config
+            (assoc-in config
+                      [:database :resource-events-ttl]
+                      (get-in config [:database :report-ttl]))))]
+    (-> (configure-section config :database write-database-config-in write-database-config-out)
+        default-events-tll)))
+
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
@@ -300,7 +321,7 @@
    to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
-      (configure-section :database write-database-config-in write-database-config-out)
+      configure-write-db
       configure-read-db
       configure-command-processing
       configure-puppetdb))

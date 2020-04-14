@@ -389,10 +389,9 @@ If unset, the default value is 14 days.
 Automatically delete report events older than the specified time. Reports are
 unaffected until their respective TTLs.
 
-This allows for more fine-grained control of the expiration of reports. If this
-value is set higher than `report-ttl`, it will have no effect.
-
-If unset, the default value is 14 days.
+This allows for more fine-grained control of the expiration of reports. If
+unset, it will default to the value of `report-ttl`. It may not be set to a
+value larger than `report-ttl`.
 
 Note: this value is in UTC days - any value will be rounded to the nearest day.
 Example: 14 hours will be 1 day, 25 hours will be 2 days.
