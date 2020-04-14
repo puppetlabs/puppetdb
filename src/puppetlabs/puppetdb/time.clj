@@ -216,6 +216,13 @@
          (periods-equal? p2 (first more)))
        false)))
 
+(defn period-longer?
+  "Given two instances of period, return true if the first Period is longer
+  than then second. Uses .toStandardDuration so it will not be affected by
+  daylight savings time, etc"
+  [^Period p1 ^Period p2]
+    (.isLongerThan (.toStandardDuration p1) (.toStandardDuration p2)))
+
 ;; Conversion functions (convert `Period` instances to numeric values of a
 ;; specified time unit)
 

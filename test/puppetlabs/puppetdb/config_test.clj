@@ -91,9 +91,7 @@
                                     :subname "stuff"
                                     :subprotocol "more stuff"
                                     :facts-blacklist-type bl-type}}
-                        (configure-section :database
-                                           write-database-config-in
-                                           write-database-config-out)))]
+                        configure-write-db))]
 
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not match schema"
                           (config-db "foo")))
@@ -108,7 +106,7 @@
   (let [config (-> {:database {:classname "something"
                                :subname "stuff"
                                :subprotocol "more stuff"}}
-                   (configure-section :database write-database-config-in write-database-config-out)
+                   configure-write-db
                    configure-read-db)]
     (is (= (get-in config [:database :facts-blacklist-type]) "literal"))))
 
@@ -117,7 +115,7 @@
                                              :subname "stuff"
                                              :subprotocol "more stuff"
                                              :facts-blacklist x}}
-                                 (configure-section :database write-database-config-in write-database-config-out)
+                                 configure-write-db
                                  configure-read-db))
         ini-config (build-config "fact1, fact2, fact3")
         hocon-config (build-config ["fact1" "fact2" "fact3"])]
@@ -133,24 +131,34 @@
         (is (= cfg (validate-db-settings cfg)))
         ;; Empty config
         (is (thrown+-with-msg? [:type ::conf/cli-error] req-re
-                               (validate-db-settings {})))))
+                               (validate-db-settings {})))
+        ;; invalid resource-events-ttl settings
+        (is (thrown+-with-msg? [:type ::conf/cli-error]
+                               #".*The setting for resource-events-ttl must not be longer than report-ttl.*"
+                               (validate-db-settings (-> cfg
+                                                         (assoc-in [:database :resource-events-ttl] "15d")))))
+        (is (thrown+-with-msg? [:type ::conf/cli-error]
+                               #".*The setting for resource-events-ttl must not be longer than report-ttl.*"
+                               (validate-db-settings (-> cfg
+                                                         (assoc-in [:database :report-ttl] "3d")
+                                                         (assoc-in [:database :resource-events-ttl] "5d")))))))
 
     (testing "the read-db defaulted to the specified write-db"
       (let [config (-> {:database {:subname "stuff"}}
-                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-write-db
                        configure-read-db)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "the read-db should be specified by a read-database property"
       (let [config (-> {:database {:subname "wronger"}
                         :read-database {:subname "stuff"}}
-                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-write-db
                        configure-read-db)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "max-pool-size defaults to 25"
       (let [config (-> {:database {:subname "stuff"}}
-                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-write-db
                        configure-read-db)]
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
         (is (= (get-in config [:database :maximum-pool-size]) 25))))
@@ -180,9 +188,7 @@
   (let [config-with (fn [base-config]
                       (-> base-config
                           (update :database merge sample-db-config)
-                          (configure-section :database
-                                             write-database-config-in
-                                             write-database-config-out)))]
+                          configure-write-db))]
     (testing "gc-interval"
       (testing "should use the value specified in minutes"
         (let [gc-interval (get-in (config-with {:database {:gc-interval 900}})
@@ -246,7 +252,7 @@
                                           [:database :resource-events-ttl])]
           (is (time/period? resource-events-ttl))
           (is (= (time/days 10) (time/days (time/to-days resource-events-ttl))))))
-      (testing "should default to 14 days"
+      (testing "should default to report-ttl"
         (let [resource-events-ttl (get-in (config-with {}) [:database :resource-events-ttl])]
           (is (time/period? resource-events-ttl))
           (is (= (time/days 14) (time/days (time/to-days resource-events-ttl)))))))))
