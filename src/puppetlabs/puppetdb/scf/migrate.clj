@@ -1776,12 +1776,8 @@
    "DROP TABLE resource_events_premigrate"
    "DROP FUNCTION find_resource_events_unique_dates()")))
 
-(defn reports-partitioning
-  ([]
-   (reports-partitioning 500))
-  ([batch-size]
-
-   (jdbc/do-commands
+(defn reports-partitioning []
+  (jdbc/do-commands
      ;; detach the sequence so it isn't modified during the migration
      "ALTER SEQUENCE reports_id_seq OWNED BY NONE"
 
@@ -1883,6 +1879,9 @@
                                  order by receive_time asc )
            from reports_premigrate) as sub
          where row_number = 1"]
+       ;; set the FetchSize used by jdbc to avoid any potential OOM errors caused
+       ;; by fetching too many large reports at once
+       {:fetch-size 1}
        (fn [rows]
          (let [old-cols [:id :transaction_uuid :certname :puppet_version :report_format
                          :configuration_version :start_time :end_time :receive_time :noop
@@ -1893,24 +1892,21 @@
                update-row (apply juxt (comp sutils/munge-hash-for-storage
                                             hash/report-identity-hash)
                                  old-cols)
-               insert->hash (fn [batch]
-                              (swap! reports-migrated + (count batch))
-                              (let [batch (map update-row batch)]
-                                (when (seq batch)
-                                  (doseq [g (group-by (fn [o] (-> (get o 15) ;; producer_timestamp
-                                                                  (partitioning/to-zoned-date-time)
-                                                                  (partitioning/date-suffix))) batch)]
-                                    (jdbc/insert-multi! (str "reports_" (first g))
-                                                        new-cols
-                                                        (last g)))) )
-
+               insert->hash (fn [row]
+                              (swap! reports-migrated inc)
+                              (let [updated-row (update-row row)
+                                    table-name (str "reports_" (-> updated-row
+                                                                   (get 15) ;; producer_timestamp
+                                                                   (partitioning/to-zoned-date-time)
+                                                                   (partitioning/date-suffix)))]
+                                (jdbc/insert! table-name new-cols updated-row))
                               (let [now (.getTime (java.util.Date.))]
                                 (when (> (- now @last-logged) 60000)
                                   (maplog :info
                                           {:migration 74 :at @reports-migrated :of event-count}
                                           #(trs "Migrated {0} of {1} reports" (:at %) (:of %)))
                                   (reset! last-logged now))))]
-           (dorun (map insert->hash (partition batch-size batch-size [] rows)))))))
+           (run! insert->hash rows)))))
 
    ;; migrate data
 
@@ -1948,7 +1944,7 @@
       "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"]
 
      "DROP TABLE reports_premigrate"
-     "DROP FUNCTION find_reports_unique_dates()")))
+     "DROP FUNCTION find_reports_unique_dates()"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
