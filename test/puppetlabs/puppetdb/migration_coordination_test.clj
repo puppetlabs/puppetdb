@@ -8,7 +8,11 @@
    [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
    [puppetlabs.puppetdb.testutils.cli :refer [example-report]]
    [puppetlabs.puppetdb.testutils.db :as tdb
-    :refer [*db* clear-db-for-testing! test-env with-test-db]]
+    :refer [*db*
+            clear-db-for-testing!
+            test-env
+            with-test-db
+            with-unconnected-test-db]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils
     :refer [call-with-puppetdb-instance create-temp-config]]
    [puppetlabs.puppetdb.time :refer [now to-timestamp]])
@@ -17,8 +21,8 @@
 
 (deftest schema-mismatch-causes-new-connections-to-throw-expected-errors
   (doseq [db-upgraded? [true false]]
-    (with-test-db
-      (call-with-puppetdb-instance
+    (with-unconnected-test-db
+       (call-with-puppetdb-instance
        (-> (create-temp-config)
            (assoc :database *db*)
            ;; Allow client connections to timeout more quickly to speed test

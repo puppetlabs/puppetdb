@@ -192,17 +192,27 @@
   [db-config & body]
   `(call-with-db-info-on-failure-or-drop ~db-config (fn [] ~@body)))
 
+(defn call-with-unconnected-test-db
+  "Binds *db* to a clean, migrated test database and calls (f).  If
+  there are no clojure.tests failures or errors, drops the database,
+  otherwise displays its subname."
+  [f]
+  (binding [*db* (create-temp-db)]
+    (with-db-info-on-failure-or-drop *db*
+      (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
+        (f)))))
+
+(defmacro with-unconnected-test-db [& body]
+  `(call-with-test-db (fn [] ~@body)))
+
 (defn call-with-test-db
   "Binds *db* to a clean, migrated test database, makes it the active
   jdbc connection via with-db-connection, and calls (f).  If there are
   no clojure.tests failures or errors, drops the database, otherwise
   displays its subname."
   [f]
-  (binding [*db* (create-temp-db)]
-    (with-db-info-on-failure-or-drop *db*
-      (jdbc/with-db-connection *db*
-        (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-          (f))))))
+  (call-with-unconnected-test-db
+   #(jdbc/with-db-connection *db* (f))))
 
 (defmacro with-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))
