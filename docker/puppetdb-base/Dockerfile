@@ -74,8 +74,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# VOLUME definitions are always at end of Dockerfile to address an LCOW bug
-# https://github.com/moby/moby/issues/39892
+# VOLUME definitions are always at end of Dockerfile to capture all written data
+# Initially set this way for LCOW bug - https://github.com/moby/moby/issues/39892
 # puppetdb data and generated certs
 VOLUME /opt/puppetlabs/server/data/puppetdb
 
