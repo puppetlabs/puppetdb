@@ -76,7 +76,7 @@ COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
 # The start-period describes how long it takes PuppetDB to come
-# up in the worst case (LCOW). The other timing parameters are set so that it
+# up in the worst case. The other timing parameters are set so that it
 # takes at most 2 minutes to realize that PuppetDB has failed.
 # Probe failure during --start-period will not be counted towards the maximum number of retries
 HEALTHCHECK --start-period=3m --interval=10s --timeout=10s --retries=12 CMD ["/healthcheck.sh"]
