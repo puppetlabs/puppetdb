@@ -342,10 +342,9 @@
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
   [& body]
-  `(with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-     (call-with-puppetdb-instance
-      (fn []
-        ~@body))))
+  `(call-with-puppetdb-instance
+    (fn []
+      ~@body)))
 
 (def ^:dynamic *notable-log-event?* notable-pdb-event?)
 

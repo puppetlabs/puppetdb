@@ -199,8 +199,7 @@
   [f]
   (binding [*db* (create-temp-db)]
     (with-db-info-on-failure-or-drop *db*
-      (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-        (f)))))
+      (f))))
 
 (defmacro with-unconnected-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))

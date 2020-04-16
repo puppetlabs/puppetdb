@@ -361,7 +361,7 @@
   {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported."
   [config]
-  (let [current (:version @sutils/db-metadata)
+  (let [{current :version :as meta} (sutils/db-metadata)
         oldest (get-in config [:database :min-required-version]
                        scf-store/oldest-supported-db)]
     (when (neg? (compare current oldest))
@@ -369,7 +369,7 @@
                       {:kind ::unsupported-database
                        :current current
                        :oldest oldest})))
-    @sutils/db-metadata))
+    meta))
 
 (defn require-valid-db
   [config]

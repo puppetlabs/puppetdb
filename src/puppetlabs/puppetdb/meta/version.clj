@@ -23,10 +23,11 @@
 (defn pdb-version-check-values*
   [db]
   (jdbc/with-db-connection db
-    {:product-name {:group-id "puppetlabs"
-                    :artifact-id "puppetdb"}
-     :database-name (:database @sutils/db-metadata)
-     :database-version (string/join "." (:version @sutils/db-metadata))}))
+    (let [{:keys [database version]} (sutils/db-metadata)]
+      {:product-name {:group-id "puppetlabs"
+                      :artifact-id "puppetdb"}
+       :database-name database
+       :database-version (string/join "." version)})))
 
 (def pdb-version-check-values
   (memoize pdb-version-check-values*))

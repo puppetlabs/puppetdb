@@ -210,7 +210,7 @@
                  [9 3]
                  [9 4]
                  [9 5]]]
-        (with-redefs [sutils/db-metadata (delay {:database nil :version v})]
+        (with-redefs [sutils/db-metadata (fn [] {:database nil :version v})]
           (try
             (jdbc/with-db-connection *db*
               (prep-db *db* config))
@@ -219,7 +219,7 @@
                (is (= ::svcs/unsupported-database kind))
                (is (= v current))
                (is (= expected-oldest oldest)))))))
-      (with-redefs [sutils/db-metadata (delay {:database nil :version [9 6]})]
+      (with-redefs [sutils/db-metadata (fn [] {:database nil :version [9 6]})]
         (is (do
               ;; Assumes prep-db is idempotent, which it is
               (jdbc/with-db-connection *db*
