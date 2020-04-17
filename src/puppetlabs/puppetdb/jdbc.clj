@@ -253,13 +253,13 @@
   result row will be a vector of column names."
   ([query f] (call-with-query-rows query {} f))
   ([[sql & params]
-    {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
+    {:keys [as-arrays? identifiers qualifier read-columns fetch-size] :as opts}
     f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
                            params))
-       (.setFetchSize stmt 500)
+       (.setFetchSize stmt (or fetch-size 500))
        (with-open [rset (.executeQuery stmt)]
          (try
            (f (sql/result-set-seq rset opts))

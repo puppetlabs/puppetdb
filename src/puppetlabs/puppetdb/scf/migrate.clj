@@ -1776,179 +1776,173 @@
    "DROP TABLE resource_events_premigrate"
    "DROP FUNCTION find_resource_events_unique_dates()")))
 
-(defn reports-partitioning
-  ([]
-   (reports-partitioning 500))
-  ([batch-size]
+(defn reports-partitioning []
+  (jdbc/do-commands
+   ;; detach the sequence so it isn't modified during the migration
+   "ALTER SEQUENCE reports_id_seq OWNED BY NONE"
 
-   (jdbc/do-commands
-     ;; detach the sequence so it isn't modified during the migration
-     "ALTER SEQUENCE reports_id_seq OWNED BY NONE"
+   "DROP INDEX idx_reports_noop_pending"
+   "DROP INDEX idx_reports_prod"
+   "DROP INDEX idx_reports_producer_timestamp"
+   "DROP INDEX idx_reports_producer_timestamp_by_hour_certname"
+   "DROP INDEX reports_cached_catalog_status_on_fail"
+   "DROP INDEX reports_catalog_uuid_idx"
+   "DROP INDEX reports_certname_idx"
+   "DROP INDEX reports_end_time_idx"
+   "DROP INDEX reports_environment_id_idx"
+   "DROP INDEX reports_hash_expr_idx"
+   "DROP INDEX reports_job_id_idx"
+   "DROP INDEX reports_noop_idx"
+   "DROP INDEX reports_status_id_idx"
+   "DROP INDEX reports_tx_uuid_expr_idx"
+   "ALTER TABLE certnames DROP CONSTRAINT certnames_reports_id_fkey"
 
-     "DROP INDEX idx_reports_noop_pending"
-     "DROP INDEX idx_reports_prod"
-     "DROP INDEX idx_reports_producer_timestamp"
-     "DROP INDEX idx_reports_producer_timestamp_by_hour_certname"
-     "DROP INDEX reports_cached_catalog_status_on_fail"
-     "DROP INDEX reports_catalog_uuid_idx"
-     "DROP INDEX reports_certname_idx"
-     "DROP INDEX reports_end_time_idx"
-     "DROP INDEX reports_environment_id_idx"
-     "DROP INDEX reports_hash_expr_idx"
-     "DROP INDEX reports_job_id_idx"
-     "DROP INDEX reports_noop_idx"
-     "DROP INDEX reports_status_id_idx"
-     "DROP INDEX reports_tx_uuid_expr_idx"
-     "ALTER TABLE certnames DROP CONSTRAINT certnames_reports_id_fkey"
+   "ALTER TABLE reports DROP CONSTRAINT reports_pkey"
 
-     "ALTER TABLE reports DROP CONSTRAINT reports_pkey"
+   "ALTER TABLE reports RENAME TO reports_premigrate"
 
-     "ALTER TABLE reports RENAME TO reports_premigrate"
+   "CREATE TABLE reports (
+      id bigint NOT NULL,
+      hash bytea NOT NULL,
+      transaction_uuid uuid,
+      certname text NOT NULL,
+      puppet_version text NOT NULL,
+      report_format smallint NOT NULL,
+      configuration_version text NOT NULL,
+      start_time timestamp with time zone NOT NULL,
+      end_time timestamp with time zone NOT NULL,
+      receive_time timestamp with time zone NOT NULL,
+      noop boolean,
+      environment_id bigint,
+      status_id bigint,
+      metrics_json json,
+      logs_json json,
+      producer_timestamp timestamp with time zone NOT NULL,
+      metrics jsonb,
+      logs jsonb,
+      resources jsonb,
+      catalog_uuid uuid,
+      cached_catalog_status text,
+      code_id text,
+      producer_id bigint,
+      noop_pending boolean,
+      corrective_change boolean,
+      job_id text)"
 
-     "CREATE TABLE reports (
-        id bigint NOT NULL,
-        hash bytea NOT NULL,
-        transaction_uuid uuid,
-        certname text NOT NULL,
-        puppet_version text NOT NULL,
-        report_format smallint NOT NULL,
-        configuration_version text NOT NULL,
-        start_time timestamp with time zone NOT NULL,
-        end_time timestamp with time zone NOT NULL,
-        receive_time timestamp with time zone NOT NULL,
-        noop boolean,
-        environment_id bigint,
-        status_id bigint,
-        metrics_json json,
-        logs_json json,
-        producer_timestamp timestamp with time zone NOT NULL,
-        metrics jsonb,
-        logs jsonb,
-        resources jsonb,
-        catalog_uuid uuid,
-        cached_catalog_status text,
-        code_id text,
-        producer_id bigint,
-        noop_pending boolean,
-        corrective_change boolean,
-        job_id text)"
+   "CREATE OR REPLACE FUNCTION find_reports_unique_dates()
+    RETURNS TABLE (rowdate TIMESTAMP WITH TIME ZONE)
+    AS $$
+    DECLARE
+    BEGIN
+      EXECUTE 'SET local timezone to ''UTC''';
+      RETURN QUERY SELECT DISTINCT date_trunc('day', producer_timestamp) AS rowdate FROM reports_premigrate;
+    END;
+    $$ language plpgsql;")
 
-     "CREATE OR REPLACE FUNCTION find_reports_unique_dates()
-     RETURNS TABLE (rowdate TIMESTAMP WITH TIME ZONE)
-     AS $$
-     DECLARE
-     BEGIN
-       EXECUTE 'SET local timezone to ''UTC''';
-       RETURN QUERY SELECT DISTINCT date_trunc('day', producer_timestamp) AS rowdate FROM reports_premigrate;
-     END;
-     $$ language plpgsql;")
+  ;; note: the reports table does *not* have an insert trigger because reports relies on the RETURNING *
+  ;; part of the INSERT INTO statement.
 
-   ;; note: the reports table does *not* have an insert trigger because reports relies on the RETURNING *
-   ;; part of the INSERT INTO statement.
+  ;; create range of partitioned tables
 
-   ;; create range of partitioned tables
+  (let [now (ZonedDateTime/now)
+        days (range -4 4)]
+    (doseq [day-offset days]
+      (partitioning/create-reports-partition (.plusDays now day-offset))))
 
-   (let [now (ZonedDateTime/now)
-         days (range -4 4)]
-     (doseq [day-offset days]
-       (partitioning/create-reports-partition (.plusDays now day-offset))))
+  ;; pre-create partitions
+  (log/info (trs "Creating partitions based on unique days in reports"))
+  (let [current-timezone (:current_setting (first (jdbc/query-to-vec "SELECT current_setting('TIMEZONE')")))]
+    (jdbc/call-with-query-rows
+     ["select rowdate from find_reports_unique_dates()"]
+     (fn [rows]
+       (doseq [row rows]
+         (partitioning/create-reports-partition (-> (:rowdate row)
+                                                    (.toInstant))))))
+    (jdbc/do-commands
+     ;; restore the transaction's timezone setting after creating the partitions
+     (str "SET local timezone to '" current-timezone "'")))
 
-   ;; pre-create partitions
-   (log/info (trs "Creating partitions based on unique days in reports"))
-   (let [current-timezone (:current_setting (first (jdbc/query-to-vec "SELECT current_setting('TIMEZONE')")))]
-     (jdbc/call-with-query-rows
-       ["select rowdate from find_reports_unique_dates()"]
-       (fn [rows]
-         (doseq [row rows]
-           (partitioning/create-reports-partition (-> (:rowdate row)
-                                                      (.toInstant))))))
-     (jdbc/do-commands
-       ;; restore the transaction's timezone setting after creating the partitions
-       (str "SET local timezone to '" current-timezone "'")))
-
-   (let [event-count (-> "select count(*) from reports_premigrate"
-                         jdbc/query-to-vec first :count)
-         last-logged (atom (.getTime (java.util.Date.)))
-         reports-migrated (atom 0)]
-     (jdbc/call-with-query-rows
-       ["select * from (
-           select
-             id, transaction_uuid, certname, puppet_version, report_format, configuration_version, start_time, end_time,
-             receive_time, noop, environment_id, status_id, metrics_json, logs_json, producer_timestamp, metrics, logs,
-             resources, catalog_uuid, cached_catalog_status, code_id, producer_id, noop_pending, corrective_change,
-             job_id,
-             row_number() over ( partition by
-                                   certname, puppet_version, report_format, configuration_version, start_time, end_time,
-                                   receive_time, transaction_uuid
-                                 order by receive_time asc )
-           from reports_premigrate) as sub
-         where row_number = 1"]
-       (fn [rows]
-         (let [old-cols [:id :transaction_uuid :certname :puppet_version :report_format
-                         :configuration_version :start_time :end_time :receive_time :noop
-                         :environment_id :status_id :metrics_json :logs_json :producer_timestamp
-                         :metrics :logs :resources :catalog_uuid :cached_catalog_status :code_id
-                         :producer_id :noop_pending :corrective_change :job_id]
-               new-cols (into [:hash] old-cols)
-               update-row (apply juxt (comp sutils/munge-hash-for-storage
-                                            hash/report-identity-hash)
-                                 old-cols)
-               insert->hash (fn [batch]
-                              (swap! reports-migrated + (count batch))
-                              (let [batch (map update-row batch)]
-                                (when (seq batch)
-                                  (doseq [g (group-by (fn [o] (-> (get o 15) ;; producer_timestamp
+  (let [event-count (-> "select count(*) from reports_premigrate"
+                        jdbc/query-to-vec first :count)
+        last-logged (atom (.getTime (java.util.Date.)))
+        reports-migrated (atom 0)]
+    (jdbc/call-with-query-rows
+      ["select * from (
+          select
+            id, transaction_uuid, certname, puppet_version, report_format, configuration_version, start_time, end_time,
+            receive_time, noop, environment_id, status_id, metrics_json, logs_json, producer_timestamp, metrics, logs,
+            resources, catalog_uuid, cached_catalog_status, code_id, producer_id, noop_pending, corrective_change,
+            job_id,
+            row_number() over ( partition by
+                                  certname, puppet_version, report_format, configuration_version, start_time, end_time,
+                                  receive_time, transaction_uuid
+                                order by receive_time asc )
+          from reports_premigrate) as sub
+        where row_number = 1"]
+      ;; set the FetchSize used by jdbc to avoid any potential OOM errors caused
+      ;; by fetching too many large reports at once
+      {:fetch-size 1}
+      (fn [rows]
+        (let [old-cols [:id :transaction_uuid :certname :puppet_version :report_format
+                        :configuration_version :start_time :end_time :receive_time :noop
+                        :environment_id :status_id :metrics_json :logs_json :producer_timestamp
+                        :metrics :logs :resources :catalog_uuid :cached_catalog_status :code_id
+                        :producer_id :noop_pending :corrective_change :job_id]
+              new-cols (into [:hash] old-cols)
+              update-row (apply juxt (comp sutils/munge-hash-for-storage
+                                           hash/report-identity-hash)
+                                old-cols)
+              insert->hash (fn [row]
+                             (swap! reports-migrated inc)
+                             (let [updated-row (update-row row)
+                                   table-name (str "reports_" (-> updated-row
+                                                                  (get 15) ;; producer_timestamp
                                                                   (partitioning/to-zoned-date-time)
-                                                                  (partitioning/date-suffix))) batch)]
-                                    (jdbc/insert-multi! (str "reports_" (first g))
-                                                        new-cols
-                                                        (last g)))) )
+                                                                  (partitioning/date-suffix)))]
+                               (jdbc/insert! table-name new-cols updated-row))
+                             (let [now (.getTime (java.util.Date.))]
+                               (when (> (- now @last-logged) 60000)
+                                 (maplog :info
+                                         {:migration 74 :at @reports-migrated :of event-count}
+                                         #(trs "Migrated {0} of {1} reports" (:at %) (:of %)))
+                                 (reset! last-logged now))))]
+          (run! insert->hash rows)))))
 
-                              (let [now (.getTime (java.util.Date.))]
-                                (when (> (- now @last-logged) 60000)
-                                  (maplog :info
-                                          {:migration 74 :at @reports-migrated :of event-count}
-                                          #(trs "Migrated {0} of {1} reports" (:at %) (:of %)))
-                                  (reset! last-logged now))))]
-           (dorun (map insert->hash (partition batch-size batch-size [] rows)))))))
+  (jdbc/do-commands
+   ;; attach sequence
+   "ALTER SEQUENCE reports_id_seq OWNED BY reports.id"
 
-   ;; migrate data
+   ;; set default value on new table DEFAULT nextval('reports_id_seq'::regclass)
+   "ALTER TABLE reports ALTER COLUMN id SET DEFAULT nextval('reports_id_seq'::regclass)"
 
-   (jdbc/do-commands
-     ;; attach sequence
-     "ALTER SEQUENCE reports_id_seq OWNED BY reports.id"
+   "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
+   "CREATE INDEX idx_reports_noop_pending ON reports USING btree (noop_pending) WHERE (noop_pending = true)"
+   "CREATE INDEX idx_reports_prod ON reports USING btree (producer_id)"
+   "CREATE INDEX idx_reports_producer_timestamp ON reports USING btree (producer_timestamp)"
+   ["CREATE INDEX idx_reports_producer_timestamp_by_hour_certname ON reports USING btree "
+    "  (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"]
+   ["CREATE INDEX reports_cached_catalog_status_on_fail ON reports USING btree"
+    "  (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"]
+   "CREATE INDEX reports_catalog_uuid_idx ON reports USING btree (catalog_uuid)"
+   "CREATE INDEX reports_certname_idx ON reports USING btree (certname)"
+   "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
+   "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
+   "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports USING btree (encode(hash, 'hex'::text))"
+   "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
+   "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
+   "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
+   "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))"
+   ["ALTER TABLE reports"
+    "  ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"]
+   ["ALTER TABLE reports"
+    "  ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"]
+   ["ALTER TABLE reports"
+    "  ADD CONSTRAINT reports_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"]
+   ["ALTER TABLE reports"
+    "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"]
 
-     ;; set default value on new table DEFAULT nextval('reports_id_seq'::regclass)
-     "ALTER TABLE reports ALTER COLUMN id SET DEFAULT nextval('reports_id_seq'::regclass)"
-
-     "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
-     "CREATE INDEX idx_reports_noop_pending ON reports USING btree (noop_pending) WHERE (noop_pending = true)"
-     "CREATE INDEX idx_reports_prod ON reports USING btree (producer_id)"
-     "CREATE INDEX idx_reports_producer_timestamp ON reports USING btree (producer_timestamp)"
-     ["CREATE INDEX idx_reports_producer_timestamp_by_hour_certname ON reports USING btree "
-      "  (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"]
-     ["CREATE INDEX reports_cached_catalog_status_on_fail ON reports USING btree"
-      "  (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"]
-     "CREATE INDEX reports_catalog_uuid_idx ON reports USING btree (catalog_uuid)"
-     "CREATE INDEX reports_certname_idx ON reports USING btree (certname)"
-     "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
-     "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
-     "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports USING btree (encode(hash, 'hex'::text))"
-     "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
-     "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
-     "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
-     "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))"
-     ["ALTER TABLE reports"
-      "  ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"]
-     ["ALTER TABLE reports"
-      "  ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"]
-     ["ALTER TABLE reports"
-      "  ADD CONSTRAINT reports_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"]
-     ["ALTER TABLE reports"
-      "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"]
-
-     "DROP TABLE reports_premigrate"
-     "DROP FUNCTION find_reports_unique_dates()")))
+   "DROP TABLE reports_premigrate"
+   "DROP FUNCTION find_reports_unique_dates()"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
