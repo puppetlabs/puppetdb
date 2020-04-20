@@ -75,10 +75,27 @@ The following environment variables are supported:
 
   The port for the puppetserver instance. This determines where to request certificates from. Defaults to '8140'.
 
+- `CERTNAME`
+
+  Thee DNS name used on this services SSL certificate. Defaults to puppetdb.
+
 - `DNS_ALT_NAMES`
 
   Subject Alternative Names to be included on the SSL certificate. Defaults to empty string.
   Note the Puppet CA must be configured to allow Subject Alternative Names, by default it rejects them.
+
+### Cert File Locations
+
+The directory structure follows the following conventions.  The full path is always available inside the container as the environment variable `$SSLDIR`
+
+- 'ssl-ca-cert'
+  `/opt/puppetlabs/server/data/puppetdb/certs/certs/ca.pem`
+
+- 'ssl-cert'
+  `/opt/puppetlabs/server/data/puppetdb/certs/certs/<certname>.pem`
+
+- 'ssl-key'
+  `/opt/puppetlabs/server/data/puppetdb/certs/private_keys/<certname>.pem`
 
 ## Analytics Data Collection
 

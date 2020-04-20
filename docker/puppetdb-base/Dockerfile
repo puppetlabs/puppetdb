@@ -16,6 +16,7 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs \
     LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs \
     CERTNAME=puppetdb \
+    DNS_ALT_NAMES="" \
     PUPPETDB_USER=puppetdb \
     PUPPETDB_PASSWORD=puppetdb \
     PUPPETDB_NODE_TTL=7d \
@@ -36,6 +37,7 @@ LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.schema-version="1.0" \
       org.label-schema.dockerfile="/Dockerfile"
 
+# NOTE: this is just documentation on defaults
 EXPOSE 8080 8081
 
 ENTRYPOINT ["dumb-init", "/docker-entrypoint.sh"]
@@ -45,6 +47,7 @@ CMD ["foreground"]
 # up in the worst case. The other timing parameters are set so that it
 # takes at most a minute to realize that PuppetDB has failed.
 # Probe failure during --start-period will not be counted towards the maximum number of retries
+# NOTE: k8s uses livenessProbe, startupProbe, readinessProbe and ignores HEALTHCHECK
 HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/healthcheck.sh"]
 
 ADD https://raw.githubusercontent.com/puppetlabs/pupperware/1a81f54cca38d9cc9ac4c2d124757cf9d909752c/shared/ssl.sh \
