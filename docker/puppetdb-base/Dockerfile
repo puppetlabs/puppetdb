@@ -47,7 +47,7 @@ CMD ["foreground"]
 # Probe failure during --start-period will not be counted towards the maximum number of retries
 HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/healthcheck.sh"]
 
-ADD https://raw.githubusercontent.com/puppetlabs/pupperware/8cdc056be09c44ed1ba96f963d71bd074d063b17/shared/ssl.sh \
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/1a81f54cca38d9cc9ac4c2d124757cf9d909752c/shared/ssl.sh \
     https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh \
     docker-entrypoint.sh \
     healthcheck.sh \
