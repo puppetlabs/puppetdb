@@ -22,7 +22,10 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_NODE_TTL=7d \
     PUPPETDB_NODE_PURGE_TTL=14d \
     PUPPETDB_REPORT_TTL=14d \
-    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m" \
+# NOTE: Docker ENV values cannot consume other ENV values, so full path to $LOGDIR is specified for -Xloggc
+# this value may be set by users, keeping in mind that some of these values are mandatory
+# -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
+    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=/opt/puppetlabs/server/data/puppetdb/logs/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048" \
 # used by entrypoint to determine if puppetserver should be contacted for config
 # set to false when container tests are run
     USE_PUPPETSERVER=true
