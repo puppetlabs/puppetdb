@@ -20,82 +20,37 @@ Docker Compose.
 
 ## Configuration
 
-The following environment variables are supported:
+| Name                                    | Usage / Default                                                                                                                                                                    |
+|-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **CERTNAME**                            | The DNS name used on this services SSL certificate<br><br>`puppetdb`                                                                                                               |
+| **DNS_ALT_NAMES**                       | Additional DNS names to add to the services SSL certificate<br><br>Unset                                                                                                           |
+| **WAITFORCERT**                         | Number of seconds to wait for certificate to be signed<br><br>`120`                                                                                                                |
+| **USE_PUPPETSERVER**                    | Set to `false` to skip acquiring SSL certificates from a Puppet Server.<br><br>`true`                                                                                              |
+| **PUPPETSERVER_HOSTNAME**               | The DNS hostname of the puppet master<br><br>`puppet`                                                                                                                              |
+| **PUPPETSERVER_PORT**                   | The port of the puppet master<br><br>`8140`                                                                                                                                        |
+| **PUPPETDB_POSTGRES_HOSTNAME**          | The DNS hostname of the postgres service<br><br>`postgres`                                                                                                                         |
+| **PUPPETDB_POSTGRES_PORT**              | The port for postgres<br><br>`5432`                                                                                                                                                |
+| **PUPPETDB_POSTGRES_DATABASE**          | The name of the puppetdb database in postgres<br><br>`puppetdb`                                                                                                                    |
+| **PUPPETDB_USER**                       | The puppetdb database user<br><br>`puppetdb`                                                                                                                                       |
+| **PUPPETDB_PASSWORD**                   | The puppetdb database password<br><br>`puppetdb`                                                                                                                                   |
+| **PUPPETDB_NODE_TTL**                   | Mark as ‘expired’ nodes that haven’t seen any activity (no new catalogs, facts, or reports) in the specified amount of time<br><br>`7d`                                            |
+| **PUPPETDB_NODE_PURGE_TTL**             | Automatically delete nodes that have been deactivated or expired for the specified amount of time<br><br>`14d`                                                                     |
+| **PUPPETDB_REPORT_TTL**                 | Automatically delete reports that are older than the specified amount of time<br><br>`14d`                                                                                         |
+| **PUPPETDB_JAVA_ARGS**                  | Arguments passed directly to the JVM when starting the service<br><br>`-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=/opt/puppetlabs/server/data/puppetdb/logs/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048` |
+| **PUPPERWARE_ANALYTICS_ENABLED**        | Set to 'true' to enable Google Analytics.<br><br>`false`                                                                                                                           |
 
-- `PUPPERWARE_ANALYTICS_ENABLED`
+### Cert File Locations
 
-  Set to 'true' to enable Google Analytics. Defaults to 'false'.
+The directory structure follows the following conventions.  The full path is always available inside the container as the environment variable `$SSLDIR`
 
-- `USE_PUPPETSERVER`
+- 'ssl-ca-cert'
+  `/opt/puppetlabs/server/data/puppetdb/certs/certs/ca.pem`
 
-  Set to 'false' to skip acquiring SSL certificates from a Puppet Server. Defaults to 'true'.
+- 'ssl-cert'
+  `/opt/puppetlabs/server/data/puppetdb/certs/certs/<certname>.pem`
 
-- `PUPPETDB_POSTGRES_HOSTNAME`
-
-  The DNS name of the Postgres host to use when performing initial health checks and when connecting to the database. Defaults to 'postgres'.
-
-- `PUPPETDB_POSTGRES_PORT`
-
-  The port of the Postgres host to use when performing initial health checks and when connecting to the database. Defaults to '5432'.
-
-- `PUPPETDB_POSTGRES_DATABASE`
-
-  The database name in Postgres. Defaults to 'puppetdb'.
-
-- `PUPPETDB_USER`
-
-  The user to connect to the postgres database as. Defaults to 'puppetdb'.
-
-- `PUPPETDB_PASSWORD`
-
-  The password to connect to the postgres database with. Defaults to 'puppetdb'.
-
-- `PUPPETDB_NODE_TTL`
-
-  How long nodes should be preserved in puppetdb without receiving any updates (new catalogs, facts, or reports)
-  before being marked expired. Defaults to '7d'.
-
-- `PUPPETDB_NODE_PURGE_TTL`
-
-  Delete nodes that have been deactivated or expired for the specified amount of time. Defaults to '14d'.
-
-- `PUPPETDB_REPORT_TTL`
-
-  Automatically delete reports that are older than the specified amount of time. Defaults to '14d'.
-
-- `PUPPETDB_JAVA_ARGS`
-
-  Additional Java args to pass to the puppetdb process. Defaults to '-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m'.
-
-- `CONSUL_ENABLED`
-
-  Whether or not to register the `puppet` service with an external consul server. Defaults to 'false'.
-
-- `CONSUL_HOSTNAME`
-
-  If consul is enabled, the hostname for the external consul server. Defaults to 'consul'.
-
-- `CONSUL_PORT`
-
-  If consul is enabled, the port to access consul at. Defaults to '8500'.
-
-- `NETWORK_INTERFACE`
-
-  If consul is enabled the network interface to use when finding the server's IP.
-  Defaults to 'eth0'
-
-- `PUPPETSERVER_HOSTNAME`
-
-  The hostname for the puppetserver instance. This determines where to request certificates from. Defaults to 'puppet'.
-
-- `PUPPETSERVER_PORT`
-
-  The port for the puppetserver instance. This determines where to request certificates from. Defaults to '8140'.
-
-- `DNS_ALT_NAMES`
-
-  Subject Alternative Names to be included on the SSL certificate. Defaults to empty string.
-  Note the Puppet CA must be configured to allow Subject Alternative Names, by default it rejects them.
+- 'ssl-key'
+  `/opt/puppetlabs/server/data/puppetdb/certs/private_keys/<certname>.pem`
 
 ## Analytics Data Collection
 
