@@ -39,6 +39,7 @@
    :subprotocol "postgresql"
    :subname "//127.0.0.1:5432/foo"
    :user "puppetdb"
+   :username "puppetdb"
    :password "xyzzy"})
 
 (defn db-admin-config
@@ -48,6 +49,7 @@
      :subprotocol "postgresql"
      :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
      :user (get-in test-env [:admin :name])
+     :username (get-in test-env [:admin :name])
      :password (get-in test-env [:admin :password])}))
 
 (defn routine-db-config
@@ -58,6 +60,7 @@
    :subprotocol "postgresql"
    :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
    :user (get-in test-env [:user :name])
+   :username (get-in test-env [:user :name])
    :password (get-in test-env [:user :password])
    :migrator-username (get-in test-env [:migrator :name])
    :migrator-password (get-in test-env [:migrator :password])
