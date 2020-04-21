@@ -17,6 +17,7 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs \
     CERTNAME=puppetdb \
     DNS_ALT_NAMES="" \
+    WAITFORCERT="" \
     PUPPETDB_USER=puppetdb \
     PUPPETDB_PASSWORD=puppetdb \
     PUPPETDB_NODE_TTL=7d \
