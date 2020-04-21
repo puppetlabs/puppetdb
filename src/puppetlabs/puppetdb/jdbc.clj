@@ -657,3 +657,13 @@
 
 (defn current-user []
   (-> (query-to-vec "select user as user") first :user))
+
+(defn disconnect-db [db]
+  "Forcibly disconnects all connections to the named db.  Requires
+  that the current DB session has sufficient authorization."
+  (query-to-vec
+   (str "select pg_terminate_backend (pg_stat_activity.pid)"
+        "  from pg_stat_activity"
+        "  where pg_stat_activity.datname = ?"
+        "    and pid <> pg_backend_pid()")
+   db))

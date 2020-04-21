@@ -151,29 +151,15 @@
 
 (def ^:dynamic *db* nil)
 
-(defn- disconnect-db-user [db user]
-  "Forcibly disconnects all connections from the specified user to the
-  named db.  Requires that the current DB session has sufficient
-  authorization."
-  (jdbc/query-to-vec
-   [(str "select pg_terminate_backend (pg_stat_activity.pid)"
-         "  from pg_stat_activity"
-         "  where pg_stat_activity.datname = ?"
-         "    and pg_stat_activity.usename = ?")
-    db
-    user]))
-
 (defn drop-test-db [db-config]
-  (let [db-name (subname->validated-db-name (:subname db-config))]
-    (jdbc/with-db-connection (db-admin-config)
+  (let [db-name (subname->validated-db-name (:subname db-config))
+        admin-cfg (db-admin-config)]
+    (jdbc/with-db-connection admin-cfg
       (jdbc/do-commands
        (format "alter database \"%s\" with connection limit 0" db-name)))
-    (let [config (db-user-config "postgres")]
-      (jdbc/with-db-connection config
-        ;; We'll need this until we can upgrade bonecp (0.8.0
-        ;; appears to fix the problem).
-        (disconnect-db-user db-name (:user config))))
-    (jdbc/with-db-connection (db-admin-config)
+    (jdbc/with-db-connection admin-cfg
+      (jdbc/disconnect-db db-name))
+    (jdbc/with-db-connection admin-cfg
       (jdbc/do-commands-outside-txn
        (format "drop database if exists %s" db-name)))))
 
