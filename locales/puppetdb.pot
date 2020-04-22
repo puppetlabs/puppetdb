@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 8136dff5034d9fc033a2cfcdc4af77c066339727\n"
+"X-Git-Ref: d138d7eb579eb3bebfb4148141c0e039d359b1a2\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1146,7 +1146,7 @@ msgid "[8/8] Indexing facts table..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Found an old and unuspported database migration (migration number {0})."
+msgid "Found an old and unsupported database migration (migration number {0})."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1184,11 +1184,23 @@ msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Caught SQLException during migration"
+msgid "PostgreSQL extension `pg_trgm` missing."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Unraveled exception"
+msgid "  Unable to create the recommended pg_trgm indexes.n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "To fix, run this on the PuppetDB database as the database super user:n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "    CREATE EXTENSION pg_trgm;n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Then restart PuppetDB.n"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1200,19 +1212,31 @@ msgid "Creating additional index `packages_name_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Missing PostgreSQL extension `pg_trgm`"
+msgid "Revoking {0} database access from {1} during migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid ""
-"We are unable to create the recommended pg_trgm indexes due tonthe extension "
-"not being installed correctly."
+msgid "Disconnecting all {0} connections to {1} database before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid ""
-" Run the command:nn    CREATE EXTENSION pg_trgm;nnas the database super user "
-"on the PuppetDB database to correctnthis, then restart PuppetDB.n"
+msgid "Locking migrations table before migrating"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Restoring access to {0} database to {1} after migrating"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Unable to restore db access after migrations"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Caught SQLException during migration"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Unraveled exception"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
