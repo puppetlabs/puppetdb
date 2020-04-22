@@ -167,7 +167,7 @@
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
         (is (= (get-in config [:database :maximum-pool-size]) 25))))
 
-    (testing "migrate? defaults to true"
+    (testing "migrate defaults to true"
       (let [config (-> {:database {:classname "something"
                                    :subname "stuff"
                                    :subprotocol "more stuff"}}
@@ -175,7 +175,7 @@
                                           write-database-config-in
                                           write-database-config-out)
                        configure-read-db)]
-        (is (= true (get-in config [:database :migrate?])))))
+        (is (= true (get-in config [:database :migrate])))))
 
     (testing "schema-check-interval defaults to 30 seconds"
       (let [config (-> {:database {:classname "something"
@@ -186,7 +186,32 @@
                                           write-database-config-out)
                        configure-read-db)
             thirty-seconds-in-millis 30000]
-        (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))))
+        (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))
+
+    (let [no-migrator {:database {:classname "something"
+                                  :subname "stuff"
+                                  :subprotocol "more stuff"
+                                  :username "someone"
+                                  :password "something"}}
+          migrator (update no-migrator :database assoc
+                           :migrator-username "admin"
+                           :migrator-password "admin")]
+
+      (testing "migrator-username"
+        (let [config (configure-db no-migrator)]
+          (is (= "someone" (get-in config [:database :migrator-username])))
+          (is (= "someone" (get-in config [:read-database :migrator-username]))))
+        (let [config (configure-db migrator)]
+          (is (= "admin" (get-in config [:database :migrator-username])))
+          (is (= "admin" (get-in config [:read-database :migrator-username])))))
+
+      (testing "migrator-password"
+        (let [config (configure-db no-migrator)]
+          (is (= "something" (get-in config [:database :migrator-password])))
+          (is (= "something" (get-in config [:read-database :migrator-password]))))
+        (let [config (configure-db migrator)]
+          (is (= "admin" (get-in config [:database :migrator-password])))
+          (is (= "admin" (get-in config [:read-database :migrator-password]))))))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]

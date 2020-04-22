@@ -1,11 +1,10 @@
 (ns puppetlabs.puppetdb.scf.sql-test
   (:require
    [clojure.test :refer :all]
-   [clojure.set :refer :all]
    [puppetlabs.puppetdb.jdbc :as jdbc]
    [puppetlabs.puppetdb.utils :refer [update-vals]]
    [puppetlabs.puppetdb.testutils.db
-    :refer [*db* schema-info-map diff-schema-maps with-test-db]]
+    :refer [*db* schema-info-map diff-schema-maps]]
    [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
    [puppetlabs.puppetdb.testutils.catalogs :refer [munge-catalog]]
    [puppetlabs.puppetdb.testutils.facts :refer [munge-facts]]

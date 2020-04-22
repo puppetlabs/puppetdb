@@ -54,13 +54,14 @@ tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-sed -i '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini"
+sed '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini" \
+    > "$tmpdir/pdb.ini"
 
 # use upgrade command to init pdb and apply all migrations
-./pdb upgrade -c "$PDBBOX/pdb.ini"
+./pdb upgrade -c "$tmpdir/pdb.ini"
 
 # start pdb in the background
-./pdb services -c "$PDBBOX/pdb.ini" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
+./pdb services -c "$tmpdir/pdb.ini" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
 
 # allow time for pdb to start before changing migration level
 while ! grep -F "Finished database garbage collection" "$tmpdir/pdb-out" > /dev/null

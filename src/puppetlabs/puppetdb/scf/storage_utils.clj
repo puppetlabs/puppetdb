@@ -44,16 +44,11 @@
   "A list containing a major and minor version for the database"
   [s/Int])
 
-;; FUNCTIONS
-(defn db-metadata-fn
-  []
+(defn db-metadata []
   (let [db-metadata (.getMetaData ^Connection (:connection (jdbc/db)))]
     {:database (.getDatabaseProductName db-metadata)
      :version [(.getDatabaseMajorVersion db-metadata)
                (.getDatabaseMinorVersion db-metadata)]}))
-
-(def db-metadata
-  (delay (db-metadata-fn)))
 
 (defn sql-current-connection-table-names
   "Returns the names of all of the tables in the public schema of the

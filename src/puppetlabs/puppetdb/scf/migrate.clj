@@ -1,9 +1,10 @@
 (ns puppetlabs.puppetdb.scf.migrate
   "Schema migrations
 
-   The `migrate!` function can be used to apply all the pending migrations to
-   the database, in ascending order of schema version. Pending is defined as
-   having a schema version greater than the current version in the database.
+   The `initialize-schema` function can be used to prepare the
+  database, applying all the pending migrations to the database, in
+  ascending order of schema version. Pending is defined as having a
+  schema version greater than the current version in the database.
 
    A migration is specified by defining a function of arity 0 and adding it to
    the `migrations` map, along with its schema version. To apply the migration,
@@ -240,11 +241,6 @@
         resource character varying(40) NOT NULL,
         parameters text)"
 
-    ;; schema_migrations table
-    "CREATE TABLE schema_migrations (
-        version integer NOT NULL,
-        \"time\" timestamp without time zone NOT NULL)"
-
     ;; value_types table
     "CREATE TABLE value_types (
         id bigint NOT NULL,
@@ -331,9 +327,6 @@
 
     "ALTER TABLE ONLY resource_params
         ADD CONSTRAINT resource_params_pkey PRIMARY KEY (resource, name)"
-
-    "ALTER TABLE ONLY schema_migrations
-        ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version)"
 
     "ALTER TABLE ONLY value_types
         ADD CONSTRAINT value_types_pkey PRIMARY KEY (id)"
@@ -1507,9 +1500,19 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+(defn require-schema-migrations-table
+  []
+  ;; This must be completely idempotent since we run it as a migration
+  ;; and manually (to make sure it's there for the access lock).
+  (jdbc/do-commands
+   ["create table if not exists schema_migrations"
+    "  (version integer not null primary key,"
+    "   \"time\" timestamp without time zone not null)"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
-  {28 init-through-2-3-8
+  {00 require-schema-migrations-table
+   28 init-through-2-3-8
    29 version-2yz-to-300-migration
    30 add-expired-to-certnames
    31 coalesce-fact-values
@@ -1517,8 +1520,8 @@
    33 add-certname-id-to-certnames
    34 add-certname-id-to-resource-events
    ;; This dummy migration ensures that even databases that were up to
-   ;; date when the "vacuum analyze" code was added to migrate! will
-   ;; still analyze their existing databases.
+   ;; date when the analyze-tables code was added will still analyze
+   ;; their existing databases.
    35 (fn [] true)
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
@@ -1572,7 +1575,7 @@
   []
   {:post  [(sorted? %)
            (set? %)
-           (apply < 0 %)]}
+           (apply <= 0 %)]}
   (jdbc/with-db-transaction []
     (if-not (->> ["select 1 from pg_catalog.pg_tables where tablename = 'schema_migrations'"]
                  jdbc/query-to-vec
@@ -1588,7 +1591,7 @@
   []
   {:post [(map? %)
           (sorted? %)
-          (apply < 0 (keys %))
+          (apply <= 0 (keys %))
           (<= (count %) (count migrations))]}
   (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
     (into (sorted-map)
@@ -1618,10 +1621,10 @@
         known-migrations (apply sorted-set (keys migrations))]
 
     (when (and latest-applied-migration
-               (< latest-applied-migration (first known-migrations)))
+               (< latest-applied-migration (first (remove zero? known-migrations))))
       (throw (IllegalStateException.
               (str
-               (trs "Found an old and unuspported database migration (migration number {0})." latest-applied-migration)
+               (trs "Found an old and unsupported database migration (migration number {0})." latest-applied-migration)
                " "
                (trs "PuppetDB only supports upgrading from the previous major version to the current major version.")
                " "
@@ -1643,87 +1646,164 @@
     (apply jdbc/do-commands-outside-txn
            (map #(str "vacuum analyze " %) tables))))
 
-(defn run-migrations
-  []
-  (require-valid-schema)
-  (let [small-tables (set ["value_types" "report_statuses"])
-        tables (jdbc/with-db-transaction []
-                 (when-let [pending (seq (pending-migrations))]
-                   (->> pending
-                        (map (fn [[version migration]]
-                               (log/info (trs "Applying database migration version {0}"
-                                              version))
-                               (let [t0 (now)]
-                                 (let [result (migration)]
-                                   (record-migration! version)
-                                   (log/info (trs "Applied database migration version {0} in {1} ms"
-                                                  version (in-millis (interval t0 (now)))))
-                                   result))))
-                        (filter map?)
-                        (map ::vacuum-analyze)
-                        seq)))]
-    (when-not tables
-      (log/info (trs "There are no pending migrations")))
-    ;; Always analyze these since we had a good long period where
-    ;; the post-migration analysis above wasn't actually working,
-    ;; and since this shouldn't be expensive.
-    (analyze-if-exists (apply set/union small-tables tables))
-    (not (empty? tables))))
+(defn- analyze-tables
+  [requested]
+  {:pre [(or (nil? requested) (set? requested))]}
+  ;; Always analyze these small tables since we had a good long period
+  ;; where the post-migration analysis above wasn't actually working,
+  ;; and since this shouldn't be expensive.
+  (let [small-tables (set ["value_types" "report_statuses"])]
+    (analyze-if-exists (set/union small-tables requested))))
 
-(defn migrate! []
-  "Migrates database to the latest schema version. Does nothing if
-  database is already at the latest schema version.  Requires a
-  connection pool because some operations may require an indepdendent
-  database connection.  Returns true if there were any migrations."
-  (try
-    (run-migrations)
-    (catch java.sql.SQLException e
-      (log/error e (trs "Caught SQLException during migration"))
-      (loop [ex (.getNextException e)]
-        (when ex
-          (log/error ex (trs "Unraveled exception"))
-          (recur (.getNextException ex))))
-      (throw e))))
+(defn run-migrations
+  "Runs the requested migrations.  Returns a set of tables that should
+  be analyzed if there were any migrations."
+  [migrations]
+  (let [tables (->> migrations
+                    (map (fn [[version migration]]
+                           (log/info (trs "Applying database migration version {0}"
+                                          version))
+                           (let [t0 (now)]
+                             (let [result (migration)]
+                               (record-migration! version)
+                               (log/info (trs "Applied database migration version {0} in {1} ms"
+                                              version (in-millis (interval t0 (now)))))
+                               result))))
+                    (filter map?)
+                    (map ::vacuum-analyze)
+                    (apply set/union))]
+    (when-not (empty? tables)
+      (log/info (trs "There are no pending migrations"))
+      tables)))
+
 
 ;; SPECIAL INDEX HANDLING
 
-(defn trgm-indexes!
+(defn maybe-create-trgm-indexes
   "Create trgm indexes if they do not currently exist."
   []
-  (when-not (sutils/index-exists? "fact_paths_path_trgm")
-    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
-    (jdbc/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-
-  (when-not (sutils/index-exists? "packages_name_trgm")
-    (log/info (trs "Creating additional index `packages_name_trgm`"))
-    (jdbc/do-commands
-     ["create index packages_name_trgm on packages"
-      "  using gin (name gin_trgm_ops)"])))
+  (if-not (sutils/pg-extension? "pg_trgm")
+    (do
+      (log/warn
+       (str
+        (trs "PostgreSQL extension `pg_trgm` missing.")
+        (trs "  Unable to create the recommended pg_trgm indexes.\n")
+        (trs "To fix, run this on the PuppetDB database as the database super user:\n")
+        (trs "    CREATE EXTENSION pg_trgm;\n")
+        (trs "Then restart PuppetDB.\n")))
+      nil)
+    (do
+      (when-not (sutils/index-exists? "fact_paths_path_trgm")
+        (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
+        (jdbc/do-commands
+         "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
+      (when-not (sutils/index-exists? "packages_name_trgm")
+        (log/info (trs "Creating additional index `packages_name_trgm`"))
+        (jdbc/do-commands
+         ["create index packages_name_trgm on packages"
+          "  using gin (name gin_trgm_ops)"]))
+      nil)))
 
 (defn ensure-report-id-index []
   (when-not (sutils/index-exists? "idx_reports_compound_id")
     (log/info "Indexing reports for id queries")
-
     (jdbc/do-commands
      "create index idx_reports_compound_id on reports
         (producer_timestamp, certname, hash)
         where start_time is not null")
+    #{"reports"}))
 
-    (jdbc/do-commands-outside-txn
-     "vacuum analyze reports")))
-
-(defn indexes!
+(defn create-indexes
   "Create missing indexes for applicable database platforms."
-  [config]
-  (jdbc/with-db-transaction []
-    (if (sutils/pg-extension? "pg_trgm")
-      (trgm-indexes!)
-      (log/warn
-       (str
-        (trs "Missing PostgreSQL extension `pg_trgm`")
-        "\n\n"
-        (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
-        " "
-        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n")))))
-  (ensure-report-id-index))
+  []
+  (set/union
+   (maybe-create-trgm-indexes)
+   (ensure-report-id-index)))
+
+(defn note-migrations-finished
+  "Currently just a hook used during testing."
+  []
+  true)
+
+(defn update-schema
+  [non-migrator-name db-name]
+  {:pre [(or (not non-migrator-name)
+             (and non-migrator-name db-name))]}
+
+  ;; When a non-migrator-name is given, assume we're connected to the
+  ;; database as the migrator (e.g. via the PDBMigrationsPool), and
+  ;; then do our part to attempt to prevent concurrent migrations or
+  ;; any access to a database that's at an unexpected migration level.
+  ;; See the connectionInitSql setting for related efforts.
+  (let [coordinate? non-migrator-name
+        orig-user (and coordinate? (jdbc/current-user))]
+
+    (when coordinate?
+      (log/info
+       (trs "Revoking {0} database access from {1} during migrations"
+            db-name non-migrator-name))
+      (jdbc/revoke-role-db-access non-migrator-name db-name))
+
+    (try
+      (when coordinate?
+        ;; Because the revoke may not actually produce an error when
+        ;; it doesn't work.
+        (when (jdbc/has-database-privilege? non-migrator-name db-name "connect")
+          (throw
+           (ex-info "Unable to prevent non-migrator connections during migration"
+                    {:kind ::unable-to-block-other-pdbs-during-migration})))
+        (log/info
+         (trs "Disconnecting all {0} connections to {1} database before migrating"
+              non-migrator-name db-name))
+        (jdbc/disconnect-db-role db-name non-migrator-name)
+        ;; Must be non-migrator so new tables, etc. are owned by the normal role.
+        (jdbc/do-commands (str "set role " (jdbc/double-quote non-migrator-name))))
+
+      (jdbc/with-db-transaction []
+        (require-schema-migrations-table)
+        (log/info (trs "Locking migrations table before migrating"))
+        (jdbc/do-commands
+         "lock table schema_migrations in access exclusive mode")
+        (require-valid-schema)
+        (let [tables (set/union (run-migrations (pending-migrations))
+                                (create-indexes))]
+          (note-migrations-finished)
+          tables))
+
+      (finally
+        (when coordinate?
+          ;; This won't run if the jvm doesn't quit in a way that lets
+          ;; threads finish (TK's shutdown process does).
+          (try
+            (log/info
+             (trs "Restoring access to {0} database to {1} after migrating"
+                  db-name non-migrator-name))
+            (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user)))
+            (jdbc/restore-role-db-access non-migrator-name db-name)
+            (catch Throwable ex
+              ;; Don't let this rethrow, so that it won't suppress any
+              ;; pending exception.
+              (log/error
+               ex (trs "Unable to restore db access after migrations"))))
+          (when-not (jdbc/has-database-privilege? non-migrator-name db-name "connect")
+            (throw
+             (ex-info "Unable to restore non-migrator connections after migration "
+                      {:kind ::unable-to-block-other-pdbs-during-migration}))))))))
+
+(defn initialize-schema
+  "Ensures the database is migrated to the latest version, and returns
+  true if and only if any migrations were run.  Assumes the database status,
+  version, etc. has already been validated."
+  ([] (initialize-schema nil nil))
+  ([non-migrator-name db-name]
+   (try
+     (let [tables (update-schema non-migrator-name db-name)]
+       (analyze-tables tables)
+       (not (empty? tables)))
+     (catch java.sql.SQLException e
+       (log/error e (trs "Caught SQLException during migration"))
+       (loop [ex (.getNextException e)]
+         (when ex
+           (log/error ex (trs "Unraveled exception"))
+           (recur (.getNextException ex))))
+       (throw e)))))

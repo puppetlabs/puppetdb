@@ -396,11 +396,30 @@ this if your PostgreSQL server is using SSL.
 
 ### `username`
 
-This is the username to use when connecting. Only used with PostgreSQL.
+The database user specified for connections performing normal
+operations (queries, command processing, etc.).
 
 ### `password`
 
 This is the password to use when connecting. Only used with PostgreSQL.
+
+### `migrator-username`
+
+The database user specified for database migration operations, in
+particular the database validation and migration at startup.  Defaults
+to the `username`.
+
+### `migrator-password`
+
+This is the password to use when connecting for database migrations.
+Defaults to `password`.
+
+### `migrate`
+
+When set to `true` (the default), PuppetDB will upgrade the data in
+the database to the latest format at startup.  When `false`, PuppetDB
+will exit with an error status if the format version is not the one it
+expects, whether newer or older.
 
 ### `maximum-pool-size`
 
