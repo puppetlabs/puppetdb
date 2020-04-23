@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 13d6b20c6c3cb1b89d05fb84847fa70884c09193\n"
+"X-Git-Ref: 057574b89718c10efc4454410cbbd99efcf866fe\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -243,10 +243,6 @@ msgstr ""
 #. 2 : The actual value of that database setting
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/services.clj
-msgid "error: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
@@ -1125,7 +1121,7 @@ msgid "Migrated {0} of {1} reports"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Found an old and unuspported database migration (migration number {0})."
+msgid "Found an old and unsupported database migration (migration number {0})."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1163,11 +1159,27 @@ msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Caught SQLException during migration"
+msgid "DEPRECATED: The `pg_trgm` extension will be required in PDB 7.0.0"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Unraveled exception"
+msgid "PostgreSQL extension `pg_trgm` missing."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "  Unable to create the recommended pg_trgm indexes.n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "To fix, run this on the PuppetDB database as the database super user:n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "    CREATE EXTENSION pg_trgm;n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Then restart PuppetDB.n"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1183,23 +1195,31 @@ msgid "Creating additional index `catalog_resources_file_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "DEPRECATED: The `pg_trgm` extension will be required in PDB 7.0.0"
+msgid "Revoking {0} database access from {1} during migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Missing PostgreSQL extension `pg_trgm`"
+msgid "Disconnecting all {0} connections to {1} database before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid ""
-"We are unable to create the recommended pg_trgm indexes due tonthe extension "
-"not being installed correctly."
+msgid "Locking migrations table before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid ""
-" Run the command:nn    CREATE EXTENSION pg_trgm;nnas the database super user "
-"on the PuppetDB database to correctnthis, then restart PuppetDB.n"
+msgid "Restoring access to {0} database to {1} after migrating"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Unable to restore db access after migrations"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Caught SQLException during migration"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Unraveled exception"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/partitioning.clj
