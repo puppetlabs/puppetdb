@@ -203,7 +203,7 @@
         start-ex (promise)
         orig-start svcs/start-puppetdb
         start (fn [& args]
-                (let [[context config svc get-endpts request-shutdown] args]
+                (let [[context config svc get-endpts request-shutdown upgrade?] args]
                   (reset! service svc)
                   (try
                     (let [result (apply orig-start args)]
@@ -218,12 +218,8 @@
 
     (with-redefs [sutils/db-metadata (fn [] {:database nil :version [9 5]})
                   svcs/start-puppetdb start]
-      (try
-        (svc-utils/with-puppetdb-instance
-          (throw (Exception. "Reached the unreachable")))
-        (catch Exception ex
-          (when-not (err-msg? (.getMessage ex))
-            (throw ex)))))
+      (svc-utils/with-puppetdb-instance
+        true))
 
     (testing "unsupported db triggers unsupported-database exception"
       (let [ex (deref start-ex 0 nil)
@@ -269,12 +265,8 @@
 
     (with-redefs [svcs/request-database-settings request-settings
                   svcs/start-puppetdb start]
-      (try
-        (svc-utils/with-puppetdb-instance
-          (throw (Exception. "Reached the unreachable")))
-        (catch Exception ex
-          (when-not (err-msg? (.getMessage ex))
-            (throw ex)))))
+      (svc-utils/with-puppetdb-instance
+        true))
 
     (testing "invalid-database-configuration exception thrown"
       (let [ex (deref start-ex 0 nil)

@@ -77,7 +77,7 @@ psql -U puppetdb puppetdb -c 'INSERT INTO schema_migrations (version, time) VALU
 # wait for the background pdb to notice the migration change and exit
 rc=0
 wait $pdb_pid || rc=$?
-test "$rc" -eq 1
+test "$rc" -eq 77
 
 cat "$tmpdir/pdb-out" "$tmpdir/pdb-err"
-grep -F 'Please upgrade PuppetDB' "$tmpdir/pdb-out"
+grep -F 'Please upgrade PuppetDB' "$tmpdir/pdb-err"

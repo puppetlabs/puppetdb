@@ -550,25 +550,28 @@
     (let [schema-version (-> (jdbc/with-transacted-connection db
                                (jdbc/query "select max(version) from schema_migrations"))
                              first
-                             :max)]
+                             :max)
+          stop (fn [msg status]
+                 (request-shutdown {::tk/exit
+                                    {:status status
+                                     :messages [[msg *err*]]}}))]
       (when-not (= schema-version desired-schema-version)
-        (let [ex-msg (cond
-                       (> schema-version desired-schema-version)
-                       (str
-                        (trs "Please upgrade PuppetDB: ")
-                        (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
-                             schema-version))
+        (cond
+          (> schema-version desired-schema-version)
+          (stop (str
+                 (trs "Please upgrade PuppetDB: ")
+                 (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
+                      schema-version))
+                (int \M))
 
-                       (< schema-version desired-schema-version)
-                       (str
-                        (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
-                        (trs "The detected migration level {0} is out of date." schema-version))
+          (< schema-version desired-schema-version)
+          (stop (str
+                 (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
+                 (trs "The detected migration level {0} is out of date." schema-version))
+                (int \m))
 
-                       :else
-                       (throw (Exception. "Unknown state when checking schema versions")))]
-          (request-shutdown {::tk/exit
-                             {:status 1  ;; Unsuppported by older TK (will be 1)
-                              :messages [[ex-msg *err*]]}}))))))
+          :else
+          (throw (Exception. "Unknown state when checking schema versions")))))))
 
 (defn start-puppetdb
   "Throws {:kind ::unsupported-database :current version :oldest version} if
@@ -698,30 +701,28 @@
       context)
     (catch ExceptionInfo ex
       (let [{:keys [kind] :as data} (ex-data ex)
-            stop (fn [msg]
+            stop (fn [msg status]
                    (request-shutdown {::tk/exit
-                                      {:status 1  ;; Unsuppported by older TK (will be 1)
+                                      {:status status
                                        :messages [[msg *err*]]}})
                    context)]
         (case kind
           ::unsupported-database
-          (stop (db-unsupported-msg (:current data) (:oldest data)))
+          (stop (db-unsupported-msg (:current data) (:oldest data)) 1)
 
           ::invalid-database-configuration
-          (stop (invalid-conf-msg (:failed-validation data)))
+          (stop (invalid-conf-msg (:failed-validation data)) 1)
 
           ::migration-required
-          (stop (.getMessage ex))
+          (stop (.getMessage ex) (int \m))
 
           ;; Unrecognized -- pass it on.
           (throw ex))))))
 
 (defn shutdown-requestor
   "Returns a shim for TK's request-shutdown that also records the
-  shutdown request in the service context as :shutdown-request.  The
-  shim accepts the TK 3.1+ method's arguments and (somewhat) emulates
-  that newer behavior (until we move to TK 3.1+)."
-  [request-shutdown shutdown-on-error service]
+  shutdown request in the service context as :shutdown-request."
+  [request-shutdown service]
   ;; Changes to the argument order above will require changes to the
   ;; unsupported-database-triggers-shutdown test.
   (fn shutdown [opts]
@@ -730,14 +731,7 @@
       (assert (every? string? (map first messages)))
       (some-> (:shutdown-request (service-context service))
               (deliver {:opts opts}))
-      (doseq [[msg out] messages
-              :let [msg (str (trs "errror: ")  msg)]]
-        (utils/println-err msg)
-        (log/error msg))
-      (if (zero? status)
-        (request-shutdown)
-        (shutdown-on-error (service-id service)
-                           #(throw (Exception. (apply str (map first messages)))))))))
+      (request-shutdown opts))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -773,7 +767,7 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService request-shutdown shutdown-on-error]]
+   [:ShutdownService request-shutdown]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
@@ -795,9 +789,7 @@
    ;; to test startup errors, etc.
    (start-puppetdb-or-shutdown context (get-config) this
                                get-registered-endpoints
-                               (shutdown-requestor request-shutdown
-                                                   shutdown-on-error
-                                                   this)))
+                               (shutdown-requestor request-shutdown this)))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
