@@ -87,11 +87,12 @@
 
 (deftest blacklist-type-only-accepts-literal-regex-as-values
   (let [config-db (fn [bl-type]
-                    (-> {:database {:classname "something"
+                    (-> {:database {:user "x" :password "?"
+                                    :classname "something"
                                     :subname "stuff"
                                     :subprotocol "more stuff"
                                     :facts-blacklist-type bl-type}}
-                        configure-write-db))]
+                        configure-db))]
 
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not match schema"
                           (config-db "foo")))
@@ -103,20 +104,20 @@
                              [:database :facts-blacklist-type])))))
 
 (deftest blacklist-type-defaults-to-literal
-  (let [config (-> {:database {:classname "something"
+  (let [config (-> {:database {:user "x" :password "?"
+                               :classname "something"
                                :subname "stuff"
                                :subprotocol "more stuff"}}
-                   configure-write-db
-                   configure-read-db)]
+                   configure-db)]
     (is (= (get-in config [:database :facts-blacklist-type]) "literal"))))
 
 (deftest blacklist-converted-correctly-with-ini-and-conf-files
-  (let [build-config (fn [x] (-> {:database {:classname "something"
+  (let [build-config (fn [x] (-> {:database {:user "x" :password "?"
+                                             :classname "something"
                                              :subname "stuff"
                                              :subprotocol "more stuff"
                                              :facts-blacklist x}}
-                                 configure-write-db
-                                 configure-read-db))
+                                 configure-db))
         ini-config (build-config "fact1, fact2, fact3")
         hocon-config (build-config ["fact1" "fact2" "fact3"])]
     (is (= (get-in ini-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))
@@ -144,51 +145,69 @@
                                                          (assoc-in [:database :resource-events-ttl] "5d")))))))
 
     (testing "the read-db defaulted to the specified write-db"
-      (let [config (-> {:database {:subname "stuff"}}
-                       configure-write-db
-                       configure-read-db)]
+      (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}}
+                       configure-db)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "the read-db should be specified by a read-database property"
       (let [config (-> {:database {:subname "wronger"}
                         :read-database {:subname "stuff"}}
-                       configure-write-db
-                       configure-read-db)]
+                       configure-db)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "max-pool-size defaults to 25"
-      (let [config (-> {:database {:subname "stuff"}}
-                       configure-write-db
-                       configure-read-db)]
+      (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}}
+                       configure-db)]
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
         (is (= (get-in config [:database :maximum-pool-size]) 25))))
 
-    (testing "migrate? defaults to true"
-      (let [config (-> {:database {:classname "something"
+    (testing "migrate defaults to true"
+      (let [config (-> {:database {:user "x" :password "?"
+                                   :classname "something"
                                    :subname "stuff"
                                    :subprotocol "more stuff"}}
-                       (configure-section :database
-                                          write-database-config-in
-                                          write-database-config-out)
-                       configure-read-db)]
-        (is (= true (get-in config [:database :migrate?])))))
+                       configure-db)]
+        (is (= true (get-in config [:database :migrate])))))
 
     (testing "schema-check-interval defaults to 30 seconds"
-      (let [config (-> {:database {:classname "something"
+      (let [config (-> {:database {:user "x" :password "?"
+                                   :classname "something"
                                    :subname "stuff"
                                    :subprotocol "more stuff"}}
-                       (configure-section :database
-                                          write-database-config-in
-                                          write-database-config-out)
-                       configure-read-db)
+                       configure-db)
             thirty-seconds-in-millis 30000]
-        (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))))
+        (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))
+
+    (let [no-migrator {:database {:classname "something"
+                                  :subname "stuff"
+                                  :subprotocol "more stuff"
+                                  :username "someone"
+                                  :password "something"}}
+          migrator (update no-migrator :database assoc
+                           :migrator-username "admin"
+                           :migrator-password "admin")]
+
+      (testing "migrator-username"
+        (let [config (configure-db no-migrator)]
+          (is (= "someone" (get-in config [:database :migrator-username])))
+          (is (= "someone" (get-in config [:read-database :migrator-username]))))
+        (let [config (configure-db migrator)]
+          (is (= "admin" (get-in config [:database :migrator-username])))
+          (is (= "admin" (get-in config [:read-database :migrator-username])))))
+
+      (testing "migrator-password"
+        (let [config (configure-db no-migrator)]
+          (is (= "something" (get-in config [:database :migrator-password])))
+          (is (= "something" (get-in config [:read-database :migrator-password]))))
+        (let [config (configure-db migrator)]
+          (is (= "admin" (get-in config [:database :migrator-password])))
+          (is (= "admin" (get-in config [:read-database :migrator-password]))))))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]
                       (-> base-config
                           (update :database merge sample-db-config)
-                          configure-write-db))]
+                          configure-db))]
     (testing "gc-interval"
       (testing "should use the value specified in minutes"
         (let [gc-interval (get-in (config-with {:database {:gc-interval 900}})

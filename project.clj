@@ -153,7 +153,6 @@
                  ;; Puppet specific
                  [puppetlabs/comidi]
                  [puppetlabs/dujour-version-check]
-                 [puppetlabs/http-client]
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
                  [puppetlabs/stockpile "0.0.4"]

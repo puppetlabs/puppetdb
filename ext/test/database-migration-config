@@ -60,15 +60,16 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 # Since we have an empty database, we need all the migrations, so we
 # can just set the option to false to test whether it blocks them.
 
-# Append "migrate? = false" just after the [database] section header
-sed -i '/\[database\]/a migrate? = false' "$PDBBOX/pdb.ini"
+# Append "migrate = false" just after the [database] section header
+sed '/\[database\]/a migrate = false' "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
 
 for cmd in services upgrade; do
     rc=0
-    ./pdb "$cmd" -c "$PDBBOX/pdb.ini" 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
+    ./pdb "$cmd" -c "$tmpdir/pdb.ini" 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
     cat "$tmpdir/out" "$tmpdir/err"
+    echo  # in case the output doesn't end with a newline
     # This will become 109 once trapperkeeper supports custom exit statuses/
-    test "$rc" -eq 1
+    test "$rc" -eq 109
     grep -F 'Database is not fully migrated and migration is disallowed' \
          "$tmpdir/err"
 done

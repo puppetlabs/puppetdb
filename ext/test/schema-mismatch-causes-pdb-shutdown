@@ -54,13 +54,14 @@ tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-sed -i '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini"
+sed '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini" \
+    > "$tmpdir/pdb.ini"
 
 # use upgrade command to init pdb and apply all migrations
-./pdb upgrade -c "$PDBBOX/pdb.ini"
+./pdb upgrade -c "$tmpdir/pdb.ini"
 
 # start pdb in the background
-./pdb services -c "$PDBBOX/pdb.ini" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
+./pdb services -c "$tmpdir/pdb.ini" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
 
 # allow time for pdb to start before changing migration level
 while ! grep -F "Finished database garbage collection" "$tmpdir/pdb-out" > /dev/null
@@ -76,7 +77,7 @@ psql -U puppetdb puppetdb -c 'INSERT INTO schema_migrations (version, time) VALU
 # wait for the background pdb to notice the migration change and exit
 rc=0
 wait $pdb_pid || rc=$?
-test "$rc" -eq 1
+test "$rc" -eq 77
 
 cat "$tmpdir/pdb-out" "$tmpdir/pdb-err"
-grep -F 'Please upgrade PuppetDB' "$tmpdir/pdb-out"
+grep -F 'Please upgrade PuppetDB' "$tmpdir/pdb-err"

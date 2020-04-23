@@ -10,7 +10,7 @@
             [clojure.string :as str]
             [puppetlabs.puppetdb.time :as pl-time]
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
-            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [schema.core :as s]
             [clojure.math.numeric-tower :as math]
             [puppetlabs.i18n.core :refer [trs]]))
@@ -568,7 +568,7 @@
                  db_schema_version;"
      "      when db_schema_version < expected_max then"
      "        raise exception"
-     "          'Please run PuppetDB with the migrate? option set to true
+     "          'Please run PuppetDB with the migrate option set to true
                  to upgrade your database. The detected migration level %% is
                  out of date.', db_schema_version;"
      "      else"
@@ -606,6 +606,13 @@
        (.setAutoCommit false)
        (.setInitializationFailTimeout -1)
        (.setTransactionIsolation "TRANSACTION_READ_COMMITTED")
+       ;; Because we currently disable autocommit and specify
+       ;; connectionInitSql, we need to set IsolateInternalQueries to
+       ;; true because otherwise hikaricp will run our connection init
+       ;; code which issues a select without committing it, which
+       ;; causes later attempts to (for example) change the isolation
+       ;; level to fail (because the pending transaction already
+       ;; includes that select).
        (.setIsolateInternalQueries true))
      (some->> (when expected-schema
                 (block-on-schema-mismatch expected-schema))
@@ -650,3 +657,55 @@
     (str "in ("
          (str/join "," (repeat (count coll) inner))
          ")")))
+
+(defn current-user []
+  (-> (query-to-vec "select user as user") first :user))
+
+(defn current-database []
+  (-> "select current_database();" query-to-vec first :current_database))
+
+(defn-validated has-database-privilege?
+  [user db privilege] :- s/Bool
+  (-> ["select has_database_privilege(?, ?, ?)" user db privilege]
+      query-to-vec first :has_database_privilege))
+
+(defn-validated has-role?
+  [user role privilege] :- s/Bool
+  (-> ["select pg_has_role(?, ?, ?)" user role privilege]
+      query-to-vec first :pg_has_role))
+
+(defn disconnect-db [db]
+  "Forcibly disconnects all connections to the named db.  Requires
+  that the current DB session has sufficient authorization."
+  (query-to-vec
+   (str "select pg_terminate_backend (pg_stat_activity.pid)"
+        "  from pg_stat_activity"
+        "  where pg_stat_activity.datname = ?"
+        "    and pid <> pg_backend_pid()")
+   db))
+
+(defn disconnect-db-role [db user]
+  "Forcibly disconnects all connections from the specified role to the
+  named db.  Requires that the current DB session has sufficient
+  authorization."
+  (query-to-vec
+   (str "select pg_terminate_backend (pg_stat_activity.pid)"
+        "  from pg_stat_activity"
+        "  where pg_stat_activity.datname = ?"
+        "    and pg_stat_activity.usename = ?"
+        "    and pid <> pg_backend_pid()")
+   db user))
+
+(defn revoke-role-db-access
+  [role db]
+  ;; revoke commands can't be parameterized with the pgjdbc driver right now
+  (do-commands
+   (format "revoke connect on database %s from %s restrict"
+           (double-quote db) (double-quote role))))
+
+(defn restore-role-db-access
+  [role db]
+  ;; grant commands can't be parameterized with the pgjdbc driver right now
+  (do-commands
+   (format "grant connect on database %s to %s"
+          (double-quote db) (double-quote role))))

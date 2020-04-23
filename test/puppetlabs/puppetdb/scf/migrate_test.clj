@@ -48,13 +48,13 @@
     (testing "should return nothing if the *db* is completely migrated"
       (jdbc/with-db-connection *db*
         (clear-db-for-testing!)
-        (migrate!)
+        (initialize-schema)
         (is (empty? (pending-migrations)))))
 
     (testing "should return missing migrations if the *db* is partially migrated"
       (jdbc/with-db-connection *db*
         (clear-db-for-testing!)
-        (let [applied '(28 29 31)]
+        (let [applied [00 28 29 31]]
           (doseq [m applied]
             (apply-migration-for-testing! m))
           (is (= (set (keys (pending-migrations)))
@@ -67,11 +67,11 @@
         (clear-db-for-testing!)
         (is (= (applied-migrations) #{}))
         (testing "should migrate the database"
-          (migrate!)
+          (initialize-schema)
           (is (= (applied-migrations) expected-migrations)))
 
         (testing "should not do anything the second time"
-          (migrate!)
+          (initialize-schema)
           (is (= (applied-migrations) expected-migrations)))
 
         (testing "should attempt a partial migration if there are migrations missing"
@@ -81,16 +81,16 @@
           (doseq [m (filter (fn [[i migration]] (not= i 36)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
           (is (= (keys (pending-migrations)) '(36)))
-          (migrate!)
+          (initialize-schema)
           (is (= (applied-migrations) expected-migrations))))))
 
   (testing "should throw error if *db* is at a higher schema rev than we support"
     (jdbc/with-transacted-connection *db*
-      (migrate!)
+      (initialize-schema)
       (jdbc/insert! :schema_migrations
                     {:version (inc migrate/desired-schema-version)
                      :time (to-timestamp (now))})
-      (is (thrown? IllegalStateException (migrate!))))))
+      (is (thrown? IllegalStateException (initialize-schema))))))
 
 (deftest migration-29
   (testing "should contain same reports before and after migration"
@@ -296,9 +296,7 @@
 
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
-      (migrate!)
-      (indexes! db-config)
-      (indexes! db-config))))
+      (initialize-schema))))
 
 (deftest test-hash-field-not-nullable
   (jdbc/with-db-connection *db*
@@ -503,8 +501,8 @@
   (jdbc/do-commands "DELETE FROM schema_migrations")
   (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
-                        #"Found an old and unuspported database migration.*"
-                        (migrate!))))
+                        #"Found an old and unsupported database migration.*"
+                        (initialize-schema))))
 
 (deftest sha1-agg-test
   (with-test-db
@@ -573,8 +571,8 @@
   (jdbc/do-commands "DELETE FROM schema_migrations")
   (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
-                        #"Found an old and unuspported database migration.*"
-                        (migrate!))))
+                        #"Found an old and unsupported database migration.*"
+                        (initialize-schema))))
 
 (deftest test-fact-values-value->jsonb
   (clear-db-for-testing!)
@@ -1291,7 +1289,7 @@
   (clear-db-for-testing!)
   ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
   (fast-forward-to-migration! desired-schema-version)
-  (indexes! {:database *db*})
+  (create-indexes)
   (let [values {"catalog_resources" "0.01"}]
     (doseq [[table factor] values]
       (is (= [{:reloptions [(format "autovacuum_analyze_scale_factor=%s" factor)]}]

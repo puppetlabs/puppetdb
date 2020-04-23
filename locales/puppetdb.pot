@@ -216,7 +216,7 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid ""
-"Please run PuppetDB with the migrate? option set to true to upgrade your "
+"Please run PuppetDB with the migrate option set to true to upgrade your "
 "database. "
 msgstr ""
 
