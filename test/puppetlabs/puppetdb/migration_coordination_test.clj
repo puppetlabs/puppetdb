@@ -1,19 +1,30 @@
 (ns puppetlabs.puppetdb.migration-coordination-test
   (:require
+   [clojure.java.jdbc :as sql]
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.command.constants :as cmd-consts]
    [puppetlabs.puppetdb.jdbc :as jdbc]
-   [puppetlabs.puppetdb.scf.migrate :refer [desired-schema-version]]
-   [puppetlabs.puppetdb.testutils.db :as tdb :refer [*db*]]
-   [puppetlabs.puppetdb.testutils.services :as svc-utils]
-   [puppetlabs.puppetdb.time :refer [now to-timestamp]]
-   [puppetlabs.puppetdb.testutils.cli :refer [example-report]]))
+   [puppetlabs.puppetdb.scf.migrate :as migrate :refer [desired-schema-version]]
+   [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
+   [puppetlabs.puppetdb.testutils.cli :refer [example-report]]
+   [puppetlabs.puppetdb.testutils.db :as tdb
+    :refer [*db*
+            clear-db-for-testing!
+            test-env
+            with-test-db
+            with-unconnected-test-db]]
+   [puppetlabs.puppetdb.testutils.services :as svc-utils
+    :refer [call-with-puppetdb-instance create-temp-config]]
+   [puppetlabs.puppetdb.time :refer [now to-timestamp]])
+  (:import
+   (clojure.lang ExceptionInfo)
+   (org.postgresql.util PSQLException)))
 
 (deftest schema-mismatch-causes-new-connections-to-throw-expected-errors
   (doseq [db-upgraded? [true false]]
-    (tdb/with-test-db
-      (svc-utils/call-with-puppetdb-instance
-       (-> (svc-utils/create-temp-config)
+    (with-unconnected-test-db
+       (call-with-puppetdb-instance
+       (-> (create-temp-config)
            (assoc :database *db*)
            ;; Allow client connections to timeout more quickly to speed test
            (assoc-in [:database :connection-timeout] 300)
@@ -34,10 +45,7 @@
          ;; will cause HikariCP to create new connections which should all error
          (jdbc/with-transacted-connection
            (tdb/db-admin-config)
-           (jdbc/query
-            (format "SELECT pg_terminate_backend(pid)
-                      FROM pg_stat_activity
-                      WHERE usename = '%s';" (:user *db*))))
+           (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*)))
 
          (loop [retries 0]
            ;; Account for a race condition where connnections kicked out of PG by
@@ -52,7 +60,7 @@
                  resp (-> ex ex-data :response)
                  err-msg (if db-upgraded?
                            "ERROR: Please upgrade PuppetDB"
-                           "ERROR: Please run PuppetDB with the migrate\\? option set to true")]
+                           "ERROR: Please run PuppetDB with the migrate option set to true")]
              (is (= 500 (:status resp)))
              (cond
                (some? (re-find (re-pattern err-msg) (:body resp))) :found
@@ -81,3 +89,82 @@
                (do
                  (Thread/sleep 100)
                  (recur (inc retries)))))))))))
+
+(deftest migrator-evicts-non-migrators-and-blocks-connections
+  (with-test-db
+    (clear-db-for-testing!)
+    (let [deref-or-die #(when-not (deref % default-timeout-ms nil)
+                          (throw
+                           (ex-info "test promise deref timed out"
+                                    {:kind ::migrator-evicts-non-migrators-and-blocks-connections})))
+          config (assoc (create-temp-config) :database *db*)
+          sleep-ex (promise)
+          connect-ex (promise)
+          finished-migrations (promise)
+          hold-migrations #(do
+                             (deliver finished-migrations true)
+                             (deref-or-die connect-ex))]
+      (future
+        ;; Pretend to be a non-migrator -- sleep so we'll be connected
+        ;; when the migrator evicts everyone.
+        (try
+          ;; Note: I think this may keep sleeping, even after the
+          ;; connection is closed if something goes wrong.
+          (jdbc/do-commands "select pg_sleep(60);")
+          (catch Throwable ex
+            (deliver sleep-ex ex)
+            (throw ex))))
+
+      (future
+        (deref-or-die finished-migrations)
+        ;; Try a new connection as the non-migrator to make sure it's
+        ;; rejected.  This must be done from outside the pending
+        ;; migration transaction.
+        (try
+          (sql/query *db* ["select certname from certnames"])
+          (catch Exception ex
+            (deliver connect-ex ex)
+            (throw ex))))
+
+      ;; Add a dummy migration so the migrator will run it.
+      (with-redefs [migrate/migrations (assoc migrate/migrations
+                                              (inc (apply max (keys migrate/migrations)))
+                                              (constantly true))
+                    migrate/note-migrations-finished hold-migrations]
+        (call-with-puppetdb-instance
+         config
+         (fn []
+           ;; Wait for the sleeping non-migrator to be ejected
+           (deref sleep-ex default-timeout-ms nil)
+           (deref connect-ex default-timeout-ms nil))))
+
+      ;; By now we either timed out above, or exceptions are available
+      (let [ex (deref sleep-ex 0 nil)
+            report-ex (fn [x]
+                        (binding [*out* *err*]
+                          (println "Unexpected" (class x) "exception:")
+                          (println x)))]
+        ;; Newer versions of clojure.jdbc wrap the sql exception with ex-info.
+        (is (= ExceptionInfo (class ex)))
+        (if-not (= ExceptionInfo (class ex))
+          (report-ex ex)
+          (let [cause (:rollback (ex-data ex))]
+            (is (= PSQLException (class cause)))
+            (if-not (= PSQLException (class cause))
+              (report-ex cause)
+              ;; i.e. "This connection has been closed"
+              (is (= "08003" (.getSQLState cause)))))))
+
+      (let [ex (deref connect-ex 0 nil)]
+        (is (= PSQLException (class ex)))
+        ;; i.e. "User does not have CONNECT privilege"
+        (is (= "42501" (some-> ex .getSQLState))))
+
+      ;; Ensure that all the objects created (here by the initial
+      ;; migrations) are owned by the normal user, not the migrator.
+      (jdbc/with-db-connection *db*
+        (is (= "pdb_test"
+               (-> "select tableowner from pg_tables where tablename = 'factsets'"
+                   jdbc/query-to-vec
+                   first
+                   :tableowner)))))))

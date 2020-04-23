@@ -10,7 +10,7 @@
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :as time :refer [now to-string]]
@@ -28,6 +28,7 @@
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [slingshot.slingshot :refer [throw+ try+]])
   (:import
+   [clojure.lang ExceptionInfo]
    [java.util.concurrent.locks ReentrantLock]))
 
 (deftest update-checking
@@ -196,53 +197,99 @@
       (is (not (re-find #"Permission denied" (:body response)))))))
 
 (deftest unsupported-database-triggers-shutdown
-  (svc-utils/with-single-quiet-pdb-instance
-    (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
-                     conf/get-config)
-          expected-oldest scf-store/oldest-supported-db]
-      (doseq [v [[8 1]
-                 [8 2]
-                 [8 3]
-                 [8 4]
-                 [9 0]
-                 [9 1]
-                 [9 2]
-                 [9 3]
-                 [9 4]
-                 [9 5]]]
-        (with-redefs [sutils/db-metadata (delay {:database nil :version v})]
-          (try
-            (jdbc/with-db-connection *db*
-              (prep-db *db* config))
-           (catch clojure.lang.ExceptionInfo e
-             (let [{:keys [kind current oldest]} (ex-data e)]
-               (is (= ::svcs/unsupported-database kind))
-               (is (= v current))
-               (is (= expected-oldest oldest)))))))
-      (with-redefs [sutils/db-metadata (delay {:database nil :version [9 6]})]
-        (is (do
-              ;; Assumes prep-db is idempotent, which it is
-              (jdbc/with-db-connection *db*
-                (prep-db *db* config))
-              true))))))
+  ;; Intercept and validate both the throw from start-puppetdb and the
+  ;; subsequent shutdown request from start.
+  (let [service (atom nil)
+        start-ex (promise)
+        orig-start svcs/start-puppetdb
+        start (fn [& args]
+                (let [[context config svc get-endpts request-shutdown] args]
+                  (reset! service svc)
+                  (try
+                    (let [result (apply orig-start args)]
+                      (deliver start-ex nil)
+                      result)
+                    (catch Exception ex
+                      (deliver start-ex ex)
+                      (throw ex)))))
+        err-msg? #(re-matches #"PostgreSQL 9\.5 is no longer supported\. .*" %1)]
+
+    ;; err-msg wrt log suppression?
+
+    (with-redefs [sutils/db-metadata (fn [] {:database nil :version [9 5]})
+                  svcs/start-puppetdb start]
+      (try
+        (svc-utils/with-puppetdb-instance
+          (throw (Exception. "Reached the unreachable")))
+        (catch Exception ex
+          (when-not (err-msg? (.getMessage ex))
+            (throw ex)))))
+
+    (testing "unsupported db triggers unsupported-database exception"
+      (let [ex (deref start-ex 0 nil)
+            expected-oldest scf-store/oldest-supported-db
+            {:keys [kind current oldest]} (when (instance? ExceptionInfo ex)
+                                            (ex-data ex))]
+        (is (= ExceptionInfo (class ex)))
+        (is (= ::svcs/unsupported-database kind))
+        (is (= [9 5] current))
+        (is (= expected-oldest oldest))))
+
+    (testing "unsupported-database exception causes shutdown request"
+      (let [opts (-> @service service-context :shutdown-request deref :opts)
+            exit (:puppetlabs.trapperkeeper.core/exit opts)]
+        (is (= 1 (:status exit)))
+        (is (some (fn [[msg out]] (err-msg? msg))
+                  (:messages exit)))))))
 
 (deftest unsupported-database-settings-trigger-shutdown
-  (svc-utils/with-single-quiet-pdb-instance
-    (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
-                     conf/get-config)
-          settings (request-database-settings)]
-      (doseq [[setting err-value] [[:standard_conforming_strings "off"]]]
-        (try
-         (verify-database-settings (map #(when (= (:name %) (name setting))
-                                           (assoc % :setting err-value))
-                                        settings))
-         (catch clojure.lang.ExceptionInfo e
-           (let [{:keys [kind failed-validation]} (ex-data e)]
-             (is (= ::svcs/invalid-database-configuration kind))
-             (is (= (get-in failed-validation [setting :actual]) err-value))))))
-        (is (do
-              (verify-database-settings settings)
-              true)))))
+  (let [bad-setting :standard_conforming_strings
+        bad-value "off"
+        service (atom nil)
+        start-ex (promise)
+        orig-req svcs/request-database-settings
+        request-settings #(for [{n :name :as settings} (orig-req)]
+                            (if (= n (name bad-setting))
+                              (assoc settings :setting bad-value)
+                              settings))
+        orig-start svcs/start-puppetdb
+        start (fn [& args]
+                (let [[context config svc get-endpts request-shutdown] args]
+                  (reset! service svc)
+                  (try
+                    (let [result (apply orig-start args)]
+                      (deliver start-ex nil)
+                      result)
+                    (catch Exception ex
+                      (deliver start-ex ex)
+                      (throw ex)))))
+        err-msg? #(re-matches #"Invalid database configuration settings: 'standard_.*" %1)]
+
+    ;; err-msg wrt log suppression?
+
+    (with-redefs [svcs/request-database-settings request-settings
+                  svcs/start-puppetdb start]
+      (try
+        (svc-utils/with-puppetdb-instance
+          (throw (Exception. "Reached the unreachable")))
+        (catch Exception ex
+          (when-not (err-msg? (.getMessage ex))
+            (throw ex)))))
+
+    (testing "invalid-database-configuration exception thrown"
+      (let [ex (deref start-ex 0 nil)
+            {:keys [kind failed-validation]} (when (instance? ExceptionInfo ex)
+                                               (ex-data ex))]
+        (is (= ExceptionInfo (class ex)))
+        (is (= ::svcs/invalid-database-configuration kind))
+        (is (= (get-in failed-validation [bad-setting :actual]) bad-value))))
+
+    (testing "invalid-database-configuration exception causes shutdown request"
+      (let [opts (-> @service service-context :shutdown-request deref :opts)
+            exit (:puppetlabs.trapperkeeper.core/exit opts)]
+        (is (= 1 (:status exit)))
+        (is (some (fn [[msg out]] (err-msg? msg))
+                  (:messages exit)))))))
 
 (defn purgeable-nodes [node-purge-ttl]
   (let [horizon (time/to-timestamp (time/ago node-purge-ttl))]
@@ -263,7 +310,7 @@
                                           [7 3]
                                           [100 0]]]
         (clear-db-for-testing!)
-        (migrate!)
+        (initialize-schema)
         (dotimes [i 10]
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)

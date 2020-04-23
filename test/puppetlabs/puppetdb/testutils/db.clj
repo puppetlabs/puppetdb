@@ -5,7 +5,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :refer [transform-data]]
             [puppetlabs.puppetdb.testutils :refer [pprint-str]]
@@ -16,9 +16,10 @@
 
 (def test-env
   (let [user (env :pdb-test-db-user "pdb_test")
+        migrator (env :pdb-test-db-migrator "pdb_test_migrator")
         admin (env :pdb-test-db-admin "pdb_test_admin")]
     ;; Since we're going to use these in raw SQL later (i.e. not via ?).
-    (doseq [[who name] [[:user user] [:admin admin]]]
+    (doseq [[who name] [[:user user] [:migrator migrator] [:admin admin]]]
       (when-not (valid-sql-id? name)
         (binding [*out* *err*]
           (println (format "Invalid test %s name %s" who (pr-str name)))
@@ -28,6 +29,8 @@
      :port (env :pdb-test-db-port 5432)
      :user {:name user
             :password (env :pdb-test-db-user-password "pdb_test")}
+     :migrator {:name migrator
+                :password (env :pdb-test-db-migrator-password "pdb_test_migrator")}
      :admin {:name admin
              :password (env :pdb-test-db-admin-password "pdb_test_admin")}}))
 
@@ -36,6 +39,7 @@
    :subprotocol "postgresql"
    :subname "//127.0.0.1:5432/foo"
    :user "puppetdb"
+   :username "puppetdb"
    :password "xyzzy"})
 
 (defn db-admin-config
@@ -45,15 +49,21 @@
      :subprotocol "postgresql"
      :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
      :user (get-in test-env [:admin :name])
+     :username (get-in test-env [:admin :name])
      :password (get-in test-env [:admin :password])}))
 
-(defn db-user-config
+(defn routine-db-config
+  "Returns a config suitable for routine pdb operations (i.e. not
+  admin/superuser operations)."
   [database]
   {:classname "org.postgresql.Driver"
    :subprotocol "postgresql"
    :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
    :user (get-in test-env [:user :name])
+   :username (get-in test-env [:user :name])
    :password (get-in test-env [:user :password])
+   :migrator-username (get-in test-env [:migrator :name])
+   :migrator-password (get-in test-env [:migrator :password])
    :maximum-pool-size 5})
 
 (defn subname->validated-db-name [subname]
@@ -64,7 +74,7 @@
       name)))
 
 (defn init-db [db]
-  (jdbc/with-db-connection db (migrate!)))
+  (jdbc/with-db-connection db (initialize-schema)))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
@@ -93,7 +103,7 @@
 (defn clear-db-for-testing!
   "Completely clears the database specified by config (or the current
   database), dropping all puppetdb tables and other objects that exist
-  within it. Expects to be called from within a db binding.  You
+  within it. Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   ([config]
    (jdbc/with-db-connection config (clear-db-for-testing!)))
@@ -136,10 +146,27 @@
         (jdbc/do-commands-outside-txn
          "create extension if not exists pg_trgm"
          "create extension if not exists pgcrypto"))
-      (let [cfg (db-user-config template-name)]
+      (let [cfg (routine-db-config template-name)]
         (jdbc/with-db-connection cfg
-          (migrate!)))
+          (initialize-schema)))
       (reset! template-created true))))
+
+(defn- require-suitable-pg-arrangement
+  [{:keys [user migrator-username subname] :as config}]
+  (jdbc/with-db-connection config
+    (let [db (subname->validated-db-name subname)
+          priv? jdbc/has-database-privilege?
+          migrator migrator-username]
+      (when (priv? "public" db "connect")
+        (throw (Exception. "public connect")))
+      (when-not (priv? user db "connect")
+        (throw (Exception. "no user connnect")))
+      (when (priv? user db "connect with grant option")
+        (throw (Exception. "user has connect grant")))
+      (when-not (priv? migrator db "connect with grant option")
+        (throw (Exception. "no migrator connect grant")))
+      (when-not (jdbc/has-role? migrator user "member")
+        (throw (Exception. "migrator not member of user"))))))
 
 (def ^:private test-db-counter (atom 0))
 
@@ -147,41 +174,38 @@
   "Creates a temporary test database.  Prefer with-test-db, etc."
   (ensure-pdb-db-templates-exist)
   (let [n (swap! test-db-counter inc)
-        db-name (if-not pdb-test-id
-                  (str "pdb_test_" n)
-                  (str "pdb_test_" pdb-test-id "_" n))]
-    (assert (valid-sql-id? db-name))
+        db (if-not pdb-test-id
+             (str "pdb_test_" n)
+             (str "pdb_test_" pdb-test-id "_" n))
+        db-q (jdbc/double-quote db)
+        config (routine-db-config db)
+        user (get-in test-env [:user :name])
+        user-q (jdbc/double-quote user)
+        migrator (get-in test-env [:migrator :name])
+        migrator-q (jdbc/double-quote migrator)]
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands-outside-txn
-       (format "drop database if exists %s" db-name)
-       (format "create database %s template %s" db-name template-name)))
-    (db-user-config db-name)))
+       (format "drop database if exists %s" db-q)
+       (format "create database %s template %s" db-q template-name)
+       ;; Needed by migration coordination
+       (format "revoke connect on database %s from public" db-q)
+       (format "grant connect on database %s to %s with grant option" db-q migrator-q)
+       (format "set role %s" migrator-q)
+       (format "grant connect on database %s to %s" db-q user-q)))
+    (require-suitable-pg-arrangement config)
+    config))
 
 (def ^:dynamic *db* nil)
 
-(defn- disconnect-db-user [db user]
-  "Forcibly disconnects all connections from the specified user to the
-  named db.  Requires that the current DB session has sufficient
-  authorization."
-  (jdbc/query-to-vec
-   [(str "select pg_terminate_backend (pg_stat_activity.pid)"
-         "  from pg_stat_activity"
-         "  where pg_stat_activity.datname = ?"
-         "    and pg_stat_activity.usename = ?")
-    db
-    user]))
-
 (defn drop-test-db [db-config]
-  (let [db-name (subname->validated-db-name (:subname db-config))]
-    (jdbc/with-db-connection (db-admin-config)
+  (let [db-name (subname->validated-db-name (:subname db-config))
+        admin-cfg (db-admin-config)]
+    (jdbc/with-db-connection admin-cfg
       (jdbc/do-commands
        (format "alter database \"%s\" with connection limit 0" db-name)))
-    (let [config (db-user-config "postgres")]
-      (jdbc/with-db-connection config
-        ;; We'll need this until we can upgrade bonecp (0.8.0
-        ;; appears to fix the problem).
-        (disconnect-db-user db-name (:user config))))
-    (jdbc/with-db-connection (db-admin-config)
+    (jdbc/with-db-connection admin-cfg
+      (jdbc/disconnect-db db-name))
+    (jdbc/with-db-connection admin-cfg
       (jdbc/do-commands-outside-txn
        (format "drop database if exists %s" db-name)))))
 
@@ -210,17 +234,26 @@
   [db-config & body]
   `(call-with-db-info-on-failure-or-drop ~db-config (fn [] ~@body)))
 
+(defn call-with-unconnected-test-db
+  "Binds *db* to a clean, migrated test database and calls (f).  If
+  there are no clojure.tests failures or errors, drops the database,
+  otherwise displays its subname."
+  [f]
+  (binding [*db* (create-temp-db)]
+    (with-db-info-on-failure-or-drop *db*
+      (f))))
+
+(defmacro with-unconnected-test-db [& body]
+  `(call-with-test-db (fn [] ~@body)))
+
 (defn call-with-test-db
   "Binds *db* to a clean, migrated test database, makes it the active
   jdbc connection via with-db-connection, and calls (f).  If there are
   no clojure.tests failures or errors, drops the database, otherwise
   displays its subname."
   [f]
-  (binding [*db* (create-temp-db)]
-    (with-db-info-on-failure-or-drop *db*
-      (jdbc/with-db-connection *db*
-        (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-          (f))))))
+  (call-with-unconnected-test-db
+   #(jdbc/with-db-connection *db* (f))))
 
 (defmacro with-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))
