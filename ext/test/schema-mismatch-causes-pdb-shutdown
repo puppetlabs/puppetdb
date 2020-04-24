@@ -61,6 +61,7 @@ sed '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini" \
 ./pdb upgrade -c "$tmpdir/pdb.ini"
 
 # start pdb in the background
+touch "$tmpdir/pdb-out" "$tmpdir/pdb-err"
 ./pdb services -c "$tmpdir/pdb.ini" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
 
 # allow time for pdb to start before changing migration level

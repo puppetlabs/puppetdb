@@ -281,6 +281,20 @@
          (s/validate database-config-out)
          (assoc config :read-database))))
 
+(defn prefer-db-user-on-username-mismatch
+  [{{:keys [user username]} :database :as config}]
+  ;; match puppetdb.jdbc/make-connection-pool
+  (when (and user username (not= user username))
+    (log/warn
+     (trs "Configured database user {0} and username {1} don't match"
+          (pr-str user) (pr-str username)))
+    (log/warn
+     (trs "Preferring configured user {0}" (pr-str user))))
+  (let [user (or user username)]
+    (-> config
+        (assoc-in [:database :user] user)
+        (assoc-in [:database :username] user))))
+
 (defn configure-db
   [config]
   (letfn [(default-events-ttl [config]
@@ -295,7 +309,6 @@
                                    [:database :username]
                                    (get-in config [:database :user]))]
               (-> config
-                  (assoc-in [:database :username] username)
                   (update-in [:database :migrator-username] #(or % username))
                   (update-in [:database :migrator-password]
                              #(or % (get-in config [:database :password]))))))]
@@ -304,6 +317,7 @@
                            write-database-config-in
                            write-database-config-out)
         default-events-ttl
+        prefer-db-user-on-username-mismatch
         ensure-migrator-info
         configure-read-db)))
 

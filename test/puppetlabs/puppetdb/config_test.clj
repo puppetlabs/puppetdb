@@ -203,6 +203,16 @@
           (is (= "admin" (get-in config [:database :migrator-password])))
           (is (= "admin" (get-in config [:read-database :migrator-password]))))))))
 
+(deftest database-user-preferred-to-username-on-mismatch
+  (let [config (configure-db {:database {:classname "something"
+                                         :subname "stuff"
+                                         :subprotocol "more stuff"
+                                         :user "someone"
+                                         :username "someone-else"
+                                         :password "something"}})]
+    (is (= "someone" (get-in config [:database :user])))
+    (is (= "someone" (get-in config [:database :username])))))
+
 (deftest garbage-collection
   (let [config-with (fn [base-config]
                       (-> base-config
