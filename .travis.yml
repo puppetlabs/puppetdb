@@ -13,6 +13,7 @@ dist: xenial
 sudo: required
 
 services:
+  # bionic uses 18.06 but need 19.03+ for buildkit so upgrade later in relevant cell
   - docker
 
 # The test specifications are all extracted from the PDB_TEST value.
@@ -68,6 +69,9 @@ aliases:
 
   - &run-docker-tests |
     set -ex
+    sudo apt update -y && sudo apt install -y docker.io
+    sudo systemctl unmask docker.service
+    sudo systemctl start docker
     sudo rm /usr/local/bin/docker-compose
     curl --location https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname --kernel-name`-`uname --machine` > docker-compose
     chmod +x docker-compose
@@ -176,9 +180,11 @@ jobs:
       os: osx
 
     - stage: ❧ pdb container tests
+      dist: bionic
       language: ruby
-      rvm: 2.5.5
-      env: DOCKER_COMPOSE_VERSION=1.25.0-rc2
+      rvm: 2.6.5
+      # necessary to prevent overwhelming TravisCI build output limits
+      env: DOCKER_COMPOSE_VERSION=1.25.0-rc2 DOCKER_BUILD_FLAGS="--progress plain"
       script: *run-docker-tests
 
 on_success: ext/travisci/on-success
