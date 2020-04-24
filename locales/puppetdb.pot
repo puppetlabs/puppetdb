@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: d138d7eb579eb3bebfb4148141c0e039d359b1a2\n"
+"X-Git-Ref: 7714941b505f01306a9faf8388751dd5da01f41a\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -389,6 +389,14 @@ msgstr ""
 msgid ""
 "The configuration item `{0}` does not exist and should be removed from the "
 "config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Configured database user {0} and username {1} don't match"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Preferring configured user {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
