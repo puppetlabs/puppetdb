@@ -18,7 +18,7 @@ variables:
   CONTAINER_BUILD_PATH: .
   LINT_IGNORES: DL3008 DL3018 DL3020 DL4000 DL4001 DL3028
   DOCKER_BUILDKIT: 1
-  BUILD_OPTIONS: --memory 4g --target edge
+  BUILD_OPTIONS: --memory 4g --build-arg build_type=edge
 
 workspace:
   clean: resources

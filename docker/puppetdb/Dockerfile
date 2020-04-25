@@ -1,13 +1,11 @@
+# Determines source "edge" or binary "release" builds
+ARG build_type=edge
+
 ######################################################
 # base
 ######################################################
 
 FROM ubuntu:18.04 as base
-
-ARG version="6.0.0"
-# used by entrypoint to submit metrics to Google Analytics;
-# published images should use "production" for this build_arg
-ARG pupperware_analytics_stream="dev"
 
 ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     UBUNTU_CODENAME="bionic" \
@@ -64,16 +62,12 @@ ADD https://raw.githubusercontent.com/puppetlabs/pupperware/1a81f54cca38d9cc9ac4
 
 COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
-ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
-    PUPPETDB_VERSION="$version"
-
+# hadolint ignore=DL3009
 RUN apt-get update && \
     apt-get install --no-install-recommends -y wget ca-certificates curl dnsutils netcat && \
     chmod +x /ssl.sh /wtfc.sh /docker-entrypoint.sh /healthcheck.sh && \
     wget https://github.com/Yelp/dumb-init/releases/download/v"$DUMB_INIT_VERSION"/dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb
 
 # VOLUME definitions are always at end of Dockerfile to capture all written data
 # Initially set this way for LCOW bug - https://github.com/moby/moby/issues/39892
@@ -112,15 +106,7 @@ RUN lein clean && lein install && \
 
 FROM base as edge
 
-ARG version="6.0.0"
-ARG vcs_ref
-ARG build_date
-
 COPY --from=build /puppetdb.deb /puppetdb.deb
-
-LABEL org.label-schema.version="$version" \
-      org.label-schema.vcs-ref="$vcs_ref" \
-      org.label-schema.build-date="$build_date"
 
 RUN wget http://nightlies.puppet.com/apt/puppet6-nightly-release-"$UBUNTU_CODENAME".deb && \
     dpkg -i puppet6-nightly-release-"$UBUNTU_CODENAME".deb && \
@@ -135,28 +121,19 @@ RUN wget http://nightlies.puppet.com/apt/puppet6-nightly-release-"$UBUNTU_CODENA
     rm -f /etc/puppetlabs/puppetdb/conf.d/database.ini && \
     rm -f /etc/puppetlabs/puppetdb/conf.d/config.ini
 
-COPY docker/puppetdb/logback.xml \
-     docker/puppetdb/request-logging.xml \
-     /etc/puppetlabs/puppetdb/
-COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
-
-COPY docker/puppetdb/Dockerfile /
-
 ######################################################
 # release (build from packages)
 ######################################################
 
 FROM base as release
 
-ARG vcs_ref
-ARG version="6.0.0"
-ARG build_date
+ARG version
 
 RUN wget https://apt.puppetlabs.com/puppet6-release-"$UBUNTU_CODENAME".deb && \
     dpkg -i puppet6-release-"$UBUNTU_CODENAME".deb && \
     rm puppet6-release-"$UBUNTU_CODENAME".deb && \
     apt-get update && \
-    apt-get install --no-install-recommends -y puppetdb="$PUPPETDB_VERSION"-1"$UBUNTU_CODENAME" && \
+    apt-get install --no-install-recommends -y puppetdb="$version"-1"$UBUNTU_CODENAME" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
 # We want to use the HOCON database.conf and config.conf files, so get rid
@@ -165,10 +142,28 @@ RUN wget https://apt.puppetlabs.com/puppet6-release-"$UBUNTU_CODENAME".deb && \
     rm -f /etc/puppetlabs/puppetdb/conf.d/config.ini && \
     mkdir -p /opt/puppetlabs/server/data/puppetdb/logs
 
+######################################################
+# final image
+######################################################
+
+# dynamically selects "edge" or "release" alias based on ARG
+# hadolint ignore=DL3006
+FROM ${build_type} as final
+
+ARG vcs_ref
+ARG version
+ARG build_date
+# used by entrypoint to submit metrics to Google Analytics;
+# published images should use "production" for this build_arg
+ARG pupperware_analytics_stream="dev"
+
 COPY docker/puppetdb/logback.xml \
      docker/puppetdb/request-logging.xml \
      /etc/puppetlabs/puppetdb/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
+
+ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
+    PUPPETDB_VERSION="$version"
 
 LABEL org.label-schema.vcs-ref="$vcs_ref" \
       org.label-schema.version="$version" \
