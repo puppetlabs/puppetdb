@@ -1,5 +1,6 @@
 # Determines source "edge" or binary "release" builds
 ARG build_type=edge
+ARG UBUNTU_CODENAME=bionic
 
 ######################################################
 # base
@@ -8,7 +9,6 @@ ARG build_type=edge
 FROM ubuntu:18.04 as base
 
 ENV PUPPERWARE_ANALYTICS_ENABLED=false \
-    UBUNTU_CODENAME="bionic" \
     DUMB_INIT_VERSION="1.2.1" \
     PUPPETDB_POSTGRES_HOSTNAME="postgres" \
     PUPPETDB_POSTGRES_PORT="5432" \
@@ -108,11 +108,15 @@ FROM base as edge
 
 COPY --from=build /puppetdb.deb /puppetdb.deb
 
-RUN wget http://nightlies.puppet.com/apt/puppet6-nightly-release-"$UBUNTU_CODENAME".deb && \
-    dpkg -i puppet6-nightly-release-"$UBUNTU_CODENAME".deb && \
-    rm puppet6-nightly-release-"$UBUNTU_CODENAME".deb && \
+ARG UBUNTU_CODENAME
+ARG install_path=/puppetdb.deb
+
+ADD http://nightlies.puppet.com/apt/puppet6-nightly-release-$UBUNTU_CODENAME.deb /puppet.deb
+
+RUN dpkg -i /puppet.deb && \
+    rm /puppet.deb && \
     apt-get update && \
-    apt-get install --no-install-recommends -y /puppetdb.deb && \
+    apt-get install --no-install-recommends -y $install_path && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /opt/puppetlabs/server/data/puppetdb/logs && \
@@ -128,12 +132,15 @@ RUN wget http://nightlies.puppet.com/apt/puppet6-nightly-release-"$UBUNTU_CODENA
 FROM base as release
 
 ARG version
+ARG UBUNTU_CODENAME
+ARG install_path=puppetdb="$version"-1"$UBUNTU_CODENAME"
 
-RUN wget https://apt.puppetlabs.com/puppet6-release-"$UBUNTU_CODENAME".deb && \
-    dpkg -i puppet6-release-"$UBUNTU_CODENAME".deb && \
-    rm puppet6-release-"$UBUNTU_CODENAME".deb && \
+ADD https://apt.puppetlabs.com/puppet6-release-$UBUNTU_CODENAME.deb /puppet.deb
+
+RUN dpkg -i /puppet.deb && \
+    rm /puppet.deb && \
     apt-get update && \
-    apt-get install --no-install-recommends -y puppetdb="$version"-1"$UBUNTU_CODENAME" && \
+    apt-get install --no-install-recommends -y $install_path && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
 # We want to use the HOCON database.conf and config.conf files, so get rid
