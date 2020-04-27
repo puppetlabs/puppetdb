@@ -122,3 +122,103 @@ The upgrade subcommand can help with this.  When specified, PuppetDB
 will quit as soon as it has finished all of the necessary work:
 
     $ puppetdb upgrade -c /path/to/config.ini
+
+## Truncate your reports table
+
+Some PuppetDB versions contain long database migrations that can be avoided by
+deleting all the reports and resource events from your database. Currently this
+is true for PuppetDB 6.8.0 and 6.10.0. Please note that PuppetDB migrations are
+cumulative, so if you're upgrading from PuppetDB 6.7.0 to 6.11.0 your upgrade
+will contain two long running database migrations that can be avoiding by
+deleting your reports.
+
+**WARNING:** This is a permanent destructive action and should be done with care.
+
+Truncating the reports table will delete all your reports and all their
+associated resource events.  This is primarily helpful for users with large
+databases when upgrades involve expensive database migrations, such as
+upgrading PostgreSQL versions.
+
+### Monolithic installs
+
+For standard installs, where PuppetDB and Postgres run on the same machine, and
+you use Puppet's default user and database names you can delete your reports
+and resource events by running `/opt/puppetlabs/bin/puppetdb delete-reports` as
+root.
+
+### Non-default user/database names, PostgreSQL port, or `psql` location
+
+If you are not running a standard install you can follow the general outline
+below.  Be sure to run `puppetdb delete-reports --help` to see if you need to
+customize any of the user or database names for your own install.
+
+### Postgres on another server
+
+The `delete-reports` subcommand lives on the server that runs PuppetDB at
+`/opt/puppetlabs/server/apps/puppetdb/cli/apps/delete-reports`. In order for
+this command to work, you'll need to manually transfer it to the server that is
+running PuppetDB's PostgreSQL and execute it there. It will fail to stop the
+PuppetDB service, because one doesn't exist there, but it will continue and
+delete the reports anyways.
+
+### No `delete-reports` subcommand exists
+
+If no `delete-reports` subcommand exists, you are on an older version of PuppetDB,
+but deleting your reports is just as important when upgrading to a version
+later than or equal to PuppetDB 6.8.0 or 6.10.0. If this is the case, you
+should delete your reports manually.
+
+First, stop the PuppetDB service where it is running.
+```
+service puppetdb stop
+```
+
+Then, on your PostgreSQL server, write the following SQL for your PuppetDB version to
+a file named `/tmp/delete-reports.sql` and then set it to be owned by the postgres user
+(`chown postgres:postgres /tmp/delete-reports.sql`).
+
+If you are upgrading **from** a PuppetDB version less than 6.8.0 that does not
+have the `delete-reports` subommand, your `delete-reports.sql` file is,
+```
+BEGIN TRANSACTION;
+
+ALTER TABLE certnames DROP CONSTRAINT IF EXISTS certnames_reports_id_fkey;
+UPDATE certnames SET latest_report_id = NULL;
+TRUNCATE TABLE reports CASCADE;
+
+ALTER TABLE certnames
+  ADD CONSTRAINT certnames_reports_id_fkey
+    FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL;
+
+COMMIT TRANSACTION;
+```
+
+If you are upgrading **from** a PuppetDB version greater than or equal to 6.8.0
+but less than PuppetDB 6.10.0, your `delete-reports.sql` file will need to contain
+```
+BEGIN TRANSACTION;
+
+ALTER TABLE certnames DROP CONSTRAINT IF EXISTS certnames_reports_id_fkey;
+UPDATE certnames SET latest_report_id = NULL;
+
+DO $$ DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_%') LOOP
+        EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
+    END LOOP;
+END $$;
+
+TRUNCATE TABLE reports CASCADE;
+
+ALTER TABLE certnames
+  ADD CONSTRAINT certnames_reports_id_fkey
+    FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL;
+
+COMMIT TRANSACTION;
+```
+
+Now that the file exists and is owned by the `postgres` user, run
+```
+su - postgres -s /bin/bash -c "psql -d puppetdb -f /tmp/delete-reports.sql"
+```
