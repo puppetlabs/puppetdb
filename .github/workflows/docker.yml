@@ -35,8 +35,7 @@ jobs:
           IS_RELEASE: true
         working-directory: docker
         run: |
-          make prep
-          if [ $? -eq 0 ]; then
+          if make prep; then
             make lint build test
           else
             echo "Skipping release container building and testing"
@@ -46,8 +45,7 @@ jobs:
           IS_RELEASE: true
         working-directory: docker
         run: |
-          make prep
-          if [ $? -eq 0 ]; then
+          if make prep; then
             make publish
           else
             echo "Skipping release container publishing"
