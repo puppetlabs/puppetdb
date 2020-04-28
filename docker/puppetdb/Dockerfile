@@ -55,6 +55,7 @@ CMD ["foreground"]
 # NOTE: k8s uses livenessProbe, startupProbe, readinessProbe and ignores HEALTHCHECK
 HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/healthcheck.sh"]
 
+# hadolint ignore=DL3020
 ADD https://raw.githubusercontent.com/puppetlabs/pupperware/1a81f54cca38d9cc9ac4c2d124757cf9d909752c/shared/ssl.sh \
     https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh \
     https://github.com/Yelp/dumb-init/releases/download/v"$DUMB_INIT_VERSION"/dumb-init_"$DUMB_INIT_VERSION"_amd64.deb \
@@ -141,6 +142,7 @@ ARG deb_uri
 # published images should use "production" for this build_arg
 ARG pupperware_analytics_stream="dev"
 
+# hadolint ignore=DL3020
 ADD $deb_uri /puppet.deb
 
 RUN dpkg -i /puppet.deb && \
