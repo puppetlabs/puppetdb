@@ -110,20 +110,7 @@ COPY --from=build /puppetdb.deb /puppetdb.deb
 
 ARG UBUNTU_CODENAME
 ARG install_path=/puppetdb.deb
-
-ADD http://nightlies.puppet.com/apt/puppet6-nightly-release-$UBUNTU_CODENAME.deb /puppet.deb
-
-RUN dpkg -i /puppet.deb && \
-    rm /puppet.deb && \
-    apt-get update && \
-    apt-get install --no-install-recommends -y $install_path && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /opt/puppetlabs/server/data/puppetdb/logs && \
-# We want to use the HOCON database.conf and config.conf files, so get rid
-# of the packaged files
-    rm -f /etc/puppetlabs/puppetdb/conf.d/database.ini && \
-    rm -f /etc/puppetlabs/puppetdb/conf.d/config.ini
+ARG deb_uri=http://nightlies.puppet.com/apt/puppet6-nightly-release-$UBUNTU_CODENAME.deb
 
 ######################################################
 # release (build from packages)
@@ -134,20 +121,7 @@ FROM base as release
 ARG version
 ARG UBUNTU_CODENAME
 ARG install_path=puppetdb="$version"-1"$UBUNTU_CODENAME"
-
-ADD https://apt.puppetlabs.com/puppet6-release-$UBUNTU_CODENAME.deb /puppet.deb
-
-RUN dpkg -i /puppet.deb && \
-    rm /puppet.deb && \
-    apt-get update && \
-    apt-get install --no-install-recommends -y $install_path && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-# We want to use the HOCON database.conf and config.conf files, so get rid
-# of the packaged files
-    rm -f /etc/puppetlabs/puppetdb/conf.d/database.ini && \
-    rm -f /etc/puppetlabs/puppetdb/conf.d/config.ini && \
-    mkdir -p /opt/puppetlabs/server/data/puppetdb/logs
+ARG deb_uri=https://apt.puppetlabs.com/puppet6-release-$UBUNTU_CODENAME.deb
 
 ######################################################
 # final image
@@ -160,9 +134,25 @@ FROM ${build_type} as final
 ARG vcs_ref
 ARG version
 ARG build_date
+ARG install_path
+ARG deb_uri
 # used by entrypoint to submit metrics to Google Analytics;
 # published images should use "production" for this build_arg
 ARG pupperware_analytics_stream="dev"
+
+ADD $deb_uri /puppet.deb
+
+RUN dpkg -i /puppet.deb && \
+    rm /puppet.deb && \
+    apt-get update && \
+    apt-get install --no-install-recommends -y $install_path && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /opt/puppetlabs/server/data/puppetdb/logs && \
+# We want to use the HOCON database.conf and config.conf files, so get rid
+# of the packaged files
+    rm -f /etc/puppetlabs/puppetdb/conf.d/database.ini && \
+    rm -f /etc/puppetlabs/puppetdb/conf.d/config.ini
 
 COPY docker/puppetdb/logback.xml \
      docker/puppetdb/request-logging.xml \
