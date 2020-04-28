@@ -4,11 +4,12 @@ git_describe = $(shell git describe)
 vcs_ref := $(shell git rev-parse HEAD)
 build_date := $(shell date -u +%FT%T)
 hadolint_available := $(shell hadolint --help > /dev/null 2>&1; echo $$?)
-hadolint_command := hadolint --ignore DL3008 --ignore DL3018 --ignore DL3020 --ignore DL4000 --ignore DL4001 --ignore DL3028
+hadolint_command := hadolint --ignore DL3008 --ignore DL3028
 hadolint_container := hadolint/hadolint:latest
 export BUNDLE_PATH = $(PWD)/.bundle/gems
 export BUNDLE_BIN = $(PWD)/.bundle/bin
 export GEMFILE = $(PWD)/Gemfile
+export DOCKER_BUILDKIT = 1
 
 ifeq ($(IS_RELEASE),true)
 	VERSION ?= $(shell echo $(git_describe) | sed 's/-.*//')
@@ -24,14 +25,12 @@ else ifneq ($(VERSION),$(PUBLISHED_VERSION))
 	SKIP_BUILD ?= true
 endif
 
+	BUILD_TYPE ?= release
 	LATEST_VERSION ?= latest
-	dockerfile := release.Dockerfile
-	dockerfile_context := puppetdb
 else
+	BUILD_TYPE ?= edge
 	VERSION ?= edge
 	IS_LATEST := false
-	dockerfile := Dockerfile
-	dockerfile_context := $(PWD)/..
 endif
 
 prep:
@@ -44,33 +43,25 @@ endif
 
 lint:
 ifeq ($(hadolint_available),0)
-	@$(hadolint_command) puppetdb-base/Dockerfile
-	@$(hadolint_command) puppetdb/$(dockerfile)
+	@$(hadolint_command) puppetdb/Dockerfile
 else
 	@docker pull $(hadolint_container)
-	@docker run --rm -v $(PWD)/puppetdb-base/Dockerfile:/Dockerfile \
-		-i $(hadolint_container) $(hadolint_command) Dockerfile
-	@docker run --rm -v $(PWD)/puppetdb/$(dockerfile):/Dockerfile \
+	@docker run --rm -v $(PWD)/puppetdb/Dockerfile:/Dockerfile \
 		-i $(hadolint_container) $(hadolint_command) Dockerfile
 endif
 
 build: prep
 	docker build \
+		${DOCKER_BUILD_FLAGS} \
 		--pull \
+		--build-arg build_type=$(BUILD_TYPE) \
 		--build-arg vcs_ref=$(vcs_ref) \
 		--build-arg build_date=$(build_date) \
 		--build-arg version=$(VERSION) \
 		--build-arg pupperware_analytics_stream=$(PUPPERWARE_ANALYTICS_STREAM) \
-		--file puppetdb-base/Dockerfile \
-		--tag $(NAMESPACE)/puppetdb-base:$(VERSION) puppetdb-base
-	docker build \
-		--build-arg vcs_ref=$(vcs_ref) \
-		--build-arg build_date=$(build_date) \
-		--build-arg version=$(VERSION) \
-		--build-arg pupperware_analytics_stream=$(PUPPERWARE_ANALYTICS_STREAM) \
-		--file puppetdb/$(dockerfile) \
+		--file puppetdb/Dockerfile \
 		--tag $(NAMESPACE)/puppetdb:$(VERSION) \
-		$(dockerfile_context)
+		$(PWD)/..
 ifeq ($(IS_LATEST),true)
 	@docker tag $(NAMESPACE)/puppetdb:$(VERSION) $(NAMESPACE)/puppetdb:$(LATEST_VERSION)
 endif
