@@ -184,7 +184,7 @@ jobs:
       language: ruby
       rvm: 2.6.5
       # necessary to prevent overwhelming TravisCI build output limits
-      env: DOCKER_COMPOSE_VERSION=1.25.0-rc2 DOCKER_BUILD_FLAGS="--progress plain"
+      env: DOCKER_COMPOSE_VERSION=1.25.5 DOCKER_BUILD_FLAGS="--progress plain"
       script: *run-docker-tests
 
 on_success: ext/travisci/on-success
