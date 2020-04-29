@@ -20,6 +20,34 @@ canonical: "/puppetdb/latest/release_notes.html"
 [puppet_apply]: ./connect_puppet_apply.html
 
 ---
+
+## PuppetDB 6.10.0
+
+### Upgrading
+
+This upgrade contains a long running migration to the reports table,
+which is typically the largest table in PuppetDB. Before upgrading to,
+or past, this version of PuppetDB, you are strongly encouraged to consider
+deleting your reports table. This will drastically shorten your upgrade time
+and get you back online much faster. If you are on a `5.2.z` version, please
+upgrade to `5.2.14` or later and then take advantage of the `delete-reports`
+subcommand. Otherwise, consult the documentation on how to [truncate the
+reports table manually](https://puppet.com/docs/puppetdb/latest/upgrade.html#truncate-your-reports-table).
+
+### New features
+ - **New `delete-reports` subcommand of the `puppetdb` command.** The command stops the PuppetDB service and deletes all reports from the database. [PDB-2398](https://tickets.puppetlabs.com/browse/PDB-2398)
+
+ - **New `migrate` configuration option in database settings.** On startup, PuppetDB will only perform migrations if the value is `true`. If the value is `false` and a migration is necessary, PuppetDB will exit with an error. [PDB-3751](https://tickets.puppetlabs.com/browse/PDB-3751)
+
+ - **New `migrator-username` option in database settings.** You can now configure PuppetDB to attempt to prevent concurrent migrations or any access to a database that's in an unexpected format, either too new or too old. See [Configuring PuppetDB](https://puppet.com/docs/puppetdb/latest/configure.html#coordinating-database-migrations) for further information. [PDB-4636](https://tickets.puppetlabs.com/browse/PDB-4636) [PDB-4637](https://tickets.puppetlabs.com/browse/PDB-4637) [PDB-4639](https://tickets.puppetlabs.com/browse/PDB-4639)
+### Bug fixes
+
+  - Fixed an issue that would cause PE's sync to fail and never retry when one PuppetDB had been upgraded and the other had not. PE's sync will now fail and retry. [PDB-4682](https://tickets.puppetlabs.com/browse/PDB-4682)
+
+### Contributors
+
+Austin Blatt, Ethan J. Brown, Rob Browning, Robert Roland, and Zak Kent
+
 ## PuppetDB 6.9.1
 
 ### New features 
