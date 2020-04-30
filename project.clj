@@ -1,4 +1,4 @@
-(def pdb-version "6.9.2-SNAPSHOT")
+(def pdb-version "6.10.0")
 (def clj-parent-version "4.4.1")
 
 (defn true-in-env? [x]
