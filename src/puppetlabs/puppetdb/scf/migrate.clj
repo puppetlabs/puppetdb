@@ -1558,7 +1558,10 @@
    ; cli command.
    66 jsonb-facts})
 
-(def desired-schema-version (apply max (keys migrations)))
+(def desired-schema-version
+  "The newest migration this PuppetDB instance knows about.  Anything
+  newer is considered invalid as far as this instance is concerned."
+  (apply max (keys migrations)))
 
 (defn record-migration!
   "Records a migration by storing its version in the schema_migrations table,
@@ -1597,21 +1600,12 @@
     (into (sorted-map)
           (select-keys migrations pending))))
 
-(defn previous-migrations
-  "Returns the list of migration numbers that existed before the
-  current known set. These migrations can't be upgraded from, but are
-  recognized and shouldn't cause errors if they are present"
-  [known-migrations]
-  (range 1 (first known-migrations)))
-
 (defn unrecognized-migrations
   "Returns a set of migrations, likely created by a future version of
   PuppetDB"
-  [applied-migrations known-migrations]
-  (->> known-migrations
-       previous-migrations
-       (into known-migrations)
-       (difference applied-migrations)))
+  [applied-migrations]
+  (set/difference applied-migrations
+                  (set (range 0 (inc desired-schema-version)))))
 
 (defn require-valid-schema
   "Returns true if the database is ready for use, otherwise throws."
@@ -1630,7 +1624,8 @@
                " "
                (trs "As an example, users wanting to upgrade from 2.x to 4.x should first upgrade to 3.x.")))))
 
-    (when-let [unexpected (first (unrecognized-migrations applied-migration-versions known-migrations))]
+    (when-let [unexpected (-> (unrecognized-migrations applied-migration-versions)
+                              sort first)]
       (throw (IllegalStateException.
               (trs "Your PuppetDB database contains a schema migration numbered {0}, but this version of PuppetDB does not recognize that version."
                    unexpected))))

@@ -23,6 +23,9 @@
 
 (use-fixtures :each tdb/call-with-test-db)
 
+(def rollup-migration
+  (apply min (remove zero? (keys migrations))))
+
 (defn apply-migration-for-testing!
   [i]
   (let [migration (migrations i)
@@ -90,6 +93,16 @@
                     {:version (inc migrate/desired-schema-version)
                      :time (to-timestamp (now))})
       (is (thrown? IllegalStateException (initialize-schema))))))
+
+(deftest migrations-before-rollup-are-accepted
+  (testing "should return missing migrations if the *db* is partially migrated"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (apply-migration-for-testing! 0)
+      (jdbc/insert! :schema_migrations {:version (dec rollup-migration)
+                                        :time (to-timestamp (now))})
+      (apply-migration-for-testing! rollup-migration)
+      (is (= true (require-valid-schema))))))
 
 (deftest migration-29
   (testing "should contain same reports before and after migration"
