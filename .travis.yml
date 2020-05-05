@@ -118,23 +118,23 @@ jobs:
 
     # === integration with master branches
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6
+      env: PDB_TEST=int/openjdk11/pup-master/srv-6.11.0/pg-9.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-6.11.0/pg-9.6/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-11/rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-6.11.0/pg-11/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk8/pup-master/srv-6.11.0/pg-9.6/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-11/rich
+      env: PDB_TEST=int/openjdk8/pup-master/srv-6.11.0/pg-11/rich
       script: *run-integration-tests
 
     # === integration with current platform
