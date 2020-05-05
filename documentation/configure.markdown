@@ -10,6 +10,7 @@ canonical: "/puppetdb/latest/configure.html"
 [repl]: ./repl.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [postgres_ssl]: ./postgres_ssl.html
+[migration_coordination]: ./migration_coordination.html
 [module]: ./install_via_module.html
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
 [ha]: ./ha.html
@@ -275,6 +276,10 @@ and database as follows:
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
+Particularly if you plan to run more than one PuppetDB instance
+connecting to the same database, we recommend you also
+[add and use a "migrator" user](#coordinating-database-migrations)
+
 You should install the RegExp-optimized index extension
 [`pg_trgm`][pg_trgm]. This may require installing the
 `postgresql-contrib` (or equivalent) package, depending on your
@@ -323,6 +328,71 @@ The main difference in the config file is that you must be sure to add
 `?ssl=true` to the `subname` setting:
 
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
+
+#### Coordinating database migrations
+
+If you plan to run more than one PuppetDB instance connected to the
+same database, you must ensure that two instances do not attempt to
+upgrade the database simultaneously.  Further, you should also ensure
+that a PuppetDB server never tries to use a database whose migration
+level (data format version) differs from the one it expects.
+
+PuppetDB will refuse to start if it detects an unexpected migration
+level, which covers many cases, but won't help, for example, if a new
+version of PuppetDB is started while older versions are still running.
+
+One direct solution, using upgrades as an example, is to just make
+sure to stop all of your PuppetDB instances, then run one instance of
+the newer version to perform any necessary upgrade via
+
+    puppetdb upgrade -c .../normal-config.ini
+
+Once that's finished, relaunch all of your instances using the
+newer version of PuppetDB.
+
+PuppetDB can also be configured to attempt to automatically guard you
+against these risks.  To do so, first make sure all but one of your PuppetDB
+instances are configured with `[database]` [migrate option](#migrate)
+set to `false` in the config file.
+
+This will prevent PuppetDB from attempting to upgrade the database at
+startup (it will just quit on a mismatch instead).  You will of course
+need to set it to `true` (the default) in the config file of the
+instance you want to perform your migrations (either at startup or via
+the `upgrade` subcommand shown above).
+
+Setting `migrate` to false helps prevent unexpected migrations, but it
+doesn't prevent a migration from starting while other (soon to be
+invalid/out-of-date) PuppetDB instances continue to access the
+database.  That's true even though newer PuppetDB versions have a
+check to prevent them from creating new connections to an unrecognized
+database version because PuppetDB can continue to use any connections
+that are already open (and either active or waiting in the connection
+pool).
+
+To help prevent all acccess to an unexpected database version, you can
+provide PuppetDB with a separate, suitably configured PostgreSQL user
+(role), for migrations.  That role must have the ability to grant and
+revoke connection privileges to/from the normal PuppetDB database
+user, and it must also be allowed to terminate the normal user's
+existing connections.  One way to arrange that is to do sometthing
+like this after creating the `puppetdb` user as described above:
+
+    $ sudo -u postgres sh
+    $ createuser -DRSP puppetdb_migrator
+    $ psql puppetdb -c 'revoke connect on database puppetdb from public'
+    $ psql puppetdb -c 'grant connect on database puppetdb to puppetdb_migrator with grant option'
+    $ psql puppetdb -c 'grant connect on database puppetdb to puppetdb' \
+        -U puppetdb_migrator
+    $ psql puppetdb -c 'grant puppetdb to puppetdb_migrator'
+    $ exit
+
+Then specify `puppetdb_migrator` as the
+[migrator-username](#migrator-username) and set the
+[migrator-password](#migrator-password) as described below.
+
+See the [migration coordination documentation](migration_coordination)
+for a more detailed explanation of the process.
 
 ### `gc-interval`
 

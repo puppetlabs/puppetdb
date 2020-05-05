@@ -18,6 +18,23 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.14
+
+### New features
+ - **New `delete-reports` subcommand of the `puppetdb` command.** The command stops the PuppetDB service and deletes all reports from the database. [PDB-2398](https://tickets.puppetlabs.com/browse/PDB-2398)
+
+ - **New `migrate` configuration option in database settings.** On startup, PuppetDB will only perform migrations if the value is `true`. If the value is `false` and a migration is necessary, PuppetDB will exit with an error. [PDB-3751](https://tickets.puppetlabs.com/browse/PDB-3751)
+
+ - **New `migrator-username` option in database settings.** You can now configure PuppetDB to attempt to prevent concurrent migrations or any access to a database that's in an unexpected format, either too new or too old. See [Configuring PuppetDB](https://puppet.com/docs/puppetdb/latest/configure.html#coordinating-database-migrations) for further information. [PDB-4636](https://tickets.puppetlabs.com/browse/PDB-4636) [PDB-4637](https://tickets.puppetlabs.com/browse/PDB-4637) [PDB-4639](https://tickets.puppetlabs.com/browse/PDB-4639)
+
+### Bug fixes
+
+  - Fixed an issue that would cause PE's sync to fail and never retry when one PuppetDB had been upgraded and the other had not. PE's sync will now fail and retry. [PDB-4682](https://tickets.puppetlabs.com/browse/PDB-4682)
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
+
 ## PuppetDB 5.2.13
 
 ### New features
