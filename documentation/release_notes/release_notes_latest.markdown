@@ -21,6 +21,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.10.1
+
+### Bug fixes
+
+  - Fixed an issue that caused PuppetDB to fail to start on a database that had been in service before PuppetDB 4.0.0. [PDB-4709](https://tickets.puppetlabs.com/browse/PDB-4709)
+
 ## PuppetDB 6.10.0
 
 ### Upgrading
