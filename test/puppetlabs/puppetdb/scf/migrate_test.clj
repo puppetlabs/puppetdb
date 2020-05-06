@@ -1415,3 +1415,32 @@
                (count hashes)))
         (is (= expected
                (first hashes)))))))
+
+(deftest migration-75-add-report-type-column-with-default
+  (testing "reports should get default value of 'agent' for report_type"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 74)
+      (let [current-time (to-timestamp (now))]
+        (jdbc/insert! :report_statuses {:status "testing1" :id 1})
+        (jdbc/insert! :environments {:id 0 :environment "testing"})
+        (jdbc/insert! :certnames {:certname "testing1"})
+        (jdbc/insert! :reports
+                      {:hash (sutils/munge-hash-for-storage "01")
+                       :transaction_uuid (sutils/munge-uuid-for-storage
+                                          "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+                       :configuration_version "thisisacoolconfigversion"
+                       :certname "testing1"
+                       :puppet_version "0.0.0"
+                       :report_format 1
+                       :start_time current-time
+                       :end_time current-time
+                       :receive_time current-time
+                       :producer_timestamp current-time
+                       :environment_id 0
+                       :status_id 1
+                       :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+                       :logs (sutils/munge-json-for-storage [{:bar "baz"}])})
+        (apply-migration-for-testing! 75)
+        (is (= "agent" (-> (query-to-vec "select * from reports")
+                           first :report_type)))))))

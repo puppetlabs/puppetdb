@@ -1946,6 +1946,14 @@
     "  (version integer not null primary key,"
     "   \"time\" timestamp without time zone not null)"]))
 
+(defn add-report-type-to-reports
+  "Add a 'report_type' column to the 'reports' table, to indicate the
+  source of the report. Valid values at the time of this migration are
+  'agent' or 'plan'."
+  []
+  (jdbc/do-commands
+   "ALTER TABLE reports ADD COLUMN report_type text DEFAULT 'agent'"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2006,7 +2014,8 @@
    ; Make sure that if you change the structure of reports
    ; or resource events, you also update the delete-reports
    ; cli command.
-   74 reports-partitioning})
+   74 reports-partitioning
+   75 add-report-type-to-reports})
 
 (def desired-schema-version
   "The newest migration this PuppetDB instance knows about.  Anything
