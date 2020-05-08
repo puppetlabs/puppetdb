@@ -1882,7 +1882,39 @@
                           :catalog_timestamp nil
                           :latest_report_job_id nil
                           :latest_report_status "unchanged"}
-                         (node-for-certname :v4 node)))))))
+                         (node-for-certname :v4 node))))))
+
+  (deftest-db report-storage-with-report-type
+    (let [agent-certname "agent-certname"
+          plan-certname "plan-certname"
+          defaulted-certname "defaulted-cername"
+          report-type-query (fn [cname]
+                              (query-to-vec
+                               (format "SELECT report_type FROM reports
+                                        WHERE certname = '%s'" cname)))]
+
+      (testing "reports with missing report_type should default to agent"
+        (store-example-report! (assoc report :certname defaulted-certname) timestamp)
+        (is (= [{:report_type "agent"}] (report-type-query defaulted-certname))))
+
+      (testing "should store reports with report_type set to 'agent' or 'plan'"
+        (store-example-report! (-> report
+                                   (assoc :certname agent-certname)
+                                   (assoc :type "agent")) timestamp)
+        (is (= [{:report_type "agent"}] (report-type-query agent-certname)))
+
+        (store-example-report! (-> report
+                                   (assoc :certname plan-certname)
+                                   (assoc :type "plan"))
+                               timestamp)
+        (is (= [{:report_type "plan"}] (report-type-query plan-certname))))
+
+      (testing "invalid report_type value throws"
+        (is (thrown? clojure.lang.ExceptionInfo
+                     (store-example-report! (-> report
+                                                (assoc :certname "boom")
+                                                (assoc :type "not-valid"))
+                                            timestamp)))))))
 
 (deftest test-catalog-schemas
   (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))

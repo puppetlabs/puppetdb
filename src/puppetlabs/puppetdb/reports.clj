@@ -67,7 +67,8 @@
    :metrics [metric-wireformat-schema]
    :logs [log-wireformat-schema]
    :environment s/Str
-   :status (s/maybe s/Str)})
+   :status (s/maybe s/Str)
+   (s/optional-key :type) (s/enum "agent" "plan")})
 
 (defn update-resource-events
   [update-fn]
@@ -79,7 +80,7 @@
 (def report-v7-wireformat-schema
   (let [update-fn #(dissoc % :corrective_change :name)]
     (-> report-wireformat-schema
-        (dissoc :producer :noop_pending :corrective_change :job_id)
+        (dissoc :producer :noop_pending :corrective_change :job_id :type)
         (update :resources #(mapv (update-resource-events update-fn) %)))))
 
 (def report-v6-wireformat-schema
@@ -172,7 +173,8 @@
    (s/optional-key :code_id) (s/maybe s/Str)
    (s/optional-key :job_id) (s/maybe s/Str)
    (s/optional-key :cached_catalog_status) (s/maybe s/Str)
-   (s/optional-key :status) (s/maybe s/Str)})
+   (s/optional-key :status) (s/maybe s/Str)
+   (s/optional-key :type) (s/enum "agent" "plan")})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports Query -> Wire format conversions

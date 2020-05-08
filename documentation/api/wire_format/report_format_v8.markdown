@@ -30,7 +30,8 @@ noted, `null` is not allowed anywhere in the report.
         "status": <string>,
         "noop": <boolean>,
         "corrective_change": <boolean>,
-        "noop_pending": <boolean>
+        "noop_pending": <boolean>,
+        "type": <string>
     }
 
 All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
@@ -122,6 +123,12 @@ may result from use of the `--noop` flag, or from resources tagged with the
 
 Boolean. A flag indicating whether the report contained changes to correct
 configuration drift. This field may be `null`.
+
+#### `type`
+
+String. A string that indicates the source of the report. Valid values are
+`agent` or `plan`. If this field is absent in the command `type` defaults
+to the value of `agent`.
 
 #### `resources`
 

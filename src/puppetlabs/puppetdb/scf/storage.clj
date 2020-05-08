@@ -1324,7 +1324,8 @@
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
-                       code_id job_id cached_catalog_status noop_pending corrective_change]
+                       code_id job_id cached_catalog_status noop_pending corrective_change
+                       type]
                 :as report} (normalize-report orig-report)
                report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
@@ -1358,7 +1359,8 @@
                                 :end_time end_time
                                 :receive_time (to-timestamp received-timestamp)
                                 :environment_id (ensure-environment environment)
-                                :status_id (ensure-status status)}
+                                :status_id (ensure-status status)
+                                :report_type (or type "agent")}
                        [{report-id :id}] (->> row-map
                                               maybe-environment
                                               maybe-resources
