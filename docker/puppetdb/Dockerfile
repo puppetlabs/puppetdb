@@ -25,13 +25,13 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_NODE_TTL=7d \
     PUPPETDB_NODE_PURGE_TTL=14d \
     PUPPETDB_REPORT_TTL=14d \
-# NOTE: Docker ENV values cannot consume other ENV values, so full path to $LOGDIR is specified for -Xloggc
+    # used by entrypoint to determine if puppetserver should be contacted for config
+    # set to false when container tests are run
+    USE_PUPPETSERVER=true
+# note: LOGDIR cannot be defined in the same ENV block it's used in
 # this value may be set by users, keeping in mind that some of these values are mandatory
 # -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
-    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=/opt/puppetlabs/server/data/puppetdb/logs/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048" \
-# used by entrypoint to determine if puppetserver should be contacted for config
-# set to false when container tests are run
-    USE_PUPPETSERVER=true
+ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=$LOGDIR/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
@@ -151,7 +151,7 @@ RUN dpkg -i /puppet.deb && \
     apt-get install --no-install-recommends -y $install_path && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /opt/puppetlabs/server/data/puppetdb/logs && \
+    mkdir -p "$LOGDIR" && \
 # We want to use the HOCON database.conf and config.conf files, so get rid
 # of the packaged files
     rm -f /etc/puppetlabs/puppetdb/conf.d/database.ini && \
