@@ -36,7 +36,6 @@ ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+U
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
       org.label-schema.url="https://github.com/puppetlabs/puppetdb" \
-      org.label-schema.name="PuppetDB" \
       org.label-schema.license="Apache-2.0" \
       org.label-schema.vcs-url="https://github.com/puppetlabs/puppetdb" \
       org.label-schema.schema-version="1.0" \
@@ -136,6 +135,7 @@ FROM ${build_type} as final
 ARG vcs_ref
 ARG version
 ARG build_date
+ARG build_type
 ARG install_path
 ARG deb_uri
 # used by entrypoint to submit metrics to Google Analytics;
@@ -165,7 +165,8 @@ COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
 ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
     PUPPETDB_VERSION="$version"
 
-LABEL org.label-schema.vcs-ref="$vcs_ref" \
+LABEL org.label-schema.name="PuppetDB ($build_type)" \
+      org.label-schema.vcs-ref="$vcs_ref" \
       org.label-schema.version="$version" \
       org.label-schema.build-date="$build_date"
 
