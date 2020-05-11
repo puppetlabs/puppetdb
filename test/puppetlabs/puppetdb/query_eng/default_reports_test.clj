@@ -72,6 +72,20 @@
       (is (= true (t/mentions-report-type? [op ["=" "type" "y"]])))
       (is (= true (t/mentions-report-type? [op ["=" "w" "x"] ["=" "type" "z"]]))))))
 
+(deftest test-maybe-add-agent-report-filter-to-subqueries
+  (testing "no change to non-subquery operators"
+    (doseq [op ["=" ">" "<" ">=" "<=" "~" "~>"]]
+      (is (= [op "type" "y"] (t/maybe-add-agent-report-filter-to-subqueries [op "type" "y"]))))
+
+      (is (= ["null?" "x" true] (t/maybe-add-agent-report-filter-to-subqueries ["null?" "x" true])))
+
+      (is (= ["not" ["=" "x" "y"]] (t/maybe-add-agent-report-filter-to-subqueries ["not" ["=" "x" "y"]])))
+
+    (doseq [op ["and" "or"]]
+      (is (= [op ["=" "foo" "bar"] ["=" "bar" "baz"]] (t/maybe-add-agent-report-filter-to-subqueries [op ["=" "foo" "bar"] ["=" "bar" "baz"]]))))
+
+      (is (= ["in" "foo" ["array" "foo" "bar"]] (t/maybe-add-agent-report-filter-to-subqueries ["in" "foo" ["array" "foo" "bar"]])))))
+
 (deftest test-random-bits
 
   (is (= #{:catalog_environment :catalogs :certnames :facts_environment :fs

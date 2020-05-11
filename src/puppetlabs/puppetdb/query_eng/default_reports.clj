@@ -101,7 +101,8 @@
    [["null?" field bool]] ast
 
    [[(op :guard #{"and" "or"})  & exprs]]
-   (mapv maybe-add-agent-report-filter-to-subqueries exprs)
+   (let [exprs (mapv maybe-add-agent-report-filter-to-subqueries exprs)]
+     `[~op ~@exprs])
 
    [["not" expr]] (mapv maybe-add-agent-report-filter-to-subqueries expr)
 
