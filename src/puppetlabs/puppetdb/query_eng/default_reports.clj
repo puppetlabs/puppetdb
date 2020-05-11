@@ -104,7 +104,9 @@
    (let [exprs (mapv maybe-add-agent-report-filter-to-subqueries exprs)]
      `[~op ~@exprs])
 
-   [["not" expr]] (mapv maybe-add-agent-report-filter-to-subqueries expr)
+   [["not" expr]]
+   (let [expr (maybe-add-agent-report-filter-to-subqueries expr)]
+     `["not" ~expr])
 
    [["in" field ["array" & values]]] ast
 
