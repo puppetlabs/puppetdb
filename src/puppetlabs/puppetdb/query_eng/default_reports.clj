@@ -23,7 +23,7 @@
    [[(op :guard #{"and" "or"}) & exprs]] (boolean (some mentions-report-type? exprs))
    [["not" expr]] (mentions-report-type? expr)
    ;; FIXME: is "is not null" a performant way to query for all types? If not, this can be false
-   [["null?" field]] (= field "type")
+   [["null?" field bool]] (= field "type")
    ;; FIXME: maybe -- depends on what we do with the type type
    [["in" field ["array" & values]]] (= field "type")
 
@@ -98,7 +98,7 @@
 
    [[]] ast
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] ast
-   [["null?" field]] ast
+   [["null?" field bool]] ast
 
    [[(op :guard #{"and" "or"})  & exprs]]
    (mapv maybe-add-agent-report-filter-to-subqueries exprs)

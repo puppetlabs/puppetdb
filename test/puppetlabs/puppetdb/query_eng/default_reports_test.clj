@@ -16,13 +16,13 @@
       (is (= true (t/mentions-report-type? [op "type" "y"])))))
 
   (testing (str "unary operator null?")
-    (is (= false (t/mentions-report-type? ["null?" "x"])))
-    (is (= true (t/mentions-report-type? ["null?" "type"]))))
+    (is (= false (t/mentions-report-type? ["null?" "x" true])))
+    (is (= true (t/mentions-report-type? ["null?" "type" true]))))
 
   (testing (str "unary operator not")
     (is (= false (t/mentions-report-type? ["not" ["=" "x" "y"]])))
     (is (= true (t/mentions-report-type? ["not" ["=" "type" "y"]])))
-    (is (= true (t/mentions-report-type? ["not" ["null?" "type"]])))
+    (is (= true (t/mentions-report-type? ["not" ["null?" "type" true]])))
 
     ;; the subquery will have a filter added if necessary by a different function
     (is (= false (t/mentions-report-type? ["not"
