@@ -3,7 +3,12 @@
    [clojure.core.match :as cm]
    [clojure.set :as set]
    [clojure.string :as str]
-   [puppetlabs.puppetdb.query-eng.engine :refer [user-name->query-rec-name]]))
+   [puppetlabs.puppetdb.query-eng.engine :as eng :refer [user-name->query-rec-name]]))
+
+(defn is-page-order-opt?
+  [page-order-opts]
+  (let [valid-opts ["limit" "group_by" "order_by"]]
+    (every? (fn [opt] (some #(= % (first opt)) valid-opts)) page-order-opts)))
 
 (defn mentions-report-type?
   "Returns true if the ast expression mentions a \"type\" field anywhere
@@ -19,6 +24,7 @@
    [ast]
 
    [[]] false
+   [::elide] false
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] (= field "type")
    [[(op :guard #{"and" "or"}) & exprs]] (boolean (some mentions-report-type? exprs))
    [["not" expr]] (mentions-report-type? expr)
@@ -29,7 +35,7 @@
 
    ;; This needs to precede (or maybe just obviates?) the "from" below.
    ;; New-style explicit subquery
-   [["in" fields ["from" entity ["extract" sub-fields expr & page-order-opts]]]]
+   [["in" fields ["from" entity ["extract" sub-fields expr] & page-order-opts]]]
    false
 
    ;; Old-style select_foo subquery.  Suppose we could take this as an
@@ -70,7 +76,7 @@
           (mentions-report-type? expr))
     expr
     ;; FIXME: order?
-    (if (seq expr)
+    (if (and (not= ::elide expr) (seq expr))
       ["and" expr ["=" "type" "agent"]]
       ["=" "type" "agent"])))
 
@@ -97,6 +103,7 @@
    [ast]
 
    [[]] ast
+   [::elide] ast
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] ast
    [["null?" field bool]] ast
 
@@ -110,27 +117,57 @@
 
    [["in" field ["array" & values]]] ast
 
-   ;; This needs to precede (or maybe just obviates?) the "from" below.
    ;; New-style explicit subquery
    [["in" fields
      ["from" entity
-      ["extract" sub-fields expr & page-order-opts]]]]
+      ["extract" sub-fields]
+      & (page-order-opts :guard is-page-order-opt?)]]]
+   (let [qrec (qrec-for-entity entity)
+         [_ expr] (maybe-add-agent-report-filter qrec ::elide)
+         extract (if (= ::elide expr)
+                   ["extract" sub-fields]
+                   ["extract" sub-fields expr])]
+     `["in" ~fields
+       ["from" ~entity
+        ~extract
+        ~@page-order-opts]])
+
+   [["in" fields
+     ["from" entity
+      ["extract" sub-fields expr]
+      & (page-order-opts :guard is-page-order-opt?)]]]
    (let [qrec (qrec-for-entity entity)
          [_ expr] (maybe-add-agent-report-filter qrec expr)]
      `["in" ~fields
        ["from" ~entity
-        ["extract" ~fields ~expr ~@page-order-opts]]])
+        ["extract" ~sub-fields ~expr]
+        ~@page-order-opts]])
 
    ;; Old-style select_foo subquery.  Suppose we could take this as an
    ;; opportunity to just rewrite it new-style and recurse, which
    ;; might allow simplifications in the later plan passes.
    [["in" fields
      ["extract" sub-fields
+      [select-entity & (page-order-opts :guard is-page-order-opt?)]]]]
+   (let [qrec (qrec-for-select-entity select-entity)
+         ;; elide is not a seq, so it'll get entirely replaced by the filter
+         ;; if necessary, otherwise, it'll be removed by an AST walk in the
+         ;; query engine
+         [_ expr] (maybe-add-agent-report-filter qrec ::elide)
+         select (if (= ::elide expr)
+                  `[~select-entity ~@page-order-opts]
+                  `[~select-entity ~expr ~@page-order-opts])]
+     `["in" ~fields
+       ["extract" ~sub-fields
+        ~select]])
+
+   [["in" fields
+     ["extract" sub-fields
       [select-entity expr & page-order-opts]]]]
    (let [qrec (qrec-for-select-entity select-entity)
          [_ expr] (maybe-add-agent-report-filter qrec expr)]
-     `["in" fields
-       ["extract" fields
+     `["in" ~fields
+       ["extract" ~sub-fields
         [~select-entity ~expr ~@page-order-opts]]])
 
    ;; FIXME: Is this just unnecessary given the cases above?
@@ -168,6 +205,12 @@
     [ast]
     ;; Top level 'extract' has had the preceding 'from' removed and it
     ;; only valid at the very top level of the query, not in subqueries
+    [["extract" fields & (page-order-opts :guard is-page-order-opt?)]]
+    (let [[_ expr] (maybe-add-agent-report-filter qrec ::elide)]
+      (if (= ::elide expr)
+        `["extract" ~fields ~@page-order-opts]
+        `["extract" ~fields ~expr ~@page-order-opts]))
+
     [["extract" fields expr & page-order-opts]]
     (let [[_ expr] (maybe-add-agent-report-filter qrec expr)]
       `["extract" ~fields ~expr ~@page-order-opts])
