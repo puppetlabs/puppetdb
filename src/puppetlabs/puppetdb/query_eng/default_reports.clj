@@ -22,8 +22,8 @@
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] (= field "type")
    [[(op :guard #{"and" "or"}) & exprs]] (boolean (some mentions-report-type? exprs))
    [["not" expr]] (mentions-report-type? expr)
-   ;; FIXME: unless we allow (null? "type") then maybe -> true?
-   [["null?" field]] false
+   ;; FIXME: is "is not null" a performant way to query for all types? If not, this can be false
+   [["null?" field]] (= field "type")
    ;; FIXME: maybe -- depends on what we do with the type type
    [["in" field ["array" & values]]] (= field "type")
 
@@ -84,7 +84,7 @@
   {:pre [(string? name)]}
   (user-name->query-rec-name name))
 
-(declare maybe-add-agent-report-filter-to-query)
+(declare maybe-add-agent-report-filter)
 
 (defn maybe-add-agent-report-filter-to-subqueries
   "Returns the given ast expression with the filter clauses of any
@@ -113,11 +113,11 @@
      ["from" entity
       ["extract" sub-fields expr & page-order-opts]]]]
    (let [qrec (qrec-for-entity entity)
-         [_ expr] (maybe-add-agent-report-filter-to-query qrec expr)]
+         [_ expr] (maybe-add-agent-report-filter qrec expr)]
      `["in" ~fields
        ["from" ~entity
         ["extract" ~fields ~expr ~@page-order-opts]]])
-   
+
    ;; Old-style select_foo subquery.  Suppose we could take this as an
    ;; opportunity to just rewrite it new-style and recurse, which
    ;; might allow simplifications in the later plan passes.
@@ -125,7 +125,7 @@
      ["extract" sub-fields
       [select-entity expr & page-order-opts]]]]
    (let [qrec (qrec-for-select-entity select-entity)
-         [_ expr] (maybe-add-agent-report-filter-to-query qrec expr)]
+         [_ expr] (maybe-add-agent-report-filter qrec expr)]
      `["in" fields
        ["extract" fields
         [~select-entity ~expr ~@page-order-opts]]])
@@ -133,21 +133,12 @@
    ;; FIXME: Is this just unnecessary given the cases above?
    [["from" entity expr & page-order-opts]]
    (let [qrec (qrec-for-entity entity)
-         [_ expr] (maybe-add-agent-report-filter-to-query qrec expr)]
+         [_ expr] (maybe-add-agent-report-filter qrec expr)]
      `["from" ~entity ~expr ~@page-order-opts])
-
-   ;; This "from" formulation (without an extract) is only valid at
-   ;; the top level (FIXME: remove if we end up handling this
-   ;; case in the parent caller).
-   [["from" entity ["extract" fields expr & page-order-opts]]]
-   (let [qrec (qrec-for-entity entity)
-         [_ expr] (maybe-add-agent-report-filter-to-query qrec expr)]
-     `["from" ~entity
-       ["extract" ~fields ~expr ~@page-order-opts]])
 
    [["subquery" entity expr]]
    (let [qrec (qrec-for-entity entity)
-         [_ expr] (maybe-add-agent-report-filter-to-query qrec expr)]
+         [_ expr] (maybe-add-agent-report-filter qrec expr)]
      `["subquery" ~entity ~expr])
 
    :else (throw
@@ -155,7 +146,7 @@
           (ex-info (str "Unrecognized ast clause: " (pr-str ast))
                    {:kind ::unrecognized-ast-syntax}))))
 
-(defn maybe-add-agent-report-filter-to-query
+(defn maybe-add-agent-report-filter
   "Returns [qrec ast] after adjusting the top-level filter in the ast
   expression, and filters in any sub-queries to only include reports
   with a type of agent, if the filter doesn't already mention the
@@ -165,3 +156,17 @@
   ;; enough to accurately find/handle the relevant contexts.
   [qrec (->> (maybe-add-agent-report-filter-to-subqueries ast)
              (maybe-restrict-expr-to-agent-reports qrec))])
+
+;; Public
+
+(defn maybe-add-agent-report-filter-to-query
+  [qrec ast]
+  (cm/match
+    [ast]
+    ;; Top level 'extract' has had the preceding 'from' removed and it
+    ;; only valid at the very top level of the query, not in subqueries
+    [["extract" fields expr & page-order-opts]]
+    (let [[_ expr] (maybe-add-agent-report-filter qrec expr)]
+      `["extract" ~fields ~expr ~@page-order-opts])
+
+    :else (second (maybe-add-agent-report-filter qrec ast))))

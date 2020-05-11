@@ -11,23 +11,35 @@
   (is (= false (t/mentions-report-type? [])))
 
   (doseq [op ["=" ">" "<" ">=" "<=" "~" "~>"]]
-    (testing (str op "binary operator")
-      (is (= false (t/mentions-report-type? ["=" "x" "y"])))
-      (is (= true (t/mentions-report-type? ["=" "type" "y"])))))
+    (testing (str "binary operator " op)
+      (is (= false (t/mentions-report-type? [op "x" "y"])))
+      (is (= true (t/mentions-report-type? [op "type" "y"])))))
 
-  (is (= false (t/mentions-report-type? ["null?" "x"])))
-  (is (= false (t/mentions-report-type? ["null?" "type"])))
+  (testing (str "unary operator null?")
+    (is (= false (t/mentions-report-type? ["null?" "x"])))
+    (is (= true (t/mentions-report-type? ["null?" "type"]))))
+
+  (testing (str "unary operator not")
+    (is (= false (t/mentions-report-type? ["not" ["=" "x" "y"]])))
+    (is (= true (t/mentions-report-type? ["not" ["=" "type" "y"]])))
+    (is (= true (t/mentions-report-type? ["not" ["null?" "type"]])))
+
+    ;; the subquery will have a filter added if necessary by a different function
+    (is (= false (t/mentions-report-type? ["not"
+                                           ["in" "x"
+                                            ["from" "reports"
+                                             ["extract" "type" ["=" "type" "plan"]]]]]))))
 
   (is (= false (t/mentions-report-type? ["in" "x" ["array" "y" "z"]])))
   (is (= true (t/mentions-report-type? ["in" "type" ["array" "x" "y"]])))
 
-  
+
   ;; subqueries - dead end end for this check
   ;; FIXME: Not testing top-level ["from" "nodes" ...] -- add if we keep support
   (doseq [[expr kind] [[["=" "something" "report"] "not mentioning type"]
                        [["=" "type" "agent"] "mentioning type"]]]
     (testing (str "subqueries " kind)
-      
+
       (is (= false (t/mentions-report-type?
                     ["in" "x"
                      ["from" "nodes"
@@ -54,7 +66,7 @@
                      ["extract" ["y"] expr]])))))
 
   (doseq [op ["and" "or"]]
-    (testing (str "binary operator " op)
+    (testing (str "logical operator " op)
       (is (= false (t/mentions-report-type? [op ["=" "x" "y"]])))
       (is (= false (t/mentions-report-type? [op ["=" "w" "x"] ["=" "y" "z"]])))
       (is (= true (t/mentions-report-type? [op ["=" "type" "y"]])))
@@ -73,7 +85,7 @@
 
   (is (= [inventory-query []]
          (t/maybe-add-agent-report-filter-to-query inventory-query [])))
-  
+
   (is (= [nodes-query ["=" "type" "agent"]]
          (t/maybe-add-agent-report-filter-to-query nodes-query [])))
 
