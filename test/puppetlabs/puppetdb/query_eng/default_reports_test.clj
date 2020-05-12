@@ -35,7 +35,6 @@
 
 
   ;; subqueries - dead end end for this check
-  ;; FIXME: Not testing top-level ["from" "nodes" ...] -- add if we keep support
   (doseq [[expr kind] [[["=" "something" "report"] "not mentioning type"]
                        [["=" "type" "agent"] "mentioning type"]]]
     (testing (str "subqueries " kind)
@@ -56,14 +55,7 @@
       (is (= false (t/mentions-report-type?
                     ["in" ["x"]
                      ["extract" ["y"]
-                      ["select_reports" expr]]])))
-
-      (is (= false (t/mentions-report-type?
-                    ["from" "x"
-                     ["extract" "y" expr]])))
-      (is (= false (t/mentions-report-type?
-                    ["from" ["x"]
-                     ["extract" ["y"] expr]])))))
+                      ["select_reports" expr]]])))))
 
   (doseq [op ["and" "or"]]
     (testing (str "logical operator " op)

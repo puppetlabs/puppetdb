@@ -44,15 +44,6 @@
    [["in" fields ["extract" sub-fields [select-entity expr & page-order-opts]]]]
    false
 
-   [["from" entity ["extract" fields expr & page-order-opts]]]
-   false
-
-   ;; This "from" formulation (without an extract) is only valid at
-   ;; the top level.
-   ;; FIXME: Is this just unnecessary given the cases above?
-   [["from" entity expr & page-order-opts]]
-   false
-
    [["subquery" entity expr]] false
 
    :else (throw
@@ -169,12 +160,6 @@
      `["in" ~fields
        ["extract" ~sub-fields
         [~select-entity ~expr ~@page-order-opts]]])
-
-   ;; FIXME: Is this just unnecessary given the cases above?
-   [["from" entity expr & page-order-opts]]
-   (let [qrec (qrec-for-entity entity)
-         [_ expr] (maybe-add-agent-report-filter qrec expr)]
-     `["from" ~entity ~expr ~@page-order-opts])
 
    [["subquery" entity expr]]
    (let [qrec (qrec-for-entity entity)
