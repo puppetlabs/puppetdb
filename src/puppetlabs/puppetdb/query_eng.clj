@@ -1,6 +1,4 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:import [org.postgresql.util PGobject]
-           [org.joda.time Period])
   (:require [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
@@ -19,11 +17,15 @@
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.puppetdb.query.catalog-inputs :as inputs]
+            [puppetlabs.puppetdb.query-eng.default-reports :as dr]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import (clojure.lang ExceptionInfo)
+           (org.postgresql.util PGobject)
+           (org.joda.time Period)))
 
 (def entity-fn-idx
   (atom
@@ -127,9 +129,25 @@
 
                       :else
                       (get-in @entity-fn-idx [entity :rec]))
-          columns (orderable-columns query-rec)]
+          columns (orderable-columns query-rec)
+          unknown-err-msg (trs "Unknown exception when processing ast to add report type filter(s).")
+          ast (try (dr/maybe-add-agent-report-filter-to-query query-rec query)
+                (catch ExceptionInfo e
+                  (let [data (ex-data e)
+                        msg (.getMessage e)]
+                    (when (not= ::dr/unrecognized-ast-syntax (:kind data))
+                      (log/error e unknown-err-msg)
+                      (throw e))
+                    (log/error e msg)
+                    ::failed))
+                (catch Exception e
+                  (log/error e unknown-err-msg)
+                  (throw e)))]
       (paging/validate-order-by! columns query-options)
-      (eng/compile-user-query->sql query-rec query query-options))))
+      (if (= ast ::failed)
+        ;; TODO; when AST parse fails, ensure the whole query fails
+        (eng/compile-user-query->sql query-rec query query-options)
+        (eng/compile-user-query->sql query-rec ast query-options)))))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
