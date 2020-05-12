@@ -1681,6 +1681,20 @@
             ids2 (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))]
         (is (= ids2 [(first ids) nil]))))))
 
+(deftest-db plan-report-does-not-update-latest-report-id
+  (testing "A submission of a plan report should not update latest_report_id"
+    (let [agent-report (assoc (:basic reports)
+                              :end_time (-> 1 days ago))
+          plan-report (assoc (:basic reports)
+                             :end_time (now)
+                             :producer_timestamp (now)
+                             :type "plan")]
+      (add-certname! "foo.local")
+      (store-example-report! agent-report (now))
+      (let [latest_report_id (query-to-vec "select latest_report_id from certnames")]
+        (store-example-report! plan-report (now))
+        (is (= latest_report_id (query-to-vec "select latest_report_id from certnames")))))))
+
 ;; Report tests
 
 (defn update-event-timestamps

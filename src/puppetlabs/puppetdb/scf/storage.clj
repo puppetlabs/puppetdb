@@ -1389,7 +1389,7 @@
                             remove-dupes
                             insert!
                             dorun)))
-                   (when update-latest-report?
+                   (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
 (defn drop-partitions-older-than!
