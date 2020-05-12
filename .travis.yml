@@ -66,17 +66,18 @@ aliases:
     ext/bin/check-spec-env "$PDB_TEST"
     ext/bin/run-rspec-tests "$puppet_ref"
 
-  - &run-docker-tests |
-    set -ex
-    sudo rm /usr/local/bin/docker-compose
-    curl --location https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname --kernel-name`-`uname --machine` > docker-compose
-    chmod +x docker-compose
-    sudo mv docker-compose /usr/local/bin
-    cd docker
-    make lint
-    make build
-    make test
-    set +x
+  - &before-docker-tests
+    - sudo rm /usr/local/bin/docker-compose
+    - curl --location https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname --kernel-name`-`uname --machine` > docker-compose
+    - chmod +x docker-compose
+    - sudo mv docker-compose /usr/local/bin
+
+  - &run-docker-tests
+    - set -e
+    - cd docker
+    - make lint
+    - make build
+    - make test
 
 jobs:
   allow_failures:
@@ -181,6 +182,7 @@ jobs:
       rvm: 2.6.6
       # necessary to prevent overwhelming TravisCI build output limits
       env: DOCKER_COMPOSE_VERSION=1.25.5 DOCKER_BUILD_FLAGS="--progress plain"
+      before_install: *before-docker-tests
       script: *run-docker-tests
 
 on_success: ext/travisci/on-success
