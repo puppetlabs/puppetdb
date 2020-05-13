@@ -145,8 +145,10 @@
                   (throw e)))]
       (paging/validate-order-by! columns query-options)
       (if (= ast ::failed)
-        ;; TODO; when AST parse fails, ensure the whole query fails
-        (eng/compile-user-query->sql query-rec query query-options)
+        (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
+                        {:kind ::dr/unrecognized-ast-syntax
+                         :ast query
+                         :sql (eng/compile-user-query->sql query-rec query query-options)}))
         (eng/compile-user-query->sql query-rec ast query-options)))))
 
 (defn get-munge-fn

@@ -31,9 +31,7 @@
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] (= field "type")
    [[(op :guard #{"and" "or"}) & exprs]] (boolean (some mentions-report-type? exprs))
    [["not" expr]] (mentions-report-type? expr)
-   ;; FIXME: is "is not null" a performant way to query for all types? If not, this can be false
    [["null?" field bool]] (= field "type")
-   ;; FIXME: maybe -- depends on what we do with the type type
    [["in" field ["array" & values]]] (= field "type")
 
    ;; This needs to precede (or maybe just obviates?) the "from" below.
@@ -66,7 +64,6 @@
   (if (or (not (qrec-involving-reports? qrec))
           (mentions-report-type? expr))
     expr
-    ;; FIXME: order?
     (if (and (not= ::elide expr) (seq expr))
       ["and" expr ["=" "type" "agent"]]
       ["=" "type" "agent"])))
@@ -204,9 +201,9 @@
     :else (second (maybe-add-agent-report-filter qrec ast)))
     (catch ExceptionInfo e
       (let [data (ex-data e)
-            failed-ast-clause (:clause e)]
+            failed-ast-clause (:clause data)]
       (when (not= ::unrecognized-ast-syntax (:kind data))
         (throw e))
       (throw
-        (ex-info (trs "Unrecognized ast clause '{0}' in ast query '{1}'" (pr-str failed-ast-clause) ast)
+        (ex-info (trs "Unrecognized ast clause {0} in ast query {1}" (pr-str failed-ast-clause) ast)
                  {:kind ::unrecognized-ast-syntax}))))))
