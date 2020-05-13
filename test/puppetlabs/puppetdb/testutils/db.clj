@@ -279,16 +279,16 @@
     (f)))
 
 (defn defaulted-write-db-config
-  "Defaults and converts `db-config` from the write database INI
-  format to the internal write database format"
+  "Defaults and converts `db-config` from the trapperkeeper config
+  format to the internal write database format."
   [db-config]
   (transform-data conf/write-database-config-in
                   conf/write-database-config-out
                   db-config))
 
 (defn defaulted-read-db-config
-  "Defaults and converts `db-config` from the read-database INI format
-  to the internal read database format"
+  "Defaults and converts `db-config` from the trapperkeeper format to
+  the internal read database format."
   [db-config]
   (transform-data conf/database-config-in
                   conf/database-config-out

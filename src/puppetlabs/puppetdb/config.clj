@@ -15,12 +15,115 @@
             [me.raynes.fs :as fs]
             [clojure.string :as str]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]))
+
+(defn throw-cli-error [msg]
+  (throw (ex-info msg {:type ::cli-error :message msg})))
+
+(defn parse-git-section-name
+  [s]
+  "See the git-config(1) Syntax section.  Only allows subset for now..."
+  ;; Match [section "subsection"], where the subsection is optional.
+  (let [re #"\[([-0-9a-zA-Z]+)(?:[ \t]+([\p{IsLetter}\p{Digit}\p{Punct}\p{Space}]+))?\]"
+        [_ section subtxt] (re-matches re s)]
+    (when-not section
+      (throw-cli-error (trs "error: invalid section name {0}" (pr-str s))))
+    (if-not subtxt
+      [section]
+      (do
+        (when-not (str/starts-with? subtxt "\"")
+          (throw-cli-error
+           (trs "error: config subsection {0} must start with a double-quote"
+                (pr-str s))))
+        (when-not (or (str/ends-with? subtxt "\""))
+          (throw-cli-error
+           (trs "error: config subsection {0} must end with an unescaped double-quote"
+                (pr-str s))))
+        (when-let [[_ backslashes] (re-find #"([\\]+)\"$" subtxt)]
+          (when (odd? (count backslashes)) ;; Final " must be unescaped
+            (throw-cli-error
+             (trs "error: config subsection {0} must end with an unescaped double-quote"
+                  (pr-str s)))))
+        ;; Remove surrounding double-quotes
+        (let [subtxt (subs subtxt 1 (dec (count subtxt)))]
+          ;; Process escape chars.  Everything escaped just becomes itself.
+          [section (str/replace subtxt #"(:?\\(.))" "$2")])))))
+
+(defn coalesce-sections
+  ;; FIXME: docs (mention "full match")
+
+  [key-re config]
+  ;; OK to follow git's convention here?  Assuming so, let's omit "."
+  ;; from the section name for now since that's a deprecated git
+  ;; config syntax.
+  (reduce-kv
+   (fn [result k v]
+     (if-not (re-matches key-re (name k))
+       (assoc result k v)
+       (let [[sec subsec] (parse-git-section-name (str "[" (name k) "]"))
+             sec (keyword sec)]
+         (if subsec
+           (do
+             (when (get-in result [sec subsec])
+               (throw-cli-error
+                (trs "error: multiple [{0}] subsections in config file"
+                     (pr-str (name k)))))
+             (update-in result [sec subsec] ;; [keyword string]
+                        (fn [prev]
+                          (when prev
+                            (throw-cli-error
+                             (trs "error: multiple [{0}] sections in config file"
+                                  (pr-str (name k)))))
+                          v)))
+           (do ;; no subsection
+             (when-not (= sec k)
+               (throw-cli-error
+                (trs "error: parsed config section [{0}] incorrectly ({1} != {2}); please report"
+                     (pr-str (name k)) (pr-str (name sec)) (pr-str (name k)))))
+             (when (some keyword? (keys (k result)))
+               (throw-cli-error
+                (trs "error: multiple [{0}] sections in config file" (pr-str (name k)))))
+             (update result k merge v))))))
+   {}
+   config))
+
+(defn sectionwide-settings
+  "Returns a map of the sectionwide settings in m."
+  [m]
+  (into {} (filter (fn [[k v]] (keyword? k)) m)))
+
+(defn update-section-settings
+  "First calls (f [] nil sectionwide-settings & args),
+  where sectionwide-settings is a map of all of the keyword value
+  pairs in m, and then calls (f [section] sectionwide-settings
+  section-settings & args) for each string key (for each subsection)
+  in m, where sectionwide-settings is be the result of the initial
+  call to f described above, section is the string key (i.e. the
+  subsection name), and section-settings is the map associated with
+  that key (i.e. the subsection settings).  Merges and returns the
+  results of the calls to f."
+  [m f & args]
+  (let [bad-key #(ex-info (trs "Unexpected key in config section {0}" %1)
+                          {:kind ::unexpected-config-section-key
+                           :key %
+                           :map m})
+        {:keys [sectionwide subsecs]} (group-by (fn [[k v]]
+                                                  (cond
+                                                    (string? k) :subsecs
+                                                    (keyword? k) :sectionwide
+                                                    :else (throw (bad-key k))))
+                                                m)
+        subsecs (into {} subsecs)
+        sectionwide (apply f [] nil (into {} sectionwide) args)]
+    (apply merge
+           sectionwide
+           (for [[subsec opts] subsecs]
+             {subsec (apply f [subsec] sectionwide opts args)}))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -48,7 +151,7 @@
   [map-schema]
   (kitchensink/mapkeys s/optional-key map-schema))
 
-(def database-config-in
+(def per-database-config-in
   "Schema for incoming database config (user defined)"
   (all-optional
     {:conn-max-age (pls/defaulted-maybe s/Int 60)
@@ -71,6 +174,7 @@
      :facts-blacklist pls/Blacklist
      :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
      :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))
+     ;; FIXME?
      ;; completely retired (ignored)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :conn-keep-alive s/Int
@@ -78,11 +182,17 @@
      :statements-cache-size s/Int
      :subprotocol (pls/defaulted-maybe String "postgresql")}))
 
+(def database-config-in
+  (assoc per-database-config-in
+         ;; FIXME: more restrictive spec for names, i.e. syntax check...
+         ;; FIXME: this isn't right since we'll have ":database primary" at this point, not a string.
+         s/Str per-database-config-in))
+
 (def report-ttl-default "14d")
 
-(def write-database-config-in
+(def per-write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
-  (merge database-config-in
+  (merge per-database-config-in
          (all-optional
            {:gc-interval (pls/defaulted-maybe s/Int 60)
             :report-ttl (pls/defaulted-maybe String report-ttl-default)
@@ -92,7 +202,12 @@
             :resource-events-ttl String
             :migrate (pls/defaulted-maybe String "true")})))
 
-(def database-config-out
+(def write-database-config-in
+  (assoc per-write-database-config-in
+         ;; FIXME: more restrictive spec for names, i.e. syntax check...
+         s/Str per-write-database-config-in))
+
+(def per-database-config-out
   "Schema for parsed/processed database config"
   {:subname String
    :conn-max-age Minutes
@@ -121,9 +236,14 @@
    (s/optional-key :statements-cache-size) s/Int
    :subprotocol String})
 
-(def write-database-config-out
+(def database-config-out
+  (assoc per-database-config-out
+         ;; FIXME: more restrictive spec for names, i.e. syntax check...
+         s/Str per-database-config-out))
+
+(def per-write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
-  (merge database-config-out
+  (merge per-database-config-out
          {:gc-interval Minutes
           :report-ttl Period
           :node-purge-ttl Period
@@ -131,6 +251,11 @@
           :node-ttl Period
           (s/optional-key :resource-events-ttl) Period
           :migrate Boolean}))
+
+(def write-database-config-out
+  (assoc per-write-database-config-out
+         ;; FIXME: more restrictive spec for names, i.e. syntax check...
+         s/Str per-write-database-config-out))
 
 (defn half-the-cores*
   "Function for computing half the cores of the system, useful
@@ -217,18 +342,13 @@
   subname."
   [{db-config :database :or {db-config {}} :as config}]
   (when (str/blank? (:subname db-config))
-    (throw+
-     {:type ::cli-error
-      :message
-      (str "PuppetDB requires PostgreSQL."
-           "  The [database] section must contain an appropriate"
-           " \"//host:port/database\" subname setting.")}))
+    (throw-cli-error (trs "No subname set in the [database] config.")))
   (let [{:keys [resource-events-ttl report-ttl]} db-config]
     (when (and resource-events-ttl
-               (t/period-longer? (t/parse-period resource-events-ttl) (t/parse-period (or report-ttl report-ttl-default))))
-      (throw+
-       {:type ::cli-error
-        :message "The setting for resource-events-ttl must not be longer than report-ttl"})))
+               (t/period-longer? (t/parse-period resource-events-ttl)
+                                 (t/parse-period (or report-ttl report-ttl-default))))
+      (throw-cli-error
+       "The setting for resource-events-ttl must not be longer than report-ttl")))
   config)
 
 (defn check-fact-regex [fact]
@@ -248,11 +368,9 @@
                      pls/blacklist->vector
                      (mapv check-fact-regex))]
       (when-let [errors (seq (filter string? patts))]
-        (throw+
-         {:type ::cli-error
-          :message
-          (apply str "Unable to parse facts-blacklist patterns:\n"
-                 (interpose "\n" errors))}))
+        (throw-cli-error
+         (apply str (trs "Unable to parse facts-blacklist patterns:\n")
+                 (interpose "\n" errors))))
       (assoc-in config [:database :facts-blacklist] patts))
     config))
 
@@ -264,64 +382,99 @@
        (pls/defaulted-data section-schema-in)
        (pls/convert-to-schema section-schema-out)))
 
+(defn configure-subsection
+  [config section-schema-in section-schema-out]
+  (->> (or config {})
+       (convert-section-config section-schema-in section-schema-out)
+       (s/validate section-schema-out)))
+
 (defn configure-section
   [config section section-schema-in section-schema-out]
-  (->> (get config section {})
-       (convert-section-config section-schema-in section-schema-out)
-       (s/validate section-schema-out)
+  (->> (configure-subsection (section config) section-schema-in section-schema-out)
        (assoc config section)))
 
-(defn configure-read-db
-  "Wrapper for configuring the read-database section of the config.
-  We rely on the fact that the database section has already been configured
-  using `configure-section`."
-  [{:keys [database read-database] :as config}]
-  (if read-database
-    (configure-section config :read-database database-config-in database-config-out)
-    (->> (assoc database :read-only? true)
-         (pls/strip-unknown-keys database-config-out)
-         (s/validate database-config-out)
-         (assoc config :read-database))))
+(defn configure-section-with-subsections
+  [config section section-schema-in section-schema-out]
+  (update config section
+          (fn [incoming-section-config] ;; i.e. {:subname ... "primary" { ...
+            (update-section-settings
+             incoming-section-config
+             (fn [[subsec] sectionwide opts]
+               ;; Adapt (configure-section doesn't know about subsections)
+               (configure-section {(if subsec subsec section) opts}
+                                  section
+                                  section-schema-in
+                                  section-schema-out))))))
 
 (defn prefer-db-user-on-username-mismatch
-  [{{:keys [user username]} :database :as config}]
+  [{:keys [user username] :as config} db-name]
   ;; match puppetdb.jdbc/make-connection-pool
   (when (and user username (not= user username))
     (log/warn
-     (trs "Configured database user {0} and username {1} don't match"
-          (pr-str user) (pr-str username)))
+     (if db-name
+       (trs "Configured {0} database user {1} and username {2} don't match"
+            (pr-str db-name) (pr-str user) (pr-str username))
+       (trs "Configured database user {0} and username {1} don't match"
+            (pr-str user) (pr-str username))))
     (log/warn
      (trs "Preferring configured user {0}" (pr-str user))))
-  (let [user (or user username)]
-    (-> config
-        (assoc-in [:database :user] user)
-        (assoc-in [:database :username] user))))
+  (let [config (update config :user #(or % (:username config)))]
+    (assoc config :username (:user config))))
+
+(defn default-events-ttl [config]
+  (update config :resource-events-ttl #(or % (:report-ttl config))))
+
+(defn ensure-migrator-info [config]
+  ;; This expects to run after prefer-db-user-on-username-mismatch, so
+  ;; the :user should always be the right answer.
+  (assert (:user config))
+  (-> config
+      (update :migrator-username #(or % (:user config)))
+      (update :migrator-password #(or % (:password config)))))
+
+(defn populate-db-subsections
+  [[db-name] sectionwide settings]
+  (if-not db-name settings (merge sectionwide settings)))
+
+(defn fix-up-db-subsection
+  [[db-name] sectionwide settings]
+  ;; FIXME: double-check this reordering wrt each function,
+  ;; i.e. make sure they're OK with going *after* the defaulting.
+  (-> settings
+      (configure-subsection per-write-database-config-in
+                            per-write-database-config-out)
+      default-events-ttl
+      (prefer-db-user-on-username-mismatch db-name)
+      ensure-migrator-info))
+
+(defn configure-read-db
+  "Ensures that the config contains a suitable [read-database].  If the
+  section already exists, validates and converts it to the internal
+  format.  Otherwise, creates it from values in the [database]
+  section, which must have already been fully configured."
+  [{:keys [database read-database] :as config}]
+  (if read-database
+    (configure-section config :read-database
+                       per-database-config-in
+                       per-database-config-out)
+    (->> (assoc (sectionwide-settings database) :read-only? true)
+         (pls/strip-unknown-keys per-database-config-out)
+         (s/validate per-database-config-out)
+         (assoc config :read-database))))
 
 (defn configure-db
   [config]
-  (letfn [(default-events-ttl [config]
-            (if (get-in config [:database :resource-events-ttl])
-              config
-              (assoc-in config
-                        [:database :resource-events-ttl]
-                        (get-in config [:database :report-ttl]))))
-          (ensure-migrator-info [config]
-            ;; match puppetdb.jdbc/make-connection-pool
-            (let [username (get-in config
-                                   [:database :username]
-                                   (get-in config [:database :user]))]
-              (-> config
-                  (update-in [:database :migrator-username] #(or % username))
-                  (update-in [:database :migrator-password]
-                             #(or % (get-in config [:database :password]))))))]
-    (-> config
-        (configure-section :database
-                           write-database-config-in
-                           write-database-config-out)
-        default-events-ttl
-        prefer-db-user-on-username-mismatch
-        ensure-migrator-info
-        configure-read-db)))
+  (-> (coalesce-sections #"^database.*" config)
+      ;; Populate first, so that each subsection will have the
+      ;; sectionwide values before any fix-ups.  Otherwise operations
+      ;; like prefer-db-user-on-username-mismatch may misfire, because
+      ;; (in that case) subsections will always end up with a :user
+      ;; from the fully expanded sectionwide settings, which will
+      ;; supersede a per-section :username, even if the original
+      ;; sectionwide setting didn't have a :user.
+      (update :database update-section-settings populate-db-subsections)
+      (update :database update-section-settings fix-up-db-subsection)
+      configure-read-db))
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"

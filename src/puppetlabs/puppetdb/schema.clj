@@ -150,6 +150,8 @@
   [schema data]
   (select-keys data (map schema-key->data-key (keys schema))))
 
+;; FIXME - see db uses for testing, not right for multidb now.
+
 (defn transform-data
   "Given an `in-schema` and `out-schema`, default missing values
    and convert to the `out-schema` format."
