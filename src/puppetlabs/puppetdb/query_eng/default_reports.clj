@@ -3,7 +3,10 @@
    [clojure.core.match :as cm]
    [clojure.set :as set]
    [clojure.string :as str]
-   [puppetlabs.puppetdb.query-eng.engine :as eng :refer [user-name->query-rec-name]]))
+   [puppetlabs.i18n.core :refer [tru trs]]
+   [puppetlabs.puppetdb.query-eng.engine :as eng :refer [user-name->query-rec-name]])
+  (:import
+    (clojure.lang ExceptionInfo)))
 
 (defn is-page-order-opt?
   [page-order-opts]
@@ -47,9 +50,9 @@
    [["subquery" entity expr]] false
 
    :else (throw
-          ;; FIXME: better info
-          (ex-info (str "Unrecognized ast clause: " (pr-str ast))
-                   {:kind ::unrecognized-ast-syntax}))))
+          (ex-info "Unrecognized ast clause."
+                   {:kind ::unrecognized-ast-syntax
+                    :clause ast}))))
 
 (defn qrec-tables
   [qrec]
@@ -164,9 +167,9 @@
      `["subquery" ~entity ~expr])
 
    :else (throw
-          ;; FIXME: better info
-          (ex-info (str "Unrecognized ast clause: " (pr-str ast))
-                   {:kind ::unrecognized-ast-syntax}))))
+          (ex-info "Unrecognized ast clause."
+                   {:kind ::unrecognized-ast-syntax
+                    :clause ast}))))
 
 (defn maybe-add-agent-report-filter
   "Returns [qrec ast] after adjusting the top-level filter in the ast
@@ -183,18 +186,27 @@
 
 (defn maybe-add-agent-report-filter-to-query
   [qrec ast]
-  (cm/match
-    [ast]
-    ;; Top level 'extract' has had the preceding 'from' removed and it
-    ;; only valid at the very top level of the query, not in subqueries
-    [["extract" fields & (page-order-opts :guard is-page-order-opt?)]]
-    (let [[_ expr] (maybe-add-agent-report-filter qrec ::elide)]
-      (if (= ::elide expr)
-        `["extract" ~fields ~@page-order-opts]
-        `["extract" ~fields ~expr ~@page-order-opts]))
+  (try
+    (cm/match
+      [ast]
+      ;; Top level 'extract' has had the preceding 'from' removed and it
+      ;; only valid at the very top level of the query, not in subqueries
+      [["extract" fields & (page-order-opts :guard is-page-order-opt?)]]
+      (let [[_ expr] (maybe-add-agent-report-filter qrec ::elide)]
+        (if (= ::elide expr)
+          `["extract" ~fields ~@page-order-opts]
+          `["extract" ~fields ~expr ~@page-order-opts]))
 
     [["extract" fields expr & page-order-opts]]
     (let [[_ expr] (maybe-add-agent-report-filter qrec expr)]
       `["extract" ~fields ~expr ~@page-order-opts])
 
-    :else (second (maybe-add-agent-report-filter qrec ast))))
+    :else (second (maybe-add-agent-report-filter qrec ast)))
+    (catch ExceptionInfo e
+      (let [data (ex-data e)
+            failed-ast-clause (:clause e)]
+      (when (not= ::unrecognized-ast-syntax (:kind data))
+        (throw e))
+      (throw
+        (ex-info (trs "Unrecognized ast clause '{0}' in ast query '{1}'" (pr-str failed-ast-clause) ast)
+                 {:kind ::unrecognized-ast-syntax}))))))
