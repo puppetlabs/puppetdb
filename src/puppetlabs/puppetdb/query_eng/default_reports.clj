@@ -53,10 +53,7 @@
 
 (defn qrec-tables
   [qrec]
-  (apply set/union
-         (:source-tables qrec)
-         (for [[name info] (:projections qrec)]
-           (:join-deps info))))
+  (:source-tables qrec))
 
 (defn qrec-involving-reports? [qrec]
   (boolean (:reports (qrec-tables qrec))))

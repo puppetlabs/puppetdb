@@ -2,7 +2,7 @@
   (:require
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.query-eng.engine
-    :refer [inventory-query nodes-query report-logs-query]]
+    :refer [inventory-query reports-query report-logs-query]]
    [puppetlabs.puppetdb.query-eng.default-reports :as t]))
 
 ;; Q: no page-order-opts -- needed?
@@ -80,21 +80,17 @@
 
 (deftest test-random-bits
 
-  (is (= #{:catalog_environment :catalogs :certnames :facts_environment :fs
-           :reports :reports_environment :report_statuses}
-         (t/qrec-tables nodes-query)))
-
   (is (= false (t/qrec-involving-reports? inventory-query)))
-  (is (= true (t/qrec-involving-reports? nodes-query)))
+  (is (= true (t/qrec-involving-reports? reports-query)))
   (is (= true (t/qrec-involving-reports? report-logs-query)))
 
 
   (is (= [inventory-query []]
-         (t/maybe-add-agent-report-filter-to-query inventory-query [])))
+         (t/maybe-add-agent-report-filter inventory-query [])))
 
-  (is (= [nodes-query ["=" "type" "agent"]]
-         (t/maybe-add-agent-report-filter-to-query nodes-query [])))
+  (is (= [reports-query ["=" "type" "agent"]]
+         (t/maybe-add-agent-report-filter reports-query [])))
 
-  (is (= [nodes-query ["=" "type" "report"]]
-         (t/maybe-add-agent-report-filter-to-query nodes-query
-                                                   ["=" "type" "report"]))))
+  (is (= [reports-query ["=" "type" "plan"]]
+         (t/maybe-add-agent-report-filter reports-query
+                                          ["=" "type" "plan"]))))

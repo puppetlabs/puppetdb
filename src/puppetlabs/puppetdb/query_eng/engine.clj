@@ -568,7 +568,11 @@
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
-                                     :field (hsql-hash-as-str :reports.hash)}}
+                                     :field (hsql-hash-as-str :reports.hash)}
+                             "type" {:type :string
+                                     :queryable? true
+                                     :query-only? true
+                                     :field :reports.report_type}}
                :selection {:from [:reports]}
 
                :alias "logs"
@@ -588,7 +592,11 @@
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
-                                     :field (hsql-hash-as-str :reports.hash)}}
+                                     :field (hsql-hash-as-str :reports.hash)}
+                             "type" {:type :string
+                                     :queryable? true
+                                     :query-only? true
+                                     :field :reports.report_type}}
                :selection {:from [:reports]}
 
                :alias "metrics"
@@ -698,6 +706,10 @@
                 :queryable? true
                 :field :report_statuses.status
                 :join-deps #{:report_statuses}}
+      "type" {:type :string
+              :queryable? true
+              :field :reports.report_type
+              :join-deps #{:reports}}
 
       "latest_report?" {:type :string
                         :queryable? true
