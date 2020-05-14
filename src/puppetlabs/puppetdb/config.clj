@@ -96,6 +96,20 @@
   [m]
   (into {} (filter (fn [[k v]] (keyword? k)) m)))
 
+(defn reduce-section
+  "Behaves like reduce, but calls (f result name settings) for each
+  subsection in the section.  If there are no subsections, calls (f
+  result nil (sectionwide-settings section))."
+  [f init section]
+  (if-not (seq (filter string? (keys section)))
+    (f init nil (sectionwide-settings section))
+    (reduce-kv (fn [result k v]
+                 (if (string? k)
+                   (f result k v)
+                   result))
+               init
+               section)))
+
 (defn update-section-settings
   "First calls (f [] nil sectionwide-settings & args),
   where sectionwide-settings is a map of all of the keyword value

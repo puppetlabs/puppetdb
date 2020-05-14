@@ -634,10 +634,26 @@
           (let [job-pool (mk-pool)
                 gc-interval-millis (to-millis (:gc-interval database))
                 schema-check-interval (:schema-check-interval database)
-                write-db (-> (assoc database
-                                    :pool-name "PDBWritePool"
-                                    :expected-schema desired-schema-version)
-                             (jdbc/pooled-datasource database-metrics-registry))]
+                write-cfgs (conf/reduce-section
+                            (fn [result name settings] (conj result settings))
+                            []
+                            database)
+                _ (assert (= 1 (count write-cfgs)))
+                write-dbs (conf/reduce-section
+                           (fn [result name settings]
+                             (conj result
+                                   (-> settings
+                                       (assoc :pool-name (apply str "PDBWritePool"
+                                                                (when name  [": " name]))
+                                              :expected-schema desired-schema-version)
+                                       (jdbc/pooled-datasource database-metrics-registry))))
+                           []
+                           database)
+                write-db-names (conf/reduce-section
+                                (fn [result name settings]
+                                  (conj result (or name "default")))
+                                [] database)
+                [write-db] write-dbs]
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
             (when (pos? schema-check-interval)
@@ -663,7 +679,9 @@
                 (assoc-in [:shared-globals :maybe-send-cmd-event!] maybe-send-cmd-event!)
                 (assoc-in [:shared-globals :q] q)
                 (assoc-in [:shared-globals :scf-read-db] read-db)
-                (assoc-in [:shared-globals :scf-write-db] write-db))))))))
+                (assoc-in [:shared-globals :scf-write-db] write-db)
+                (assoc-in [:shared-globals :scf-write-dbs] write-dbs)
+                (assoc-in [:shared-globals :scf-write-db-names] write-db-names))))))))
 
 (defn db-unsupported-msg
     "Returns a message describing which databases are supported."
