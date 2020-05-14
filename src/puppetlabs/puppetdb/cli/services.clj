@@ -247,6 +247,9 @@
   []
   (reset! clean-status ""))
 
+;; FIXME: per-db gc stats?
+;; FIXME: db name in all gc logging?
+
 (defn-validated clean-up
   "Cleans up the resources specified by request, or everything if
   request is empty?."
@@ -301,14 +304,24 @@
   "Implements the PuppetDBServer clean method, see the protocol for
   further information."
   [context config what]
+  ;; For now, just serialize them.
+  ;; FIXME: improve request results wrt multiple databases?
   (let [lock (:clean-lock context)]
     (when (.tryLock lock)
       (try
-        (clean-up (get-in context [:shared-globals :scf-write-db])
-                  lock
-                  (:database config)
-                  what)
-        true
+        (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
+               ex nil]
+          (if-not db
+            (if-not ex
+              true
+              (throw ex))
+            (let [ex (try
+                       (clean-up db lock (:database config) what)
+                       ex
+                       (catch Exception db-ex
+                         (when ex (.addSuppressed ex db-ex))
+                         (or ex db-ex)))]
+              (recur dbs ex))))
         (finally
           (.unlock lock))))))
 
@@ -364,6 +377,7 @@
   (close-write-dbs (get-in context [:shared-globals :scf-write-dbs]))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
     (.close ^Closeable ds))
+
   (when-let [command-loader (:command-loader context)]
     (future-cancel command-loader))
   context)
@@ -673,7 +687,7 @@
 
           ;; Pretty much this helper just knows our job-pool and gc-interval
           (let [job-pool (mk-pool)
-                gc-interval-millis (to-millis (:gc-interval database))
+                ;; FIXME: forbid subdb settings?
                 schema-check-interval (:schema-check-interval database)
                 write-cfgs (conf/reduce-section
                             (fn [result name settings] (conj result settings))
@@ -704,13 +718,17 @@
                                                   service
                                                   request-shutdown)
                            job-pool))
-            (when (pos? gc-interval-millis)
-              (let [request (db-config->clean-request database)]
-                (interspaced gc-interval-millis
-                             #(coordinate-gc-with-shutdown write-db clean-lock
-                                                           database request
-                                                           (:stop-status context))
-                             job-pool)))
+            (mapv (fn [cfg db]
+                    (let [interval (to-millis (:gc-interval cfg))]
+                      (when (pos? interval)
+                        (let [request (db-config->clean-request cfg)]
+                          (interspaced interval
+                                       #(coordinate-gc-with-shutdown db clean-lock
+                                                                     cfg request
+                                                                     (:stop-status context))
+                                       job-pool)))))
+                  write-cfgs
+                  write-dbs)
             (-> context
                 (assoc :job-pool job-pool
                        :command-loader command-loader)
