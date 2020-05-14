@@ -19,6 +19,8 @@
         (is (= {:maintenance_mode? false
                 :read_db_up? true
                 :write_db_up? true
+                :write_dbs_up? true
+                :write_db {:default {:up? true}}
                 :queue_depth 0}
                (:status pdb-status))))))
 
@@ -35,5 +37,7 @@
           (is (= {:maintenance_mode? true
                   :read_db_up? true
                   :write_db_up? true
+                  :write_dbs_up? true
+                  :write_db {:default {:up? true}}
                   :queue_depth 0}
                  (:status pdb-status))))))))

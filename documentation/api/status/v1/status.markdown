@@ -46,6 +46,13 @@ following:
     pending migrations and initial data synchronization (when using HA).
     While in maintenance mode, PuppetDB will not respond to queries.
     * `read_db_up?`: indicates whether the read database is responding to queries.
-    * `write_db_up?`: indicates whether the write database is responding to queries.
+    * `write_db_up?`: boolean indicating whether at least one write
+      database is responding to queries.
+    * `write_dbs_up?`: boolean indicating whether all of the write
+      databases are responding to queries.
+    * `write_dbs_up?`: map of database (string) names to `{"up?":
+      boolean}` values indicating whether the database is responding
+      to queries.  If there is only one write database, the name will
+      be an empty string.
     * `queue_depth`: depth of the command queue. If the queue is not yet
       initialized, this field will be null.
