@@ -12,8 +12,19 @@ set -e
 # that particular one), perhaps puppetdb should just support the
 # variable itself.
 
-cmd="$(printf "%q %s -Dlogappender=STDOUT -cp %q/puppetdb.jar clojure.main -m puppetlabs.puppetdb.core upgrade -c %q" \
-         "$JAVA_BIN" "$JAVA_ARGS" "$INSTALL_DIR" "$CONFIG")"
+cli_defaults=${INSTALL_DIR}/cli/cli-defaults.sh
+CLASSPATH=${INSTALL_DIR}/puppetdb.jar
+
+if [ -e "$cli_defaults" ]; then
+  . $cli_defaults
+  if [ $? -ne 0 ]; then
+    echo "Unable to initialize cli defaults, failing start." 1>&2
+    exit 1
+  fi
+fi
+
+cmd="$(printf "%q %s -Dlogappender=STDOUT -cp %q clojure.main -m puppetlabs.puppetdb.core upgrade -c %q" \
+         "$JAVA_BIN" "$JAVA_ARGS" "$CLASSPATH" "$CONFIG")"
 
 if test "$(id -un)" = "$USER"; then
     exec "$cmd $@"
