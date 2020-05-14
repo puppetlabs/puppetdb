@@ -328,8 +328,18 @@
 (defn- delete-node-from-puppetdb [context certname]
   "Implements the PuppetDBServer delete-node method, see the protocol
    for further information"
-  (jdbc/with-transacted-connection (get-in context [:shared-globals :scf-write-db])
-    (scf-store/delete-certname! certname)))
+  (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
+         ex nil]
+    (if-not db
+      (when ex (throw ex))
+      (let [ex (try
+                 (jdbc/with-transacted-connection db
+                   (scf-store/delete-certname! certname))
+                 ex
+                 (catch Exception db-ex
+                   (when ex (.addSuppressed ex db-ex))
+                   (or ex db-ex)))]
+        (recur dbs ex)))))
 
 (defn maybe-check-for-updates
   [config read-db job-pool]
