@@ -590,6 +590,7 @@
         context (assoc context  ;; context may be augmented further below
                        :shared-globals {:pretty-print (:pretty-print developer)
                                         :node-purge-ttl (:node-purge-ttl database)
+                                        :add-agent-report-filter (get-in config [:puppetdb :add-agent-report-filter])
                                         :cmd-event-mult cmd-event-mult
                                         :maybe-send-cmd-event! maybe-send-cmd-event!}
                        :clean-lock clean-lock)]
@@ -813,7 +814,7 @@
   (query [this version query-expr paging-options row-callback-fn]
          (let [sc (service-context this)
                query-options (-> (get sc :shared-globals)
-                                 (select-keys [:scf-read-db :warn-experimental :node-purge-ttl])
+                                 (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
                                  (assoc :url-prefix @(get sc :url-prefix)))]
            (qeng/stream-query-result version
                                      query-expr

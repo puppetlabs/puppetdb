@@ -88,6 +88,7 @@
                        :scf-read-db          *db*
                        :scf-write-db         *db*
                        :product-name         "puppetdb"
+                       :add-agent-report-filter true
                        :node-purge-ttl       (t/parse-period "14d")}
                       global-overrides)}))
 
@@ -116,10 +117,15 @@
    (let [get-shared-globals #(adjust-globals {:scf-read-db *db*
                                               :scf-write-db *db*
                                               :url-prefix ""
+                                              :add-agent-report-filter true
                                               :node-purge-ttl (t/parse-period "14d")})]
      (binding [*app* (wrap-with-puppetdb-middleware
                       (server/build-app get-shared-globals))]
        (f)))))
+
+(defmacro with-http-app*
+  [adjust-globals & body]
+  `(call-with-http-app (fn [] ~@body) ~adjust-globals))
 
 (defmacro with-http-app
   [& body]

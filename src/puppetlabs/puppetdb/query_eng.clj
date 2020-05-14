@@ -130,26 +130,29 @@
                       :else
                       (get-in @entity-fn-idx [entity :rec]))
           columns (orderable-columns query-rec)
-          unknown-err-msg (trs "Unknown exception when processing ast to add report type filter(s).")
-          ast (try (dr/maybe-add-agent-report-filter-to-query query-rec query)
-                (catch ExceptionInfo e
-                  (let [data (ex-data e)
-                        msg (.getMessage e)]
-                    (when (not= ::dr/unrecognized-ast-syntax (:kind data))
-                      (log/error e unknown-err-msg)
-                      (throw e))
-                    (log/error e msg)
-                    ::failed))
-                (catch Exception e
-                  (log/error e unknown-err-msg)
-                  (throw e)))]
+          unknown-err-msg (trs "Unknown exception when processing ast to add report type filter(s).")]
       (paging/validate-order-by! columns query-options)
-      (if (= ast ::failed)
-        (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
-                        {:kind ::dr/unrecognized-ast-syntax
-                         :ast query
-                         :sql (eng/compile-user-query->sql query-rec query query-options)}))
-        (eng/compile-user-query->sql query-rec ast query-options)))))
+      (if (:add-agent-report-filter query-options)
+        (let [ast (try
+                    (dr/maybe-add-agent-report-filter-to-query query-rec query)
+                    (catch ExceptionInfo e
+                      (let [data (ex-data e)
+                            msg (.getMessage e)]
+                        (when (not= ::dr/unrecognized-ast-syntax (:kind data))
+                          (log/error e unknown-err-msg)
+                          (throw e))
+                        (log/error e msg)
+                        ::failed))
+                    (catch Exception e
+                      (log/error e unknown-err-msg)
+                      (throw e)))]
+          (if (= ast ::failed)
+            (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
+                            {:kind ::dr/unrecognized-ast-syntax
+                             :ast query
+                             :sql (eng/compile-user-query->sql query-rec query query-options)}))
+            (eng/compile-user-query->sql query-rec ast query-options)))
+        (eng/compile-user-query->sql query-rec query query-options)))))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
@@ -164,6 +167,7 @@
   {:scf-read-db s/Any
    :url-prefix String
    :node-purge-ttl Period
+   :add-agent-report-filter Boolean
    (s/optional-key :warn-experimental) Boolean
    (s/optional-key :pretty-print) (s/maybe Boolean)})
 
@@ -201,8 +205,8 @@
     :else obj))
 
 (defn user-query->engine-query
-  ([version query-map node-purge-ttl] (user-query->engine-query version query-map node-purge-ttl false))
-  ([version query-map node-purge-ttl warn-experimental]
+  ([version query-map options] (user-query->engine-query version query-map options false))
+  ([version query-map options warn-experimental]
    (let [query (:query query-map)
          {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
                                                           version query warn-experimental)
@@ -212,7 +216,8 @@
                                 utils/strip-nil-values)
          query-options (->> (dissoc query-map :query)
                             utils/strip-nil-values
-                            (merge {:node-purge-ttl node-purge-ttl :limit nil :offset nil :order_by nil}
+                            (merge {:limit nil :offset nil :order_by nil}
+                                   options
                                    paging-options))
          entity (cond
                   (and (= entity :factsets) (:include_package_inventory query-options)) :factsets-with-packages
@@ -227,11 +232,12 @@
   [version :- s/Keyword
    query-map
    options :- query-options-schema]
-  (let [{:keys [scf-read-db url-prefix node-purge-ttl warn-experimental pretty-print]
+  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
          :or {warn-experimental true
               pretty-print false}} options
+        query-config (select-keys options [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
-        (user-query->engine-query version query-map node-purge-ttl warn-experimental)]
+        (user-query->engine-query version query-map query-config warn-experimental)]
 
     (try
       (jdbc/with-transacted-connection scf-read-db

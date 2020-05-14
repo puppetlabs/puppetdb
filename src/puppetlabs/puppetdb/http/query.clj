@@ -369,12 +369,13 @@
 (defn narrow-globals
   "Reduces the number of globals to limit their reach in the codebase"
   [globals]
-  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print :node-purge-ttl]))
+  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print :node-purge-ttl :add-agent-report-filter]))
 
 (defn valid-query?
   [scf-read-db version query-map query-options]
-  (let [{:keys [remaining-query entity query-options]}
-        (qeng/user-query->engine-query version query-map (:node-purge-ttl query-options))]
+  (let [options (select-keys query-options [:node-purge-ttl :add-agent-report-filter])
+        {:keys [remaining-query entity query-options]}
+        (qeng/user-query->engine-query version query-map options)]
     (jdbc/with-db-connection scf-read-db
       (when (qeng/query->sql remaining-query entity version query-options)
         true))))
