@@ -40,6 +40,7 @@
      maintain acceptable performance."
   (:refer-clojure :exclude (with-open))
   (:require [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
@@ -330,6 +331,23 @@
 
 (def stop-gc-wait-ms (constantly 5000))
 
+(defn ready-to-stop? [{:keys [stopping collecting-garbage]}]
+  (and stopping (not (seq collecting-garbage))))
+
+(defn close-write-dbs [dbs]
+  (loop [[db & dbs] dbs
+         ex nil]
+    (if-not db
+      (when ex (throw ex))
+      (let [ex (try
+                 (when-let [ds (:datasource db)]
+                   (.close ^Closeable ds))
+                 ex
+                 (catch Exception db-ex
+                   (when ex (.addSuppressed ex db-ex))
+                   (or ex db-ex)))]
+        (recur dbs ex)))))
+
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
@@ -339,12 +357,11 @@
   (when-let [pool (:job-pool context)]
     (stop-and-reset-pool! pool))
   ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-  (swap! stop-status #(conj % :stopping))
-  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) #(= % #{:stopping}))
+  (swap! stop-status assoc :stopping true)
+  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) ready-to-stop?)
     (log/info (trs "Periodic activities halted"))
     (log/info (trs "Forcibly terminating periodic activities")))
-  (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
-    (.close ^Closeable ds))
+  (close-write-dbs (get-in context [:shared-globals :scf-write-dbs]))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
     (.close ^Closeable ds))
   (when-let [command-loader (:command-loader context)]
@@ -522,19 +539,37 @@
     (finally
       (.unlock clean-lock))))
 
+;; FIXME: with-logged-ex...
+
 (defn coordinate-gc-with-shutdown
   [write-db clean-lock database request stop-status]
   ;; This function assumes it will never be called concurrently with
   ;; itself, so that it's ok to just conj/disj below, instead of
   ;; tracking an atomic count or similar.
-  (let [update-if-not-stopping #(if (:stopping %)
-                                  %
-                                  (conj % :collecting-garbage))]
+  (let [thread (Thread/currentThread)
+        update-if-not-stopping (fn [status]
+                                 (if (:stopping status)
+                                   status
+                                   (update status :collecting-garbage
+                                           ;; union not conj, so nil is ok
+                                           #(set/union % #{thread}))))]
     (try
-      (when (:collecting-garbage (swap! stop-status update-if-not-stopping))
+      (when (get-in (swap! stop-status update-if-not-stopping)
+                    [:collecting-garbage thread])
         (collect-garbage write-db clean-lock database request))
+      (catch Exception ex
+        (log/error ex)
+        (throw ex))
       (finally
-        (swap! stop-status disj :collecting-garbage)))))
+        (swap! stop-status (fn [status]
+                             (update status :collecting-garbage
+                                     ;; Very important that this not
+                                     ;; set :collecting-garbage to
+                                     ;; #{}, so that existing code
+                                     ;; that doesn't check (seq
+                                     ;; status) will work.
+                                     #(let [s (disj % thread)]
+                                        (when (seq s) s)))))))))
 
 (defn maybe-send-cmd-event!
   "Put a map with identifying information about an enqueued command on the
@@ -546,7 +581,7 @@
 (defn check-schema-version
   [desired-schema-version context db service request-shutdown]
   {:pre [(integer? desired-schema-version)]}
-  (when-not (= #{:stopping} @(:stop-status context))
+  (when-not (:stopping @(:stop-status context))
     (let [schema-version (-> (jdbc/with-transacted-connection db
                                (jdbc/query "select max(version) from schema_migrations"))
                              first
@@ -813,7 +848,7 @@
                  ;; This coordination is needed until we no longer
                  ;; support jdk < 10.
                  ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-                 :stop-status (atom #{})
+                 :stop-status (atom {})
                  :shutdown-request (promise))))
   (start
    [this context]

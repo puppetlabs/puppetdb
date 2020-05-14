@@ -326,11 +326,13 @@
   (with-log-output log-output
     (let [gc-blocked (promise)
           gc-proceed (promise)
-          gc svcs/collect-garbage]
+          gc svcs/collect-garbage
+          collect-thread (promise)]
       (with-redefs [svcs/stop-gc-wait-ms (constantly (if slow-gc?
                                                        0 ;; no point in waiting
                                                        default-timeout-ms))
                     svcs/collect-garbage (fn [& args]
+                                           (deliver collect-thread (Thread/currentThread))
                                            (deliver gc-blocked true)
                                            @gc-proceed
                                            (apply gc args))]
@@ -344,7 +346,7 @@
                                                (svcs/db-config->clean-request db-cfg)
                                                stop-status))
             @gc-blocked
-            (is #{:collecting-garbage} @stop-status)
+            (is (= #{@collect-thread} (:collecting-garbage @stop-status)))
             (when-not slow-gc?
               (deliver gc-proceed true))))))
     (is (= 1 (->> @log-output
