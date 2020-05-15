@@ -688,6 +688,64 @@
   [size]
   (pool/gated-threadpool size "cmd-proc-thread-%d" 10000))
 
+(defn start-command-service
+  [context config {:keys [dlo] :as globals}]
+  (if (get-in config [:global :upgrade-and-exit?])
+    context
+    (let [{:keys [command-chan scf-write-db q maybe-send-cmd-event!]} globals
+          {:keys [response-chan response-pub]} context
+          command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
+          delay-pool (:delay-pool context)
+          handle-cmd (message-handler q
+                                      command-chan
+                                      dlo
+                                      delay-pool
+                                      scf-write-db
+                                      response-chan
+                                      (:stats context)
+                                      (-> config
+                                          :database
+                                          (select-keys [:facts-blacklist
+                                                        :facts-blacklist-type]))
+                                      (:stop-status context)
+                                      maybe-send-cmd-event!)]
+      ;; The rejection below should only occur if new work is
+      ;; submitted after the threadpool has started shutting down as
+      ;; part of the service's shutdown.  Since the command will be
+      ;; retried on the next restart, there's no reason to let this
+      ;; bubble up and be reported.
+      (let [shovel #(try
+                      (pool/dochan command-threadpool handle-cmd command-chan)
+                      (catch ExceptionInfo ex
+                        (when-not (= :puppetlabs.puppetdb.threadpool/rejected
+                                     (:kind (ex-data ex)))
+                          (throw ex))))]
+        (doto (Thread. shovel)
+          (.setDaemon false)
+          (.start)))
+      (assoc context
+             :command-chan command-chan
+             :consumer-threadpool command-threadpool))))
+
+(defn stop-command-service
+  [{:keys [stop-status consumer-threadpool command-chan delay-pool]
+    :as context}]
+  (some-> command-chan async/close!)
+  (some-> consumer-threadpool pool/shutdown-gated)
+  (some-> delay-pool stop-and-reset-pool!)
+  ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+  (swap! stop-status #(assoc % :stopping true))
+  (if (utils/wait-for-ref-state stop-status (stop-commands-wait-ms)
+                                #(= % {:stopping true :executing-delayed 0}))
+    (log/info (trs "Halted delayed command processsing"))
+    (log/info (trs "Forcibly terminating delayed command processing")))
+  (async/unsub-all (:response-pub context))
+  (async/untap-all (:response-mult context))
+  (async/close! (:response-chan-for-pub context))
+  (async/close! (:response-chan context))
+  (dissoc context
+          :response-pub :response-chan :response-chan-for-pub :response-mult))
+
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
@@ -712,68 +770,8 @@
              ;; https://bugs.openjdk.java.net/browse/JDK-8176254
              :stop-status (atom {:executing-delayed 0}))))
 
-  (start
-   [this context]
-   (let [config (get-config)
-         globals (shared-globals)
-         dlo (:dlo globals)]
-     (if (get-in config [:global :upgrade-and-exit?])
-       context
-       (let [{:keys [command-chan scf-write-db q maybe-send-cmd-event!]} globals
-             {:keys [response-chan response-pub]} context
-             ;; From mq_listener
-             command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
-             delay-pool (:delay-pool context)
-             handle-cmd (message-handler q
-                                         command-chan
-                                         dlo
-                                         delay-pool
-                                         scf-write-db
-                                         response-chan
-                                         (:stats context)
-                                         (-> (get-config)
-                                             :database
-                                             (select-keys [:facts-blacklist
-                                                           :facts-blacklist-type]))
-                                         (:stop-status context)
-                                         maybe-send-cmd-event!)]
-
-         ;; The rejection below should only occur if new work is
-         ;; submitted after the threadpool has started shutting down
-         ;; as part of the service's shutdown.  Since the command will
-         ;; be retried on the next restart, there's no reason to let
-         ;; this bubble up and be reported.
-         (let [shovel #(try
-                         (pool/dochan command-threadpool handle-cmd command-chan)
-                         (catch ExceptionInfo ex
-                           (when-not (= :puppetlabs.puppetdb.threadpool/rejected
-                                        (:kind (ex-data ex)))
-                             (throw ex))))]
-           (doto (Thread. shovel)
-             (.setDaemon false)
-             (.start)))
-
-         (assoc context
-                :command-chan command-chan
-                :consumer-threadpool command-threadpool)))))
-
-  (stop [this {:keys [stop-status consumer-threadpool command-chan delay-pool]
-               :as context}]
-    (some-> command-chan async/close!)
-    (some-> consumer-threadpool pool/shutdown)
-    (some-> delay-pool stop-and-reset-pool!)
-    ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-    (swap! stop-status #(assoc % :stopping true))
-    (if (utils/wait-for-ref-state stop-status (stop-commands-wait-ms)
-                                  #(= % {:stopping true :executing-delayed 0}))
-      (log/info (trs "Halted delayed command processsing"))
-      (log/info (trs "Forcibly terminating delayed command processing")))
-    (async/unsub-all (:response-pub context))
-    (async/untap-all (:response-mult context))
-    (async/close! (:response-chan-for-pub context))
-    (async/close! (:response-chan context))
-    (dissoc context
-            :response-pub :response-chan :response-chan-for-pub :response-mult))
+  (start [this context] (start-command-service context (get-config) (shared-globals)))
+  (stop [this context] (stop-command-service context))
 
   (stats [this]
     @(:stats (service-context this)))
