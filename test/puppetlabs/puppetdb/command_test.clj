@@ -69,10 +69,14 @@
            [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
-(defrecord CommandHandlerContext [message-handler command-chan dlo delay-pool response-chan q]
+;; FIXME: could/should some of this be shared with cmd service's close?
+(defrecord CommandHandlerContext
+    [message-handler command-chan dlo delay-pool broadcast-pool response-chan q]
   java.io.Closeable
   (close [_]
+    ;; FIXME: (PDB-4742) exception suppression?
     (async/close! command-chan)
+    (some-> broadcast-pool pool/shutdown-unbounded)
     (async/close! response-chan)
     (fs/delete-dir (:path dlo))
     (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
@@ -93,14 +97,18 @@
         dlo (dlo/initialize (.toPath dlo-dir)
                              (:registry (new-metrics "puppetlabs.puppetdb.dlo"
                                                      :jmx? false)))
-        maybe-send-cmd-event! (constantly true)]
+        maybe-send-cmd-event! (constantly true)
+        dbs [*db*]
+        ;; FIXME: some tests deliver in parallel
+        broadcast-pool (cmd/create-broadcast-pool 3 dbs)]
     (map->CommandHandlerContext
      {:handle-message (message-handler
                        q
                        command-chan
                        dlo
                        delay-pool
-                       *db*
+                       broadcast-pool
+                       dbs
                        response-chan
                        stats
                        blacklist-config
@@ -109,6 +117,7 @@
       :command-chan command-chan
       :dlo dlo
       :delay-pool delay-pool
+      :broadcast-pool broadcast-pool
       :response-chan response-chan
       :q q})))
 

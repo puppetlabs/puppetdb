@@ -628,8 +628,9 @@
   "Processes the message via (process-message msg), retrying messages
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
-  [q command-chan dlo delay-pool scf-write-db response-chan stats
+  [q command-chan dlo delay-pool broadcast-pool scf-write-dbs response-chan stats
    blacklist-config stop-status maybe-send-cmd-event!]
+  (assert (= 1 (count scf-write-dbs)))
   (fn [{:keys [certname command version received delete? id] :as cmdref}]
     (try+
 
@@ -642,11 +643,11 @@
          (update! (cmd-metric command version :queue-time) q-time)))
 
      (if delete?
-       (process-delete-cmdref cmdref q scf-write-db response-chan
+       (process-delete-cmdref cmdref q (first scf-write-dbs) response-chan
                               stats blacklist-config maybe-send-cmd-event!)
        (let [retries (count (:attempts cmdref))]
          (try+
-          (process-cmdref cmdref q scf-write-db response-chan stats
+          (process-cmdref cmdref q (first scf-write-dbs) response-chan stats
                           blacklist-config maybe-send-cmd-event!)
           (catch fatal? obj
             (mark! (global-metric :fatal))
@@ -678,6 +679,7 @@
        (discard-message cmdref (:throwable &throw-context) q dlo maybe-send-cmd-event!)))))
 
 (def stop-commands-wait-ms (constantly 5000))
+(def threadpool-shutdown-ms 10000)
 
 (defn create-command-handler-threadpool
   "Creates an unbounded threadpool with the intent that access to the
@@ -686,21 +688,33 @@
   it's more efficient to use an unbounded pool and not duplicate the
   constraint in both the semaphore and the threadpool"
   [size]
-  (pool/gated-threadpool size "cmd-proc-thread-%d" 10000))
+  (pool/gated-threadpool size "cmd-proc-thread-%d" threadpool-shutdown-ms))
+
+(defn create-broadcast-pool [cmd-concurrency write-dbs]
+  (let [db-concurrency (* cmd-concurrency (count write-dbs))]
+    (when (or (> db-concurrency cmd-concurrency)
+              (->> (or (System/getenv "PDB_TEST_ALWAYS_BROADCAST_COMMANDS") "")
+                   (re-matches #"yes|true|1")
+                   seq))
+      (pool/unbounded-threadpool "cmd-broadcast-thread-%d"
+                                 threadpool-shutdown-ms))))
 
 (defn start-command-service
   [context config {:keys [dlo] :as globals}]
   (if (get-in config [:global :upgrade-and-exit?])
     context
-    (let [{:keys [command-chan scf-write-db q maybe-send-cmd-event!]} globals
+    (let [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
           {:keys [response-chan response-pub]} context
-          command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
+          cmd-concurrency (conf/mq-thread-count config)
+          command-pool (create-command-handler-threadpool cmd-concurrency)
+          broadcast-pool (create-broadcast-pool cmd-concurrency scf-write-dbs)
           delay-pool (:delay-pool context)
           handle-cmd (message-handler q
                                       command-chan
                                       dlo
                                       delay-pool
-                                      scf-write-db
+                                      broadcast-pool
+                                      scf-write-dbs
                                       response-chan
                                       (:stats context)
                                       (-> config
@@ -715,7 +729,7 @@
       ;; retried on the next restart, there's no reason to let this
       ;; bubble up and be reported.
       (let [shovel #(try
-                      (pool/dochan command-threadpool handle-cmd command-chan)
+                      (pool/dochan command-pool handle-cmd command-chan)
                       (catch ExceptionInfo ex
                         (when-not (= :puppetlabs.puppetdb.threadpool/rejected
                                      (:kind (ex-data ex)))
@@ -725,13 +739,17 @@
           (.start)))
       (assoc context
              :command-chan command-chan
-             :consumer-threadpool command-threadpool))))
+             :consumer-threadpool command-pool
+             :broadcast-threadpool broadcast-pool))))
 
 (defn stop-command-service
-  [{:keys [stop-status consumer-threadpool command-chan delay-pool]
+  [{:keys [stop-status consumer-threadpool broadcast-threadpool command-chan
+           delay-pool]
     :as context}]
   (some-> command-chan async/close!)
+  ;; FIXME: (PDB-4742) exception suppression?
   (some-> consumer-threadpool pool/shutdown-gated)
+  (some-> broadcast-threadpool pool/shutdown-unbounded)
   (some-> delay-pool stop-and-reset-pool!)
   ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
   (swap! stop-status #(assoc % :stopping true))
