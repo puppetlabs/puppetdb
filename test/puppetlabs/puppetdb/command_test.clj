@@ -256,38 +256,37 @@
 
 (deftest command-retry-handler
   (with-redefs [quick-retry-count 0]
-    (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
-      (testing "logs for each L2 failure up to the max"
-        (doseq [i (range 0 maximum-allowable-retries)
-                :let [log-output (atom [])]]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (is (= 0 (task-count delay-pool)))
-              (handle-message (-> q
-                                  (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
-                                  (add-fake-attempts i)))
-              (is (= 1 (task-count delay-pool)))
-              (is (= 0 (count (fs/list-dir (:path dlo)))))
-              (is (= (get-in @log-output [0 1]) :error))
-              (is (str/includes? (get-in @log-output [0 3]) "cats"))
-              (is (instance? Exception (get-in @log-output [0 2])))
-              (is (str/includes? (last (first @log-output))
-                                 "Retrying after attempt"))))))
+    (testing "logs for each L2 failure up to the max"
+      (doseq [i (range 0 maximum-allowable-retries)
+              :let [log-output (atom [])]]
+        (binding [*logger-factory* (atom-logger log-output)]
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (is (= 0 (task-count delay-pool)))
+            (handle-message (-> q
+                                (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
+                                (add-fake-attempts i)))
+            (is (= 1 (task-count delay-pool)))
+            (is (= 0 (count (fs/list-dir (:path dlo)))))
+            (is (= (get-in @log-output [0 1]) :error))
+            (is (str/includes? (get-in @log-output [0 3]) "cats"))
+            (is (instance? Exception (get-in @log-output [0 2])))
+            (is (str/includes? (last (first @log-output))
+                               "Retrying after attempt"))))))
 
-      (testing "a failed message after the max is discarded"
-        (let [log-output (atom [])]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (handle-message (-> q
-                                  (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
-                                  (add-fake-attempts maximum-allowable-retries)))
-              (is (= 0 (task-count delay-pool)))
-              (is (= 2 (count (fs/list-dir (:path dlo)))))
-              (is (= (get-in @log-output [0 1]) :error))
-              (is (instance? Exception (get-in @log-output [0 2])))
-              (is (str/includes? (last (first @log-output))
-                                 "Exceeded max"))
-              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))))
+    (testing "a failed message after the max is discarded"
+      (let [log-output (atom [])]
+        (binding [*logger-factory* (atom-logger log-output)]
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (-> q
+                                (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
+                                (add-fake-attempts maximum-allowable-retries)))
+            (is (= 0 (task-count delay-pool)))
+            (is (= 2 (count (fs/list-dir (:path dlo)))))
+            (is (= (get-in @log-output [0 1]) :error))
+            (is (instance? Exception (get-in @log-output [0 2])))
+            (is (str/includes? (last (first @log-output))
+                               "Exceeded max"))
+            (is (str/includes? (get-in @log-output [0 3]) "cats"))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
