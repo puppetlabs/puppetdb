@@ -64,7 +64,7 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.threadpool :as gtp])
+            [puppetlabs.puppetdb.threadpool :as pool])
   (:import [java.nio.file Files]
            [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
@@ -1511,11 +1511,11 @@
   (conf/get-config (get-service svc-utils/*server* :DefaultedConfig)))
 
 (deftest bashed-commands-handled-correctly
-  (let [real-dochan gtp/dochan
+  (let [real-dochan pool/dochan
         go-ahead-and-execute (promise)]
-    (with-redefs [gtp/dochan (fn [& args]
-                               @go-ahead-and-execute
-                               (apply real-dochan args))]
+    (with-redefs [pool/dochan (fn [& args]
+                                @go-ahead-and-execute
+                                (apply real-dochan args))]
       (svc-utils/with-puppetdb-instance
         (let [{pdb-host :host pdb-port :port
                :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty (get-config))

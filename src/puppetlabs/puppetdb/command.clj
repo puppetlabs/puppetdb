@@ -87,7 +87,7 @@
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [overtone.at-at :as at-at :refer [mk-pool stop-and-reset-pool!]]
-            [puppetlabs.puppetdb.threadpool :as gtp]
+            [puppetlabs.puppetdb.threadpool :as pool]
             [puppetlabs.puppetdb.utils.metrics :as mutils]))
 
 ;; ## Performance counters
@@ -684,7 +684,7 @@
   it's more efficient to use an unbounded pool and not duplicate the
   constraint in both the semaphore and the threadpool"
   [size]
-  (gtp/create-threadpool size "cmd-proc-thread-%d" 10000))
+  (pool/gated-threadpool size "cmd-proc-thread-%d" 10000))
 
 (defservice command-service
   PuppetDBCommandDispatcher
@@ -737,7 +737,7 @@
                                          maybe-send-cmd-event!)]
 
          (doto (Thread. (fn []
-                          (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
+                          (try+ (pool/dochan command-threadpool handle-cmd command-chan)
                                 ;; This only occurs when new work is submitted after the threadpool has
                                 ;; started shutting down, which means PDB itself is shutting down. The
                                 ;; command will be retried when PDB next starts up, so there's no reason to
@@ -753,7 +753,7 @@
   (stop [this {:keys [stop-status consumer-threadpool command-chan delay-pool]
                :as context}]
     (some-> command-chan async/close!)
-    (some-> consumer-threadpool gtp/shutdown)
+    (some-> consumer-threadpool pool/shutdown)
     (some-> delay-pool stop-and-reset-pool!)
     ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
     (swap! stop-status #(assoc % :stopping true))
