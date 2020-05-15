@@ -30,6 +30,7 @@
                             {}
                             {:scf-read-db *db*
                              :url-prefix "/pdb"
+                             :add-agent-report-filter true
                              :node-purge-ttl (time-coerce/parse-period "14d")})))
 
 (defn store-example-report!

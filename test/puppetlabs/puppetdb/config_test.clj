@@ -27,6 +27,20 @@
       (is (thrown? clojure.lang.ExceptionInfo
                    (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
 
+    (testing "should default :add-agent-report-filter to true"
+      (let [config (configure-puppetdb {})]
+        (is (= true (get-in config [:puppetdb :add-agent-report-filter])))))
+
+    (testing "should allow add-agent-report-filter boolean"
+      (let [config (configure-puppetdb {:puppetdb {:add-agent-report-filter "true"}})]
+        (is (= true (get-in config [:puppetdb :add-agent-report-filter]))))
+      (let [config (configure-puppetdb {:puppetdb {:add-agent-report-filter "false"}})]
+        (is (= false (get-in config [:puppetdb :add-agent-report-filter]))))
+      (let [config (configure-puppetdb {:puppetdb {:add-agent-report-filter "some-string"}})]
+        (is (= false (get-in config [:puppetdb :add-agent-report-filter]))))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (configure-puppetdb {:puppetdb {:add-agent-report-filter 1337}}))))
+
     (testing "should allow for `pe-puppetdb`'s historical-catalogs-limit setting"
       (let [config (configure-puppetdb {})]
         (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 0)))

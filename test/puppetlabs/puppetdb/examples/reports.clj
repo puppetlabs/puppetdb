@@ -23,6 +23,7 @@
     :noop                   false
     :noop_pending           true
     :corrective_change      true
+    :type                   "agent"
     :logs
     {:href ""
      :data
@@ -123,6 +124,7 @@
     :status "unchanged"
     :noop true
     :noop_pending true
+    :type "agent"
     :logs
     {:href ""
      :data
@@ -220,6 +222,7 @@
     :status "unchanged"
     :noop false
     :noop_pending false
+    :type "agent"
     :logs
     {:href ""
      :data
@@ -317,6 +320,7 @@
     :status "unchanged"
     :noop false
     :noop_pending true
+    :type "agent"
     :logs
     {:href ""
      :data

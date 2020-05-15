@@ -110,4 +110,5 @@
                              {}
                              {:scf-read-db *db*
                               :url-prefix "/pdb"
+                              :add-agent-report-filter true
                               :node-purge-ttl (parse-period "14d")})))

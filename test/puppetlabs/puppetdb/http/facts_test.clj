@@ -536,6 +536,7 @@
     (server/build-app #(hash-map :scf-read-db read-db
                                  :scf-write-db write-db
                                  :product-name "puppetdb"
+                                 :add-agent-report-filter true
                                  :node-purge-ttl (parse-period "14d")
                                  :url-prefix "/pdb")))))
 

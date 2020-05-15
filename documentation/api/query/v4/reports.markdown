@@ -115,6 +115,10 @@ run used a cached catalogs and whether or not the cached catalog was used due to
 an error or not. Possible values include `explicitly_requested`, `on_failure`,
 `not_used` or `null`.
 
+* `type`: (string): either `"agent"` or `"plan"` to indicate where the report
+  was submitted from. If no `type` filter is provided, it will only return reports
+  from puppet agent runs.
+
 * `corrective_change`: (Boolean): a flag indicating whether any of the report's
   events remediated configuration drift. This field is only populated in PE.
 

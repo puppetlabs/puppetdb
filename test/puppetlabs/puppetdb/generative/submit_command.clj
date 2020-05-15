@@ -49,6 +49,7 @@
                                          [:producer_timestamp :descending]]}
                              {:scf-read-db db
                               :url-prefix "/pdb"
+                              :add-agent-report-filter true
                               :node-purge-ttl (parse-period "14d")})
        (map (fn [row]
               (-> row
@@ -63,6 +64,7 @@
                                              [:producer_timestamp :descending]]}
                                  {:scf-read-db db
                                   :url-prefix "/pdb"
+                                  :add-agent-report-filter true
                                   :node-purge-ttl (parse-period "14d")})
        (map (fn [row]
               (-> row
@@ -76,6 +78,7 @@
                                              [:producer_timestamp :descending]]}
                                  {:scf-read-db db
                                   :url-prefix "/pdb"
+                                  :add-agent-report-filter true
                                   :node-purge-ttl (parse-period "14d")})
        (map (fn [row]
               (-> row
@@ -90,6 +93,7 @@
                             {:order_by [[:certname :descending]]}
                             {:scf-read-db db
                              :url-prefix "/pdb"
+                             :add-agent-report-filter true
                              :node-purge-ttl (parse-period "14d")}) )
 
 

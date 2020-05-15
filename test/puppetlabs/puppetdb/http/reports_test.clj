@@ -13,7 +13,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils
-             :refer [assert-success! get-request paged-results]]
+             :refer [assert-success! get-request paged-results dotestseq]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
@@ -22,6 +22,8 @@
                      query-response
                      query-result
                      ordered-query-result
+                     with-http-app
+                     with-http-app*
                      vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-reports-for-comparison]]
@@ -771,6 +773,28 @@
     (is (= ["Content-Type"] (keys headers)))
     (is (http/json-utf8-ctype? (headers "Content-Type")))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
+
+(deftest report-filter-config
+  (let [query ["extract" "certname" ["subquery" "reports" ["order_by" "certname"]]]]
+    (testing "agent report filter added"
+       (with-test-db
+         (with-http-app
+           (store-example-report! (:basic my-reports) (now))
+           (dotestseq [[version endpoint] endpoints
+                      method [:get :post]]
+             ;; This is abusing the existence of PDB-4734 to throw an error from a malformed AST query
+             (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                                   #"AST validation failed, but was successfully converted to SQL"
+                                   (query-response method endpoint query)))))))
+
+    (testing "agent report filter can be disabled"
+       (with-test-db
+         (with-http-app* (fn [globals] (assoc globals :add-agent-report-filter false))
+           (store-example-report! (:basic my-reports) (now))
+           (dotestseq
+             [[version endpoint] endpoints
+              method [:get :post]]
+             (is (= #{{:certname "foo.local"}} (query-result method endpoint query)))))))))
 
 (deftest reports-retrieval
   (with-test-db
