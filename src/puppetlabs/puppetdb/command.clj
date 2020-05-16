@@ -641,8 +641,16 @@
                             stats blacklist-config maybe-send-cmd-event!)
      (let [retries (count (:attempts cmdref))]
        (try+
-        (process-cmdref cmdref q (first write-dbs) response-chan stats
-                        blacklist-config maybe-send-cmd-event!)
+        (try
+          (process-cmdref cmdref q (first write-dbs) response-chan stats
+                          blacklist-config maybe-send-cmd-event!)
+          (catch ExceptionInfo ex
+            (let [{:keys [kind] :as data} (ex-data ex)]
+              (when-not (= kind ::queue/parse-error)
+                (throw ex))
+              (mark! (global-metric :fatal))
+              (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
+              (discard-message cmdref ex q dlo maybe-send-cmd-event!))))
         (catch fatal? obj
           (mark! (global-metric :fatal))
           (let [ex (:cause obj)]
@@ -664,12 +672,7 @@
                 (log/error
                  ex
                  (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
-                (discard-message cmdref ex q dlo maybe-send-cmd-event!))))))))
-   (catch [:kind ::queue/parse-error] _
-     (mark! (global-metric :fatal))
-     (log/error (:wrapper &throw-context)
-                (trs "Fatal error parsing command: {0}" (:id cmdref)))
-     (discard-message cmdref (:throwable &throw-context) q dlo maybe-send-cmd-event!))))
+                (discard-message cmdref ex q dlo maybe-send-cmd-event!))))))))))
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages

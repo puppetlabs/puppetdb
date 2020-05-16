@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.queue
   (:refer-clojure :exclude (with-open))
-  (:import [java.nio.charset StandardCharsets]
+  (:import (clojure.lang ExceptionInfo)
+           [java.nio.charset StandardCharsets]
            [java.io InputStreamReader BufferedReader InputStream Closeable]
            [java.util TreeMap HashMap]
            [java.nio.file Files LinkOption]
@@ -16,7 +17,6 @@
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]
             [puppetlabs.puppetdb.nio :refer [get-path]]
@@ -24,7 +24,6 @@
                                                content-encodings->file-extensions
                                                match-any-of re-quote utf8-length
                                                utf8-truncate]]
-            [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time]
@@ -53,7 +52,7 @@
         BufferedReader.
         (json/parse-stream true))
     (catch Exception e
-      (throw+ {:kind ::parse-error} e "Error parsing command"))))
+      (throw (ex-info "Error parsing command" {:kind ::parse-error} e)))))
 
 (def forbidden-meta-field-char-rx
   (re-pattern (str "("
@@ -272,24 +271,28 @@
     nil command-stream
     "" command-stream
     "gz" (GzipCompressorInputStream. command-stream)
-    (throw+ {:kind ::parse-error} nil
-            (trs "Unsupported compression file extension for command: {0}"
-                 file-extension))))
+    (throw (ex-info (trs "Unsupported compression file extension for command: {0}"
+                         file-extension)
+                    {:kind ::parse-error}
+                    nil))))
 
 (defn cmdref->cmd [q cmdref]
   "Returns the command associated with cmdref, or nil if the file is
   missing (i.e. it's been deleted)."
   (let [compression (:compression cmdref)
         entry (cmdref->entry cmdref)
-        stream (try+
-                (stock/stream q entry)
-                (catch [:kind ::stock/no-such-entry] {:keys [entry source]}
-                  ;; Do we want the entry, path or both in the log?
-                  ;; The entry will contain the id and metadata
-                  ;; string; source is the actual path.
-                  (log/error (trs "Command has disappeared: {0}"
-                                  (pr-str entry)))
-                  nil))]
+        stream (try
+                 (stock/stream q entry)
+                 (catch ExceptionInfo ex
+                   (let [{:keys [kind entry source] :as data} (ex-data ex)]
+                     (when-not (= kind ::stock/no-such-entry)
+                       (throw ex))
+                     ;; Do we want the entry, path or both in the log?
+                     ;; The entry will contain the id and metadata
+                     ;; string; source is the actual path.
+                     (log/error (trs "Command has disappeared: {0}"
+                                     (pr-str entry)))
+                     nil)))]
     (when stream
       (with-open [command-stream stream]
         (assoc cmdref
@@ -311,35 +314,41 @@
   [q
    received :- pls/Timestamp
    command-req :- command-req-schema]
-  (try+
+  (try
    (stock/store q
                 (:command-stream command-req)
                 (serialize-metadata received command-req false))
 
-   (catch [:kind ::stock/unable-to-commit] {:keys [stream-data]}
-     ;; stockpile has saved all of the data in command-stream to
-     ;; stream-data, but was unable to finish (e.g. the rename
-     ;; failed).  Try to delete the (possibly large) temp file and
-     ;; then rethrow the exception for logging at the "top level".
-     (try
-       (Files/delete stream-data)
-       (log/warn (trs "Cleaned up orphaned command temp file: {0}"
-                      (pr-str (str stream-data))))
-       (catch Exception ex
-         (log/warn (trs "Unable to clean up orphaned command temp file: {0}"
-                        (pr-str (str stream-data))))))
-     (throw+))
+   (catch ExceptionInfo ex
+     (let [{:keys [kind] :as data} (ex-data ex)]
+       (case kind
+         ::stock/unable-to-commit
+         (let [{:keys [stream-data]} data]
+           ;; stockpile has saved all of the data in command-stream to
+           ;; stream-data, but was unable to finish (e.g. the rename
+           ;; failed).  Try to delete the (possibly large) temp file and
+           ;; then rethrow the exception for logging at the "top level".
+           (try
+             (Files/delete stream-data)
+             (log/warn (trs "Cleaned up orphaned command temp file: {0}"
+                            (pr-str (str stream-data))))
+             (catch Exception ex
+               (log/warn (trs "Unable to clean up orphaned command temp file: {0}"
+                              (pr-str (str stream-data)))))))
 
-   (catch [:kind ::path-cleanup-failure-after-error] {:keys [path exception]}
-     ;; stockpile/store failed with the exception described by
-     ;; the :cause, and then, on the way out, the attempt to remove the temporary
-     ;; file described by path failed with the given exception.
-     ;; Don't try to delete the path again, just log the path with the
-     ;; removal exception, and then rethrow the exception for logging
-     ;; at the "top level".
-     (log/warn (trs "Unable to remove temp file while trying to store incoming command: {0}"
-                    (pr-str (str path))))
-     (throw+))))
+         ::path-cleanup-failure-after-error
+         (let [{:keys [path exception]} data]
+           ;; stockpile/store failed with the exception described by
+           ;; the :cause, and then, on the way out, the attempt to remove the temporary
+           ;; file described by path failed with the given exception.
+           ;; Don't try to delete the path again, just log the path with the
+           ;; removal exception, and then rethrow the exception for logging
+           ;; at the "top level".
+           (log/warn (trs "Unable to remove temp file while trying to store incoming command: {0}"
+                          (pr-str (str path)))))
+
+         (throw ex))
+       (throw ex)))))
 
 (s/defn store-command
   [q
