@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 583de6f2b156b1816f10a3fcc79db8d460bc0008\n"
+"X-Git-Ref: 8d00635fcecea4669637338d7ecdaae3dc1cbd71\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -896,6 +896,10 @@ msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Unknown exception when processing ast to add report type filter(s)."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
@@ -903,6 +907,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
 msgid "Caught PSQL processing exception"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/default_reports.clj
+msgid "Unrecognized ast clause {0} in ast query {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
