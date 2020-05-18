@@ -69,9 +69,11 @@
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.threadpool :as pool])
-  (:import [java.nio.file Files]
-           [java.util.concurrent TimeUnit]
-           [org.joda.time DateTime DateTimeZone]))
+  (:import
+   (clojure.lang ExceptionInfo)
+   (java.nio.file Files)
+   (java.util.concurrent TimeUnit)
+   (org.joda.time DateTime DateTimeZone)))
 
 ;; FIXME: could/should some of this be shared with cmd service's close?
 (defrecord CommandHandlerContext
@@ -194,8 +196,8 @@
             (is (empty? (fs/list-dir (:path dlo))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
-          (with-redefs [cmd/attempt-exec-command (fn [& _]
-                                                   (throw+ (fatality (Exception. "fatal error"))))]
+          (with-redefs [cmd/prep-command (fn [& _]
+                                           (throw (fatality (Exception. "fatal error"))))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -274,7 +276,7 @@
 (deftest command-retry-handler
   (with-redefs [cmd/quick-retry-count 0
                 cmd/attempt-exec-command (fn [& _]
-                                           (throw+ (RuntimeException. "retry me")))]
+                                           (throw (RuntimeException. "retry me")))]
     (testing "logs for each L2 failure up to the max"
       ;; Use a real command since up-front validation avoids retries.
       (doseq [i (range 0 maximum-allowable-retries)
@@ -323,7 +325,7 @@
 
   (testing "Failures do not cause messages to be acknowledged"
     (tqueue/with-stockpile q
-      (with-redefs [cmd/attempt-exec-command (fn [& _] (throw+ (RuntimeException. "retry me")))]
+      (with-redefs [cmd/attempt-exec-command (fn [& _] (throw (RuntimeException. "retry me")))]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (let [entry (queue/store-command q (failed-catalog-req 10 "cats" {:certname "cats"}))]
             (is (:payload (queue/cmdref->cmd q entry)))
@@ -368,13 +370,13 @@
       (is (= 1 (times-called publish)))))
 
   (testing "fatal errors are not retried"
-    (let [e (try+ (call-with-quick-retry 0
-                                         (fn []
-                                           (throw+ (fatality (Exception. "fatal error")))))
-                  (catch fatal? e e))]
-      (is (= true (:fatal e)))))
+    (let [ex (try (call-with-quick-retry
+                   0
+                   #(throw (fatality (Exception. "fatal error"))))
+                  (catch ExceptionInfo ex ex))]
+      (is (= ::cmd/fatal-processing-error (:kind (ex-data ex))))))
 
-  (testing "errors surfaces when no more retries are left"
+  (testing "error surfaces when no more retries are left"
     (let [e (try (call-with-quick-retry 0
                                         (fn []
                                           (throw (RuntimeException. "foo"))))

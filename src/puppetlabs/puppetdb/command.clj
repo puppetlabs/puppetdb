@@ -66,7 +66,6 @@
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
-            [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.command.constants
              :refer [command-names command-keys supported-command-versions]]
             [puppetlabs.trapperkeeper.services
@@ -225,28 +224,17 @@
   (mark! (global-metric k))
   (mark! (cmd-metric command version k)))
 
-(defn fatality
-  "Create an object representing a fatal command-processing exception
-
-  cause - object representing the cause of the failure
-  "
-  [cause]
-  {:fatal true :cause cause})
-
-(defn fatal?
-  "Tests if the supplied exception is a fatal command-processing
-  exception or not."
-  [exception]
-  (:fatal exception))
+(defn fatality [cause]
+  (ex-info "" {:kind ::fatal-processing-error} cause))
 
 (defmacro upon-error-throw-fatality
   [& body]
   `(try
     ~@body
     (catch Exception e1#
-      (throw+ (fatality e1#)))
+      (throw (fatality e1#)))
     (catch AssertionError e2#
-      (throw+ (fatality e2#)))))
+      (throw (fatality e2#)))))
 
 ;; ## Command submission
 
@@ -502,7 +490,7 @@
 
 (defn call-with-quick-retry [num-retries f]
   (loop [n num-retries]
-    (let [result (try+
+    (let [result (try
                   (f)
                   (catch Throwable e
                     (if (zero? n)
@@ -634,59 +622,62 @@
       (create-metrics-for-command! command version)
       (update! (global-metric :queue-time) q-time)
       (update! (cmd-metric command version :queue-time) q-time)))
-  (let [cmd (try
-              (queue/cmdref->cmd q cmdref)
-              (catch ExceptionInfo ex
-                (let [{:keys [kind] :as data} (ex-data ex)]
-                  (when-not (= kind ::queue/parse-error)
-                    (throw ex))
-                  (mark! (global-metric :fatal))
-                  (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
-                  (discard-message cmdref ex q dlo maybe-send-cmd-event!)
-                  :discarded)))
-        retries (count (:attempts cmdref))]
-    (cond
-      (not cmd) ;; queue file is missing
-      (do
-        (create-metrics-for-command! command version)
-        (mark-both-metrics! command version :seen)
-        (update-counter! :depth command version dec!)
-        (mark! (global-metric :fatal))
-        (maybe-send-cmd-event! cmdref ::processed))
+  (let [retries (count (:attempts cmdref))
+        retry (fn [ex]
+                (mark-both-metrics! command version :retried)
+                (if (< retries maximum-allowable-retries)
+                  (do
+                    (log/error
+                     ex
+                     (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
+                          id command retries certname ex (.getSuppressed ex)))
+                    (schedule-delayed-message cmdref ex command-chan delay-pool stop-status))
+                  (do
+                    (log/error
+                     ex
+                     (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3} {4}"
+                          id command retries certname (.getSuppressed ex)))
+                    (discard-message cmdref ex q dlo maybe-send-cmd-event!))))]
+    (try
+      (let [cmd (queue/cmdref->cmd q cmdref)]
+        (cond
+          (not cmd) ;; queue file is missing
+          (do
+            (create-metrics-for-command! command version)
+            (mark-both-metrics! command version :seen)
+            (update-counter! :depth command version dec!)
+            (mark! (global-metric :fatal))
+            (maybe-send-cmd-event! cmdref ::processed))
 
-      (= cmd :discarded) true
+          delete? (process-delete-cmd cmd cmdref q response-chan stats
+                                      blacklist-config maybe-send-cmd-event!)
 
-      delete? (process-delete-cmd cmd cmdref q response-chan stats
-                                  blacklist-config maybe-send-cmd-event!)
-
-      :else
-      (try+
-       (-> cmd
-           (prep-command blacklist-config)
-           (process-cmd cmdref q (first write-dbs) response-chan stats
-                        maybe-send-cmd-event!))
-       (catch fatal? obj
-         (mark! (global-metric :fatal))
-         (let [ex (:cause obj)]
-           (log/error
-            (:wrapper &throw-context)
-            (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-           (discard-message cmdref ex q dlo maybe-send-cmd-event!)))
-       (catch Exception _
-         (let [ex (:throwable &throw-context)]
-           (mark-both-metrics! command version :retried)
-           (if (< retries maximum-allowable-retries)
-             (do
-               (log/error
-                ex
-                (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                     id command retries certname ex))
-               (schedule-delayed-message cmdref ex command-chan delay-pool stop-status))
-             (do
-               (log/error
-                ex
-                (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
-               (discard-message cmdref ex q dlo maybe-send-cmd-event!)))))))))
+          :else (-> cmd
+                    (prep-command blacklist-config)
+                    (process-cmd cmdref q (first write-dbs) response-chan stats
+                                 maybe-send-cmd-event!))))
+      (catch ExceptionInfo ex
+        (let [data (ex-data ex)]
+          (case (:kind data)
+            ::retry (retry ex)
+            ::queue/parse-error
+            (do
+              (mark! (global-metric :fatal))
+              (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
+              (discard-message cmdref ex q dlo maybe-send-cmd-event!))
+            ::fatal-processing-error
+            (do
+              (mark! (global-metric :fatal))
+              (log/error
+               ex
+               (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+              (discard-message cmdref (ex-cause ex) q dlo maybe-send-cmd-event!))
+            ;; No match
+            (retry ex))))
+      (catch AssertionError ex
+        (retry ex))
+      (catch Exception ex
+        (retry ex)))))
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages
