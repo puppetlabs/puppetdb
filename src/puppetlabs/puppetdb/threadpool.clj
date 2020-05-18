@@ -1,8 +1,7 @@
 (ns puppetlabs.puppetdb.threadpool
   (:require [clojure.core.async :as async]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [slingshot.slingshot :refer [throw+]])
+            [puppetlabs.i18n.core :refer [trs tru]])
   (:import
    (java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
                          RejectedExecutionException ExecutorService)
@@ -109,11 +108,10 @@
     (when cmd
       (try
         (.execute pool (fn [] (on-input cmd)))
-        (catch RejectedExecutionException e
-          (throw+ {:kind ::rejected
-                   :message cmd}
-                  e
-                  (tru "Threadpool shutting down, message rejected"))))
+        (catch RejectedExecutionException ex
+          (throw (ex-info (tru "Threadpool shutting down, message rejected")
+                          {:kind ::rejected :message cmd}
+                          ex))))
       (recur (async/<!! in-chan)))))
 
 (defn shutdown-unbounded [pool]

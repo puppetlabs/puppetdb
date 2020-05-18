@@ -50,9 +50,6 @@
 
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
-  (:import [java.util.concurrent Semaphore]
-           [org.joda.time DateTime]
-           [java.io Closeable])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
@@ -88,7 +85,12 @@
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [overtone.at-at :as at-at :refer [mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.threadpool :as pool]
-            [puppetlabs.puppetdb.utils.metrics :as mutils]))
+            [puppetlabs.puppetdb.utils.metrics :as mutils])
+  (:import
+   (clojure.lang ExceptionInfo)
+   (java.io Closeable)
+   (java.util.concurrent Semaphore)
+   (org.joda.time DateTime)))
 
 ;; ## Performance counters
 
@@ -736,15 +738,20 @@
                                          (:stop-status context)
                                          maybe-send-cmd-event!)]
 
-         (doto (Thread. (fn []
-                          (try+ (pool/dochan command-threadpool handle-cmd command-chan)
-                                ;; This only occurs when new work is submitted after the threadpool has
-                                ;; started shutting down, which means PDB itself is shutting down. The
-                                ;; command will be retried when PDB next starts up, so there's no reason to
-                                ;; tell the user about this by letting it bubble up until it's printed.
-                                (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
-           (.setDaemon false)
-           (.start))
+         ;; The rejection below should only occur if new work is
+         ;; submitted after the threadpool has started shutting down
+         ;; as part of the service's shutdown.  Since the command will
+         ;; be retried on the next restart, there's no reason to let
+         ;; this bubble up and be reported.
+         (let [shovel #(try
+                         (pool/dochan command-threadpool handle-cmd command-chan)
+                         (catch ExceptionInfo ex
+                           (when-not (= :puppetlabs.puppetdb.threadpool/rejected
+                                        (:kind (ex-data ex)))
+                             (throw ex))))]
+           (doto (Thread. shovel)
+             (.setDaemon false)
+             (.start)))
 
          (assoc context
                 :command-chan command-chan

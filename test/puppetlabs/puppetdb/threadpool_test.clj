@@ -1,5 +1,4 @@
 (ns puppetlabs.puppetdb.threadpool-test
-  (:import [java.util.concurrent TimeUnit])
   (:require [clojure.core.async :as async]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.threadpool :refer :all]
@@ -9,8 +8,10 @@
                                                                 with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [clojure.string :as str]
-            [slingshot.test]
-            [puppetlabs.puppetdb.testutils.log :as tlog]))
+            [puppetlabs.puppetdb.testutils.log :as tlog])
+  (:import
+   (clojure.lang ExceptionInfo)
+   (java.util.concurrent TimeUnit)))
 
 (defn wrap-out-chan [out-chan f]
   (fn [cmd]
@@ -224,13 +225,15 @@
              ;; Shutting down the threadpool when the channel is not
              ;; empty will result in an exception, below ensures that
              ;; happens
-             (is (thrown+-with-msg? (fn [obj]
-                                      (and (= (:message obj)
-                                              "message")
-                                           (= (:kind obj)
-                                              :puppetlabs.puppetdb.threadpool/rejected)))
-                                    #"Threadpool shutting down"
-                                    (dochan threadpool-ctx handler-fn in-chan)))
-
+             (let [ex (try
+                        (dochan threadpool-ctx handler-fn in-chan)
+                        (catch Throwable ex ex))]
+               (is (= ExceptionInfo (class ex)))
+               (when (= ExceptionInfo (class ex))
+                 (let [data (ex-data ex)]
+                   (is (= :puppetlabs.puppetdb.threadpool/rejected (:kind data)))
+                   (is (= "message" (:message data)))
+                   (is (str/starts-with? (ex-message ex)
+                                         "Threadpool shutting down")))))
              (finally
                (.shutdownNow threadpool)))))))))
