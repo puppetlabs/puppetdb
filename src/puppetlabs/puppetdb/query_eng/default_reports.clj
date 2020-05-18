@@ -10,7 +10,7 @@
 
 (defn is-page-order-opt?
   [page-order-opts]
-  (let [valid-opts ["limit" "group_by" "order_by"]]
+  (let [valid-opts ["limit" "group_by" "order_by" "offset"]]
     (every? (fn [opt] (some #(= % (first opt)) valid-opts)) page-order-opts)))
 
 (defn mentions-report-type?
@@ -26,6 +26,7 @@
   (cm/match
    [ast]
 
+   [nil] false
    [[]] false
    [::elide] false
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] (= field "type")
@@ -34,7 +35,6 @@
    [["null?" field bool]] (= field "type")
    [["in" field ["array" & values]]] (= field "type")
 
-   ;; This needs to precede (or maybe just obviates?) the "from" below.
    ;; New-style explicit subquery
    [["in" fields ["from" entity ["extract" sub-fields expr] & page-order-opts]]]
    false
@@ -90,6 +90,7 @@
   (cm/match
    [ast]
 
+   [nil] ast
    [[]] ast
    [::elide] ast
    [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] ast

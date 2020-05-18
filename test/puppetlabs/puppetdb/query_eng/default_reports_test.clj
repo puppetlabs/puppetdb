@@ -76,7 +76,20 @@
     (doseq [op ["and" "or"]]
       (is (= [op ["=" "foo" "bar"] ["=" "bar" "baz"]] (t/maybe-add-agent-report-filter-to-subqueries [op ["=" "foo" "bar"] ["=" "bar" "baz"]]))))
 
-      (is (= ["in" "foo" ["array" "foo" "bar"]] (t/maybe-add-agent-report-filter-to-subqueries ["in" "foo" ["array" "foo" "bar"]])))))
+      (is (= ["in" "foo" ["array" "foo" "bar"]] (t/maybe-add-agent-report-filter-to-subqueries ["in" "foo" ["array" "foo" "bar"]]))))
+
+  (testing "nil expression is allowed"
+    (let [query ["in" ["package_name" "version" "provider"] ["from" "packages" ["extract" ["package_name" "version" "provider"] nil]]]]
+      (is (= query (t/maybe-add-agent-report-filter-to-subqueries query)))))
+
+  (testing "paging options"
+    (let [query ["in" ["package_name" "version" "provider"]
+                 ["from" "packages"
+                  ["extract" ["package_name" "version" "provider"]]
+                  ["order_by" ["package_name" "version" "provider"]]
+                  ["limit" 1000000]
+                  ["offset" 0]]]]
+      (is (= query (t/maybe-add-agent-report-filter-to-subqueries query))))))
 
 (deftest test-random-bits
 
