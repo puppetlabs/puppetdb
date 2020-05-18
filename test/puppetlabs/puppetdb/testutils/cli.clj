@@ -34,6 +34,12 @@
       reports/reports-query->wire-v8
       vec))
 
+(defn filter-reports [filter]
+  (-> (svc-utils/filter-reports filter)
+      tur/munge-reports
+      reports/reports-query->wire-v8
+      vec))
+
 (defn get-factsets [certname]
   (-> (svc-utils/get-factsets certname)
       factsets/factsets-query->wire-v5

@@ -20,13 +20,13 @@
                      example-catalog example-report
                      example-facts example-certname example-certname2
                      example-nodes example-configure-expiration-true
-                     example-configure-expiration-false get-summary-stats]]
+                     example-configure-expiration-false get-summary-stats
+                     filter-reports]]
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds]]
-            [puppetlabs.puppetdb.time :as time]))
+            [puppetlabs.puppetdb.time :refer [now days ago] :as time]))
 
 (use-fixtures :each tu/call-with-test-logging-silenced)
 
@@ -35,7 +35,9 @@
         catalog-input-cmd (-> (sample-input-cmds)
                               (get "host-1")
                               (update :certname (constantly example-certname))
-                              (update :producer_timestamp time/to-string))]
+                              (update :producer_timestamp time/to-string))
+        plan-report-ts (-> 1 days ago time/to-string)
+        plan-report (assoc example-report :type "plan" :producer_timestamp plan-report-ts)]
 
     (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
@@ -49,7 +51,10 @@
          ;; this will add a duplicate event into a report, which will then be dropped at the database
          ;; side
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" cmd-consts/latest-report-version report-with-duplicate-events))
+                                      "store report" cmd-consts/latest-report-version report-with-duplicate-events)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "store report" cmd-consts/latest-report-version plan-report))
+
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" cmd-consts/latest-facts-version example-facts)
 
@@ -76,8 +81,11 @@
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [(tur/update-report-pe-fields example-report)]
-              (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)
+               (tur/update-report-pe-fields plan-report)]
+              (filter-reports [:and
+                               [:= :certname example-certname]
+                               [:null? :type false]])))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
@@ -99,8 +107,11 @@
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [(tur/update-report-pe-fields example-report)]
-              (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)
+               (tur/update-report-pe-fields plan-report)]
+              (filter-reports [:and
+                               [:= :certname example-certname]
+                               [:null? :type false]])))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
