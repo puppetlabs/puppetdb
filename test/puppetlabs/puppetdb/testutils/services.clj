@@ -318,6 +318,19 @@
       (get-or-throw {:query-params {"query" (json/generate-string [:= :certname certname])}})
       :body))
 
+(defn filter-query
+  "Query the given endpoint using the provided filter"
+  [base-url suffix filter]
+  (-> (query-url-str base-url suffix)
+      (get-or-throw {:query-params {"query" (json/generate-string filter)}})
+      :body))
+
+(defn filter-reports
+  ([filter]
+   (filter-reports filter *base-url*))
+  ([filter base-url]
+   (filter-query base-url "/reports" filter)))
+
 (defn get-reports
   ([certname]
    (get-reports *base-url* certname))
