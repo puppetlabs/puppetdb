@@ -274,6 +274,7 @@
       (when command-stream
         (.close ^Closeable command-stream)))))
 
+;; FIXME: log db name, or lift out of per-db exec calls
 (defn log-command-processed-messsage [id received-time start-time command-kw certname & [opts]]
   ;; manually stringify these to avoid locale-specific formatting
   (let [id (str id)
@@ -295,7 +296,11 @@
 
 ;; Catalog replacement
 
-(defn replace-catalog*
+(defn prep-replace-catalog [{:keys [payload received version] :as command}]
+  (upon-error-throw-fatality
+   (assoc command :payload (cat/parse-catalog payload version received))))
+
+(defn exec-replace-catalog
   [{:keys [version id received payload]} start-time db]
   (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
@@ -303,21 +308,14 @@
       (scf-storage/replace-catalog! catalog received))
     (log-command-processed-messsage id received start-time :replace-catalog certname)))
 
-(defn replace-catalog [{:keys [payload received version] :as command} start-time db]
-  (let [validated-payload (upon-error-throw-fatality
-                           (cat/parse-catalog payload version received))]
-    (-> command
-        (assoc :payload validated-payload)
-        (replace-catalog* start-time db))))
-
 ;; Catalog input replacement
 
-(defn replace-catalog-inputs
-  [{:keys [id received payload]}
-   start-time db]
+(defn prep-replace-catalog-inputs [command]
+  (update-in command [:payload :producer_timestamp] #(or % (now))))
+
+(defn exec-replace-catalog-inputs [{:keys [id received payload]} start-time db]
   (let [{:keys [certname inputs catalog_uuid]
-         stamp :producer_timestamp
-         :or {stamp (now)}} payload]
+         stamp :producer_timestamp} payload]
     (when (seq inputs)
       (jdbc/with-transacted-connection' db :repeatable-read
         (scf-storage/maybe-activate-node! certname stamp)
@@ -332,31 +330,28 @@
                        (some #(re-matches % fact-name) facts-blacklist))]
     (apply dissoc fact-map (filter blacklisted? (keys fact-map)))))
 
-(defn replace-facts*
-  [{:keys [payload id received] :as command} start-time db
+(defn prep-replace-facts
+  [{:keys [version received] :as command}
    {:keys [facts-blacklist facts-blacklist-type] :as blacklist-config}]
-  (let [{:keys [certname package_inventory] :as fact-data} payload
-        producer-timestamp (:producer_timestamp fact-data)
-        blacklisting? (seq blacklist-config)
+  (let [blacklisting? (seq blacklist-config)
         rm-blacklisted (when blacklisting?
                          (case facts-blacklist-type
                            "regex" (partial rm-facts-by-regex facts-blacklist)
-                           "literal" #(apply dissoc % facts-blacklist)))
-        trimmed-facts (cond-> fact-data
-                        blacklisting? (update :values rm-blacklisted)
-                        (seq package_inventory) (update :package_inventory distinct))]
-    (jdbc/with-transacted-connection' db :repeatable-read
-      (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/replace-facts! trimmed-facts))
-    (log-command-processed-messsage id received start-time :replace-facts certname)))
+                           "literal" #(apply dissoc % facts-blacklist)))]
+    (update command :payload
+            (fn [{:keys [package_inventory] :as prev}]
+              (cond-> (upon-error-throw-fatality
+                       (fact/normalize-facts version received prev))
+                blacklisting? (update :values rm-blacklisted)
+                (seq package_inventory) (update :package_inventory distinct))))))
 
-(defn replace-facts
-  [{:keys [payload version received] :as command} start-time db blacklist-config]
-  (replace-facts* (upon-error-throw-fatality
-                    (assoc command :payload (fact/normalize-facts version received payload)))
-                  start-time
-                  db
-                  blacklist-config))
+(defn exec-replace-facts
+  [{:keys [payload id received] :as command} start-time db]
+  (let [{:keys [certname producer_timestamp]} payload]
+    (jdbc/with-transacted-connection' db :repeatable-read
+      (scf-storage/maybe-activate-node! certname producer_timestamp)
+      (scf-storage/replace-facts! payload))
+    (log-command-processed-messsage id received start-time :replace-facts certname)))
 
 ;; Node deactivation
 
@@ -368,75 +363,77 @@
       (json/parse-string true)
       deactivate-node-wire-v2->wire-3))
 
-(defn deactivate-node*
-  [{:keys [id received payload]} start-time db]
-  (let [certname (:certname payload)
-        producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
+(defn prep-deactivate-node [{:keys [version] :as command}]
+  (-> command
+      (update :payload #(upon-error-throw-fatality
+                         (s/validate nodes/deactivate-node-wireformat-schema
+                                     (case version
+                                       1 (deactivate-node-wire-v1->wire-3 %)
+                                       2 (deactivate-node-wire-v2->wire-3 %)
+                                       %))))
+      (update-in [:payload :producer_timestamp] #(or % (now)))))
+
+;; FIXME: was to-timestamp redundant here and in store-report? others don't have it...
+
+(defn exec-deactivate-node [{:keys [id received payload]} start-time db]
+  (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (scf-storage/deactivate-node! certname producer-timestamp))
+      (scf-storage/deactivate-node! certname producer_timestamp))
     (log-command-processed-messsage id received start-time :deactivate-node certname)))
-
-(defn deactivate-node [{:keys [payload version] :as command} start-time db]
-  (let [validated-payload (upon-error-throw-fatality
-                           (s/validate nodes/deactivate-node-wireformat-schema
-                                       (case version
-                                         1 (deactivate-node-wire-v1->wire-3 payload)
-                                         2 (deactivate-node-wire-v2->wire-3 payload)
-                                         payload)))]
-    (-> command
-        (assoc :payload validated-payload)
-        (deactivate-node* start-time db))))
 
 ;; Report submission
 
-(defn store-report*
-  [{:keys [payload id received]} start-time db]
-  (let [{:keys [certname puppet_version] :as report} payload
-        producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
+(defn prep-store-report [{:keys [version received] :as command}]
+  (-> command
+      (update :payload #(upon-error-throw-fatality
+                         (s/validate report/report-wireformat-schema
+                                     (case version
+                                       3 (report/wire-v3->wire-v8 % received)
+                                       4 (report/wire-v4->wire-v8 % received)
+                                       5 (report/wire-v5->wire-v8 %)
+                                       6 (report/wire-v6->wire-v8 %)
+                                       7 (report/wire-v7->wire-v8 %)
+                                       %))))
+      (update-in [:payload :producer_timestamp] #(or % (now)))))
+
+(defn exec-store-report [{:keys [payload id received]} start-time db]
+  (let [{:keys [certname puppet_version producer_timestamp] :as report} payload]
     ;; Unlike the other storage functions, add-report! manages its own
     ;; transaction, so that it can dynamically create table partitions
     (scf-storage/add-report! report received db)
     (log-command-processed-messsage id received start-time :store-report certname
                                     {:puppet-version puppet_version})))
 
-(defn store-report [{:keys [payload version received] :as command} start-time db]
-  (let [validated-payload (upon-error-throw-fatality
-                           (s/validate report/report-wireformat-schema
-                                       (case version
-                                         3 (report/wire-v3->wire-v8 payload received)
-                                         4 (report/wire-v4->wire-v8 payload received)
-                                         5 (report/wire-v5->wire-v8 payload)
-                                         6 (report/wire-v6->wire-v8 payload)
-                                         7 (report/wire-v7->wire-v8 payload)
-                                         payload)))]
-    (-> command
-        (assoc :payload validated-payload)
-        (store-report* start-time db))))
+;; Expiration configuration
 
-(defn configure-expiration*
-  [{:keys [id received payload]}
-   start-time db]
-  (let [certname (:certname payload)
-        stamp (:producer_timestamp payload (now))
+(defn prep-configure-expiration [command]
+  (upon-error-throw-fatality
+   (-> command
+       (update :payload #(s/validate nodes/configure-expiration-wireformat-schema %))
+       (update-in [:payload :producer_timestamp] #(or % (now))))))
+
+(defn exec-configure-expiration [{:keys [id received payload]} start-time db]
+  (let [{:keys [certname producer_timestamp]} payload
         expire-facts? (get-in payload [:expire :facts])]
     (when-not (nil? expire-facts?)
       (jdbc/with-transacted-connection db
-        (scf-storage/maybe-activate-node! certname stamp)
-        (scf-storage/set-certname-facts-expiration certname expire-facts? stamp))
+        (scf-storage/maybe-activate-node! certname producer_timestamp)
+        (scf-storage/set-certname-facts-expiration certname expire-facts? producer_timestamp))
       (log-command-processed-messsage id received start-time
                                       :configure-expiration certname))))
 
-(defn configure-expiration
-  [{:keys [payload] :as command} start-time db]
-  (configure-expiration* (upon-error-throw-fatality
-                          (assoc command :payload
-                                 (s/validate nodes/configure-expiration-wireformat-schema payload)))
-                         start-time
-                         db))
-
 ;; ## Command processors
+
+(defn prep-command [{:keys [command] :as cmd} blacklist-config]
+  (case command
+    "replace catalog" (prep-replace-catalog cmd)
+    "replace facts" (prep-replace-facts cmd blacklist-config)
+    "store report" (prep-store-report cmd)
+    "deactivate node" (prep-deactivate-node cmd)
+    "configure expiration" (prep-configure-expiration cmd)
+    "replace catalog inputs" (prep-replace-catalog-inputs cmd)))
 
 (def supported-command?
   (comp (kitchensink/valset command-names) :command))
@@ -449,19 +446,29 @@
    (and (= command-name received-command-name)
         (supported-version? command-name received-version))))
 
-(defn process-command!
+(defn exec-command
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
-  [{command-name :command version :version delete? :delete? :as command} db blacklist-config]
-  (when-not delete?
+  [{command-name :command version :version delete? :delete? :as command}
+   db start]
+  (condp supported-command-version? [command-name version]
+    "replace catalog" (exec-replace-catalog command start db)
+    "replace facts" (exec-replace-facts command start db)
+    "store report" (exec-store-report command start db)
+    "deactivate node" (exec-deactivate-node command start db)
+    "configure expiration" (exec-configure-expiration command start db)
+    "replace catalog inputs" (exec-replace-catalog-inputs command start db)))
+
+(defn process-command!
+  ;; only used by testing...
+  "Takes a command object and processes it to completion. Dispatch is
+   based on the command's name and version information"
+  [command db blacklist-config]
+  (when-not (:delete? command)
     (let [start (now)]
-      (condp supported-command-version? [command-name version]
-        "replace catalog" (replace-catalog command start db)
-        "replace facts" (replace-facts command start db blacklist-config)
-        "store report" (store-report command start db)
-        "deactivate node" (deactivate-node command start db)
-        "configure expiration" (configure-expiration command start db)
-        "replace catalog inputs" (replace-catalog-inputs command start db)))))
+      (-> command
+          (prep-command blacklist-config)
+          (exec-command db start)))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
@@ -510,12 +517,11 @@
 
 (def quick-retry-count 4)
 
-(defn process-command-and-respond!
-  [{:keys [callback] :as cmd} db response-pub-chan stats-atom blacklist-config]
+(defn attempt-exec-command
+  [{:keys [callback] :as cmd} db response-pub-chan stats-atom]
   (try
     (let [result (call-with-quick-retry quick-retry-count
-                  (fn []
-                    (process-command! cmd db blacklist-config)))]
+                                        #(exec-command cmd db (now)))]
       (swap! stats-atom update :executed-commands inc)
       (callback {:command cmd :result result})
       (async/>!! response-pub-chan
@@ -541,13 +547,15 @@
     (mark-both-metrics! command version :discarded)
     (update-counter! :depth command version dec!)))
 
-(defn process-delete-cmdref
+(defn process-delete-cmd
   "Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
-  [{:keys [command version certname id received] :as cmdref}
-   q scf-write-db response-chan stats blacklist-config maybe-send-cmd-event!]
-  (process-command-and-respond! cmdref scf-write-db response-chan stats blacklist-config)
+  [cmd {:keys [command version certname id received] :as cmdref}
+   q response-chan stats blacklist-config maybe-send-cmd-event!]
+  (swap! stats update :executed-commands inc)
+  ((:callback cmd) {:command cmd :result nil})
+  (async/>!! response-chan (make-cmd-processed-message cmd nil))
   (log-command-processed-messsage id received (now) (command-keys command)
                                   certname {:obsolete-cmd? true})
   (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
@@ -555,38 +563,29 @@
   (update-counter! :depth command version dec!)
   (update-counter! :invalidated command version dec!))
 
-(defn process-cmdref
-  "Parses, processes and acknowledges a successful command ref and
-  updates the relevant metrics. Any exceptions that arise are
-  unhandled and expected to be caught by the caller."
-  [cmdref q scf-write-db response-chan stats blacklist-config maybe-send-cmd-event!]
-  (let [{:keys [command version] :as cmd} (queue/cmdref->cmd q cmdref)
+(defn process-cmd
+  "Processes and acknowledges a successful command ref and updates the
+  relevant metrics. Any exceptions that arise are unhandled and
+  expected to be caught by the caller."
+  [cmd cmdref q scf-write-db response-chan stats maybe-send-cmd-event!]
+  (let [{:keys [command version]} cmd
         retries (count (:attempts cmdref))]
-    (if-not cmd
-      ;; Queue file is missing
-      (let [{:keys [command version]} cmdref]
-        (create-metrics-for-command! command version)
-        (mark-both-metrics! command version :seen)
-        (update-counter! :depth command version dec!)
-        (mark! (global-metric :fatal))
-        (maybe-send-cmd-event! cmdref ::processed))
-      (do
-        (create-metrics-for-command! command version)
+    (create-metrics-for-command! command version)
 
-        (mark-both-metrics! command version :seen)
-        (update! (global-metric :retry-counts) retries)
-        (update! (cmd-metric command version :retry-counts) retries)
+    (mark-both-metrics! command version :seen)
+    (update! (global-metric :retry-counts) retries)
+    (update! (cmd-metric command version :retry-counts) retries)
 
-        (mutils/multitime!
-         [(global-metric :processing-time)
-          (cmd-metric command version :processing-time)]
+    (mutils/multitime!
+     [(global-metric :processing-time)
+      (cmd-metric command version :processing-time)]
 
-         (process-command-and-respond! cmd scf-write-db response-chan stats blacklist-config)
-         (mark-both-metrics! command version :processed))
+     (attempt-exec-command cmd scf-write-db response-chan stats)
+     (mark-both-metrics! command version :processed))
 
-        (queue/ack-command q cmd)
-        (maybe-send-cmd-event! cmdref ::processed)
-        (update-counter! :depth command version dec!)))))
+    (queue/ack-command q cmd)
+    (maybe-send-cmd-event! cmdref ::processed)
+    (update-counter! :depth command version dec!)))
 
 (def command-delay-ms (* 1000 60 60))
 
@@ -628,51 +627,66 @@
   [{:keys [certname command version received delete? id] :as cmdref}
    q command-chan dlo delay-pool broadcast-pool write-dbs response-chan stats
    blacklist-config stop-status maybe-send-cmd-event!]
-  (try+
-   (when received
-     (let [q-time (-> (fmt-time/parse iso-formatter received)
-                      (time/interval (now))
-                      time/in-seconds)]
-       (create-metrics-for-command! command version)
-       (update! (global-metric :queue-time) q-time)
-       (update! (cmd-metric command version :queue-time) q-time)))
-   (if delete?
-     (process-delete-cmdref cmdref q (first write-dbs) response-chan
-                            stats blacklist-config maybe-send-cmd-event!)
-     (let [retries (count (:attempts cmdref))]
-       (try+
-        (try
-          (process-cmdref cmdref q (first write-dbs) response-chan stats
-                          blacklist-config maybe-send-cmd-event!)
-          (catch ExceptionInfo ex
-            (let [{:keys [kind] :as data} (ex-data ex)]
-              (when-not (= kind ::queue/parse-error)
-                (throw ex))
-              (mark! (global-metric :fatal))
-              (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
-              (discard-message cmdref ex q dlo maybe-send-cmd-event!))))
-        (catch fatal? obj
-          (mark! (global-metric :fatal))
-          (let [ex (:cause obj)]
-            (log/error
-             (:wrapper &throw-context)
-             (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-            (discard-message cmdref ex q dlo maybe-send-cmd-event!)))
-        (catch Exception _
-          (let [ex (:throwable &throw-context)]
-            (mark-both-metrics! command version :retried)
-            (if (< retries maximum-allowable-retries)
-              (do
-                (log/error
-                 ex
-                 (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                      id command retries certname ex))
-                (schedule-delayed-message cmdref ex command-chan delay-pool stop-status))
-              (do
-                (log/error
-                 ex
-                 (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
-                (discard-message cmdref ex q dlo maybe-send-cmd-event!))))))))))
+  (when received
+    (let [q-time (-> (fmt-time/parse iso-formatter received)
+                     (time/interval (now))
+                     time/in-seconds)]
+      (create-metrics-for-command! command version)
+      (update! (global-metric :queue-time) q-time)
+      (update! (cmd-metric command version :queue-time) q-time)))
+  (let [cmd (try
+              (queue/cmdref->cmd q cmdref)
+              (catch ExceptionInfo ex
+                (let [{:keys [kind] :as data} (ex-data ex)]
+                  (when-not (= kind ::queue/parse-error)
+                    (throw ex))
+                  (mark! (global-metric :fatal))
+                  (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
+                  (discard-message cmdref ex q dlo maybe-send-cmd-event!)
+                  :discarded)))
+        retries (count (:attempts cmdref))]
+    (cond
+      (not cmd) ;; queue file is missing
+      (do
+        (create-metrics-for-command! command version)
+        (mark-both-metrics! command version :seen)
+        (update-counter! :depth command version dec!)
+        (mark! (global-metric :fatal))
+        (maybe-send-cmd-event! cmdref ::processed))
+
+      (= cmd :discarded) true
+
+      delete? (process-delete-cmd cmd cmdref q response-chan stats
+                                  blacklist-config maybe-send-cmd-event!)
+
+      :else
+      (try+
+       (-> cmd
+           (prep-command blacklist-config)
+           (process-cmd cmdref q (first write-dbs) response-chan stats
+                        maybe-send-cmd-event!))
+       (catch fatal? obj
+         (mark! (global-metric :fatal))
+         (let [ex (:cause obj)]
+           (log/error
+            (:wrapper &throw-context)
+            (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+           (discard-message cmdref ex q dlo maybe-send-cmd-event!)))
+       (catch Exception _
+         (let [ex (:throwable &throw-context)]
+           (mark-both-metrics! command version :retried)
+           (if (< retries maximum-allowable-retries)
+             (do
+               (log/error
+                ex
+                (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                     id command retries certname ex))
+               (schedule-delayed-message cmdref ex command-chan delay-pool stop-status))
+             (do
+               (log/error
+                ex
+                (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
+               (discard-message cmdref ex q dlo maybe-send-cmd-event!)))))))))
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages

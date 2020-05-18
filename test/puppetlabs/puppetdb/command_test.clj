@@ -56,7 +56,11 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue
-             :refer [catalog->command-req catalog-inputs->command-req facts->command-req report->command-req deactivate->command-req]]
+             :refer [catalog->command-req
+                     catalog-inputs->command-req
+                     deactivate->command-req
+                     facts->command-req
+                     report->command-req]]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
@@ -190,7 +194,8 @@
             (is (empty? (fs/list-dir (:path dlo))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
-          (with-redefs [process-command-and-respond! (fn [& _] (throw+ (fatality (Exception. "fatal error"))))]
+          (with-redefs [cmd/attempt-exec-command (fn [& _]
+                                                   (throw+ (fatality (Exception. "fatal error"))))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -199,8 +204,9 @@
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a schema error occurs should be discarded to the dead letter queue"
-          (with-redefs [process-command-and-respond! (fn [& _] (upon-error-throw-fatality
-                                                                (function-that-needs-int-via-schema "string")))]
+          (with-redefs [cmd/attempt-exec-command (fn [& _]
+                                                   (upon-error-throw-fatality
+                                                    (function-that-needs-int-via-schema "string")))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -209,8 +215,9 @@
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a precondition error occurs should be discarded to the dead letter queue"
-          (with-redefs [process-command-and-respond! (fn [& _] (upon-error-throw-fatality
-                                                                (function-that-needs-int-via-precondition "string")))]
+          (with-redefs [cmd/attempt-exec-command (fn [& _]
+                                                   (upon-error-throw-fatality
+                                                    (function-that-needs-int-via-precondition "string")))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -220,8 +227,8 @@
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
           (let [expected-exception (Exception. "non-fatal error")]
-            (with-redefs [process-command-and-respond! (fn [& _]
-                                                         (throw+ expected-exception))
+            (with-redefs [cmd/attempt-exec-command (fn [& _]
+                                                     (throw+ expected-exception))
                           command-delay-ms 1
                           quick-retry-count 0]
               (with-message-handler {:keys [handle-message command-chan dlo delay-pool q]}
@@ -240,7 +247,8 @@
                       actual-exception expected-exception))))))))
 
       (testing "should be discarded if expired"
-        (with-redefs [process-command-and-respond! (fn [& _] (throw (RuntimeException. "Expected failure")))]
+        (with-redefs [cmd/attempt-exec-command (fn [& _]
+                                                 (throw (RuntimeException. "Expected failure")))]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (let [cmdref (->> (get-in wire-catalogs [9 :empty])
                               (catalog->command-req 9)
@@ -254,7 +262,7 @@
     (testing "should be discarded if incorrectly formed"
       (let [catalog-req (failed-catalog-req 5 (:name v5-catalog) "{\"malformed\": \"with no closing brace\"")
             process-counter (call-counter)]
-        (with-redefs [process-command-and-respond! process-counter]
+        (with-redefs [cmd/attempt-exec-command process-counter]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (let [discards (discard-count)]
               (handle-message (queue/store-command q catalog-req))
@@ -264,38 +272,41 @@
             (is (= 0 (times-called process-counter)))))))))
 
 (deftest command-retry-handler
-  (with-redefs [quick-retry-count 0]
+  (with-redefs [cmd/quick-retry-count 0
+                cmd/attempt-exec-command (fn [& _]
+                                           (throw+ (RuntimeException. "retry me")))]
     (testing "logs for each L2 failure up to the max"
+      ;; Use a real command since up-front validation avoids retries.
       (doseq [i (range 0 maximum-allowable-retries)
-              :let [log-output (atom [])]]
+              :let [log-output (atom [])
+                    req (catalog->command-req 5 (get-in wire-catalogs [5 :empty]))]]
         (binding [*logger-factory* (atom-logger log-output)]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (is (= 0 (task-count delay-pool)))
-            (handle-message (-> q
-                                (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
-                                (add-fake-attempts i)))
+            (handle-message (-> (queue/store-command q req) (add-fake-attempts i)))
             (is (= 1 (task-count delay-pool)))
             (is (= 0 (count (fs/list-dir (:path dlo)))))
-            (is (= (get-in @log-output [0 1]) :error))
-            (is (str/includes? (get-in @log-output [0 3]) "cats"))
-            (is (instance? Exception (get-in @log-output [0 2])))
-            (is (str/includes? (last (first @log-output))
-                               "Retrying after attempt"))))))
+            ;; Not sure why the migration messages weren't included before
+            (let [[_ level ex msg] (last @log-output)]
+              (is (= level :error))
+              (is (instance? Exception ex))
+              (is (str/includes? msg "Retrying after attempt"))
+              (is (str/includes? msg "retry me")))))))
 
     (testing "a failed message after the max is discarded"
-      (let [log-output (atom [])]
+      (let [log-output (atom [])
+            req (catalog->command-req 5 (get-in wire-catalogs [5 :empty]))]
         (binding [*logger-factory* (atom-logger log-output)]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (handle-message (-> q
-                                (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
+            (handle-message (-> (queue/store-command q req)
                                 (add-fake-attempts maximum-allowable-retries)))
             (is (= 0 (task-count delay-pool)))
             (is (= 2 (count (fs/list-dir (:path dlo)))))
-            (is (= (get-in @log-output [0 1]) :error))
-            (is (instance? Exception (get-in @log-output [0 2])))
-            (is (str/includes? (last (first @log-output))
-                               "Exceeded max"))
-            (is (str/includes? (get-in @log-output [0 3]) "cats"))))))))
+            (let [[_ level ex msg] (last @log-output)]
+              (is (= level :error))
+              (is (instance? Exception ex))
+              (is (str/includes? msg "Exceeded max"))
+              (is (= "retry me" (ex-message ex))))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
@@ -312,13 +323,15 @@
 
   (testing "Failures do not cause messages to be acknowledged"
     (tqueue/with-stockpile q
-      (with-redefs [process-command-and-respond! (fn [& _] (throw+ (RuntimeException. "retry me")))]
+      (with-redefs [cmd/attempt-exec-command (fn [& _] (throw+ (RuntimeException. "retry me")))]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (let [entry (queue/store-command q (failed-catalog-req 10 "cats" {:certname "cats"}))]
             (is (:payload (queue/cmdref->cmd q entry)))
             (handle-message entry)
-            (is (= 1 (task-count delay-pool)))
-            (is (:payload (queue/cmdref->cmd q entry)))))))))
+            ;; Parse errors go directly to dlo (after addition of
+            ;; command broadcast)
+            (is (= 2 (count (fs/list-dir (:path dlo)))))
+            (is (= 0 (task-count delay-pool)))))))))
 
 (deftest call-with-quick-retry-test
   (testing "errors are logged at debug while retrying"
@@ -1815,14 +1828,14 @@
 (deftest handling-commands-producing-unusual-queue-names-across-restart
   ;; Should also apply to a full server stop/start
   (with-test-db
-    (let [producer-ts (to-string (now))
+    (let [producer-ts (now)
           shared-vardir (temp-dir)
           config (-> (svc-utils/create-temp-config)
                      (assoc :database *db*)
                      (assoc-in [:global :vardir] shared-vardir))]
 
       ;; Add unusual messages to the queue without processing them
-      (with-redefs [process-cmdref (fn [& _] :intentionally-did-nothing)]
+      (with-redefs [cmd/process-cmd (fn [& _] :intentionally-did-nothing)]
         (svc-utils/call-with-single-quiet-pdb-instance
          config
          (fn []
@@ -1830,23 +1843,24 @@
                  enqueue-command (partial enqueue-command dispatcher)
                  mod-cert "underscores_must_be_altered_for_the_queue"
                  long-cert (apply str (repeat (inc queue/max-metadata-utf8-bytes) "z"))
+                 stamp (to-string producer-ts)
                  enqueue #(enqueue-command (command-names :replace-facts) 4 %
                                            nil
                                            (tqueue/coerce-to-stream
                                             {:environment "DEV" :certname %
                                              :values {:foo "foo"}
-                                             :producer_timestamp producer-ts})
+                                             :producer_timestamp stamp})
                                            "")]
              (enqueue mod-cert)
              (enqueue long-cert)))))
 
       ;; Now start back up with a functional processor and make sure
       ;; the commands can be found and processed.
-      (let [orig-process process-cmdref
+      (let [orig-process cmd/process-cmd
             continue-processing? (promise)]
-        (with-redefs [process-cmdref #(do
-                                        @continue-processing?
-                                        (apply orig-process %&))]
+        (with-redefs [cmd/process-cmd #(do
+                                         @continue-processing?
+                                         (apply orig-process %&))]
           (svc-utils/call-with-single-quiet-pdb-instance
            config
            (fn []
@@ -1861,7 +1875,9 @@
                  (when-not val
                    (throw (Exception. "timed out waiting for response-chan")))
                  (is (= 2 (count val)))
-                 (let [expected #{{:command "replace facts" :version 4
+                 (let [val (map #(update % :producer-timestamp to-date-time)
+                                val)
+                       expected #{{:command "replace facts" :version 4
                                    :producer-timestamp producer-ts :delete? nil}}]
                    (is (= expected
                           (->> val
