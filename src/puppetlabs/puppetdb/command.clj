@@ -88,7 +88,7 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
-   (java.util.concurrent Semaphore)
+   (java.util.concurrent RejectedExecutionException Semaphore)
    (org.joda.time DateTime)))
 
 ;; ## Performance counters
@@ -491,14 +491,14 @@
 (defn call-with-quick-retry [num-retries f]
   (loop [n num-retries]
     (let [result (try
-                  (f)
-                  (catch Throwable e
-                    (if (zero? n)
-                      (throw e)
-                      (do (log/debug e
-                                     (trs "Exception throw in L1 retry attempt {0}"
-                                          (- (inc num-retries) n)))
-                          ::failure))))]
+                   (f)
+                   (catch Throwable e
+                     (if (zero? n)
+                       (throw e)
+                       (do (log/debug e
+                                      (trs "Exception throw in L1 retry attempt {0}"
+                                           (- (inc num-retries) n)))
+                           ::failure))))]
       (if (= result ::failure)
         (recur (dec n))
         result))))
@@ -551,11 +551,69 @@
   (update-counter! :depth command version dec!)
   (update-counter! :invalidated command version dec!))
 
+(defn broadcast-cmd
+  [{:keys [certname command version id] :as cmd}
+   write-dbs pool response-chan stats]
+  (let [n-dbs (count write-dbs)
+        statuses (repeatedly n-dbs #(atom nil))
+        results (atom [])
+        finished (promise)
+        interrupt #(doseq [{:keys [connecting? thread] :as status} statuses]
+                     (locking status
+                       (when connecting?
+                         (try
+                           (.interrupt thread)
+                           (catch Throwable ex
+                             (log/error ex (trs "Broadcast thread interrupt failed")))))))
+        not-exception? #(not (instance? Throwable %))
+        attempt-exec (fn [db status]
+                       (try
+                         ;; FIXME: huge hack...
+                         (if (= command "store report")
+                           (attempt-exec-command cmd db status
+                                                 response-chan stats)
+                           (jdbc/with-monitored-db-connection db status
+                             (attempt-exec-command cmd jdbc/*db* status
+                                                   response-chan stats)))
+                         nil
+                         (catch Throwable ex
+                           ex)))]
+    ;; Kick us loose when we have either one success or nothing but failures.
+    (add-watch results results
+               (fn [k _ prev new]
+                 (when (or (= n-dbs (count new))
+                           (some not-exception? new))
+                   (deliver finished true))))
+    (try
+      (mapv (fn [db status]
+              (.execute pool #(swap! results conj (attempt-exec db status))))
+            write-dbs statuses)
+      (catch RejectedExecutionException ex
+        (interrupt)
+        (throw
+         (ex-info (trs "[{0}] [{1}] Command rejected for {2}, presumably shutting down"
+                       id command certname)
+                  {:kind ::retry} ex))))
+    @finished
+    (interrupt)
+
+    (let [results @results]
+      (if (some not-exception? results) ;; success
+        true
+        (let [msg (trs "[{0}] [{1}] Unable to broadcast command for {2}"
+                       id command certname)
+              ex (ex-info msg {:kind ::retry})]
+          (doseq [result results
+                  :when (instance? Throwable result)]
+            (.addSuppressed ex result))
+          (throw ex))))))
+
 (defn process-cmd
   "Processes and acknowledges a successful command ref and updates the
   relevant metrics. Any exceptions that arise are unhandled and
   expected to be caught by the caller."
-  [cmd cmdref q scf-write-db response-chan stats maybe-send-cmd-event!]
+  [cmd cmdref q write-dbs broadcast-pool response-chan stats
+   maybe-send-cmd-event!]
   (let [{:keys [command version]} cmd
         retries (count (:attempts cmdref))]
     (create-metrics-for-command! command version)
@@ -567,8 +625,12 @@
     (mutils/multitime!
      [(global-metric :processing-time)
       (cmd-metric command version :processing-time)]
-
-     (attempt-exec-command cmd scf-write-db response-chan stats)
+     (try
+       (if broadcast-pool
+         (broadcast-cmd cmd write-dbs broadcast-pool response-chan stats)
+         (attempt-exec-command cmd (first write-dbs) (atom {}) response-chan stats))
+       (catch Throwable ex
+         (throw ex)))
      (mark-both-metrics! command version :processed))
 
     (queue/ack-command q cmd)
@@ -654,8 +716,8 @@
 
           :else (-> cmd
                     (prep-command blacklist-config)
-                    (process-cmd cmdref q (first write-dbs) response-chan stats
-                                 maybe-send-cmd-event!))))
+                    (process-cmd cmdref q write-dbs broadcast-pool response-chan
+                                 stats maybe-send-cmd-event!))))
       (catch ExceptionInfo ex
         (let [data (ex-data ex)]
           (case (:kind data)
@@ -685,7 +747,6 @@
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool broadcast-pool write-dbs
    response-chan stats blacklist-config stop-status maybe-send-cmd-event!]
-  (assert (= 1 (count write-dbs)))
   (fn [cmdref]
     (process-message cmdref
                      q command-chan dlo

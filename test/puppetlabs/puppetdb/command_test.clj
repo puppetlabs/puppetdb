@@ -73,6 +73,7 @@
    (clojure.lang ExceptionInfo)
    (java.nio.file Files)
    (java.util.concurrent TimeUnit)
+   (java.sql SQLException)
    (org.joda.time DateTime DateTimeZone)))
 
 ;; FIXME: could/should some of this be shared with cmd service's close?
@@ -134,6 +135,13 @@
          (let [~binding-form context#]
            ~@body)))))
 
+(defn find-retry-ex [ex]
+  ;; Location varies if we're broadcasting, perhaps via
+  ;; PDB_TEST_ALWAYS_BROADCAST_COMMANDS.
+  (if-let [[ex & exs] (seq (.getSuppressed ex))]
+    (and (not (seq exs)) ex)
+    ex))
+
 (defn add-fake-attempts [cmdref n]
   (loop [i 0
          result cmdref]
@@ -175,10 +183,10 @@
   (queue/create-command-req "replace catalog" version certname nil "" identity
                             (tqueue/coerce-to-stream payload)))
 
-(s/defn function-that-needs-int-via-schema [x :- s/Int]
+(s/defn validate-int-arg [x :- s/Int]
   x)
 
-(defn function-that-needs-int-via-precondition [x]
+(defn assert-int-arg [x]
   {:pre [(integer? x)]}
   x)
 
@@ -206,9 +214,9 @@
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a schema error occurs should be discarded to the dead letter queue"
-          (with-redefs [cmd/attempt-exec-command (fn [& _]
-                                                   (upon-error-throw-fatality
-                                                    (function-that-needs-int-via-schema "string")))]
+          (with-redefs [cmd/prep-command (fn [& _]
+                                           (upon-error-throw-fatality
+                                            (validate-int-arg "string")))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -217,9 +225,9 @@
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a precondition error occurs should be discarded to the dead letter queue"
-          (with-redefs [cmd/attempt-exec-command (fn [& _]
-                                                   (upon-error-throw-fatality
-                                                    (function-that-needs-int-via-precondition "string")))]
+          (with-redefs [cmd/prep-command (fn [& _]
+                                           (upon-error-throw-fatality
+                                            (assert-int-arg "string")))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -229,8 +237,7 @@
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
           (let [expected-exception (Exception. "non-fatal error")]
-            (with-redefs [cmd/attempt-exec-command (fn [& _]
-                                                     (throw+ expected-exception))
+            (with-redefs [cmd/attempt-exec-command (fn [& _] (throw expected-exception))
                           command-delay-ms 1
                           quick-retry-count 0]
               (with-message-handler {:keys [handle-message command-chan dlo delay-pool q]}
@@ -242,15 +249,15 @@
                   (is (empty? (fs/list-dir (:path dlo))))
 
                   (let [delayed-command (take-with-timeout!! command-chan default-timeout-ms)
-                        actual-exception (:exception (first (:attempts delayed-command)))]
+                        actual-exception (-> (:attempts delayed-command)
+                                             first :exception find-retry-ex)]
                     (are [x y] (= x y)
                       cmdref (dissoc delayed-command :attempts)
                       1 (count (:attempts delayed-command))
                       actual-exception expected-exception))))))))
 
       (testing "should be discarded if expired"
-        (with-redefs [cmd/attempt-exec-command (fn [& _]
-                                                 (throw (RuntimeException. "Expected failure")))]
+        (with-redefs [cmd/prep-command (fn [& _] (throw (RuntimeException. "Expected failure")))]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (let [cmdref (->> (get-in wire-catalogs [9 :empty])
                               (catalog->command-req 9)
@@ -264,7 +271,7 @@
     (testing "should be discarded if incorrectly formed"
       (let [catalog-req (failed-catalog-req 5 (:name v5-catalog) "{\"malformed\": \"with no closing brace\"")
             process-counter (call-counter)]
-        (with-redefs [cmd/attempt-exec-command process-counter]
+        (with-redefs [cmd/prep-command process-counter]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (let [discards (discard-count)]
               (handle-message (queue/store-command q catalog-req))
@@ -293,7 +300,7 @@
               (is (= level :error))
               (is (instance? Exception ex))
               (is (str/includes? msg "Retrying after attempt"))
-              (is (str/includes? msg "retry me")))))))
+              (is (= "retry me" (ex-message (find-retry-ex ex)))))))))
 
     (testing "a failed message after the max is discarded"
       (let [log-output (atom [])
@@ -308,7 +315,7 @@
               (is (= level :error))
               (is (instance? Exception ex))
               (is (str/includes? msg "Exceeded max"))
-              (is (= "retry me" (ex-message ex))))))))))
+              (is (= "retry me" (ex-message (find-retry-ex ex)))))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
@@ -1183,16 +1190,21 @@
       second))
 
 (defn pg-serialization-failure-ex? [ex]
-  ;; Before pg 9.4, the message was in the first exception.  Now it's
-  ;; in a second chained exception.  Look for both.
   (letfn [(failure? [candidate]
             (when candidate
               (when-let [m (.getMessage candidate)]
                 (re-matches
                  #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
                  m))))]
-    (or (failure? (.getNextException ex))
-        (failure? ex))))
+    (if (instance? SQLException ex)
+      ;; Before pg 9.4, the message was in the first exception.  Now
+      ;; it's in a second chained exception.  Look for both.
+      (or (failure? (.getNextException ex))
+          (failure? ex))
+      ;; Might be broadcasting (for now just require it to be first,
+      ;; assuming this is the PDB_TEST_ALWAYS_BROADCAST_COMMANDS
+      ;; case).
+      (pg-serialization-failure-ex? (some-> (.getSuppressed ex) first)))))
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
