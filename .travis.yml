@@ -86,15 +86,15 @@ jobs:
   include:
     # === core+ext tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk8/pg-9.6
+      env: PDB_TEST=core+ext/openjdk8/pg-11
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk8/pg-9.6 LEIN_PROFILES=fips
+      env: PDB_TEST=core+ext/openjdk8/pg-11 LEIN_PROFILES=fips
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests with drop-joins optimization
-      env: PDB_TEST=core+ext/openjdk8/pg-9.6 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=always
+      env: PDB_TEST=core+ext/openjdk8/pg-11 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=always
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
@@ -102,24 +102,20 @@ jobs:
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk8/pg-11
-      script: *run-core-and-ext-tests
-
-    - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk11/pg-9.6
+      env: PDB_TEST=core+ext/openjdk8/pg-9.6
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk11/pg-11
       script: *run-core-and-ext-tests
 
+    - stage: ❧ pdb tests
+      env: PDB_TEST=core+ext/openjdk11/pg-9.6
+      script: *run-core-and-ext-tests
+
     # === integration with master branches
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6
-      script: *run-integration-tests
-
-    - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-11
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
@@ -127,24 +123,28 @@ jobs:
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-master/pg-9.6/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
       env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-11/rich
       script: *run-integration-tests
 
+    - stage: ❧ pdb tests
+      env: PDB_TEST=int/openjdk8/pup-master/srv-master/pg-9.6/rich
+      script: *run-integration-tests
+
     # === integration with current platform
       #- stage: ❧ pdb tests
-      #  env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6
+      #  env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-11
       #  script: *run-integration-tests
 
       #- stage: ❧ pdb tests
-      #env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6/rich
+      #env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-11/rich
       #script: *run-integration-tests
 
       #- stage: ❧ pdb tests
-      #env: PDB_TEST=int/openjdk8/pup-6.4.x/srv-6.3.x/pg-9.6/rich
+      #env: PDB_TEST=int/openjdk8/pup-6.4.x/srv-6.3.x/pg-11/rich
       #script: *run-integration-tests
 
     # === rspec tests
@@ -160,13 +160,13 @@ jobs:
 
     # === core+ext tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=core+ext/openjdk11/pg-9.6
+      env: PDB_TEST=core+ext/openjdk11/pg-11
       script: *run-core-and-ext-tests
       os: osx
 
     # === integration tests
     - stage: ❧ pdb tests
-      env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-9.6/rich
+      env: PDB_TEST=int/openjdk11/pup-6.4.x/srv-6.3.x/pg-11/rich
       script: *run-integration-tests
       os: osx
 

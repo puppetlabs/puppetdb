@@ -430,12 +430,18 @@
   [config]
   (let [{current :version :as meta} (sutils/db-metadata)
         oldest (get-in config [:database :min-required-version]
-                       scf-store/oldest-supported-db)]
+                       scf-store/oldest-allowed-db)
+        supported scf-store/oldest-supported-db]
     (when (neg? (compare current oldest))
       (throw (ex-info "Database version too old"
                       {:kind ::unsupported-database
                        :current current
-                       :oldest oldest})))
+                       :oldest supported})))
+    (when (neg? (compare current supported))
+      (log/warn (trs "PostgreSQL {0}.{1} is deprecated. Please upgrade to PostgreSQL {2}"
+                     (first current)
+                     (second current)
+                     (first supported))))
     meta))
 
 (defn require-valid-db
