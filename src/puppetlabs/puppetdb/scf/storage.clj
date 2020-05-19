@@ -1443,7 +1443,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(def oldest-supported-db [9 6])
+;; A db version that is "allowed" but not supported is deprecated
+(def oldest-allowed-db [9 6])
+
+(def oldest-supported-db [11 0])
 
 (pls/defn-validated add-certname!
   "Add the given host to the db"
