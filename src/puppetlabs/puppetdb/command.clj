@@ -386,11 +386,11 @@
                                        %))))
       (update-in [:payload :producer_timestamp] #(or % (now)))))
 
-(defn exec-store-report [{:keys [payload id received]} start-time db]
+(defn exec-store-report [{:keys [payload id received]} start-time db conn-status]
   (let [{:keys [certname puppet_version producer_timestamp] :as report} payload]
     ;; Unlike the other storage functions, add-report! manages its own
     ;; transaction, so that it can dynamically create table partitions
-    (scf-storage/add-report! report received db)
+    (scf-storage/add-report! report received db conn-status)
     (log-command-processed-messsage id received start-time :store-report certname
                                     {:puppet-version puppet_version})))
 
@@ -438,11 +438,11 @@
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
   [{command-name :command version :version delete? :delete? :as command}
-   db start]
+   db conn-status start]
   (condp supported-command-version? [command-name version]
     "replace catalog" (exec-replace-catalog command start db)
     "replace facts" (exec-replace-facts command start db)
-    "store report" (exec-store-report command start db)
+    "store report" (exec-store-report command start db conn-status)
     "deactivate node" (exec-deactivate-node command start db)
     "configure expiration" (exec-configure-expiration command start db)
     "replace catalog inputs" (exec-replace-catalog-inputs command start db)))
@@ -456,7 +456,7 @@
     (let [start (now)]
       (-> command
           (prep-command blacklist-config)
-          (exec-command db start)))))
+          (exec-command db (atom {}) start)))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
@@ -506,10 +506,10 @@
 (def quick-retry-count 4)
 
 (defn attempt-exec-command
-  [{:keys [callback] :as cmd} db response-pub-chan stats-atom]
+  [{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom]
   (try
     (let [result (call-with-quick-retry quick-retry-count
-                                        #(exec-command cmd db (now)))]
+                                        #(exec-command cmd db conn-status (now)))]
       (swap! stats-atom update :executed-commands inc)
       (callback {:command cmd :result result})
       (async/>!! response-pub-chan
