@@ -96,6 +96,11 @@
   [m]
   (into {} (filter (fn [[k v]] (keyword? k)) m)))
 
+(defn section-subsections
+  "Returns a {name settings} map of the subsections in m."
+  [m]
+  (into {} (filter (fn [[k v]] (string? k)) m)))
+
 (defn reduce-section
   "Behaves like reduce, but calls (f result name settings) for each
   subsection in the section.  If there are no subsections, calls (f

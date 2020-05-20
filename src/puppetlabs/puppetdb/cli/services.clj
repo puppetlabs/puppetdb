@@ -638,7 +638,6 @@
                             (fn [result name settings] (conj result settings))
                             []
                             database)
-                _ (assert (= 1 (count write-cfgs)))
                 write-dbs (conf/reduce-section
                            (fn [result name settings]
                              (conj result
@@ -709,6 +708,12 @@
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)]}
+  (when (seq (conf/section-subsections (:database config)))
+    (let [msg (trs "multiple write database support is experimental")])
+    (binding [*out* *err*]
+      (println
+       (trs "WARNING: multiple write database support is experimental")))
+    (log/warn (trs "multiple write database support is experimental")))
   (try
     (let [upgrade? (get-in config [:global :upgrade-and-exit?])
           context (start-puppetdb context config service
