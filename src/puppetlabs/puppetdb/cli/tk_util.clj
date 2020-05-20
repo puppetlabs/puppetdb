@@ -8,9 +8,14 @@
 
 (defn run-tk-cli-cmd [f]
   (let [jdk (cliu/java-version)]
-    (if-let [msg (cliu/jdk-unsupported-msg jdk)]
-      (do
-        (binding [*out* *err*] (println (trs "error:") msg))
-        (log/error msg)
-        cliu/err-exit-status)
+    (if-let [{:keys [warn error]} (cliu/jdk-unsupported-msg jdk)]
+      (if error
+        (do
+          (binding [*out* *err*] (println (trs "error:") error))
+          (log/error error)
+          cliu/err-exit-status)
+        (do
+          (binding [*out* *err*] (println (trs "warn:") warn))
+          (log/warn warn)
+          (f)))
       (f))))

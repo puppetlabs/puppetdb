@@ -11,27 +11,36 @@
 ;; Testing hook
 (defn java-version [] (System/getProperty "java.version"))
 
+(def supported-java-version "11")
+
 (defn jdk-support-status [version]
-  "Returns :official, :tested, or :unknown, or :no."
+  "Returns :official, :tested, :deprecated, :unknown, or :no."
   (cond
-    (re-matches #"1\.[123456]($|(\..*))" version) :no
-    (re-matches #"1\.7($|(\..*))" version) :unknown
-    (re-matches #"1\.8($|(\..*))" version) :official
-    (re-matches #"10($|(\..*))" version) :tested
+    (re-matches #"1\.[1234567]($|(\..*))" version) :no
+    (re-matches #"1\.[89]($|(\..*))" version) :deprecated
+    (re-matches #"10($|(\..*))" version) :deprecated
+    (re-matches (re-pattern (str supported-java-version "($|(\\..*))")) version) :official
     :else :unknown))
 
 (defn jdk-unsupported-msg [version]
   (let [status (jdk-support-status version)]
     (case status
-      (:official :tested :unknown) nil
-      (trs "PuppetDB doesn''t support JDK {0}" version))))
+      (:unknown) {:warn (trs "JDK {0} is neither tested nor supported. Please use JDK {1}" version supported-java-version)}
+      (:deprecated) {:warn (trs "JDK {0} is deprecated, please upgrade to JDK {1}" version supported-java-version)}
+      (:official :tested) nil
+      {:error (trs "PuppetDB doesn''t support JDK {0}" version)})))
 
 (defn run-cli-cmd [f]
   (let [jdk (java-version)]
-    (if-let [msg (jdk-unsupported-msg jdk)]
+    (if-let [{:keys [warn error]} (jdk-unsupported-msg jdk)]
       (do
-        (binding [*out* *err*] (println (trs "error:") msg))
-        err-exit-status)
+        (if error
+          (do
+            (binding [*out* *err*] (println (trs "error:") error))
+            err-exit-status)
+          (do
+            (binding [*out* *err*] (println (trs "warn:") warn))
+            (f))))
       (f))))
 
 (defn exit [status]
