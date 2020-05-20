@@ -747,7 +747,6 @@
                 (assoc-in [:shared-globals :maybe-send-cmd-event!] maybe-send-cmd-event!)
                 (assoc-in [:shared-globals :q] q)
                 (assoc-in [:shared-globals :scf-read-db] read-db)
-                (assoc-in [:shared-globals :scf-write-db] write-db)
                 (assoc-in [:shared-globals :scf-write-dbs] write-dbs)
                 (assoc-in [:shared-globals :scf-write-db-names] write-db-names))))))))
 
