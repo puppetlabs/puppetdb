@@ -13,6 +13,9 @@ expected_help_warnings=0
 expected_version_warnings=0
 case "$jdkver" in
     8)
+      # Java 8 deprecation warning
+      expected_help_warnings=60
+      expected_version_warnings=60
         ;;
     11)
         ;;
