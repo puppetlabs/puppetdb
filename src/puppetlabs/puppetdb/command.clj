@@ -82,7 +82,8 @@
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.command.dlo :as dlo]
-            [overtone.at-at :as at-at :refer [mk-pool stop-and-reset-pool!]]
+            [overtone.at-at :as at-at
+             :refer [interspaced mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.threadpool :as pool]
             [puppetlabs.puppetdb.utils.metrics :as mutils])
   (:import
@@ -766,8 +767,11 @@
   [size]
   (pool/gated-threadpool size "cmd-proc-thread-%d" threadpool-shutdown-ms))
 
+(defn normal-broadcast-pool-size [cmd-concurrency write-dbs]
+  (* cmd-concurrency (count write-dbs)))
+
 (defn create-broadcast-pool [cmd-concurrency write-dbs]
-  (let [db-concurrency (* cmd-concurrency (count write-dbs))]
+  (let [db-concurrency (normal-broadcast-pool-size cmd-concurrency write-dbs)]
     (when (or (> db-concurrency cmd-concurrency)
               (->> (or (System/getenv "PDB_TEST_ALWAYS_BROADCAST_COMMANDS") "")
                    (re-matches #"yes|true|1")
@@ -799,6 +803,20 @@
                                                         :facts-blacklist-type]))
                                       (:stop-status context)
                                       maybe-send-cmd-event!)]
+      (when broadcast-pool
+        (interspaced
+         (* 60 1000)
+         (let [normal (normal-broadcast-pool-size cmd-concurrency scf-write-dbs)
+               limit (normal-broadcast-pool-size (inc cmd-concurrency) scf-write-dbs)
+               next (atom (now))
+               suppress (time/minutes 10)]
+           #(let [found (pool/active-count broadcast-pool)]
+              (when (and (> found limit) (time/after? (now) next))
+                (log/warn
+                 (trs "Expected no more than {0} broadcast threads found {1} (please report)"
+                      normal found))
+                (reset! next (time/plus (now) (time/minutes 10))))))
+         delay-pool))
       ;; The rejection below should only occur if new work is
       ;; submitted after the threadpool has started shutting down as
       ;; part of the service's shutdown.  Since the command will be
@@ -851,7 +869,7 @@
           concurrent-writes (get-in (get-config) [:command-processing :concurrent-writes])]
       (async/tap response-mult response-chan-for-pub)
       (assoc context
-             :delay-pool (mk-pool)
+             :delay-pool (mk-pool) ;; For general scheduling, not just delays
              :write-semaphore (Semaphore. concurrent-writes)
              :stats (atom {:received-commands 0
                            :executed-commands 0})

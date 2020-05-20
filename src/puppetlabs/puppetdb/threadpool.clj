@@ -131,3 +131,6 @@
   (map->UnboundedThreadpool
    {:threadpool (executor 0 Integer/MAX_VALUE name-pattern)
     :shutdown-timeout shutdown-timeout-ms}))
+
+(defn active-count [pool]
+  (.getActiveCount (:threadpool pool)))
