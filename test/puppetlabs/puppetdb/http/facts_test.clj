@@ -534,7 +534,8 @@
   ([read-db write-db]
    (mid/wrap-with-puppetdb-middleware
     (server/build-app #(hash-map :scf-read-db read-db
-                                 :scf-write-db write-db
+                                 :scf-write-dbs [write-db]
+                                 :scf-write-db-names ["default"]
                                  :product-name "puppetdb"
                                  :add-agent-report-filter true
                                  :node-purge-ttl (parse-period "14d")
@@ -709,7 +710,8 @@
           (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
                 shared-globals (cli-svc/shared-globals pdb)
                 read-db (:scf-read-db shared-globals)
-                write-db (:scf-write-db shared-globals)
+                [write-db & more-dbs] (:scf-write-dbs shared-globals)
+                _ (assert (not (seq more-dbs)))
                 one-db-app (test-app write-db)
                 two-db-app (test-app read-db write-db)
                 facts1 {"domain" "testing.com"

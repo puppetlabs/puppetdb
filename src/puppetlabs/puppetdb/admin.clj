@@ -14,8 +14,9 @@
             [puppetlabs.puppetdb.middleware :as mid]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]
-            [slingshot.slingshot :refer [try+]]))
+            [schema.core :as s])
+  (:import
+   (clojure.lang ExceptionInfo)))
 
 (def clean-command-schema
   {:command (s/eq "clean")
@@ -25,11 +26,13 @@
 (def ^:private validate-clean-command (s/validator clean-command-schema))
 
 (defn- invalid-command-info [command validator]
-  (try+
-   (validator command)
-   nil
-   (catch [:type :schema.core/error] ex
-     ex)))
+  (try
+    (validator command)
+    nil
+    (catch ExceptionInfo ex
+      (when-not (= :schema.core/error (:type (ex-data ex)))
+        (throw ex))
+      ex)))
 
 (defn- handle-clean-req [body cmd clean]
   (let [invalid-info (invalid-command-info cmd validate-clean-command)]

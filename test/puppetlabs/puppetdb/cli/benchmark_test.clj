@@ -12,11 +12,11 @@
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
                                                        example-certname]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils :refer [with-captured-throw]]
             [puppetlabs.kitchensink.core :as ks]
-            [slingshot.test]
             [clojure.core.async :refer [<!! timeout close!]])
   (:import
+   [clojure.lang ExceptionInfo]
    [java.nio.file Files]))
 
 (defn mock-submit-record-fn [submitted-records entity]
@@ -40,7 +40,7 @@
                   config/load-config (fn [_] config)
                   ;; This normally calls System/exit on a cli error;
                   ;; we'd rather have the exception.
-                  utils/try+-process-cli! (fn [body] (body))
+                  utils/try-process-cli (fn [body] (body))
                   benchmark/benchmark-shutdown-timeout tu/default-timeout-ms]
       (f submitted-records (benchmark/benchmark-wrapper cli-args)))))
 
@@ -53,25 +53,30 @@
                                 @submitted)))
 
 (deftest config-is-required
-  (is (thrown+-with-msg?
-       [:kind ::ks/cli-error]
-       #"Missing required argument '--config'"
-       (benchmark-nummsgs {}))))
+  (let [x (with-captured-throw (benchmark-nummsgs {}))]
+    (is (= ExceptionInfo (class x)))
+    (when (= ExceptionInfo (class x))
+      (is (= ::ks/cli-error (:kind (ex-data x))))
+      (is (str/includes? (:msg (ex-data x))
+                         "Missing required argument '--config'")))))
 
 (deftest numhosts-is-required
-  (is (thrown+-with-msg?
-       [:kind ::ks/cli-error]
-       #"Missing required argument '--numhosts'"
-       (benchmark-nummsgs {}
-                          "--config" "anything.ini"))))
+  (let [x (with-captured-throw (benchmark-nummsgs {} "--config" "anything.ini"))]
+    (is (= ExceptionInfo (class x)))
+    (when (= ExceptionInfo (class x))
+      (is (= ::ks/cli-error (:kind (ex-data x))))
+      (is (str/includes? (:msg (ex-data x))
+                         "Missing required argument '--numhosts'")))))
 
 (deftest nummsgs-or-runinterval-is-required
-  (is (thrown+-with-msg?
-       [:kind ::utils/cli-error]
-       #"Either -N/--nummsgs or -i/--runinterval is required."
-       (benchmark-nummsgs {}
-                          "--config" "anything.ini"
-                          "--numhosts" "42"))))
+  (let [x (with-captured-throw (benchmark-nummsgs {}
+                                                  "--config" "anything.ini"
+                                                  "--numhosts" "42"))]
+    (is (= ExceptionInfo (class x)))
+    (when (= ExceptionInfo (class x))
+      (is (= ::ks/cli-error (:kind (ex-data x))))
+      (is (str/includes? (:msg (ex-data x))
+                         "Error: Either -N/--nummsgs or -i/--runinterval is required.")))))
 
 (deftest runs-with-runinterval
   (call-with-benchmark-status

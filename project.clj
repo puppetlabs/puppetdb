@@ -1,5 +1,5 @@
 (def pdb-version "6.10.2-SNAPSHOT")
-(def clj-parent-version "4.4.4")
+(def clj-parent-version "4.5.0")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -175,7 +175,6 @@
                  [clj-commons/fs]
                  [metrics-clojure]
                  [robert/hooke "1.3.0"]
-                 [slingshot]
                  [trptcolin/versioneer]
                  ;; We do not currently use this dependency directly, but
                  ;; we have documentation that shows how users can use it to

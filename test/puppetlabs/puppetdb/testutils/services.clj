@@ -29,7 +29,6 @@
             [puppetlabs.puppetdb.utils :refer [base-url->str base-url->str-with-prefix]]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
-            [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service
@@ -280,10 +279,12 @@
    & [opts]]
   (let [resp (get url-str opts)]
     (if (>= (:status resp) 400)
-      (throw+ {:url url-str
-               :response resp
-               :status (:status resp)}
-              (format "Failed request to '%s' with status '%s'" url-str (:status resp)))
+      (throw
+       (ex-info (format "Failed request to '%s' with status '%s'"
+                        url-str (:status resp))
+                {:url url-str
+                 :response resp
+                 :status (:status resp)}))
       resp)))
 
 (pls/defn-validated post

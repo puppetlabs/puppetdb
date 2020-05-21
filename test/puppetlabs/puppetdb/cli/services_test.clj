@@ -2,6 +2,7 @@
   (:require [me.raynes.fs :as fs]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
+            [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
             [puppetlabs.puppetdb.testutils.db
@@ -25,8 +26,7 @@
              :refer [block-until-results default-timeout-ms temp-file]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [slingshot.slingshot :refer [throw+ try+]])
+            [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import
    [clojure.lang ExceptionInfo]
    [java.util.concurrent.locks ReentrantLock]))
@@ -234,7 +234,7 @@
     (testing "unsupported-database exception causes shutdown request"
       (let [opts (-> @service service-context :shutdown-request deref :opts)
             exit (:puppetlabs.trapperkeeper.core/exit opts)]
-        (is (= 1 (:status exit)))
+        (is (= err-exit-status (:status exit)))
         (is (some (fn [[msg out]] (err-msg? msg))
                   (:messages exit)))))))
 
@@ -279,7 +279,7 @@
     (testing "invalid-database-configuration exception causes shutdown request"
       (let [opts (-> @service service-context :shutdown-request deref :opts)
             exit (:puppetlabs.trapperkeeper.core/exit opts)]
-        (is (= 1 (:status exit)))
+        (is (= err-exit-status (:status exit)))
         (is (some (fn [[msg out]] (err-msg? msg))
                   (:messages exit)))))))
 
@@ -326,11 +326,13 @@
   (with-log-output log-output
     (let [gc-blocked (promise)
           gc-proceed (promise)
-          gc svcs/collect-garbage]
+          gc svcs/collect-garbage
+          collect-thread (promise)]
       (with-redefs [svcs/stop-gc-wait-ms (constantly (if slow-gc?
                                                        0 ;; no point in waiting
                                                        default-timeout-ms))
                     svcs/collect-garbage (fn [& args]
+                                           (deliver collect-thread (Thread/currentThread))
                                            (deliver gc-blocked true)
                                            @gc-proceed
                                            (apply gc args))]
@@ -344,7 +346,7 @@
                                                (svcs/db-config->clean-request db-cfg)
                                                stop-status))
             @gc-blocked
-            (is #{:collecting-garbage} @stop-status)
+            (is (= #{@collect-thread} (:collecting-garbage @stop-status)))
             (when-not slow-gc?
               (deliver gc-proceed true))))))
     (is (= 1 (->> @log-output

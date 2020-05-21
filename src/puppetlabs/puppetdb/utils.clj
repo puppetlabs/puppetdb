@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.utils
   (:require [clojure.string :as str]
+            [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
@@ -12,12 +13,16 @@
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
-            [slingshot.slingshot :refer [try+ throw+]]
             [com.rpl.specter :as sp])
-  (:import [java.net MalformedURLException URISyntaxException URL]
-           [java.nio ByteBuffer CharBuffer]
-           [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
-           [org.postgresql.util PGobject]))
+  (:import
+   [clojure.lang ExceptionInfo]
+   [java.net MalformedURLException URISyntaxException URL]
+   [java.nio ByteBuffer CharBuffer]
+   [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
+   [org.postgresql.util PGobject]))
+
+(defmacro with-captured-throw [& body]
+  `(try [(do ~@body)] (catch Throwable ex# ex#)))
 
 (defn println-err
   "Redirects output to standard error before invoking println"
@@ -196,29 +201,34 @@
     (catch MalformedURLException ex (.getLocalizedMessage ex))
     (catch URISyntaxException ex (.getLocalizedMessage ex))))
 
-(defn throw+-cli-error!
+(defn throw-sink-cli-error
   [msg]
-  (throw+ {:kind ::cli-error
-           :msg msg}))
+  (throw (ex-info msg (kitchensink/error-map ::kitchensink/cli-error msg))))
 
 (defn validate-cli-base-url!
-  "A utility function which will validate the base-url
-  and throw+ a slingshot error appropriate for `kitchensink/cli!`"
+  "Validates the base-url and throws an exception appropriate for
+  kitchensink/cli! on error."
   [{:keys [base-url] :as options}]
   (when-let [why (describe-bad-base-url base-url)]
-    (throw+-cli-error! (format "Invalid source (%s)" why)))
+    (throw-sink-cli-error (format "Invalid source (%s)" why)))
   options)
 
-(defn try+-process-cli!
-  [body]
-  (try+
-   (body)
-   (catch map? m
-     (println (:msg m))
-     (case (kitchensink/without-ns (:kind m))
-       :cli-error (flush-and-exit 1)
-       :cli-help (flush-and-exit 0)
-       (throw+ m)))))
+(defn try-process-cli
+  [f]
+  (try
+    (f)
+    (catch ExceptionInfo ex
+      (let [{:keys [kind msg]} (ex-data ex)]
+        (case kind
+          ::kitchensink/cli-error
+          (do
+            (binding [*out* *err*] (println msg))
+            (flush-and-exit err-exit-status))
+          ::kitchensink/cli-help
+          (do
+            (println msg)
+            (flush-and-exit 0))
+          (throw ex))))))
 
 (defn pdb-query-base-url
   [host port & [version]]

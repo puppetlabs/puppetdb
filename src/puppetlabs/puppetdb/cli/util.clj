@@ -6,7 +6,7 @@
   (:require
    [puppetlabs.i18n.core :refer [trs]]))
 
-(def err-exit-status 1)
+(def err-exit-status 2)
 
 ;; Testing hook
 (defn java-version [] (System/getProperty "java.version"))

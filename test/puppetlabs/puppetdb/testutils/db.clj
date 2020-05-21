@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [environ.core :refer [env]]
+            [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -24,7 +25,7 @@
         (binding [*out* *err*]
           (println (format "Invalid test %s name %s" who (pr-str name)))
           (flush))
-        (flush-and-exit 1)))
+        (flush-and-exit err-exit-status)))
     {:host (env :pdb-test-db-host "127.0.0.1")
      :port (env :pdb-test-db-port 5432)
      :user {:name user
@@ -279,16 +280,16 @@
     (f)))
 
 (defn defaulted-write-db-config
-  "Defaults and converts `db-config` from the write database INI
-  format to the internal write database format"
+  "Defaults and converts `db-config` from the trapperkeeper config
+  format to the internal write database format."
   [db-config]
   (transform-data conf/write-database-config-in
                   conf/write-database-config-out
                   db-config))
 
 (defn defaulted-read-db-config
-  "Defaults and converts `db-config` from the read-database INI format
-  to the internal read database format"
+  "Defaults and converts `db-config` from the trapperkeeper format to
+  the internal read database format."
   [db-config]
   (transform-data conf/database-config-in
                   conf/database-config-out

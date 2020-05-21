@@ -1,8 +1,7 @@
 (ns puppetlabs.puppetdb.threadpool
   (:require [clojure.core.async :as async]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [slingshot.slingshot :refer [throw+]])
+            [puppetlabs.i18n.core :refer [trs tru]])
   (:import
    (java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
                          RejectedExecutionException ExecutorService)
@@ -31,63 +30,33 @@
       (.daemon true)
       .build))
 
+(defn executor [core-size max-size name-pattern]
+  (let [pool (ThreadPoolExecutor. core-size max-size
+                                  1 TimeUnit/MINUTES
+                                  (SynchronousQueue.))]
+    (doto pool
+      (.allowCoreThreadTimeOut true)
+      (.setThreadFactory (thread-factory name-pattern (.getThreadFactory pool))))))
+
 (defn shutdown
-  "Shuts down the gated threadpool, ensuring in-flight work is
+  "Shuts down the threadpool, ensuring in-flight work is
   complete before tearing it down. Waits up to `shutdown-timeout` (in
   milliseconds) for that work to complete before forcibly shutting
   down the threadpool"
-  [{:keys [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]}]
-
-  ;; Prevent new work from being accepted
-  (.drainPermits semaphore)
-
-  ;; Shutdown the threadpool, allowing in-flight work to finish
-  (.shutdown threadpool)
-
+  [{:keys [^ExecutorService threadpool shutdown-timeout]}]
+  (.shutdown threadpool) ;; Initiate shutdown, allowing in-flight work to finish
   ;; This will block, waiting for the threadpool to shutdown
-  (when-not (.awaitTermination threadpool shutdown-timeout java.util.concurrent.TimeUnit/MILLISECONDS)
-
+  (when-not (.awaitTermination threadpool shutdown-timeout TimeUnit/MILLISECONDS)
     (log/warn
-     (trs "Threadpool not stopped after {0} milliseconds, forcibly shutting it down" shutdown-timeout))
+     (trs "Forcing threadpool shutdown after waiting {0}ms: {1}"
+          shutdown-timeout threadpool))
+    (.shutdownNow threadpool) ;; Shutdown without waiting for threads to finish
+    (log/warn (trs "Threadpool forcibly shut down"))))
 
-    ;; This will force the shutdown of the threadpool and will
-    ;; not allow current threads to finish
-    (.shutdownNow threadpool)
-    (log/warn
-     (trs "Threadpool forcibly shutdown"))))
-
-(defrecord GatedThreadpool [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]
-  java.io.Closeable
-  (close [this]
-    (shutdown this)))
-
-(defn create-threadpool
-  "Creates an unbounded threadpool with the intent that access to the
-  threadpool is bounded by the semaphore. Implicitly the threadpool is
-  bounded by `size`, but since the semaphore is handling that aspect,
-  it's more efficient to use an unbounded pool and not duplicate the
-  constraint in both the semaphore and the threadpool"
-  [size name-pattern shutdown-timeout-in-ms]
-  (let [threadpool (ThreadPoolExecutor. 1
-                                        Integer/MAX_VALUE
-                                        1
-                                        TimeUnit/MINUTES
-                                        (SynchronousQueue.))]
-    (->> threadpool
-         .getThreadFactory
-         (thread-factory name-pattern)
-         (.setThreadFactory threadpool))
-
-    (map->GatedThreadpool
-     {:semaphore (Semaphore. size)
-      :threadpool threadpool
-      :shutdown-timeout shutdown-timeout-in-ms})))
-
-(defn call-on-threadpool
+(defn gated-execute
   "Executes `f` on `gated-threadpool`. Will throw
   RejectedExecutionException if `gated-threadpool` is being shutdown."
-  [{:keys [^Semaphore semaphore ^ExecutorService threadpool] :as gated-threadpool}
-   f]
+  [{:keys [^Semaphore semaphore ^ExecutorService threadpool]} f]
   (.acquire semaphore)
   (try
     (.execute threadpool (fn []
@@ -104,20 +73,64 @@
       (.release semaphore)
       (throw e))))
 
+(defn shutdown-gated
+  "Shuts down the gated threadpool via shutdown-pool after draining all
+  the permits."
+  [{:keys [^Semaphore semaphore] :as pool}]
+  ;; Prevent new work from being accepted
+  (.drainPermits semaphore)
+  (shutdown pool))
+
+(defrecord GatedThreadpool
+    [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]
+  java.io.Closeable
+  (close [this] (shutdown-gated this))
+  java.util.concurrent.Executor
+  (execute [this runnable] (gated-execute this runnable)))
+
+(defn gated-threadpool
+  "Creates an unbounded threadpool with the intent that access to the
+  threadpool is bounded by the semaphore. Implicitly the threadpool is
+  bounded by `size`, but since the semaphore is handling that aspect,
+  it's more efficient to use an unbounded pool and not duplicate the
+  constraint in both the semaphore and the threadpool"
+  [size name-pattern shutdown-timeout-ms]
+  (map->GatedThreadpool
+   {:semaphore (Semaphore. size)
+    :threadpool (executor 0 Integer/MAX_VALUE name-pattern)
+    :shutdown-timeout shutdown-timeout-ms}))
+
 (defn dochan
-  "Executes `on-input` for each input found on `in-chan`, with the
-  given `gated-threadpool`"
-  [gated-threadpool on-input in-chan]
+  "Calls on-input on each item found on in-chan, using the gated thread
+  pool."
+  [pool on-input in-chan]
   (loop [cmd (async/<!! in-chan)]
     (when cmd
       (try
-        (call-on-threadpool
-         gated-threadpool
-         (fn []
-           (on-input cmd)))
-        (catch RejectedExecutionException e
-          (throw+ {:kind ::rejected
-                   :message cmd}
-                  e
-                  (tru "Threadpool shutting down, message rejected"))))
+        (.execute pool (fn [] (on-input cmd)))
+        (catch RejectedExecutionException ex
+          (throw (ex-info (tru "Threadpool shutting down, message rejected")
+                          {:kind ::rejected :message cmd}
+                          ex))))
       (recur (async/<!! in-chan)))))
+
+(defn shutdown-unbounded [pool]
+  (shutdown pool))
+
+(defrecord UnboundedThreadpool
+    [^ExecutorService threadpool shutdown-timeout]
+  java.io.Closeable
+  (close [this] (shutdown this))
+  java.util.concurrent.Executor
+  (execute [this runnable] (.execute (:threadpool this) runnable)))
+
+(defn unbounded-threadpool
+  "Creates an unbounded thread pool with PuppetDB specific adjustments,
+  i.e. exception logging, etc."
+  [name-pattern shutdown-timeout-ms]
+  (map->UnboundedThreadpool
+   {:threadpool (executor 0 Integer/MAX_VALUE name-pattern)
+    :shutdown-timeout shutdown-timeout-ms}))
+
+(defn active-count [pool]
+  (.getActiveCount (:threadpool pool)))

@@ -29,7 +29,7 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 rc=0
 ./pdb frobnicate ... 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
 cat "$tmpdir/out" "$tmpdir/err"
-test "$rc" -eq 1
+test "$rc" -eq 2
 grep -F 'Available subcommands:' "$tmpdir/err"
 grep -E 'Display version information' "$tmpdir/err"
 

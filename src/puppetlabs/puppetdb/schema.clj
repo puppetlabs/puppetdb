@@ -5,8 +5,7 @@
             [schema.coerce :as sc]
             [clojure.string :as str]
             [schema.utils :as su]
-            [cheshire.custom :as json]
-            [slingshot.slingshot :refer [throw+]])
+            [cheshire.custom :as json])
   (:import
   (java.util.regex Pattern)))
 
@@ -137,7 +136,7 @@
   [schema data]
   (let [result ((sc/coercer schema conversion-fns) data)]
     (if (su/error? result)
-      (throw+ (su/error-val result))
+      (throw (su/error-val result))
       result)))
 
 (defn unknown-keys
@@ -149,6 +148,8 @@
   "Remove all keys from `data` not specified by `schema`"
   [schema data]
   (select-keys data (map schema-key->data-key (keys schema))))
+
+;; FIXME - see db uses for testing, not right for multidb now.
 
 (defn transform-data
   "Given an `in-schema` and `out-schema`, default missing values

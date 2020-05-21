@@ -86,7 +86,8 @@
       :content-type "application/x-www-form-urlencoded"
       :globals (merge {:update-server "FOO"
                        :scf-read-db          *db*
-                       :scf-write-db         *db*
+                       :scf-write-dbs        [*db*]
+                       :scf-write-db-names   ["default"]
                        :product-name         "puppetdb"
                        :add-agent-report-filter true
                        :node-purge-ttl       (t/parse-period "14d")}
@@ -104,7 +105,8 @@
       :content-type "application/json"
       :globals {:update-server "FOO"
                 :scf-read-db          *db*
-                :scf-write-db         *db*
+                :scf-write-dbs        [*db*]
+                :scf-write-db-names   ["default"]
                 :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
@@ -115,7 +117,8 @@
   ([f] (call-with-http-app f identity))
   ([f adjust-globals]
    (let [get-shared-globals #(adjust-globals {:scf-read-db *db*
-                                              :scf-write-db *db*
+                                              :scf-write-dbs [*db*]
+                                              :scf-write-db-names ["default"]
                                               :url-prefix ""
                                               :add-agent-report-filter true
                                               :node-purge-ttl (t/parse-period "14d")})]

@@ -40,6 +40,7 @@
      maintain acceptable performance."
   (:refer-clojure :exclude (with-open))
   (:require [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
@@ -52,7 +53,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.tk-util :refer [run-tk-cli-cmd]]
-            [puppetlabs.puppetdb.cli.util :refer [exit]]
+            [puppetlabs.puppetdb.cli.util :refer [exit err-exit-status]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
@@ -80,7 +81,6 @@
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
@@ -246,6 +246,9 @@
   []
   (reset! clean-status ""))
 
+;; FIXME: per-db gc stats?
+;; FIXME: db name in all gc logging?
+
 (defn-validated clean-up
   "Cleans up the resources specified by request, or everything if
   request is empty?."
@@ -300,22 +303,42 @@
   "Implements the PuppetDBServer clean method, see the protocol for
   further information."
   [context config what]
+  ;; For now, just serialize them.
+  ;; FIXME: improve request results wrt multiple databases?
   (let [lock (:clean-lock context)]
     (when (.tryLock lock)
       (try
-        (clean-up (get-in context [:shared-globals :scf-write-db])
-                  lock
-                  (:database config)
-                  what)
-        true
+        (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
+               ex nil]
+          (if-not db
+            (if-not ex
+              true
+              (throw ex))
+            (let [ex (try
+                       (clean-up db lock (:database config) what)
+                       ex
+                       (catch Exception db-ex
+                         (when ex (.addSuppressed ex db-ex))
+                         (or ex db-ex)))]
+              (recur dbs ex))))
         (finally
           (.unlock lock))))))
 
 (defn- delete-node-from-puppetdb [context certname]
   "Implements the PuppetDBServer delete-node method, see the protocol
    for further information"
-  (jdbc/with-transacted-connection (get-in context [:shared-globals :scf-write-db])
-    (scf-store/delete-certname! certname)))
+  (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
+         ex nil]
+    (if-not db
+      (when ex (throw ex))
+      (let [ex (try
+                 (jdbc/with-transacted-connection db
+                   (scf-store/delete-certname! certname))
+                 ex
+                 (catch Exception db-ex
+                   (when ex (.addSuppressed ex db-ex))
+                   (or ex db-ex)))]
+        (recur dbs ex)))))
 
 (defn maybe-check-for-updates
   [config read-db job-pool]
@@ -330,6 +353,23 @@
 
 (def stop-gc-wait-ms (constantly 5000))
 
+(defn ready-to-stop? [{:keys [stopping collecting-garbage]}]
+  (and stopping (not (seq collecting-garbage))))
+
+(defn close-write-dbs [dbs]
+  (loop [[db & dbs] dbs
+         ex nil]
+    (if-not db
+      (when ex (throw ex))
+      (let [ex (try
+                 (when-let [ds (:datasource db)]
+                   (.close ^Closeable ds))
+                 ex
+                 (catch Exception db-ex
+                   (when ex (.addSuppressed ex db-ex))
+                   (or ex db-ex)))]
+        (recur dbs ex)))))
+
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
@@ -339,14 +379,14 @@
   (when-let [pool (:job-pool context)]
     (stop-and-reset-pool! pool))
   ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-  (swap! stop-status #(conj % :stopping))
-  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) #(= % #{:stopping}))
+  (swap! stop-status assoc :stopping true)
+  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) ready-to-stop?)
     (log/info (trs "Periodic activities halted"))
     (log/info (trs "Forcibly terminating periodic activities")))
-  (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
-    (.close ^Closeable ds))
+  (close-write-dbs (get-in context [:shared-globals :scf-write-dbs]))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
     (.close ^Closeable ds))
+
   (when-let [command-loader (:command-loader context)]
     (future-cancel command-loader))
   context)
@@ -522,19 +562,37 @@
     (finally
       (.unlock clean-lock))))
 
+;; FIXME: with-logged-ex...
+
 (defn coordinate-gc-with-shutdown
   [write-db clean-lock database request stop-status]
   ;; This function assumes it will never be called concurrently with
   ;; itself, so that it's ok to just conj/disj below, instead of
   ;; tracking an atomic count or similar.
-  (let [update-if-not-stopping #(if (:stopping %)
-                                  %
-                                  (conj % :collecting-garbage))]
+  (let [thread (Thread/currentThread)
+        update-if-not-stopping (fn [status]
+                                 (if (:stopping status)
+                                   status
+                                   (update status :collecting-garbage
+                                           ;; union not conj, so nil is ok
+                                           #(set/union % #{thread}))))]
     (try
-      (when (:collecting-garbage (swap! stop-status update-if-not-stopping))
+      (when (get-in (swap! stop-status update-if-not-stopping)
+                    [:collecting-garbage thread])
         (collect-garbage write-db clean-lock database request))
+      (catch Exception ex
+        (log/error ex)
+        (throw ex))
       (finally
-        (swap! stop-status disj :collecting-garbage)))))
+        (swap! stop-status (fn [status]
+                             (update status :collecting-garbage
+                                     ;; Very important that this not
+                                     ;; set :collecting-garbage to
+                                     ;; #{}, so that existing code
+                                     ;; that doesn't check (seq
+                                     ;; status) will work.
+                                     #(let [s (disj % thread)]
+                                        (when (seq s) s)))))))))
 
 (defn maybe-send-cmd-event!
   "Put a map with identifying information about an enqueued command on the
@@ -546,7 +604,7 @@
 (defn check-schema-version
   [desired-schema-version context db service request-shutdown]
   {:pre [(integer? desired-schema-version)]}
-  (when-not (= #{:stopping} @(:stop-status context))
+  (when-not (:stopping @(:stop-status context))
     (let [schema-version (-> (jdbc/with-transacted-connection db
                                (jdbc/query "select max(version) from schema_migrations"))
                              first
@@ -597,6 +655,12 @@
 
     (when-let [v (version/version)]
       (log/info (trs "PuppetDB version {0}" v)))
+
+    (when (> (count (conf/section-subsections database)) 1)
+      (throw
+       (ex-info "Currently unable to migrate multiple databases (see config)"
+                {:kind ::must-migrate-multiple-databases})))
+
     (init-with-db database config)
 
     (if upgrade-and-exit?
@@ -632,12 +696,27 @@
 
           ;; Pretty much this helper just knows our job-pool and gc-interval
           (let [job-pool (mk-pool)
-                gc-interval-millis (to-millis (:gc-interval database))
+                ;; FIXME: forbid subdb settings?
                 schema-check-interval (:schema-check-interval database)
-                write-db (-> (assoc database
-                                    :pool-name "PDBWritePool"
-                                    :expected-schema desired-schema-version)
-                             (jdbc/pooled-datasource database-metrics-registry))]
+                write-cfgs (conf/reduce-section
+                            (fn [result name settings] (conj result settings))
+                            []
+                            database)
+                write-dbs (conf/reduce-section
+                           (fn [result name settings]
+                             (conj result
+                                   (-> settings
+                                       (assoc :pool-name (apply str "PDBWritePool"
+                                                                (when name  [": " name]))
+                                              :expected-schema desired-schema-version)
+                                       (jdbc/pooled-datasource database-metrics-registry))))
+                           []
+                           database)
+                write-db-names (conf/reduce-section
+                                (fn [result name settings]
+                                  (conj result (or name "default")))
+                                [] database)
+                [write-db] write-dbs]
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
             (when (pos? schema-check-interval)
@@ -648,13 +727,17 @@
                                                   service
                                                   request-shutdown)
                            job-pool))
-            (when (pos? gc-interval-millis)
-              (let [request (db-config->clean-request database)]
-                (interspaced gc-interval-millis
-                             #(coordinate-gc-with-shutdown write-db clean-lock
-                                                           database request
-                                                           (:stop-status context))
-                             job-pool)))
+            (mapv (fn [cfg db]
+                    (let [interval (to-millis (:gc-interval cfg))]
+                      (when (pos? interval)
+                        (let [request (db-config->clean-request cfg)]
+                          (interspaced interval
+                                       #(coordinate-gc-with-shutdown db clean-lock
+                                                                     cfg request
+                                                                     (:stop-status context))
+                                       job-pool)))))
+                  write-cfgs
+                  write-dbs)
             (-> context
                 (assoc :job-pool job-pool
                        :command-loader command-loader)
@@ -663,7 +746,8 @@
                 (assoc-in [:shared-globals :maybe-send-cmd-event!] maybe-send-cmd-event!)
                 (assoc-in [:shared-globals :q] q)
                 (assoc-in [:shared-globals :scf-read-db] read-db)
-                (assoc-in [:shared-globals :scf-write-db] write-db))))))))
+                (assoc-in [:shared-globals :scf-write-dbs] write-dbs)
+                (assoc-in [:shared-globals :scf-write-db-names] write-db-names))))))))
 
 (defn db-unsupported-msg
     "Returns a message describing which databases are supported."
@@ -691,6 +775,12 @@
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)]}
+  (when (seq (conf/section-subsections (:database config)))
+    (let [msg (trs "multiple write database support is experimental")])
+    (binding [*out* *err*]
+      (println
+       (trs "WARNING: multiple write database support is experimental")))
+    (log/warn (trs "multiple write database support is experimental")))
   (try
     (let [upgrade? (get-in config [:global :upgrade-and-exit?])
           context (start-puppetdb context config service
@@ -709,13 +799,15 @@
                    context)]
         (case kind
           ::unsupported-database
-          (stop (db-unsupported-msg (:current data) (:oldest data)) 1)
+          (stop (db-unsupported-msg (:current data) (:oldest data)) err-exit-status)
 
           ::invalid-database-configuration
-          (stop (invalid-conf-msg (:failed-validation data)) 1)
+          (stop (invalid-conf-msg (:failed-validation data)) err-exit-status)
 
-          ::migration-required
-          (stop (.getMessage ex) (int \m))
+          ::migration-required (stop (.getMessage ex) (int \m))
+
+          ::must-migrate-multiple-databases
+          (stop (str "puppetdb: " (.getMessage ex) "\n") err-exit-status)
 
           ;; Unrecognized -- pass it on.
           (throw ex))))))
@@ -782,7 +874,7 @@
                  ;; This coordination is needed until we no longer
                  ;; support jdk < 10.
                  ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-                 :stop-status (atom #{})
+                 :stop-status (atom {})
                  :shutdown-request (promise))))
   (start
    [this context]
@@ -805,10 +897,12 @@
   (set-url-prefix [this url-prefix]
                   (let [old-url-prefix (:url-prefix (service-context this))]
                     (when-not (compare-and-set! old-url-prefix nil url-prefix)
-                      (throw+ {:url-prefix old-url-prefix
-                               :new-url-prefix url-prefix
-                               :type ::url-prefix-already-set}
-                              (format "Attempt to set url-prefix to %s when it's already been set to %s" url-prefix @old-url-prefix)))))
+                      (throw
+                       (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
+                                        url-prefix @old-url-prefix)
+                                {:kind ::url-prefix-already-set
+                                 :url-prefix old-url-prefix
+                                 :new-url-prefix url-prefix})))))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this version query-expr paging-options row-callback-fn]

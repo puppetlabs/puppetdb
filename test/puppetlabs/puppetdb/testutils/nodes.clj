@@ -87,9 +87,14 @@
                                basic-report-for-node
                                (assoc :job_id "0987654321"))
                            (now)
-                           *db*)
-    (scf-store/add-report! (basic-report-for-node puppet) (plus (now) (seconds 2)) *db*)
-    (scf-store/add-report! (basic-report-for-node db) (plus (now) (seconds 3)) *db*)
+                           *db*
+                           (atom {}))
+    (scf-store/add-report! (basic-report-for-node puppet)
+                           (plus (now) (seconds 2))
+                           *db* (atom {}))
+    (scf-store/add-report! (basic-report-for-node db)
+                           (plus (now) (seconds 3))
+                           *db* (atom {}))
     {:web1    web1
      :web2    web2
      :db      db

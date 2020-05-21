@@ -1,6 +1,4 @@
 (ns puppetlabs.puppetdb.config-test
-  (:import [java.security KeyStore]
-           [java.util.regex Pattern])
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.config :refer :all :as conf]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -10,8 +8,40 @@
             [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
-            [slingshot.slingshot :refer [throw+ try+]]
-            [slingshot.test]))
+            [slingshot.test])
+  (:import
+   [clojure.lang ExceptionInfo]
+   [java.security KeyStore]
+   [java.util.regex Pattern]))
+
+(deftest git-section-name-parsing
+  (is (= ["x"] (conf/parse-git-section-name "[x]")))
+  (is (= ["x" "y"] (conf/parse-git-section-name "[x \"y\"]")))
+  (is (= ["x" "y"] (conf/parse-git-section-name "[x \t\"y\"]")))
+  (is (= ["x" " y"] (conf/parse-git-section-name "[x \" y\"]")))
+  (is (= ["x" "1 z !"] (conf/parse-git-section-name "[x \"1 z !\"]")))
+
+  (is (= ["x" "y"] (conf/parse-git-section-name "[x \"\\y\"]")))
+  (is (= ["x" "\""] (conf/parse-git-section-name "[x \"\\\"\"]")))
+
+  (are [section ex-re] (thrown-with-msg? ExceptionInfo ex-re
+                                         (conf/parse-git-section-name section))
+    "[x!y]" #"invalid section name"
+    "[ x \"y\"]" #"invalid section name"
+    "[x y\" ]" #"must start with a double-quote"
+    "[x \"y\" ]" #"must end with an unescaped double-quote"
+    "[x \"\\\"]" #"must end with an unescaped double-quote"))
+
+;; FIXME: finish
+(deftest section-coalescing
+  (is (= {:database {:subname "x"
+                     "primary" {:subname "y"}
+                     "secondary" {:subname "z"}}}
+         (conf/coalesce-sections
+          #"database(\s.*)?"
+          {:database {:subname "x"}
+           (keyword "database \"primary\"") {:subname "y"}
+           (keyword "database \"secondary\"") {:subname "z"}}))))
 
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
@@ -139,13 +169,12 @@
 
 (deftest database-configuration
   (testing "database"
-    (let [cfg {:database {:subname "baz"}}
-          req-re #".* must contain an appropriate .* subname setting"]
+    (let [cfg {:database {:subname "baz"}}]
       (testing "validate-db-settings"
         ;; Valid config
         (is (= cfg (validate-db-settings cfg)))
         ;; Empty config
-        (is (thrown+-with-msg? [:type ::conf/cli-error] req-re
+        (is (thrown+-with-msg? [:type ::conf/cli-error] #"No subname set"
                                (validate-db-settings {})))
         ;; invalid resource-events-ttl settings
         (is (thrown+-with-msg? [:type ::conf/cli-error]
@@ -164,8 +193,9 @@
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "the read-db should be specified by a read-database property"
-      (let [config (-> {:database {:subname "wronger"}
-                        :read-database {:subname "stuff"}}
+      (let [base {:user "x" :password "?"}
+            config (-> {:database (assoc base :subname "wronger")
+                        :read-database (assoc base :subname "stuff")}
                        configure-db)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
@@ -226,6 +256,19 @@
                                          :password "something"}})]
     (is (= "someone" (get-in config [:database :user])))
     (is (= "someone" (get-in config [:database :username])))))
+
+(deftest multiple-database-configurations
+  (let [config (conf/configure-db
+                {:database {:username "u1" :password "?" :subname "s"}
+                 (keyword "database \"primary\"") {:password "?" :subname "s"}
+                 (keyword "database \"secondary\"") {:username "u2" :password "?" :subname "s"}})]
+    ;; FIXME: read-database
+    (is (= "u1" (get-in config [:database :user])))
+    (is (= "u1" (get-in config [:database :username])))
+    (is (= "u1" (get-in config [:database "primary" :user])))
+    (is (= "u1" (get-in config [:database "primary" :username])))
+    (is (= "u2" (get-in config [:database "secondary" :user])))
+    (is (= "u2" (get-in config [:database "secondary" :username])))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]

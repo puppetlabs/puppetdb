@@ -25,6 +25,21 @@
      (binding [*db* db#]
        ~@body)))
 
+(defmacro with-monitored-db-connection [spec status & body]
+  `(let [thread# (Thread/currentThread)
+         status# ~status]
+     (locking status#
+       (swap! status# assoc :thread thread# :connecting? true))
+     (try
+       (sql/with-db-connection [db# ~spec]
+         (locking status#
+           (swap! status# dissoc :connecting?))
+         (binding [*db* db#]
+           ~@body))
+       (finally
+         (locking status#
+           (swap! status# dissoc :thread :connecting?))))))
+
 (defmacro with-db-transaction [opts & body]
   `(sql/with-db-transaction [db# (db) (hash-map ~@opts)]
      (binding [*db* db#]
@@ -510,6 +525,19 @@
                     isolation)]
     (retry-sql 5
                (with-db-connection db-spec
+                 (with-db-transaction [:isolation isolation]
+                   (f))))))
+
+(defn retry-with-monitored-connection
+  [db-spec status isolation f]
+  ;; We've set up the connection pool to have read-committed isolation by
+  ;; default; don't explicitly specify it, as that can lead to redundant
+  ;; round-trips
+  (let [isolation (if (= :read-committed isolation)
+                    nil
+                    isolation)]
+    (retry-sql 5
+               (with-monitored-db-connection db-spec status
                  (with-db-transaction [:isolation isolation]
                    (f))))))
 

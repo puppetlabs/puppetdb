@@ -1558,17 +1558,19 @@
   "Add a report and all of the associated events to the database."
   ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
-   db]
-  (add-report! report received-timestamp db true))
+   db conn-status]
+   (add-report! report received-timestamp db conn-status true))
   ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
-   db
+   db conn-status
    update-latest-report?]
   (let [producer-timestamp (to-timestamp producer_timestamp)
         store! (fn []
-                 (jdbc/with-transacted-connection db
-                   (maybe-activate-node! certname producer-timestamp)
-                   (add-report!* report received-timestamp update-latest-report?)))]
+                 (jdbc/retry-with-monitored-connection
+                  db conn-status :read-committed
+                  (fn []
+                    (maybe-activate-node! certname producer-timestamp)
+                    (add-report!* report received-timestamp update-latest-report?))))]
     (try
       (store!)
       (catch org.postgresql.util.PSQLException e
@@ -1577,13 +1579,13 @@
           (do
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
-            (jdbc/with-transacted-connection db
-              (partitioning/create-reports-partition
-                producer-timestamp)
-
-              (doseq [date (set (map #(:timestamp %)
-                                     (:resource_events (normalize-report report))))]
-                (partitioning/create-resource-events-partition date)))
+            (jdbc/retry-with-monitored-connection
+             db conn-status :read-committed
+             (fn []
+               (partitioning/create-reports-partition producer-timestamp)
+               (doseq [date (set (map :timestamp
+                                      (:resource_events (normalize-report report))))]
+                 (partitioning/create-resource-events-partition date))))
             ;; Now that the partitions exists, attempt store the report again
             (store!))
           ;; otherwise throw the error so the command ends up

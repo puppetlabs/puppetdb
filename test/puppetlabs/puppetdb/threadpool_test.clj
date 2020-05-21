@@ -1,5 +1,4 @@
 (ns puppetlabs.puppetdb.threadpool-test
-  (:import [java.util.concurrent TimeUnit])
   (:require [clojure.core.async :as async]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.threadpool :refer :all]
@@ -9,8 +8,10 @@
                                                                 with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [clojure.string :as str]
-            [slingshot.test]
-            [puppetlabs.puppetdb.testutils.log :as tlog]))
+            [puppetlabs.puppetdb.testutils.log :as tlog])
+  (:import
+   (clojure.lang ExceptionInfo)
+   (java.util.concurrent TimeUnit)))
 
 (defn wrap-out-chan [out-chan f]
   (fn [cmd]
@@ -28,7 +29,7 @@
                        (swap! counter inc)
                        [:done id]))]
 
-      (with-open [gtp (create-threadpool 1 "test-pool-%d" 1000)]
+      (with-open [gtp (gated-threadpool 1 "test-pool-%d" 1000)]
         (let [fut (future
                     (dochan gtp worker-fn in-chan))]
           (async/>!! in-chan {:id :a})
@@ -50,7 +51,7 @@
                        (swap! counter inc)
                        [:done (:foo some-command)]))]
 
-      (with-open [gtp (create-threadpool 1 "test-pool-%d" 1000)]
+      (with-open [gtp (gated-threadpool 1 "test-pool-%d" 1000)]
         (let [fut (future
                     (dochan gtp worker-fn in-chan))]
 
@@ -86,7 +87,7 @@
                        @(get stop-here id)
                        [:done id]))]
 
-      (with-open [gtp (create-threadpool 2 "test-pool-%d" 1000)]
+      (with-open [gtp (gated-threadpool 2 "test-pool-%d" 1000)]
         (let [fut (future
                     (dochan gtp worker-fn in-chan))]
 
@@ -146,14 +147,14 @@
     (let [log-output (atom [])]
       (with-log-suppressed-unless-notable tlog/critical-errors
         (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
-          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (create-threadpool 1 "testpool-%d" 5000)
+          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)
                 handler-fn (tu/mock-fn)]
             (try
 
               (is (= 1 (.availablePermits semaphore)))
               (is (not (test-protos/called? handler-fn)))
 
-              (call-on-threadpool threadpool-ctx handler-fn)
+              (.execute threadpool-ctx handler-fn)
 
               (is (.tryAcquire semaphore 1 TimeUnit/SECONDS)
                   "Failed to aquire token from the semaphore")
@@ -168,10 +169,11 @@
       (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
                                                       (complement (tlog/starting-with "Broken")))
         (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
-          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (create-threadpool 1 "testpool-%d" 5000)]
+          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)]
             (try
               (is (= 1 (.availablePermits semaphore)))
-              (call-on-threadpool threadpool-ctx (fn [] (throw (RuntimeException. "Broken!"))))
+              (.execute threadpool-ctx
+                        (fn [] (throw (RuntimeException. "Broken!"))))
 
               ;; Releasing the semaphore happens right before the
               ;; message is logged with the uncaughtExceptionHandler
@@ -198,7 +200,7 @@
       (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
                                                       (comp (complement not-submitted?) :message))
        (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
-         (let [{:keys [threadpool semaphore] :as threadpool-ctx} (create-threadpool 1 "testpool-%d" 5000)
+         (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)
                handler-fn (tu/mock-fn)
                in-chan (async/chan 10)]
 
@@ -223,13 +225,15 @@
              ;; Shutting down the threadpool when the channel is not
              ;; empty will result in an exception, below ensures that
              ;; happens
-             (is (thrown+-with-msg? (fn [obj]
-                                      (and (= (:message obj)
-                                              "message")
-                                           (= (:kind obj)
-                                              :puppetlabs.puppetdb.threadpool/rejected)))
-                                    #"Threadpool shutting down"
-                                    (dochan threadpool-ctx handler-fn in-chan)))
-
+             (let [ex (try
+                        (dochan threadpool-ctx handler-fn in-chan)
+                        (catch Throwable ex ex))]
+               (is (= ExceptionInfo (class ex)))
+               (when (= ExceptionInfo (class ex))
+                 (let [data (ex-data ex)]
+                   (is (= :puppetlabs.puppetdb.threadpool/rejected (:kind data)))
+                   (is (= "message" (:message data)))
+                   (is (str/starts-with? (ex-message ex)
+                                         "Threadpool shutting down")))))
              (finally
                (.shutdownNow threadpool)))))))))
