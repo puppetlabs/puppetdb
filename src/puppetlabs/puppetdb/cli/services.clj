@@ -53,7 +53,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.tk-util :refer [run-tk-cli-cmd]]
-            [puppetlabs.puppetdb.cli.util :refer [exit]]
+            [puppetlabs.puppetdb.cli.util :refer [exit err-exit-status]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
@@ -799,15 +799,15 @@
                    context)]
         (case kind
           ::unsupported-database
-          (stop (db-unsupported-msg (:current data) (:oldest data)) 1)
+          (stop (db-unsupported-msg (:current data) (:oldest data)) err-exit-status)
 
           ::invalid-database-configuration
-          (stop (invalid-conf-msg (:failed-validation data)) 1)
+          (stop (invalid-conf-msg (:failed-validation data)) err-exit-status)
 
           ::migration-required (stop (.getMessage ex) (int \m))
 
           ::must-migrate-multiple-databases
-          (stop (str "puppetdb: " (.getMessage ex) "\n") 2)
+          (stop (str "puppetdb: " (.getMessage ex) "\n") err-exit-status)
 
           ;; Unrecognized -- pass it on.
           (throw ex))))))

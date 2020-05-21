@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.utils
   (:require [clojure.string :as str]
+            [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
@@ -222,7 +223,7 @@
           ::kitchensink/cli-error
           (do
             (binding [*out* *err*] (println msg))
-            (flush-and-exit 1))
+            (flush-and-exit err-exit-status))
           ::kitchensink/cli-help
           (do
             (println msg)

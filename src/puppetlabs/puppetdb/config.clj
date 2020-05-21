@@ -15,6 +15,7 @@
             [me.raynes.fs :as fs]
             [clojure.string :as str]
             [schema.core :as s]
+            [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as t]
@@ -627,7 +628,7 @@
                                (trs "The configuration item `url-prefix` in the [global] section is retired, please remove this item from your config.")
                                (trs "PuppetDB has a non-configurable context route of `/pdb`.")
                                (trs "Consult the documentation for more details.")))
-    (utils/flush-and-exit 1)) ; cf. PDB-2053
+    (utils/flush-and-exit err-exit-status)) ; cf. PDB-2053
   config-data)
 
 (def default-web-router-config

@@ -2,6 +2,7 @@
   (:require [me.raynes.fs :as fs]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
+            [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
             [puppetlabs.puppetdb.testutils.db
@@ -233,7 +234,7 @@
     (testing "unsupported-database exception causes shutdown request"
       (let [opts (-> @service service-context :shutdown-request deref :opts)
             exit (:puppetlabs.trapperkeeper.core/exit opts)]
-        (is (= 1 (:status exit)))
+        (is (= err-exit-status (:status exit)))
         (is (some (fn [[msg out]] (err-msg? msg))
                   (:messages exit)))))))
 
@@ -278,7 +279,7 @@
     (testing "invalid-database-configuration exception causes shutdown request"
       (let [opts (-> @service service-context :shutdown-request deref :opts)
             exit (:puppetlabs.trapperkeeper.core/exit opts)]
-        (is (= 1 (:status exit)))
+        (is (= err-exit-status (:status exit)))
         (is (some (fn [[msg out]] (err-msg? msg))
                   (:messages exit)))))))
 
