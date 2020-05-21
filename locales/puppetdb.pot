@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 8d00635fcecea4669637338d7ecdaae3dc1cbd71\n"
+"X-Git-Ref: 0c7e2f14e18ef7590e78eb8922e57320bda8c675\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -245,6 +245,14 @@ msgstr ""
 msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "multiple write database support is experimental"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "WARNING: multiple write database support is experimental"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
 msgid "error:"
 msgstr ""
@@ -278,19 +286,35 @@ msgid "Exception throw in L1 retry attempt {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+msgid "Broadcast thread interrupt failed"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+msgid "[{0}] [{1}] Command rejected for {2}, presumably shutting down"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}] [{1}] Exceeded max attempts ({2}) for {3}"
+msgid "[{0}] [{1}] Unable to broadcast command for {2}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1}] Exceeded max attempts ({2}) for {3} {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
 msgid "Fatal error parsing command: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "Expected no more than {0} broadcast threads found {1} (please report)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -306,9 +330,50 @@ msgid "DLO path {0} is not a directory"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
+msgid "error: invalid section name {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "error: config subsection {0} must start with a double-quote"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "error: config subsection {0} must end with an unescaped double-quote"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "error: multiple [{0}] subsections in config file"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "error: multiple [{0}] sections in config file"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
+"error: parsed config section [{0}] incorrectly ({1} != {2}); please report"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Unexpected key in config section {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
 msgid ""
 "The configuration item `{0}` does not exist and should be removed from the "
 "config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "No subname set in the [database] config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Unable to parse facts-blacklist patterns:n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Configured {0} database user {1} and username {2} don't match"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -1267,12 +1332,12 @@ msgid "Error processing command on thread {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/threadpool.clj
-msgid ""
-"Threadpool not stopped after {0} milliseconds, forcibly shutting it down"
+msgid "Forcing threadpool shutdown after waiting {0}ms: {1}"
 msgstr ""
 
+#. Shutdown without waiting for threads to finish
 #: src/puppetlabs/puppetdb/threadpool.clj
-msgid "Threadpool forcibly shutdown"
+msgid "Threadpool forcibly shut down"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/threadpool.clj
