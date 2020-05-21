@@ -8,7 +8,6 @@
             [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
-            [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test])
   (:import
    [clojure.lang ExceptionInfo]

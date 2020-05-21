@@ -18,11 +18,12 @@
             [puppetlabs.comidi :as cmdi]
             [ring.util.request :as request]
             [schema.core :as s]
-            [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.utils :as utils])
-  (:import [org.apache.commons.io IOUtils]
-           [org.apache.commons.fileupload.util LimitedInputStream]))
+  (:import
+   (clojure.lang ExceptionInfo)
+   (org.apache.commons.io IOUtils)
+   (org.apache.commons.fileupload.util LimitedInputStream)))
 
 (def min-supported-commands
   {"configure expiration" 1
@@ -74,8 +75,9 @@
          (async/unsub p# t# c#)))))
 
 (defn- restrained-drained-stream [stream max-size]
-  "Returns a stream that will throw ::body-stream-overflow and drain
-  the rest of the stream if more than max-size-data is read."
+  "Returns a stream that will throw an ex-info exception
+  of :kind ::body-stream-overflow and drain the rest of the stream if
+  more than max-size-data is read."
   ;; The drain is because ruby.  i.e. if we closed the connection
   ;; without that, one of the ruby clients wouldn't handle the broken
   ;; pipe in a friendly way.
@@ -87,7 +89,7 @@
       (loop [buf (byte-array (* 64 1024))]
         (when (pos? (.read ^java.io.InputStream this buf))
           (recur buf)))
-      (throw+ ::body-stream-overflow))))
+      (throw (ex-info "" {:kind ::body-stream-overflow})))))
 
 (defn- blocking-submit-command
   "Submit a command by calling do-submit-fn and block until it completes.
@@ -177,9 +179,10 @@
               (normalize-old-request req)))))
 
 (defn- stream-with-max-check
-  "Returns the body as an in-memory string or byte-array, reading it
-  if necessary.  Throws ::body-stream-overflow if the max-command-size
-  is not false and not respected."
+  "Returns the body as an in-memory string or byte-array, reading it if
+  necessary.  Throws an ex-info exception
+  of :kind ::body-stream-overflow if the max-command-size is not false
+  and not respected."
   [body max-command-size]
   (if-not max-command-size
     (cond
@@ -199,7 +202,7 @@
       ;; Given Java's UCS-2 encoding, incoming UTF-8 more or less
       ;; doubles in size when converted to a String.
       (if (> (* 2 (count body)) max-command-size)
-        (throw+ ::body-stream-overflow)
+        (throw (ex-info "" {:kind ::body-stream-overflow}))
         (java.io.ByteArrayInputStream. (.getBytes body "UTF-8")))
 
       :else
@@ -210,39 +213,41 @@
   [enqueue-fn max-command-size]
   (fn [{:keys [body params headers]}]
     ;; For now body will be in-memory, but eventually may be a stream.
-    (try+
-     (let [uuid (kitchensink/uuid)
-           completion-timeout-ms (some-> params
-                                         (get "secondsToWaitForCompletion")
-                                         Double/parseDouble
-                                         (* 1000))
-           submit-params (select-keys params ["certname" "command" "version" "producer-timestamp"])
-           submit-params (if-let [v (submit-params "version")]
-                           (update submit-params "version" str)
-                           submit-params)
-           compression (content-encoding->file-extension
-                        (get headers "content-encoding"))
-           ;; Replace read-body when our queue supports streaming
-           do-submit (fn [command-callback]
-                       (enqueue-fn
-                        (get submit-params "command")
-                        (Integer/parseInt (get submit-params "version"))
-                        (get submit-params "certname")
-                        (get submit-params "producer-timestamp")
-                        (stream-with-max-check body max-command-size)
-                        compression
-                        command-callback))]
+    (try
+      (let [uuid (kitchensink/uuid)
+            completion-timeout-ms (some-> params
+                                          (get "secondsToWaitForCompletion")
+                                          Double/parseDouble
+                                          (* 1000))
+            submit-params (select-keys params ["certname" "command" "version" "producer-timestamp"])
+            submit-params (if-let [v (submit-params "version")]
+                            (update submit-params "version" str)
+                            submit-params)
+            compression (content-encoding->file-extension
+                         (get headers "content-encoding"))
+            ;; Replace read-body when our queue supports streaming
+            do-submit (fn [command-callback]
+                        (enqueue-fn
+                         (get submit-params "command")
+                         (Integer/parseInt (get submit-params "version"))
+                         (get submit-params "certname")
+                         (get submit-params "producer-timestamp")
+                         (stream-with-max-check body max-command-size)
+                         compression
+                         command-callback))]
 
-       (if (some-> completion-timeout-ms pos?)
-         (blocking-submit-command do-submit
-                                  uuid
-                                  completion-timeout-ms)
-         (do
-           (do-submit identity)
-           (http/json-response {:uuid (kitchensink/uuid)}))))
-     (catch (= ::body-stream-overflow %) _
-       (http/error-response (tru "Command size exceeds max-command-size")
-                            http/status-entity-too-large)))))
+        (if (some-> completion-timeout-ms pos?)
+          (blocking-submit-command do-submit
+                                   uuid
+                                   completion-timeout-ms)
+          (do
+            (do-submit identity)
+            (http/json-response {:uuid (kitchensink/uuid)}))))
+      (catch ExceptionInfo ex
+        (when-not (= ::body-stream-overflow (:kind (ex-data ex)))
+          (throw ex))
+        (http/error-response (tru "Command size exceeds max-command-size")
+                             http/status-entity-too-large)))))
 
 (defn- add-received-param
   [handle]

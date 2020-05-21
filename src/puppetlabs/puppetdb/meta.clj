@@ -3,7 +3,6 @@
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.puppetdb.time :refer [now]]
@@ -12,7 +11,9 @@
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs tru]]))
+            [puppetlabs.i18n.core :refer [trs tru]])
+  (:import
+   (clojure.lang ExceptionInfo)))
 
 (defn current-version-fn
   "Returns a function that always returns a JSON object with the running
@@ -41,13 +42,13 @@
           (http/json-response {:newer false
                                :version (v/version)
                                :link nil})
-          (try+
-           (http/json-response (v/update-info update-server scf-read-db))
-           (catch map? {m :message}
-             (log/debug m
-                        (trs "Could not retrieve update information ({0})"
-                             update-server))
-             (http/error-response (tru "Could not find version") 404))))
+          (try
+            (http/json-response (v/update-info update-server scf-read-db))
+            (catch ExceptionInfo ex
+              (log/debug (:message (ex-data ex))
+                         (trs "Could not retrieve update information ({0})"
+                              update-server))
+              (http/error-response (tru "Could not find version") 404))))
 
         (catch java.io.IOException e
           (log/debug e (trs "Error when checking for latest version") )

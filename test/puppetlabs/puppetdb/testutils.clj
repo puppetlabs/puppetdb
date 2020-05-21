@@ -12,7 +12,6 @@
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-log-output with-test-logging]]
-            [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -267,7 +266,7 @@
       (with-redefs [~(get bindings 1) (wrap-capture-args orig-fn# ~(get bindings 0))]
         (with-wrapped-fn-args ~(subvec bindings 2)
           ~@body)))
-   :else (throw+ "with-wrapped-fn-args bindings should be pairs of count-atom-sym and fn-to-wrap with the call-count function")))
+   :else (throw (Exception. "Invalid with-wrapped-fn-args form"))))
 
 (defn uuid-in-response?
   "Returns true when the response contains a properly formed
@@ -328,7 +327,8 @@
      results
 
      (< n count)
-     (throw+ (format "Results not found after %d iterations, giving up" n))
+     (throw
+      (Exception. (str "Results not found after %d iterations, giving up" n)))
 
      :else
      (do

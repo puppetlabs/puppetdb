@@ -18,7 +18,6 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.core :as tk]
             [yaml.core :as yaml]
-            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])
   (:import [com.typesafe.config ConfigValueFactory]))
@@ -130,8 +129,8 @@
     (if (svc-utils/wait-for-server-processing (-> pdb-server server-info :app)
                                               timeout-ms)
       result
-      (throw+ {:kind ::command-processing-timeout
-               :timeout-ms timeout-ms}))))
+      (throw (ex-info "" {:kind ::command-processing-timeout
+                          :timeout-ms timeout-ms})))))
 
 (defmacro with-synchronized-command-processing
   [pdb-server timeout-ms & body]
@@ -239,11 +238,9 @@
     (if (not (#{0 2} (:exit result)))
       (let [message (str "Error running bundle exec " (string/join " " args))]
         (utils/println-err message result)
-        (throw+ {:kind ::bundle-exec-failure
-                 :args args
-                 :result result}
-                nil
-                message))
+        (throw (ex-info message {:kind ::bundle-exec-failure
+                                 :args args
+                                 :result result})))
       result)))
 
 (defn run-puppet

@@ -81,7 +81,6 @@
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
@@ -898,10 +897,12 @@
   (set-url-prefix [this url-prefix]
                   (let [old-url-prefix (:url-prefix (service-context this))]
                     (when-not (compare-and-set! old-url-prefix nil url-prefix)
-                      (throw+ {:url-prefix old-url-prefix
-                               :new-url-prefix url-prefix
-                               :type ::url-prefix-already-set}
-                              (format "Attempt to set url-prefix to %s when it's already been set to %s" url-prefix @old-url-prefix)))))
+                      (throw
+                       (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
+                                        url-prefix @old-url-prefix)
+                                {:kind ::url-prefix-already-set
+                                 :url-prefix old-url-prefix
+                                 :new-url-prefix url-prefix})))))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this version query-expr paging-options row-callback-fn]

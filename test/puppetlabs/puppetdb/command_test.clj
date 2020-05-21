@@ -41,7 +41,6 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as tfmt]

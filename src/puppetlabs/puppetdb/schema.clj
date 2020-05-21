@@ -5,8 +5,7 @@
             [schema.coerce :as sc]
             [clojure.string :as str]
             [schema.utils :as su]
-            [cheshire.custom :as json]
-            [slingshot.slingshot :refer [throw+]])
+            [cheshire.custom :as json])
   (:import
   (java.util.regex Pattern)))
 
@@ -137,7 +136,7 @@
   [schema data]
   (let [result ((sc/coercer schema conversion-fns) data)]
     (if (su/error? result)
-      (throw+ (su/error-val result))
+      (throw (su/error-val result))
       result)))
 
 (defn unknown-keys

@@ -175,7 +175,6 @@
                  [clj-commons/fs]
                  [metrics-clojure]
                  [robert/hooke "1.3.0"]
-                 [slingshot]
                  [trptcolin/versioneer]
                  ;; We do not currently use this dependency directly, but
                  ;; we have documentation that shows how users can use it to

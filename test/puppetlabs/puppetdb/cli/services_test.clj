@@ -25,8 +25,7 @@
              :refer [block-until-results default-timeout-ms temp-file]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [slingshot.slingshot :refer [throw+ try+]])
+            [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import
    [clojure.lang ExceptionInfo]
    [java.util.concurrent.locks ReentrantLock]))

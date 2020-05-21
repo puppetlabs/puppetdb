@@ -51,7 +51,6 @@
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
-            [slingshot.slingshot :refer [try+ throw+]]
             [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
             [clojure.core.match :as cm]
             [taoensso.nippy :as nippy]
@@ -204,14 +203,17 @@
   (cond
     (and (contains? options :runinterval)
          (contains? options :nummsgs))
-    (utils/throw+-cli-error! "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+    (utils/throw-sink-cli-error
+     "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
 
     (kitchensink/missing? options :runinterval :nummsgs)
-    (utils/throw+-cli-error! "Error: Either -N/--nummsgs or -i/--runinterval is required.")
+    (utils/throw-sink-cli-error
+     "Error: Either -N/--nummsgs or -i/--runinterval is required.")
 
     (and (contains? options :archive)
          (not (kitchensink/missing? options :reports :catalogs :facts)))
-    (utils/throw+-cli-error! "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
+    (utils/throw-sink-cli-error
+     "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
 
     :else options))
 
@@ -240,7 +242,7 @@
                 :default (* 4 (.availableProcessors (Runtime/getRuntime)))
                 :parse-fn #(Integer/parseInt %)]]
         required [:config :numhosts]]
-    (utils/try+-process-cli!
+    (utils/try-process-cli
      (fn []
        (-> args
            (kitchensink/cli! specs required)
