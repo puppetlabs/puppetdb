@@ -656,10 +656,12 @@
     (when-let [v (version/version)]
       (log/info (trs "PuppetDB version {0}" v)))
 
-    (when (> (count (conf/section-subsections database)) 1)
-      (throw
-       (ex-info "Currently unable to migrate multiple databases (see config)"
-                {:kind ::must-migrate-multiple-databases})))
+    (let [db-cfgs (conf/section-subsections database)]
+      (when (and (> (count db-cfgs) 1)
+                 (some :migrate (vals db-cfgs)))
+        (throw
+         (ex-info "Currently unable to migrate multiple databases (see config)"
+                  {:kind ::must-migrate-multiple-databases}))))
 
     (init-with-db database config)
 
