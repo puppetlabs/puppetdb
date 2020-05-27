@@ -75,6 +75,18 @@
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
 
+;; Note: these must not throw
+(def migration-status-notifiers (atom #{}))
+
+(defn note-status [msg]
+  (when-let [notifiers (seq @migration-status-notifiers)]
+    (doseq [notify notifiers]
+      (notify msg))))
+
+(defn report-status [msg]
+  (note-status msg)
+  (log/info msg))
+
 (defn init-through-2-3-8
   []
 
@@ -1280,7 +1292,7 @@
 
 (defn fix-missing-edges-fk-constraint []
   (when-not (sutils/constraint-exists? "certnames" "edges_certname_fkey")
-    (log/info (trs "Cleaning up orphaned edges"))
+    (report-status (trs "Cleaning up orphaned edges"))
 
     (jdbc/do-commands
      (str "SELECT e.*"
@@ -1329,12 +1341,12 @@
   (some-> s json/parse))
 
 (defn rededuplicate-facts []
-  (log/info (trs "[1/8] Cleaning up unreferenced facts..."))
+  (report-status (trs "[1/8] Cleaning up unreferenced facts..."))
   (jdbc/do-commands
    "DELETE FROM facts WHERE factset_id NOT IN (SELECT id FROM factsets)"
    "DELETE FROM facts WHERE fact_path_id NOT IN (SELECT id FROM fact_paths)")
 
-  (log/info (trs "[2/8] Creating new fact storage tables..."))
+  (report-status (trs "[2/8] Creating new fact storage tables..."))
   (jdbc/do-commands
    "CREATE SEQUENCE fact_values_id_seq;"
 
@@ -1360,7 +1372,7 @@
        fact_value_id bigint NOT NULL
     );")
 
-  (log/info (trs "[3/8] Copying unique fact values into fact_values"))
+  (report-status (trs "[3/8] Copying unique fact values into fact_values"))
   (jdbc/do-commands
    "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
        SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts")
@@ -1368,7 +1380,7 @@
 
   ;; Handle null fv.value separately; allowing them here leads to an intractable
   ;; query plan
-  (log/info (trs "[4/8] Reconstructing facts to refer to fact_values..."))
+  (report-status (trs "[4/8] Reconstructing facts to refer to fact_values..."))
   (jdbc/do-commands
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
@@ -1390,7 +1402,7 @@
                AND fv.value IS NOT DISTINCT FROM f.value
         WHERE f.value IS NULL AND fv.value IS NULL")
 
-  (log/info (trs "[5/8] Cleaning up duplicate null values..."))
+  (report-status (trs "[5/8] Cleaning up duplicate null values..."))
   ;; only do this if the DB has some null values
   (when (pos? (-> (jdbc/query-to-vec "select count(*) from fact_values
                                       where value_type_id in (4,5)
@@ -1418,7 +1430,7 @@
        (jdbc/do-prepared "delete from fact_values where id = (?)"
                          [id]))))
 
-  (log/info (trs "[6/8] Computing fact value hashes..."))
+  (report-status (trs "[6/8] Computing fact value hashes..."))
   (jdbc/call-with-query-rows
    ["select id, value::text from fact_values"]
    (fn [rows]
@@ -1436,7 +1448,7 @@
           [(sutils/array-to-param "bigint" Long ids)
            (sutils/array-to-param "bytea" PGobject hashes)])))))
 
-  (log/info (trs "[7/8] Indexing fact_values table..."))
+  (report-status (trs "[7/8] Indexing fact_values table..."))
   (jdbc/do-commands
    "DROP TABLE facts"
    "ALTER TABLE facts_transform rename to facts"
@@ -1446,7 +1458,7 @@
    "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float);"
    "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);")
 
-  (log/info (trs "[8/8] Indexing facts table..."))
+  (report-status (trs "[8/8] Indexing facts table..."))
   (jdbc/do-commands
    "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key UNIQUE (factset_id, fact_path_id);"
    "CREATE INDEX facts_fact_path_id_idx ON facts USING btree (fact_path_id);"
@@ -1669,7 +1681,7 @@
   ;; duplicates into the new table.
 
    ;; pre-create partitions
-   (log/info (trs "Creating partitions based on unique days in resource_events"))
+   (report-status (trs "Creating partitions based on unique days in resource_events"))
    ;; PDB-4641 - PostgreSQL returns dates in the client's timezone. What we need
    ;; to do here is force the connection into UTC. We want the date of the event,
    ;; in UTC, so that we can create the partition for it. To do this, we have
@@ -1758,9 +1770,11 @@
                                                      (last g))))
                              (let [now (.getTime (java.util.Date.))]
                                (when (> (- now @last-logged) 60000)
-                                 (maplog :info
-                                         {:migration 73 :at @events-migrated :of event-count}
-                                         #(trs "Migrated {0} of {1} events" (:at %) (:of %)))
+                                 (let [msg #(trs "Migrated {0} of {1} events" (:at %) (:of %))]
+                                   ;;(note-status msg)
+                                   (maplog :info
+                                           {:migration 73 :at @events-migrated :of event-count}
+                                           msg))
                                  (reset! last-logged now)))))]
         (dorun (map insert->hash (partition batch-size batch-size [] rows)))))))
 
@@ -1843,7 +1857,7 @@
       (partitioning/create-reports-partition (.plusDays now day-offset))))
 
   ;; pre-create partitions
-  (log/info (trs "Creating partitions based on unique days in reports"))
+  (report-status (trs "Creating partitions based on unique days in reports"))
   (let [current-timezone (:current_setting (first (jdbc/query-to-vec "SELECT current_setting('TIMEZONE')")))]
     (jdbc/call-with-query-rows
      ["select rowdate from find_reports_unique_dates()"]
@@ -1895,9 +1909,11 @@
                                (jdbc/insert! table-name new-cols updated-row))
                              (let [now (.getTime (java.util.Date.))]
                                (when (> (- now @last-logged) 60000)
-                                 (maplog :info
-                                         {:migration 74 :at @reports-migrated :of event-count}
-                                         #(trs "Migrated {0} of {1} reports" (:at %) (:of %)))
+                                 (let [msg #(trs "Migrated {0} of {1} reports" (:at %) (:of %))]
+                                   ;;(note-status msg)
+                                   (maplog :info
+                                           {:migration 74 :at @reports-migrated :of event-count}
+                                           msg))
                                  (reset! last-logged now))))]
           (run! insert->hash rows)))))
 
@@ -2096,7 +2112,7 @@
                       (map :tablename)
                       set)
         tables (filter exists? tables)]
-    (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables)))
+    (report-status (trs "Updating table statistics for: {0}" (str/join ", " tables)))
     (apply jdbc/do-commands-outside-txn
            (map #(str "vacuum analyze " %) tables))))
 
@@ -2113,21 +2129,22 @@
   "Runs the requested migrations.  Returns a set of tables that should
   be analyzed if there were any migrations."
   [migrations]
+  (report-status (trs "Upgrading database (needs {0} migration(s))" (count migrations)))
   (let [tables (->> migrations
                     (map (fn [[version migration]]
-                           (log/info (trs "Applying database migration version {0}"
-                                          version))
+                           (report-status (trs "Applying database migration version {0}"
+                                               version))
                            (let [t0 (now)]
                              (let [result (migration)]
                                (record-migration! version)
-                               (log/info (trs "Applied database migration version {0} in {1} ms"
-                                              version (in-millis (interval t0 (now)))))
+                               (report-status (trs "Applied database migration version {0} in {1} ms"
+                                                   version (in-millis (interval t0 (now)))))
                                result))))
                     (filter map?)
                     (map ::vacuum-analyze)
                     (apply set/union))]
     (when-not (empty? tables)
-      (log/info (trs "There are no pending migrations"))
+      (report-status (trs "There are no pending migrations"))
       tables)))
 
 
@@ -2150,16 +2167,16 @@
       nil)
     (do
       (when-not (sutils/index-exists? "fact_paths_path_trgm")
-        (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
+        (report-status (trs "Creating additional index `fact_paths_path_trgm`"))
         (jdbc/do-commands
          "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
       (when-not (sutils/index-exists? "packages_name_trgm")
-        (log/info (trs "Creating additional index `packages_name_trgm`"))
+        (report-status (trs "Creating additional index `packages_name_trgm`"))
         (jdbc/do-commands
          ["create index packages_name_trgm on packages"
           "  using gin (name gin_trgm_ops)"]))
       (when-not (sutils/index-exists? "catalog_resources_file_trgm")
-        (log/info (trs "Creating additional index `catalog_resources_file_trgm`"))
+        (report-status (trs "Creating additional index `catalog_resources_file_trgm`"))
         (jdbc/do-commands
          ["create index catalog_resources_file_trgm on catalog_resources"
           " using gin (file gin_trgm_ops) where file is not null"]
@@ -2168,7 +2185,7 @@
 
 (defn ensure-report-id-index []
   (when-not (sutils/index-exists? "idx_reports_compound_id")
-    (log/info "Indexing reports for id queries")
+    (report-status "Indexing reports for id queries")
     (jdbc/do-commands
      "create index idx_reports_compound_id on reports
         (producer_timestamp, certname, hash)
@@ -2201,7 +2218,7 @@
         orig-user (and coordinate? (jdbc/current-user))]
 
     (when coordinate?
-      (log/info
+      (report-status
        (trs "Revoking {0} database access from {1} during migrations"
             db-name non-migrator-name))
       (jdbc/revoke-role-db-access non-migrator-name db-name))
@@ -2214,7 +2231,7 @@
           (throw
            (ex-info "Unable to prevent non-migrator connections during migration"
                     {:kind ::unable-to-block-other-pdbs-during-migration})))
-        (log/info
+        (report-status
          (trs "Disconnecting all {0} connections to {1} database before migrating"
               non-migrator-name db-name))
         (jdbc/disconnect-db-role db-name non-migrator-name)
@@ -2223,7 +2240,7 @@
 
       (jdbc/with-db-transaction []
         (require-schema-migrations-table)
-        (log/info (trs "Locking migrations table before migrating"))
+        (report-status (trs "Locking migrations table before migrating"))
         (jdbc/do-commands
          "lock table schema_migrations in access exclusive mode")
         (require-valid-schema)
@@ -2237,7 +2254,7 @@
           ;; This won't run if the jvm doesn't quit in a way that lets
           ;; threads finish (TK's shutdown process does).
           (try
-            (log/info
+            (report-status
              (trs "Restoring access to {0} database to {1} after migrating"
                   db-name non-migrator-name))
             (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user)))

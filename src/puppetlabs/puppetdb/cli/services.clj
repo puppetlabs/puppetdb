@@ -69,6 +69,7 @@
             [puppetlabs.puppetdb.scf.migrate
              :refer [desired-schema-version
                      initialize-schema
+                     migration-status-notifiers
                      pending-migrations
                      require-valid-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -663,7 +664,15 @@
          (ex-info "Currently unable to migrate multiple databases (see config)"
                   {:kind ::must-migrate-multiple-databases}))))
 
-    (init-with-db database config)
+    (if-not upgrade-and-exit?
+      (init-with-db database config)
+      (let [notify #(try (binding [*out* *err*] (println %))
+                         (catch Exception ex nil))]
+        (swap! migration-status-notifiers conj notify)
+        (try
+          (init-with-db database config)
+          (finally
+            (swap! migration-status-notifiers disj notify)))))
 
     (if upgrade-and-exit?
       context
