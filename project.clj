@@ -63,11 +63,11 @@
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
      [org.flatland/ordered "1.5.7"]
-     [org.clojure/test.check "0.9.0"]
-     [com.gfredericks/test.chuck "0.2.7"
+     [org.clojure/test.check "1.0.0"]
+     [com.gfredericks/test.chuck "0.2.10"
       :exclusions [com.andrewmcveigh/cljs-time]]
-     [environ "1.0.2"]
-     [riddley "0.1.12"]
+     [environ "1.2.0"]
+     [riddley "0.2.0"]
      [io.forward/yaml "1.0.5"]
 
      ;; Only needed for :integration tests
@@ -142,11 +142,11 @@
   :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
-                 [org.clojure/core.match "0.3.0-alpha4"]
+                 [org.clojure/core.match "1.0.0"]
                  [org.clojure/core.memoize]
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
-                 [org.clojure/math.combinatorics "0.1.1"]
+                 [org.clojure/math.combinatorics "0.1.6"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.logging]
 
@@ -167,9 +167,9 @@
                  [cheshire]
                  [clj-stacktrace]
                  [clj-time]
-                 [com.rpl/specter "0.5.7"]
+                 [com.rpl/specter "1.1.3"]
                  [com.taoensso/nippy :exclusions [org.tukaani/xz]]
-                 [digest "1.4.3"]
+                 [digest "1.4.9"]
                  [fast-zip-visit "1.0.2"]
                  [instaparse]
                  [clj-commons/fs]
@@ -194,8 +194,8 @@
 
                  ;; WebAPI support libraries.
                  [bidi]
-                 [clj-http "2.0.1"]
-                 [com.novemberain/pantomime "2.1.0"]
+                 [clj-http "3.10.1"]
+                 [com.novemberain/pantomime "2.5.0"]
                  [compojure]
                  [ring/ring-core]
 
@@ -211,9 +211,9 @@
 
   :repositories ~pdb-repositories
 
-  :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
+  :plugins [[lein-release "1.0.9" :exclusions [org.clojure/clojure]]
             [lein-cloverage "1.0.6"]
-            [lein-parent "0.3.7"]
+            [lein-parent "0.3.8"]
             [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
@@ -307,7 +307,7 @@
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
                             :dependencies ~puppetserver-test-deps}
-             :ci {:plugins [[lein-pprint "1.1.1"]]}
+             :ci {:plugins [[lein-pprint "1.3.2"]]}
              :test {:jvm-opts ~(if need-permgen?
                                  ;; integration tests cycle jruby a lot, which chews through permgen
                                  ^:replace ["-XX:MaxPermSize=500M"]
