@@ -536,6 +536,7 @@
 
                        :else
                        (throw (Exception. "Unknown state when checking schema versions")))]
+          (log/error ex-msg)
           (request-shutdown {::tk/exit
                              {:status 1  ;; Unsuppported by older TK (will be 1)
                               :messages [[ex-msg *err*]]}}))))))
@@ -663,6 +664,7 @@
     (catch ExceptionInfo ex
       (let [{:keys [kind] :as data} (ex-data ex)
             stop (fn [msg]
+                   (log/error msg)
                    (request-shutdown {::tk/exit
                                       {:status 1  ;; Unsuppported by older TK (will be 1)
                                        :messages [[msg *err*]]}})
