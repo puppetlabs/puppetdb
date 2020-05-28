@@ -616,6 +616,7 @@
                              first
                              :max)
           stop (fn [msg status]
+                 (log/error msg)
                  (request-shutdown {::tk/exit
                                     {:status status
                                      :messages [[msg *err*]]}}))]
@@ -801,6 +802,9 @@
     (catch ExceptionInfo ex
       (let [{:keys [kind] :as data} (ex-data ex)
             stop (fn [msg status]
+                   (if (zero? status)
+                     (log/info msg)
+                     (log/error msg))
                    (request-shutdown {::tk/exit
                                       {:status status
                                        :messages [[msg *err*]]}})
