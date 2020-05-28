@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 0c7e2f14e18ef7590e78eb8922e57320bda8c675\n"
+"X-Git-Ref: 6a96dd05366229e9704de175a3b884404f025462\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -188,6 +188,10 @@ msgid "Forcibly terminating periodic activities"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "PostgreSQL {0}.{1} is deprecated. Please upgrade to PostgreSQL {2}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Database is not fully migrated and migration is disallowed."
 msgstr ""
 
@@ -255,6 +259,18 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
 msgid "error:"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
+msgid "warn:"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/util.clj
+msgid "JDK {0} is neither tested nor supported. Please use JDK {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/util.clj
+msgid "JDK {0} is deprecated, please upgrade to JDK {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/util.clj
