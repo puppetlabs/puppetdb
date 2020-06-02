@@ -12,23 +12,20 @@
 
 (def command-keys (set/map-invert command-names))
 
-(defn- version-range [min-version max-version]
-  (set (range min-version (inc max-version))))
-
 (def supported-command-versions
-  {"configure expiration" (version-range 1 1)
-   "replace facts" (version-range 2 5)
-   "replace catalog" (version-range 4 9)
-   "replace catalog inputs" (version-range 1 1)
-   "store report" (version-range 3 8)
-   "deactivate node" (version-range 1 3)})
+  {"configure expiration" #{1}
+   "replace facts" #{2 3 4 5}
+   "replace catalog" #{4 5 6 7 8 9}
+   "replace catalog inputs" #{1}
+   "store report" #{3 4 5 6 7 8}
+   "deactivate node" #{1 2 3}})
 
-(def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
-(def latest-report-version (apply max (get supported-command-versions "store report")))
-(def latest-facts-version (apply max (get supported-command-versions "replace facts")))
-(def latest-configure-expiration-version (apply max (get supported-command-versions "configure expiration")))
-(def latest-catalog-inputs-version (apply max (get supported-command-versions "replace catalog inputs")))
-(def latest-deactivate-node-version (apply max (get supported-command-versions "deactivate node")))
+(def latest-catalog-version (apply max (supported-command-versions "replace catalog")))
+(def latest-report-version (apply max (supported-command-versions "store report")))
+(def latest-facts-version (apply max (supported-command-versions "replace facts")))
+(def latest-configure-expiration-version (apply max (supported-command-versions "configure expiration")))
+(def latest-catalog-inputs-version (apply max (supported-command-versions "replace catalog inputs")))
+(def latest-deactivate-node-version (apply max (supported-command-versions "deactivate node")))
 
 (def latest-command-versions
   {:replace_catalog latest-catalog-version
