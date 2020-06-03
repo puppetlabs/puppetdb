@@ -290,11 +290,13 @@
    (assoc command :payload (cat/parse-catalog payload version received))))
 
 (defn exec-replace-catalog
-  [{:keys [version id received payload]} start-time db]
+  [{:keys [version id received payload]} start-time db conn-status]
   (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
-    (jdbc/with-transacted-connection' db :repeatable-read
-      (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/replace-catalog! catalog received))
+    (jdbc/retry-with-monitored-connection
+     db conn-status :repeatable-read
+     (fn []
+       (scf-storage/maybe-activate-node! certname producer-timestamp)
+       (scf-storage/replace-catalog! catalog received)))
     (log-command-processed-messsage id received start-time :replace-catalog certname)))
 
 ;; Catalog input replacement
@@ -302,13 +304,15 @@
 (defn prep-replace-catalog-inputs [command]
   (update-in command [:payload :producer_timestamp] #(or % (now))))
 
-(defn exec-replace-catalog-inputs [{:keys [id received payload]} start-time db]
+(defn exec-replace-catalog-inputs [{:keys [id received payload]} start-time db conn-status]
   (let [{:keys [certname inputs catalog_uuid]
          stamp :producer_timestamp} payload]
     (when (seq inputs)
-      (jdbc/with-transacted-connection' db :repeatable-read
-        (scf-storage/maybe-activate-node! certname stamp)
-        (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp))
+      (jdbc/retry-with-monitored-connection
+       db conn-status :repeatable-read
+       (fn []
+         (scf-storage/maybe-activate-node! certname stamp)
+         (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp)))
       (log-command-processed-messsage id received start-time
                                       :replace-catalog-inputs certname))))
 
@@ -335,11 +339,13 @@
                 (seq package_inventory) (update :package_inventory distinct))))))
 
 (defn exec-replace-facts
-  [{:keys [payload id received] :as command} start-time db]
+  [{:keys [payload id received] :as command} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
-    (jdbc/with-transacted-connection' db :repeatable-read
-      (scf-storage/maybe-activate-node! certname producer_timestamp)
-      (scf-storage/replace-facts! payload))
+    (jdbc/retry-with-monitored-connection
+     db conn-status :repeatable-read
+     (fn []
+       (scf-storage/maybe-activate-node! certname producer_timestamp)
+       (scf-storage/replace-facts! payload)))
     (log-command-processed-messsage id received start-time :replace-facts certname)))
 
 ;; Node deactivation
@@ -364,12 +370,14 @@
 
 ;; FIXME: was to-timestamp redundant here and in store-report? others don't have it...
 
-(defn exec-deactivate-node [{:keys [id received payload]} start-time db]
+(defn exec-deactivate-node [{:keys [id received payload]} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
-    (jdbc/with-transacted-connection db
-      (when-not (scf-storage/certname-exists? certname)
-        (scf-storage/add-certname! certname))
-      (scf-storage/deactivate-node! certname producer_timestamp))
+    (jdbc/retry-with-monitored-connection
+     db conn-status :read-committed
+     (fn []
+       (when-not (scf-storage/certname-exists? certname)
+         (scf-storage/add-certname! certname))
+       (scf-storage/deactivate-node! certname producer_timestamp)))
     (log-command-processed-messsage id received start-time :deactivate-node certname)))
 
 ;; Report submission
@@ -403,13 +411,15 @@
        (update :payload #(s/validate nodes/configure-expiration-wireformat-schema %))
        (update-in [:payload :producer_timestamp] #(or % (now))))))
 
-(defn exec-configure-expiration [{:keys [id received payload]} start-time db]
+(defn exec-configure-expiration [{:keys [id received payload]} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload
         expire-facts? (get-in payload [:expire :facts])]
     (when-not (nil? expire-facts?)
-      (jdbc/with-transacted-connection db
-        (scf-storage/maybe-activate-node! certname producer_timestamp)
-        (scf-storage/set-certname-facts-expiration certname expire-facts? producer_timestamp))
+      (jdbc/retry-with-monitored-connection
+       db conn-status :read-committed
+       (fn []
+         (scf-storage/maybe-activate-node! certname producer_timestamp)
+         (scf-storage/set-certname-facts-expiration certname expire-facts? producer_timestamp)))
       (log-command-processed-messsage id received start-time
                                       :configure-expiration certname))))
 
@@ -424,29 +434,24 @@
     "configure expiration" (prep-configure-expiration cmd)
     "replace catalog inputs" (prep-replace-catalog-inputs cmd)))
 
-(def supported-command?
-  (comp (kitchensink/valset command-names) :command))
-
-(defn supported-version? [command version]
-  (contains? (get supported-command-versions command #{}) version))
-
-(defn supported-command-version? [command-name [received-command-name received-version]]
-  (boolean
-   (and (= command-name received-command-name)
-        (supported-version? command-name received-version))))
+(defn supported-command? [{:keys [command version] :as cmd}]
+  (some-> (supported-command-versions command) (get version)))
 
 (defn exec-command
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
-  [{command-name :command version :version delete? :delete? :as command}
-   db conn-status start]
-  (condp supported-command-version? [command-name version]
-    "replace catalog" (exec-replace-catalog command start db)
-    "replace facts" (exec-replace-facts command start db)
-    "store report" (exec-store-report command start db conn-status)
-    "deactivate node" (exec-deactivate-node command start db)
-    "configure expiration" (exec-configure-expiration command start db)
-    "replace catalog inputs" (exec-replace-catalog-inputs command start db)))
+  [{:keys [command version] :as cmd} db conn-status start]
+  (when-not (supported-command? cmd)
+    (throw (ex-info (trs "Unsupported command {0} version {1}" command version)
+                    {:kind ::fatal-processing-error})))
+  (let [exec (case command
+               "replace catalog" exec-replace-catalog
+               "replace facts" exec-replace-facts
+               "store report" exec-store-report
+               "deactivate node" exec-deactivate-node
+               "configure expiration" exec-configure-expiration
+               "replace catalog inputs" exec-replace-catalog-inputs)]
+    (exec cmd start db conn-status)))
 
 (defn process-command!
   ;; only used by testing...
@@ -569,13 +574,7 @@
         not-exception? #(not (instance? Throwable %))
         attempt-exec (fn [db status]
                        (try
-                         ;; FIXME: huge hack...
-                         (if (= command "store report")
-                           (attempt-exec-command cmd db status
-                                                 response-chan stats)
-                           (jdbc/with-monitored-db-connection db status
-                             (attempt-exec-command cmd jdbc/*db* status
-                                                   response-chan stats)))
+                         (attempt-exec-command cmd db status response-chan stats)
                          nil
                          (catch Throwable ex
                            ex)))]
