@@ -260,15 +260,24 @@
 (deftest multiple-database-configurations
   (let [config (conf/configure-db
                 {:database {:username "u1" :password "?" :subname "s"}
-                 (keyword "database \"primary\"") {:password "?" :subname "s"}
-                 (keyword "database \"secondary\"") {:username "u2" :password "?" :subname "s"}})]
+                 (keyword "database \"primary\"") {:password "?" :subname "s" :migrate "false"}
+                 (keyword "database \"secondary\"") {:username "u2" :password "?" :subname "s"}
+                 (keyword "database \"empty\"") {}})]
     ;; FIXME: read-database
     (is (= "u1" (get-in config [:database :user])))
     (is (= "u1" (get-in config [:database :username])))
     (is (= "u1" (get-in config [:database "primary" :user])))
     (is (= "u1" (get-in config [:database "primary" :username])))
     (is (= "u2" (get-in config [:database "secondary" :user])))
-    (is (= "u2" (get-in config [:database "secondary" :username])))))
+    (is (= "u2" (get-in config [:database "secondary" :username])))
+
+    ;; top level defaults overwritten in subsections if specified
+    (is (= true (-> config :database :migrate)))
+    (is (= false (get-in config [:database "primary" :migrate])))
+
+    ;; an empty sub section gets all :database defaults
+    (is (= (-> config :database (dissoc "primary" "secondary" "empty"))
+           (get-in config [:database "empty"])))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]
