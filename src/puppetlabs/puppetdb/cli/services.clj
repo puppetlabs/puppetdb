@@ -728,14 +728,16 @@
                 [write-db] write-dbs]
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
+            ;; FIXME: deduplicate?  how?
             (when (pos? schema-check-interval)
-              (interspaced schema-check-interval
-                           #(check-schema-version desired-schema-version
-                                                  context
-                                                  read-db
-                                                  service
-                                                  request-shutdown)
-                           job-pool))
+              (doseq [db (cons read-db write-dbs)]
+                (interspaced schema-check-interval
+                             #(check-schema-version desired-schema-version
+                                                    context
+                                                    db
+                                                    service
+                                                    request-shutdown)
+                             job-pool)))
             (mapv (fn [cfg db]
                     (let [interval (to-millis (:gc-interval cfg))]
                       (when (pos? interval)
