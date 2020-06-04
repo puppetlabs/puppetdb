@@ -1,6 +1,6 @@
 # We skip this step entirely unless we are running in :upgrade mode.
 version = test_config[:package_build_version].to_s
-latest_released = get_latest_released(version)
+latest_released = '6.10.1'
 
 if ([:upgrade_oldest, :upgrade_latest].include? test_config[:install_mode]) \
   && !(test_config[:skip_presuite_provisioning])
