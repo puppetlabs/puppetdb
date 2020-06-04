@@ -1137,15 +1137,15 @@
                :entity :events
                :source-tables #{:resource_events}}))
 
-(def active-nodes-query
-  (map->Query {::which-query :active-nodes
+(def not-active-nodes-query
+  (map->Query {::which-query :not-active-nodes
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :active_nodes.certname}}
-               :selection {:from [:active_nodes]}
+                                         :field :not_active_nodes.certname}}
+               :selection {:from [:not_active_nodes]}
                :subquery? false
-               :alias "active_nodes"
-               :source-tables #{:active_nodes}}))
+               :alias "not_active_nodes"
+               :source-tables #{:not_active_nodes}}))
 
 
 (def inactive-nodes-query
@@ -1431,11 +1431,11 @@
                                              :where (hcore/raw
                                                       (str "(deactivated IS NOT NULL AND deactivated > '" timestamp "')"
                                                            " OR (expired IS NOT NULL and expired > '" timestamp "')"))}
-                            :active_nodes {:select [:certname]
+                            :not_active_nodes {:select [:certname]
                                            :from [:certnames]
-                                           :where [:and
-                                                   [:is :deactivated nil]
-                                                   [:is :expired nil]]}})))
+                                           :where [:or
+                                                   [:is-not :deactivated nil]
+                                                   [:is-not :expired nil]]}})))
 
 (defn quote-dotted-projections
   [projection]
@@ -1723,7 +1723,7 @@
    "select_fact_contents" fact-contents-query
    "select_fact_paths" fact-paths-query
    "select_nodes" nodes-query
-   "select_active_nodes" active-nodes-query
+   "select_not_active_nodes" not-active-nodes-query
    "select_inactive_nodes" inactive-nodes-query
    "select_latest_report" latest-report-query
    "select_latest_report_id" latest-report-id-query
@@ -1822,9 +1822,9 @@
 
             [["=" "node_state" value]]
             (case (str/lower-case (str value))
-              "active" ["in" "certname"
-                        ["extract" "certname"
-                         ["select_active_nodes"]]]
+              "active" ["not" ["in" "certname"
+                               ["extract" "certname"
+                                ["select_not_active_nodes"]]]]
               "inactive" ["in" "certname"
                           ["extract" "certname"
                            ["select_inactive_nodes"]]]
