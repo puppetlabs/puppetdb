@@ -724,8 +724,11 @@
                 write-db-names (conf/reduce-section
                                 (fn [result name settings]
                                   (conj result (or name "default")))
-                                [] database)
-                [write-db] write-dbs]
+                                [] database)]
+
+            ;; storage metrics are registered on startup to account for cmd broadcast
+            (scf-store/init-storage-metrics write-dbs)
+
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
             (when (pos? schema-check-interval)

@@ -1008,18 +1008,18 @@
   (testing "should share structure when duplicate catalogs are detected for the same host"
     (add-certname! certname)
     (let [hash (replace-catalog! catalog)
-          prev-dupe-num (counters/value (:duplicate-catalog performance-metrics))
-          prev-new-num  (counters/value (:updated-catalog performance-metrics))]
+          prev-dupe-num (counters/value (:duplicate-catalog @storage-metrics))
+          prev-new-num  (counters/value (:updated-catalog @storage-metrics))]
 
       ;; Do an initial replacement with the same catalog
       (replace-catalog! catalog (now))
-      (is (= 1 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
-      (is (= 0 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num)))
+      (is (= 1 (- (counters/value (:duplicate-catalog @storage-metrics)) prev-dupe-num)))
+      (is (= 0 (- (counters/value (:updated-catalog @storage-metrics)) prev-new-num)))
 
       ;; Store a second catalog, with the same content save the version
       (replace-catalog! (assoc catalog :version "abc123") (now))
-      (is (= 2 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
-      (is (= 0 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num)))
+      (is (= 2 (- (counters/value (:duplicate-catalog @storage-metrics)) prev-dupe-num)))
+      (is (= 0 (- (counters/value (:updated-catalog @storage-metrics)) prev-new-num)))
 
       (is (= (query-to-vec ["SELECT certname FROM certnames"])
              [{:certname certname}]))
@@ -1029,8 +1029,8 @@
                :certname certname}]))
 
       (replace-catalog! (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :line] 20) (now))
-      (is (= 2 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
-      (is (= 1 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num))))))
+      (is (= 2 (- (counters/value (:duplicate-catalog @storage-metrics)) prev-dupe-num)))
+      (is (= 1 (- (counters/value (:updated-catalog @storage-metrics)) prev-new-num))))))
 
 (deftest-db fact-delete-deletes-facts
   (add-certname! certname)
@@ -1107,8 +1107,7 @@
                                "  from catalogs where certname=?")
                           certname)
             updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
-            new-uuid (kitchensink/uuid)
-            metrics-map performance-metrics]
+            new-uuid (kitchensink/uuid)]
 
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar"}
@@ -1124,18 +1123,21 @@
                                   insert-multis jdbc/insert-multi!
                                   deletes jdbc/delete!
                                   updates jdbc/update!]
-          (with-redefs [performance-metrics
-                        (assoc metrics-map
-                               :catalog-volatility (histogram storage-metrics-registry [(str (gensym))]))]
-            (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
 
-            ;; 2 edge deletes
-            ;; 2 edge inserts
-            ;; 1 params insert
-            ;; 1 params cache insert
-            ;; 1 catalog_resource insert
-            ;; 1 catalog_resource delete
-            (is (= 8 (apply + (sample (:catalog-volatility performance-metrics))))))
+          (swap! storage-metrics
+                 (fn [old-metrics]
+                   (assoc old-metrics
+                          :catalog-volatility (histogram storage-metrics-registry [(str (gensym))]))))
+
+          (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
+
+          ;; 2 edge deletes
+          ;; 2 edge inserts
+          ;; 1 params insert
+          ;; 1 params cache insert
+          ;; 1 catalog_resource insert
+          ;; 1 catalog_resource delete
+          (is (= 8 (apply + (sample (:catalog-volatility @storage-metrics)))))
 
           (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
                      (table-args (concat @inserts @insert-multis))))

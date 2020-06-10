@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.scf.storage :refer [init-storage-metrics]]
             [puppetlabs.puppetdb.schema :refer [transform-data]]
             [puppetlabs.puppetdb.testutils :refer [pprint-str]]
             [puppetlabs.puppetdb.utils :refer [flush-and-exit]]))
@@ -241,6 +242,9 @@
   otherwise displays its subname."
   [f]
   (binding [*db* (create-temp-db)]
+    ;; storage metrics are created during service start
+    ;; ensure they exist in tests before storage code is run
+    (init-storage-metrics *db*)
     (with-db-info-on-failure-or-drop *db*
       (f))))
 

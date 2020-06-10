@@ -35,6 +35,7 @@
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.metrics.core :as metrics]
+            [puppetlabs.puppetdb.utils.metrics :as mutils]
             [metrics.counters :refer [counter inc! value]]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.histograms :refer [histogram update!]]
@@ -119,7 +120,7 @@
 
 (def storage-metrics-registry (get-in metrics/metrics-registries [:storage :registry]))
 
-;; ## Performance metrics
+;; ## Storage metrics
 ;;
 ;; ### Timers for catalog storage
 ;;
@@ -173,38 +174,57 @@
 ;; * `:replace-facts`: the time it takes to replace the facts for a
 ;;   host
 ;;
-(def performance-metrics
-  {
-   :add-resources      (timer storage-metrics-registry ["add-resources"])
-   :add-edges          (timer storage-metrics-registry ["add-edges"])
+(def storage-metrics (atom {}))
 
-   :resource-hashes    (timer storage-metrics-registry ["resource-hashes"])
-   :catalog-hash       (timer storage-metrics-registry ["catalog-hash"])
-   :add-new-catalog    (timer storage-metrics-registry ["new-catalog-time"])
-   :catalog-hash-match (timer storage-metrics-registry ["catalog-hash-match-time"])
-   :catalog-hash-miss  (timer storage-metrics-registry ["catalog-hash-miss-time"])
-   :replace-catalog    (timer storage-metrics-registry ["replace-catalog-time"])
+(defn get-storage-metric
+  ([metric]
+   (get-storage-metric metric nil))
+  ([metric db]
+   ;; some metrics are updated outside of where *db* is bound
+   ;; the db map is passed directly in those cases
+   (let [prefixed-key (-> (or db jdbc/*db*)
+                          (mutils/get-db-name)
+                          (mutils/maybe-prefix-key metric))]
+     (prefixed-key @storage-metrics))))
 
-   :gc                 (timer storage-metrics-registry ["gc-time"])
-   :gc-catalogs        (timer storage-metrics-registry ["gc-catalogs-time"])
-   :gc-params          (timer storage-metrics-registry ["gc-params-time"])
-   :gc-environments    (timer storage-metrics-registry ["gc-environments-time"])
-   :gc-packages    (timer storage-metrics-registry ["gc-packages-time"])
-   :gc-report-statuses (timer storage-metrics-registry ["gc-report-statuses"])
-   :gc-fact-paths  (timer storage-metrics-registry ["gc-fact-paths"])
+(defn create-storage-metrics [prefix]
+  (let [pname #(or (when prefix (str prefix "." %)) %)
+        storage-metrics
+        {:add-resources      (timer storage-metrics-registry [(pname "add-resources")])
+         :add-edges          (timer storage-metrics-registry [(pname "add-edges")])
+         :resource-hashes    (timer storage-metrics-registry [(pname "resource-hashes")])
+         :catalog-hash       (timer storage-metrics-registry [(pname "catalog-hash")])
+         :add-new-catalog    (timer storage-metrics-registry [(pname "new-catalog-time")])
+         :catalog-hash-match (timer storage-metrics-registry [(pname "catalog-hash-match-time")])
+         :catalog-hash-miss  (timer storage-metrics-registry [(pname "catalog-hash-miss-time")])
+         :replace-catalog    (timer storage-metrics-registry [(pname "replace-catalog-time")])
+         :gc                 (timer storage-metrics-registry [(pname "gc-time")])
+         :gc-catalogs        (timer storage-metrics-registry [(pname "gc-catalogs-time")])
+         :gc-params          (timer storage-metrics-registry [(pname "gc-params-time")])
+         :gc-environments    (timer storage-metrics-registry [(pname "gc-environments-time")])
+         :gc-packages    (timer storage-metrics-registry [(pname "gc-packages-time")])
+         :gc-report-statuses (timer storage-metrics-registry [(pname "gc-report-statuses")])
+         :gc-fact-paths  (timer storage-metrics-registry [(pname "gc-fact-paths")])
+         :updated-catalog    (counter storage-metrics-registry [(pname "new-catalogs")])
+         :duplicate-catalog  (counter storage-metrics-registry [(pname "duplicate-catalogs")])
+         :duplicate-pct      (gauge-fn storage-metrics-registry [(pname "duplicate-pct")]
+                                       (fn []
+                                         (let [dupes (value ((mutils/maybe-prefix-key :duplicate-catalog)
+                                                             @storage-metrics))
+                                               new   (value ((mutils/maybe-prefix-key :updated-catalog)
+                                                             @storage-metrics))]
+                                           (float (kitchensink/quotient dupes (+ dupes new))))))
+         :catalog-volatility (histogram storage-metrics-registry [(pname "catalog-volitilty")])
+         :replace-facts     (timer storage-metrics-registry [(pname "replace-facts-time")])
+         :store-report      (timer storage-metrics-registry [(pname "store-report-time")])}]
+    (mutils/prefix-metric-keys prefix storage-metrics)))
 
-   :updated-catalog    (counter storage-metrics-registry ["new-catalogs"])
-   :duplicate-catalog  (counter storage-metrics-registry ["duplicate-catalogs"])
-   :duplicate-pct      (gauge-fn storage-metrics-registry ["duplicate-pct"]
-                                 (fn []
-                                   (let [dupes (value (:duplicate-catalog performance-metrics))
-                                         new   (value (:updated-catalog performance-metrics))]
-                                     (float (kitchensink/quotient dupes (+ dupes new))))))
-   :catalog-volatility (histogram storage-metrics-registry ["catalog-volitilty"])
-
-   :replace-facts     (timer storage-metrics-registry ["replace-facts-time"])
-
-   :store-report      (timer storage-metrics-registry ["store-report-time"])})
+(defn init-storage-metrics [scf-write-dbs]
+  (->> scf-write-dbs
+       (map mutils/get-db-name)
+       (map create-storage-metrics)
+       (apply merge)
+       (reset! storage-metrics)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
@@ -521,7 +541,7 @@
                                     refs-to-resources
                                     refs-to-hashes)]
 
-    (update! (:catalog-volatility performance-metrics) (* 2 (count new-params)))
+    (update! (get-storage-metric :catalog-volatility) (* 2 (count new-params)))
 
     (insert-records*
      :resource_params_cache
@@ -557,7 +577,7 @@
   (fn [refs-to-insert]
     {:pre [(every? resource-ref? refs-to-insert)]}
 
-    (update! (:catalog-volatility performance-metrics) (count refs-to-insert))
+    (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
 
     (insert-records*
      :catalog_resources
@@ -580,7 +600,7 @@
   (fn [refs-to-delete]
     {:pre [(every? resource-ref? refs-to-delete)]}
 
-    (update! (:catalog-volatility performance-metrics) (count refs-to-delete))
+    (update! (get-storage-metric :catalog-volatility) (count refs-to-delete))
 
     (doseq [{:keys [type title]} refs-to-delete]
       (jdbc/delete! :catalog_resources
@@ -630,7 +650,7 @@
           updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash)
                                  (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
 
-      (update! (:catalog-volatility performance-metrics) (count updated-resources))
+      (update! (get-storage-metric :catalog-volatility) (count updated-resources))
 
       (doseq [[{:keys [type title]} updated-cols] updated-resources]
         (jdbc/update! :catalog_resources
@@ -684,7 +704,7 @@
   [certname :- String
    edges :- edge-db-schema]
 
-  (update! (:catalog-volatility performance-metrics) (count edges))
+  (update! (get-storage-metric :catalog-volatility) (count edges))
   (doseq [[source target type] edges]
     ;; This is relatively inefficient. If we have id's for edges, we could do
     ;; this in 1 statement.
@@ -717,7 +737,7 @@
                   :target (sutils/munge-hash-for-storage target)
                   :type type})]
 
-      (update! (:catalog-volatility performance-metrics) (count rows))
+      (update! (get-storage-metric :catalog-volatility) (count rows))
       (jdbc/insert-multi! :edges rows))))
 
 (s/defn replace-edges!
@@ -748,13 +768,13 @@
 
 (s/defn update-existing-catalog
   "When a new incoming catalog has the same hash as an existing catalog, update
-   performance-metrics and the transaction id for the new catalog"
+   storage-metrics and the transaction id for the new catalog"
   [catalog-id :- Long
    hash :- String
    catalog :- catalog-schema
    received-timestamp :- pls/Timestamp]
-  (inc! (:duplicate-catalog performance-metrics))
-  (time! (:catalog-hash-match performance-metrics)
+  (inc! (get-storage-metric :duplicate-catalog))
+  (time! (get-storage-metric :catalog-hash-match)
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)))
 
 (s/defn update-catalog-associations!
@@ -762,9 +782,9 @@
   [certname-id :- Long
    {:keys [resources edges certname]} :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}]
-  (time! (:add-resources performance-metrics)
+  (time! (get-storage-metric :add-resources)
          (add-resources! certname-id resources refs-to-hashes))
-  (time! (:add-edges performance-metrics)
+  (time! (get-storage-metric :add-edges)
          (replace-edges! certname edges refs-to-hashes)))
 
 (s/defn replace-existing-catalog
@@ -777,9 +797,9 @@
    refs-to-hashes :- {resource-ref-schema String}
    received-timestamp :- pls/Timestamp]
 
-  (inc! (:updated-catalog performance-metrics))
+  (inc! (get-storage-metric :updated-catalog))
 
-  (time! (:catalog-hash-miss performance-metrics)
+  (time! (get-storage-metric :catalog-hash-miss)
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)
          (update-catalog-associations! certname-id catalog refs-to-hashes)))
 
@@ -790,8 +810,8 @@
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
    received-timestamp :- pls/Timestamp]
-  (inc! (:updated-catalog performance-metrics))
-  (time! (:add-new-catalog performance-metrics)
+  (inc! (get-storage-metric :updated-catalog))
+  (time! (get-storage-metric :add-new-catalog)
          (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
@@ -802,9 +822,9 @@
    (replace-catalog! catalog (now)))
   ([{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
     received-timestamp :- pls/Timestamp]
-   (time! (:replace-catalog performance-metrics)
+   (time! (get-storage-metric :replace-catalog)
           (jdbc/with-db-transaction []
-            (let [hash (time! (:catalog-hash performance-metrics)
+            (let [hash (time! (get-storage-metric :catalog-hash)
                               (shash/catalog-similarity-hash catalog))
                   {catalog-id :catalog_id
                    stored-hash :catalog_hash
@@ -819,7 +839,7 @@
                 (update-existing-catalog catalog-id hash catalog received-timestamp)
 
                 :else
-                (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+                (let [refs-to-hashes (time! (get-storage-metric :resource-hashes)
                                             (kitchensink/mapvals shash/resource-identity-hash resources))]
                   (if (nil? catalog-id)
                     (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
@@ -882,7 +902,7 @@
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
-  (time! (:gc-params performance-metrics)
+  (time! (get-storage-metric :gc-params)
          (jdbc/delete!
           :resource_params_cache
           ["NOT EXISTS (SELECT * FROM catalog_resources cr
@@ -893,7 +913,7 @@
   "Remove any environments that aren't associated with a catalog, report or factset"
   []
   (time!
-   (:gc-environments performance-metrics)
+   (get-storage-metric :gc-environments)
    (jdbc/delete!
     :environments
     ["ID NOT IN
@@ -906,7 +926,7 @@
 (defn delete-unassociated-packages!
   []
   (time!
-   (:gc-packages performance-metrics)
+   (get-storage-metric :gc-packages)
    (jdbc/delete!
     :packages
     ["not exists (select * from certname_packages cp where cp.package_id = packages.id)"])))
@@ -1320,7 +1340,7 @@
   [orig-report :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool]
-  (time! (:store-report performance-metrics)
+  (time! (get-storage-metric :store-report)
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
@@ -1550,7 +1570,7 @@
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the factsets will have changed while the transaction was in-flight."
   [{:keys [certname producer_timestamp] :as fact-data} :- facts-schema]
-  (time! (:replace-facts performance-metrics)
+  (time! (get-storage-metric :replace-facts)
          (if-let [local-factset-producer-ts (timestamp-of-newest-record :factsets certname)]
            (if-not (.after local-factset-producer-ts (to-timestamp producer_timestamp))
              (update-facts! fact-data)
@@ -1599,7 +1619,7 @@
   "Delete any lingering, unassociated data in the database"
   [db]
   (time!
-   (:gc performance-metrics)
+   (get-storage-metric :gc db)
    (do
      (jdbc/with-transacted-connection db
        (delete-unassociated-params!)
