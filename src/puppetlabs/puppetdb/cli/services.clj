@@ -227,18 +227,18 @@
    :cleaning (gauge-fn admin-metrics-registry ["cleaning"]
                        #(deref clean-status))
 
-   :node-expirations (counter admin-metrics-registry "node-expirations")
-   :node-purges (counter admin-metrics-registry "node-purges")
-   :report-purges (counter admin-metrics-registry "report-purges")
-   :resource-events-purges (counter admin-metrics-registry "resource-event-purges")
-   :package-gcs (counter admin-metrics-registry "package-gcs")
-   :other-cleans (counter admin-metrics-registry "other-cleans")
+   :node-expirations (counter admin-metrics-registry ["node-expirations"])
+   :node-purges (counter admin-metrics-registry ["node-purges"])
+   :report-purges (counter admin-metrics-registry ["report-purges"])
+   :resource-events-purges (counter admin-metrics-registry ["resource-event-purges"])
+   :package-gcs (counter admin-metrics-registry ["package-gcs"])
+   :other-cleans (counter admin-metrics-registry ["other-cleans"])
 
    :node-expiration-time (timer admin-metrics-registry ["node-expiration-time"])
    :node-purge-time (timer admin-metrics-registry ["node-purge-time"])
    :report-purge-time (timer admin-metrics-registry ["report-purge-time"])
    :resource-events-purge-time (timer admin-metrics-registry ["resource-events-purge-time"])
-   :package-gc-time (timer admin-metrics-registry "package-gc-time")
+   :package-gc-time (timer admin-metrics-registry ["package-gc-time"])
    :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
 
 (defn- clear-clean-status!
