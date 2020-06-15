@@ -260,7 +260,7 @@
 
 (defn read-gc-count-metric []
   ;; metrics are global, so...
-  (counters/value (:report-purges pdb-services/admin-metrics)))
+  (counters/value (:report-purges @pdb-services/admin-metrics)))
 
 (deftest ^:integration report-ttl
   (with-open [pg (int/setup-postgres)]
@@ -275,7 +275,7 @@
     (testing "Sleep for one second to make sure we have a ttl to exceed"
       (Thread/sleep 1000))
 
-    (let [initial-gc-count (counters/value (:report-purges pdb-services/admin-metrics))]
+    (let [initial-gc-count (counters/value (:report-purges @pdb-services/admin-metrics))]
       (with-open [pdb (int/run-puppetdb pg {:database {:report-ttl "1s"}})]
         (let [start-time (System/currentTimeMillis)]
           (loop []

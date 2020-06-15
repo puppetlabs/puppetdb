@@ -62,6 +62,7 @@
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.metrics.core :as metrics
              :refer [metrics-registries]]
+            [puppetlabs.puppetdb.utils.metrics :as mutils]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
@@ -222,31 +223,40 @@
 
 (def clean-status (atom ""))
 
-(def admin-metrics
-  {;;"expiring-nodes" | "expiring-nodes purging-reports" | ...
-   :cleaning (gauge-fn admin-metrics-registry ["cleaning"]
-                       #(deref clean-status))
+(def admin-metrics (atom nil))
 
-   :node-expirations (counter admin-metrics-registry ["node-expirations"])
-   :node-purges (counter admin-metrics-registry ["node-purges"])
-   :report-purges (counter admin-metrics-registry ["report-purges"])
-   :resource-events-purges (counter admin-metrics-registry ["resource-event-purges"])
-   :package-gcs (counter admin-metrics-registry ["package-gcs"])
-   :other-cleans (counter admin-metrics-registry ["other-cleans"])
+(defn create-admin-metrics [prefix]
+  (let [pname #(or (when prefix (str prefix "." %)) %)
+        admin-metrics
+        {;;"expiring-nodes" | "expiring-nodes purging-reports" | ...
+         :cleaning (gauge-fn admin-metrics-registry [(pname "cleaning")]
+                             #(deref clean-status))
+         :node-expirations (counter admin-metrics-registry [(pname "node-expirations")])
+         :node-purges (counter admin-metrics-registry [(pname "node-purges")])
+         :report-purges (counter admin-metrics-registry [(pname "report-purges")])
+         :resource-events-purges (counter admin-metrics-registry [(pname "resource-event-purges")])
+         :package-gcs (counter admin-metrics-registry [(pname "package-gcs")])
+         :other-cleans (counter admin-metrics-registry [(pname "other-cleans")])
+         :node-expiration-time (timer admin-metrics-registry [(pname "node-expiration-time")])
+         :node-purge-time (timer admin-metrics-registry [(pname "node-purge-time")])
+         :report-purge-time (timer admin-metrics-registry [(pname "report-purge-time")])
+         :resource-events-purge-time (timer admin-metrics-registry [(pname "resource-events-purge-time")])
+         :package-gc-time (timer admin-metrics-registry [(pname "package-gc-time")])
+         :other-clean-time (timer admin-metrics-registry [(pname "other-clean-time")])}]
+    (mutils/prefix-metric-keys prefix admin-metrics)))
 
-   :node-expiration-time (timer admin-metrics-registry ["node-expiration-time"])
-   :node-purge-time (timer admin-metrics-registry ["node-purge-time"])
-   :report-purge-time (timer admin-metrics-registry ["report-purge-time"])
-   :resource-events-purge-time (timer admin-metrics-registry ["resource-events-purge-time"])
-   :package-gc-time (timer admin-metrics-registry ["package-gc-time"])
-   :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
+(defn init-admin-metrics [scf-write-dbs]
+  (->> scf-write-dbs
+       (map mutils/get-db-name)
+       (map create-admin-metrics)
+       (apply merge)
+       (reset! admin-metrics)))
 
 (defn- clear-clean-status!
   "Clears the clean status (as a separate function to support tests)."
   []
   (reset! clean-status ""))
 
-;; FIXME: per-db gc stats?
 ;; FIXME: db name in all gc logging?
 
 (defn-validated clean-up
@@ -267,35 +277,38 @@
   (let [request (reduce-clean-request (if (empty? request)
                                         clean-options  ; clean everything
                                         request))
-        status (reduced-clean-request->status request)]
+        status (reduced-clean-request->status request)
+        prefix (mutils/get-db-name db)
+        get-metric (fn [metric]
+                     ((mutils/maybe-prefix-key prefix metric) @admin-metrics))]
     (try
       (reset! clean-status status)
       (when (request "expire_nodes")
-        (time! (:node-expiration-time admin-metrics)
+        (time! (get-metric :node-expiration-time)
                (auto-expire-nodes! node-ttl db))
-        (counters/inc! (:node-expirations admin-metrics)))
+        (counters/inc! (get-metric :node-expirations)))
       (when-let [opts (request "purge_nodes")]
-        (time! (:node-purge-time admin-metrics)
+        (time! (get-metric :node-purge-time)
                (purge-nodes! node-purge-ttl opts db))
-        (counters/inc! (:node-purges admin-metrics)))
+        (counters/inc! (get-metric :node-purges)))
       (when (request "purge_reports")
-        (time! (:report-purge-time admin-metrics)
+        (time! (get-metric :report-purge-time)
                (sweep-reports! report-ttl db))
-        (counters/inc! (:report-purges admin-metrics)))
+        (counters/inc! (get-metric :report-purges)))
       (when (request "gc_packages")
-        (time! (:package-gc-time admin-metrics)
+        (time! (get-metric :package-gc-time)
                (gc-packages! db))
-        (counters/inc! (:package-gcs admin-metrics)))
+        (counters/inc! (get-metric :package-gcs)))
       (when (request "purge_resource_events")
-        (time! (:resource-events-purge-time admin-metrics)
+        (time! (get-metric :resource-events-purge-time)
                (gc-resource-events! resource-events-ttl db))
-        (counters/inc! (:resource-events-purges admin-metrics)))
+        (counters/inc! (get-metric :resource-events-purges)))
       ;; It's important that this go last to ensure anything referencing
       ;; an env or resource param is purged first.
       (when (request "other")
-        (time! (:other-clean-time admin-metrics)
+        (time! (get-metric :other-clean-time)
                (garbage-collect! db))
-        (counters/inc! (:other-cleans admin-metrics)))
+        (counters/inc! (get-metric :other-cleans)))
       (finally
         (clear-clean-status!)))))
 
@@ -726,8 +739,9 @@
                                   (conj result (or name "default")))
                                 [] database)]
 
-            ;; storage metrics are registered on startup to account for cmd broadcast
+            ;; metrics are registered on startup to account for cmd broadcast
             (scf-store/init-storage-metrics write-dbs)
+            (init-admin-metrics write-dbs)
 
             (when-not (get-in config [:puppetdb :disable-update-checking])
               (maybe-check-for-updates config read-db job-pool))
