@@ -27,7 +27,6 @@
 (defn maint-mode-handler [maint-mode-fn]
   (fn [req]
     (when (maint-mode-fn)
-      (log/info (trs "HTTP request received while in maintenance mode"))
       {:status 503
        :body (tru "PuppetDB is currently down. Try again later.")})))
 
