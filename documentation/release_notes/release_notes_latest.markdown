@@ -21,6 +21,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.11.1
+
+This version is included in PE version 2019.8, but is not available as an open source offering. It includes a minor bug fix.
+
 ## PuppetDB 6.11.0
 
 ### Upgrading
