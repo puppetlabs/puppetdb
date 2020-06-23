@@ -18,7 +18,7 @@
 
 (defn read-gc-count-metric []
   ;; metrics are global, so...
-  (counters/value (:resource-events-purges pdb-services/admin-metrics)))
+  (counters/value (:resource-events-purges @pdb-services/admin-metrics)))
 
 (deftest ^:integration resource-events-ttl
   (with-open [pg (int/setup-postgres)]
@@ -59,7 +59,7 @@
       (testing "Sleep for some time to make sure we have a ttl to exceed"
         (Thread/sleep 10))
 
-      (let [initial-gc-count (counters/value (:resource-events-purges pdb-services/admin-metrics))]
+      (let [initial-gc-count (counters/value (:resource-events-purges @pdb-services/admin-metrics))]
         ;; this TTL will be rounded to 1 day at execution time
         (with-open [pdb (int/run-puppetdb pg {:database {:resource-events-ttl "1h"}})]
           (let [start-time (System/currentTimeMillis)]

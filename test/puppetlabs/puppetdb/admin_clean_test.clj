@@ -93,7 +93,7 @@
                       (deref cleanup-result 120000 ::timed-out)))))))))
 
 (defn- clean-status []
-  (gauges/value (:cleaning cli-svc/admin-metrics)))
+  (gauges/value (:cleaning @cli-svc/admin-metrics)))
 
 (deftest admin-clean-status
   (with-pdb-with-no-gc
@@ -175,23 +175,23 @@
                   value)])))
 
 (defn- clean-counts []
-  {"expire_nodes" (counters/value (:node-expirations cli-svc/admin-metrics))
-   "purge_nodes" (counters/value (:node-purges cli-svc/admin-metrics))
-   "purge_reports" (counters/value (:report-purges cli-svc/admin-metrics))
-   "gc_packages" (counters/value (:package-gcs cli-svc/admin-metrics))
-   "other" (counters/value (:other-cleans cli-svc/admin-metrics))})
+  {"expire_nodes" (counters/value (:node-expirations @cli-svc/admin-metrics))
+   "purge_nodes" (counters/value (:node-purges @cli-svc/admin-metrics))
+   "purge_reports" (counters/value (:report-purges @cli-svc/admin-metrics))
+   "gc_packages" (counters/value (:package-gcs @cli-svc/admin-metrics))
+   "other" (counters/value (:other-cleans @cli-svc/admin-metrics))})
 
 (defn- clean-timer-counts []
   {"expire_nodes" (timers/number-recorded
-                   (:node-expiration-time cli-svc/admin-metrics))
+                   (:node-expiration-time @cli-svc/admin-metrics))
    "purge_nodes" (timers/number-recorded
-                  (:node-purge-time cli-svc/admin-metrics))
+                  (:node-purge-time @cli-svc/admin-metrics))
    "purge_reports" (timers/number-recorded
-                    (:report-purge-time cli-svc/admin-metrics))
+                    (:report-purge-time @cli-svc/admin-metrics))
    "gc_packages" (timers/number-recorded
-                  (:package-gc-time cli-svc/admin-metrics))
+                  (:package-gc-time @cli-svc/admin-metrics))
    "other" (timers/number-recorded
-            (:other-clean-time cli-svc/admin-metrics))})
+            (:other-clean-time @cli-svc/admin-metrics))})
 
 (defn- check-counts [get-counts]
   (with-pdb-with-no-gc
