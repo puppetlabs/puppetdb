@@ -44,7 +44,7 @@
          ;; Kick out any existing connections belonging to the test db user. This
          ;; will cause HikariCP to create new connections which should all error
          (jdbc/with-transacted-connection
-           (tdb/db-admin-config)
+           (tdb/db-admin-config (tdb/subname->validated-db-name (:subname *db*)))
            (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*)))
 
          (loop [retries 0]
