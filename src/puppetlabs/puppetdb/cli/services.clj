@@ -316,25 +316,26 @@
 (defn- clean-puppetdb
   "Implements the PuppetDBServer clean method, see the protocol for
   further information."
-  [context config what]
+  [context what]
   ;; For now, just serialize them.
   ;; FIXME: improve request results wrt multiple databases?
   (let [lock (:clean-lock context)]
     (when (.tryLock lock)
       (try
         (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
+               [cfg & cfgs] (get-in context [:shared-globals :scf-write-db-cfgs])
                ex nil]
           (if-not db
             (if-not ex
               true
               (throw ex))
             (let [ex (try
-                       (clean-up db lock (:database config) what)
+                       (clean-up db lock cfg what)
                        ex
                        (catch Exception db-ex
                          (when ex (.addSuppressed ex db-ex))
                          (or ex db-ex)))]
-              (recur dbs ex))))
+              (recur dbs cfgs ex))))
         (finally
           (.unlock lock))))))
 
@@ -797,6 +798,7 @@
                      :q q
                      :scf-read-db read-db
                      :scf-write-dbs write-db-pools
+                     :scf-write-db-cfgs write-db-cfgs
                      :scf-write-db-names write-db-names}))))))
 
 (defn db-unsupported-msg
@@ -969,7 +971,7 @@
                                      row-callback-fn)))
 
   (clean [this] (clean this #{}))
-  (clean [this what] (clean-puppetdb (service-context this) (get-config) what))
+  (clean [this what] (clean-puppetdb (service-context this) what))
 
   (delete-node [this certname]
                (delete-node-from-puppetdb (service-context this) certname))
