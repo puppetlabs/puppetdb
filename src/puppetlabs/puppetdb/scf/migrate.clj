@@ -2017,7 +2017,7 @@
    74 reports-partitioning
    75 add-report-type-to-reports})
 
-(def desired-schema-version
+(defn desired-schema-version []
   "The newest migration this PuppetDB instance knows about.  Anything
   newer is considered invalid as far as this instance is concerned."
   (apply max (keys migrations)))
@@ -2064,7 +2064,7 @@
   PuppetDB"
   [applied-migrations]
   (set/difference applied-migrations
-                  (set (range 0 (inc desired-schema-version)))))
+                  (set (range 0 (inc (desired-schema-version))))))
 
 (defn require-valid-schema
   "Returns true if the database is ready for use, otherwise throws."

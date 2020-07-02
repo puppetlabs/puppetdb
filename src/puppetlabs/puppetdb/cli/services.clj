@@ -623,8 +623,8 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-schema-version context db service request-shutdown]
-  {:pre [(integer? desired-schema-version)]}
+  [desired-version context db service request-shutdown]
+  {:pre [(integer? desired-version)]}
   (when-not (:stopping @(:stop-status context))
     (let [schema-version (-> (jdbc/with-transacted-connection db
                                (jdbc/query "select max(version) from schema_migrations"))
@@ -635,16 +635,16 @@
                  (request-shutdown {::tk/exit
                                     {:status status
                                      :messages [[msg *err*]]}}))]
-      (when-not (= schema-version desired-schema-version)
+      (when-not (= schema-version desired-version)
         (cond
-          (> schema-version desired-schema-version)
+          (> schema-version desired-version)
           (stop (str
                  (trs "Please upgrade PuppetDB: ")
                  (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
                       schema-version))
                 (int \M))
 
-          (< schema-version desired-schema-version)
+          (< schema-version desired-version)
           (stop (str
                  (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
                  (trs "The detected migration level {0} is out of date." schema-version))
@@ -678,7 +678,8 @@
 
 (defn init-write-dbs [config]
   ;; FIXME: forbid subdb settings?
-  (with-final [db-config (:database config)
+  (with-final [desired-schema (desired-schema-version)
+               db-config (:database config)
                pools (atom []) :error #(close-write-dbs (deref %))]
     (conf/reduce-section
      (fn [_ name settings]
@@ -686,7 +687,7 @@
               (-> settings
                   (assoc :pool-name (apply str "PDBWritePool"
                                            (when name  [": " name]))
-                         :expected-schema desired-schema-version)
+                         :expected-schema desired-schema)
                   (jdbc/pooled-datasource database-metrics-registry))))
      nil
      db-config)
@@ -712,7 +713,7 @@
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (interspaced schema-check-interval
-                 #(check-schema-version desired-schema-version context db
+                 #(check-schema-version (desired-schema-version) context db
                                         service request-shutdown)
                  job-pool)))
 
@@ -764,7 +765,7 @@
       context
       (with-final [read-db (-> (assoc read-database
                                       :pool-name "PDBReadPool"
-                                      :expected-schema desired-schema-version
+                                      :expected-schema (desired-schema-version)
                                       :read-only? true)
                                (jdbc/pooled-datasource database-metrics-registry))
                    :error .close

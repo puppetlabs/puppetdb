@@ -35,11 +35,11 @@
            ;; This is added after initial startup and should cause any future
            ;; connection attempts to fail the HikariCP connectionInitSql check
            (if db-upgraded?
-             (jdbc/insert! :schema_migrations {:version (inc desired-schema-version)
+             (jdbc/insert! :schema_migrations {:version (inc (desired-schema-version))
                                                :time (to-timestamp (now))})
              ;; removing the most recent schema version makes the connectionInitSql
              ;; check think the database doesn't have the correct migration applied
-             (jdbc/delete! :schema_migrations ["version = ?" desired-schema-version])))
+             (jdbc/delete! :schema_migrations ["version = ?" (desired-schema-version)])))
 
          ;; Kick out any existing connections belonging to the test db user. This
          ;; will cause HikariCP to create new connections which should all error

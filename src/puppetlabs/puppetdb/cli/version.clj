@@ -22,7 +22,7 @@
 
 (defn show-version [args]
   (doseq [[key val] {"version" (version)
-                     "target_schema_version" desired-schema-version}]
+                     "target_schema_version" (desired-schema-version)}]
     (println (format "%s=%s" key val))))
 
 (defn cli
