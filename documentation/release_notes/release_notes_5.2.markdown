@@ -18,6 +18,15 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.16
+
+Released 14 July 2020
+
+### Security fixes
+
+- Our dependency on org.postgresql/postgresql was upgraded to 42.2.14 to fix CVE-2020-13692. [SEC-155](https://tickets.puppetlabs.com/browse/SEC-155)
+  Note: PuppetDB does not store XML data types in PostgreSQL and should not be affected by this CVE.
+
 ## PuppetDB 5.2.15
 
 ### Bug fixes
