@@ -442,10 +442,9 @@
   "Verifies that the available database version is acceptable.  Throws
   {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported."
-  [config]
+  [min-version-override]
   (let [{current :version :as meta} (sutils/db-metadata)
-        oldest (get-in config [:database :min-required-version]
-                       scf-store/oldest-allowed-db)
+        oldest (or min-version-override scf-store/oldest-allowed-db)
         supported scf-store/oldest-supported-db]
     (when (neg? (compare current oldest))
       (throw (ex-info "Database version too old"
@@ -459,31 +458,32 @@
                      (first supported))))
     meta))
 
-(defn require-valid-db
-  [config]
-  (verify-database-version config)
+(defn require-valid-db-server
+  [min-version-override]
+  (verify-database-version min-version-override)
   (verify-database-settings (request-database-settings)))
 
 (defn require-current-schema
-  []
+  [msg]
   (require-valid-schema)
   (when-let [pending (seq (pending-migrations))]
-    (let [m (str
-             (trs "Database is not fully migrated and migration is disallowed.")
-             (trs "  Missing migrations: {0}" (mapv first pending)))]
+    (let [m (str msg (trs "  Missing migrations: {0}" (mapv first pending)))]
       (throw (ex-info m {:kind ::migration-required
                          :pending pending})))))
 
+(defn require-valid-db [min-version-override]
+  (require-valid-db-server min-version-override)
+  (require-current-schema (trs "Database is not fully migrated.")))
+
 (defn prep-db
-  [datasource config]
-  (jdbc/with-db-connection datasource
-    (require-valid-db config)
-    (if (get-in config [:database :migrate])
-      (let [{{:keys [username migrator-username]} :database} config]
-        (if (= username migrator-username)
-          (initialize-schema)
-          (initialize-schema username (jdbc/current-database))))
-      (require-current-schema))))
+  [{:keys [username migrator-username migrate min-required-version]}]
+  (require-valid-db-server min-required-version)
+  (if migrate
+    (if (= username migrator-username)
+      (initialize-schema)
+      (initialize-schema username (jdbc/current-database)))
+    (require-current-schema
+     (trs "Database is not fully migrated and migration is disallowed."))))
 
 (defn- require-db-connection-as [datasource migrator]
   (jdbc/with-db-connection datasource
@@ -500,23 +500,26 @@
 (defn init-with-db
   "Performs all initialization operations requiring a database
   connection using a transient connection pool derived from the
-  `write-db-config`.  Blocks until the initialization is complete, and
+  db-config.  Blocks until the initialization is complete, and
   then returns an unspecified value.  Throws exceptions on errors.
   Throws {:kind ::unsupported-database :current version :oldest
   version} if the current database is not supported. Throws
   {:kind ::invalid-database-configuration :failed-validation failed-map}
   if the database contains a disallowed setting."
-  [write-db-config config]
+  [db-name db-config]
   ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
-  (let  [migrator (:migrator-username write-db-config)]
-    (with-open [db-pool (-> (assoc write-db-config
-                                   :pool-name "PDBMigrationsPool"
+  (log/info (trs "Ensuring {0} database is up to date" name))
+  (let  [migrator (:migrator-username db-config)]
+    (with-open [db-pool (-> (assoc db-config
+                                   :pool-name (if db-name
+                                                (str "PDBMigrationsPool: " db-name)
+                                                "PDBMigrationsPool")
                                    :connection-timeout 3000
                                    :rewrite-batched-inserts "true"
                                    :user migrator
-                                   :password (:migrator-password write-db-config))
+                                   :password (:migrator-password db-config))
                             (jdbc/make-connection-pool database-metrics-registry))]
       (let [runtime (Runtime/getRuntime)
             on-shutdown (doto (Thread.
@@ -533,7 +536,8 @@
             (let [result (try
                            (let [datasource {:datasource db-pool}]
                              (require-db-connection-as datasource migrator)
-                             (prep-db datasource config))
+                             (jdbc/with-db-connection datasource
+                               (prep-db db-config)))
                            true
                            (catch java.sql.SQLTransientConnectionException ex
                              ;; When coupled with the 3000ms timout, this
@@ -586,7 +590,7 @@
 ;; FIXME: with-logged-ex...
 
 (defn coordinate-gc-with-shutdown
-  [write-db clean-lock database request stop-status]
+  [write-db clean-lock config request stop-status]
   ;; This function assumes it will never be called concurrently with
   ;; itself, so that it's ok to just conj/disj below, instead of
   ;; tracking an atomic count or similar.
@@ -600,7 +604,7 @@
     (try
       (when (get-in (swap! stop-status update-if-not-stopping)
                     [:collecting-garbage thread])
-        (collect-garbage write-db clean-lock database request))
+        (collect-garbage write-db clean-lock config request))
       (catch Exception ex
         (log/error ex)
         (throw ex))
@@ -623,9 +627,9 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-version context db service request-shutdown]
+  [desired-version stop-status db service request-shutdown]
   {:pre [(integer? desired-version)]}
-  (when-not (:stopping @(:stop-status context))
+  (when-not (:stopping @stop-status)
     (let [schema-version (-> (jdbc/with-transacted-connection db
                                (jdbc/query "select max(version) from schema_migrations"))
                              first
@@ -713,8 +717,9 @@
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (interspaced schema-check-interval
-                 #(check-schema-version (desired-schema-version) context db
-                                        service request-shutdown)
+                 #(check-schema-version (desired-schema-version)
+                                        (:stop-status context)
+                                        db service request-shutdown)
                  job-pool)))
 
 (defn start-garbage-collection
@@ -763,7 +768,11 @@
          (ex-info "Currently unable to migrate multiple databases (see config)"
                   {:kind ::must-migrate-multiple-databases}))))
 
-    (init-with-db database config)
+    (conf/reduce-section
+     (fn [_ name settings]
+       (init-with-db name settings))
+     nil
+     database)
 
     (if upgrade-and-exit?
       context
@@ -773,6 +782,10 @@
                                       :read-only? true)
                                (jdbc/pooled-datasource database-metrics-registry))
                    :error .close
+
+                   _ (jdbc/with-db-connection read-db
+                       (require-valid-db
+                        (get-in config [:database :min-required-version])))
 
                    {:keys [command-chan command-loader dlo q]}
                    (init-queue config maybe-send-cmd-event! cmd-event-ch)
