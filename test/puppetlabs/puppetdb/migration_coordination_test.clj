@@ -24,11 +24,15 @@
   (doseq [db-upgraded? [true false]]
     (with-unconnected-test-db
        (call-with-puppetdb-instance
-       (-> (create-temp-config)
-           (assoc :database *db*)
-           ;; Allow client connections to timeout more quickly to speed test
-           (assoc-in [:database :connection-timeout] 300)
-           (assoc-in [:database :gc-interval] 0))
+        (assoc (create-temp-config)
+               :database (merge *db*
+                                ;; Allow client connections to timeout
+                                ;; more quickly to speed test, and
+                                ;; don't shutdown on schema
+                                ;; mismatches.
+                                {:connection-timeout 300
+                                 :gc-interval 0
+                                 :schema-check-interval 0}))
        (fn []
          (jdbc/with-transacted-connection *db*
            ;; Simulate either the db or pdb being upgraded before the other.
