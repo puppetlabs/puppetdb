@@ -78,7 +78,7 @@
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
                                               format-period period?]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils :refer [noisy-future]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
@@ -673,8 +673,8 @@
      ;; Caller is responsible for calling future-cancel on this in the end.
      :command-chan cmd-ch
      :command-loader (when load-messages
-                       (future
-                         (load-messages cmd-ch cmd/inc-cmd-depth)))}))
+                       (noisy-future
+                        (load-messages cmd-ch cmd/inc-cmd-depth)))}))
 
 (defn init-write-dbs [config]
   ;; FIXME: forbid subdb settings?
