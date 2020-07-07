@@ -441,7 +441,7 @@
   `(future
      (try
        ~@body
-       (catch Exception ex#
+       (catch Throwable ex#
          (binding [*out* *err*]
            (println ex#))
          (throw ex#)))))
