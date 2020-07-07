@@ -761,13 +761,6 @@
                                         :shutdown-request (:shutdown-request context)}
                        :clean-lock (ReentrantLock.))]
 
-    (let [db-cfgs (conf/section-subsections database)]
-      (when (and (> (count db-cfgs) 1)
-                 (some :migrate (vals db-cfgs)))
-        (throw
-         (ex-info "Currently unable to migrate multiple databases (see config)"
-                  {:kind ::must-migrate-multiple-databases}))))
-
     (conf/reduce-section
      (fn [_ name settings]
        (init-with-db name settings))
