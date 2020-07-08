@@ -749,7 +749,11 @@
                                         :node-purge-ttl (:node-purge-ttl database)
                                         :add-agent-report-filter (get-in config [:puppetdb :add-agent-report-filter])
                                         :cmd-event-mult cmd-event-mult
-                                        :maybe-send-cmd-event! maybe-send-cmd-event!}
+                                        :maybe-send-cmd-event! maybe-send-cmd-event!
+                                        ;; FIXME: remove this if/when
+                                        ;; we add immediate ::tk/exit
+                                        ;; support to trapperkeeper.
+                                        :shutdown-request (:shutdown-request context)}
                        :clean-lock (ReentrantLock.))]
 
     (let [db-cfgs (conf/section-subsections database)]
@@ -823,6 +827,7 @@
                   (map (fn [[k v]] (trs "''{0}'' (expected ''{1}'', got ''{2}'')" (name k) (:expected v) (:actual v)))
                        invalid-settings))))
 
+
 (defn start-puppetdb-or-shutdown
   [context config service get-registered-endpoints request-shutdown]
   {:pre [(map? context)
@@ -842,6 +847,7 @@
                                   (get-in config [:global :upgrade-and-exit?]))]
       (when upgrade?
         (request-shutdown {::tk/exit {:status 0}}))
+      (reset! (:shutdown-request context) nil)
       context)
     (catch ExceptionInfo ex
       (let [{:keys [kind] :as data} (ex-data ex)
@@ -879,7 +885,7 @@
       (assert (integer? status))
       (assert (every? string? (map first messages)))
       (some-> (:shutdown-request (service-context service))
-              (deliver {:opts opts}))
+              (reset! {:opts opts}))
       (request-shutdown opts))))
 
 (defprotocol PuppetDBServer
@@ -931,7 +937,7 @@
                  ;; support jdk < 10.
                  ;; https://bugs.openjdk.java.net/browse/JDK-8176254
                  :stop-status (atom {})
-                 :shutdown-request (promise))))
+                 :shutdown-request (atom nil))))
   (start
    [this context]
    ;; Some tests rely on keeping all the logic out of this function,
