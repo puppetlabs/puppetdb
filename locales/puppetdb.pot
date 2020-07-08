@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 6a96dd05366229e9704de175a3b884404f025462\n"
+"X-Git-Ref: 9ca1f423fe2487e0b64de8592b56d272eeb8c730\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -291,6 +291,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
 msgid "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "Unsupported command {0} version {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -787,10 +791,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid "Unknown sync version check state"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/pdb_routing.clj
-msgid "HTTP request received while in maintenance mode"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pdb_routing.clj
