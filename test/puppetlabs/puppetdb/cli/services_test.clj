@@ -200,17 +200,17 @@
   ;; Intercept and validate both the throw from start-puppetdb and the
   ;; subsequent shutdown request from start.
   (let [service (atom nil)
-        start-ex (promise)
+        start-ex (atom nil)
         orig-start svcs/start-puppetdb
         start (fn [& args]
                 (let [[context config svc get-endpts request-shutdown upgrade?] args]
                   (reset! service svc)
                   (try
                     (let [result (apply orig-start args)]
-                      (deliver start-ex nil)
+                      (reset! start-ex nil)
                       result)
                     (catch Exception ex
-                      (deliver start-ex ex)
+                      (reset! start-ex ex)
                       (throw ex)))))
         err-msg? #(re-matches #"PostgreSQL 9\.5 is no longer supported\. .*" %1)]
 
@@ -222,7 +222,7 @@
         true))
 
     (testing "unsupported db triggers unsupported-database exception"
-      (let [ex (deref start-ex 0 nil)
+      (let [ex (deref start-ex)
             expected-oldest scf-store/oldest-supported-db
             {:keys [kind current oldest]} (when (instance? ExceptionInfo ex)
                                             (ex-data ex))]
@@ -242,7 +242,7 @@
   (let [bad-setting :standard_conforming_strings
         bad-value "off"
         service (atom nil)
-        start-ex (promise)
+        start-ex (atom nil)
         orig-req svcs/request-database-settings
         request-settings #(for [{n :name :as settings} (orig-req)]
                             (if (= n (name bad-setting))
@@ -254,10 +254,10 @@
                   (reset! service svc)
                   (try
                     (let [result (apply orig-start args)]
-                      (deliver start-ex nil)
+                      (reset! start-ex nil)
                       result)
                     (catch Exception ex
-                      (deliver start-ex ex)
+                      (reset! start-ex ex)
                       (throw ex)))))
         err-msg? #(re-matches #"Invalid database configuration settings: 'standard_.*" %1)]
 
@@ -269,7 +269,7 @@
         true))
 
     (testing "invalid-database-configuration exception thrown"
-      (let [ex (deref start-ex 0 nil)
+      (let [ex (deref start-ex)
             {:keys [kind failed-validation]} (when (instance? ExceptionInfo ex)
                                                (ex-data ex))]
         (is (= ExceptionInfo (class ex)))
