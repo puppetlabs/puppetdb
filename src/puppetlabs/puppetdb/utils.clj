@@ -437,17 +437,21 @@
      (catch Exception _#
        nil)))
 
+(defmacro with-noisy-failure [& body]
+  `(try
+     ~@body
+     (catch Throwable ex#
+       (let [msg# (trs "Reporting unexpected error to stderr and log")]
+         (binding [*out* *err*]
+           (println msg#)
+           (println ex#))
+         (log/error ex# msg#))
+       (throw ex#))))
+
 (defmacro noisy-future [& body]
   `(future
-     (try
-       ~@body
-       (catch Throwable ex#
-         (let [msg# (trs "Reporting unexpected error to stderr and log")]
-           (binding [*out* *err*]
-             (println msg#)
-             (println ex#))
-           (log/error ex# msg#))
-         (throw ex#)))))
+     (with-noisy-failure
+       ~@body)))
 
 ;; For now, if you change these extensions, make sure they satisfy
 ;; validate-compression-extension-syntax in the queue.

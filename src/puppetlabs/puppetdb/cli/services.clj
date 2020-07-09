@@ -78,7 +78,8 @@
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
                                               format-period period?]]
-            [puppetlabs.puppetdb.utils :as utils :refer [noisy-future]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [noisy-future with-noisy-failure]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
@@ -359,9 +360,11 @@
   [config read-db job-pool]
   (if (conf/foss? config)
     (let [checkin-interval-millis (* 1000 60 60 24)] ; once per day
-      (every checkin-interval-millis #(-> config
-                                          conf/update-server
-                                          (version/check-for-updates! read-db))
+      (every checkin-interval-millis
+             #(with-noisy-failure
+                (-> config
+                    conf/update-server
+                    (version/check-for-updates! read-db)))
              job-pool
              :desc "A reoccuring job to checkin the PuppetDB version"))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
@@ -717,9 +720,10 @@
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (interspaced schema-check-interval
-                 #(check-schema-version (desired-schema-version)
-                                        (:stop-status context)
-                                        db service request-shutdown)
+                 #(with-noisy-failure
+                    (check-schema-version (desired-schema-version)
+                                            (:stop-status context)
+                                            db service request-shutdown))
                  job-pool)))
 
 (defn start-garbage-collection
@@ -729,8 +733,9 @@
           :when (pos? interval)]
     (let [request (db-config->clean-request cfg)]
       (interspaced interval
-                   #(coordinate-gc-with-shutdown db clean-lock cfg request
-                                                 stop-status)
+                   #(with-noisy-failure
+                      (coordinate-gc-with-shutdown db clean-lock cfg request
+                                                   stop-status))
                    job-pool))))
 
 (defn start-puppetdb

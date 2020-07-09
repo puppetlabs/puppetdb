@@ -65,7 +65,7 @@
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils :refer [with-noisy-failure]]
             [puppetlabs.puppetdb.command.constants
              :refer [command-names command-keys supported-command-versions]]
             [puppetlabs.trapperkeeper.services
@@ -662,13 +662,14 @@
     (schedule-msg-after
      command-delay-ms
      (fn []
-       (let [status (swap! stop-status inc-msgs-if-not-stopping)]
-         (when-not (:stopping status)
-           (try
-             (enqueue-delayed-message command-chan narrowed-entry)
-             (update-counter! :awaiting-retry command version dec!)
-             (finally
-               (swap! stop-status #(update % :executing-delayed dec)))))))
+       (with-noisy-failure
+         (let [status (swap! stop-status inc-msgs-if-not-stopping)]
+           (when-not (:stopping status)
+             (try
+               (enqueue-delayed-message command-chan narrowed-entry)
+               (update-counter! :awaiting-retry command version dec!)
+               (finally
+                 (swap! stop-status #(update % :executing-delayed dec))))))))
      delay-pool)))
 
 (def ^:private iso-formatter (fmt-time/formatters :date-time))

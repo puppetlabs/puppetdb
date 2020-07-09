@@ -3,6 +3,7 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.threadpool :refer :all]
             [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.utils :refer [await-ref-state]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger
                                                                 with-logging-to-atom
                                                                 with-log-suppressed-unless-notable]]
@@ -118,26 +119,7 @@
           (is (not= ::timed-out (deref fut tu/default-timeout-ms ::timed-out)))
           (is (true? (future-done? fut))))))))
 
-
-(def max-log-check-attempts 1000)
-(def log-sleep-duration-in-ms 10)
-
-(defn await-log-entry
-  "This function looks for a log entry in `log-atom`. If one is not
-  found it sleeps for `log-sleep-duration-in-ms` and repeats the
-  check. It does this `max-log-check-attempts` times and will
-  eventually throw an exception if it's not found"
-  [log-atom]
-  (loop [times 0]
-    (when-not (seq @log-atom)
-      (if (> times max-log-check-attempts)
-        (-> (* log-sleep-duration-in-ms max-log-check-attempts)
-            (format "Log entry not found after %s ms")
-            RuntimeException.
-            throw)
-        (do
-          (Thread/sleep log-sleep-duration-in-ms)
-          (recur (inc times)))))))
+(def max-log-msg-wait-ms (* 10 1000))
 
 (defn not-submitted? [message]
   (str/includes? message "not submitted"))
@@ -180,9 +162,15 @@
               (is (.tryAcquire semaphore 1 TimeUnit/SECONDS)
                   "Failed to aquire token from the semaphore")
 
-              (await-log-entry log-output)
+              (when-not (is (not (= ::timeout
+                                    (await-ref-state log-output #(= (count %) 1)
+                                                     max-log-msg-wait-ms ::timeout))))
+                (println "Timed out waiting for log output"))
 
-              (is (= 1 (count @log-output)))
+              (when-not (is (= 1 (count @log-output)))
+                (binding [*out* *err*]
+                  (println "Unexpected log output:")
+                  (println @log-output)))
 
               (let [log-event (first @log-output)]
                 (is (= "ERROR"
