@@ -172,6 +172,7 @@
                  [digest "1.4.3"]
                  [fast-zip-visit "1.0.2"]
                  [instaparse]
+                 [murphy "0.4.0"]
                  [clj-commons/fs]
                  [metrics-clojure]
                  [robert/hooke "1.3.0"]

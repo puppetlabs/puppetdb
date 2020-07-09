@@ -91,7 +91,7 @@
     (jdbc/with-transacted-connection *db*
       (initialize-schema)
       (jdbc/insert! :schema_migrations
-                    {:version (inc migrate/desired-schema-version)
+                    {:version (inc (migrate/desired-schema-version))
                      :time (to-timestamp (now))})
       (is (thrown? IllegalStateException (initialize-schema))))))
 
@@ -1288,7 +1288,7 @@
 (deftest autovacuum-vacuum-scale-factor-test
   (clear-db-for-testing!)
   ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
-  (fast-forward-to-migration! desired-schema-version)
+  (fast-forward-to-migration! (desired-schema-version))
   (let [values {"factsets" "0.80"
                 "catalogs" "0.75"
                 "certnames" "0.75"}]
@@ -1301,7 +1301,7 @@
 (deftest autovacuum-analyze-scale-factor-test
   (clear-db-for-testing!)
   ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
-  (fast-forward-to-migration! desired-schema-version)
+  (fast-forward-to-migration! (desired-schema-version))
   (create-indexes)
   (let [values {"catalog_resources" "0.01"}]
     (doseq [[table factor] values]

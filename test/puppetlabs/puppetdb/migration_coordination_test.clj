@@ -24,27 +24,31 @@
   (doseq [db-upgraded? [true false]]
     (with-unconnected-test-db
        (call-with-puppetdb-instance
-       (-> (create-temp-config)
-           (assoc :database *db*)
-           ;; Allow client connections to timeout more quickly to speed test
-           (assoc-in [:database :connection-timeout] 300)
-           (assoc-in [:database :gc-interval] 0))
+        (assoc (create-temp-config)
+               :database (merge *db*
+                                ;; Allow client connections to timeout
+                                ;; more quickly to speed test, and
+                                ;; don't shutdown on schema
+                                ;; mismatches.
+                                {:connection-timeout 300
+                                 :gc-interval 0
+                                 :schema-check-interval 0}))
        (fn []
          (jdbc/with-transacted-connection *db*
            ;; Simulate either the db or pdb being upgraded before the other.
            ;; This is added after initial startup and should cause any future
            ;; connection attempts to fail the HikariCP connectionInitSql check
            (if db-upgraded?
-             (jdbc/insert! :schema_migrations {:version (inc desired-schema-version)
+             (jdbc/insert! :schema_migrations {:version (inc (desired-schema-version))
                                                :time (to-timestamp (now))})
              ;; removing the most recent schema version makes the connectionInitSql
              ;; check think the database doesn't have the correct migration applied
-             (jdbc/delete! :schema_migrations ["version = ?" desired-schema-version])))
+             (jdbc/delete! :schema_migrations ["version = ?" (desired-schema-version)])))
 
          ;; Kick out any existing connections belonging to the test db user. This
          ;; will cause HikariCP to create new connections which should all error
          (jdbc/with-transacted-connection
-           (tdb/db-admin-config)
+           (tdb/db-admin-config (tdb/subname->validated-db-name (:subname *db*)))
            (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*)))
 
          (loop [retries 0]

@@ -130,7 +130,10 @@
                                              (pdb-status/status-details config shared-globals maint-mode?)))))
         context)
   (start [this context]
-         (when-not (get-in (get-config) [:global :upgrade-and-exit?])
+         (when-not (or (get-in (get-config) [:global :upgrade-and-exit?])
+                       ;; FIXME: remove this if/when we add immeidate
+                       ;; ::tk/exit support to trapperkeeper (TK-487).
+                       (deref (:shutdown-request (shared-globals))))
            (log/info (trs "PuppetDB finished starting, disabling maintenance mode"))
            (disable-maint-mode))
          context)
