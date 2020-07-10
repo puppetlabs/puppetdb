@@ -846,8 +846,10 @@
   (some-> delay-pool stop-and-reset-pool!)
   ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
   (swap! stop-status #(assoc % :stopping true))
-  (if (utils/wait-for-ref-state stop-status (stop-commands-wait-ms)
-                                #(= % {:stopping true :executing-delayed 0}))
+  (if (utils/await-ref-state stop-status
+                             #(= % {:stopping true :executing-delayed 0})
+                             (stop-commands-wait-ms)
+                             false)
     (log/info (trs "Halted delayed command processsing"))
     (log/info (trs "Forcibly terminating delayed command processing")))
   (async/unsub-all (:response-pub context))

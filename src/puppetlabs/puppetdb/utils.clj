@@ -474,13 +474,20 @@
   [m]
   (into {} (filter val m)))
 
-(defn wait-for-ref-state [ref ms pred]
-  (let [watch-key wait-for-ref-state
-        finished? (promise)
-        handle-state #(when (pred %) (deliver finished? true))]
-    (add-watch ref watch-key (fn [_ _ _ new] (handle-state new)))
-    (try
-      (handle-state @ref)
-      (deref finished? ms false)
-      (finally
-        (remove-watch ref watch-key)))))
+(defn await-ref-state
+  "Waits until (pred @ref) is true and returns val, unless that takes
+   longer than timeout-ms, in which case, returns timeout-val."
+  ([ref pred]
+   (await-ref-state ref pred nil nil))
+  ([ref pred timeout-ms timeout-val]
+   (let [watch-key (Object.)
+         finished? (promise)
+         handle-state #(when (pred %) (deliver finished? %))]
+     (add-watch ref watch-key (fn [_ _ _ new] (handle-state new)))
+     (try
+       (handle-state @ref)
+       (if timeout-ms
+         (deref finished? timeout-ms timeout-val)
+         (deref finished?))
+       (finally
+         (remove-watch ref watch-key))))))

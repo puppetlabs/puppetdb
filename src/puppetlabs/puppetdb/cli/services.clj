@@ -395,7 +395,7 @@
     (stop-and-reset-pool! pool))
   ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
   (swap! stop-status assoc :stopping true)
-  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) ready-to-stop?)
+  (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
     (log/info (trs "Periodic activities halted"))
     (log/info (trs "Forcibly terminating periodic activities")))
   (close-write-dbs (get-in context [:shared-globals :scf-write-dbs]))
