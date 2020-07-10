@@ -21,6 +21,17 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.11.2
+
+Released 14 July 2020
+
+### Bug fixes
+  - Fixes a bug that caused PuppetDB to use a CTE that materialized a large table, slowing queries. [PDB-4769](https://tickets.puppetlabs.com/browse/PDB-4769)
+
+### Security fixes
+  - Our dependency on org.postgresql/postgresql was upgraded to 42.2.14 to fix CVE-2020-13692. [SEC-155](https://tickets.puppetlabs.com/browse/SEC-155)
+    Note: PuppetDB does not store XML data types in PostgreSQL and should not be affected by this CVE.
+
 ## PuppetDB 6.11.1
 
 This version is included in PE version 2019.8, but is not available as an open source offering. It includes a minor bug fix.
