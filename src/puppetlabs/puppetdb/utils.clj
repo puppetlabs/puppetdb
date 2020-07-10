@@ -442,8 +442,11 @@
      (try
        ~@body
        (catch Throwable ex#
-         (binding [*out* *err*]
-           (println ex#))
+         (let [msg# (trs "Reporting unexpected error to stderr and log")]
+           (binding [*out* *err*]
+             (println msg#)
+             (println ex#))
+           (log/error ex# msg#))
          (throw ex#)))))
 
 ;; For now, if you change these extensions, make sure they satisfy
