@@ -153,6 +153,22 @@
        [:type ::conf/cli-error] #"No subname set"
        (configure-dbs {:database {:user "x" :password "?"}}))))
 
+(deftest duplicate-write-db-subnames-forbidden
+  (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}}
+                   configure-dbs)]
+    (is (= config (forbid-duplicate-write-db-subnames config))))
+  (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}
+                    :database-x {:subname "stuff"}
+                    :database-y {:subname "other-stuff"}}
+                   configure-dbs)]
+    (is (= config (forbid-duplicate-write-db-subnames config))))
+  (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}
+                    :database-x {:subname "stuff"}
+                    :database-y {:subname "stuff"}})]
+    (is (thrown+-with-msg?
+         [:type ::conf/cli-error] #"^Cannot have duplicate write"
+         (configure-dbs config)))))
+
 (deftest resource-events-and-reports-ttl-disorder
   (let [cfg {:database {:user "x" :password "?" :subname "stuff"}}]
     (is (thrown+-with-msg?
@@ -243,9 +259,9 @@
 
 (deftest multiple-database-configurations
   (let [config (conf/configure-dbs
-                {:database {:username "u1" :password "?" :subname "s"}
-                 :database-primary {:password "?" :subname "s"}
-                 :database-secondary {:username "u2" :password "?" :subname "s"}})]
+                {:database {:username "u1" :password "?" :subname "s1"}
+                 :database-primary {:password "?"}
+                 :database-secondary {:username "u2" :password "?" :subname "s2"}})]
     ;; FIXME: read-database
     (is (= "u1" (get-in config [:database :user])))
     (is (= "u1" (get-in config [:database :username])))

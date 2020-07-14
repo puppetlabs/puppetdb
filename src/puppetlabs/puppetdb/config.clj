@@ -332,9 +332,20 @@
             :when (> (count (set (map (fn [[sec cfg]] (:node-purge-ttl cfg))
                                       sec-and-cfgs)))
                      1)]
+      ;; Q: Should this be a cli-error instead?
       (log/warn
        (trs "database configs have same subname, differing node-purge-ttls: {0}"
             (str/join " " (map first sec-and-cfgs))))))
+  config)
+
+(defn forbid-duplicate-write-db-subnames
+  [config]
+  (let [subnames (for [[k db-config] config
+                       :when (str/starts-with? (name k) "database-")]
+                   (:subname db-config))]
+    (when (not= (count subnames) (count (distinct subnames)))
+      (throw-cli-error
+       (trs "Cannot have duplicate write database subnames"))))
   config)
 
 (defn default-events-ttl [config]
@@ -393,7 +404,8 @@
         (update :database #(fix-up-db-settings :database %1))
         (utils/update-matching-keys db-section? fix-up-db-settings)
         configure-read-db
-        warn-if-mismatched-node-purge-ttls)))
+        warn-if-mismatched-node-purge-ttls
+        forbid-duplicate-write-db-subnames)))
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
