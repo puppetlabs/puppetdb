@@ -495,3 +495,14 @@
          (deref finished?))
        (finally
          (remove-watch ref watch-key))))))
+
+(defn update-matching-keys [m pred f & args]
+  "Returns the map resulting from an (update m k f & args) for every
+  key k in m satisfying (pred k)."
+  (reduce
+   (fn [result k]
+     (if (pred k)
+       (update result k (fn [prev & args] (apply f k prev args)))
+       result))
+   m
+   (keys m)))

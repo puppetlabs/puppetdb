@@ -287,16 +287,16 @@
   "Defaults and converts `db-config` from the trapperkeeper config
   format to the internal write database format."
   [db-config]
-  (transform-data conf/write-database-config-in
-                  conf/write-database-config-out
+  (transform-data conf/per-write-database-config-in
+                  conf/per-write-database-config-out
                   db-config))
 
 (defn defaulted-read-db-config
   "Defaults and converts `db-config` from the trapperkeeper format to
   the internal read database format."
   [db-config]
-  (transform-data conf/database-config-in
-                  conf/database-config-out
+  (transform-data conf/per-database-config-in
+                  conf/per-database-config-out
                   db-config))
 
 (def antonym-data {"absence"    "presence"

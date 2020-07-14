@@ -683,28 +683,24 @@
                        (noisy-future
                         (load-messages cmd-ch cmd/inc-cmd-depth)))}))
 
-(defn init-write-dbs [config]
+(defn init-write-dbs [databases]
   ;; FIXME: forbid subdb settings?
   (with-final [desired-schema (desired-schema-version)
-               db-config (:database config)
+               db-names (vec (keys databases))
                pools (atom []) :error #(close-write-dbs (deref %))]
-    (conf/reduce-section
-     (fn [_ name settings]
-       (swap! pools conj
-              (-> settings
-                  (assoc :pool-name (apply str "PDBWritePool"
-                                           (when name  [": " name]))
-                         :expected-schema desired-schema)
-                  (jdbc/pooled-datasource database-metrics-registry))))
-     nil
-     db-config)
-    {:write-db-names (conf/reduce-section
-                      (fn [result name settings]
-                        (conj result (or name "default")))
-                      [] db-config)
-     :write-db-cfgs (conf/reduce-section
-                     (fn [result name settings] (conj result settings))
-                     [] db-config)
+
+    (doseq [name db-names
+            :let [config (get databases name)
+                  pool-name (if (::conf/unnamed config)
+                              "PDBWritePool"
+                              (str "PDBWritePool: " name))]]
+      (swap! pools conj
+             (-> config
+                 (assoc :pool-name pool-name
+                        :expected-schema desired-schema)
+                 (jdbc/pooled-datasource database-metrics-registry))))
+    {:write-db-names db-names
+     :write-db-cfgs (mapv #(get databases %) db-names)
      :write-db-pools @pools}))
 
 (defn init-metrics [read-db write-dbs]
@@ -752,6 +748,7 @@
 
   (let [{:keys [database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
+        write-dbs-config (conf/write-databases config)
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
         context (assoc context  ;; context may be augmented further below
@@ -766,11 +763,15 @@
                                         :shutdown-request (:shutdown-request context)}
                        :clean-lock (ReentrantLock.))]
 
-    (conf/reduce-section
-     (fn [_ name settings]
-       (init-with-db name settings))
-     nil
-     database)
+    (when (> (count write-dbs-config) 1)
+      (let [msg (trs "multiple write database support is experimental")])
+      (binding [*out* *err*]
+        (println
+         (trs "WARNING: multiple write database support is experimental")))
+      (log/warn (trs "multiple write database support is experimental")))
+
+    (doseq [[name config] write-dbs-config]
+      (init-with-db name config))
 
     (if upgrade-and-exit?
       context
@@ -791,7 +792,9 @@
                    _ command-loader :error #(some-> % future-cancel)
                    job-pool (mk-pool) :error stop-and-reset-pool!
 
-                   {:keys [write-db-cfgs write-db-names write-db-pools]} (init-write-dbs config)
+                   {:keys [write-db-cfgs write-db-names write-db-pools]}
+                   (init-write-dbs write-dbs-config)
+
                    _ write-db-pools :error close-write-dbs]
 
         (init-metrics read-db write-db-pools)
@@ -844,12 +847,6 @@
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)]}
-  (when (seq (conf/section-subsections (:database config)))
-    (let [msg (trs "multiple write database support is experimental")])
-    (binding [*out* *err*]
-      (println
-       (trs "WARNING: multiple write database support is experimental")))
-    (log/warn (trs "multiple write database support is experimental")))
   (try
     (let [upgrade? (get-in config [:global :upgrade-and-exit?])
           context (start-puppetdb context config service

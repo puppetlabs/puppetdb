@@ -14,35 +14,6 @@
    [java.security KeyStore]
    [java.util.regex Pattern]))
 
-(deftest git-section-name-parsing
-  (is (= ["x"] (conf/parse-git-section-name "[x]")))
-  (is (= ["x" "y"] (conf/parse-git-section-name "[x \"y\"]")))
-  (is (= ["x" "y"] (conf/parse-git-section-name "[x \t\"y\"]")))
-  (is (= ["x" " y"] (conf/parse-git-section-name "[x \" y\"]")))
-  (is (= ["x" "1 z !"] (conf/parse-git-section-name "[x \"1 z !\"]")))
-
-  (is (= ["x" "y"] (conf/parse-git-section-name "[x \"\\y\"]")))
-  (is (= ["x" "\""] (conf/parse-git-section-name "[x \"\\\"\"]")))
-
-  (are [section ex-re] (thrown-with-msg? ExceptionInfo ex-re
-                                         (conf/parse-git-section-name section))
-    "[x!y]" #"invalid section name"
-    "[ x \"y\"]" #"invalid section name"
-    "[x y\" ]" #"must start with a double-quote"
-    "[x \"y\" ]" #"must end with an unescaped double-quote"
-    "[x \"\\\"]" #"must end with an unescaped double-quote"))
-
-;; FIXME: finish
-(deftest section-coalescing
-  (is (= {:database {:subname "x"
-                     "primary" {:subname "y"}
-                     "secondary" {:subname "z"}}}
-         (conf/coalesce-sections
-          #"database(\s.*)?"
-          {:database {:subname "x"}
-           (keyword "database \"primary\"") {:subname "y"}
-           (keyword "database \"secondary\"") {:subname "z"}}))))
-
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
     (testing "should convert disable-update-checking value to boolean, if it is specified"
@@ -136,7 +107,7 @@
                                     :subname "stuff"
                                     :subprotocol "more stuff"
                                     :facts-blacklist-type bl-type}}
-                        configure-db))]
+                        configure-dbs))]
 
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not match schema"
                           (config-db "foo")))
@@ -152,7 +123,7 @@
                                :classname "something"
                                :subname "stuff"
                                :subprotocol "more stuff"}}
-                   configure-db)]
+                   configure-dbs)]
     (is (= (get-in config [:database :facts-blacklist-type]) "literal"))))
 
 (deftest blacklist-converted-correctly-with-ini-and-conf-files
@@ -161,47 +132,60 @@
                                              :subname "stuff"
                                              :subprotocol "more stuff"
                                              :facts-blacklist x}}
-                                 configure-db))
+                                 configure-dbs))
         ini-config (build-config "fact1, fact2, fact3")
         hocon-config (build-config ["fact1" "fact2" "fact3"])]
     (is (= (get-in ini-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))
     (is (= (get-in hocon-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
 
+(deftest write-databases-behavior
+  (is (= {"default" {:subname "x" ::conf/unnamed true}}
+         (conf/write-databases {:database {:subname "x"}})))
+  (is (= {"primary" {:subname "y"}
+          "secondary" {:subname "z"}}
+         (conf/write-databases
+          {:database {:subname "x"}
+           :database-primary {:subname "y"}
+           :database-secondary {:subname "z"}}))))
+
+(deftest database-subname-required
+  (is (thrown+-with-msg?
+       [:type ::conf/cli-error] #"No subname set"
+       (configure-dbs {:database {:user "x" :password "?"}}))))
+
+(deftest resource-events-and-reports-ttl-disorder
+  (let [cfg {:database {:user "x" :password "?" :subname "stuff"}}]
+    (is (thrown+-with-msg?
+         [:type ::conf/cli-error]
+         #".*The \"database\" resource-events-ttl must not be longer than report-ttl.*"
+         (configure-dbs
+          (assoc-in cfg [:database :resource-events-ttl] "15d"))))
+    (is (thrown+-with-msg?
+         [:type ::conf/cli-error]
+         #".*The \"database\" resource-events-ttl must not be longer than report-ttl.*"
+         (configure-dbs
+          (-> cfg
+              (assoc-in [:database :report-ttl] "3d")
+              (assoc-in [:database :resource-events-ttl] "5d")))))))
+
 (deftest database-configuration
   (testing "database"
-    (let [cfg {:database {:subname "baz"}}]
-      (testing "validate-db-settings"
-        ;; Valid config
-        (is (= cfg (validate-db-settings cfg)))
-        ;; Empty config
-        (is (thrown+-with-msg? [:type ::conf/cli-error] #"No subname set"
-                               (validate-db-settings {})))
-        ;; invalid resource-events-ttl settings
-        (is (thrown+-with-msg? [:type ::conf/cli-error]
-                               #".*The setting for resource-events-ttl must not be longer than report-ttl.*"
-                               (validate-db-settings (-> cfg
-                                                         (assoc-in [:database :resource-events-ttl] "15d")))))
-        (is (thrown+-with-msg? [:type ::conf/cli-error]
-                               #".*The setting for resource-events-ttl must not be longer than report-ttl.*"
-                               (validate-db-settings (-> cfg
-                                                         (assoc-in [:database :report-ttl] "3d")
-                                                         (assoc-in [:database :resource-events-ttl] "5d")))))))
 
     (testing "the read-db defaulted to the specified write-db"
       (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}}
-                       configure-db)]
+                       configure-dbs)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "the read-db should be specified by a read-database property"
       (let [base {:user "x" :password "?"}
             config (-> {:database (assoc base :subname "wronger")
                         :read-database (assoc base :subname "stuff")}
-                       configure-db)]
+                       configure-dbs)]
         (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "max-pool-size defaults to 25"
       (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}}
-                       configure-db)]
+                       configure-dbs)]
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
         (is (= (get-in config [:database :maximum-pool-size]) 25))))
 
@@ -210,7 +194,7 @@
                                    :classname "something"
                                    :subname "stuff"
                                    :subprotocol "more stuff"}}
-                       configure-db)]
+                       configure-dbs)]
         (is (= true (get-in config [:database :migrate])))))
 
     (testing "schema-check-interval defaults to 30 seconds"
@@ -218,7 +202,7 @@
                                    :classname "something"
                                    :subname "stuff"
                                    :subprotocol "more stuff"}}
-                       configure-db)
+                       configure-dbs)
             thirty-seconds-in-millis 30000]
         (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))
 
@@ -232,49 +216,49 @@
                            :migrator-password "admin")]
 
       (testing "migrator-username"
-        (let [config (configure-db no-migrator)]
+        (let [config (configure-dbs no-migrator)]
           (is (= "someone" (get-in config [:database :migrator-username])))
           (is (= "someone" (get-in config [:read-database :migrator-username]))))
-        (let [config (configure-db migrator)]
+        (let [config (configure-dbs migrator)]
           (is (= "admin" (get-in config [:database :migrator-username])))
           (is (= "admin" (get-in config [:read-database :migrator-username])))))
 
       (testing "migrator-password"
-        (let [config (configure-db no-migrator)]
+        (let [config (configure-dbs no-migrator)]
           (is (= "something" (get-in config [:database :migrator-password])))
           (is (= "something" (get-in config [:read-database :migrator-password]))))
-        (let [config (configure-db migrator)]
+        (let [config (configure-dbs migrator)]
           (is (= "admin" (get-in config [:database :migrator-password])))
           (is (= "admin" (get-in config [:read-database :migrator-password]))))))))
 
 (deftest database-user-preferred-to-username-on-mismatch
-  (let [config (configure-db {:database {:classname "something"
-                                         :subname "stuff"
-                                         :subprotocol "more stuff"
-                                         :user "someone"
-                                         :username "someone-else"
-                                         :password "something"}})]
+  (let [config (configure-dbs {:database {:classname "something"
+                                          :subname "stuff"
+                                          :subprotocol "more stuff"
+                                          :user "someone"
+                                          :username "someone-else"
+                                          :password "something"}})]
     (is (= "someone" (get-in config [:database :user])))
     (is (= "someone" (get-in config [:database :username])))))
 
 (deftest multiple-database-configurations
-  (let [config (conf/configure-db
+  (let [config (conf/configure-dbs
                 {:database {:username "u1" :password "?" :subname "s"}
-                 (keyword "database \"primary\"") {:password "?" :subname "s"}
-                 (keyword "database \"secondary\"") {:username "u2" :password "?" :subname "s"}})]
+                 :database-primary {:password "?" :subname "s"}
+                 :database-secondary {:username "u2" :password "?" :subname "s"}})]
     ;; FIXME: read-database
     (is (= "u1" (get-in config [:database :user])))
     (is (= "u1" (get-in config [:database :username])))
-    (is (= "u1" (get-in config [:database "primary" :user])))
-    (is (= "u1" (get-in config [:database "primary" :username])))
-    (is (= "u2" (get-in config [:database "secondary" :user])))
-    (is (= "u2" (get-in config [:database "secondary" :username])))))
+    (is (= "u1" (get-in config [:database-primary :user])))
+    (is (= "u1" (get-in config [:database-primary :username])))
+    (is (= "u2" (get-in config [:database-secondary :user])))
+    (is (= "u2" (get-in config [:database-secondary :username])))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]
                       (-> base-config
                           (update :database merge sample-db-config)
-                          configure-db))]
+                          configure-dbs))]
     (testing "gc-interval"
       (testing "should use the value specified in minutes"
         (let [gc-interval (get-in (config-with {:database {:gc-interval 900}})
