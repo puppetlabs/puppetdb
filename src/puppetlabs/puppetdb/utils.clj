@@ -453,6 +453,75 @@
      (with-noisy-failure
        ~@body)))
 
+(defmacro with-fatal-error-handler
+  "Calls (handler ex) instead of throwing if the body throws a fatal
+  error, which is any Throwable other than Exception, AssertionError,
+  or ThreadDeath."
+  [handle & body]
+  `(try
+    ~@body
+    (catch AssertionError ex#
+      ;; Exempted because pdb wasn't written with any solid
+      ;; expectation that :pre, :post, and assert exceptions should
+      ;; always be fatal.
+      (throw ex#))
+    (catch ThreadDeath ex#
+      ;; Exempted beccause it's part of the Thread lifecycle and also
+      ;; long deprecated (never stop() a thread).
+      (throw ex#))
+    (catch Error ex#
+      (~handle ex#))
+    (catch Throwable ex#
+      ;; ex should be an Exception or custom Throwable derivative
+      (throw ex#))))
+
+(defmacro with-shutdown-request-on-fatal-error
+  "Calls (initiate-shutdown ex) as a side effect if the body throws a
+  fatal error (see with-fatal-error-handler).  Any exceptions thrown
+  by initiate-shutdown will be suppressed by (.addSuppressed ex ...)."
+  [initiate-shutdown & body]
+  `(with-fatal-error-handler #(try
+                                (~initiate-shutdown %)
+                                (catch Throwable ex#
+                                  (.addSuppressed % ex#)
+                                  (throw %)))
+     ~@body))
+
+(defn exceptional-shutdown-requestor
+  "Returns a function that when called with one Throwable argument,
+  calls request-shutdown (as defined by Trapperkeeper) to request a
+  shutdown with the given messages and status."
+  [request-shutdown messages status]
+  (fn [ex]
+    (request-shutdown {:puppetlabs.trapperkeeper.core/exit
+                       {:status status
+                        :messages messages
+                        ;; Current tk might just just strip this...
+                        :puppetlabs.puppetdb/shutdown-cause ex}})))
+
+(defmacro with-nonfatal-exceptions-suppressed
+  "Suppresses all Throwables that are not Errors, and suppresses one
+  type of Error: AssertionError."
+  [& body]
+  ;; See with-fatal-error-handler for additional information.
+  `(try
+     ~@body
+     (catch AssertionError ex# nil)
+     (catch ThreadDeath ex# (throw ex#))
+     (catch Error ex# (throw ex#))
+     (catch Throwable ex#
+       ;; ex should be an Exception or custom Throwable derivative
+       nil)))
+
+(defmacro with-monitored-execution
+  "Executes body while logging any exceptions and printing them to
+  *err*.  Calls (initiate-shutdown ex) as a side effect for any fatal
+  errors (see with-shutdown-request-on-fatal-error)."
+  [initiate-shutdown & body]
+  `(with-noisy-failure
+     (with-shutdown-request-on-fatal-error ~initiate-shutdown
+       ~@body)))
+
 ;; For now, if you change these extensions, make sure they satisfy
 ;; validate-compression-extension-syntax in the queue.
 

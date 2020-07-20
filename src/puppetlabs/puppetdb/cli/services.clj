@@ -79,7 +79,9 @@
             [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [noisy-future with-noisy-failure]]
+             :refer [exceptional-shutdown-requestor
+                     with-monitored-execution
+                     with-nonfatal-exceptions-suppressed]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
@@ -357,14 +359,15 @@
         (recur dbs ex)))))
 
 (defn maybe-check-for-updates
-  [config read-db job-pool]
+  [config read-db job-pool shutdown-for-ex]
   (if (conf/foss? config)
     (let [checkin-interval-millis (* 1000 60 60 24)] ; once per day
       (every checkin-interval-millis
-             #(with-noisy-failure
-                (-> config
-                    conf/update-server
-                    (version/check-for-updates! read-db)))
+             #(with-nonfatal-exceptions-suppressed
+                (with-monitored-execution shutdown-for-ex
+                  (-> config
+                      conf/update-server
+                      (version/check-for-updates! read-db))))
              job-pool
              :desc "A reoccuring job to checkin the PuppetDB version"))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
@@ -660,7 +663,7 @@
           :else
           (throw (Exception. "Unknown state when checking schema versions")))))))
 
-(defn init-queue [config send-event! cmd-event-ch]
+(defn init-queue [config send-event! cmd-event-ch shutdown-for-ex]
   (let [stockdir (conf/stockpile-dir config)
         cmd-ch (async/chan
                 (queue/sorted-command-buffer
@@ -680,8 +683,9 @@
      ;; Caller is responsible for calling future-cancel on this in the end.
      :command-chan cmd-ch
      :command-loader (when load-messages
-                       (noisy-future
-                        (load-messages cmd-ch cmd/inc-cmd-depth)))}))
+                       (future
+                         (with-monitored-execution shutdown-for-ex
+                           (load-messages cmd-ch cmd/inc-cmd-depth))))}))
 
 (defn init-write-dbs [databases]
   ;; FIXME: forbid subdb settings?
@@ -712,26 +716,29 @@
    read-db))
 
 (defn start-schema-checks
-  [context service job-pool request-shutdown db-configs db-pools]
+  [context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (interspaced schema-check-interval
-                 #(with-noisy-failure
-                    (check-schema-version (desired-schema-version)
+                 #(with-nonfatal-exceptions-suppressed
+                    (with-monitored-execution shutdown-for-ex
+                      (check-schema-version (desired-schema-version)
                                             (:stop-status context)
-                                            db service request-shutdown))
+                                            db service request-shutdown)))
                  job-pool)))
 
 (defn start-garbage-collection
-  [{:keys [clean-lock stop-status] :as context} job-pool db-configs db-pools]
+  [{:keys [clean-lock stop-status] :as context}
+   job-pool db-configs db-pools shutdown-for-ex]
   (doseq [[cfg db] (map vector db-configs db-pools)
           :let [interval (to-millis (:gc-interval cfg))]
           :when (pos? interval)]
     (let [request (db-config->clean-request cfg)]
       (interspaced interval
-                   #(with-noisy-failure
-                      (coordinate-gc-with-shutdown db clean-lock cfg request
-                                                   stop-status))
+                   #(with-nonfatal-exceptions-suppressed
+                      (with-monitored-execution shutdown-for-ex
+                        (coordinate-gc-with-shutdown db clean-lock cfg request
+                                                     stop-status)))
                    job-pool))))
 
 (defn start-puppetdb
@@ -748,6 +755,8 @@
 
   (let [{:keys [database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
+        ;; Assume that the exception has already been reported.
+        shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
         write-dbs-config (conf/write-databases config)
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
@@ -787,7 +796,7 @@
                         (get-in config [:database :min-required-version])))
 
                    {:keys [command-chan command-loader dlo q]}
-                   (init-queue config maybe-send-cmd-event! cmd-event-ch)
+                   (init-queue config maybe-send-cmd-event! cmd-event-ch shutdown-for-ex)
 
                    _ command-loader :error #(some-> % future-cancel)
                    job-pool (mk-pool) :error stop-and-reset-pool!
@@ -800,12 +809,14 @@
         (init-metrics read-db write-db-pools)
 
         (when-not (get-in config [:puppetdb :disable-update-checking])
-          (maybe-check-for-updates config read-db job-pool))
+          (maybe-check-for-updates config read-db job-pool shutdown-for-ex))
 
         (start-schema-checks context service job-pool request-shutdown
                              (cons read-database write-db-cfgs)
-                             (cons read-db write-db-pools))
-        (start-garbage-collection context job-pool write-db-cfgs write-db-pools)
+                             (cons read-db write-db-pools)
+                             shutdown-for-ex)
+        (start-garbage-collection context job-pool write-db-cfgs write-db-pools
+                                  shutdown-for-ex)
 
         (-> context
             (assoc :job-pool job-pool
