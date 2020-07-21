@@ -27,11 +27,19 @@ Released 14 July 2020
 - Our dependency on org.postgresql/postgresql was upgraded to 42.2.14 to fix CVE-2020-13692. [SEC-155](https://tickets.puppetlabs.com/browse/SEC-155)
   Note: PuppetDB does not store XML data types in PostgreSQL and should not be affected by this CVE.
 
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
+
 ## PuppetDB 5.2.15
 
 ### Bug fixes
 
   - Fixed an issue that caused PuppetDB to fail to start on a database that had been in service before PuppetDB 4.0.0. [PDB-4709](https://tickets.puppetlabs.com/browse/PDB-4709)
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
 
 ## PuppetDB 5.2.14
 
