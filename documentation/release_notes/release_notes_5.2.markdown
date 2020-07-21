@@ -18,6 +18,16 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.17
+
+### Security fixes
+
+- Our dependency on com.fasterxml.jackson.core/jackson-databind was upgraded to 2.9.10.4 to fix CVE-2020-9548. [SEC-154](https://tickets.puppetlabs.com/browse/SEC-154)
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
+
 ## PuppetDB 5.2.16
 
 Released 14 July 2020
