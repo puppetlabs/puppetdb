@@ -851,20 +851,25 @@
                         (catch ExceptionInfo ex
                           (when-not (= :puppetlabs.puppetdb.threadpool/rejected
                                        (:kind (ex-data ex)))
-                            (throw ex)))))]
-        (doto (Thread. shovel)
-          (.setDaemon false)
-          (.start)))
-      (assoc context
-             :command-chan command-chan
-             :consumer-threadpool command-pool
-             :broadcast-threadpool broadcast-pool))))
+                            (throw ex)))
+                        (catch InterruptedException ex
+                          nil)))
+            shovel-thread (doto (Thread. shovel)
+                            (.setName "PuppetDB command shovel")
+                            (.setDaemon false)
+                            (.start))]
+        (assoc context
+               :command-shovel shovel-thread
+               :command-chan command-chan
+               :consumer-threadpool command-pool
+               :broadcast-threadpool broadcast-pool)))))
 
 (defn stop-command-service
   [{:keys [stop-status consumer-threadpool broadcast-threadpool command-chan
-           delay-pool]
+           delay-pool command-shovel]
     :as context}]
   (some-> command-chan async/close!)
+  (when command-shovel (.interrupt command-shovel))
   ;; FIXME: (PDB-4742) exception suppression?
   (some-> consumer-threadpool pool/shutdown-gated)
   (some-> broadcast-threadpool pool/shutdown-unbounded)
@@ -877,6 +882,13 @@
                              false)
     (log/info (trs "Halted delayed command processsing"))
     (log/info (trs "Forcibly terminating delayed command processing")))
+  (when command-shovel
+    ;; Pools are shut down, shovel has been interrupted, etc.  It
+    ;; should be finished by now.
+    (.join command-shovel 1)
+    (when (.isAlive command-shovel)
+      (log/info
+       (trs "Command processing transfer thread did not stop when expected"))))
   (async/unsub-all (:response-pub context))
   (async/untap-all (:response-mult context))
   (async/close! (:response-chan-for-pub context))
