@@ -4,7 +4,6 @@
                                                            normalize-command-name]]
             [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension
                                                supported-content-encodings]]
-            [puppetlabs.trapperkeeper.core :refer [defservice]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.command :as command]
