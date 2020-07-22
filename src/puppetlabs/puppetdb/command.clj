@@ -51,6 +51,7 @@
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
   (:require [clojure.tools.logging :as log]
+            [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
@@ -795,33 +796,63 @@
       (pool/unbounded-threadpool "cmd-broadcast-thread-%d"
                                  threadpool-shutdown-ms))))
 
+(defn init-command-service
+  [context config]
+  ;; If anything is moved from here to start, add a some-> to stop.
+  (with-final [response-chan (async/chan 1000) :error async/close!
+               response-mult (async/mult response-chan) :error async/untap-all
+               response-chan-for-pub (async/chan) :error async/close!
+               response-pub (async/pub response-chan-for-pub :id) :error async/unsub-all
+               delay-pool (mk-pool) :error stop-and-reset-pool!
+               concurrent-writes (get-in config [:command-processing :concurrent-writes])]
+    (async/tap response-mult response-chan-for-pub)
+    (assoc context
+           :delay-pool delay-pool ;; For general scheduling, not just delays
+           :write-semaphore (Semaphore. concurrent-writes)
+           :stats (atom {:received-commands 0
+                         :executed-commands 0})
+           :response-chan response-chan
+           :response-mult response-mult
+           :response-chan-for-pub response-chan-for-pub
+           :response-pub response-pub
+           ;; This coordination is needed until we no longer
+           ;; support jdk < 10.
+           ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+           :stop-status (atom {:executing-delayed 0}))))
+
 (defn start-command-service
   [context config {:keys [dlo] :as globals} request-shutdown]
-  (if (get-in config [:global :upgrade-and-exit?])
+  (if (or (not globals) ;; Check that puppetdb service actually started (TK-487)
+          (get-in config [:global :upgrade-and-exit?]))
     context
-    (let [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
-          {:keys [response-chan response-pub]} context
-          ;; Assume that the exception has already been reported.
-          shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
-          cmd-concurrency (conf/mq-thread-count config)
-          command-pool (create-command-handler-threadpool cmd-concurrency)
-          broadcast-pool (create-broadcast-pool cmd-concurrency scf-write-dbs)
-          delay-pool (:delay-pool context)
-          handle-cmd (message-handler q
-                                      command-chan
-                                      dlo
-                                      delay-pool
-                                      broadcast-pool
-                                      scf-write-dbs
-                                      response-chan
-                                      (:stats context)
-                                      (-> config
-                                          :database
-                                          (select-keys [:facts-blacklist
-                                                        :facts-blacklist-type]))
-                                      (:stop-status context)
-                                      maybe-send-cmd-event!
-                                      shutdown-for-ex)]
+    (with-final [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
+                 {:keys [response-chan response-pub]} context
+                 ;; Assume that the exception has already been reported.
+                 shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
+                 cmd-concurrency (conf/mq-thread-count config)
+
+                 command-pool (create-command-handler-threadpool cmd-concurrency)
+                 :error pool/shutdown-gated
+
+                 broadcast-pool (create-broadcast-pool cmd-concurrency scf-write-dbs)
+                 :error pool/shutdown-unbounded
+
+                 delay-pool (:delay-pool context)
+                 handle-cmd (message-handler q
+                                             command-chan
+                                             dlo
+                                             delay-pool
+                                             broadcast-pool
+                                             scf-write-dbs
+                                             response-chan
+                                             (:stats context)
+                                             (-> config
+                                                 :database
+                                                 (select-keys [:facts-blacklist
+                                                               :facts-blacklist-type]))
+                                             (:stop-status context)
+                                             maybe-send-cmd-event!
+                                             shutdown-for-ex)]
       (when broadcast-pool
         (interspaced
          (* 60 1000)
@@ -866,60 +897,50 @@
 
 (defn stop-command-service
   [{:keys [stop-status consumer-threadpool broadcast-threadpool command-chan
+           response-chan response-chan-for-pub response-mult response-pub
            delay-pool command-shovel]
     :as context}]
-  (some-> command-chan async/close!)
-  (when command-shovel (.interrupt command-shovel))
-  ;; FIXME: (PDB-4742) exception suppression?
-  (some-> consumer-threadpool pool/shutdown-gated)
-  (some-> broadcast-threadpool pool/shutdown-unbounded)
-  (some-> delay-pool stop-and-reset-pool!)
-  ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-  (swap! stop-status #(assoc % :stopping true))
-  (if (utils/await-ref-state stop-status
-                             #(= % {:stopping true :executing-delayed 0})
-                             (stop-commands-wait-ms)
-                             false)
-    (log/info (trs "Halted delayed command processsing"))
-    (log/info (trs "Forcibly terminating delayed command processing")))
-  (when command-shovel
-    ;; Pools are shut down, shovel has been interrupted, etc.  It
-    ;; should be finished by now.
-    (.join command-shovel 1)
-    (when (.isAlive command-shovel)
-      (log/info
-       (trs "Command processing transfer thread did not stop when expected"))))
-  (async/unsub-all (:response-pub context))
-  (async/untap-all (:response-mult context))
-  (async/close! (:response-chan-for-pub context))
-  (async/close! (:response-chan context))
-  (dissoc context
-          :response-pub :response-chan :response-chan-for-pub :response-mult))
+  (try!
+   (dissoc context
+           :response-pub :response-chan :response-chan-for-pub
+           :response-mult)
+   ;; The reason some of these aren't conditional is because they're
+   ;; established by init, tk won't call stop if init didn't
+   ;; finish, and in those cases a nil would indicate a bug.
+   (finally (some-> command-chan async/close!))
+   (finally (when command-shovel (.interrupt command-shovel)))
+   (finally (some-> broadcast-threadpool pool/shutdown-unbounded))
+   (finally (some-> consumer-threadpool pool/shutdown-gated))
+   (finally (stop-and-reset-pool! delay-pool))
+   (finally
+     ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+     (swap! stop-status #(assoc % :stopping true))
+     (if (utils/await-ref-state stop-status
+                                #(= % {:stopping true :executing-delayed 0})
+                                (stop-commands-wait-ms)
+                                false)
+       (log/info (trs "Halted delayed command processsing"))
+       (log/info (trs "Forcibly terminating delayed command processing"))))
+   (finally
+     (when command-shovel
+       ;; Pools are shut down, shovel has been interrupted, etc.  It
+       ;; should be finished by now.
+       (.join command-shovel 1)
+       (when (.isAlive command-shovel)
+         (log/info
+          (trs "Command processing transfer thread did not stop when expected")))))
+   (finally (async/unsub-all response-pub))
+   (finally (async/untap-all response-mult))
+   (finally (async/close! response-chan-for-pub))
+   (finally (async/close! response-chan))))
 
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
    [:PuppetDBServer shared-globals]
    [:ShutdownService request-shutdown]]
-  (init [this context]
-    (let [response-chan (async/chan 1000)
-          response-mult (async/mult response-chan)
-          response-chan-for-pub (async/chan)
-          concurrent-writes (get-in (get-config) [:command-processing :concurrent-writes])]
-      (async/tap response-mult response-chan-for-pub)
-      (assoc context
-             :delay-pool (mk-pool) ;; For general scheduling, not just delays
-             :write-semaphore (Semaphore. concurrent-writes)
-             :stats (atom {:received-commands 0
-                           :executed-commands 0})
-             :response-chan response-chan
-             :response-mult response-mult
-             :response-chan-for-pub response-chan-for-pub
-             :response-pub (async/pub response-chan-for-pub :id)
-             ;; This coordination is needed until we no longer
-             ;; support jdk < 10.
-             ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-             :stop-status (atom {:executing-delayed 0}))))
+
+  (init [this context] (init-command-service context (get-config)))
 
   (start
    [this context]
