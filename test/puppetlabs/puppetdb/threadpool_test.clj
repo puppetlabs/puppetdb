@@ -173,12 +173,13 @@
                   (println @log-output)))
 
               (let [log-event (first @log-output)]
-                (is (= "ERROR"
-                       (-> log-event
-                           .getLevel
-                           str)))
 
-                (is (= "testpool-1" (.getThreadName log-event))))
+                (is (= "ERROR" (-> log-event .getLevel str)))
+
+                (when-not (is (re-find #"error from thread testpool-1"
+                                       (.getMessage log-event)))
+                  (binding [*out* *err*]
+                    (println "Unexpected log event" log-event))))
 
               (finally
                 (.shutdownNow threadpool))))))))
