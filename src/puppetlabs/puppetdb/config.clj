@@ -14,7 +14,8 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [call-unless-shutting-down throw-if-shutdown-pending]]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]])
@@ -651,12 +652,19 @@
   (tk/service
    DefaultedConfig
    [[:ConfigService get-config]
-    [:ShutdownService request-shutdown]]
+    [:ShutdownService get-shutdown-reason request-shutdown]]
+
    (init
     [this context]
-    (init-config-service context (get-config) transform-config request-shutdown))
+    ;; This wrapper is just for consistency, for now the config
+    ;; service is the root of the dependency tree...
+    (call-unless-shutting-down
+     "PuppetDB config service init" (get-shutdown-reason) context
+     #(init-config-service context (get-config) transform-config request-shutdown)))
+
    (get-config
     [this]
+    (throw-if-shutdown-pending (get-shutdown-reason))
     (:config (service-context this)))))
 
 (def config-service

@@ -437,6 +437,28 @@
      (catch Exception _#
        nil)))
 
+
+;; Depending on the resolution of TK-487, we may be able to remove all
+;; of this.  If so, we may also want to audit the stop methods and
+;; replace conditional cleanup with unconditional cleanup for anything
+;; established by init (so that we don't miss typos, etc.).
+
+(defn throw-if-shutdown-pending
+  [shutdown-reason]
+  (when shutdown-reason
+    (throw
+     (ex-info (trs "Refusing request; PuppetDB is shutting down")
+              {:kind :puppetlabs.puppetdb/shutting-down}))))
+
+(defn call-unless-shutting-down
+  [what shutting-down? shutdown-context f]
+  (if-not shutting-down?
+    (f)
+    (do
+      (log/info (trs "Skipping {0} during deferred shutdown" what))
+      shutdown-context)))
+
+
 (defmacro with-noisy-failure [& body]
   `(try
      ~@body

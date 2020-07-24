@@ -67,7 +67,9 @@
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [exceptional-shutdown-requestor
+             :refer [call-unless-shutting-down
+                     exceptional-shutdown-requestor
+                     throw-if-shutdown-pending
                      with-monitored-execution
                      with-nonfatal-exceptions-suppressed
                      with-shutdown-request-on-fatal-error]]
@@ -911,16 +913,17 @@
    (finally (when command-shovel (.interrupt command-shovel)))
    (finally (some-> broadcast-threadpool pool/shutdown-unbounded))
    (finally (some-> consumer-threadpool pool/shutdown-gated))
-   (finally (stop-and-reset-pool! delay-pool))
+   (finally (some-> delay-pool stop-and-reset-pool!))
    (finally
-     ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-     (swap! stop-status #(assoc % :stopping true))
-     (if (utils/await-ref-state stop-status
-                                #(= % {:stopping true :executing-delayed 0})
-                                (stop-commands-wait-ms)
-                                false)
-       (log/info (trs "Halted delayed command processsing"))
-       (log/info (trs "Forcibly terminating delayed command processing"))))
+     (when stop-status
+       ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+       (swap! stop-status #(assoc % :stopping true))
+       (if (utils/await-ref-state stop-status
+                                  #(= % {:stopping true :executing-delayed 0})
+                                  (stop-commands-wait-ms)
+                                  false)
+         (log/info (trs "Halted delayed command processsing"))
+         (log/info (trs "Forcibly terminating delayed command processing")))))
    (finally
      (when command-shovel
        ;; Pools are shut down, shovel has been interrupted, etc.  It
@@ -929,32 +932,46 @@
        (when (.isAlive command-shovel)
          (log/info
           (trs "Command processing transfer thread did not stop when expected")))))
-   (finally (async/unsub-all response-pub))
-   (finally (async/untap-all response-mult))
-   (finally (async/close! response-chan-for-pub))
-   (finally (async/close! response-chan))))
+   (finally (some-> response-pub async/unsub-all))
+   (finally (some-> response-mult async/untap-all))
+   (finally (some-> response-chan-for-pub async/close!))
+   (finally (some-> response-chan async/close!))))
+
 
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
    [:PuppetDBServer shared-globals]
-   [:ShutdownService request-shutdown]]
+   [:ShutdownService get-shutdown-reason request-shutdown]]
 
-  (init [this context] (init-command-service context (get-config)))
+  (init
+   [this context]
+   (call-unless-shutting-down
+    "command service init" (get-shutdown-reason) context
+    #(init-command-service context (get-config))))
 
   (start
    [this context]
-   (start-command-service context (get-config) (shared-globals) request-shutdown))
+   (call-unless-shutting-down
+    "command service start"  (get-shutdown-reason) context
+    #(start-command-service context (get-config) (shared-globals) request-shutdown)))
 
   (stop [this context] (stop-command-service context))
 
-  (stats [this]
-    @(:stats (service-context this)))
+  (stats
+   [this]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   @(:stats (service-context this)))
 
-  (enqueue-command [this command version certname producer-ts command-stream compression]
-                   (enqueue-command this command version certname producer-ts command-stream compression identity))
+  (enqueue-command
+   [this command version certname producer-ts command-stream compression]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (enqueue-command this command version certname producer-ts command-stream
+                    compression identity))
 
-  (enqueue-command [this command version certname producer-ts command-stream compression command-callback]
+  (enqueue-command
+   [this command version certname producer-ts command-stream compression command-callback]
+   (throw-if-shutdown-pending (get-shutdown-reason))
    (let [config (get-config)
          globals (shared-globals)
          q (:q globals)
@@ -968,5 +985,7 @@
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (response-mult [this]
-    (-> this service-context :response-mult)))
+  (response-mult
+   [this]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (-> this service-context :response-mult)))

@@ -79,7 +79,9 @@
             [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [exceptional-shutdown-requestor
+             :refer [call-unless-shutting-down
+                     exceptional-shutdown-requestor
+                     throw-if-shutdown-pending
                      with-monitored-execution
                      with-nonfatal-exceptions-suppressed]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
@@ -428,11 +430,12 @@
    context
    (finally (some-> (:job-pool context) stop-and-reset-pool!))
    (finally
-     ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-     (swap! stop-status assoc :stopping true)
-     (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
-       (log/info (trs "Periodic activities halted"))
-       (log/info (trs "Forcibly terminating periodic activities"))))
+     (when stop-status
+       ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+       (swap! stop-status assoc :stopping true)
+       (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
+         (log/info (trs "Periodic activities halted"))
+         (log/info (trs "Forcibly terminating periodic activities")))))
    (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
    (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
                     .close))
@@ -970,48 +973,74 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService request-shutdown]]
+   [:ShutdownService get-shutdown-reason request-shutdown]]
 
-  (init [this context] (init-puppetdb context))
+  (init
+   [this context]
+   (call-unless-shutting-down
+    "PuppetDB service init" (get-shutdown-reason) context
+    #(init-puppetdb context)))
 
   (start
    [this context]
-   ;; Some tests rely on keeping all the logic out of this function,
-   ;; to test startup errors, etc.
-   (start-puppetdb-or-shutdown context (get-config) this
-                               get-registered-endpoints
-                               (shutdown-requestor request-shutdown this)))
+   (call-unless-shutting-down
+    "PuppetDB service start" (get-shutdown-reason) context
+    #(do
+       ;; Some tests rely on keeping all the logic out of this function,
+       ;; to test startup errors, etc.
+       (start-puppetdb-or-shutdown context (get-config) this
+                                   get-registered-endpoints
+                                   (shutdown-requestor request-shutdown this)))))
 
   (stop [this context] (stop-puppetdb context))
 
-  (set-url-prefix [this url-prefix]
-                  (let [old-url-prefix (:url-prefix (service-context this))]
-                    (when-not (compare-and-set! old-url-prefix nil url-prefix)
-                      (throw
-                       (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
-                                        url-prefix @old-url-prefix)
-                                {:kind ::url-prefix-already-set
-                                 :url-prefix old-url-prefix
-                                 :new-url-prefix url-prefix})))))
-  (shared-globals [this]
-                  (:shared-globals (service-context this)))
-  (query [this version query-expr paging-options row-callback-fn]
-         (let [sc (service-context this)
-               query-options (-> (get sc :shared-globals)
-                                 (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
-                                 (assoc :url-prefix @(get sc :url-prefix)))]
-           (qeng/stream-query-result version
-                                     query-expr
-                                     paging-options query-options
-                                     row-callback-fn)))
+  (set-url-prefix
+   [this url-prefix]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (let [old-url-prefix (:url-prefix (service-context this))]
+     (when-not (compare-and-set! old-url-prefix nil url-prefix)
+       (throw
+        (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
+                         url-prefix @old-url-prefix)
+                 {:kind ::url-prefix-already-set
+                  :url-prefix old-url-prefix
+                  :new-url-prefix url-prefix})))))
+  (shared-globals
+   [this]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (:shared-globals (service-context this)))
 
-  (clean [this] (clean this #{}))
-  (clean [this what] (clean-puppetdb (service-context this) what))
+  (query
+   [this version query-expr paging-options row-callback-fn]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (let [sc (service-context this)
+         query-options (-> (get sc :shared-globals)
+                           (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
+                           (assoc :url-prefix @(get sc :url-prefix)))]
+     (qeng/stream-query-result version
+                               query-expr
+                               paging-options query-options
+                               row-callback-fn)))
 
-  (delete-node [this certname]
-               (delete-node-from-puppetdb (service-context this) certname))
+  (clean
+   [this]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (clean this #{}))
 
-  (cmd-event-mult [this] (-> this service-context :cmd-event-mult)))
+  (clean
+   [this what]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (clean-puppetdb (service-context this) what))
+
+  (delete-node
+   [this certname]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (delete-node-from-puppetdb (service-context this) certname))
+
+  (cmd-event-mult
+   [this]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (-> this service-context :cmd-event-mult)))
 
 (defn provide-services
   "Starts PuppetDB as a service via Trapperkeeper.  Augments TK's normal
