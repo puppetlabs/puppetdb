@@ -48,7 +48,7 @@
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
-            [murphy :refer [with-final]]
+            [murphy :refer [try! with-final]]
             [overtone.at-at :refer [mk-pool every interspaced stop-and-reset-pool!]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -95,6 +95,33 @@
    (java.io Closeable)
    [java.util.concurrent.locks ReentrantLock]
    [org.joda.time Period]))
+
+(defn stop-reporters [registries]
+  (letfn [(stop [[registry & registries]]
+            (when registry
+              (try!
+               (stop registries)
+               (finally
+                 ;; Not certain whether :reporter can be nil
+                 (some-> (:reporter registry) jmx-reporter/stop)))))]
+    (stop (vals registries))))
+
+(defn init-puppetdb
+  [context]
+  (with-final [_ metrics/metrics-registries :error stop-reporters
+               cmd-event-ch (async/chan 1000) :error async/close!
+               cmd-event-mult (async/mult cmd-event-ch) :error async/untap-all]
+    (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
+      (jmx-reporter/start reporter))
+    (assoc context
+           :cmd-event-ch cmd-event-ch
+           :cmd-event-mult cmd-event-mult
+           :url-prefix (atom nil)
+           ;; This coordination is needed until we no longer
+           ;; support jdk < 10.
+           ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+           :stop-status (atom {})
+           :shutdown-request (atom nil))))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
@@ -396,21 +423,23 @@
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
   [{:keys [stop-status] :as context}]
-  (log/info (trs "Shutdown request received; puppetdb exiting."))
-  (when-let [pool (:job-pool context)]
-    (stop-and-reset-pool! pool))
-  ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-  (swap! stop-status assoc :stopping true)
-  (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
-    (log/info (trs "Periodic activities halted"))
-    (log/info (trs "Forcibly terminating periodic activities")))
-  (close-write-dbs (get-in context [:shared-globals :scf-write-dbs]))
-  (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
-    (.close ^Closeable ds))
-
-  (when-let [command-loader (:command-loader context)]
-    (future-cancel command-loader))
-  context)
+  (try!
+   (log/info (trs "Shutdown request received; puppetdb exiting."))
+   context
+   (finally (some-> (:job-pool context) stop-and-reset-pool!))
+   (finally
+     ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+     (swap! stop-status assoc :stopping true)
+     (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
+       (log/info (trs "Periodic activities halted"))
+       (log/info (trs "Forcibly terminating periodic activities"))))
+   (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
+   (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
+                    .close))
+   (finally (some-> (:command-loader context) future-cancel))
+   (finally (some-> (:cmd-event-ch context) async/close!))
+   (finally (some-> (:cmd-event-mult context) async/untap-all))
+   (finally (stop-reporters metrics/metrics-registries))))
 
 ;; A map of required postgres settings and their expected value.
 ;; PuppetDB will refuse to start unless ALL of these values
@@ -942,21 +971,9 @@
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
    [:ShutdownService request-shutdown]]
-  (init [this context]
 
-        (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
-          (jmx-reporter/start reporter))
-        (let [cmd-event-ch (async/chan 1000)
-              cmd-event-mult (async/mult cmd-event-ch)]
-          (assoc context
-                 :cmd-event-ch cmd-event-ch
-                 :cmd-event-mult cmd-event-mult
-                 :url-prefix (atom nil)
-                 ;; This coordination is needed until we no longer
-                 ;; support jdk < 10.
-                 ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-                 :stop-status (atom {})
-                 :shutdown-request (atom nil))))
+  (init [this context] (init-puppetdb context))
+
   (start
    [this context]
    ;; Some tests rely on keeping all the logic out of this function,
@@ -965,15 +982,7 @@
                                get-registered-endpoints
                                (shutdown-requestor request-shutdown this)))
 
-  (stop [this context]
-        (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
-          (jmx-reporter/stop reporter))
-        (let [{:keys [cmd-event-mult cmd-event-ch]} context]
-          (when cmd-event-mult
-            (async/untap-all cmd-event-mult))
-          (when cmd-event-ch
-            (async/close! cmd-event-ch)))
-        (stop-puppetdb context))
+  (stop [this context] (stop-puppetdb context))
 
   (set-url-prefix [this url-prefix]
                   (let [old-url-prefix (:url-prefix (service-context this))]
