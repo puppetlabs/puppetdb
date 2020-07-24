@@ -311,6 +311,20 @@
          :ssl-cert default-cert
          :ssl-key  default-ssl-key}))
 
+(pls/defn-validated post-ssl-or-throw
+  [url-str :- String
+   body]
+  "Same as `post-ssl` except will throw if an error status is returned."
+  (let [resp (post-ssl url-str body)]
+    (if (>= (:status resp) 400)
+      (throw
+       (ex-info (format "Failed request to '%s' with status '%s'"
+                        url-str (:status resp))
+                {:url url-str
+                 :response resp
+                 :status (:status resp)}))
+      resp)))
+
 (defn certname-query
   "Returns a function that will query the given endpoint (`suffix`)
   for the provided `certname`"
