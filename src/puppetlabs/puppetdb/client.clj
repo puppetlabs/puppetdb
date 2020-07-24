@@ -40,14 +40,14 @@
     payload :- {s/Any s/Any}
     timeout]
    (let [body (json/generate-string payload)
-         url-params (str
-                     (format "?command=%s&version=%s&certname=%s"
-                             (str/replace command #" " "_") version certname)
-                     (when-let [producer_timestamp (-> payload :producer_timestamp str)]
-                       (format "&producer-timestamp=%s" producer_timestamp)))
-         url (str (utils/base-url->str base-url)
-                  url-params
-                  (when timeout (format "&secondsToWaitForCompletion=%s" timeout)))]
+         url-params (utils/cmd-url-params {:command command
+                                           :version version
+                                           :certname certname
+                                           :producer-timestamp (-> payload
+                                                                   :producer_timestamp
+                                                                   str)
+                                           :timeout timeout})
+         url (str (utils/base-url->str base-url) url-params)]
      (http-client/post url {:body body
                             :throw-exceptions false
                             :content-type :json

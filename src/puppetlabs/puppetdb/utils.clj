@@ -270,6 +270,16 @@
    :prefix "/metrics"
    :version (or version :v1)})
 
+(defn cmd-url-params
+  [{:keys [command version certname producer-timestamp timeout]}]
+  (str
+   (format "?command=%s&version=%s&certname=%s"
+           (str/replace command #" " "_") version certname)
+   (when producer-timestamp
+     (format "&producer-timestamp=%s" producer-timestamp))
+   (when timeout
+     (format "&secondsToWaitForCompletion=%s" timeout))))
+
 (defn assoc-if-exists
   "Assoc only if the key is already present"
   [m & ks]
