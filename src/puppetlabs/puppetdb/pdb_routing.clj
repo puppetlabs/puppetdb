@@ -67,6 +67,10 @@
            (concat app-routes
                    [(route/not-found (tru "Not Found"))]))))
 
+(defn throw-unless-ready [context]
+  (when-not (seq context)
+    (throw (IllegalStateException. (trs "Service has not started")))))
+
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
   (disable-maint-mode [this])
@@ -74,24 +78,40 @@
 
 (tk/defservice maint-mode-service
   MaintenanceMode
-  []
-  (init [this context]
-        (assoc context ::maint-mode? (atom true)))
-  (enable-maint-mode [this]
-                     (-> (tksvc/service-context this)
-                         (update ::maint-mode? reset! true)))
-  (disable-maint-mode [this]
-                      (-> (tksvc/service-context this)
-                          (update ::maint-mode? reset! false)))
-  (maint-mode? [this]
-               (let [maint-mode-atom (::maint-mode? (tksvc/service-context this) ::not-found)]
-                 ;;There's a small gap in time after the routes have
-                 ;;been added but before the TK service context gets
-                 ;;updated. This handles that and counts it as the app
-                 ;;being in maintenance mode
-                 (if (= ::not-found maint-mode-atom)
-                   true
-                   @maint-mode-atom))))
+  [[:ShutdownService get-shutdown-reason]]
+
+  (init
+   [this context]
+   ;; Do this even if we're shutting down.
+   (assoc context ::maint-mode? (atom true)))
+
+  (enable-maint-mode
+   [this]
+   (if-let [context (tksvc/service-context this)]
+     (update context ::maint-mode? reset! true)
+     (if (get-shutdown-reason)
+       true
+       (throw (IllegalStateException. (trs "Service has not started"))))))
+
+  (disable-maint-mode
+   [this]
+   (let [context (tksvc/service-context this)]
+     (throw-unless-ready context)
+     (update context ::maint-mode? reset! false)))
+
+  (maint-mode?
+   [this]
+   ;; The service context might also be nil if this is called before
+   ;; init, which can happen in various cases, including being called
+   ;; from some stop method during a short-circuit shutdown.
+   (let [maint-mode-atom (::maint-mode? (tksvc/service-context this) ::not-found)]
+     ;;There's a small gap in time after the routes have
+     ;;been added but before the TK service context gets
+     ;;updated. This handles that and counts it as the app
+     ;;being in maintenance mode
+     (if (= ::not-found maint-mode-atom)
+       true
+       @maint-mode-atom))))
 
 (defn init-pdb-routing
   [service context config context-root shared-globals

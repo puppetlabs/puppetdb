@@ -425,6 +425,7 @@
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
   [{:keys [stop-status] :as context}]
+  ;; Must also handle a nil context.
   (try!
    (log/info (trs "Shutdown request received; puppetdb exiting."))
    context
@@ -852,7 +853,8 @@
 
         (-> context
             (assoc :job-pool job-pool
-                   :command-loader command-loader)
+                   :command-loader command-loader
+                   ::started? true)
             (update :shared-globals merge
                     {:command-chan command-chan
                      :dlo dlo
@@ -939,6 +941,15 @@
               (reset! {:opts opts}))
       (request-shutdown opts))))
 
+(defn throw-unless-initialized [context]
+  (when-not (seq context)
+    (throw (IllegalStateException. (trs "Service is uninitialized")))))
+
+(defn throw-unless-started [context]
+  (throw-unless-initialized context)
+  (when-not (::started? context)
+    (throw (IllegalStateException. (trs "Service has not started")))))
+
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
@@ -997,7 +1008,9 @@
   (set-url-prefix
    [this url-prefix]
    (throw-if-shutdown-pending (get-shutdown-reason))
-   (let [old-url-prefix (:url-prefix (service-context this))]
+   (let [context (service-context this)
+         old-url-prefix (:url-prefix context)]
+     (throw-unless-initialized context)
      (when-not (compare-and-set! old-url-prefix nil url-prefix)
        (throw
         (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
@@ -1007,13 +1020,16 @@
                   :new-url-prefix url-prefix})))))
   (shared-globals
    [this]
-   (throw-if-shutdown-pending (get-shutdown-reason))
-   (:shared-globals (service-context this)))
+   (let [context (service-context this)]
+     (throw-unless-started context)
+     (throw-if-shutdown-pending (get-shutdown-reason))
+     (:shared-globals context)))
 
   (query
    [this version query-expr paging-options row-callback-fn]
    (throw-if-shutdown-pending (get-shutdown-reason))
    (let [sc (service-context this)
+         _ (throw-unless-started sc)
          query-options (-> (get sc :shared-globals)
                            (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
                            (assoc :url-prefix @(get sc :url-prefix)))]
@@ -1024,21 +1040,25 @@
 
   (clean
    [this]
+   (throw-unless-started (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
    (clean this #{}))
 
   (clean
    [this what]
+   (throw-unless-started (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
    (clean-puppetdb (service-context this) what))
 
   (delete-node
    [this certname]
+   (throw-unless-started (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
    (delete-node-from-puppetdb (service-context this) certname))
 
   (cmd-event-mult
    [this]
+   (throw-unless-initialized (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
    (-> this service-context :cmd-event-mult)))
 

@@ -895,13 +895,15 @@
                :command-shovel shovel-thread
                :command-chan command-chan
                :consumer-threadpool command-pool
-               :broadcast-threadpool broadcast-pool)))))
+               :broadcast-threadpool broadcast-pool
+               ::started? true)))))
 
 (defn stop-command-service
   [{:keys [stop-status consumer-threadpool broadcast-threadpool command-chan
            response-chan response-chan-for-pub response-mult response-pub
            delay-pool command-shovel]
     :as context}]
+  ;; Must also handle a nil context.
   (try!
    (dissoc context
            :response-pub :response-chan :response-chan-for-pub
@@ -937,6 +939,11 @@
    (finally (some-> response-chan-for-pub async/close!))
    (finally (some-> response-chan async/close!))))
 
+(defn throw-unless-ready [context]
+  (when-not (seq context)
+    (throw (IllegalStateException. (trs "Service is uninitialized"))))
+  (when-not (::started? context)
+    (throw (IllegalStateException. (trs "Service has not started")))))
 
 (defservice command-service
   PuppetDBCommandDispatcher
@@ -960,11 +967,14 @@
 
   (stats
    [this]
-   (throw-if-shutdown-pending (get-shutdown-reason))
-   @(:stats (service-context this)))
+   (let [context (service-context this)]
+     (throw-unless-ready context)
+     (throw-if-shutdown-pending (get-shutdown-reason))
+     @(:stats context)))
 
   (enqueue-command
    [this command version certname producer-ts command-stream compression]
+   (throw-unless-ready (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
    (enqueue-command this command version certname producer-ts command-stream
                     compression identity))
@@ -972,11 +982,13 @@
   (enqueue-command
    [this command version certname producer-ts command-stream compression command-callback]
    (throw-if-shutdown-pending (get-shutdown-reason))
-   (let [config (get-config)
+   (let [context (service-context this)
+         _ (throw-unless-ready context)
+         config (get-config)
          globals (shared-globals)
          q (:q globals)
          command-chan (:command-chan globals)
-         write-semaphore (:write-semaphore (service-context this))
+         write-semaphore (:write-semaphore context)
          command (if (string? command) command (command-names command))
          command-req (queue/create-command-req command version certname producer-ts compression command-callback command-stream)
          result (do-enqueue-command q command-chan write-semaphore command-req (:maybe-send-cmd-event! globals))]
@@ -987,5 +999,6 @@
 
   (response-mult
    [this]
+   (throw-unless-ready (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
    (-> this service-context :response-mult)))
