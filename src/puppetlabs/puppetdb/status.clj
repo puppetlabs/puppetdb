@@ -44,7 +44,7 @@
     {:maintenance_mode? (maint-mode-fn?)
      :queue_depth (utils/nil-on-failure (mq/queue-size))
      :read_db_up? (sutils/db-up? (:scf-read-db globals))
-     :write_db_up? (some identity db-up)
+     :write_db_up? (boolean (some identity db-up))
      :write_dbs_up? (every? identity db-up)
      :write_db db-status}))
 
