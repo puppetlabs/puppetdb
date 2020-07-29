@@ -372,7 +372,8 @@
         (let [select-42 "SELECT (a - b) AS answer FROM (VALUES ((7 * 7), 7)) AS x(a, b)"
               [{:keys [answer]}] (jdbc/query [select-42])]
           (= answer 42)))
-      (catch Exception _
+      (catch Exception e
+        (log/warn e "Query to check if the database is up failed")
         false))))
 
 (defn analyze-small-tables
