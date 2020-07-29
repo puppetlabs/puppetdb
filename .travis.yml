@@ -93,7 +93,7 @@ jobs:
       env: PDB_TEST=core+ext/openjdk11/pg-11 LEIN_PROFILES=fips
       script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests with drop-joins optimization
+    - stage: ❧ pdb tests
       env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=always
       script: *run-core-and-ext-tests
 
