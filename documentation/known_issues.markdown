@@ -12,6 +12,14 @@ Bugs and feature requests
 
 PuppetDB's bugs and feature requests are managed in [Puppet's issue tracker][tracker]. Search this database if you're having problems and please report any new issues to us!
 
+PuppetDB returns an error from the status endpoint
+-----
+
+In PuppetDB 6.11.0, 6.11.1, and 6.11.2, when PuppetDB cannot connect to the
+database and a user queries the `/status/v1/services/puppetdb-status` endpoint
+it would return an exception in the status response instead of reporting the
+databases as down.  [PDB-4836](https://tickets.puppetlabs.com/browse/PDB-4836)
+
 PuppetDB rejects Puppet Server SSL connections
 -----
 
