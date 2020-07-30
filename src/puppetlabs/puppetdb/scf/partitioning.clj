@@ -10,6 +10,22 @@
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
 
+(defn get-temporal-partitions
+  "Returns a vector of {:table full-table-name :part partition-key}
+  values for all the existing partitions associated with the
+  name-prefix, e.g. request for \"reports\" might produce a vector of
+  maps like {:table \"reports_20200802z\" :part \"20200802z\"}."
+  [name-prefix]
+  ;; FIXME: use this in other relevant places.
+  ;; FIXME: restrict to our schema.
+  (mapv (fn [{:keys [tablename]}]
+          {:table tablename
+           :part (subs tablename (inc (count name-prefix)))})
+        (jdbc/query-to-vec
+         (str "select tablename from pg_tables where tablename ~ "
+              (jdbc/single-quote
+               (str "^" name-prefix "_[0-9]{8}z$"))))))
+
 (defn date-suffix
   [date]
   (let [formatter (.withZone (DateTimeFormatter/BASIC_ISO_DATE) (ZoneId/of "UTC"))]
@@ -115,7 +131,9 @@
                     " FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
                iso-week-year)])
     (fn [full-table-name iso-week-year]
-      [(format "CREATE INDEX IF NOT EXISTS idx_reports_compound_id_%s ON %s USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
+      [(format "CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_id_%s ON %s USING btree (id)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_compound_id_%s ON %s USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
                iso-week-year full-table-name)
        (format "CREATE INDEX IF NOT EXISTS idx_reports_noop_pending_%s ON %s USING btree (noop_pending) WHERE (noop_pending = true)"
                iso-week-year full-table-name)
