@@ -373,7 +373,7 @@
               [{:keys [answer]}] (jdbc/query [select-42])]
           (= answer 42)))
       (catch Exception e
-        (log/warn e "Query to check if the database is up failed")
+        (log/debug e "Query to check if the database is up failed")
         false))))
 
 (defn analyze-small-tables
