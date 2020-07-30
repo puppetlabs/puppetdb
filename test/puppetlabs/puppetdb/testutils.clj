@@ -428,3 +428,25 @@
 
 (def default-timeout-ms
   (* 1000 60 5))
+
+(defn partition-names
+  "Return all partition names given the parent table name"
+  [table]
+  (let [inhparent (str "public." table)]
+    (->> ["SELECT inhrelid::regclass AS child
+            FROM pg_catalog.pg_inherits
+            WHERE inhparent = ?::regclass;"
+          inhparent]
+         jdbc/query-to-vec
+         (map :child)
+         (map #(.toString %)))))
+
+(defn table-indexes
+  "Return the index definitions for the given table name"
+  [table]
+  (->> ["SELECT tablename, indexdef
+          FROM pg_indexes
+          WHERE schemaname = 'public' AND tablename = ?;"
+        table]
+       jdbc/query-to-vec
+       (map :indexdef)))
