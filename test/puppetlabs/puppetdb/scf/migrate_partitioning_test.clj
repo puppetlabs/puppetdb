@@ -694,6 +694,19 @@
                                                :user "pdb_test"}
                                   :same nil}
                                  {:left-only nil
+                                  :right-only
+                                  {:schema "public"
+                                   :table table-name
+                                   :index (str "idx_reports_id_" part-name)
+                                   :index_keys ["id"]
+                                   :type "btree"
+                                   :unique? true
+                                   :functional? false
+                                   :is_partial false
+                                   :primary? false
+                                   :user "pdb_test"}
+                                  :same nil}
+                                 {:left-only nil
                                   :right-only {:schema "public"
                                                :table table-name
                                                :index (str "reports_job_id_idx_" part-name)
