@@ -13,14 +13,13 @@
 (defn get-partition-names
   "Return all partition names given the parent table name"
   [table]
-  (let [inhparent (str "public." table)]
     (->> ["SELECT inhrelid::regclass AS child
             FROM pg_catalog.pg_inherits
             WHERE inhparent = ?::regclass;"
-          inhparent]
+          table]
          jdbc/query-to-vec
          (map :child)
-         (map #(.toString %)))))
+         (map str)))
 
 (defn get-temporal-partitions
   "Returns a vector of {:table full-table-name :part partition-key}
