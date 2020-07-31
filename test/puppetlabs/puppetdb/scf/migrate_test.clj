@@ -20,6 +20,7 @@
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]]
+            [puppetlabs.puppetdb.scf.partitioning :as part]
             [clojure.string :as str])
   (:import (java.time ZoneId ZonedDateTime)
            (java.sql Timestamp)))
@@ -1474,3 +1475,24 @@
         (apply-migration-for-testing! 76)
         ;; migration 76 should be a no-op
         (check-idx-reports-id)))))
+
+(deftest migration-76-adds-report-id-idx-when-not-added-by-migration-74
+  (testing "All report paritions have idx_reports_id index when old version of 74 applied"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      ;; don't add the idx_reports_id index when fast forwarding past migration 74
+      (binding [part/add-report-id-idx? false]
+        (fast-forward-to-migration! 75))
+      (let [assert-no-index (fn [index indexes]
+                              (is (nil? (some #(str/includes? % index) indexes))))]
+        ;; check that idx_reports_id wasn't added by migration 74
+        (dorun (->> (utils/partition-names "reports")
+                    (map utils/table-indexes)
+                    (map (partial assert-no-index "idx_reports_id")))))
+      (apply-migration-for-testing! 76)
+      (let [assert-index-exists (fn [index indexes]
+                                  (is (some #(str/includes? % index) indexes)))]
+        ;; check that idx_reports_id is now present in all paritions
+        (dorun (->> (utils/partition-names "reports")
+                    (map utils/table-indexes)
+                    (map (partial assert-index-exists "idx_reports_id"))))))))
