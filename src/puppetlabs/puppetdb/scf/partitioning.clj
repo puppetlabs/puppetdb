@@ -10,21 +10,28 @@
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
 
+(defn get-partition-names
+  "Return all partition names given the parent table name"
+  [table]
+  (let [inhparent (str "public." table)]
+    (->> ["SELECT inhrelid::regclass AS child
+            FROM pg_catalog.pg_inherits
+            WHERE inhparent = ?::regclass;"
+          inhparent]
+         jdbc/query-to-vec
+         (map :child)
+         (map #(.toString %)))))
+
 (defn get-temporal-partitions
   "Returns a vector of {:table full-table-name :part partition-key}
   values for all the existing partitions associated with the
   name-prefix, e.g. request for \"reports\" might produce a vector of
   maps like {:table \"reports_20200802z\" :part \"20200802z\"}."
   [name-prefix]
-  ;; FIXME: use this in other relevant places.
-  ;; FIXME: restrict to our schema.
-  (mapv (fn [{:keys [tablename]}]
+  (mapv (fn [tablename]
           {:table tablename
            :part (subs tablename (inc (count name-prefix)))})
-        (jdbc/query-to-vec
-         (str "select tablename from pg_tables where tablename ~ "
-              (jdbc/single-quote
-               (str "^" name-prefix "_[0-9]{8}z$"))))))
+        (get-partition-names name-prefix)))
 
 (defn date-suffix
   [date]

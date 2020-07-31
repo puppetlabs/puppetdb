@@ -24,6 +24,7 @@
             [puppetlabs.puppetdb.testutils.events :refer :all]
             [puppetlabs.puppetdb.testutils.nodes :refer :all]
             [puppetlabs.puppetdb.random :as random]
+            [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
@@ -1755,7 +1756,7 @@
       (let [assert-index-exists (fn [index indexes]
                                   (is (true? (some #(str/includes? % index) indexes))))
 
-            partition (tu/partition-names "reports")]
+            partition (get-partition-names "reports")]
         ;; check that idx_reports_id index is present in on demand paritions
         (is (= 1 (count partition)))
         (dorun (->> partition
