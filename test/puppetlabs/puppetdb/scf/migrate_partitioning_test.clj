@@ -1277,3 +1277,40 @@
                                           :same nil}]))
                                     dates))}
            (diff-schema-maps before-migration (schema-info-map *db*))))))
+
+(deftest migration-76-schema-diff
+  (clear-db-for-testing!)
+  ;; don't add the idx_reports_id index when fast forwarding past migration 74
+  (binding [partitioning/add-report-id-idx? false]
+    (fast-forward-to-migration! 75))
+
+  (let [before-migration (schema-info-map *db*)
+        today (ZonedDateTime/now (ZoneId/of "UTC"))
+        days-range (range -4 4)
+        dates (map #(.plusDays today %) days-range)
+        part-names (map #(str/lower-case (partitioning/date-suffix %)) dates)]
+    (apply-migration-for-testing! 76)
+
+    (is (= {:index-diff (into
+                          []
+                          cat
+                          (map
+                            (fn [part-name]
+                              (let [table-name (str "reports_" part-name)]
+                                 [{:left-only nil
+                                  :right-only
+                                  {:schema "public"
+                                   :table table-name
+                                   :index (str "idx_reports_id_" part-name)
+                                   :index_keys ["id"]
+                                   :type "btree"
+                                   :unique? true
+                                   :functional? false
+                                   :is_partial false
+                                   :primary? false
+                                   :user "pdb_test"}
+                                  :same nil}]))
+                            part-names))
+            :table-diff nil
+            :constraint-diff nil}
+           (diff-schema-maps before-migration (schema-info-map *db*))))))
