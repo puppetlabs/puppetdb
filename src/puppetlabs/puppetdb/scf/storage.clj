@@ -241,10 +241,10 @@
   [certname]
   {:pre [certname]}
   ;; With partitioning, we must execute this delete on every active partition
-  (doseq [table (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'resource_events_%'")]
-    (jdbc/delete! (:tablename table) ["certname_id in (select id from certnames where certname=?)" certname]))
-  (doseq [table (jdbc/query-to-vec "select tablename from pg_tables where tablename like 'reports_%'")]
-    (jdbc/delete! (:tablename table) ["certname=?" certname]))
+  (doseq [table (partitioning/get-partition-names "resource_events")]
+    (jdbc/delete! table ["certname_id in (select id from certnames where certname=?)" certname]))
+  (doseq [table (partitioning/get-partition-names "reports")]
+    (jdbc/delete! table ["certname=?" certname]))
   (jdbc/delete! :catalog_inputs ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
@@ -1417,12 +1417,11 @@
   {:pre [(kitchensink/datetime? date)
          (string? table-prefix)]}
 
-  (let [tables (jdbc/query-to-vec (str "select tablename from pg_tables where tablename like '" table-prefix "_%'"))
+  (let [tables (partitioning/get-partition-names table-prefix)
         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
 
-    (doseq [table-entry (filter (fn [table-entry]
-                                  (let [table (:tablename table-entry)
-                                        parts (str/split table #"_")
+    (doseq [partition-name (filter (fn [table]
+                                  (let [parts (str/split table #"_")
                                         table-full-date (last parts)
                                         table-year (Integer/parseInt (subs table-full-date 0 4))
                                         table-month (Integer/parseInt (subs table-full-date 4 6))
@@ -1431,7 +1430,7 @@
                                     (.isBefore table-date expire-date)))
                                 tables)]
       (jdbc/do-commands
-        (format "drop table if exists %s cascade" (:tablename table-entry))))))
+        (format "drop table if exists %s cascade" partition-name)))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given

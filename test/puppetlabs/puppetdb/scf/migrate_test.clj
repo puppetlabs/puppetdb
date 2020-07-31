@@ -1423,7 +1423,7 @@
           (let [assert-index-exists (fn [index indexes]
                                       (is (true? (some #(str/includes? % index) indexes))))]
             ;; check that idx_reports_id is present in all paritions
-            (dorun (->> (utils/partition-names "reports")
+            (dorun (->> (part/get-partition-names "reports")
                         (map utils/table-indexes)
                         (map (partial assert-index-exists "idx_reports_id"))))))))))
 
@@ -1465,7 +1465,7 @@
             ;; check that idx_reports_id is present in all paritions
             check-idx-reports-id #(dorun
                                    (->>
-                                    (utils/partition-names "reports")
+                                    (part/get-partition-names "reports")
                                     (map utils/table-indexes)
                                     (map (partial assert-index-exists "idx_reports_id"))))]
         (fast-forward-to-migration! 75)
@@ -1486,13 +1486,13 @@
       (let [assert-no-index (fn [index indexes]
                               (is (nil? (some #(str/includes? % index) indexes))))]
         ;; check that idx_reports_id wasn't added by migration 74
-        (dorun (->> (utils/partition-names "reports")
+        (dorun (->> (part/get-partition-names "reports")
                     (map utils/table-indexes)
                     (map (partial assert-no-index "idx_reports_id")))))
       (apply-migration-for-testing! 76)
       (let [assert-index-exists (fn [index indexes]
                                   (is (some #(str/includes? % index) indexes)))]
         ;; check that idx_reports_id is now present in all paritions
-        (dorun (->> (utils/partition-names "reports")
+        (dorun (->> (part/get-partition-names "reports")
                     (map utils/table-indexes)
                     (map (partial assert-index-exists "idx_reports_id"))))))))
