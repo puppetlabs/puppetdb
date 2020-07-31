@@ -6,6 +6,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [db-serialize]]
+            [puppetlabs.puppetdb.testutils :as utils]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
@@ -18,7 +19,9 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]])
+            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]]
+            [puppetlabs.puppetdb.scf.partitioning :as part]
+            [clojure.string :as str])
   (:import (java.time ZoneId ZonedDateTime)
            (java.sql Timestamp)))
 
@@ -1414,7 +1417,15 @@
         (is (= 1
                (count hashes)))
         (is (= expected
-               (first hashes)))))))
+               (first hashes)))
+
+        (testing "idx_reports_id index present in all partitions"
+          (let [assert-index-exists (fn [index indexes]
+                                      (is (true? (some #(str/includes? % index) indexes))))]
+            ;; check that idx_reports_id is present in all paritions
+            (dorun (->> (utils/partition-names "reports")
+                        (map utils/table-indexes)
+                        (map (partial assert-index-exists "idx_reports_id"))))))))))
 
 (deftest migration-75-add-report-type-column-with-default
   (testing "reports should get default value of 'agent' for report_type"
@@ -1444,3 +1455,44 @@
         (apply-migration-for-testing! 75)
         (is (= "agent" (-> (query-to-vec "select * from reports")
                            first :report_type)))))))
+
+(deftest migration-76-is-a-no-op-if-74-already-added-idx-reports-id
+  (testing "Index created with new version of migration 74"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (let [assert-index-exists (fn [index indexes]
+                                  (is (true? (some #(str/includes? % index) indexes))))
+            ;; check that idx_reports_id is present in all paritions
+            check-idx-reports-id #(dorun
+                                   (->>
+                                    (utils/partition-names "reports")
+                                    (map utils/table-indexes)
+                                    (map (partial assert-index-exists "idx_reports_id"))))]
+        (fast-forward-to-migration! 75)
+        ;; migration 74 should have added the parition indexes
+        (check-idx-reports-id)
+
+        (apply-migration-for-testing! 76)
+        ;; migration 76 should be a no-op
+        (check-idx-reports-id)))))
+
+(deftest migration-76-adds-report-id-idx-when-not-added-by-migration-74
+  (testing "All report paritions have idx_reports_id index when old version of 74 applied"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      ;; don't add the idx_reports_id index when fast forwarding past migration 74
+      (binding [part/add-report-id-idx? false]
+        (fast-forward-to-migration! 75))
+      (let [assert-no-index (fn [index indexes]
+                              (is (nil? (some #(str/includes? % index) indexes))))]
+        ;; check that idx_reports_id wasn't added by migration 74
+        (dorun (->> (utils/partition-names "reports")
+                    (map utils/table-indexes)
+                    (map (partial assert-no-index "idx_reports_id")))))
+      (apply-migration-for-testing! 76)
+      (let [assert-index-exists (fn [index indexes]
+                                  (is (some #(str/includes? % index) indexes)))]
+        ;; check that idx_reports_id is now present in all paritions
+        (dorun (->> (utils/partition-names "reports")
+                    (map utils/table-indexes)
+                    (map (partial assert-index-exists "idx_reports_id"))))))))

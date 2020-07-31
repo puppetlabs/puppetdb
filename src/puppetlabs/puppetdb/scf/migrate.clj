@@ -68,7 +68,8 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.puppetdb.scf.storage :as scf]
-            [puppetlabs.puppetdb.scf.partitioning :as partitioning])
+            [puppetlabs.puppetdb.scf.partitioning :as partitioning
+             :refer [get-temporal-partitions]])
   (:import [org.postgresql.util PGobject]
            [java.time LocalDate ZonedDateTime ZoneId OffsetDateTime]
            (java.sql Timestamp)
@@ -1954,6 +1955,15 @@
   (jdbc/do-commands
    "ALTER TABLE reports ADD COLUMN report_type text DEFAULT 'agent' NOT NULL"))
 
+(defn add-report-partition-indexes-on-id
+  []
+  (doseq [{:keys [table part] :as huh} (get-temporal-partitions "reports")
+          :let [idx-name (str "idx_reports_id_" part)]]
+    (jdbc/do-commands
+     (format "create unique index if not exists %s on %s using btree (id)"
+             (jdbc/double-quote idx-name)
+             (jdbc/double-quote table)))))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2015,7 +2025,8 @@
    ; or resource events, you also update the delete-reports
    ; cli command.
    74 reports-partitioning
-   75 add-report-type-to-reports})
+   75 add-report-type-to-reports
+   76 add-report-partition-indexes-on-id})
 
 (defn desired-schema-version []
   "The newest migration this PuppetDB instance knows about.  Anything

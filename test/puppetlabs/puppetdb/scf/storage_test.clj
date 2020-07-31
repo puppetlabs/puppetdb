@@ -1749,7 +1749,18 @@
       "COMMIT TRANSACTION")
     (store-example-report! report timestamp)
     (is (= [{:certname certname}]
-        (query-to-vec ["SELECT certname FROM reports"]))))
+           (query-to-vec ["SELECT certname FROM reports"])))
+
+    (testing "Index is created in on demand partitions"
+      (let [assert-index-exists (fn [index indexes]
+                                  (is (true? (some #(str/includes? % index) indexes))))
+
+            partition (tu/partition-names "reports")]
+        ;; check that idx_reports_id index is present in on demand paritions
+        (is (= 1 (count partition)))
+        (dorun (->> partition
+                    (map tu/table-indexes)
+                    (map (partial assert-index-exists "idx_reports_id_")))))))
 
   (deftest-db report-with-event-timestamp
     (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
