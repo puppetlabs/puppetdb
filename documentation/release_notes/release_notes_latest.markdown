@@ -21,6 +21,17 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.11.3
+
+Released 4 August 2020
+
+### Bug fixes
+  - Adds a missing index to all report partitions, improving report query performance. [PDB-4832](https://tickets.puppetlabs.com/browse/PDB-4832)
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
+
 ## PuppetDB 6.11.2
 
 Released 14 July 2020
@@ -31,6 +42,10 @@ Released 14 July 2020
 ### Security fixes
   - Our dependency on org.postgresql/postgresql was upgraded to 42.2.14 to fix CVE-2020-13692. [SEC-155](https://tickets.puppetlabs.com/browse/SEC-155)
     Note: PuppetDB does not store XML data types in PostgreSQL and should not be affected by this CVE.
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
 
 ## PuppetDB 6.11.1
 
