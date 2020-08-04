@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.schema
   (:require [puppetlabs.puppetdb.time :as time]
             [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.coerce :as sc]
             [clojure.string :as str]
@@ -135,9 +136,14 @@
   "Convert `data` to the format specified by `schema`"
   [schema data]
   (let [result ((sc/coercer schema conversion-fns) data)]
-    (if (su/error? result)
-      (throw (su/error-val result))
-      result)))
+    (when (su/error? result)
+      ;; Intended to roughly match plumatic's validator behavior
+      (let [error (su/error-val result)]
+        (throw (ex-info (trs "schema coercion error: {0}" (pr-str error))
+                        {:schema schema
+                         :value data
+                         :error error}))))
+    result))
 
 (defn unknown-keys
   "Returns all the keys in `data` not specified by `schema`"

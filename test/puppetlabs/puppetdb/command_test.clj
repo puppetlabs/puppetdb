@@ -93,6 +93,11 @@
                                          #"gl.?b" #"p[u].*et"]
                           :facts-blacklist-type "regex"})
 
+(defn shutdown-for-ex-dummy [msg]
+  (fn [ex]
+    (binding [*out* *err*]
+      (println msg))))
+
 (defn create-message-handler-context [q]
   (let [delay-pool (mk-pool)
         command-chan (async/chan 10)
@@ -119,7 +124,9 @@
                        stats
                        blacklist-config
                        (atom {:executing-delayed 0})
-                       maybe-send-cmd-event!)
+                       maybe-send-cmd-event!
+                       (shutdown-for-ex-dummy
+                        "Ignoring shutdown exception during command tests."))
       :command-chan command-chan
       :dlo dlo
       :delay-pool delay-pool
@@ -346,6 +353,8 @@
     (let [log-output (atom [])]
       (binding [*logger-factory* (atom-logger log-output)]
         (try (call-with-quick-retry 1
+                                    (shutdown-for-ex-dummy
+                                     "Ignoring shutdown exception during quick-retry logging test.")
                                     (fn []
                                       (throw (RuntimeException. "foo"))))
              (catch RuntimeException e nil)))
@@ -357,6 +366,8 @@
           num-retries 5
           counter (atom num-retries)]
       (try (call-with-quick-retry num-retries
+                                  (shutdown-for-ex-dummy
+                                   "Ignoring shutdown exception during quick-retry count test.")
                                   (fn []
                                     (if (= @counter 0)
                                       (publish)
@@ -369,6 +380,8 @@
     (let [publish (call-counter)
           counter (atom 0)]
       (call-with-quick-retry 5
+                             (shutdown-for-ex-dummy
+                              "Ignoring shutdown exception during quick-retry success test.")
                              (fn []
                                (swap! counter inc)
                                (publish)))
@@ -378,14 +391,19 @@
   (testing "fatal errors are not retried"
     (let [ex (try (call-with-quick-retry
                    0
+                   (shutdown-for-ex-dummy
+                    "Ignoring shutdown exception during quick-retry fatal error test.")
                    #(throw (fatality (Exception. "fatal error"))))
                   (catch ExceptionInfo ex ex))]
       (is (= ::cmd/fatal-processing-error (:kind (ex-data ex))))))
 
   (testing "error surfaces when no more retries are left"
-    (let [e (try (call-with-quick-retry 0
-                                        (fn []
-                                          (throw (RuntimeException. "foo"))))
+    (let [e (try (call-with-quick-retry
+                  0
+                  (shutdown-for-ex-dummy
+                   "Ignoring shutdown exception during quick-retry exhaustion test.")
+                  (fn []
+                    (throw (RuntimeException. "foo"))))
                  (catch RuntimeException e e))]
       (is (instance? RuntimeException e)))))
 
@@ -1929,7 +1947,10 @@
               (cmd/create-metrics-for-command! command version)
               (utils/noisy-future
                (cmd/schedule-delayed-message cmdref (Exception.) :dummy-chan
-                                             :dummy-pool stop-status)))
+                                             :dummy-pool stop-status
+                                             (fn [ex]
+                                               (binding [*out* *err*]
+                                                 (println "Ignoring shutdown exception during command tests."))))))
             (.await enq-latch)
             (is #{:executing-delayed 3} @stop-status)
             (when-not infinite-delay?

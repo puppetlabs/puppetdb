@@ -48,7 +48,7 @@
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
-            [murphy :refer [with-final]]
+            [murphy :refer [try! with-final]]
             [overtone.at-at :refer [mk-pool every interspaced stop-and-reset-pool!]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -78,7 +78,12 @@
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
                                               format-period period?]]
-            [puppetlabs.puppetdb.utils :as utils :refer [noisy-future]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [call-unless-shutting-down
+                     exceptional-shutdown-requestor
+                     throw-if-shutdown-pending
+                     with-monitored-execution
+                     with-nonfatal-exceptions-suppressed]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
@@ -92,6 +97,33 @@
    (java.io Closeable)
    [java.util.concurrent.locks ReentrantLock]
    [org.joda.time Period]))
+
+(defn stop-reporters [registries]
+  (letfn [(stop [[registry & registries]]
+            (when registry
+              (try!
+               (stop registries)
+               (finally
+                 ;; Not certain whether :reporter can be nil
+                 (some-> (:reporter registry) jmx-reporter/stop)))))]
+    (stop (vals registries))))
+
+(defn init-puppetdb
+  [context]
+  (with-final [_ metrics/metrics-registries :error stop-reporters
+               cmd-event-ch (async/chan 1000) :error async/close!
+               cmd-event-mult (async/mult cmd-event-ch) :error async/untap-all]
+    (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
+      (jmx-reporter/start reporter))
+    (assoc context
+           :cmd-event-ch cmd-event-ch
+           :cmd-event-mult cmd-event-mult
+           :url-prefix (atom nil)
+           ;; This coordination is needed until we no longer
+           ;; support jdk < 10.
+           ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+           :stop-status (atom {})
+           :shutdown-request (atom nil))))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
@@ -356,12 +388,15 @@
         (recur dbs ex)))))
 
 (defn maybe-check-for-updates
-  [config read-db job-pool]
+  [config read-db job-pool shutdown-for-ex]
   (if (conf/foss? config)
     (let [checkin-interval-millis (* 1000 60 60 24)] ; once per day
-      (every checkin-interval-millis #(-> config
-                                          conf/update-server
-                                          (version/check-for-updates! read-db))
+      (every checkin-interval-millis
+             #(with-nonfatal-exceptions-suppressed
+                (with-monitored-execution shutdown-for-ex
+                  (-> config
+                      conf/update-server
+                      (version/check-for-updates! read-db))))
              job-pool
              :desc "A reoccuring job to checkin the PuppetDB version"))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
@@ -390,21 +425,25 @@
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
   [{:keys [stop-status] :as context}]
-  (log/info (trs "Shutdown request received; puppetdb exiting."))
-  (when-let [pool (:job-pool context)]
-    (stop-and-reset-pool! pool))
-  ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-  (swap! stop-status assoc :stopping true)
-  (if (utils/wait-for-ref-state stop-status (stop-gc-wait-ms) ready-to-stop?)
-    (log/info (trs "Periodic activities halted"))
-    (log/info (trs "Forcibly terminating periodic activities")))
-  (close-write-dbs (get-in context [:shared-globals :scf-write-dbs]))
-  (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
-    (.close ^Closeable ds))
-
-  (when-let [command-loader (:command-loader context)]
-    (future-cancel command-loader))
-  context)
+  ;; Must also handle a nil context.
+  (try!
+   (log/info (trs "Shutdown request received; puppetdb exiting."))
+   context
+   (finally (some-> (:job-pool context) stop-and-reset-pool!))
+   (finally
+     (when stop-status
+       ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+       (swap! stop-status assoc :stopping true)
+       (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
+         (log/info (trs "Periodic activities halted"))
+         (log/info (trs "Forcibly terminating periodic activities")))))
+   (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
+   (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
+                    .close))
+   (finally (some-> (:command-loader context) future-cancel))
+   (finally (some-> (:cmd-event-ch context) async/close!))
+   (finally (some-> (:cmd-event-mult context) async/untap-all))
+   (finally (stop-reporters metrics/metrics-registries))))
 
 ;; A map of required postgres settings and their expected value.
 ;; PuppetDB will refuse to start unless ALL of these values
@@ -442,10 +481,9 @@
   "Verifies that the available database version is acceptable.  Throws
   {:kind ::unsupported-database :current version :oldest version} if
   the current database is not supported."
-  [config]
+  [min-version-override]
   (let [{current :version :as meta} (sutils/db-metadata)
-        oldest (get-in config [:database :min-required-version]
-                       scf-store/oldest-allowed-db)
+        oldest (or min-version-override scf-store/oldest-allowed-db)
         supported scf-store/oldest-supported-db]
     (when (neg? (compare current oldest))
       (throw (ex-info "Database version too old"
@@ -459,31 +497,32 @@
                      (first supported))))
     meta))
 
-(defn require-valid-db
-  [config]
-  (verify-database-version config)
+(defn require-valid-db-server
+  [min-version-override]
+  (verify-database-version min-version-override)
   (verify-database-settings (request-database-settings)))
 
 (defn require-current-schema
-  []
+  [msg]
   (require-valid-schema)
   (when-let [pending (seq (pending-migrations))]
-    (let [m (str
-             (trs "Database is not fully migrated and migration is disallowed.")
-             (trs "  Missing migrations: {0}" (mapv first pending)))]
+    (let [m (str msg (trs "  Missing migrations: {0}" (mapv first pending)))]
       (throw (ex-info m {:kind ::migration-required
                          :pending pending})))))
 
+(defn require-valid-db [min-version-override]
+  (require-valid-db-server min-version-override)
+  (require-current-schema (trs "Database is not fully migrated.")))
+
 (defn prep-db
-  [datasource config]
-  (jdbc/with-db-connection datasource
-    (require-valid-db config)
-    (if (get-in config [:database :migrate])
-      (let [{{:keys [username migrator-username]} :database} config]
-        (if (= username migrator-username)
-          (initialize-schema)
-          (initialize-schema username (jdbc/current-database))))
-      (require-current-schema))))
+  [{:keys [username migrator-username migrate min-required-version]}]
+  (require-valid-db-server min-required-version)
+  (if migrate
+    (if (= username migrator-username)
+      (initialize-schema)
+      (initialize-schema username (jdbc/current-database)))
+    (require-current-schema
+     (trs "Database is not fully migrated and migration is disallowed."))))
 
 (defn- require-db-connection-as [datasource migrator]
   (jdbc/with-db-connection datasource
@@ -500,23 +539,26 @@
 (defn init-with-db
   "Performs all initialization operations requiring a database
   connection using a transient connection pool derived from the
-  `write-db-config`.  Blocks until the initialization is complete, and
+  db-config.  Blocks until the initialization is complete, and
   then returns an unspecified value.  Throws exceptions on errors.
   Throws {:kind ::unsupported-database :current version :oldest
   version} if the current database is not supported. Throws
   {:kind ::invalid-database-configuration :failed-validation failed-map}
   if the database contains a disallowed setting."
-  [write-db-config config]
+  [db-name db-config]
   ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
-  (let  [migrator (:migrator-username write-db-config)]
-    (with-open [db-pool (-> (assoc write-db-config
-                                   :pool-name "PDBMigrationsPool"
+  (log/info (trs "Ensuring {0} database is up to date" name))
+  (let  [migrator (:migrator-username db-config)]
+    (with-open [db-pool (-> (assoc db-config
+                                   :pool-name (if db-name
+                                                (str "PDBMigrationsPool: " db-name)
+                                                "PDBMigrationsPool")
                                    :connection-timeout 3000
                                    :rewrite-batched-inserts "true"
                                    :user migrator
-                                   :password (:migrator-password write-db-config))
+                                   :password (:migrator-password db-config))
                             (jdbc/make-connection-pool database-metrics-registry))]
       (let [runtime (Runtime/getRuntime)
             on-shutdown (doto (Thread.
@@ -533,7 +575,8 @@
             (let [result (try
                            (let [datasource {:datasource db-pool}]
                              (require-db-connection-as datasource migrator)
-                             (prep-db datasource config))
+                             (jdbc/with-db-connection datasource
+                               (prep-db db-config)))
                            true
                            (catch java.sql.SQLTransientConnectionException ex
                              ;; When coupled with the 3000ms timout, this
@@ -586,7 +629,7 @@
 ;; FIXME: with-logged-ex...
 
 (defn coordinate-gc-with-shutdown
-  [write-db clean-lock database request stop-status]
+  [write-db clean-lock config request stop-status]
   ;; This function assumes it will never be called concurrently with
   ;; itself, so that it's ok to just conj/disj below, instead of
   ;; tracking an atomic count or similar.
@@ -600,7 +643,7 @@
     (try
       (when (get-in (swap! stop-status update-if-not-stopping)
                     [:collecting-garbage thread])
-        (collect-garbage write-db clean-lock database request))
+        (collect-garbage write-db clean-lock config request))
       (catch Exception ex
         (log/error ex)
         (throw ex))
@@ -623,9 +666,9 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-version context db service request-shutdown]
+  [desired-version stop-status db service request-shutdown]
   {:pre [(integer? desired-version)]}
-  (when-not (:stopping @(:stop-status context))
+  (when-not (:stopping @stop-status)
     (let [schema-version (-> (jdbc/with-transacted-connection db
                                (jdbc/query "select max(version) from schema_migrations"))
                              first
@@ -653,7 +696,7 @@
           :else
           (throw (Exception. "Unknown state when checking schema versions")))))))
 
-(defn init-queue [config send-event! cmd-event-ch]
+(defn init-queue [config send-event! cmd-event-ch shutdown-for-ex]
   (let [stockdir (conf/stockpile-dir config)
         cmd-ch (async/chan
                 (queue/sorted-command-buffer
@@ -673,31 +716,28 @@
      ;; Caller is responsible for calling future-cancel on this in the end.
      :command-chan cmd-ch
      :command-loader (when load-messages
-                       (noisy-future
-                        (load-messages cmd-ch cmd/inc-cmd-depth)))}))
+                       (future
+                         (with-monitored-execution shutdown-for-ex
+                           (load-messages cmd-ch cmd/inc-cmd-depth))))}))
 
-(defn init-write-dbs [config]
+(defn init-write-dbs [databases]
   ;; FIXME: forbid subdb settings?
   (with-final [desired-schema (desired-schema-version)
-               db-config (:database config)
+               db-names (vec (keys databases))
                pools (atom []) :error #(close-write-dbs (deref %))]
-    (conf/reduce-section
-     (fn [_ name settings]
-       (swap! pools conj
-              (-> settings
-                  (assoc :pool-name (apply str "PDBWritePool"
-                                           (when name  [": " name]))
-                         :expected-schema desired-schema)
-                  (jdbc/pooled-datasource database-metrics-registry))))
-     nil
-     db-config)
-    {:write-db-names (conf/reduce-section
-                      (fn [result name settings]
-                        (conj result (or name "default")))
-                      [] db-config)
-     :write-db-cfgs (conf/reduce-section
-                     (fn [result name settings] (conj result settings))
-                     [] db-config)
+
+    (doseq [name db-names
+            :let [config (get databases name)
+                  pool-name (if (::conf/unnamed config)
+                              "PDBWritePool"
+                              (str "PDBWritePool: " name))]]
+      (swap! pools conj
+             (-> config
+                 (assoc :pool-name pool-name
+                        :expected-schema desired-schema)
+                 (jdbc/pooled-datasource database-metrics-registry))))
+    {:write-db-names db-names
+     :write-db-cfgs (mapv #(get databases %) db-names)
      :write-db-pools @pools}))
 
 (defn init-metrics [read-db write-dbs]
@@ -709,23 +749,29 @@
    read-db))
 
 (defn start-schema-checks
-  [context service job-pool request-shutdown db-configs db-pools]
+  [context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (interspaced schema-check-interval
-                 #(check-schema-version (desired-schema-version) context db
-                                        service request-shutdown)
+                 #(with-nonfatal-exceptions-suppressed
+                    (with-monitored-execution shutdown-for-ex
+                      (check-schema-version (desired-schema-version)
+                                            (:stop-status context)
+                                            db service request-shutdown)))
                  job-pool)))
 
 (defn start-garbage-collection
-  [{:keys [clean-lock stop-status] :as context} job-pool db-configs db-pools]
+  [{:keys [clean-lock stop-status] :as context}
+   job-pool db-configs db-pools shutdown-for-ex]
   (doseq [[cfg db] (map vector db-configs db-pools)
           :let [interval (to-millis (:gc-interval cfg))]
           :when (pos? interval)]
     (let [request (db-config->clean-request cfg)]
       (interspaced interval
-                   #(coordinate-gc-with-shutdown db clean-lock cfg request
-                                                 stop-status)
+                   #(with-nonfatal-exceptions-suppressed
+                      (with-monitored-execution shutdown-for-ex
+                        (coordinate-gc-with-shutdown db clean-lock cfg request
+                                                     stop-status)))
                    job-pool))))
 
 (defn start-puppetdb
@@ -742,6 +788,9 @@
 
   (let [{:keys [database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
+        ;; Assume that the exception has already been reported.
+        shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
+        write-dbs-config (conf/write-databases config)
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
         context (assoc context  ;; context may be augmented further below
@@ -756,14 +805,15 @@
                                         :shutdown-request (:shutdown-request context)}
                        :clean-lock (ReentrantLock.))]
 
-    (let [db-cfgs (conf/section-subsections database)]
-      (when (and (> (count db-cfgs) 1)
-                 (some :migrate (vals db-cfgs)))
-        (throw
-         (ex-info "Currently unable to migrate multiple databases (see config)"
-                  {:kind ::must-migrate-multiple-databases}))))
+    (when (> (count write-dbs-config) 1)
+      (let [msg (trs "multiple write database support is experimental")])
+      (binding [*out* *err*]
+        (println
+         (trs "WARNING: multiple write database support is experimental")))
+      (log/warn (trs "multiple write database support is experimental")))
 
-    (init-with-db database config)
+    (doseq [[name config] write-dbs-config]
+      (init-with-db name config))
 
     (if upgrade-and-exit?
       context
@@ -774,28 +824,37 @@
                                (jdbc/pooled-datasource database-metrics-registry))
                    :error .close
 
+                   _ (jdbc/with-db-connection read-db
+                       (require-valid-db
+                        (get-in config [:database :min-required-version])))
+
                    {:keys [command-chan command-loader dlo q]}
-                   (init-queue config maybe-send-cmd-event! cmd-event-ch)
+                   (init-queue config maybe-send-cmd-event! cmd-event-ch shutdown-for-ex)
 
                    _ command-loader :error #(some-> % future-cancel)
                    job-pool (mk-pool) :error stop-and-reset-pool!
 
-                   {:keys [write-db-cfgs write-db-names write-db-pools]} (init-write-dbs config)
+                   {:keys [write-db-cfgs write-db-names write-db-pools]}
+                   (init-write-dbs write-dbs-config)
+
                    _ write-db-pools :error close-write-dbs]
 
         (init-metrics read-db write-db-pools)
 
         (when-not (get-in config [:puppetdb :disable-update-checking])
-          (maybe-check-for-updates config read-db job-pool))
+          (maybe-check-for-updates config read-db job-pool shutdown-for-ex))
 
         (start-schema-checks context service job-pool request-shutdown
                              (cons read-database write-db-cfgs)
-                             (cons read-db write-db-pools))
-        (start-garbage-collection context job-pool write-db-cfgs write-db-pools)
+                             (cons read-db write-db-pools)
+                             shutdown-for-ex)
+        (start-garbage-collection context job-pool write-db-cfgs write-db-pools
+                                  shutdown-for-ex)
 
         (-> context
             (assoc :job-pool job-pool
-                   :command-loader command-loader)
+                   :command-loader command-loader
+                   ::started? true)
             (update :shared-globals merge
                     {:command-chan command-chan
                      :dlo dlo
@@ -833,12 +892,6 @@
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)]}
-  (when (seq (conf/section-subsections (:database config)))
-    (let [msg (trs "multiple write database support is experimental")])
-    (binding [*out* *err*]
-      (println
-       (trs "WARNING: multiple write database support is experimental")))
-    (log/warn (trs "multiple write database support is experimental")))
   (try
     (let [upgrade? (get-in config [:global :upgrade-and-exit?])
           context (start-puppetdb context config service
@@ -888,6 +941,15 @@
               (reset! {:opts opts}))
       (request-shutdown opts))))
 
+(defn throw-unless-initialized [context]
+  (when-not (seq context)
+    (throw (IllegalStateException. (trs "Service is uninitialized")))))
+
+(defn throw-unless-started [context]
+  (throw-unless-initialized context)
+  (when-not (::started? context)
+    (throw (IllegalStateException. (trs "Service has not started")))))
+
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
@@ -922,68 +984,83 @@
   PuppetDBServer
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]
-   [:ShutdownService request-shutdown]]
-  (init [this context]
+   [:ShutdownService get-shutdown-reason request-shutdown]]
 
-        (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
-          (jmx-reporter/start reporter))
-        (let [cmd-event-ch (async/chan 1000)
-              cmd-event-mult (async/mult cmd-event-ch)]
-          (assoc context
-                 :cmd-event-ch cmd-event-ch
-                 :cmd-event-mult cmd-event-mult
-                 :url-prefix (atom nil)
-                 ;; This coordination is needed until we no longer
-                 ;; support jdk < 10.
-                 ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-                 :stop-status (atom {})
-                 :shutdown-request (atom nil))))
+  (init
+   [this context]
+   (call-unless-shutting-down
+    "PuppetDB service init" (get-shutdown-reason) context
+    #(init-puppetdb context)))
+
   (start
    [this context]
-   ;; Some tests rely on keeping all the logic out of this function,
-   ;; to test startup errors, etc.
-   (start-puppetdb-or-shutdown context (get-config) this
-                               get-registered-endpoints
-                               (shutdown-requestor request-shutdown this)))
+   (call-unless-shutting-down
+    "PuppetDB service start" (get-shutdown-reason) context
+    #(do
+       ;; Some tests rely on keeping all the logic out of this function,
+       ;; to test startup errors, etc.
+       (start-puppetdb-or-shutdown context (get-config) this
+                                   get-registered-endpoints
+                                   (shutdown-requestor request-shutdown this)))))
 
-  (stop [this context]
-        (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
-          (jmx-reporter/stop reporter))
-        (let [{:keys [cmd-event-mult cmd-event-ch]} context]
-          (when cmd-event-mult
-            (async/untap-all cmd-event-mult))
-          (when cmd-event-ch
-            (async/close! cmd-event-ch)))
-        (stop-puppetdb context))
+  (stop [this context] (stop-puppetdb context))
 
-  (set-url-prefix [this url-prefix]
-                  (let [old-url-prefix (:url-prefix (service-context this))]
-                    (when-not (compare-and-set! old-url-prefix nil url-prefix)
-                      (throw
-                       (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
-                                        url-prefix @old-url-prefix)
-                                {:kind ::url-prefix-already-set
-                                 :url-prefix old-url-prefix
-                                 :new-url-prefix url-prefix})))))
-  (shared-globals [this]
-                  (:shared-globals (service-context this)))
-  (query [this version query-expr paging-options row-callback-fn]
-         (let [sc (service-context this)
-               query-options (-> (get sc :shared-globals)
-                                 (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
-                                 (assoc :url-prefix @(get sc :url-prefix)))]
-           (qeng/stream-query-result version
-                                     query-expr
-                                     paging-options query-options
-                                     row-callback-fn)))
+  (set-url-prefix
+   [this url-prefix]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (let [context (service-context this)
+         old-url-prefix (:url-prefix context)]
+     (throw-unless-initialized context)
+     (when-not (compare-and-set! old-url-prefix nil url-prefix)
+       (throw
+        (ex-info (format "Cannot set url-prefix to %s when it has already been set to %s"
+                         url-prefix @old-url-prefix)
+                 {:kind ::url-prefix-already-set
+                  :url-prefix old-url-prefix
+                  :new-url-prefix url-prefix})))))
+  (shared-globals
+   [this]
+   (let [context (service-context this)]
+     (throw-unless-started context)
+     (throw-if-shutdown-pending (get-shutdown-reason))
+     (:shared-globals context)))
 
-  (clean [this] (clean this #{}))
-  (clean [this what] (clean-puppetdb (service-context this) what))
+  (query
+   [this version query-expr paging-options row-callback-fn]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (let [sc (service-context this)
+         _ (throw-unless-started sc)
+         query-options (-> (get sc :shared-globals)
+                           (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
+                           (assoc :url-prefix @(get sc :url-prefix)))]
+     (qeng/stream-query-result version
+                               query-expr
+                               paging-options query-options
+                               row-callback-fn)))
 
-  (delete-node [this certname]
-               (delete-node-from-puppetdb (service-context this) certname))
+  (clean
+   [this]
+   (throw-unless-started (service-context this))
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (clean this #{}))
 
-  (cmd-event-mult [this] (-> this service-context :cmd-event-mult)))
+  (clean
+   [this what]
+   (throw-unless-started (service-context this))
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (clean-puppetdb (service-context this) what))
+
+  (delete-node
+   [this certname]
+   (throw-unless-started (service-context this))
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (delete-node-from-puppetdb (service-context this) certname))
+
+  (cmd-event-mult
+   [this]
+   (throw-unless-initialized (service-context this))
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (-> this service-context :cmd-event-mult)))
 
 (defn provide-services
   "Starts PuppetDB as a service via Trapperkeeper.  Augments TK's normal

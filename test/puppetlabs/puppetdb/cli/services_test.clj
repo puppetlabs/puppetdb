@@ -33,12 +33,16 @@
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
-                              :update-server "update-server!"}}]
+                             :update-server "update-server!"}}
+        shutdown-for-ex (fn [ex]
+                          (binding [*out* *err*]
+                            (println "Ignoring shutdown exception during services tests.")))]
 
     (testing "should check for updates if running as puppetdb"
       (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
         (let [job-pool-test (mk-pool)
-              recurring-job-checkin (maybe-check-for-updates config-map {} job-pool-test)]
+              recurring-job-checkin (maybe-check-for-updates config-map {} job-pool-test
+                                                             shutdown-for-ex)]
           (is (= 86400000 (:ms-period recurring-job-checkin))
               "should run once a day")
           (is (= true @(:scheduled? recurring-job-checkin))
@@ -51,7 +55,8 @@
 
     (testing "should skip the update check if running as pe-puppetdb"
       (with-log-output log-output
-        (maybe-check-for-updates (assoc-in config-map [:global :product-name] "pe-puppetdb") {} nil)
+        (maybe-check-for-updates (assoc-in config-map [:global :product-name] "pe-puppetdb")
+                                 {} nil shutdown-for-ex)
         (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output))))))))
 
 (defn- check-service-query

@@ -12,9 +12,14 @@
   "Exception handler that ensures any uncaught exception that occurs
   on this thread is logged"
   (reify Thread$UncaughtExceptionHandler
+    ;; More generic fallback in case the execution itself doesn't do anything.
     (uncaughtException [_ thread throwable]
-      (log/error throwable
-                 (trs "Error processing command on thread {0}" (.getName thread))))))
+      (let [msg (trs "Reporting unexpected error from thread {0} to stderr and log"
+                     (.getName thread))]
+        (binding [*out* *err*]
+          (println msg)
+          (println throwable))
+        (log/error throwable msg)))))
 
 (defn thread-factory
   "Creates a command thread factory, wrapping the

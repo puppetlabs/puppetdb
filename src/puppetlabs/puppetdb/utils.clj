@@ -437,14 +437,112 @@
      (catch Exception _#
        nil)))
 
+
+;; Depending on the resolution of TK-487, we may be able to remove all
+;; of this.  If so, we may also want to audit the stop methods and
+;; replace conditional cleanup with unconditional cleanup for anything
+;; established by init (so that we don't miss typos, etc.).
+
+(defn throw-if-shutdown-pending
+  [shutdown-reason]
+  (when shutdown-reason
+    (throw
+     (ex-info (trs "Refusing request; PuppetDB is shutting down")
+              {:kind :puppetlabs.puppetdb/shutting-down}))))
+
+(defn call-unless-shutting-down
+  [what shutting-down? shutdown-context f]
+  (if-not shutting-down?
+    (f)
+    (do
+      (log/info (trs "Skipping {0} during deferred shutdown" what))
+      shutdown-context)))
+
+
+(defmacro with-noisy-failure [& body]
+  `(try
+     ~@body
+     (catch Throwable ex#
+       (let [msg# (trs "Reporting unexpected error to stderr and log")]
+         (binding [*out* *err*]
+           (println msg#)
+           (println ex#))
+         (log/error ex# msg#))
+       (throw ex#))))
+
 (defmacro noisy-future [& body]
   `(future
-     (try
-       ~@body
-       (catch Throwable ex#
-         (binding [*out* *err*]
-           (println ex#))
-         (throw ex#)))))
+     (with-noisy-failure
+       ~@body)))
+
+(defmacro with-fatal-error-handler
+  "Calls (handler ex) instead of throwing if the body throws a fatal
+  error, which is any Throwable other than Exception, AssertionError,
+  or ThreadDeath."
+  [handle & body]
+  `(try
+    ~@body
+    (catch AssertionError ex#
+      ;; Exempted because pdb wasn't written with any solid
+      ;; expectation that :pre, :post, and assert exceptions should
+      ;; always be fatal.
+      (throw ex#))
+    (catch ThreadDeath ex#
+      ;; Exempted beccause it's part of the Thread lifecycle and also
+      ;; long deprecated (never stop() a thread).
+      (throw ex#))
+    (catch Error ex#
+      (~handle ex#))
+    (catch Throwable ex#
+      ;; ex should be an Exception or custom Throwable derivative
+      (throw ex#))))
+
+(defmacro with-shutdown-request-on-fatal-error
+  "Calls (initiate-shutdown ex) as a side effect if the body throws a
+  fatal error (see with-fatal-error-handler).  Any exceptions thrown
+  by initiate-shutdown will be suppressed by (.addSuppressed ex ...)."
+  [initiate-shutdown & body]
+  `(with-fatal-error-handler #(try
+                                (~initiate-shutdown %)
+                                (catch Throwable ex#
+                                  (.addSuppressed % ex#)
+                                  (throw %)))
+     ~@body))
+
+(defn exceptional-shutdown-requestor
+  "Returns a function that when called with one Throwable argument,
+  calls request-shutdown (as defined by Trapperkeeper) to request a
+  shutdown with the given messages and status."
+  [request-shutdown messages status]
+  (fn [ex]
+    (request-shutdown {:puppetlabs.trapperkeeper.core/exit
+                       {:status status
+                        :messages messages
+                        ;; Current tk might just just strip this...
+                        :puppetlabs.puppetdb/shutdown-cause ex}})))
+
+(defmacro with-nonfatal-exceptions-suppressed
+  "Suppresses all Throwables that are not Errors, and suppresses one
+  type of Error: AssertionError."
+  [& body]
+  ;; See with-fatal-error-handler for additional information.
+  `(try
+     ~@body
+     (catch AssertionError ex# nil)
+     (catch ThreadDeath ex# (throw ex#))
+     (catch Error ex# (throw ex#))
+     (catch Throwable ex#
+       ;; ex should be an Exception or custom Throwable derivative
+       nil)))
+
+(defmacro with-monitored-execution
+  "Executes body while logging any exceptions and printing them to
+  *err*.  Calls (initiate-shutdown ex) as a side effect for any fatal
+  errors (see with-shutdown-request-on-fatal-error)."
+  [initiate-shutdown & body]
+  `(with-noisy-failure
+     (with-shutdown-request-on-fatal-error ~initiate-shutdown
+       ~@body)))
 
 ;; For now, if you change these extensions, make sure they satisfy
 ;; validate-compression-extension-syntax in the queue.
@@ -471,13 +569,31 @@
   [m]
   (into {} (filter val m)))
 
-(defn wait-for-ref-state [ref ms pred]
-  (let [watch-key wait-for-ref-state
-        finished? (promise)
-        handle-state #(when (pred %) (deliver finished? true))]
-    (add-watch ref watch-key (fn [_ _ _ new] (handle-state new)))
-    (try
-      (handle-state @ref)
-      (deref finished? ms false)
-      (finally
-        (remove-watch ref watch-key)))))
+(defn await-ref-state
+  "Waits until (pred @ref) is true and returns val, unless that takes
+   longer than timeout-ms, in which case, returns timeout-val."
+  ([ref pred]
+   (await-ref-state ref pred nil nil))
+  ([ref pred timeout-ms timeout-val]
+   (let [watch-key (Object.)
+         finished? (promise)
+         handle-state #(when (pred %) (deliver finished? %))]
+     (add-watch ref watch-key (fn [_ _ _ new] (handle-state new)))
+     (try
+       (handle-state @ref)
+       (if timeout-ms
+         (deref finished? timeout-ms timeout-val)
+         (deref finished?))
+       (finally
+         (remove-watch ref watch-key))))))
+
+(defn update-matching-keys [m pred f & args]
+  "Returns the map resulting from an (update m k f & args) for every
+  key k in m satisfying (pred k)."
+  (reduce
+   (fn [result k]
+     (if (pred k)
+       (update result k (fn [prev & args] (apply f k prev args)))
+       result))
+   m
+   (keys m)))

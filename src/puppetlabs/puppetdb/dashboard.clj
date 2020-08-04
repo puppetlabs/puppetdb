@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.dashboard
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.puppetdb.utils :refer [call-unless-shutting-down]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [ring.util.response :as rr]
             [puppetlabs.comidi :as cmdi]
@@ -178,9 +179,14 @@
                           (rr/redirect "/pdb/dashboard/index.html"))))
 
 (defservice dashboard-redirect-service
-  [[:WebroutingService add-ring-handler get-route]]
+  [[:ShutdownService get-shutdown-reason]
+   [:WebroutingService add-ring-handler get-route]]
 
-  (start [this context]
-         (log/info (trs "Redirecting / to the PuppetDB dashboard"))
-         (add-ring-handler this (mid/make-pdb-handler dashboard-routes))
-         context))
+  (start
+   [this context]
+   (call-unless-shutting-down
+    "PuppetDB dashboard start" (get-shutdown-reason) context
+    #(do
+       (log/info (trs "Redirecting / to the PuppetDB dashboard"))
+       (add-ring-handler this (mid/make-pdb-handler dashboard-routes))
+       context))))

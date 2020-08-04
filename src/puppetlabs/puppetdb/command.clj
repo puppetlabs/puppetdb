@@ -51,6 +51,7 @@
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
   (:require [clojure.tools.logging :as log]
+            [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
@@ -65,7 +66,13 @@
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [call-unless-shutting-down
+                     exceptional-shutdown-requestor
+                     throw-if-shutdown-pending
+                     with-monitored-execution
+                     with-nonfatal-exceptions-suppressed
+                     with-shutdown-request-on-fatal-error]]
             [puppetlabs.puppetdb.command.constants
              :refer [command-names command-keys supported-command-versions]]
             [puppetlabs.trapperkeeper.services
@@ -494,10 +501,11 @@
    (when ex
      [:exception ex])))
 
-(defn call-with-quick-retry [num-retries f]
+(defn call-with-quick-retry [num-retries shutdown-for-ex f]
   (loop [n num-retries]
     (let [result (try
-                   (f)
+                   (with-shutdown-request-on-fatal-error shutdown-for-ex
+                     (f))
                    (catch Throwable e
                      (if (zero? n)
                        (throw e)
@@ -512,15 +520,19 @@
 (def quick-retry-count 4)
 
 (defn attempt-exec-command
-  [{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom]
+  [{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
+   shutdown-for-ex]
   (try
     (let [result (call-with-quick-retry quick-retry-count
+                                        shutdown-for-ex
                                         #(exec-command cmd db conn-status (now)))]
       (swap! stats-atom update :executed-commands inc)
       (callback {:command cmd :result result})
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd nil))
       result)
+    ;; Q: Did we intend for AssertionErrors to be omitted here?
+    ;; Q: Did we intend for other Throwables to be ommitted?
     (catch Exception ex
       (callback {:command cmd :exception ex})
       (async/>!! response-pub-chan
@@ -559,7 +571,7 @@
 
 (defn broadcast-cmd
   [{:keys [certname command version id] :as cmd}
-   write-dbs pool response-chan stats]
+   write-dbs pool response-chan stats shutdown-for-ex]
   (let [n-dbs (count write-dbs)
         statuses (repeatedly n-dbs #(atom nil))
         results (atom [])
@@ -574,7 +586,8 @@
         not-exception? #(not (instance? Throwable %))
         attempt-exec (fn [db status]
                        (try
-                         (attempt-exec-command cmd db status response-chan stats)
+                         (attempt-exec-command cmd db status response-chan stats
+                                               shutdown-for-ex)
                          nil
                          (catch Throwable ex
                            ex)))]
@@ -613,7 +626,7 @@
   relevant metrics. Any exceptions that arise are unhandled and
   expected to be caught by the caller."
   [cmd cmdref q write-dbs broadcast-pool response-chan stats
-   maybe-send-cmd-event!]
+   maybe-send-cmd-event! shutdown-for-ex]
   (let [{:keys [command version]} cmd
         retries (count (:attempts cmdref))]
     (create-metrics-for-command! command version)
@@ -627,8 +640,9 @@
       (cmd-metric command version :processing-time)]
      (try
        (if broadcast-pool
-         (broadcast-cmd cmd write-dbs broadcast-pool response-chan stats)
-         (attempt-exec-command cmd (first write-dbs) (atom {}) response-chan stats))
+         (broadcast-cmd cmd write-dbs broadcast-pool response-chan stats shutdown-for-ex)
+         (attempt-exec-command cmd (first write-dbs) (atom {}) response-chan
+                               stats shutdown-for-ex))
        (catch Throwable ex
          (throw ex)))
      (mark-both-metrics! command version :processed))
@@ -650,7 +664,7 @@
   "Will delay `cmd` in the `delay-pool` threadpool for
   `command-delay-ms`. It will then be enqueued in `command-chan`
   for another attempt at processing"
-  [cmd ex command-chan delay-pool stop-status]
+  [cmd ex command-chan delay-pool stop-status shutdown-for-ex]
   (let [narrowed-entry (-> cmd
                            (queue/cons-attempt ex)
                            (dissoc :payload))
@@ -662,13 +676,15 @@
     (schedule-msg-after
      command-delay-ms
      (fn []
-       (let [status (swap! stop-status inc-msgs-if-not-stopping)]
-         (when-not (:stopping status)
-           (try
-             (enqueue-delayed-message command-chan narrowed-entry)
-             (update-counter! :awaiting-retry command version dec!)
-             (finally
-               (swap! stop-status #(update % :executing-delayed dec)))))))
+       (with-nonfatal-exceptions-suppressed
+         (with-monitored-execution shutdown-for-ex
+           (let [status (swap! stop-status inc-msgs-if-not-stopping)]
+             (when-not (:stopping status)
+               (try
+                 (enqueue-delayed-message command-chan narrowed-entry)
+                 (update-counter! :awaiting-retry command version dec!)
+                 (finally
+                   (swap! stop-status #(update % :executing-delayed dec)))))))))
      delay-pool)))
 
 (def ^:private iso-formatter (fmt-time/formatters :date-time))
@@ -676,7 +692,7 @@
 (defn process-message
   [{:keys [certname command version received delete? id] :as cmdref}
    q command-chan dlo delay-pool broadcast-pool write-dbs response-chan stats
-   blacklist-config stop-status maybe-send-cmd-event!]
+   blacklist-config stop-status maybe-send-cmd-event! shutdown-for-ex]
   (when received
     (let [q-time (-> (fmt-time/parse iso-formatter received)
                      (time/interval (now))
@@ -693,7 +709,8 @@
                      ex
                      (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
                           id command retries certname ex (.getSuppressed ex)))
-                    (schedule-delayed-message cmdref ex command-chan delay-pool stop-status))
+                    (schedule-delayed-message cmdref ex command-chan delay-pool
+                                              stop-status shutdown-for-ex))
                   (do
                     (log/error
                      ex
@@ -717,7 +734,8 @@
           :else (-> cmd
                     (prep-command blacklist-config)
                     (process-cmd cmdref q write-dbs broadcast-pool response-chan
-                                 stats maybe-send-cmd-event!))))
+                                 stats maybe-send-cmd-event!
+                                 shutdown-for-ex))))
       (catch ExceptionInfo ex
         (let [data (ex-data ex)]
           (case (:kind data)
@@ -746,13 +764,15 @@
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool broadcast-pool write-dbs
-   response-chan stats blacklist-config stop-status maybe-send-cmd-event!]
+   response-chan stats blacklist-config stop-status maybe-send-cmd-event!
+   shutdown-for-ex]
   (fn [cmdref]
     (process-message cmdref
                      q command-chan dlo
                      delay-pool broadcast-pool write-dbs
                      response-chan stats
-                     blacklist-config stop-status maybe-send-cmd-event!)))
+                     blacklist-config stop-status maybe-send-cmd-event!
+                     shutdown-for-ex)))
 
 (def stop-commands-wait-ms (constantly 5000))
 (def threadpool-shutdown-ms 10000)
@@ -778,30 +798,63 @@
       (pool/unbounded-threadpool "cmd-broadcast-thread-%d"
                                  threadpool-shutdown-ms))))
 
+(defn init-command-service
+  [context config]
+  ;; If anything is moved from here to start, add a some-> to stop.
+  (with-final [response-chan (async/chan 1000) :error async/close!
+               response-mult (async/mult response-chan) :error async/untap-all
+               response-chan-for-pub (async/chan) :error async/close!
+               response-pub (async/pub response-chan-for-pub :id) :error async/unsub-all
+               delay-pool (mk-pool) :error stop-and-reset-pool!
+               concurrent-writes (get-in config [:command-processing :concurrent-writes])]
+    (async/tap response-mult response-chan-for-pub)
+    (assoc context
+           :delay-pool delay-pool ;; For general scheduling, not just delays
+           :write-semaphore (Semaphore. concurrent-writes)
+           :stats (atom {:received-commands 0
+                         :executed-commands 0})
+           :response-chan response-chan
+           :response-mult response-mult
+           :response-chan-for-pub response-chan-for-pub
+           :response-pub response-pub
+           ;; This coordination is needed until we no longer
+           ;; support jdk < 10.
+           ;; https://bugs.openjdk.java.net/browse/JDK-8176254
+           :stop-status (atom {:executing-delayed 0}))))
+
 (defn start-command-service
-  [context config {:keys [dlo] :as globals}]
-  (if (get-in config [:global :upgrade-and-exit?])
+  [context config {:keys [dlo] :as globals} request-shutdown]
+  (if (or (not globals) ;; Check that puppetdb service actually started (TK-487)
+          (get-in config [:global :upgrade-and-exit?]))
     context
-    (let [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
-          {:keys [response-chan response-pub]} context
-          cmd-concurrency (conf/mq-thread-count config)
-          command-pool (create-command-handler-threadpool cmd-concurrency)
-          broadcast-pool (create-broadcast-pool cmd-concurrency scf-write-dbs)
-          delay-pool (:delay-pool context)
-          handle-cmd (message-handler q
-                                      command-chan
-                                      dlo
-                                      delay-pool
-                                      broadcast-pool
-                                      scf-write-dbs
-                                      response-chan
-                                      (:stats context)
-                                      (-> config
-                                          :database
-                                          (select-keys [:facts-blacklist
-                                                        :facts-blacklist-type]))
-                                      (:stop-status context)
-                                      maybe-send-cmd-event!)]
+    (with-final [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
+                 {:keys [response-chan response-pub]} context
+                 ;; Assume that the exception has already been reported.
+                 shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
+                 cmd-concurrency (conf/mq-thread-count config)
+
+                 command-pool (create-command-handler-threadpool cmd-concurrency)
+                 :error pool/shutdown-gated
+
+                 broadcast-pool (create-broadcast-pool cmd-concurrency scf-write-dbs)
+                 :error pool/shutdown-unbounded
+
+                 delay-pool (:delay-pool context)
+                 handle-cmd (message-handler q
+                                             command-chan
+                                             dlo
+                                             delay-pool
+                                             broadcast-pool
+                                             scf-write-dbs
+                                             response-chan
+                                             (:stats context)
+                                             (-> config
+                                                 :database
+                                                 (select-keys [:facts-blacklist
+                                                               :facts-blacklist-type]))
+                                             (:stop-status context)
+                                             maybe-send-cmd-event!
+                                             shutdown-for-ex)]
       (when broadcast-pool
         (interspaced
          (* 60 1000)
@@ -809,93 +862,133 @@
                limit (normal-broadcast-pool-size (inc cmd-concurrency) scf-write-dbs)
                next (atom (now))
                suppress (time/minutes 10)]
-           #(let [found (pool/active-count broadcast-pool)]
-              (when (and (> found limit) (time/after? (now) next))
-                (log/warn
-                 (trs "Expected no more than {0} broadcast threads found {1} (please report)"
-                      normal found))
-                (reset! next (time/plus (now) (time/minutes 10))))))
+           #(with-nonfatal-exceptions-suppressed
+              (with-monitored-execution shutdown-for-ex
+                (let [found (pool/active-count broadcast-pool)]
+                  (when (and (> found limit) (time/after? (now) next))
+                    (log/warn
+                     (trs "Expected no more than {0} broadcast threads found {1} (please report)"
+                          normal found))
+                    (reset! next (time/plus (now) (time/minutes 10))))))))
          delay-pool))
       ;; The rejection below should only occur if new work is
       ;; submitted after the threadpool has started shutting down as
       ;; part of the service's shutdown.  Since the command will be
       ;; retried on the next restart, there's no reason to let this
       ;; bubble up and be reported.
-      (let [shovel #(try
-                      (pool/dochan command-pool handle-cmd command-chan)
-                      (catch ExceptionInfo ex
-                        (when-not (= :puppetlabs.puppetdb.threadpool/rejected
-                                     (:kind (ex-data ex)))
-                          (throw ex))))]
-        (doto (Thread. shovel)
-          (.setDaemon false)
-          (.start)))
-      (assoc context
-             :command-chan command-chan
-             :consumer-threadpool command-pool
-             :broadcast-threadpool broadcast-pool))))
+
+      ;; FIXME: check that nil command-chan is actually fatal if appropriate
+      (let [shovel #(with-monitored-execution shutdown-for-ex
+                      (try
+                        (pool/dochan command-pool handle-cmd command-chan)
+                        (catch ExceptionInfo ex
+                          (when-not (= :puppetlabs.puppetdb.threadpool/rejected
+                                       (:kind (ex-data ex)))
+                            (throw ex)))
+                        (catch InterruptedException ex
+                          nil)))
+            shovel-thread (doto (Thread. shovel)
+                            (.setName "PuppetDB command shovel")
+                            (.setDaemon false)
+                            (.start))]
+        (assoc context
+               :command-shovel shovel-thread
+               :command-chan command-chan
+               :consumer-threadpool command-pool
+               :broadcast-threadpool broadcast-pool
+               ::started? true)))))
 
 (defn stop-command-service
   [{:keys [stop-status consumer-threadpool broadcast-threadpool command-chan
-           delay-pool]
+           response-chan response-chan-for-pub response-mult response-pub
+           delay-pool command-shovel]
     :as context}]
-  (some-> command-chan async/close!)
-  ;; FIXME: (PDB-4742) exception suppression?
-  (some-> consumer-threadpool pool/shutdown-gated)
-  (some-> broadcast-threadpool pool/shutdown-unbounded)
-  (some-> delay-pool stop-and-reset-pool!)
-  ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-  (swap! stop-status #(assoc % :stopping true))
-  (if (utils/wait-for-ref-state stop-status (stop-commands-wait-ms)
-                                #(= % {:stopping true :executing-delayed 0}))
-    (log/info (trs "Halted delayed command processsing"))
-    (log/info (trs "Forcibly terminating delayed command processing")))
-  (async/unsub-all (:response-pub context))
-  (async/untap-all (:response-mult context))
-  (async/close! (:response-chan-for-pub context))
-  (async/close! (:response-chan context))
-  (dissoc context
-          :response-pub :response-chan :response-chan-for-pub :response-mult))
+  ;; Must also handle a nil context.
+  (try!
+   (dissoc context
+           :response-pub :response-chan :response-chan-for-pub
+           :response-mult)
+   ;; The reason some of these aren't conditional is because they're
+   ;; established by init, tk won't call stop if init didn't
+   ;; finish, and in those cases a nil would indicate a bug.
+   (finally (some-> command-chan async/close!))
+   (finally (when command-shovel (.interrupt command-shovel)))
+   (finally (some-> broadcast-threadpool pool/shutdown-unbounded))
+   (finally (some-> consumer-threadpool pool/shutdown-gated))
+   (finally (some-> delay-pool stop-and-reset-pool!))
+   (finally
+     (when stop-status
+       ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
+       (swap! stop-status #(assoc % :stopping true))
+       (if (utils/await-ref-state stop-status
+                                  #(= % {:stopping true :executing-delayed 0})
+                                  (stop-commands-wait-ms)
+                                  false)
+         (log/info (trs "Halted delayed command processsing"))
+         (log/info (trs "Forcibly terminating delayed command processing")))))
+   (finally
+     (when command-shovel
+       ;; Pools are shut down, shovel has been interrupted, etc.  It
+       ;; should be finished by now.
+       (.join command-shovel 1)
+       (when (.isAlive command-shovel)
+         (log/info
+          (trs "Command processing transfer thread did not stop when expected")))))
+   (finally (some-> response-pub async/unsub-all))
+   (finally (some-> response-mult async/untap-all))
+   (finally (some-> response-chan-for-pub async/close!))
+   (finally (some-> response-chan async/close!))))
+
+(defn throw-unless-ready [context]
+  (when-not (seq context)
+    (throw (IllegalStateException. (trs "Service is uninitialized"))))
+  (when-not (::started? context)
+    (throw (IllegalStateException. (trs "Service has not started")))))
 
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]]
-  (init [this context]
-    (let [response-chan (async/chan 1000)
-          response-mult (async/mult response-chan)
-          response-chan-for-pub (async/chan)
-          concurrent-writes (get-in (get-config) [:command-processing :concurrent-writes])]
-      (async/tap response-mult response-chan-for-pub)
-      (assoc context
-             :delay-pool (mk-pool) ;; For general scheduling, not just delays
-             :write-semaphore (Semaphore. concurrent-writes)
-             :stats (atom {:received-commands 0
-                           :executed-commands 0})
-             :response-chan response-chan
-             :response-mult response-mult
-             :response-chan-for-pub response-chan-for-pub
-             :response-pub (async/pub response-chan-for-pub :id)
-             ;; This coordination is needed until we no longer
-             ;; support jdk < 10.
-             ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-             :stop-status (atom {:executing-delayed 0}))))
+   [:PuppetDBServer shared-globals]
+   [:ShutdownService get-shutdown-reason request-shutdown]]
 
-  (start [this context] (start-command-service context (get-config) (shared-globals)))
+  (init
+   [this context]
+   (call-unless-shutting-down
+    "command service init" (get-shutdown-reason) context
+    #(init-command-service context (get-config))))
+
+  (start
+   [this context]
+   (call-unless-shutting-down
+    "command service start"  (get-shutdown-reason) context
+    #(start-command-service context (get-config) (shared-globals) request-shutdown)))
+
   (stop [this context] (stop-command-service context))
 
-  (stats [this]
-    @(:stats (service-context this)))
+  (stats
+   [this]
+   (let [context (service-context this)]
+     (throw-unless-ready context)
+     (throw-if-shutdown-pending (get-shutdown-reason))
+     @(:stats context)))
 
-  (enqueue-command [this command version certname producer-ts command-stream compression]
-                   (enqueue-command this command version certname producer-ts command-stream compression identity))
+  (enqueue-command
+   [this command version certname producer-ts command-stream compression]
+   (throw-unless-ready (service-context this))
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (enqueue-command this command version certname producer-ts command-stream
+                    compression identity))
 
-  (enqueue-command [this command version certname producer-ts command-stream compression command-callback]
-   (let [config (get-config)
+  (enqueue-command
+   [this command version certname producer-ts command-stream compression command-callback]
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (let [context (service-context this)
+         _ (throw-unless-ready context)
+         config (get-config)
          globals (shared-globals)
          q (:q globals)
          command-chan (:command-chan globals)
-         write-semaphore (:write-semaphore (service-context this))
+         write-semaphore (:write-semaphore context)
          command (if (string? command) command (command-names command))
          command-req (queue/create-command-req command version certname producer-ts compression command-callback command-stream)
          result (do-enqueue-command q command-chan write-semaphore command-req (:maybe-send-cmd-event! globals))]
@@ -904,5 +997,8 @@
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (response-mult [this]
-    (-> this service-context :response-mult)))
+  (response-mult
+   [this]
+   (throw-unless-ready (service-context this))
+   (throw-if-shutdown-pending (get-shutdown-reason))
+   (-> this service-context :response-mult)))
