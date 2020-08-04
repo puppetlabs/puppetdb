@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9ca1f423fe2487e0b64de8592b56d272eeb8c730\n"
+"X-Git-Ref: 381210a65be0e809513c684f7e843dadd8c12f73\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -192,11 +192,22 @@ msgid "PostgreSQL {0}.{1} is deprecated. Please upgrade to PostgreSQL {2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Database is not fully migrated and migration is disallowed."
+msgid "  Missing migrations: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "  Missing migrations: {0}"
+msgid "Database is not fully migrated."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Database is not fully migrated and migration is disallowed."
+msgstr ""
+
+#. A C-c (SIGINT) will close the pool via the shutdown hook, which
+#. will then cause the pool connection to throw a (generic)
+#. SQLException.
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Ensuring {0} database is up to date"
 msgstr ""
 
 #. Nothing to do but log it...
@@ -233,6 +244,14 @@ msgid "PuppetDB version {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "multiple write database support is experimental"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "WARNING: multiple write database support is experimental"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
 msgstr ""
 
@@ -249,12 +268,13 @@ msgstr ""
 msgid "''{0}'' (expected ''{1}'', got ''{2}'')"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/cli/services.clj
-msgid "multiple write database support is experimental"
+#: src/puppetlabs/puppetdb/cli/services.clj src/puppetlabs/puppetdb/command.clj
+msgid "Service is uninitialized"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/cli/services.clj
-msgid "WARNING: multiple write database support is experimental"
+#: src/puppetlabs/puppetdb/cli/services.clj src/puppetlabs/puppetdb/command.clj
+#: src/puppetlabs/puppetdb/pdb_routing.clj
+msgid "Service has not started"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj
@@ -345,37 +365,12 @@ msgstr ""
 msgid "Forcibly terminating delayed command processing"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/command.clj
+msgid "Command processing transfer thread did not stop when expected"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/command/dlo.clj
 msgid "DLO path {0} is not a directory"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "error: invalid section name {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "error: config subsection {0} must start with a double-quote"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "error: config subsection {0} must end with an unescaped double-quote"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "error: multiple [{0}] subsections in config file"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "error: multiple [{0}] sections in config file"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid ""
-"error: parsed config section [{0}] incorrectly ({1} != {2}); please report"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "Unexpected key in config section {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -385,23 +380,31 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
-msgid "No subname set in the [database] config."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
 msgid "Unable to parse facts-blacklist patterns:n"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
-msgid "Configured {0} database user {1} and username {2} don't match"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "Configured database user {0} and username {1} don't match"
+msgid "Configured {0} user {1} and username {2} don't match"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid "Preferring configured user {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "No subname set in the {0} config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "The {0} resource-events-ttl must not be longer than report-ttl"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "database configs have same subname, differing node-purge-ttls: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Cannot have duplicate write database subnames"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -1339,12 +1342,16 @@ msgstr ""
 msgid "Analyzing small tables"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/schema.clj
+msgid "schema coercion error: {0}"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/status.clj
 msgid "Unable to find version number for ''{0}/{1}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/threadpool.clj
-msgid "Error processing command on thread {0}"
+msgid "Reporting unexpected error from thread {0} to stderr and log"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/threadpool.clj
@@ -1366,4 +1373,16 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj
 msgid "cannot regex-quote strings containing ''\\E''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/utils.clj
+msgid "Refusing request; PuppetDB is shutting down"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/utils.clj
+msgid "Skipping {0} during deferred shutdown"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/utils.clj
+msgid "Reporting unexpected error to stderr and log"
 msgstr ""
