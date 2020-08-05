@@ -570,7 +570,7 @@
   (update-counter! :invalidated command version dec!))
 
 (defn broadcast-cmd
-  [{:keys [certname command version id] :as cmd}
+  [{:keys [certname command version id callback] :as cmd}
    write-dbs pool response-chan stats shutdown-for-ex]
   (let [n-dbs (count write-dbs)
         statuses (repeatedly n-dbs #(atom nil))
@@ -586,7 +586,8 @@
         not-exception? #(not (instance? Throwable %))
         attempt-exec (fn [db status]
                        (try
-                         (attempt-exec-command cmd db status response-chan stats
+                         ;; handle callback below to avoid races during cmd broadcast
+                         (attempt-exec-command (assoc cmd :callback identity) db status response-chan stats
                                                shutdown-for-ex)
                          nil
                          (catch Throwable ex
@@ -612,13 +613,16 @@
 
     (let [results @results]
       (if (some not-exception? results) ;; success
-        true
+        (do
+          (callback {:command cmd :result results})
+          true)
         (let [msg (trs "[{0}] [{1}] Unable to broadcast command for {2}"
                        id command certname)
               ex (ex-info msg {:kind ::retry})]
           (doseq [result results
                   :when (instance? Throwable result)]
             (.addSuppressed ex result))
+          (callback {:command cmd :exception ex})
           (throw ex))))))
 
 (defn process-cmd
