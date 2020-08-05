@@ -91,10 +91,12 @@
     :false false))
 
 (defn transform-integer
+  ;; 64-bit
+  ;; https://puppet.com/docs/puppet/5.3/lang_data_number.html#the-integer-data-type
   ([int]
-   (Integer. int))
+   (Long. int))
   ([neg int]
-   (- (Integer. int))))
+   (Long. (str neg int))))
 
 (defn transform-real
   [& args]

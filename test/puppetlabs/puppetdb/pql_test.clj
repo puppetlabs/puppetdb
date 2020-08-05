@@ -24,6 +24,9 @@
     ["from" "nodes"
      ["and" ["=" "a" 1] ["=" "b" 2]]]
 
+    (format "nodes { a = %d and b = %d }" Long/MAX_VALUE Long/MIN_VALUE)
+    ["from" "nodes"
+     ["and" ["=" "a" Long/MAX_VALUE] ["=" "b" Long/MIN_VALUE]]]
 
     "fact_contents {path = [\"foo\",\"bar\"]}"
     ["from" "fact_contents"
