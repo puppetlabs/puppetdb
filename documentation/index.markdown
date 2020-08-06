@@ -39,7 +39,7 @@ To start using PuppetDB today:
 Version note
 -----
 
-This manual covers PuppetDB 5, which adds several new features and
+This documentation covers PuppetDB 5, which adds several new features and
 contains some breaking changes since PuppetDB 4.
 
 [See the release notes][releasenotes] for information on all
