@@ -53,6 +53,7 @@
                                    (conf/reject-large-commands? defaulted-config)
                                    (conf/max-command-size defaulted-config))
            "/query" (server/build-app get-shared-globals)
+           ;; FIXME: /admin/cmd read-db?
            "/admin" (admin/build-app enqueue-command-fn
                                      query-fn
                                      db-cfg
