@@ -6,9 +6,6 @@ layout: default
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
 [config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
 
-> **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
-> not need to install PuppetDB, as it is already installed as part of PE.
-
 You can install and configure all of PuppetDB's components and prerequisites
 (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems,
 and the PuppetDB-termini for your Puppet master) using
