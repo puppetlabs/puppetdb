@@ -28,8 +28,11 @@ If you haven't done so already, you will need to do **one** of the following:
 
 * [Enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
   on your PuppetDB server and Puppet master server.
-* Grab the PuppetDB and PuppetDB-termini packages, and import them into your
-  site's local package repos.
+* If you don't use the Puppet Platform repository, make the PuppetDB and
+  PuppetDB-terminus packages available via your alternate installation strategy.
+  For the module install to succeed a command like `yum install puppetdb`, or the
+  equivalent one that uses your system's package manager, needs to be able to
+  succeed.
 
 Step 2: Assign classes to nodes
 -----
