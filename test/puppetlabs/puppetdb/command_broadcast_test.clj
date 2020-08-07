@@ -2,6 +2,7 @@
   (:require
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.integration.fixtures :as int]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
    [puppetlabs.puppetdb.utils :as utils]
    [puppetlabs.puppetdb.testutils.cli :refer [example-report
                                               example-facts
@@ -192,3 +193,17 @@
 
           (testing "dlo should contain two entries per failed command"
             (is (= expected-dlo-count (count dlo-files)))))))))
+
+(deftest multiple-db-migrations
+  (with-open [pg1 (int/setup-postgres {:migrated? false})
+              pg2 (int/setup-postgres {:migrated? false})
+              pdb (int/run-puppetdb pg1 {:database {"gc-interval" 0}
+                                         :database-pg1 (int/server-info pg1)
+                                         :database-pg2 (int/server-info pg2)})]
+    (post-blocking-ssl-cmd pdb :replace-facts)
+    (jdbc/with-db-connection (int/server-info pg1)
+      (is (< 0 (-> (jdbc/query-to-vec "select count(*) from schema_migrations")
+                   first :count))))
+    (jdbc/with-db-connection (int/server-info pg2)
+      (is (< 0 (-> (jdbc/query-to-vec "select count(*) from schema_migrations")
+                   first :count))))))
