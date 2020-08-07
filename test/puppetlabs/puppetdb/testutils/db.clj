@@ -172,30 +172,36 @@
 
 (def ^:private test-db-counter (atom 0))
 
-(defn create-temp-db []
-  "Creates a temporary test database.  Prefer with-test-db, etc."
-  (ensure-pdb-db-templates-exist)
-  (let [n (swap! test-db-counter inc)
-        db (if-not pdb-test-id
-             (str "pdb_test_" n)
-             (str "pdb_test_" pdb-test-id "_" n))
-        db-q (jdbc/double-quote db)
-        config (routine-db-config db)
-        user (get-in test-env [:user :name])
-        user-q (jdbc/double-quote user)
-        migrator (get-in test-env [:migrator :name])
-        migrator-q (jdbc/double-quote migrator)]
-    (jdbc/with-db-connection (db-admin-config)
-      (jdbc/do-commands-outside-txn
-       (format "drop database if exists %s" db-q)
-       (format "create database %s template %s" db-q template-name)
-       ;; Needed by migration coordination
-       (format "revoke connect on database %s from public" db-q)
-       (format "grant connect on database %s to %s with grant option" db-q migrator-q)
-       (format "set role %s" migrator-q)
-       (format "grant connect on database %s to %s" db-q user-q)))
-    (require-suitable-pg-arrangement config)
-    config))
+(defn create-temp-db
+  "Creates a temporary test database.  Prefer with-test-db, etc.  If
+  migrated? is true, the database will already be fully migrated."
+  ([] (create-temp-db {:migrated? true}))
+  ([{:keys [migrated?] :as opts}]
+   (when migrated?
+     (ensure-pdb-db-templates-exist))
+   (let [n (swap! test-db-counter inc)
+         db (if-not pdb-test-id
+              (str "pdb_test_" n)
+              (str "pdb_test_" pdb-test-id "_" n))
+         db-q (jdbc/double-quote db)
+         config (routine-db-config db)
+         user (get-in test-env [:user :name])
+         user-q (jdbc/double-quote user)
+         migrator (get-in test-env [:migrator :name])
+         migrator-q (jdbc/double-quote migrator)]
+     (jdbc/with-db-connection (db-admin-config)
+       (jdbc/do-commands-outside-txn
+        (format "drop database if exists %s" db-q)
+        (if migrated?
+          (format "create database %s template %s" db-q template-name)
+          (format "create database %s" db-q))
+        ;; Needed by migration coordination
+        (format "revoke connect on database %s from public" db-q)
+        (format "grant connect on database %s to %s with grant option" db-q migrator-q)
+        (format "set role %s" migrator-q)
+        (format "grant connect on database %s to %s" db-q user-q)))
+     (require-suitable-pg-arrangement config)
+     config)))
 
 (def ^:dynamic *db* nil)
 

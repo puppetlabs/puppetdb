@@ -34,9 +34,11 @@
   java.lang.AutoCloseable
   (close [_] (dbutils/drop-test-db db-config)))
 
-(defn setup-postgres []
-  (let [db-config (dbutils/create-temp-db)]
-    (PostgresTestServer. db-config)))
+(defn setup-postgres
+  ([] (setup-postgres {:migrated? true}))
+  ([create-opts]
+   (let [db-config (dbutils/create-temp-db create-opts)]
+     (PostgresTestServer. db-config))))
 
 ;;; PuppetDB fixture
 
