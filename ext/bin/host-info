@@ -9,6 +9,8 @@ case "$OSTYPE" in
     darwin*|netbsd)
         hostname
         vm_stat -c 1
+        sysctl -n machdep.cpu.brand_string
+        system_profiler SPHardwareDataType
         ;;
     *)
         hostname --fqdn

@@ -61,7 +61,11 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 # can just set the option to false to test whether it blocks them.
 
 # Append "migrate = false" just after the [database] section header
-sed '/\[database\]/a migrate = false' "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
+# macos sed appears to require the embedded newline
+sed '/\[database\]/a\
+  migrate = false
+' \
+    "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
 
 for cmd in services upgrade; do
     rc=0

@@ -5,7 +5,11 @@ set -ueo pipefail
 failures=0
 
 failure() {
-    echo "===== $(tput setaf 1)FAILED:$(tput sgr 0) $@" 1>&2
+    if test "$TERM"; then
+        echo "===== $(tput setaf 1)FAILED:$(tput sgr 0) $@" 1>&2
+    else
+        echo "===== FAILED: $@" 1>&2
+    fi
     ((failures++)) || true
 }
 
@@ -37,7 +41,10 @@ run ext/test/schema-mismatch-causes-pdb-shutdown
 if test "$failures" -eq 0; then
     echo "failures: $failures" 1>&2
     exit 0
-else
+elif test "$TERM"; then
     echo "$(tput setaf 1)failures: $failures$(tput sgr 0)" 1>&2
+    exit 2
+else
+    echo "failures: $failures" 1>&2
     exit 2
 fi

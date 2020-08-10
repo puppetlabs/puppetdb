@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+usage() { echo 'Usage: $(basename "$0") HOST_TYPE PDB_TEST_SPEC'; }
+misuse() { usage 1>&2; exit 2; }
+
+test $# -eq 2 || misuse
+host_type="$1"
+spec="$2"
+
+if [ "$host_type" = travis ] && [[ "$OSTYPE" != darwin* ]]; then
+    # workaround for mongodb, CouchDB and git-lfs having invalid keys
+    # see: https://github.com/travis-ci/travis-ci/issues/9037 (which
+    # is still broken)
+    sudo -i rm -f /etc/apt/sources.list.d/mongodb*
+    sudo -i rm -f /etc/apt/sources.list.d/couchdb*
+    sudo -i apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
+
+    # see https://github.com/pyenv/pyenv/issues/789 When using the
+    # system python pyenv prepends /usr/bin to the path which breaks
+    # anything that tries to override system defaults, like rvm/rbenv
+    pyenv global 3.7.1
+
+    # Have to purge some of the existing pg bits so the 11 install
+    # won't fail with errors like this:
+    #   Refused to start PostgreSQL 11, because PostgreSQL 9.2 is
+    #   currently running! You should first stop 9.2 instance...
+    # Not sure we have to purge *all* of these, but it works.
+    sudo -i apt-get purge \
+         postgresql{,-client}-{9.2,9.3,9.4,9.5,9.6} \
+         postgresql-client-common postgresql-client postgresql-common
+fi
+
+if command -v apt-get > /dev/null; then
+    cmd=$(printf 'cd %q && ext/bin/prep-debianish-root --for %q --install ci/local' \
+                 "$(pwd)" "$spec")
+    sudo -i /bin/sh -c "$cmd"
+    ext/bin/prep-debianish --for "$spec" --install ci/local
+elif [[ "$OSTYPE" == darwin* ]]; then
+    ext/bin/prep-macos --for "$spec" --install ci/local
+else
+    echo "Don't know how to run tests on $OSTYPE yet" 1>&2
+    exit 2
+fi
+
+if test -e ci/local/etc/pdb-test-env; then
+    cat ci/local/etc/pdb-test-env 1>&2
+    source ci/local/etc/pdb-test-env
+fi
+
+ci/bin/run "$spec"
