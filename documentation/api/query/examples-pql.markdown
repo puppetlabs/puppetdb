@@ -186,7 +186,7 @@ CentOS boxes with the `apache` Puppet class.
 ``` ruby
 inventory[certname] { facts.operatingsystem = "CentOS" and
                       resources { type = "Class" and
-                                  title = "apache" } }
+                                  title = "Apache" } }
 ```
 
 *Output:*
