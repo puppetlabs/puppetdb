@@ -2,6 +2,8 @@
 
 set -uexo pipefail
 
+script_name=$(basename "$0")
+
 target="$1"
 link_name="$2"
 
