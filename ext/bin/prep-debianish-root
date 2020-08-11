@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+set -uxeo pipefail
+
+usage() {
+    echo 'Usage: $(basename "$0") --for PDB_TEST_SPEC --install DIR'
+}
+
+misuse() { usage 1>&2; exit 2; }
+
+# this handles the issue where apt-get update fails but has an exit
+# code of zero because there's a mirror sync going on. This failure is
+# retryable, but you have to look for it in the output from the
+# command. This is a common failure on AWS and GCP because they inject
+# their own mirrors into /etc/apt/sources.list at VM start time, and
+# there's a delay in getting all their mirrors in sync.
+apt-get-update() {
+    local tmpdir
+    tmpdir=$(mktemp)
+    set +e
+    for i in $(seq 1 20); do
+        apt-get update 2>&1 | tee "$tmpdir"
+        grep -x "[WE]:.*" "$tmpdir" || break
+        sleep 1
+    done
+    set -e
+    echo "Executed apt-get update $i times"
+}
+
+spec=''
+install=''
+while test $# -gt 0; do
+    case "$1" in
+        --install)
+            test $# -gt 1 || misuse
+            install="$2"
+            shift 2
+            ;;
+        --for)
+            test $# -gt 1 || misuse
+            spec="$2"
+            shift 2
+            ;;
+        *) misuse ;;
+    esac
+done
+
+test "$spec" || misuse
+test "$install" || misuse
+flavor=$(ext/bin/flavor-from-spec "$spec")
+
+apt-get-update
+
+case "$flavor" in
+    core|ext|core+ext|int)
+        pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
+        if test "$pgver" = 9.6; then
+            apt-get -y install postgresql-9.6 postgresql-contrib-9.6
+        else
+            apt-get -y install postgresql-"$pgver"
+        fi
+        ;;
+esac

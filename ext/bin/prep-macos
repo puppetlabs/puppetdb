@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+set -uxeo pipefail
+
+usage() {
+    echo 'Usage: $(basename "$0") --for SPEC --install DIR'
+}
+
+misuse() { usage 1>&2; exit 2; }
+
+spec=''
+install=''
+while test $# -gt 0; do
+    case "$1" in
+        --install)
+            test $# -gt 1 || misuse
+            install="$2"
+            shift 2
+            ;;
+        --for)
+            test $# -gt 1 || misuse
+            spec="$2"
+            shift 2
+            ;;
+        *) misuse ;;
+    esac
+done
+
+test "$spec" || misuse
+test "$install" || misuse
+
+# brew produced some HOMEBREW_LOGS related error on the first
+# run but said that "everything should be fine" if you try
+# again, so we do that...
+brew install bash || true
+brew install bash
+brew install coreutils
+brew install ruby
+
+flavor=$(ext/bin/flavor-from-spec "$spec")
+case "$flavor" in
+    core|ext|core+ext|int)  # Not needed for rspec right now
+        jdk="$(ext/bin/jdk-from-spec "$spec")"
+        jdkver="${jdk##*jdk}"
+        pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
+        brew install postgresql@"$pgver"
+        mkdir -p "$install"
+        abs_install=$(cd "$install" && pwd)
+        export PATH="$abs_install/bin:$PATH"
+        ext/bin/require-jdk --expire "$jdk" "$abs_install"
+        mkdir -p "$abs_install/etc"
+        printf '
+export JAVA_HOME=%q/jdk
+export PATH="$JAVA_HOME/bin:$PATH"
+export PATH=%q/bin:"$PATH"
+hash -r
+' \
+               "$abs_install" "$abs_install" \
+               > "$abs_install"/etc/pdb-test-env
+        source "$abs_install"/etc/pdb-test-env
+        ext/bin/require-leiningen default "$abs_install"
+        ext/bin/require-pgbox default "$abs_install"
+        ;;
+esac

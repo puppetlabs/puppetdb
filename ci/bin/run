@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+set -uexo pipefail
+
+usage() { echo 'Usage: $(basename "$0") PDB_TEST_SPEC'; }
+misuse() { usage 1>&2; exit 2; }
+
+test $# -eq 1 || misuse
+spec="$1"
+flavor=$(ext/bin/flavor-from-spec "$spec")
+
+case "$flavor" in
+    core|ext|core+ext)
+        pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
+        ext/bin/test-config --set pgver "$pgver"
+        ext/bin/test-config --set pgport 34335
+        ext/bin/check-spec-env "$spec"
+        case "$flavor" in
+            core|core+ext)
+                ext/bin/boxed-core-tests \
+                    -- lein with-profiles "${LEIN_PROFILES:-dev}" test
+                ;;
+        esac
+        case "$flavor" in
+            core+ext) # core will have already run host-info
+                ext/bin/run-external-tests
+                ;;
+            ext)
+                ext/bin/host-info
+                ext/bin/run-external-tests
+                ;;
+        esac
+        ;;
+    rspec)
+        puppet_ref="$(ext/bin/prefixed-ref-from-spec "$spec" pup-)"
+        ext/bin/check-spec-env "$spec"
+        ext/bin/run-rspec-tests "$puppet_ref"
+        ;;
+    int)
+        pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
+        puppet="$(ext/bin/prefixed-ref-from-spec "$spec" pup-)"
+        server="$(ext/bin/prefixed-ref-from-spec "$spec" srv-)"
+        ext/bin/test-config --set pgver "$pgver"
+        ext/bin/test-config --set pgport 34335
+        ext/bin/test-config --set puppet-ref "$puppet"
+        ext/bin/test-config --set puppetserver-ref "$server"
+        PDB_TEST_RICH_DATA="$(ext/bin/spec-includes "$spec" rich)"
+        export PDB_TEST_RICH_DATA
+        ext/bin/check-spec-env "$spec"
+        ext/bin/boxed-integration-tests \
+            -- lein with-profiles "${LEIN_PROFILES:-dev}" test :integration
+        ;;
+    *)
+        echo "Unrecognized spec: $flavor" 1>&2;
+        exit 2
+        ;;
+esac

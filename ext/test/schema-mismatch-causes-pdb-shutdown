@@ -54,8 +54,15 @@ tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-sed '/\[database\]/a schema-check-interval = 500' "$PDBBOX/pdb.ini" \
-    > "$tmpdir/pdb.ini"
+# macos sed appears to require the embedded newlines
+sed '/\[database\]/a\
+  schema-check-interval = 500
+' \
+    "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
+
+set -x
+cat "$tmpdir/pdb.ini"
+set +x
 
 # use upgrade command to init pdb and apply all migrations
 ./pdb upgrade -c "$tmpdir/pdb.ini"

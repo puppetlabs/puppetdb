@@ -4,7 +4,7 @@ set -uexo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
-default=2.9.1
+default=2.9.4
 
 cmdname="$(basename "$0")"
 
@@ -14,6 +14,7 @@ misuse() { usage 1>&2; exit 2; }
 
 declare -A known_hash
 known_hash[2.9.1]=32acacc8354627724d27231bed8fa190d7df0356972e2fd44ca144c084ad4fc7
+known_hash[2.9.4]=1e21276bad56f4f8f8afd605ddf0c4d047a5244724a8dc6e13c6c55cc53b3fee
 
 test "$#" -eq 2 || misuse
 

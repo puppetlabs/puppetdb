@@ -1,0 +1,77 @@
+
+name: macos tests
+on: [push, pull_request]
+
+jobs:
+  core:
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
+        # v2.3.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache@d29c1df198dd38ac88e0ae23a2881b99c2d20e68
+        # v2.1.0
+        with:
+          key: pdb-clj-job-cache
+          path: |
+            /var/cache/apt/archives
+            ci/local/jdk
+            vendor/bundle/ruby
+            ~/.m2
+            ~/Library/Caches/Homebrew
+      - run: ci/bin/prep-and-run-in github core/openjdk11/pg-11/rich
+  external:
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
+        # v2.3.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache@d29c1df198dd38ac88e0ae23a2881b99c2d20e68
+        # v2.1.0
+        with:
+          key: pdb-clj-job-cache
+          path: |
+            /var/cache/apt/archives
+            ci/local/jdk
+            vendor/bundle/ruby
+            ~/.m2
+            ~/Library/Caches/Homebrew
+      - run: ci/bin/prep-and-run-in github ext/openjdk11/pg-11/rich
+  integration:
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
+        # v2.3.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache@d29c1df198dd38ac88e0ae23a2881b99c2d20e68
+        # v2.1.0
+        with:
+          key: pdb-clj-job-cache
+          path: |
+            /var/cache/apt/archives
+            ci/local/jdk
+            vendor/bundle/ruby
+            ~/.m2
+            ~/Library/Caches/Homebrew
+      - run: ci/bin/prep-and-run-in github int/openjdk11/pup-master/srv-master/pg-11
+  rspec:
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
+        # v2.3.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache@d29c1df198dd38ac88e0ae23a2881b99c2d20e68
+        # v2.1.0
+        with:
+          key: pdb-ruby-job-cache
+          path: |
+            /var/cache/apt/archives
+            ci/local/jdk
+            vendor/bundle/ruby
+            ~/.m2
+            ~/Library/Caches/Homebrew
+      - run: ci/bin/prep-and-run-in github rspec/pup-6.4.x
