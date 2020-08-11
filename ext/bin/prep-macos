@@ -29,12 +29,12 @@ done
 test "$spec" || misuse
 test "$install" || misuse
 
-rm -rf "$(brew --cache)"
 # brew produced some HOMEBREW_LOGS related error on the first
 # run but said that "everything should be fine" if you try
 # again, so we do that...
 brew install bash || true
 brew install bash
+brew install coreutils
 brew install ruby
 
 flavor=$(ext/bin/flavor-from-spec "$spec")
