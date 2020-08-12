@@ -432,11 +432,6 @@
         (.throwException result)))
     (String. (.array utf8-bytebuff) 0 (.position utf8-bytebuff) utf8)))
 
-(defmacro with-timeout [timeout-ms default & body]
-  `(let [f# (future (do ~@body))
-         result# (deref f# ~timeout-ms ~default)]
-     result#))
-
 (def byte-array-class (Class/forName "[B"))
 
 (defmacro nil-on-failure
