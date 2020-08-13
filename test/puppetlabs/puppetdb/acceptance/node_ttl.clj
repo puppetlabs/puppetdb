@@ -62,6 +62,7 @@
       (svc-utils/call-with-single-quiet-pdb-instance
        (-> (svc-utils/create-temp-config)
            (assoc :database *db*)
+           (assoc-in [:database :gc-interval] 0)
            (assoc-in [:database :node-ttl] lifetime-cfg)
            (assoc-in [:database :node-purge-ttl] lifetime-cfg))
        (fn []
