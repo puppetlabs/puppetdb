@@ -161,6 +161,7 @@ COPY docker/puppetdb/logback.xml \
      docker/puppetdb/request-logging.xml \
      /etc/puppetlabs/puppetdb/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
+COPY docker/puppetdb/puppetdb /etc/default/puppetdb
 
 ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
     PUPPETDB_VERSION="$version"
