@@ -512,11 +512,12 @@
   fatal error (see with-fatal-error-handler).  Any exceptions thrown
   by initiate-shutdown will be suppressed by (.addSuppressed ex ...)."
   [initiate-shutdown & body]
-  `(with-fatal-error-handler #(try
-                                (~initiate-shutdown %)
-                                (catch Throwable ex#
-                                  (.addSuppressed % ex#)
-                                  (throw %)))
+  `(with-fatal-error-handler (fn [ex#]
+                               (try
+                                 (~initiate-shutdown ex#)
+                                 (catch Throwable ex2#
+                                   (.addSuppressed ex# ex2#)))
+                               (throw ex#))
      ~@body))
 
 (defn exceptional-shutdown-requestor
@@ -525,6 +526,7 @@
   shutdown with the given messages and status."
   [request-shutdown messages status]
   (fn [ex]
+    (log/error (trs "Requesting shutdown: {0}" ex))
     (request-shutdown {:puppetlabs.trapperkeeper.core/exit
                        {:status status
                         :messages messages

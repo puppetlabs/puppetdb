@@ -33,6 +33,7 @@ run lein uberjar
 unset PDBBOX
 export PDB_JAR="$(pwd)/target/puppetdb.jar"
 
+run ext/test/oom-causes-shutdown
 run ext/test/top-level-cli
 run ext/test/upgrade-and-exit
 run ext/test/database-migration-config
