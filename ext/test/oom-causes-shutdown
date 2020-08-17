@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+desc=oom-causes-shutdown
+
+usage() { echo 'Usage: [PDB_JAR=JAR] $(basename "$0") --pgbin PGBIN --pgport PGPORT'; }
+misuse() { usage 1>&2; exit 2; }
+
+argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
+declare -A opt
+
+while test $# -gt 0; do
+    case "$1" in
+        --pgbin|--pgport)
+            test $# -gt 1 || misuse
+            opt["${1:2}"]="$2"
+            shift 2
+            ;;
+        *)
+            misuse
+    esac
+done
+
+if test -z "${opt[pgbin]:-}"; then
+    opt[pgbin]="$(ext/bin/test-config --get pgbin)"
+    if test  -z "${opt[pgbin]:-}"; then
+        echo 'Please specify --pgbin or set pgbin with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+if test -z "${opt[pgport]:-}"; then
+    opt[pgport]="$(ext/bin/test-config --get pgport)"
+     if test  -z "${opt[pgport]:-}"; then
+        echo 'Please specify --pgport or set pgport with ext/bin/test-config' 1>&2
+        exit 2
+    fi
+fi
+
+set -x
+
+if test -z "${PDBBOX:-}"; then
+    # No PDBBOX, set one up and run ourselves again
+    tmpdir="$(mktemp -d "test-${desc}-XXXXXX")"
+    tmpdir="$(cd "$tmpdir" && pwd)"
+    trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+    # Don't exec (or we'll never run the trap)
+    ext/bin/with-pdbbox --box "$tmpdir/box" \
+                        --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
+                        -- "${argv[@]}"
+    exit 0
+fi
+
+tmpdir="$(mktemp -d "test-${desc}-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
+
+set -x
+
+rc=0
+# Show err and out, but save them separately
+PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP=4096 \
+  ./pdb services -c "$PDBBOX/pdb.ini" \
+      > >(tee -a "$tmpdir/pdb-out") \
+      2> >(tee -a "$tmpdir/pdb-err") \
+    || rc=$?
+test "$rc" -eq 2
+
+grep -F PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP "$tmpdir/pdb-out"
+grep -F OutOfMemoryError "$tmpdir/pdb-out"

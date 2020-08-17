@@ -748,16 +748,30 @@
    (get-in metrics/metrics-registries [:population :registry])
    read-db))
 
+(def allocate-at-startup-at-least-mb
+  (when-let [mb (System/getenv "PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP")]
+    (Long/parseLong mb)))
+
 (defn start-schema-checks
   [context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (interspaced schema-check-interval
-                 #(with-nonfatal-exceptions-suppressed
-                    (with-monitored-execution shutdown-for-ex
-                      (check-schema-version (desired-schema-version)
-                                            (:stop-status context)
-                                            db service request-shutdown)))
+                 (fn []
+                   (with-nonfatal-exceptions-suppressed
+                     (with-monitored-execution shutdown-for-ex
+                       ;; Just for testing out of memory handling.
+                       ;; See ./ext/test.  Intentionally done in the
+                       ;; at-at task to also see that it works from a
+                       ;; "background" thread.
+                       (when allocate-at-startup-at-least-mb
+                         (log/warn (trs "Allocating as requested: PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP={0}"
+                                        (str allocate-at-startup-at-least-mb)))
+                         (vec (repeatedly allocate-at-startup-at-least-mb
+                                          #(long-array (* 1024 128))))) ;; ~1mb
+                       (check-schema-version (desired-schema-version)
+                                             (:stop-status context)
+                                             db service request-shutdown))))
                  job-pool)))
 
 (defn start-garbage-collection
