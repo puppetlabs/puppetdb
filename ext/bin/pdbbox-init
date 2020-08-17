@@ -79,18 +79,27 @@ migrator_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 
 # This code relies on echo being a function in bash, not a subprocess
 # and "here documents" to prevent passwords from being visible in
-# "ps", etc.
+# "ps", etc.  We also assume that mktemp perms are always go-wrx,
+# across all the relevant platforms.
 
-(cd "$pdbbox"
- install -m 0600 /dev/null test-pass
- echo -n "$passwd" > test-pass
- install -m 0600 /dev/null test-pass-migrator
- echo -n "$migrator_passwd" > test-pass-migrator
- install -m 0600 /dev/null test-pass-admin
- echo -n "$admin_passwd" > test-pass-admin)
+tmp_pass="$(mktemp "$tmp_dir/tmp-test-pass-XXXXXX")"
+chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
+echo -n "$passwd" > "$tmp_pass"
+mv "$tmp_pass" "$pdbbox/test-pass"
 
-(cd "$PGBOX"
- cat > pgpass <<-EOF
+tmp_pass="$(mktemp "$tmp_dir/tmp-test-pass-migrator-XXXXXX")"
+chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
+echo -n "$migrator_passwd" > "$tmp_pass"
+mv "$tmp_pass" "$pdbbox/test-pass-migrator"
+
+tmp_pass="$(mktemp "$tmp_dir/tmp-test-pass-admin-XXXXXX")"
+chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
+echo -n "$admin_passwd" > "$tmp_pass"
+mv "$tmp_pass" "$pdbbox/test-pass-admin"
+
+tmp_pass="$(mktemp "$tmp_dir/tmp-pass-XXXXXX")"
+chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
+cat > "$tmp_pass" <<-EOF
 	# hostname:port:database:username:password
 	*:*:*:pdb_test:$passwd
 	*:*:*:pdb_test_migrator:$migrator_passwd
@@ -98,7 +107,7 @@ migrator_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 	*:*:*:puppetdb:$passwd
 	*:*:*:postgres:$pg_passwd
 	EOF
- )
+mv "$tmp_pass" "$PGBOX/pgpass"
 
 pgbox env createuser -dERs pdb_test_admin
 pgbox env createuser -DERS pdb_test
