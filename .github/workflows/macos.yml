@@ -3,7 +3,7 @@ name: macos tests
 on: [push, pull_request]
 
 jobs:
-  core:
+  core-macos:
     runs-on: macos-10.15
     steps:
       - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
@@ -21,7 +21,7 @@ jobs:
             ~/.m2
             ~/Library/Caches/Homebrew
       - run: ci/bin/prep-and-run-in github core/openjdk11/pg-11/rich
-  external:
+  external-macos:
     runs-on: macos-10.15
     steps:
       - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
@@ -39,7 +39,7 @@ jobs:
             ~/.m2
             ~/Library/Caches/Homebrew
       - run: ci/bin/prep-and-run-in github ext/openjdk11/pg-11/rich
-  integration:
+  integration-macos:
     runs-on: macos-10.15
     steps:
       - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
@@ -57,7 +57,7 @@ jobs:
             ~/.m2
             ~/Library/Caches/Homebrew
       - run: ci/bin/prep-and-run-in github int/openjdk11/pup-master/srv-master/pg-11
-  rspec:
+  rspec-macos:
     runs-on: macos-10.15
     steps:
       - uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
