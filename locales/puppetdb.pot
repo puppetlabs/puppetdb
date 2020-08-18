@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 381210a65be0e809513c684f7e843dadd8c12f73\n"
+"X-Git-Ref: 93fc34d40b8318fc36fe20bd4f3e6ef74cf348e5\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -237,6 +237,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "The detected migration level {0} is out of date."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Allocating as requested: PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP={0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -1339,6 +1343,14 @@ msgid "Not updating facts for certname {0} because local data is newer."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage_utils.clj
+msgid "Query to check if the database is up failed"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage_utils.clj
+msgid "Query to check if the database is up timed out"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage_utils.clj
 msgid "Analyzing small tables"
 msgstr ""
 
@@ -1385,4 +1397,8 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj
 msgid "Reporting unexpected error to stderr and log"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/utils.clj
+msgid "Requesting shutdown: {0}"
 msgstr ""
