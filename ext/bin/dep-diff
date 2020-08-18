@@ -2,7 +2,7 @@
 ":"; # -*-clojure-*-
 ":"; set -ueo pipefail
 ":"; script_home="$(cd "$(dirname "$0")" && pwd)"
-":"; exec "$script_home/clj-1.9" "$0" "$@"
+":"; exec "$script_home/clj-1.10" "$0" "$@"
 
 (require
  '[clojure.edn :as edn]

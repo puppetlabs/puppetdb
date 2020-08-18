@@ -2,9 +2,9 @@
 
 set -ueo pipefail
 
-clojure_ver=1.9.0
-spec_ver=0.1.143  # spec.alpha
-specs_ver=0.1.24  # core.specs.alpha
+clojure_ver=1.10.1
+spec_ver=0.2.176 # spec.alpha
+specs_ver=0.2.44 # core.specs.alpha
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
