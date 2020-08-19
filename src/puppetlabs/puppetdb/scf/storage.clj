@@ -209,9 +209,9 @@
          :duplicate-catalog  (counter storage-metrics-registry [(pname "duplicate-catalogs")])
          :duplicate-pct      (gauge-fn storage-metrics-registry [(pname "duplicate-pct")]
                                        (fn []
-                                         (let [dupes (value ((mutils/maybe-prefix-key :duplicate-catalog)
+                                         (let [dupes (value ((mutils/maybe-prefix-key prefix :duplicate-catalog)
                                                              @storage-metrics))
-                                               new   (value ((mutils/maybe-prefix-key :updated-catalog)
+                                               new   (value ((mutils/maybe-prefix-key prefix :updated-catalog)
                                                              @storage-metrics))]
                                            (float (kitchensink/quotient dupes (+ dupes new))))))
          :catalog-volatility (histogram storage-metrics-registry [(pname "catalog-volitilty")])

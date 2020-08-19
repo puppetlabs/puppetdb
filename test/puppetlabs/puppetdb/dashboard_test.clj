@@ -26,9 +26,17 @@
       (is (= (count body)
              (->> body (map :id) distinct count))))))
 
-(deftest root-dashboard-routing
+(deftest dashboard-routing
   (svc-utils/call-with-single-quiet-pdb-instance
    (fn []
      (let [root-resp (svc-utils/get-unparsed (svc-utils/root-url-str))]
        (tu/assert-success! root-resp)
-       (is (dtu/dashboard-page? root-resp))))))
+       (is (dtu/dashboard-page? root-resp)))
+
+     (let [data-resp (-> svc-utils/*base-url*
+                         (assoc :prefix "/pdb/dashboard/data")
+                         base-url->str-with-prefix
+                         svc-utils/get-unparsed)]
+       (tu/assert-success! data-resp)
+       (is (http/json-utf8-ctype? (get-in data-resp [:headers "content-type"]) ))
+       (is (seq? (json/parse-string (:body data-resp) true)))))))
