@@ -285,6 +285,10 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'ubuntu1804-64-1'
   end
 
+  def is_focal()
+    return test_config[:os_families].has_key? 'ubuntu2004-64-1'
+  end
+
   def is_buster()
     return test_config[:os_families].has_key? 'debian10-64-1'
   end
@@ -309,9 +313,9 @@ module PuppetDBExtensions
     when :install, :upgrade_latest
       test_config[:platform_version]
     when :upgrade_oldest
-      # Redhat8, Redhat7-fips, Debian 10
+      # Redhat8, Redhat7-fips, Debian 10, Ubuntu 20
       # only have builds starting somewhere in the 6 series.
-      if is_rhel8 || is_rhel7fips || is_buster
+      if is_rhel8 || is_rhel7fips || is_buster || is_focal
         :puppet6
       else
         :puppet5
@@ -332,6 +336,8 @@ module PuppetDBExtensions
       '6.4.0'
     elsif is_buster
       '6.7.0'
+    elsif is_focal
+      '6.12.0'
     else
       '5.2.0'
     end
