@@ -35,19 +35,19 @@ function counterAndSparkline(meter, options) {
     var data = [];
 
     // X axis, chronological scale
-    var x = d3.time.scale()
+    var x = d3.scaleTime()
             .domain([now - n*duration, now])
             .range([0, w]);
 
     // Y axis, linear scale
-    var y = d3.scale.linear()
+    var y = d3.scaleLinear()
             .range([h, 1]);
 
     // SVG pathing computation, plotting time vs. value. We use
     // linear interpolation to provide better visibility of data
     // points. For prettier lines, try "basis" or "monotone".
-    var line = d3.svg.area()
-            .interpolate("linear")
+    var line = d3.area()
+            .curve(d3.curveLinear)
             .x(function(d) { return 1+x(d.time); })
             .y1(h+1)
             .y0(function(d) { return y(d.value); });
@@ -82,7 +82,8 @@ function counterAndSparkline(meter, options) {
     var yaxis = svg.append("g")
             .attr("class", "y axis")
             .attr("transform", "translate(-1,0)")
-            .call(y.axis = d3.svg.axis().scale(y).orient("left").ticks(3));
+            .call(y.axis = d3.axisLeft(y).ticks(3));
+            //.call(y.axis = d3.svg.axis().scale(y).orient("left").ticks(3));
 
     // Add an SVG clip path, to make the scolling sparkline look nicer.
     svg.append("defs").append("clipPath")
@@ -142,7 +143,7 @@ function counterAndSparkline(meter, options) {
            .attr("d", line(data))
            .transition()
            .duration(duration)
-           .ease("linear")
+           .ease(d3.easeLinear)
            .attr("transform", "translate(" + x(xmin + duration) + ")");
 
         yaxis.transition()
