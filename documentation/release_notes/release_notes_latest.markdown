@@ -21,6 +21,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.12.0
+
+Released 25 August 2020
+
+### New features
+  - **Adds support for Ubuntu 20.04 LTS**
+
+### Bug fixes
+  - **Fixes an issue with the catalog duplication percent metric.** This resulted in an error that prevented the dashboard from loading. [PDB-4855](https://tickets.puppetlabs.com/browse/PDB-4855)
+
+  - **PQL queries now support the full range of 64-bit integers.** Queries were previously limited to the range of 32-bit integers. [PDB-4269](https://tickets.puppetlabs.com/browse/PDB-4269)
+
+### Contributors
+
+Austin Blatt, Maggie Dreyer, Rob Browning, and Zak Kent
+
 ## PuppetDB 6.11.3
 
 Released 4 August 2020
