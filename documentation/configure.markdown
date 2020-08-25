@@ -7,6 +7,7 @@ canonical: "/puppetdb/latest/configure.html"
 [java-patterns]: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
 [logback]: http://logback.qos.ch/manual/configuration.html
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
+[pe-dashboard]: https://support.puppet.com/hc/en-us/articles/208484488-Enable-and-view-the-PuppetDB-performance-dashboard-for-Puppet-Enterprise-3-3-2-to-2019-1
 [repl]: ./repl.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [postgres_ssl]: ./postgres_ssl.html
@@ -607,7 +608,10 @@ logging for the `puppetlabs.puppetdb.middleware` appender in the
 
 The `[jetty]` section configures HTTP for PuppetDB.
 
-> **Note:** If you are using Puppet Enterprise and want to enable the PuppetDB dashboard from the PE console, refer to [our guide to changing PuppetDB's parameters]({{pe}}/maintain_console-db.html#changing-puppetdbs-parameters) for more information. PE users should not edit `jetty.ini`.
+> **Note:** If you are using Puppet Enterprise and want to enable the
+    PuppetDB dashboard from the PE console, refer to [Enable and view PuppetDB performance dashboard in PE][pe-dashboard]
+    for more information. PE users should not edit `jetty.ini`.
+
 
 ### `host`
 

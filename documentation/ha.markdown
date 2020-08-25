@@ -16,7 +16,7 @@ availability in order to withstand network partitions or system failure.
 
 PuppetDB is automatically configured for high availability as part of an HA
 deployment of Puppet Enterprise. For more information about high availability in
-Puppet Enterprise, see [High availability overview]({{pe}}/dr_overview.html).
+Puppet Enterprise, see [High availability overview](https://puppet.com/docs/pe/latest/dr_overview.html).
 
 HA Overview
 -----
