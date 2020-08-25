@@ -410,6 +410,8 @@ module PuppetDBExtensions
       "#{version}xenial"
     elsif host['platform'].include?('ubuntu-18.04')
       "#{version}bionic"
+    elsif host['platform'].include?('ubuntu-20.04')
+      "#{version}focal"
     elsif host['platform'].include?('debian-8')
       "#{version}jessie"
     elsif host['platform'].include?('debian-9')
