@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/status/v1/status.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[status-api]: {{pe}}/status_api.html
+[status-api]: https://puppet.com/docs/pe/latest/status_api.html
 
 The `/status` endpoint implements the Puppet Labs Status API for coordinated
 monitoring of Puppet Labs services. See the [central documentation][status-api]

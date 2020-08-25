@@ -61,7 +61,7 @@ via the command line:
 Any node managed by Puppet agent will already have the CA certificate, and you
 can reuse the CA certificate for contacting PuppetDB. You can read more about
 generating RBAC tokens and how they work in the
-[PE documention]({{pe}}/rbac_token_auth.html).
+[PE documention](https://puppet.com/docs/pe/latest/rbac_token_auth_intro.html).
 
 > **Note:** The token the user is for must have the correct permissions for
 viewing (`nodes:view_data:*`) or editing (`nodes:edit_data:*`) node data
