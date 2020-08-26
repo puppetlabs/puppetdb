@@ -74,22 +74,13 @@ jobs:
       env: PDB_TEST=core+ext/openjdk11/pg-12
       script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-9.6
-      env: PDB_TEST=core+ext/openjdk11/pg-9.6
-      script: *run-core-and-ext-tests
-
+    # Leaving this one test that uses the deprecated jdk8
     - stage: ❧ pdb tests
       name: core+ext jdk-8 pg-11
       env: PDB_TEST=core+ext/openjdk8/pg-11
       script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-8 pg-9.6
-      env: PDB_TEST=core+ext/openjdk8/pg-9.6
-      script: *run-core-and-ext-tests
-
-    # === integration with master branches
+    # === integration with main branches
     - stage: ❧ pdb tests
       name: int pup-main srv-main jdk-11 pg-11
       env: PDB_TEST=int/openjdk11/pup-main/srv-main/pg-11
@@ -100,19 +91,15 @@ jobs:
       env: PDB_TEST=int/openjdk11/pup-main/srv-main/pg-11/rich
       script: *run-integration-tests
 
+    # === integration with Platform 6 branches
     - stage: ❧ pdb tests
-      name: int pup-main srv-main jdk-11 pg-9.6 rich
-      env: PDB_TEST=int/openjdk11/pup-main/srv-main/pg-9.6/rich
+      name: int pup-master srv-6.x jdk-11 pg-11
+      env: PDB_TEST=int/openjdk11/pup-master/srv-6.x/pg-11
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-main srv-main jdk-8 pg-11 rich
-      env: PDB_TEST=int/openjdk8/pup-main/srv-main/pg-11/rich
-      script: *run-integration-tests
-
-    - stage: ❧ pdb tests
-      name: int pup-main srv-main jdk-8 pg-9.6 rich
-      env: PDB_TEST=int/openjdk8/pup-main/srv-main/pg-9.6/rich
+      name: int pup-master srv-6.x jdk-11 pg-11 rich
+      env: PDB_TEST=int/openjdk11/pup-master/srv-main/pg-11/rich
       script: *run-integration-tests
 
     # === rspec tests
@@ -122,8 +109,8 @@ jobs:
       script: *run-spec-tests
 
     - stage: ❧ pdb tests
-      name: rspec pup-6.4.x
-      env: PDB_TEST=rspec/pup-6.4.x
+      name: rspec pup-master
+      env: PDB_TEST=rspec/pup-master
       script: *run-spec-tests
 
     # === container tests
