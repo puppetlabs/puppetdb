@@ -50,7 +50,21 @@
 
     (testing "disable-update-checking should default to 'false' if left unspecified"
       (let [config (configure-puppetdb {})]
-        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))))
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
+
+    (testing "shold default :log-queries to false"
+      (let [config (configure-puppetdb {})]
+        (is (= false (get-in config [:puppetdb :log-queries])))))
+
+    (testing "should allow log-user-queries boolean"
+      (let [config (configure-puppetdb {:puppetdb {:log-queries "true"}})]
+        (is (= true (get-in config [:puppetdb :log-queries]))))
+      (let [config (configure-puppetdb {:puppetdb {:log-queries "false"}})]
+        (is (= false (get-in config [:puppetdb :log-queries]))))
+      (let [config (configure-puppetdb {:puppetdb {:log-queries "some-string"}})]
+        (is (= false (get-in config [:puppetdb :log-queries]))))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (configure-puppetdb {:puppetdb {:log-queries 1337}}))))))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
