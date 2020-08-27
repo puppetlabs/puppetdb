@@ -169,7 +169,8 @@
    :node-purge-ttl Period
    :add-agent-report-filter Boolean
    (s/optional-key :warn-experimental) Boolean
-   (s/optional-key :pretty-print) (s/maybe Boolean)})
+   (s/optional-key :pretty-print) (s/maybe Boolean)
+   (s/optional-key :log-queries) Boolean})
 
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, return a Ring response with the query
