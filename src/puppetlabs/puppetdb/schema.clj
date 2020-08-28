@@ -47,7 +47,7 @@
        x
        (Integer/valueOf x)))))
 
-(defn blacklist->vector
+(defn blocklist->vector
   "Take a facts list as either a comma seperated string
    or a sequence and return a vector of those facts"
   [fl]
@@ -56,15 +56,15 @@
                       (map str/trim)
                       (apply vector))
     (and (coll? fl) (every? string? fl)) (vec fl)
-    :else (throw (Exception. "Invalid facts blacklist format"))))
+    :else (throw (Exception. "Invalid facts blocklist format"))))
 
 (defn period?
   "True if `x` is a JodaTime Period"
   [x]
   (instance? org.joda.time.Period x))
 
-(def Blacklist
-  "Schema type for facts-blacklist"
+(def Blocklist
+  "Schema type for facts-blocklist"
   (s/if coll?
     (s/if #(-> % first string?) [s/Str] [s/Regex])
     s/Str))
@@ -130,7 +130,7 @@
     org.joda.time.Seconds (comp time/seconds coerce-to-int)
     Boolean (comp #(Boolean/valueOf %) str)
     Long long
-    clojure.lang.PersistentVector blacklist->vector}))
+    clojure.lang.PersistentVector blocklist->vector}))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"
@@ -155,6 +155,18 @@
   [schema data]
   (select-keys data (map schema-key->data-key (keys schema))))
 
+(defn convert-blacklist-settings-to-blocklist [config]
+  (let [{:keys [facts-blocklist
+                facts-blocklist-type
+                facts-blacklist
+                facts-blacklist-type]} config
+        blocklist-value (or facts-blocklist facts-blacklist)
+        bloclist-type (or facts-blocklist-type facts-blacklist-type)]
+    (cond-> config
+      true (dissoc :facts-blacklist :facts-blacklist-type)
+      blocklist-value (assoc :facts-blocklist blocklist-value)
+      bloclist-type (assoc :facts-blocklist-type bloclist-type))))
+
 ;; FIXME - see db uses for testing, not right for multidb now.
 
 (defn transform-data
@@ -163,4 +175,5 @@
   [in-schema out-schema data]
   (->> data
        (defaulted-data in-schema)
+       convert-blacklist-settings-to-blocklist
        (convert-to-schema out-schema)))

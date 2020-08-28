@@ -87,11 +87,11 @@
     (fs/delete-dir (:path dlo))
     (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
 
-;; define blacklist map to allow use of with-redefs later
-(def blacklist-config {:facts-blacklist [#"blacklisted-fact"
+;; define blocklist map to allow use of with-redefs later
+(def blocklist-config {:facts-blocklist [#"blocklisted-fact"
                                          #"pre.*" #".*suff"
                                          #"gl.?b" #"p[u].*et"]
-                          :facts-blacklist-type "regex"})
+                          :facts-blocklist-type "regex"})
 
 (defn shutdown-for-ex-dummy [msg]
   (fn [ex]
@@ -122,7 +122,7 @@
                        dbs
                        response-chan
                        stats
-                       blacklist-config
+                       blocklist-config
                        (atom {:executing-delayed 0})
                        maybe-send-cmd-event!
                        (shutdown-for-ex-dummy
@@ -893,38 +893,38 @@
                     certname]
                    {:as-arrays? true}))))))))
 
-  (deftest regex-facts-blacklist
+  (deftest regex-facts-blocklist
     (dotestseq [version fact-versions
                 :let [command (update facts :values
                                       #(assoc %
-                                              "blacklisted-fact" "val"
+                                              "blocklisted-fact" "val"
                                               "prefix" "val"
                                               "facts-suff" "val"
                                               "glob" "val"
                                               "puppet" "val"
-                                              ;; facts below shouldn't be blacklisted
+                                              ;; facts below shouldn't be blocklisted
                                               "notprefix" "val"
                                               "suff-not" "val"
-                                              "not-blacklisted-fact" "val"))]]
-      (testing "should ignore the blacklisted facts using regex"
+                                              "not-blocklisted-fact" "val"))]]
+      (testing "should ignore the blocklisted facts using regex"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}
-                  {:certname certname :name "not-blacklisted-fact" :value "val"}
+                  {:certname certname :name "not-blocklisted-fact" :value "val"}
                   {:certname certname :name "notprefix" :value "val"}
                   {:certname certname :name "suff-not" :value "val"}]
                  (query-facts :certname :name :value)))))))
 
-    (deftest literal-facts-blacklist
+    (deftest literal-facts-blocklist
         (dotestseq [version fact-versions
                     :let [command (update facts :values
-                                          #(assoc % "blacklisted-fact" "val"))]]
-          (testing "should ignore the blacklisted fact"
-            (with-redefs [blacklist-config
-                          {:facts-blacklist ["blacklisted-fact"]
-                           :facts-blacklist-type "literal"}]
+                                          #(assoc % "blocklisted-fact" "val"))]]
+          (testing "should ignore the blocklisted fact"
+            (with-redefs [blocklist-config
+                          {:facts-blocklist ["blocklisted-fact"]
+                           :facts-blocklist-type "literal"}]
               (with-message-handler {:keys [handle-message dlo delay-pool q]}
                 (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
                 (is (= [{:certname certname :name "a" :value "1"}

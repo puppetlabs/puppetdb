@@ -74,8 +74,15 @@
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
-     :facts-blacklist pls/Blacklist
+
+     ;; preserve backwards compatability with facts-blacklist
+     :facts-blacklist pls/Blocklist
      :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
+     :facts-blocklist pls/Blocklist
+     ;; blocklist-type will get defaulted to value of blacklist-type
+     ;; if unset in pls/convert-blacklist-settings-to-blocklist
+     :facts-blocklist-type (s/enum "literal" "regex")
+
      :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))
      ;; This is applicable to the read-database too because it's used
      ;; to limit the scope of some queries.
@@ -120,8 +127,9 @@
    (s/optional-key :migrator-username) String
    (s/optional-key :migrator-password) String
    (s/optional-key :syntax_pgs) String
-   (s/optional-key :facts-blacklist) clojure.lang.PersistentVector
-   :facts-blacklist-type String
+   (s/optional-key :facts-blocklist) clojure.lang.PersistentVector
+   :facts-blocklist-type String
+
    :schema-check-interval s/Int
    :node-purge-ttl Period
    ;; completely retired (ignored)
@@ -250,21 +258,21 @@
     (catch PatternSyntaxException e
       (.getMessage e))))
 
-(defn convert-blacklist-config
-  "Validate and convert facts blacklist section of db-config to runtime format.
+(defn convert-blocklist-config
+  "Validate and convert facts blocklist section of the config to runtime format.
   Throws a {:type ::cli-error :message m} exception describing errors when compiling
-  facts-blacklist regex patterns if :facts-blacklist-type is set to \"regex\"."
-  [{db-config :database :or {db-config {}} :as config}]
-  (if (= "regex" (:facts-blacklist-type db-config))
-    (let [patts (->> db-config
-                     :facts-blacklist
-                     pls/blacklist->vector
+  facts-blocklist regex patterns if :facts-blocklist-type is set to \"regex\"."
+  [config]
+  (if (and (= "regex" (:facts-blocklist-type config)) (:facts-blocklist config))
+    (let [patts (->> config
+                     :facts-blocklist
+                     pls/blocklist->vector
                      (mapv check-fact-regex))]
       (when-let [errors (seq (filter string? patts))]
         (throw-cli-error
-         (apply str (trs "Unable to parse facts-blacklist patterns:\n")
-                 (interpose "\n" errors))))
-      (assoc-in config [:database :facts-blacklist] patts))
+         (apply str (trs "Unable to parse facts-blocklist patterns:\n")
+                (interpose "\n" errors))))
+      (assoc config :facts-blocklist patts))
     config))
 
 (defn validate-and-default-incoming-config
@@ -370,6 +378,8 @@
       (validate-and-default-incoming-config per-write-database-config-in)
       (require-db-subname section-key)
       (require-enclosing-report-ttl section-key)
+      pls/convert-blacklist-settings-to-blocklist
+      convert-blocklist-config
       (coerce-and-validate-final-config per-write-database-config-out)
       default-events-ttl
       (prefer-db-user-on-username-mismatch (name section-key))
@@ -386,6 +396,7 @@
          (if read-database
            (-> read-database
                (validate-and-default-incoming-config per-database-config-in)
+               pls/convert-blacklist-settings-to-blocklist
                (require-db-subname :read-database)
                (coerce-and-validate-final-config per-database-config-out)
                (prefer-db-user-on-username-mismatch "read-database"))
@@ -586,8 +597,7 @@
 
 (def adjust-and-validate-tk-config
   (comp add-web-routing-service-config
-        warn-retirements
-        convert-blacklist-config))
+        warn-retirements))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept
