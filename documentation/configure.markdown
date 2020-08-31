@@ -244,6 +244,13 @@ If `disable-update-checking` is set to `false`, PuppetDB checks for updates upon
 
 The data Puppet collects provides just one of many methods we use for learning about our community of users. The more we know about how you use Puppet, the better we can address your needs. No personally identifiable information is collected, and the data we collect is never used or shared outside Puppet.
 
+### `log-queries`
+Optional. Setting this to `true` will enable debug level logging of the internal
+AST and SQL that PuppetDB generates for all queries. This can be useful when
+debugging query performance. If unset, the default value is `false`.
+[See the Logback documentation][logback] for more information about logging
+options and how to enable debug level logging.
+
 `[database]` settings
 -----
 
