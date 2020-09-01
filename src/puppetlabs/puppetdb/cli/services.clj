@@ -816,7 +816,8 @@
                                         ;; FIXME: remove this if/when
                                         ;; we add immediate ::tk/exit
                                         ;; support to trapperkeeper.
-                                        :shutdown-request (:shutdown-request context)}
+                                        :shutdown-request (:shutdown-request context)
+                                        :log-queries (get-in config [:puppetdb :log-queries])}
                        :clean-lock (ReentrantLock.))]
 
     (when (> (count write-dbs-config) 1)
@@ -1045,7 +1046,9 @@
    (let [sc (service-context this)
          _ (throw-unless-started sc)
          query-options (-> (get sc :shared-globals)
-                           (select-keys [:scf-read-db :warn-experimental :node-purge-ttl :add-agent-report-filter])
+                           (select-keys [:scf-read-db :warn-experimental
+                                         :node-purge-ttl :add-agent-report-filter
+                                         :log-queries])
                            (assoc :url-prefix @(get sc :url-prefix)))]
      (qeng/stream-query-result version
                                query-expr
