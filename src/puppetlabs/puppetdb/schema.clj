@@ -6,9 +6,10 @@
             [schema.coerce :as sc]
             [clojure.string :as str]
             [schema.utils :as su]
-            [cheshire.custom :as json])
+            [cheshire.custom :as json]
+            [clojure.tools.logging :as log])
   (:import
-  (java.util.regex Pattern)))
+   (java.util.regex Pattern)))
 
 (defrecord DefaultedMaybe [schema default]
   s/Schema
@@ -165,6 +166,8 @@
     (when (and facts-blacklist facts-blocklist)
       (let [msg (trs "Confusing configuration settings found! Both the deprecated facts-blacklist and replacement facts-blocklist are set. These settings are mutually exclusive, please prefer facts-blocklist.")]
         (throw (ex-info msg {:type ::cli-error :message msg}))))
+    (when facts-blacklist
+      (log/warn (trs "The facts-blacklist and facts-blacklist-type settings have been deprecated and will be removed in a future release. Please use facts-blocklist and facts-blocklist-type instead.")))
     (cond-> config
       true (dissoc :facts-blacklist :facts-blacklist-type)
       blocklist-value (assoc :facts-blocklist blocklist-value)
