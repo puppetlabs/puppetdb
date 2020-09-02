@@ -56,15 +56,17 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   def find(request)
     profile("facts#find", [:puppetdb, :facts, :find, request.key]) do
       begin
-        response = Http.action("/pdb/query/v4/nodes/#{CGI.escape(request.key)}/facts", :query) do |http_instance, path|
-          profile("Query for nodes facts: #{URI.unescape(path)}",
+        response = Http.action("/pdb/query/v4/nodes/#{CGI.escape(request.key)}/facts", :query) do |http_instance, uri, ssl_context|
+          profile("Query for nodes facts: #{URI.unescape(uri.path)}",
                   [:puppetdb, :facts, :find, :query_nodes, request.key]) do
-            http_instance.get(path, headers, { :metric_id => [:puppetdb, :facts, :find] })
+            http_instance.get(uri, {headers: headers,
+                                    options: {metric_id: [:puppetdb, :facts, :find],
+                                              ssl_context: ssl_context}})
           end
         end
         log_x_deprecation_header(response)
 
-        if response.is_a? Net::HTTPSuccess
+        if response.success?
           profile("Parse fact query response (size: #{response.body.size})",
                   [:puppetdb, :facts, :find, :parse_response, request.key]) do
             result = JSON.parse(response.body)
@@ -77,13 +79,13 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           end
         else
           # Newline characters cause an HTTP error, so strip them
-          raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+          raise Puppet::Error, "[#{response.code} #{response.reason}] #{response.body.gsub(/[\r\n]/, '')}"
         end
       rescue NotFoundError => e
         # This is what the inventory service expects when there is no data
         return nil
       rescue => e
-        raise Puppet::Error, "Failed to find facts from PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
+        raise Puppet::Error, "Failed to find facts from PuppetDB at  #{e}"
       end
     end
   end
@@ -124,22 +126,23 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       query_param = CGI.escape(query.to_json)
 
       begin
-        response = Http.action("/pdb/query/v4/nodes?query=#{query_param}", :query) do |http_instance, path|
-          profile("Fact query request: #{URI.unescape(path)}",
+        response = Http.action("/pdb/query/v4/nodes?query=#{query_param}", :query) do |http_instance, uri|
+          profile("Fact query request: #{URI.unescape(uri.path)}",
                   [:puppetdb, :facts, :search, :query_request, request.key]) do
-            http_instance.get(path, headers, { :metric_id => [:puppetdb, :facts, :search] })
+            http_instance.get(uri, {headers: headers,
+                                    options: { :metric_id => [:puppetdb, :facts, :search] }})
           end
         end
         log_x_deprecation_header(response)
 
-        if response.is_a? Net::HTTPSuccess
+        if response.success?
           profile("Parse fact query response (size: #{response.body.size})",
                   [:puppetdb, :facts, :search, :parse_query_response, request.key,]) do
             JSON.parse(response.body).collect {|s| s["name"]}
           end
         else
           # Newline characters cause an HTTP error, so strip them
-          raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+          raise Puppet::Error, "[#{response.code} #{response.reason}] #{response.body.gsub(/[\r\n]/, '')}"
         end
       rescue => e
         raise Puppet::Util::Puppetdb::InventorySearchError, e.message

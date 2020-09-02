@@ -18,7 +18,8 @@ describe Puppet::Resource::Catalog::Puppetdb do
   end
 
   describe "#save" do
-    let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:response) { Puppet::HTTP::Response.new(nethttpok, "mock_url") }
     let(:http)     { mock 'http' }
     let(:catalog) do
       cat = Puppet::Resource::Catalog.new('foo')
@@ -32,7 +33,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
     before :each do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
-      Puppet::Network::HttpPool.expects(:connection).returns http
+      Puppet::HTTP::Client.expects(:new).returns http
     end
 
     def save
@@ -50,7 +51,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response['x-deprecation'] = 'A horrible deprecation warning!'
+      response.nethttp['x-deprecation'] = 'A horrible deprecation warning!'
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /A horrible deprecation warning!/

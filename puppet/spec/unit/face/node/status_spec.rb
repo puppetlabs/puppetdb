@@ -20,11 +20,14 @@ describe "node face: status" do
 
   it "should fetch the status of each node" do
     http = stub 'http'
-    Puppet::Network::HttpPool.stubs(:connection).returns(http)
+    Puppet::HTTP::Client.stubs(:new).returns(http)
 
     nodes = %w[a b c d e]
     nodes.each do |node|
-      http.expects(:get).with("/pdb/query/v4/nodes/#{node}", headers)
+      http.expects(:get).with do |uri, opts|
+        headers == opts[:headers] &&
+          uri.path == "/pdb/query/v4/nodes/#{node}"
+      end
     end
 
     subject.status(*nodes)
@@ -32,11 +35,14 @@ describe "node face: status" do
 
   it "should CGI escape the node names" do
     http = stub 'http'
-    Puppet::Network::HttpPool.stubs(:connection).returns(http)
+    Puppet::HTTP::Client.stubs(:new).returns(http)
 
     node = "foo/+*&bar"
 
-    http.expects(:get).with("/pdb/query/v4/nodes/foo%2F%2B%2A%26bar", headers)
+    http.expects(:get).with do |uri, opts|
+        headers == opts[:headers] &&
+          uri.path == "/pdb/query/v4/nodes/foo%2F%2B%2A%26bar"
+    end
 
     subject.status(node)
   end
