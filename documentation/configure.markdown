@@ -117,7 +117,7 @@ An example configuration file:
     subname = //localhost:5432/puppetdb
 
     [puppetdb]
-    certificate-whitelist = /path/to/file/containing/certnames
+    certificate-allowlist = /path/to/file/containing/certnames
     disable-update-checking = false
 
     [jetty]
@@ -211,7 +211,7 @@ override this setting to point to your proxy server.
 The `[puppetdb]` section is used to configure PuppetDB
 application-specific behavior.
 
-### `certificate-whitelist`
+### `certificate-allowlist`
 
 Optional. This describes the path to a file that contains a list of
 certificate names, one per line. Incoming HTTPS requests will have
@@ -223,6 +223,8 @@ rather than the `dns_alt_names` setting.)
 If not supplied, PuppetDB uses standard HTTPS without any additional
 authorization. All HTTPS clients must still supply valid, verifiable
 SSL client certificates.
+
+> **Note**: This setting replaces the deprecated `certificate-whitelist` setting which will be retired in a future release
 
 ### `historical-catalogs-limit` (PE only)
 
@@ -550,31 +552,36 @@ The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 3000.
 
-### `facts-blacklist`
+### `facts-blocklist`
 
 Optional.  A list of fact names to be ignored whenever submitted.  The
-`facts-blacklist-type` determines whether the names are matched
+`facts-blocklist-type` determines whether the names are matched
 literally or as [Java regular expresions][java-patterns].
 
 The names must be comma-separated in an INI configuration file, or a
 list in a HOCON file:
 
- * INI: `facts-blacklist = fact1, fact2, fact3`
- * HOCON: `facts-blacklist = ["fact1", "fact2", "fact3"]`
+ * INI: `facts-blocklist = fact1, fact2, fact3`
+ * HOCON: `facts-blocklist = ["fact1", "fact2", "fact3"]`
 
 When matching lterally, the entire fact name (not including the path)
-must completely match one of the `facts-blacklist` entries in order to
-be blacklisted.  When matching regular expressions, the name must
+must completely match one of the `facts-blocklist` entries in order to
+be blocklisted.  When matching regular expressions, the name must
 match the entire pattern.  For example the pattern "xyz" will not
 match the fact "123xyzabc", but ".\*xyz.\*" will.
 
-### `facts-blacklist-type`
+> **Note**: This setting replaces the deprecated `facts-blacklist` setting which will be retired in a future release
 
-Optional.  When set to `literal` (or not set) the `facts-blacklist`
+### `facts-blocklist-type`
+
+Optional.  When set to `literal` (or not set) the `facts-blocklist`
 names will be matched literally.  When set to `regex` (the only other
 legal value), the names will be matched as [Java regular
-expresions][java-patterns].  See the `facts-blacklist` description
+expresions][java-patterns].  See the `facts-blocklist` description
 above for additional information.
+
+> **Note**: This setting replaces the deprecated `facts-blacklist-type` setting which will be retired in a future release
+
 
 ### `schema-check-interval`
 
