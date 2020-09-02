@@ -162,6 +162,9 @@
                 facts-blacklist-type]} config
         blocklist-value (or facts-blocklist facts-blacklist)
         bloclist-type (or facts-blocklist-type facts-blacklist-type)]
+    (when (and facts-blacklist facts-blocklist)
+      (let [msg (trs "Confusing configuration settings found! Both the deprecated facts-blacklist and replacement facts-blocklist are set. These settings are mutually exclusive, please prefer facts-blocklist.")]
+        (throw (ex-info msg {:type ::cli-error :message msg}))))
     (cond-> config
       true (dissoc :facts-blacklist :facts-blacklist-type)
       blocklist-value (assoc :facts-blocklist blocklist-value)

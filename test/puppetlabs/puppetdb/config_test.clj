@@ -152,6 +152,36 @@
     (is (= (get-in ini-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))
     (is (= (get-in hocon-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))))
 
+(deftest blacklist-to-blocklist-defaulting-behavior
+  (let [config {:database {:user "x" :password "?"
+                           :classname "something"
+                           :subname "stuff"
+                           :subprotocol "more stuff"}}]
+
+    (testing "setting both facts-blacklist and facts-blocklist errors"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
+                            (configure-dbs (-> config
+                                               (assoc-in
+                                                [:database :facts-blacklist]
+                                                "I, should, fail")
+                                               (assoc-in
+                                                [:database :facts-blocklist]
+                                                "when, both, are, set"))))))
+
+    (testing "facts-blacklist-is-converted-to-blocklist"
+      (let [final-config (configure-dbs (-> config
+                                            (assoc-in
+                                             [:database :facts-blacklist]
+                                             "blocklist")
+                                            (assoc-in
+                                             [:database :facts-blacklist-type]
+                                             "literal")))]
+        (is (= ["blocklist"] (get-in final-config [:database :facts-blocklist])))
+        (is (= "literal" (get-in final-config [:database :facts-blocklist-type])))))
+
+    (testing "facts-blocklist-type-is-converted-when-defaulted-to-facts-blocklist-type"
+      (is (= "literal" (get-in (configure-dbs config) [:database :facts-blocklist-type]))))))
+
 (deftest write-databases-behavior
   (is (= {"default" {:subname "x" ::conf/unnamed true}}
          (conf/write-databases {:database {:subname "x"}})))
