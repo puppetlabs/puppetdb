@@ -56,7 +56,7 @@
 (deftest wrapping-authorization
   (testing "Should only allow authorized requests"
     ;; Setup an app that only lets through odd numbers
-    (let [wl (.getAbsolutePath (temp-file "whitelist-log-reject"))
+    (let [wl (.getAbsolutePath (temp-file "allowlist-log-reject"))
           _ (spit wl "foobar")
           handler     (fn [req] (-> (rr/response nil)
                                     (rr/status http/status-ok)))
@@ -166,15 +166,15 @@
           wrapped-fn (verify-content-encoding identity ["whatever"])]
       (is (= (wrapped-fn test-req) test-req)))))
 
-(deftest whitelist-middleware
+(deftest allowlist-middleware
   (testing "should log on reject"
-    (let [wl (temp-file "whitelist-log-reject")]
+    (let [wl (temp-file "allowlist-log-reject")]
       (spit wl "foobar")
-      (let [authorizer-fn (build-whitelist-authorizer (kitchensink/absolute-path wl))]
+      (let [authorizer-fn (build-allowlist-authorizer (kitchensink/absolute-path wl))]
         (is (nil? (authorizer-fn {:ssl-client-cn "foobar"})))
         (with-log-output logz
           (is (= 403 (:status (authorizer-fn {:ssl-client-cn "badguy"}))))
-          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
+          (is (= 1 (count (logs-matching #"^badguy rejected by certificate allowlist " @logz)))))))))
 
 (deftest test-fail-when-payload-too-large
   (testing "max-command-size-fail disabled should allow commands of any size"
@@ -186,7 +186,7 @@
 
   (testing "reject-large-commands"
     (let [middleware-fn (fail-when-payload-too-large identity true 100)
-          test-file (.getAbsolutePath (temp-file "whitelist-log-reject"))]
+          test-file (.getAbsolutePath (temp-file "allowlist-log-reject"))]
 
 
       (spit test-file "foo")

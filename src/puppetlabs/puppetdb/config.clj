@@ -204,15 +204,16 @@
 (def puppetdb-config-in
   "Schema for validating the incoming [puppetdb] block"
   (all-optional
-    {:certificate-whitelist s/Str
-     :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
-     :disable-update-checking (pls/defaulted-maybe String "false")
-     :add-agent-report-filter (pls/defaulted-maybe String "true")
-     :log-queries (pls/defaulted-maybe String "false")}))
+   {:certificate-whitelist s/Str
+    :certificate-allowlist s/Str
+    :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
+    :disable-update-checking (pls/defaulted-maybe String "false")
+    :add-agent-report-filter (pls/defaulted-maybe String "true")
+    :log-queries (pls/defaulted-maybe String "false")}))
 
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
-  {(s/optional-key :certificate-whitelist) s/Str
+  {(s/optional-key :certificate-allowlist) s/Str
    :historical-catalogs-limit s/Int
    :disable-update-checking Boolean
    :add-agent-report-filter Boolean
@@ -421,10 +422,26 @@
         warn-if-mismatched-node-purge-ttls
         forbid-duplicate-write-db-subnames)))
 
+(defn convert-certificate-whitelist-to-allowlist
+  [config]
+  (let [{:keys [certificate-whitelist
+                certificate-allowlist]} (:puppetdb config)
+        allowlist-value (or certificate-allowlist certificate-whitelist)]
+    (when (and certificate-allowlist certificate-whitelist)
+      (let [msg (trs "Confusing configuration settings found! Both the deprecated certificate-whitelist and replacement certificate-allowlist are set. These settings are mutually exclusive, please prefer certificate-allowlist.")]
+        (throw (ex-info msg {:type ::cli-error :message msg}))))
+    (when certificate-whitelist
+      (log/warn (trs "The certificate-whitelist setting has been deprecated and will be removed in a future release. Please use certificate-allowlist instead.")))
+    (cond-> config
+      certificate-whitelist (update-in [:puppetdb] dissoc :certificate-whitelist)
+      allowlist-value (assoc-in [:puppetdb :certificate-allowlist] allowlist-value))))
+
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
-  (configure-section config :puppetdb puppetdb-config-in puppetdb-config-out))
+  (-> config
+      convert-certificate-whitelist-to-allowlist
+      (configure-section :puppetdb puppetdb-config-in puppetdb-config-out)))
 
 (defn configure-developer
   [{:keys [developer] :as config :or {developer {}}}]

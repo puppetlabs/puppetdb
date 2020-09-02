@@ -121,7 +121,7 @@
         augmented-globals #(-> (shared-globals)
                                (assoc :url-prefix query-prefix
                                       :warn-experimental true))
-        cert-whitelist (get-in config [:puppetdb :certificate-whitelist])]
+        cert-allowlist (get-in config [:puppetdb :certificate-allowlist])]
     (set-url-prefix query-prefix)
 
     (log/info (trs "Starting PuppetDB, entering maintenance mode"))
@@ -135,7 +135,7 @@
                                    query
                                    clean
                                    delete-node))
-         (mid/wrap-cert-authn cert-whitelist)
+         (mid/wrap-cert-authn cert-allowlist)
          mid/wrap-with-puppetdb-middleware))
 
     (enable-maint-mode)
