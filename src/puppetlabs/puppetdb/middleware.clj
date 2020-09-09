@@ -41,25 +41,25 @@
     (log/debug (trs "Processing HTTP request to URI: ''{0}''" (:uri req)))
     (app req)))
 
-(defn build-whitelist-authorizer
+(defn build-allowlist-authorizer
   "Build a function that will authorize requests based on the supplied
-  certificate whitelist (see `cn-whitelist->authorizer` for more
+  certificate allowlist (see `cn-whitelist->authorizer` for more
   details). Returns :authorized if the request is allowed, otherwise a
   string describing the reason not."
-  [whitelist]
-  {:pre  [(string? whitelist)]
+  [allowlist]
+  {:pre  [(string? allowlist)]
    :post [(fn? %)]}
-  (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
+  (let [allowed? (kitchensink/cn-whitelist->authorizer allowlist)]
     (fn [{:keys [ssl-client-cn] :as req}]
       (when-not (allowed? req)
         (when ssl-client-cn
-          (log/warn (trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist)))
-        (http/denied-response (tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?" ssl-client-cn)
+          (log/warn (trs "{0} rejected by certificate allowlist {1}" ssl-client-cn allowlist)))
+        (http/denied-response (tru "The client certificate name {0} doesn't appear in the certificate allowlist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-allowlist file?" ssl-client-cn)
                          http/status-forbidden)))))
 
 (defn wrap-cert-authn
-  [app cert-whitelist]
-  (if-let [cert-authorize-fn (some-> cert-whitelist build-whitelist-authorizer)]
+  [app cert-allowlist]
+  (if-let [cert-authorize-fn (some-> cert-allowlist build-allowlist-authorizer)]
     (fn [req]
       (if-let [cert-auth-result (cert-authorize-fn req)]
         cert-auth-result
