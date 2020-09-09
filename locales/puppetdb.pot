@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 93fc34d40b8318fc36fe20bd4f3e6ef74cf348e5\n"
+"X-Git-Ref: d17ea74a44831c2c57f53e0dec53e8887d9cac93\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -384,7 +384,7 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
-msgid "Unable to parse facts-blacklist patterns:n"
+msgid "Unable to parse facts-blocklist patterns:n"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -409,6 +409,19 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid "Cannot have duplicate write database subnames"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
+"Confusing configuration settings found! Both the deprecated certificate-"
+"whitelist and replacement certificate-allowlist are set. These settings are "
+"mutually exclusive, please prefer certificate-allowlist."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
+"The certificate-whitelist setting has been deprecated and will be removed in "
+"a future release. Please use certificate-allowlist instead."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -744,14 +757,14 @@ msgid "Processing HTTP request to URI: ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
-msgid "{0} rejected by certificate whitelist {1}"
+msgid "{0} rejected by certificate allowlist {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid ""
-"The client certificate name {0} doesn't appear in the certificate whitelist. "
+"The client certificate name {0} doesn't appear in the certificate allowlist. "
 "Is your master''s (or other PuppetDB client''s) certname listed in "
-"PuppetDB''s certificate-whitelist file?"
+"PuppetDB''s certificate-allowlist file?"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
@@ -1356,6 +1369,20 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/schema.clj
 msgid "schema coercion error: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/schema.clj
+msgid ""
+"Confusing configuration settings found! Both the deprecated facts-blacklist "
+"and replacement facts-blocklist are set. These settings are mutually "
+"exclusive, please prefer facts-blocklist."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/schema.clj
+msgid ""
+"The facts-blacklist and facts-blacklist-type settings have been deprecated "
+"and will be removed in a future release. Please use facts-blocklist and "
+"facts-blocklist-type instead."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/status.clj
