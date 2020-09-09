@@ -8,7 +8,8 @@ canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 [CVE-2020-7943]: https://puppet.com/security/cve/CVE-2020-7943/
 
 Querying PuppetDB metrics is accomplished by making an HTTP request
-to paths under the `/metrics/v1` REST endpoint.
+to paths under the `/metrics/v1` REST endpoint. The metrics v1 API
+is disabled by default and is deprecated.  Please prefer [the `/metrics/v2` endpoint](../v2/jolokia.html).
 
 >**Note:** The `metrics/v1` endpoint has been disabled by default due to a CVE
 >described in [CVE-2020-7943][CVE-2020-7943]. You can re-enable this endpoint if
