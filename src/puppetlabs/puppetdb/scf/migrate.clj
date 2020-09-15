@@ -2021,12 +2021,12 @@
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames
    72 add-support-for-catalog-inputs
    73 resource-events-partitioning
-   ; Make sure that if you change the structure of reports
-   ; or resource events, you also update the delete-reports
-   ; cli command.
    74 reports-partitioning
    75 add-report-type-to-reports
    76 add-report-partition-indexes-on-id})
+   ;; Make sure that if you change the structure of reports
+   ;; or resource events, you also update the delete-reports
+   ;; cli command.
 
 (defn desired-schema-version []
   "The newest migration this PuppetDB instance knows about.  Anything
