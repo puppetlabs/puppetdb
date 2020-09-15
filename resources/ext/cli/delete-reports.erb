@@ -87,7 +87,7 @@ chown "$pg_user:$pg_user" "$tmp_dir"
 
 # Verify that the PuppetDB schema version it the expected value
 # so that we do not incorrectly delete the report data.
-expected_schema_ver=76
+expected_schema_ver=77
 su - "$pg_user" -s /bin/sh -c "$psql_cmd -p $pg_port -d $pdb_db_name -c 'COPY ( SELECT max(version) FROM schema_migrations ) TO STDOUT;' > $tmp_dir/schema_ver"
 actual_schema_ver="$(cat "$tmp_dir/schema_ver")"
 if test "$actual_schema_ver" -ne $expected_schema_ver; then
