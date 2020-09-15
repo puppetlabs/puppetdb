@@ -1964,6 +1964,11 @@
              (jdbc/double-quote idx-name)
              (jdbc/double-quote table)))))
 
+(defn add-catalog-inputs-pkey
+  []
+  (jdbc/do-commands
+   "ALTER TABLE catalog_inputs ADD CONSTRAINT catalog_inputs_pkey PRIMARY KEY (type, name, certname_id)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2023,7 +2028,8 @@
    73 resource-events-partitioning
    74 reports-partitioning
    75 add-report-type-to-reports
-   76 add-report-partition-indexes-on-id})
+   76 add-report-partition-indexes-on-id
+   77 add-catalog-inputs-pkey})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.

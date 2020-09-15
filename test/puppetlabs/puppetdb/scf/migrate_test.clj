@@ -1496,3 +1496,34 @@
         (dorun (->> (part/get-partition-names "reports")
                     (map utils/table-indexes)
                     (map (partial assert-index-exists "idx_reports_id"))))))))
+
+(deftest migration-77-adds-catalog-inputs-pkey
+  (testing "Catalog inputs has a primary key"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 76)
+
+      (let [before-migration (schema-info-map *db*)]
+        (apply-migration-for-testing! 77)
+
+        (is (= {:index-diff [{:left-only nil
+                              :right-only {:schema "public"
+                                           :table "catalog_inputs"
+                                           :index "catalog_inputs_pkey"
+                                           :index_keys  ["type" "name" "certname_id"]
+                                           :type "btree"
+                                           :unique? true
+                                           :functional? false
+                                           :is_partial false
+                                           :primary? true
+                                           :user "pdb_test"}
+                              :same nil}]
+                :table-diff nil
+                :constraint-diff [{:left-only nil
+                                   :right-only {:constraint_name "catalog_inputs_pkey"
+                                                :table_name "catalog_inputs"
+                                                :constraint_type "PRIMARY KEY"
+                                                :initially_deferred "NO"
+                                                :deferrable? "NO"}
+                                   :same nil}]}
+               (diff-schema-maps before-migration (schema-info-map *db*))))))))
