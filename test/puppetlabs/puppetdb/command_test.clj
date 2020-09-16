@@ -765,11 +765,14 @@
   (dotestseq [version catalog-inputs-versions
               :let [version-num (version-kwd->num version)
                     {:keys [certname] :as catalog-inputs} (-> wire-catalog-inputs
-                                                              (get-in [version-num :basic])
-                                                              (assoc :producer_timestamp (now)))
-                    make-cmd-req #(catalog-inputs->command-req version-num catalog-inputs)
-                    make-another-cmd-req #(catalog-inputs->command-req version-num (-> catalog-inputs
-                                                                                       (assoc :certname "foo")))]]
+                                                              (get-in [version-num :basic]))
+                    make-cmd-req #(catalog-inputs->command-req
+                                   version-num (assoc catalog-inputs
+                                                      :producer_timestamp (now)))
+                    make-another-cmd-req #(catalog-inputs->command-req
+                                           version-num (-> catalog-inputs
+                                                           (assoc :certname "foo")
+                                                           (assoc :producer_timestamp (now))))]]
     (testing (str (command-names :replace-catalog-inputs) " " version)
       (let [inputs [{:type "hiera" :name "puppetdb::disable_cleartext"}
                     {:type "hiera" :name "puppetdb::disable_ssl"}
@@ -782,6 +785,36 @@
                    (query-to-vec "SELECT type, name FROM catalog_inputs")))
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo))))))
+
+        (testing "unchanged catalog-input sets don't cause postgres churn"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q (make-cmd-req)))
+            (is (= inputs (query-to-vec "SELECT type, name FROM catalog_inputs")))
+            (is (= 0 (task-count delay-pool)))
+            (is (= nil (fs/list-dir (:path dlo))))
+
+            (jdbc/do-commands "TRUNCATE catalog_inputs")
+            (is (= [] (query-to-vec "SELECT type, name FROM catalog_inputs")))
+
+            (let [old-metadata (scf-store/catalog-inputs-metadata certname)
+                  modified-inputs (vec (conj (take 2 (sort (:inputs catalog-inputs)))
+                                             ["hiera" "puppetdb::open_listen_port"]))]
+              ;; Resubmitting the same catalog inputs leaves the catalog_inputs table untouched
+              (handle-message (queue/store-command q (make-cmd-req)))
+              (is (= [] (query-to-vec "SELECT type, name FROM catalog_inputs")))
+              (is (not= old-metadata (scf-store/catalog-inputs-metadata certname)))
+
+              ;; Submitting a new catalot inputs set updates the catalog_inputs table
+              (handle-message (queue/store-command
+                               q
+                               (catalog-inputs->command-req version-num
+                                                            (assoc catalog-inputs
+                                                                   :inputs modified-inputs
+                                                                   :producer_timestamp (now)))))
+              (is (= [{:type "hiera" :name "puppetdb::disable_cleartext"}
+                      {:type "hiera" :name "puppetdb::disable_ssl"}
+                      {:type "hiera" :name "puppetdb::open_listen_port"}]
+                  (query-to-vec "SELECT type, name FROM catalog_inputs"))))))
 
         (testing "submitting multiple catalog inputs processed succesfully"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
