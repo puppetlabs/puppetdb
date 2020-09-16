@@ -771,9 +771,9 @@
                     make-another-cmd-req #(catalog-inputs->command-req version-num (-> catalog-inputs
                                                                                        (assoc :certname "foo")))]]
     (testing (str (command-names :replace-catalog-inputs) " " version)
-      (let [inputs [{:type "hiera" :name "puppetdb::globals::version"}
-                    {:type "hiera" :name "puppetdb::disable_cleartext"}
-                    {:type "hiera" :name "puppetdb::disable_ssl"}]]
+      (let [inputs [{:type "hiera" :name "puppetdb::disable_cleartext"}
+                    {:type "hiera" :name "puppetdb::disable_ssl"}
+                    {:type "hiera" :name "puppetdb::globals::version"}]]
 
         (testing "with catalog inputs it should store the inputs"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
