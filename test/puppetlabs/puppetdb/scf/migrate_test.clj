@@ -1527,3 +1527,29 @@
                                                 :deferrable? "NO"}
                                    :same nil}]}
                (diff-schema-maps before-migration (schema-info-map *db*))))))))
+
+(deftest migration-78-adds-null-catalog-inputs-hash-column
+  (testing "certnames table has null catalog inputs hash column"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 77)
+
+      (let [before-migration (schema-info-map *db*)]
+        (apply-migration-for-testing! 78)
+
+        (is (= {:index-diff nil
+                :table-diff [{:left-only nil
+                              :right-only {:numeric_scale nil
+                                           :column_default nil
+                                           :character_octet_length nil
+                                           :datetime_precision nil
+                                           :nullable? "YES"
+                                           :character_maximum_length nil
+                                           :numeric_precision nil
+                                           :numeric_precision_radix nil
+                                           :data_type "bytea"
+                                           :column_name "catalog_inputs_hash"
+                                           :table_name "certnames"}
+                              :same nil}]
+                :constraint-diff nil}
+               (diff-schema-maps before-migration (schema-info-map *db*))))))))
