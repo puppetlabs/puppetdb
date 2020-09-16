@@ -16,14 +16,14 @@
    {:certname "host-1"
     :producer_timestamp (time/now)
     :catalog_uuid "6c2a2b15-1c1e-4081-a723-e9b40989d1e5"
-    :inputs [["hiera" "puppetdb::globals::version"]
-             ["hiera" "puppetdb::disable_cleartext"]]}
+    :inputs [["hiera" "puppetdb::disable_cleartext"]
+             ["hiera" "puppetdb::globals::version"]]}
    "host-2"
    {:certname "host-2"
     :producer_timestamp (do (Thread/sleep 1) (time/now))
     :catalog_uuid "80a1f1d2-1bd3-4f68-86db-74b3d0d96f95"
-    :inputs [["hiera" "puppetdb::globals::version"]
-             ["hiera" "puppetdb::disable_ssl"]]}})
+    :inputs [["hiera" "puppetdb::disable_ssl"]
+             ["hiera" "puppetdb::globals::version"]]}})
 
 (defn stringify-timestamp [cmds]
   (map #(utils/update-when % [:producer_timestamp] time/to-string) cmds))
