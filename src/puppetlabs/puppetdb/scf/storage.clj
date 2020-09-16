@@ -870,17 +870,41 @@
                                   inputs)))
 
 (defn update-catalog-input-metadata!
-  [certid catalog-uuid last-updated]
+  [certid catalog-uuid last-updated inputs-hash]
   (jdbc/update! :certnames
-                {:catalog_inputs_uuid catalog-uuid :catalog_inputs_timestamp last-updated}
+                {:catalog_inputs_uuid catalog-uuid
+                 :catalog_inputs_timestamp last-updated
+                 :catalog_inputs_hash inputs-hash}
                 ["id = ?" certid]))
 
-(defn certname-id-and-timestamp [certname]
+(defn catalog-inputs-metadata [certname]
   (-> (jdbc/query (hcore/format
-                    {:select [:id :catalog_inputs_timestamp]
+                    {:select [:id :catalog_inputs_timestamp :catalog_inputs_hash]
                      :from [:certnames]
                      :where [:= :certname certname]}))
       first))
+
+(defn string->bytes [s] (.getBytes s "UTF-8"))
+
+(defn input-digestor [digest]
+  (fn [input]
+    (let [input-type (.getBytes (first input) "UTF-8")
+          input-name (.getBytes (second input) "UTF-8")]
+      (.update digest input-type)
+      (.update digest (byte 0))
+      (.update digest input-name)
+      (.update digest (byte 0)))))
+
+(defn catalog-inputs-hash
+  [certname inputs]
+  (let [digest (MessageDigest/getInstance "SHA-1")
+        digestor (input-digestor digest)]
+    (.update digest (byte 0))
+    (.update digest (string->bytes certname))
+    (.update digest (byte 0))
+    (doseq [input inputs]
+      (digestor input))
+    (.digest digest)))
 
 (pls/defn-validated replace-catalog-inputs!
   [certname :- s/Str
@@ -890,12 +914,17 @@
   (jdbc/with-db-transaction []
     (let [updated (to-timestamp updated)
           catalog-uuid (sutils/munge-uuid-for-storage catalog_uuid)
-          {certid :id old-ts :catalog_inputs_timestamp} (certname-id-and-timestamp certname)]
+          {certid :id
+           old-ts :catalog_inputs_timestamp
+           old-hash :catalog_inputs_hash} (catalog-inputs-metadata certname)]
       (when (or (nil? old-ts)
                 (before? (from-sql-date old-ts) (from-sql-date updated)))
-        (delete-catalog-inputs! certid)
-        (store-catalog-inputs! certid inputs)
-        (update-catalog-input-metadata! certid catalog-uuid updated)))))
+        (let [inputs (apply sorted-set inputs)
+              new-hash (catalog-inputs-hash certname inputs)]
+          (when (not (Arrays/equals old-hash new-hash))
+            (delete-catalog-inputs! certid)
+            (store-catalog-inputs! certid inputs))
+          (update-catalog-input-metadata! certid catalog-uuid updated new-hash))))))
 
 ;; ## Database compaction
 
