@@ -31,7 +31,7 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
 # note: LOGDIR cannot be defined in the same ENV block it's used in
 # this value may be set by users, keeping in mind that some of these values are mandatory
 # -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
-ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Djdk.tls.ephemeralDHKeySize=2048"
+ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=$LOGDIR/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
