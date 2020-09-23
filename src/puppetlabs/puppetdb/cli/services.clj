@@ -95,6 +95,7 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
+   (java.sql SQLException)
    [java.util.concurrent.locks ReentrantLock]
    [org.joda.time Period]))
 
@@ -218,14 +219,20 @@
                  (format-period report-ttl) (format-period resource-events-ttl))
          (format "sweep of stale reports (threshold: %s)"
                  (format-period report-ttl)))
-       (jdbc/with-transacted-connection db
-         (if-not resource-events-ttl
-           (scf-store/delete-reports-older-than! (ago report-ttl)
-                                                 (ago report-ttl)
-                                                 incremental?)
-           (scf-store/delete-reports-older-than! (ago report-ttl)
-                                                 rounded-events-ttl
-                                                 incremental?))))
+       (try
+         (jdbc/with-transacted-connection db
+           (if-not resource-events-ttl
+             (scf-store/delete-reports-older-than! (ago report-ttl)
+                                                   (ago report-ttl)
+                                                   incremental?)
+             (scf-store/delete-reports-older-than! (ago report-ttl)
+                                                   rounded-events-ttl
+                                                   incremental?)))
+         ;; FIXME: do we really want sql errors appearing at this level?
+         (catch SQLException ex
+           (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
+             (throw ex))
+           (log/warn (trs "sweep of stale reports timed out")))))
       (catch Exception e
         (if resource-events-ttl
           (log/error e (trs "Error while sweeping reports and resource events"))
@@ -251,7 +258,13 @@
      (kitchensink/demarcate
       (format "sweep of stale resource events (threshold: %s)" rounded-ttl)
       (jdbc/with-transacted-connection db
-        (scf-store/delete-resource-events-older-than! rounded-ttl incremental?)))
+        (try
+          (scf-store/delete-resource-events-older-than! rounded-ttl incremental?)
+          ;; FIXME: do we really want sql errors appearing at this level?
+          (catch SQLException ex
+            (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
+              (throw ex))
+            (log/warn (trs "sweep of stale resource events timed out"))))))
      (catch Exception e
        (log/error e (trs "Error while sweeping resource events"))))))
 

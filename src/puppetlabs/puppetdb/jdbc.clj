@@ -20,6 +20,13 @@
 (defn db []
   *db*)
 
+(defn sql-state [kw-name]
+  (or ({:query-canceled "57014"
+        :lock-not-available "55P03"}
+       kw-name)
+      (throw (IllegalArgumentException.
+              (trs "Requested unknown SQL state")))))
+
 (defmacro with-db-connection [spec & body]
   `(sql/with-db-connection [db# ~spec]
      (binding [*db* db#]

@@ -33,7 +33,8 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [env-config-for-db-ulong]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.utils.metrics :as mutils]
             [metrics.counters :refer [counter inc! value]]
@@ -1432,7 +1433,15 @@
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
+(def daily-partition-drop-lock-timeout-ms
+  (env-config-for-db-ulong "PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS"
+                           (* 5 60 1000)))
+
 (defn prune-daily-partitions
+  "Deletes obsolete day-oriented partitions older than the date.
+  Deletes only the oldest such candidate if incremntal? is true.  Will
+  throw an SQLException cancelation if the operation takes much longer
+  than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
   ([table-prefix date]
    (prune-daily-partitions table-prefix date false))
   ([table-prefix date incremental?]
@@ -1452,17 +1461,34 @@
                       (.isBefore table-date expire-date)))
          candidates (->> (partitioning/get-partition-names table-prefix)
                          (filter expired?)
-                         sort)]
-     (if incremental?
-       (when (seq candidates)
-         (jdbc/do-commands
-          (format "drop table if exists %s cascade" (last candidates)))
-         (when (> (bounded-count 3 candidates) 2)
-           (log/warn (trs "More than 2 partitions to prune: {0}"
-                          (pr-str (butlast candidates))))))
-       (doseq [candidate candidates]
-         (jdbc/do-commands
-          (format "drop table if exists %s cascade" candidate)))))))
+                         sort)
+         drop #(if incremental?
+                 (when (seq candidates)
+                   (jdbc/do-commands
+                    (format "drop table if exists %s cascade" (last candidates)))
+                   (when (> (bounded-count 3 candidates) 2)
+                     (log/warn (trs "More than 2 partitions to prune: {0}"
+                                    (pr-str (butlast candidates))))))
+                 (doseq [candidate candidates]
+                   (jdbc/do-commands
+                    (format "drop table if exists %s cascade" candidate))))
+         set-timeout #(->> (format "set local lock_timeout = %d" %)
+                           (sql/execute! jdbc/*db*))]
+     ;; FIXME: possibly too crude...
+     (if-not daily-partition-drop-lock-timeout-ms
+       (drop)
+       (let [orig (-> "show lock_timeout"
+                      query-to-vec first :lock_timeout Long/parseLong)]
+         (set-timeout daily-partition-drop-lock-timeout-ms)
+         (let [result (drop)]
+           ;; FIXME: For now we assume that when there's an exception,
+           ;; the transaction's about to end, and that'll restore the
+           ;; original value.  We don't use finally because we noticed
+           ;; some trouble there, presumably during an exception that
+           ;; had made restore operation invalid, and we didn't have
+           ;; time to investigate.
+           (set-timeout orig)
+           result))))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given

@@ -604,3 +604,15 @@
        result))
    m
    (keys m)))
+
+(defn env-config-for-db-ulong [name default]
+  (let [insist-positive
+        #(do
+           (when (neg? %)
+             (throw (IllegalArgumentException. (trs "{0} is negative" name))))
+           %)
+        env (System/getenv name)]
+    (when-not (= env "system")
+      (if env
+        (-> env Long/parseLong insist-positive)
+        default))))
