@@ -66,12 +66,6 @@
 
 (def json-primitive-schema (s/cond-pre String Number Boolean))
 
-;; the maximum number of parameters pl-jdbc will admit in a prepared statement
-;; is 32767. delete-pending-value-id-orphans will create a prepared statement
-;; with 5 times the number of invalidated values, so 6000 here keeps us under
-;; that and leaves some room.
-(def gc-chunksize 6000)
-
 (def resource-schema
   (merge resource-ref-schema
          {(s/optional-key :exported) Boolean
