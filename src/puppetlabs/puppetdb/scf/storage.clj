@@ -1093,7 +1093,7 @@
 ;; Chunk size for path insertion to avoid blowing prepared statement size limit
 (def path-insertion-chunk-size 6000)
 
-(defn pathmap-digestor [digest]
+(defn pathmap-digestor [^MessageDigest digest]
   (fn [{:keys [path value_type_id] :as pathmap}]
     (.update digest (-> (str path value_type_id)
                         (.getBytes "UTF-8")))
@@ -1165,7 +1165,8 @@
   [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
    :- facts-schema]
   (jdbc/with-db-transaction []
-    (let [{:keys [package_hash certname_id factset_id stable_hash volatile_fact_names]}
+    (let [{:keys [package_hash certname_id factset_id
+                  ^bytes stable_hash volatile_fact_names]}
           (certname-factset-metadata certname)
 
           ;; split facts into stable and volatile maps. Everything that was
@@ -1175,7 +1176,7 @@
           current-volatile-fact-keys (volatile-fact-keys-for-factset factset_id)
           incoming-volatile-facts (select-keys values current-volatile-fact-keys)
           incoming-stable-facts (apply dissoc values current-volatile-fact-keys)
-          incoming-stable-fact-hash (shash/generic-identity-sha1-bytes incoming-stable-facts)
+          ^bytes incoming-stable-fact-hash (shash/generic-identity-sha1-bytes incoming-stable-facts)
           fact-json-updates (if-not (Arrays/equals stable_hash incoming-stable-fact-hash)
                               ;; stable facts are different; load the json and move the ones that
                               ;; changed into volatile
@@ -1202,8 +1203,8 @@
 
       ;; Only update the paths if any existing paths_hash doesn't
       ;; match the incoming paths.
-      (let [paths-hash (if-let [existing-hash (factset-paths-hash factset_id)]
-                         (let [incoming-hash (-> (facts/facts->pathmaps values)
+      (let [paths-hash (if-let [^bytes existing-hash (factset-paths-hash factset_id)]
+                         (let [^bytes incoming-hash (-> (facts/facts->pathmaps values)
                                                  hash-pathmaps-paths)]
                            (if (Arrays/equals existing-hash incoming-hash)
                              existing-hash
