@@ -221,6 +221,12 @@
        (apply merge)
        (reset! storage-metrics)))
 
+
+(def command-sql-statement-timeout-ms
+  (env-config-for-db-ulong "PDB_COMMAND_SQL_STATEMENT_TIMEOUT_MS"
+                           (* 10 60 1000)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
 
@@ -1649,7 +1655,8 @@
   (let [producer-timestamp (to-timestamp producer_timestamp)
         store! (fn []
                  (jdbc/retry-with-monitored-connection
-                  db conn-status :read-committed
+                  db conn-status {:isolation :read-committed
+                                  :statement-timeout command-sql-statement-timeout-ms}
                   (fn []
                     (maybe-activate-node! certname producer-timestamp)
                     (add-report!* report received-timestamp update-latest-report?))))]
@@ -1662,7 +1669,8 @@
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
             (jdbc/retry-with-monitored-connection
-             db conn-status :read-committed
+             db conn-status {:isolation :read-committed
+                             :statement-timeout command-sql-statement-timeout-ms}
              (fn []
                (partitioning/create-reports-partition producer-timestamp)
                (doseq [date (set (map :timestamp
