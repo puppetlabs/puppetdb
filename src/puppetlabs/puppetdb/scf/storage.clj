@@ -52,7 +52,7 @@
            [java.util Arrays]
            [org.postgresql.util PGobject]
            [org.joda.time Period]
-           [java.sql Timestamp]
+           [java.sql SQLException Timestamp]
            (java.time Instant LocalDate LocalDateTime Year ZoneId ZonedDateTime)
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
@@ -1682,6 +1682,10 @@
           ;; in the DLO
           (throw e)))))))
 
+(def fact-path-gc-lock-timeout-ms
+  (env-config-for-db-ulong "PDB_FACT_PATH_GC_SQL_LOCK_TIMEOUT_MS"
+                           (* 10 60 1000)))
+
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   [db]
@@ -1694,4 +1698,12 @@
      (jdbc/with-transacted-connection' db :repeatable-read
        ;; May or may not require postgresql's "stronger than the
        ;; standard" behavior for repeatable read.
-       (delete-unused-fact-paths)))))
+       (try
+         (some->> fact-path-gc-lock-timeout-ms
+                  (format "set local lock_timeout = %d")
+                  (sql/execute! jdbc/*db*))
+         (delete-unused-fact-paths)
+         (catch SQLException ex
+           (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
+             (throw ex))
+           (log/warn (trs "sweep of stale fact paths timed out"))))))))
