@@ -1432,52 +1432,72 @@
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
-(defn drop-partitions-older-than!
-  [table-prefix date]
-  {:pre [(kitchensink/datetime? date)
-         (string? table-prefix)]}
-
-  (let [tables (partitioning/get-partition-names table-prefix)
-        expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
-
-    (doseq [partition-name (filter (fn [table]
-                                  (let [parts (str/split table #"_")
-                                        table-full-date (last parts)
-                                        table-year (Integer/parseInt (subs table-full-date 0 4))
-                                        table-month (Integer/parseInt (subs table-full-date 4 6))
-                                        table-day (Integer/parseInt (subs table-full-date 6 8))
-                                        table-date (ZonedDateTime/of table-year table-month table-day 0 0 0 0 (ZoneId/of "UTC"))]
-                                    (.isBefore table-date expire-date)))
-                                tables)]
-      (jdbc/do-commands
-        (format "drop table if exists %s cascade" partition-name)))))
+(defn prune-daily-partitions
+  ([table-prefix date]
+   (prune-daily-partitions table-prefix date false))
+  ([table-prefix date incremental?]
+   {:pre [(kitchensink/datetime? date)
+          (string? table-prefix)]}
+   (let [utcz (ZoneId/of "UTC")
+         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
+                                           utcz)
+         expired? (fn [table]
+                    (let [parts (str/split table #"_")
+                          table-full-date (last parts)
+                          table-year (Integer/parseInt (subs table-full-date 0 4))
+                          table-month (Integer/parseInt (subs table-full-date 4 6))
+                          table-day (Integer/parseInt (subs table-full-date 6 8))
+                          table-date (ZonedDateTime/of table-year table-month table-day
+                                                       0 0 0 0 utcz)]
+                      (.isBefore table-date expire-date)))
+         candidates (->> (partitioning/get-partition-names table-prefix)
+                         (filter expired?)
+                         sort)]
+     (if incremental?
+       (when (seq candidates)
+         (jdbc/do-commands
+          (format "drop table if exists %s cascade" (last candidates)))
+         (when (> (bounded-count 3 candidates) 2)
+           (log/warn (trs "More than 2 partitions to prune: {0}"
+                          (pr-str (butlast candidates))))))
+       (doseq [candidate candidates]
+         (jdbc/do-commands
+          (format "drop table if exists %s cascade" candidate)))))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
-  [date]
+  [date incremental?]
   {:pre [(kitchensink/datetime? date)]}
-  (drop-partitions-older-than! "resource_events" date))
+  (prune-daily-partitions "resource_events" date incremental?))
 
 (defn delete-reports-older-than!
-  "Delete all reports in the database which have an `producer-timestamp` that is prior to
-   the specified date/time."
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-  ;; force a resource-events GC. prior to partitioning, this would have happened
-  ;; via a cascade when the report was deleted, but now we just drop whole tables
-  ;; of resource events.
-  (delete-resource-events-older-than! time)
-  (drop-partitions-older-than! "reports" time)
-  ;; since we cannot cascade back to the certnames table anymore, go clean up
-  ;; the latest_report_id column after a GC
-  (jdbc/do-commands
-    "UPDATE certnames SET latest_report_id = NULL
-     WHERE certname IN (SELECT DISTINCT certnames.certname
-                        FROM certnames
-                        LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)
-                        WHERE reports.id IS NULL)"))
+  "Delete all reports in the database which have an producer-timestamp
+  that is prior to the specified report-time.  When event-time is
+  specified, delete all the events that are older than whichever time
+  is more recent."
+  ([time] (delete-reports-older-than! time time false))
+  ([report-time event-time incremental?]
+   {:pre [(kitchensink/datetime? report-time)
+          (kitchensink/datetime? event-time)]}
+   ;; force a resource-events GC. prior to partitioning, this would have happened
+   ;; via a cascade when the report was deleted, but now we just drop whole tables
+   ;; of resource events.
+   (delete-resource-events-older-than! (if (before? report-time event-time)
+                                         event-time report-time)
+                                       incremental?)
+   (prune-daily-partitions "reports" report-time incremental?)
+   ;; since we cannot cascade back to the certnames table anymore, go clean up
+   ;; the latest_report_id column after a GC
+   (jdbc/do-commands
+    ["UPDATE certnames SET latest_report_id = NULL"
+     "  WHERE certname IN"
+     "    (SELECT DISTINCT certnames.certname FROM certnames"
+     "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
+     "       WHERE reports.id IS NULL)"])))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

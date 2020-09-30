@@ -197,19 +197,39 @@
     (catch Exception e
       (log/error e (trs "Error while purging deactivated and expired nodes")))))
 
+(defn rounded-date [d]
+  (-> (ago d) .dayOfYear .roundFloorCopy))
+
 (defn sweep-reports!
-  "Delete reports which are older than than `report-ttl`."
-  [report-ttl db]
+  "Deletes reports older than than report-ttl.  When resource-events-ttl
+  is also provided, deletes events that are older than that
+  ttl (rounded to the day) or the report-ttl, whichever is newer,
+  allowing this function to act as a merged reports and
+  resource-events gc.  When incremental? is true, only deletes the
+  oldest partition(s) when there are multiple candidates."
+  [report-ttl resource-events-ttl incremental? db]
   {:pre [(map? db)
          (period? report-ttl)]}
-  (try
-    (kitchensink/demarcate
-     (format "sweep of stale reports (threshold: %s)"
-             (format-period report-ttl))
-     (jdbc/with-transacted-connection db
-       (scf-store/delete-reports-older-than! (ago report-ttl))))
-    (catch Exception e
-      (log/error e (trs "Error while sweeping reports")))))
+  (let [rounded-events-ttl (some-> resource-events-ttl rounded-date)]
+    (try
+      (kitchensink/demarcate
+       (if resource-events-ttl
+         (format "sweep of stale reports (threshold: %s) and resource events (threshold: %s)"
+                 (format-period report-ttl) (format-period resource-events-ttl))
+         (format "sweep of stale reports (threshold: %s)"
+                 (format-period report-ttl)))
+       (jdbc/with-transacted-connection db
+         (if-not resource-events-ttl
+           (scf-store/delete-reports-older-than! (ago report-ttl)
+                                                 (ago report-ttl)
+                                                 incremental?)
+           (scf-store/delete-reports-older-than! (ago report-ttl)
+                                                 rounded-events-ttl
+                                                 incremental?))))
+      (catch Exception e
+        (if resource-events-ttl
+          (log/error e (trs "Error while sweeping reports and resource events"))
+          (log/error e (trs "Error while sweeping reports")))))))
 
 (defn gc-packages! [db]
   {:pre [(map? db)]}
@@ -222,19 +242,16 @@
 
 (defn gc-resource-events!
   "Delete resource-events entries which are older than than `resource-events-ttl`."
-  [resource-events-ttl db]
+  [resource-events-ttl incremental? db]
   {:pre [(map? db)
          (period? resource-events-ttl)]}
   ;; apply a day floor on this - we can't be more granular than a day here.
-  (let [rounded-date (-> (ago resource-events-ttl)
-                         (.dayOfYear)
-                         (.roundFloorCopy))]
+  (let [rounded-ttl (rounded-date resource-events-ttl)]
    (try
      (kitchensink/demarcate
-      (format "sweep of stale resource events (threshold: %s)"
-              rounded-date)
+      (format "sweep of stale resource events (threshold: %s)" rounded-ttl)
       (jdbc/with-transacted-connection db
-                                       (scf-store/delete-resource-events-older-than! rounded-date)))
+        (scf-store/delete-resource-events-older-than! rounded-ttl incremental?)))
      (catch Exception e
        (log/error e (trs "Error while sweeping resource events"))))))
 
@@ -304,7 +321,8 @@
                                                 :resource-events-ttl Period
                                                 s/Keyword s/Any}
    ;; Later, the values might be maps, i.e. {:limit 1000}
-   request :- clean-request-schema]
+   request :- clean-request-schema
+   incremental?]
   (when-not (.isHeldByCurrentThread lock)
     (throw (IllegalStateException. (tru "cleanup lock is not already held"))))
   (let [request (reduce-clean-request (if (empty? request)
@@ -325,16 +343,29 @@
                (purge-nodes! node-purge-ttl opts db))
         (counters/inc! (get-metric :node-purges)))
       (when (request "purge_reports")
-        (time! (get-metric :report-purge-time)
-               (sweep-reports! report-ttl db))
-        (counters/inc! (get-metric :report-purges)))
+        ;; When both reports and events are requested, perform the
+        ;; unified action here so that we can avoid redundant work,
+        ;; and perhaps waiting on lock(s) twice.
+        (if-not (request "purge_resource_events")
+          (do
+            (time! (get-metric :report-purge-time)
+                   (sweep-reports! report-ttl nil incremental? db))
+            (counters/inc! (get-metric :report-purges)))
+          (do
+            (time! (get-metric :report-purge-time)
+                   (time! (get-metric :resource-events-purge-time)
+                          (sweep-reports! report-ttl resource-events-ttl
+                                          incremental? db)))
+            (counters/inc! (get-metric :report-purges))
+            (counters/inc! (get-metric :resource-events-purges)))))
       (when (request "gc_packages")
         (time! (get-metric :package-gc-time)
                (gc-packages! db))
         (counters/inc! (get-metric :package-gcs)))
-      (when (request "purge_resource_events")
+      (when (and (request "purge_resource_events")
+                 (not (request "purge_reports")))
         (time! (get-metric :resource-events-purge-time)
-               (gc-resource-events! resource-events-ttl db))
+               (gc-resource-events! resource-events-ttl incremental? db))
         (counters/inc! (get-metric :resource-events-purges)))
       ;; It's important that this go last to ensure anything referencing
       ;; an env or resource param is purged first.
@@ -347,7 +378,7 @@
 
 (defn- clean-puppetdb
   "Implements the PuppetDBServer clean method, see the protocol for
-  further information."
+  further information.  For now, always incremental."
   [context what]
   ;; For now, just serialize them.
   ;; FIXME: improve request results wrt multiple databases?
@@ -362,7 +393,7 @@
               true
               (throw ex))
             (let [ex (try
-                       (clean-up db lock cfg what)
+                       (clean-up db lock cfg what true)
                        ex
                        (catch Exception db-ex
                          (when ex (.addSuppressed ex db-ex))
@@ -616,20 +647,22 @@
              "other"])))
 
 (defn collect-garbage
-  [db clean-lock config clean-request]
-  (.lock clean-lock)
-  (try
-    (try
-      (clean-up db clean-lock config clean-request)
-      (catch Exception ex
-        (log/error ex)))
-    (finally
-      (.unlock clean-lock))))
+  ([db clean-lock config clean-request]
+   (collect-garbage db clean-lock config clean-request false))
+  ([db clean-lock config clean-request incremental?]
+   (.lock clean-lock)
+   (try
+     (try
+       (clean-up db clean-lock config clean-request incremental?)
+       (catch Exception ex
+         (log/error ex)))
+     (finally
+       (.unlock clean-lock)))))
 
 ;; FIXME: with-logged-ex...
 
 (defn coordinate-gc-with-shutdown
-  [write-db clean-lock config request stop-status]
+  [write-db clean-lock config request stop-status incremental?]
   ;; This function assumes it will never be called concurrently with
   ;; itself, so that it's ok to just conj/disj below, instead of
   ;; tracking an atomic count or similar.
@@ -643,7 +676,7 @@
     (try
       (when (get-in (swap! stop-status update-if-not-stopping)
                     [:collecting-garbage thread])
-        (collect-garbage write-db clean-lock config request))
+        (collect-garbage write-db clean-lock config request incremental?))
       (catch Exception ex
         (log/error ex)
         (throw ex))
@@ -780,13 +813,14 @@
   (doseq [[cfg db] (map vector db-configs db-pools)
           :let [interval (to-millis (:gc-interval cfg))]
           :when (pos? interval)]
-    (let [request (db-config->clean-request cfg)]
-      (interspaced interval
-                   #(with-nonfatal-exceptions-suppressed
-                      (with-monitored-execution shutdown-for-ex
-                        (coordinate-gc-with-shutdown db clean-lock cfg request
-                                                     stop-status)))
-                   job-pool))))
+    (let [request (db-config->clean-request cfg)
+          gc (fn [incremental?]
+               (with-nonfatal-exceptions-suppressed
+                 (with-monitored-execution shutdown-for-ex
+                   (coordinate-gc-with-shutdown db clean-lock cfg request
+                                                stop-status incremental?))))]
+      (utils/noisy-future (gc false))
+      (interspaced interval #(gc true) job-pool :initial-delay interval))))
 
 (defn start-puppetdb
   "Throws {:kind ::unsupported-database :current version :oldest version} if

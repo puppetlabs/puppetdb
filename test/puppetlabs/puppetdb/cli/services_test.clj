@@ -349,7 +349,8 @@
             (utils/noisy-future
              (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg
                                                (svcs/db-config->clean-request db-cfg)
-                                               stop-status))
+                                               stop-status
+                                               false))
             @gc-blocked
             (is (= #{@collect-thread} (:collecting-garbage @stop-status)))
             (when-not slow-gc?
