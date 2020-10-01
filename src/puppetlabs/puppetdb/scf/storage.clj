@@ -870,17 +870,31 @@
                                   inputs)))
 
 (defn update-catalog-input-metadata!
-  [certid catalog-uuid last-updated]
+  [certid catalog-uuid last-updated inputs-hash]
   (jdbc/update! :certnames
-                {:catalog_inputs_uuid catalog-uuid :catalog_inputs_timestamp last-updated}
+                {:catalog_inputs_uuid catalog-uuid
+                 :catalog_inputs_timestamp last-updated
+                 :catalog_inputs_hash inputs-hash}
                 ["id = ?" certid]))
 
-(defn certname-id-and-timestamp [certname]
+(defn catalog-inputs-metadata [certname]
   (-> (jdbc/query (hcore/format
-                    {:select [:id :catalog_inputs_timestamp]
+                    {:select [:id :catalog_inputs_timestamp :catalog_inputs_hash]
                      :from [:certnames]
                      :where [:= :certname certname]}))
       first))
+
+(defn catalog-inputs-hash
+  [^String certname inputs]
+  (let [digest (MessageDigest/getInstance "SHA-1")]
+    (.update digest (.getBytes certname "UTF-8"))
+    (.update digest (byte 0))
+    (doseq [[^String type ^String name] inputs]
+      (.update digest (.getBytes type "UTF-8"))
+      (.update digest (byte 0))
+      (.update digest (.getBytes name "UTF-8"))
+      (.update digest (byte 0)))
+    (.digest digest)))
 
 (pls/defn-validated replace-catalog-inputs!
   [certname :- s/Str
@@ -890,12 +904,17 @@
   (jdbc/with-db-transaction []
     (let [updated (to-timestamp updated)
           catalog-uuid (sutils/munge-uuid-for-storage catalog_uuid)
-          {certid :id old-ts :catalog_inputs_timestamp} (certname-id-and-timestamp certname)]
+          {certid :id
+           old-ts :catalog_inputs_timestamp
+           ^bytes old-hash :catalog_inputs_hash} (catalog-inputs-metadata certname)]
       (when (or (nil? old-ts)
                 (before? (from-sql-date old-ts) (from-sql-date updated)))
-        (delete-catalog-inputs! certid)
-        (store-catalog-inputs! certid inputs)
-        (update-catalog-input-metadata! certid catalog-uuid updated)))))
+        (let [inputs (apply sorted-set inputs)
+              ^bytes new-hash (catalog-inputs-hash certname inputs)]
+          (when (not (Arrays/equals old-hash new-hash))
+            (delete-catalog-inputs! certid)
+            (store-catalog-inputs! certid inputs))
+          (update-catalog-input-metadata! certid catalog-uuid updated new-hash))))))
 
 ;; ## Database compaction
 
@@ -1074,7 +1093,7 @@
 ;; Chunk size for path insertion to avoid blowing prepared statement size limit
 (def path-insertion-chunk-size 6000)
 
-(defn pathmap-digestor [digest]
+(defn pathmap-digestor [^MessageDigest digest]
   (fn [{:keys [path value_type_id] :as pathmap}]
     (.update digest (-> (str path value_type_id)
                         (.getBytes "UTF-8")))
@@ -1146,7 +1165,8 @@
   [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
    :- facts-schema]
   (jdbc/with-db-transaction []
-    (let [{:keys [package_hash certname_id factset_id stable_hash volatile_fact_names]}
+    (let [{:keys [package_hash certname_id factset_id
+                  ^bytes stable_hash volatile_fact_names]}
           (certname-factset-metadata certname)
 
           ;; split facts into stable and volatile maps. Everything that was
@@ -1156,7 +1176,7 @@
           current-volatile-fact-keys (volatile-fact-keys-for-factset factset_id)
           incoming-volatile-facts (select-keys values current-volatile-fact-keys)
           incoming-stable-facts (apply dissoc values current-volatile-fact-keys)
-          incoming-stable-fact-hash (shash/generic-identity-sha1-bytes incoming-stable-facts)
+          ^bytes incoming-stable-fact-hash (shash/generic-identity-sha1-bytes incoming-stable-facts)
           fact-json-updates (if-not (Arrays/equals stable_hash incoming-stable-fact-hash)
                               ;; stable facts are different; load the json and move the ones that
                               ;; changed into volatile
@@ -1183,8 +1203,8 @@
 
       ;; Only update the paths if any existing paths_hash doesn't
       ;; match the incoming paths.
-      (let [paths-hash (if-let [existing-hash (factset-paths-hash factset_id)]
-                         (let [incoming-hash (-> (facts/facts->pathmaps values)
+      (let [paths-hash (if-let [^bytes existing-hash (factset-paths-hash factset_id)]
+                         (let [^bytes incoming-hash (-> (facts/facts->pathmaps values)
                                                  hash-pathmaps-paths)]
                            (if (Arrays/equals existing-hash incoming-hash)
                              existing-hash

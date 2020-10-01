@@ -1496,3 +1496,60 @@
         (dorun (->> (part/get-partition-names "reports")
                     (map utils/table-indexes)
                     (map (partial assert-index-exists "idx_reports_id"))))))))
+
+(deftest migration-77-adds-catalog-inputs-pkey
+  (testing "Catalog inputs has a primary key"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 76)
+
+      (let [before-migration (schema-info-map *db*)]
+        (apply-migration-for-testing! 77)
+
+        (is (= {:index-diff [{:left-only nil
+                              :right-only {:schema "public"
+                                           :table "catalog_inputs"
+                                           :index "catalog_inputs_pkey"
+                                           :index_keys  ["type" "name" "certname_id"]
+                                           :type "btree"
+                                           :unique? true
+                                           :functional? false
+                                           :is_partial false
+                                           :primary? true
+                                           :user "pdb_test"}
+                              :same nil}]
+                :table-diff nil
+                :constraint-diff [{:left-only nil
+                                   :right-only {:constraint_name "catalog_inputs_pkey"
+                                                :table_name "catalog_inputs"
+                                                :constraint_type "PRIMARY KEY"
+                                                :initially_deferred "NO"
+                                                :deferrable? "NO"}
+                                   :same nil}]}
+               (diff-schema-maps before-migration (schema-info-map *db*))))))))
+
+(deftest migration-78-adds-null-catalog-inputs-hash-column
+  (testing "certnames table has null catalog inputs hash column"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 77)
+
+      (let [before-migration (schema-info-map *db*)]
+        (apply-migration-for-testing! 78)
+
+        (is (= {:index-diff nil
+                :table-diff [{:left-only nil
+                              :right-only {:numeric_scale nil
+                                           :column_default nil
+                                           :character_octet_length nil
+                                           :datetime_precision nil
+                                           :nullable? "YES"
+                                           :character_maximum_length nil
+                                           :numeric_precision nil
+                                           :numeric_precision_radix nil
+                                           :data_type "bytea"
+                                           :column_name "catalog_inputs_hash"
+                                           :table_name "certnames"}
+                              :same nil}]
+                :constraint-diff nil}
+               (diff-schema-maps before-migration (schema-info-map *db*))))))))
