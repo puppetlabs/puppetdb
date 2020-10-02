@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: d17ea74a44831c2c57f53e0dec53e8887d9cac93\n"
+"X-Git-Ref: 22549c794b08b78d2f953c3855d340411d6fe477\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1170,6 +1170,12 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
 msgid "Cannot enqueue item of type {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/hash.clj
+msgid ""
+"Factset hash for {0} in {1} at {2} with {3} keys and {4} packages produced "
+"{5}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
