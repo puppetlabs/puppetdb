@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 22549c794b08b78d2f953c3855d340411d6fe477\n"
+"X-Git-Ref: 8f84428f14cb4456370342853bc274fb97f36d25\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -144,6 +144,14 @@ msgid "Error while purging deactivated and expired nodes"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "sweep of stale reports timed out"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Error while sweeping reports and resource events"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Error while sweeping reports"
 msgstr ""
 
@@ -153,6 +161,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Error while running package gc"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "sweep of stale resource events timed out"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -725,7 +737,15 @@ msgid "Unable to find export metadata file ''{0}'' in archive"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/jdbc.clj
+msgid "Requested unknown SQL state"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/jdbc.clj
 msgid "Caught exception. Last attempt, throwing exception."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/jdbc.clj
+msgid "Timed out after {1}ms. Attempt: {2} of {3}."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/jdbc.clj
@@ -1354,11 +1374,19 @@ msgid "Not replacing catalog for certname {0} because local data is newer."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "More than 2 partitions to prune: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Not deactivating node {0} because local data is newer than {1}."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Not updating facts for certname {0} because local data is newer."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "sweep of stale fact paths timed out"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage_utils.clj
@@ -1434,4 +1462,8 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj
 msgid "Requesting shutdown: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/utils.clj
+msgid "{0} is negative"
 msgstr ""
