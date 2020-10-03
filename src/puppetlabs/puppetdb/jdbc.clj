@@ -1,8 +1,5 @@
 (ns puppetlabs.puppetdb.jdbc
   "Database utilities"
-  (:import (com.zaxxer.hikari HikariDataSource HikariConfig)
-           [java.sql Connection SQLException]
-           (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
@@ -12,13 +9,23 @@
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [schema.core :as s]
-            [clojure.math.numeric-tower :as math]
-            [puppetlabs.i18n.core :refer [trs]]))
+            [puppetlabs.i18n.core :refer [trs]])
+  (:import
+   (com.zaxxer.hikari HikariDataSource HikariConfig)
+   (java.sql Connection SQLException SQLTransientConnectionException)
+   (java.util.concurrent TimeUnit)))
 
 (def ^:dynamic *db* nil)
 
 (defn db []
   *db*)
+
+(defn sql-state [kw-name]
+  (or ({:query-canceled "57014"
+        :lock-not-available "55P03"}
+       kw-name)
+      (throw (IllegalArgumentException.
+              (trs "Requested unknown SQL state")))))
 
 (defmacro with-db-connection [spec & body]
   `(sql/with-db-connection [db# ~spec]
@@ -451,95 +458,70 @@
       first
       :c))
 
-(pls/defn-validated exponential-sleep!
-  "Sleeps for a period of time, based on an adjustable base exponential backoff.
-
-   In most cases a base of 2 is sufficient, but you can adjust this to create
-   tighter or looser sleep cycles."
-  [current-attempt :- s/Int
-   base :- (s/cond-pre s/Int Double)]
-  (let [sleep-ms (-> (math/expt base current-attempt)
-                     (- 1)
-                     (* 1000))]
-    (Thread/sleep sleep-ms)))
-
-(pls/defn-validated retry-sql-or-fail :- Boolean
-  "Log the attempts made, and the final failure during SQL retries.
-
-   If there are still retries to perform, returns false."
-  [remaining :- s/Int
-   current :- s/Int
-   ^SQLException exception]
-  (cond
-   (zero? remaining)
-   (do
-     (log/warn (trs "Caught exception. Last attempt, throwing exception."))
-     (throw exception))
-
-   :else
-   (do
-     (log/debug (trs "Caught {0}: ''{1}''. SQL Error code: ''{2}''. Attempt: {3} of {4}."
-                     (.getName (class exception))
-                     (.getMessage exception)
-                     (.getSQLState exception)
-                     (inc current)
-                     (+ current remaining)))
-     (exponential-sleep! current 1.3)
-     false)))
-
-(pls/defn-validated retry-sql*
-  "Invokes (f) up to n times, retrying only if a transient connection
-  exception occurs.  The transient exceptions will be suppressed, and
-  all others will be thrown.  If the final invocation results in a
-  transient exception, it will also be thrown."
-  [n :- s/Int
-   f]
-  (loop [r n
-         current 0]
-    (if-let [result (try
-                      [(f)]
-                      ;; Catch connection errors, and retry for some of them.
-                      ;; cf. PostgreSQL docs: Appendix A. PostgreSQL Error Codes
-                      (catch java.sql.SQLTransientConnectionException e
-                        (retry-sql-or-fail r current e)))]
-      (result 0)
-      (recur (dec r) (inc current)))))
-
-(defmacro retry-sql
-  "Executes body. If a retryable error state is thrown, will retry. At most n
-   retries are done. If still some exception is thrown it is bubbled upwards in
-   the call chain."
-  [n & body]
-  `(retry-sql* ~n (fn [] ~@body)))
+(defn retry-sql
+  "Tries (f) up to max-attempts times, ignoring \"transient\"
+  exceptions (e.g. connection exceptions).  When a
+  cancellation-timeout is provided, also ignores cancelation
+  exceptions (e.g. a statement_timeout).  Throws *any* exception from
+  the final attempt."
+  [max-attempts cancellation-timeout f]
+  (let [canceled (sql-state :query-canceled)
+        attempt #(try
+                   [(f)]
+                   (catch SQLTransientConnectionException ex
+                     ex)
+                   (catch SQLException ex
+                     (when-not cancellation-timeout
+                       (throw ex))
+                     ;; canceled should include statement_timeout
+                     (when-not (= canceled (.getSQLState ex))
+                       (throw ex))
+                     ex))]
+    (loop [result (attempt)
+           i 1]
+      (cond
+        (vector? result) (result 0)
+        (>= i max-attempts)
+        (do
+          (log/warn (trs "Caught exception. Last attempt, throwing exception."))
+          (throw result))
+        :else
+        (let [ex result]
+          (assert (instance? SQLException ex))
+          (if (= canceled (.getSQLState ex))
+            (log/debug (trs "Timed out after {1}ms. Attempt: {2} of {3}."
+                            cancellation-timeout i max-attempts))
+            (log/debug (trs "Caught {0}: ''{1}''. SQL Error code: ''{2}''. Attempt: {3} of {4}."
+                            (.getName (class ex)) (.getMessage ex) (.getSQLState ex)
+                            i max-attempts)))
+          (Thread/sleep (* i 1000))
+          (recur (attempt) (inc i)))))))
 
 (defn with-transacted-connection-fn
   "Calls f within a transaction with the specified clojure.jdbc isolation level.
   If isolation is nil, the connection pool default (read committed) is used.
   Retries the transaction up to 5 times."
   [db-spec isolation f]
-  ;; We've set up the connection pool to have read-committed isolation by
-  ;; default; don't explicitly specify it, as that can lead to redundant
-  ;; round-trips
-  (let [isolation (if (= :read-committed isolation)
-                    nil
-                    isolation)]
-    (retry-sql 5
-               (with-db-connection db-spec
-                 (with-db-transaction [:isolation isolation]
-                   (f))))))
+  ;; Avoid unnecessary round-trips, when the isolation is the
+  ;; connection pool default.
+  (let [isolation (when-not (= :read-committed isolation) isolation)]
+    (retry-sql 5 nil #(with-db-connection db-spec
+                        (with-db-transaction [:isolation isolation]
+                          (f))))))
 
 (defn retry-with-monitored-connection
-  [db-spec status isolation f]
-  ;; We've set up the connection pool to have read-committed isolation by
-  ;; default; don't explicitly specify it, as that can lead to redundant
-  ;; round-trips
-  (let [isolation (if (= :read-committed isolation)
-                    nil
-                    isolation)]
+  [db-spec status {:keys [isolation statement-timeout]} f]
+  ;; Avoid unnecessary round-trips, when the isolation is the
+  ;; connection pool default.
+  (let [isolation (when-not (= :read-committed isolation) isolation)]
     (retry-sql 5
-               (with-monitored-db-connection db-spec status
-                 (with-db-transaction [:isolation isolation]
-                   (f))))))
+               statement-timeout
+               #(with-monitored-db-connection db-spec status
+                  (with-db-transaction [:isolation isolation]
+                    (some->> statement-timeout
+                             (format "set local statement_timeout = %d")
+                             (sql/execute! *db*))
+                    (f))))))
 
 (defmacro with-transacted-connection'
   "Executes the body within a transaction with the specified clojure.jdbc

@@ -53,7 +53,8 @@
   (:require [clojure.tools.logging :as log]
             [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [puppetlabs.puppetdb.scf.storage :as scf-storage
+             :refer [command-sql-statement-timeout-ms]]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
@@ -300,7 +301,8 @@
   [{:keys [version id received payload]} start-time db conn-status]
   (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/retry-with-monitored-connection
-     db conn-status :repeatable-read
+     db conn-status {:isolation :repeatable-read
+                     :statement-timeout command-sql-statement-timeout-ms}
      (fn []
        (scf-storage/maybe-activate-node! certname producer-timestamp)
        (scf-storage/replace-catalog! catalog received)))
@@ -316,7 +318,8 @@
          stamp :producer_timestamp} payload]
     (when (seq inputs)
       (jdbc/retry-with-monitored-connection
-       db conn-status :repeatable-read
+       db conn-status {:isolation :repeatable-read
+                       :statement-timeout command-sql-statement-timeout-ms}
        (fn []
          (scf-storage/maybe-activate-node! certname stamp)
          (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp)))
@@ -349,7 +352,8 @@
   [{:keys [payload id received] :as command} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/retry-with-monitored-connection
-     db conn-status :repeatable-read
+     db conn-status {:isolation :repeatable-read
+                     :statement-timeout command-sql-statement-timeout-ms}
      (fn []
        (scf-storage/maybe-activate-node! certname producer_timestamp)
        (scf-storage/replace-facts! payload)))
@@ -380,7 +384,8 @@
 (defn exec-deactivate-node [{:keys [id received payload]} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/retry-with-monitored-connection
-     db conn-status :read-committed
+     db conn-status {:isolation :read-committed
+                     :statement-timeout command-sql-statement-timeout-ms}
      (fn []
        (when-not (scf-storage/certname-exists? certname)
          (scf-storage/add-certname! certname))
@@ -423,7 +428,8 @@
         expire-facts? (get-in payload [:expire :facts])]
     (when-not (nil? expire-facts?)
       (jdbc/retry-with-monitored-connection
-       db conn-status :read-committed
+       db conn-status {:isolation :read-committed
+                       :statement-timeout command-sql-statement-timeout-ms}
        (fn []
          (scf-storage/maybe-activate-node! certname producer_timestamp)
          (scf-storage/set-certname-facts-expiration certname expire-facts? producer_timestamp)))

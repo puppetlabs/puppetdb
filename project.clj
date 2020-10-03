@@ -147,7 +147,6 @@
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/math.combinatorics "0.1.1"]
-                 [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.logging]
 
                  ;; Puppet specific

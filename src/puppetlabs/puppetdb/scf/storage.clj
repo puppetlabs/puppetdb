@@ -33,7 +33,8 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [env-config-for-db-ulong]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.utils.metrics :as mutils]
             [metrics.counters :refer [counter inc! value]]
@@ -51,7 +52,7 @@
            [java.util Arrays]
            [org.postgresql.util PGobject]
            [org.joda.time Period]
-           [java.sql Timestamp]
+           [java.sql SQLException Timestamp]
            (java.time Instant LocalDate LocalDateTime Year ZoneId ZonedDateTime)
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
@@ -64,12 +65,6 @@
    :title String})
 
 (def json-primitive-schema (s/cond-pre String Number Boolean))
-
-;; the maximum number of parameters pl-jdbc will admit in a prepared statement
-;; is 32767. delete-pending-value-id-orphans will create a prepared statement
-;; with 5 times the number of invalidated values, so 6000 here keeps us under
-;; that and leaves some room.
-(def gc-chunksize 6000)
 
 (def resource-schema
   (merge resource-ref-schema
@@ -225,6 +220,12 @@
        (map create-storage-metrics)
        (apply merge)
        (reset! storage-metrics)))
+
+
+(def command-sql-statement-timeout-ms
+  (env-config-for-db-ulong "PDB_COMMAND_SQL_STATEMENT_TIMEOUT_MS"
+                           (* 10 60 1000)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
@@ -1432,52 +1433,97 @@
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
-(defn drop-partitions-older-than!
-  [table-prefix date]
-  {:pre [(kitchensink/datetime? date)
-         (string? table-prefix)]}
+(def daily-partition-drop-lock-timeout-ms
+  (env-config-for-db-ulong "PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS"
+                           (* 5 60 1000)))
 
-  (let [tables (partitioning/get-partition-names table-prefix)
-        expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date) (ZoneId/of "UTC"))]
-
-    (doseq [partition-name (filter (fn [table]
-                                  (let [parts (str/split table #"_")
-                                        table-full-date (last parts)
-                                        table-year (Integer/parseInt (subs table-full-date 0 4))
-                                        table-month (Integer/parseInt (subs table-full-date 4 6))
-                                        table-day (Integer/parseInt (subs table-full-date 6 8))
-                                        table-date (ZonedDateTime/of table-year table-month table-day 0 0 0 0 (ZoneId/of "UTC"))]
-                                    (.isBefore table-date expire-date)))
-                                tables)]
-      (jdbc/do-commands
-        (format "drop table if exists %s cascade" partition-name)))))
+(defn prune-daily-partitions
+  "Deletes obsolete day-oriented partitions older than the date.
+  Deletes only the oldest such candidate if incremntal? is true.  Will
+  throw an SQLException cancelation if the operation takes much longer
+  than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
+  ([table-prefix date]
+   (prune-daily-partitions table-prefix date false))
+  ([table-prefix date incremental?]
+   {:pre [(kitchensink/datetime? date)
+          (string? table-prefix)]}
+   (let [utcz (ZoneId/of "UTC")
+         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
+                                           utcz)
+         expired? (fn [table]
+                    (let [parts (str/split table #"_")
+                          table-full-date (last parts)
+                          table-year (Integer/parseInt (subs table-full-date 0 4))
+                          table-month (Integer/parseInt (subs table-full-date 4 6))
+                          table-day (Integer/parseInt (subs table-full-date 6 8))
+                          table-date (ZonedDateTime/of table-year table-month table-day
+                                                       0 0 0 0 utcz)]
+                      (.isBefore table-date expire-date)))
+         candidates (->> (partitioning/get-partition-names table-prefix)
+                         (filter expired?)
+                         sort)
+         drop #(if incremental?
+                 (when (seq candidates)
+                   (jdbc/do-commands
+                    (format "drop table if exists %s cascade" (last candidates)))
+                   (when (> (bounded-count 3 candidates) 2)
+                     (log/warn (trs "More than 2 partitions to prune: {0}"
+                                    (pr-str (butlast candidates))))))
+                 (doseq [candidate candidates]
+                   (jdbc/do-commands
+                    (format "drop table if exists %s cascade" candidate))))
+         set-timeout #(->> (format "set local lock_timeout = %d" %)
+                           (sql/execute! jdbc/*db*))]
+     ;; FIXME: possibly too crude...
+     (if-not daily-partition-drop-lock-timeout-ms
+       (drop)
+       (let [orig (-> "show lock_timeout"
+                      query-to-vec first :lock_timeout Long/parseLong)]
+         (set-timeout daily-partition-drop-lock-timeout-ms)
+         (let [result (drop)]
+           ;; FIXME: For now we assume that when there's an exception,
+           ;; the transaction's about to end, and that'll restore the
+           ;; original value.  We don't use finally because we noticed
+           ;; some trouble there, presumably during an exception that
+           ;; had made restore operation invalid, and we didn't have
+           ;; time to investigate.
+           (set-timeout orig)
+           result))))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
-  [date]
+  [date incremental?]
   {:pre [(kitchensink/datetime? date)]}
-  (drop-partitions-older-than! "resource_events" date))
+  (prune-daily-partitions "resource_events" date incremental?))
 
 (defn delete-reports-older-than!
-  "Delete all reports in the database which have an `producer-timestamp` that is prior to
-   the specified date/time."
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-  ;; force a resource-events GC. prior to partitioning, this would have happened
-  ;; via a cascade when the report was deleted, but now we just drop whole tables
-  ;; of resource events.
-  (delete-resource-events-older-than! time)
-  (drop-partitions-older-than! "reports" time)
-  ;; since we cannot cascade back to the certnames table anymore, go clean up
-  ;; the latest_report_id column after a GC
-  (jdbc/do-commands
-    "UPDATE certnames SET latest_report_id = NULL
-     WHERE certname IN (SELECT DISTINCT certnames.certname
-                        FROM certnames
-                        LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)
-                        WHERE reports.id IS NULL)"))
+  "Delete all reports in the database which have an producer-timestamp
+  that is prior to the specified report-time.  When event-time is
+  specified, delete all the events that are older than whichever time
+  is more recent."
+  ([time] (delete-reports-older-than! time time false))
+  ([report-time event-time incremental?]
+   {:pre [(kitchensink/datetime? report-time)
+          (kitchensink/datetime? event-time)]}
+   ;; force a resource-events GC. prior to partitioning, this would have happened
+   ;; via a cascade when the report was deleted, but now we just drop whole tables
+   ;; of resource events.
+   (delete-resource-events-older-than! (if (before? report-time event-time)
+                                         event-time report-time)
+                                       incremental?)
+   (prune-daily-partitions "reports" report-time incremental?)
+   ;; since we cannot cascade back to the certnames table anymore, go clean up
+   ;; the latest_report_id column after a GC
+   (jdbc/do-commands
+    ["UPDATE certnames SET latest_report_id = NULL"
+     "  WHERE certname IN"
+     "    (SELECT DISTINCT certnames.certname FROM certnames"
+     "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
+     "       WHERE reports.id IS NULL)"])))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -1609,7 +1655,8 @@
   (let [producer-timestamp (to-timestamp producer_timestamp)
         store! (fn []
                  (jdbc/retry-with-monitored-connection
-                  db conn-status :read-committed
+                  db conn-status {:isolation :read-committed
+                                  :statement-timeout command-sql-statement-timeout-ms}
                   (fn []
                     (maybe-activate-node! certname producer-timestamp)
                     (add-report!* report received-timestamp update-latest-report?))))]
@@ -1622,7 +1669,8 @@
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
             (jdbc/retry-with-monitored-connection
-             db conn-status :read-committed
+             db conn-status {:isolation :read-committed
+                             :statement-timeout command-sql-statement-timeout-ms}
              (fn []
                (partitioning/create-reports-partition producer-timestamp)
                (doseq [date (set (map :timestamp
@@ -1633,6 +1681,10 @@
           ;; otherwise throw the error so the command ends up
           ;; in the DLO
           (throw e)))))))
+
+(def fact-path-gc-lock-timeout-ms
+  (env-config-for-db-ulong "PDB_FACT_PATH_GC_SQL_LOCK_TIMEOUT_MS"
+                           (* 10 60 1000)))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
@@ -1646,4 +1698,12 @@
      (jdbc/with-transacted-connection' db :repeatable-read
        ;; May or may not require postgresql's "stronger than the
        ;; standard" behavior for repeatable read.
-       (delete-unused-fact-paths)))))
+       (try
+         (some->> fact-path-gc-lock-timeout-ms
+                  (format "set local lock_timeout = %d")
+                  (sql/execute! jdbc/*db*))
+         (delete-unused-fact-paths)
+         (catch SQLException ex
+           (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
+             (throw ex))
+           (log/warn (trs "sweep of stale fact paths timed out"))))))))
