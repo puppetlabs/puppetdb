@@ -18,7 +18,8 @@
    The standard set of operations on information in the database will
    likely result in dangling resources and catalogs; to clean these
    up, it's important to run `garbage-collect!`."
-  (:require [puppetlabs.puppetdb.catalogs :as cat]
+  (:require [murphy :refer [try!]]
+            [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -1442,86 +1443,95 @@
   Deletes only the oldest such candidate if incremntal? is true.  Will
   throw an SQLException cancelation if the operation takes much longer
   than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
-  ([table-prefix date]
-   (prune-daily-partitions table-prefix date false))
-  ([table-prefix date incremental?]
-   {:pre [(kitchensink/datetime? date)
-          (string? table-prefix)]}
-   (let [utcz (ZoneId/of "UTC")
-         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
-                                           utcz)
-         expired? (fn [table]
-                    (let [parts (str/split table #"_")
-                          table-full-date (last parts)
-                          table-year (Integer/parseInt (subs table-full-date 0 4))
-                          table-month (Integer/parseInt (subs table-full-date 4 6))
-                          table-day (Integer/parseInt (subs table-full-date 6 8))
-                          table-date (ZonedDateTime/of table-year table-month table-day
-                                                       0 0 0 0 utcz)]
-                      (.isBefore table-date expire-date)))
-         candidates (->> (partitioning/get-partition-names table-prefix)
-                         (filter expired?)
-                         sort)
-         drop #(if incremental?
-                 (when (seq candidates)
-                   (jdbc/do-commands
-                    (format "drop table if exists %s cascade" (last candidates)))
-                   (when (> (bounded-count 3 candidates) 2)
-                     (log/warn (trs "More than 2 partitions to prune: {0}"
-                                    (pr-str (butlast candidates))))))
-                 (doseq [candidate candidates]
-                   (jdbc/do-commands
-                    (format "drop table if exists %s cascade" candidate))))
-         set-timeout #(->> (format "set local lock_timeout = %d" %)
-                           (sql/execute! jdbc/*db*))]
-     ;; FIXME: possibly too crude...
-     (if-not daily-partition-drop-lock-timeout-ms
-       (drop)
-       (let [orig (-> "show lock_timeout"
-                      query-to-vec first :lock_timeout Long/parseLong)]
-         (set-timeout daily-partition-drop-lock-timeout-ms)
-         (let [result (drop)]
-           ;; FIXME: For now we assume that when there's an exception,
-           ;; the transaction's about to end, and that'll restore the
-           ;; original value.  We don't use finally because we noticed
-           ;; some trouble there, presumably during an exception that
-           ;; had made restore operation invalid, and we didn't have
-           ;; time to investigate.
-           (set-timeout orig)
-           result))))))
+  [table-prefix date incremental? update-lock-status status-key]
+  {:pre [(kitchensink/datetime? date)
+         (string? table-prefix)]}
+  (let [utcz (ZoneId/of "UTC")
+        expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
+                                          utcz)
+        expired? (fn [table]
+                   (let [parts (str/split table #"_")
+                         table-full-date (last parts)
+                         table-year (Integer/parseInt (subs table-full-date 0 4))
+                         table-month (Integer/parseInt (subs table-full-date 4 6))
+                         table-day (Integer/parseInt (subs table-full-date 6 8))
+                         table-date (ZonedDateTime/of table-year table-month table-day
+                                                      0 0 0 0 utcz)]
+                     (.isBefore table-date expire-date)))
+        candidates (->> (partitioning/get-partition-names table-prefix)
+                        (filter expired?)
+                        sort)
+        drop-one (fn [table]
+                   (update-lock-status status-key inc)
+                   (try!
+                    (jdbc/do-commands
+                     (format "drop table if exists %s cascade" table))
+                    (finally
+                      (update-lock-status status-key dec))))
+        drop #(if incremental?
+                (when (seq candidates)
+                  (jdbc/do-commands (drop-one (last candidates)))
+                  (when (> (bounded-count 3 candidates) 2)
+                    (log/warn (trs "More than 2 partitions to prune: {0}"
+                                   (pr-str (butlast candidates))))))
+                (doseq [candidate candidates]
+                  (drop-one candidate)))
+        set-timeout #(->> (format "set local lock_timeout = %d" %)
+                          (sql/execute! jdbc/*db*))]
+    ;; FIXME: possibly too crude...
+    (if-not daily-partition-drop-lock-timeout-ms
+      (drop)
+      (let [orig (-> "show lock_timeout"
+                     query-to-vec first :lock_timeout Long/parseLong)]
+        (set-timeout daily-partition-drop-lock-timeout-ms)
+        (let [result (drop)]
+          ;; FIXME: For now we assume that when there's an exception,
+          ;; the transaction's about to end, and that'll restore the
+          ;; original value.  We don't use finally because we noticed
+          ;; some trouble there, presumably during an exception that
+          ;; had made restore operation invalid, and we didn't have
+          ;; time to investigate.
+          (set-timeout orig)
+          result)))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
-  [date incremental?]
+  [date incremental? update-lock-status]
   {:pre [(kitchensink/datetime? date)]}
-  (prune-daily-partitions "resource_events" date incremental?))
+  (prune-daily-partitions "resource_events" date incremental?
+                          update-lock-status :write-locking-resource-events))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an producer-timestamp
   that is prior to the specified report-time.  When event-time is
   specified, delete all the events that are older than whichever time
   is more recent."
-  ([time] (delete-reports-older-than! time time false))
-  ([report-time event-time incremental?]
-   {:pre [(kitchensink/datetime? report-time)
-          (kitchensink/datetime? event-time)]}
-   ;; force a resource-events GC. prior to partitioning, this would have happened
-   ;; via a cascade when the report was deleted, but now we just drop whole tables
-   ;; of resource events.
-   (delete-resource-events-older-than! (if (before? report-time event-time)
-                                         event-time report-time)
-                                       incremental?)
-   (prune-daily-partitions "reports" report-time incremental?)
-   ;; since we cannot cascade back to the certnames table anymore, go clean up
-   ;; the latest_report_id column after a GC
-   (jdbc/do-commands
-    ["UPDATE certnames SET latest_report_id = NULL"
-     "  WHERE certname IN"
-     "    (SELECT DISTINCT certnames.certname FROM certnames"
-     "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
-     "       WHERE reports.id IS NULL)"])))
+  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status]
+    :or {resource-events-ttl report-ttl
+         incremental? false
+         update-lock-status (constantly true)}}]
+  {:pre [(kitchensink/datetime? report-ttl)
+         (kitchensink/datetime? resource-events-ttl)
+         (ifn? update-lock-status)]}
+  ;; force a resource-events GC. prior to partitioning, this would have happened
+  ;; via a cascade when the report was deleted, but now we just drop whole tables
+  ;; of resource events.
+  (delete-resource-events-older-than! (if (before? report-ttl resource-events-ttl)
+                                        resource-events-ttl report-ttl)
+                                      incremental?
+                                      update-lock-status)
+  (prune-daily-partitions "reports" report-ttl incremental?
+                          update-lock-status :write-locking-reports)
+  ;; since we cannot cascade back to the certnames table anymore, go clean up
+  ;; the latest_report_id column after a GC
+  (jdbc/do-commands
+   ["UPDATE certnames SET latest_report_id = NULL"
+    "  WHERE certname IN"
+    "    (SELECT DISTINCT certnames.certname FROM certnames"
+    "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
+    "       WHERE reports.id IS NULL)"]))
 
 
 
