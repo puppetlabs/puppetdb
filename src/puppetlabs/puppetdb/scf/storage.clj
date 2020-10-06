@@ -1693,8 +1693,7 @@
           (throw e)))))))
 
 (def fact-path-gc-lock-timeout-ms
-  (env-config-for-db-ulong "PDB_FACT_PATH_GC_SQL_LOCK_TIMEOUT_MS"
-                           (* 10 60 1000)))
+  (env-config-for-db-ulong "PDB_FACT_PATH_GC_SQL_LOCK_TIMEOUT_MS" nil))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
