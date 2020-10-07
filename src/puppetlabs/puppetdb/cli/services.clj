@@ -198,6 +198,9 @@
     (catch Exception e
       (log/error e (trs "Error while purging deactivated and expired nodes")))))
 
+(defn update-db-lock-status [state what f]
+  (swap! state update what f))
+
 (defn rounded-date [d]
   (-> (ago d) .dayOfYear .roundFloorCopy))
 
@@ -208,10 +211,16 @@
   allowing this function to act as a merged reports and
   resource-events gc.  When incremental? is true, only deletes the
   oldest partition(s) when there are multiple candidates."
-  [report-ttl resource-events-ttl incremental? db]
+  [db {:keys [incremental? report-ttl resource-events-ttl db-lock-status]}]
   {:pre [(map? db)
          (period? report-ttl)]}
-  (let [rounded-events-ttl (some-> resource-events-ttl rounded-date)]
+  (let [rounded-events-ttl (some-> resource-events-ttl rounded-date)
+        update-lock-status (partial update-db-lock-status db-lock-status)
+        del-opts (merge {:report-ttl (ago report-ttl)
+                         :incremental? incremental?
+                         :update-lock-status update-lock-status}
+                        (when resource-events-ttl
+                          {:resource-events-ttl rounded-events-ttl}))]
     (try
       (kitchensink/demarcate
        (if resource-events-ttl
@@ -221,13 +230,7 @@
                  (format-period report-ttl)))
        (try
          (jdbc/with-transacted-connection db
-           (if-not resource-events-ttl
-             (scf-store/delete-reports-older-than! (ago report-ttl)
-                                                   (ago report-ttl)
-                                                   incremental?)
-             (scf-store/delete-reports-older-than! (ago report-ttl)
-                                                   rounded-events-ttl
-                                                   incremental?)))
+           (scf-store/delete-reports-older-than! del-opts))
          ;; FIXME: do we really want sql errors appearing at this level?
          (catch SQLException ex
            (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
@@ -249,17 +252,19 @@
 
 (defn gc-resource-events!
   "Delete resource-events entries which are older than than `resource-events-ttl`."
-  [resource-events-ttl incremental? db]
+  [db {:keys [incremental? resource-events-ttl db-lock-status]}]
   {:pre [(map? db)
          (period? resource-events-ttl)]}
   ;; apply a day floor on this - we can't be more granular than a day here.
-  (let [rounded-ttl (rounded-date resource-events-ttl)]
+  (let [rounded-ttl (rounded-date resource-events-ttl)
+        update-lock-status (partial update-db-lock-status db-lock-status)]
    (try
      (kitchensink/demarcate
       (format "sweep of stale resource events (threshold: %s)" rounded-ttl)
       (jdbc/with-transacted-connection db
         (try
-          (scf-store/delete-resource-events-older-than! rounded-ttl incremental?)
+          (scf-store/delete-resource-events-older-than! rounded-ttl incremental?
+                                                        update-lock-status)
           ;; FIXME: do we really want sql errors appearing at this level?
           (catch SQLException ex
             (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
@@ -333,6 +338,7 @@
                                                 :report-ttl Period
                                                 :resource-events-ttl Period
                                                 s/Keyword s/Any}
+   db-lock-status :- clojure.lang.Atom
    ;; Later, the values might be maps, i.e. {:limit 1000}
    request :- clean-request-schema
    incremental?]
@@ -344,7 +350,10 @@
         status (reduced-clean-request->status request)
         prefix (mutils/get-db-name db)
         get-metric (fn [metric]
-                     ((mutils/maybe-prefix-key prefix metric) @admin-metrics))]
+                     ((mutils/maybe-prefix-key prefix metric) @admin-metrics))
+        report-opts {:incremental? incremental?
+                     :report-ttl report-ttl
+                     :db-lock-status db-lock-status}]
     (try
       (reset! clean-status status)
       (when (request "expire_nodes")
@@ -362,13 +371,12 @@
         (if-not (request "purge_resource_events")
           (do
             (time! (get-metric :report-purge-time)
-                   (sweep-reports! report-ttl nil incremental? db))
+                   (sweep-reports! db report-opts))
             (counters/inc! (get-metric :report-purges)))
-          (do
+          (let [opts (assoc report-opts :resource-events-ttl resource-events-ttl)]
             (time! (get-metric :report-purge-time)
                    (time! (get-metric :resource-events-purge-time)
-                          (sweep-reports! report-ttl resource-events-ttl
-                                          incremental? db)))
+                          (sweep-reports! db opts)))
             (counters/inc! (get-metric :report-purges))
             (counters/inc! (get-metric :resource-events-purges)))))
       (when (request "gc_packages")
@@ -378,7 +386,9 @@
       (when (and (request "purge_resource_events")
                  (not (request "purge_reports")))
         (time! (get-metric :resource-events-purge-time)
-               (gc-resource-events! resource-events-ttl incremental? db))
+               (gc-resource-events! db {:incremental? incremental?
+                                        :resource-events-ttl resource-events-ttl
+                                        :db-lock-status db-lock-status}))
         (counters/inc! (get-metric :resource-events-purges)))
       ;; It's important that this go last to ensure anything referencing
       ;; an env or resource param is purged first.
@@ -395,23 +405,26 @@
   [context what]
   ;; For now, just serialize them.
   ;; FIXME: improve request results wrt multiple databases?
-  (let [lock (:clean-lock context)]
+  (let [lock (:clean-lock context)
+        {:keys [scf-write-dbs scf-write-db-cfgs
+                scf-write-db-lock-statuses]} (:shared-globals context)]
     (when (.tryLock lock)
       (try
-        (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
-               [cfg & cfgs] (get-in context [:shared-globals :scf-write-db-cfgs])
+        (loop [[db & dbs] scf-write-dbs
+               [cfg & cfgs] scf-write-db-cfgs
+               [status & statuses] scf-write-db-lock-statuses
                ex nil]
           (if-not db
             (if-not ex
               true
               (throw ex))
             (let [ex (try
-                       (clean-up db lock cfg what true)
+                       (clean-up db lock cfg status what true)
                        ex
                        (catch Exception db-ex
                          (when ex (.addSuppressed ex db-ex))
                          (or ex db-ex)))]
-              (recur dbs cfgs ex))))
+              (recur dbs cfgs statuses ex))))
         (finally
           (.unlock lock))))))
 
@@ -660,13 +673,13 @@
              "other"])))
 
 (defn collect-garbage
-  ([db clean-lock config clean-request]
-   (collect-garbage db clean-lock config clean-request false))
-  ([db clean-lock config clean-request incremental?]
+  ([db clean-lock config db-lock-status clean-request]
+   (collect-garbage db clean-lock config db-lock-status clean-request false))
+  ([db clean-lock config db-lock-status clean-request incremental?]
    (.lock clean-lock)
    (try
      (try
-       (clean-up db clean-lock config clean-request incremental?)
+       (clean-up db clean-lock config db-lock-status clean-request incremental?)
        (catch Exception ex
          (log/error ex)))
      (finally
@@ -675,7 +688,7 @@
 ;; FIXME: with-logged-ex...
 
 (defn coordinate-gc-with-shutdown
-  [write-db clean-lock config request stop-status incremental?]
+  [write-db clean-lock config db-lock-status request stop-status incremental?]
   ;; This function assumes it will never be called concurrently with
   ;; itself, so that it's ok to just conj/disj below, instead of
   ;; tracking an atomic count or similar.
@@ -689,7 +702,8 @@
     (try
       (when (get-in (swap! stop-status update-if-not-stopping)
                     [:collecting-garbage thread])
-        (collect-garbage write-db clean-lock config request incremental?))
+        (collect-garbage write-db clean-lock config db-lock-status request
+                         incremental?))
       (catch Exception ex
         (log/error ex)
         (throw ex))
@@ -822,18 +836,24 @@
 
 (defn start-garbage-collection
   [{:keys [clean-lock stop-status] :as context}
-   job-pool db-configs db-pools shutdown-for-ex]
-  (doseq [[cfg db] (map vector db-configs db-pools)
+   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
+  (doseq [[cfg db lock-status] (map vector db-configs db-pools db-lock-statuses)
           :let [interval (to-millis (:gc-interval cfg))]
           :when (pos? interval)]
     (let [request (db-config->clean-request cfg)
           gc (fn [incremental?]
                (with-nonfatal-exceptions-suppressed
                  (with-monitored-execution shutdown-for-ex
-                   (coordinate-gc-with-shutdown db clean-lock cfg request
+                   (coordinate-gc-with-shutdown db clean-lock cfg lock-status request
                                                 stop-status incremental?))))]
       (utils/noisy-future (gc false))
       (interspaced interval #(gc true) job-pool :initial-delay interval))))
+
+(defn database-lock-status []
+  ;; These track the number of threads either waiting
+  ;; for or holding on to the relevant locks
+  (atom {:write-locking-reports 0
+         :write-locking-resource-events 0}))
 
 (defn start-puppetdb
   "Throws {:kind ::unsupported-database :current version :oldest version} if
@@ -899,7 +919,10 @@
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
 
-                   _ write-db-pools :error close-write-dbs]
+                   _ write-db-pools :error close-write-dbs
+
+                   write-db-lock-statuses (repeatedly (count write-db-pools)
+                                                      database-lock-status)]
 
         (init-metrics read-db write-db-pools)
 
@@ -910,7 +933,8 @@
                              (cons read-database write-db-cfgs)
                              (cons read-db write-db-pools)
                              shutdown-for-ex)
-        (start-garbage-collection context job-pool write-db-cfgs write-db-pools
+        (start-garbage-collection context job-pool
+                                  write-db-cfgs write-db-pools write-db-lock-statuses
                                   shutdown-for-ex)
 
         (-> context
@@ -925,7 +949,8 @@
                      :scf-read-db read-db
                      :scf-write-dbs write-db-pools
                      :scf-write-db-cfgs write-db-cfgs
-                     :scf-write-db-names write-db-names}))))))
+                     :scf-write-db-names write-db-names
+                     :scf-write-db-lock-statuses write-db-lock-statuses}))))))
 
 (defn db-unsupported-msg
     "Returns a message describing which databases are supported."

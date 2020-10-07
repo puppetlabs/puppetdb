@@ -313,8 +313,9 @@
             (scf-store/add-certname! name)
             (scf-store/deactivate-node! name deactivation-time)))
         (let [cfg (-> *server* (get-service :DefaultedConfig) conf/get-config)
-              db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)]
-          (collect-garbage db-cfg lock db-cfg
+              db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)
+              db-lock-status (svcs/database-lock-status)]
+          (collect-garbage db-cfg lock db-cfg db-lock-status
                            (db-config->clean-request db-cfg)))
         (is (= expected-remaining
                (count (purgeable-nodes node-purge-ttl))))))))
@@ -344,10 +345,11 @@
         (with-pdb-with-no-gc
           (let [pdb (get-service *server* :PuppetDBServer)
                 db-cfg (-> *server* (get-service :DefaultedConfig) conf/get-config :database)
+                db-lock-status (svcs/database-lock-status)
                 stop-status (-> pdb service-context :stop-status)
                 lock (ReentrantLock.)]
             (utils/noisy-future
-             (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg
+             (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg db-lock-status
                                                (svcs/db-config->clean-request db-cfg)
                                                stop-status
                                                false))

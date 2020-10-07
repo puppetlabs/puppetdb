@@ -494,7 +494,9 @@
             (log/debug (trs "Caught {0}: ''{1}''. SQL Error code: ''{2}''. Attempt: {3} of {4}."
                             (.getName (class ex)) (.getMessage ex) (.getSQLState ex)
                             i max-attempts)))
-          (Thread/sleep (* i 1000))
+          ;; i.e. approx sleeps of: 0 300 690 1197 1856 ...
+          (Thread/sleep (* (dec (Math/pow 1.3 (dec i)))
+                           1000))
           (recur (attempt) (inc i)))))))
 
 (defn with-transacted-connection-fn
