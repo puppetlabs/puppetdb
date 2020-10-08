@@ -91,8 +91,7 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-single-quiet-pdb-instance
-    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)]
       (enqueue-command dispatcher
                        "replace facts"
                        4
@@ -129,8 +128,7 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)]
       (enqueue-command dispatcher
                        "replace facts"
                        4
