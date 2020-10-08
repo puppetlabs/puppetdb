@@ -93,7 +93,9 @@
     [com.fasterxml.jackson.core/jackson-databind "2.9.10.5"]
     [com.fasterxml.jackson.core/jackson-core "2.9.10"]
     ;; CVE-2020-7943
-    [puppetlabs/trapperkeeper-metrics "1.2.2" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]])
+    [puppetlabs/trapperkeeper-metrics "1.2.2" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
+    [puppetlabs/ssl-utils "1.1.0"]
+    [puppetlabs/kitchensink "2.6.0"]])
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
@@ -163,7 +165,6 @@
                     [puppetlabs/comidi]
                     [puppetlabs/dujour-version-check]
                     [puppetlabs/i18n]
-                    [puppetlabs/kitchensink]
                     [puppetlabs/stockpile "0.0.4"]
                     [puppetlabs/tools.namespace "0.2.4.1"]
                     [puppetlabs/trapperkeeper]
