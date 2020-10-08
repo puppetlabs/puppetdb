@@ -459,6 +459,11 @@
       first
       :c))
 
+(defn sleep-after-retry [i]
+  ;; i.e. approx sleeps of: 0 300 690 1197 1856 ...
+  (Thread/sleep (* (dec (Math/pow 1.3 (dec i)))
+                   1000)))
+
 (defn retry-sql
   "Tries (f) up to max-attempts times, ignoring \"transient\"
   exceptions (e.g. connection exceptions).  When a
@@ -495,9 +500,7 @@
             (log/debug (trs "Caught {0}: ''{1}''. SQL Error code: ''{2}''. Attempt: {3} of {4}."
                             (.getName (class ex)) (.getMessage ex) (.getSQLState ex)
                             i max-attempts)))
-          ;; i.e. approx sleeps of: 0 300 690 1197 1856 ...
-          (Thread/sleep (* (dec (Math/pow 1.3 (dec i)))
-                           1000))
+          (sleep-after-retry i)
           (recur (attempt) (inc i)))))))
 
 (defn with-transacted-connection-fn
@@ -512,6 +515,9 @@
                         (with-db-transaction [:isolation isolation]
                           (f))))))
 
+;; Test support (seconds)
+(def artifical-monitored-connection-sleep nil)
+
 (defn retry-with-monitored-connection
   [db-spec status {:keys [isolation statement-timeout]} f]
   ;; Avoid unnecessary round-trips, when the isolation is the
@@ -521,6 +527,10 @@
                statement-timeout
                #(with-monitored-db-connection db-spec status
                   (with-db-transaction [:isolation isolation]
+                    (when artifical-monitored-connection-sleep
+                      (query-to-vec (format "select pg_sleep(%f)"
+                                            artifical-monitored-connection-sleep)))
+
                     (some->> statement-timeout
                              (format "set local statement_timeout = %d")
                              (sql/execute! *db*))
