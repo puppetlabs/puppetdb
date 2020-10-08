@@ -6,13 +6,16 @@
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.scf.partitioning
              :refer [get-temporal-partitions]]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [logs-matching with-log-level with-log-output
+                     with-logging-to-atom]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.cli
-             :refer [example-certname example-report get-factsets]]
+             :refer [example-certname example-catalog example-report
+                     get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -40,8 +43,9 @@
             [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import
    [clojure.lang ExceptionInfo]
+   (java.sql SQLException)
    (java.util.concurrent CyclicBarrier)
-   [java.util.concurrent.locks ReentrantLock]))
+   (java.util.concurrent.locks ReentrantLock)))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -448,3 +452,69 @@
                     (set (get-temporal-partitions "reports"))))
              (is (= (->> event-parts (sort-by :table) (drop 2) set)
                     (set (get-temporal-partitions "resource_events")))))))))))
+
+;; FIXME: these gc lock timeout tests are incomplete, e.g. they only
+;; test that if the timeout is set, the gc doesn't block.
+
+(deftest gc-partition-drops-time-out
+  ;; At least with the current code, it should be fine to run all the
+  ;; tests with the same server, i.e. collect-garbage is only affected
+  ;; by its arguments.
+  (with-pdb-with-no-gc
+    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+          lock (ReentrantLock.)
+          log-output (atom [])]
+      (clear-db-for-testing!)
+      (initialize-schema)
+      (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                   "store report"
+                                   cmd-consts/latest-report-version
+                                   example-report)
+      (let [report-parts (set (get-temporal-partitions "reports"))
+            event-parts (set (get-temporal-partitions "resource_events"))]
+        (with-logging-to-atom "puppetlabs.puppetdb.cli.services" log-output
+          (with-log-level "puppetlabs.puppetdb.cli.services" :warn
+            (let [db-cfg (-> (get-service *server* :DefaultedConfig)
+                             conf/get-config :database)
+                  db-lock-status (svcs/database-lock-status)
+                  sql-ex-or-nil #(when (instance? SQLException %) %)]
+              (with-redefs [scf-store/daily-partition-drop-lock-timeout-ms 1]
+                ;; Block report gc for a while
+                (utils/noisy-future
+                 (jdbc/with-db-connection *db*
+                   (jdbc/with-db-transaction []
+                     (try
+                       (jdbc/query-to-vec "select *, pg_sleep(10) from reports")
+                       (catch ExceptionInfo ex
+                         ;; Suppress the exception that we expect if
+                         ;; the future outlives the db.  We could also
+                         ;; interrupt with a bit more work.
+                         (when-not (= (jdbc/sql-state :connection-does-not-exist)
+                                      (some-> (ex-data ex) :rollback
+                                              sql-ex-or-nil .getSQLState))
+                           (throw ex)))))))
+                (Thread/sleep 1000)
+                ;; Run gc with the short lock timeout and make sure
+                ;; that it doesn't work.
+                (collect-garbage db-cfg lock db-cfg db-lock-status
+                                 (db-config->clean-request db-cfg))
+                (is (= report-parts
+                       (set (get-temporal-partitions "reports"))))
+                (is (= event-parts
+                       (set (get-temporal-partitions "resource_events")))))
+              (let [events @log-output]
+                (when-not (is (= 1 (count (filter #(re-matches #"sweep of stale reports timed out"
+                                                               (.getMessage %))
+                                                  events))))
+                  (binding [*out* *err*]
+                    (println "Unexpected log events:")
+                    (clojure.pprint/pprint events))))
+
+              ;; Now gc without the timeout and make sure it *does*
+              ;; drop the partitions.
+              (collect-garbage db-cfg lock db-cfg db-lock-status
+                               (db-config->clean-request db-cfg))
+              (is (= (->> report-parts (sort-by :table) rest set)
+                     (set (get-temporal-partitions "reports"))))
+              (is (= (->> event-parts (sort-by :table) rest set)
+                     (set (get-temporal-partitions "resource_events")))))))))))
