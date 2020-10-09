@@ -1,4 +1,4 @@
-(def pdb-version "5.2.19-SNAPSHOT")
+(def pdb-version "5.2.19")
 (def clj-parent-version "1.4.3")
 (def tk-jetty9-ver "2.3.1")
 
