@@ -1470,7 +1470,7 @@
                       (update-lock-status status-key dec))))
         drop #(if incremental?
                 (when (seq candidates)
-                  (jdbc/do-commands (drop-one (last candidates)))
+                  (drop-one (last candidates))
                   (when (> (bounded-count 3 candidates) 2)
                     (log/warn (trs "More than 2 partitions to prune: {0}"
                                    (pr-str (butlast candidates))))))
