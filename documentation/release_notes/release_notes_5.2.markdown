@@ -18,6 +18,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 5.2.19
+
+### Bug fixes
+
+- Fixed a bug that caused PuppetDB to use a CTE that materialized a
+  large table, slowing
+  queries. ([PDB-4769](https://tickets.puppetlabs.com/browse/PDB-4760))
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
+
 ## PuppetDB 5.2.18
 
 ### Security fixes
