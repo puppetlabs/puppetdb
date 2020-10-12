@@ -81,8 +81,8 @@
                                        (await-a-while in-clean)
                                        (await-a-while test-finished)
                                        (let [result (apply orig-clean args)]
-                                            (deliver cleanup-result result)
-                                            result))]
+                                         (deliver cleanup-result result)
+                                         result))]
         (utils/noisy-future (checked-admin-post "cmd" (clean-cmd [])))
         (try
           (await-a-while in-clean)

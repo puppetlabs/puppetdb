@@ -369,7 +369,9 @@
 (defn narrow-globals
   "Reduces the number of globals to limit their reach in the codebase"
   [globals]
-  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print :node-purge-ttl :add-agent-report-filter]))
+  (select-keys globals [:scf-read-db :warn-experimental :url-prefix
+                        :pretty-print :node-purge-ttl :add-agent-report-filter
+                        :log-queries]))
 
 (defn valid-query?
   [scf-read-db version query-map query-options]

@@ -3,6 +3,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
                                                       package-tuple-hash]]
+            [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :refer [trs]]
             [schema.core :as s])
   (:import [java.security MessageDigest]))
 
@@ -222,13 +224,24 @@
   and producer.
   "
   [fact-data]
-  (-> ;; If the :package_inventory is not a seq (ie. empty) in fact-data
-      ;; we remove package-inventory key entirely because an absent
-      ;; and empty package inventory are stored identically so there's no
-      ;; way to tell them apart during sync, and we need the the hashing
-      ;; to be consistent.
-      (if (seq (:package_inventory fact-data))
-        fact-data
-        (dissoc fact-data :package_inventory))
-      (dissoc :timestamp :producer_timestamp :producer)
-      generic-identity-hash))
+  (let [id-hash (-> ;; If the :package_inventory is not a seq (ie. empty) in fact-data
+                    ;; we remove package-inventory key entirely because an absent
+                    ;; and empty package inventory are stored identically so there's no
+                    ;; way to tell them apart during sync, and we need the the hashing
+                    ;; to be consistent.
+                    (if (seq (:package_inventory fact-data))
+                      fact-data
+                      (dissoc fact-data :package_inventory))
+                    (dissoc :timestamp :producer_timestamp :producer)
+                    generic-identity-hash)
+        package-count (if-let [packages (get fact-data :package_inventory nil)]
+                        (count packages)
+                        "no")]
+    (log/debug (trs "Factset hash for {0} in {1} at {2} with {3} keys and {4} packages produced {5}"
+                    (:certname fact-data)
+                    (:environment fact-data)
+                    (:producer_timestamp fact-data)
+                    (count (keys (:values fact-data)))
+                    package-count
+                    id-hash))
+    id-hash))

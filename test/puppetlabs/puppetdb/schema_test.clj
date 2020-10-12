@@ -43,12 +43,12 @@
        :foo :foo
        :foo (s/required-key :foo)))
 
-(deftest blacklist->vector-test
-  (is (= ["baz" "bar"] (blacklist->vector "baz, bar")))
-  (is (= ["foo" "bar"] (blacklist->vector ["foo" "bar"])))
+(deftest blocklist->vector-test
+  (is (= ["baz" "bar"] (blocklist->vector "baz, bar")))
+  (is (= ["foo" "bar"] (blocklist->vector ["foo" "bar"])))
   (is (thrown-with-msg? java.lang.Exception
-                        #"Invalid facts blacklist format"
-                        (blacklist->vector ["foo" :bar]))))
+                        #"Invalid facts blocklist format"
+                        (blocklist->vector ["foo" :bar]))))
 
 (deftest unknown-keys-test
   (let [schema {(s/required-key :foo) Number
@@ -268,7 +268,7 @@
       (is (= {:foo 10}
              (convert-to-schema schema {:foo 10.0})))))
 
-  (testing "blacklisted facts conversion"
-    (let [schema {:facts-blacklist clojure.lang.PersistentVector}]
-      (is (= {:facts-blacklist ["fact1" "fact2"]}
-             (convert-to-schema schema {:facts-blacklist "fact1, fact2"}))))))
+  (testing "blocklisted facts conversion"
+    (let [schema {:facts-blocklist clojure.lang.PersistentVector}]
+      (is (= {:facts-blocklist ["fact1" "fact2"]}
+             (convert-to-schema schema {:facts-blocklist "fact1, fact2"}))))))

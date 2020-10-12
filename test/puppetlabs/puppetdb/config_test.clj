@@ -50,7 +50,37 @@
 
     (testing "disable-update-checking should default to 'false' if left unspecified"
       (let [config (configure-puppetdb {})]
-        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))))
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
+
+    (testing "shold default :log-queries to false"
+      (let [config (configure-puppetdb {})]
+        (is (= false (get-in config [:puppetdb :log-queries])))))
+
+    (testing "should allow log-user-queries boolean"
+      (let [config (configure-puppetdb {:puppetdb {:log-queries "true"}})]
+        (is (= true (get-in config [:puppetdb :log-queries]))))
+      (let [config (configure-puppetdb {:puppetdb {:log-queries "false"}})]
+        (is (= false (get-in config [:puppetdb :log-queries]))))
+      (let [config (configure-puppetdb {:puppetdb {:log-queries "some-string"}})]
+        (is (= false (get-in config [:puppetdb :log-queries]))))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (configure-puppetdb {:puppetdb {:log-queries 1337}}))))
+
+    (testing "certificate-whitelist-gets-converted-to-allowlist"
+      (let [config (configure-puppetdb {:puppetdb
+                                        {:certificate-whitelist "cert1, cert2"}})]
+        ;; whitelist gets converted to allowlist
+        (is (= "cert1, cert2" (-> config :puppetdb :certificate-allowlist))))
+      (let [config (configure-puppetdb {:puppetdb
+                                        {:certificate-allowlist "cert1, cert2"}})]
+        ;; can set allowlist directly
+        (is (= "cert1, cert2" (-> config :puppetdb :certificate-allowlist))))
+
+      ;; setting both allowlist and whitelist errors
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
+                            (configure-puppetdb {:puppetdb
+                                                 {:certificate-allowlist "cert1, cert2"
+                                                  :certificate-whitelist "cert3, cert4"}}))))))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
@@ -76,67 +106,97 @@
     (testing "should default to half the available CPUs, even on single core boxes"
       (is (= (with-ncores 1) 1)))))
 
-(deftest blacklist-regex-validates-and-returns-patterns
+(deftest blocklist-regex-validates-and-returns-patterns
   (is (every? #(instance? Pattern %)
-              (-> {:database {:subname "bar"
-                              :facts-blacklist-type "regex"
-                              :facts-blacklist ["^foo$" "bar.*" "b[a].?z"]}}
-                  convert-blacklist-config
-                  (get-in [:database :facts-blacklist]))))
+              (-> {:subname "bar"
+                   :facts-blocklist-type "regex"
+                   :facts-blocklist ["^foo$" "bar.*" "b[a].?z"]}
+                  convert-blocklist-config
+                  (get-in [:database :facts-blocklist]))))
 
   (is (thrown+-with-msg? [:type ::conf/cli-error]
                          #".*Unclosed character class near index 4\.*"
-                         (-> {:database {:subname "bar"
-                                         :facts-blacklist-type "regex"
-                                         :facts-blacklist ["^foo[" "(bar.*"]}}
-                             convert-blacklist-config))))
+                         (-> {:subname "bar"
+                              :facts-blocklist-type "regex"
+                              :facts-blocklist ["^foo[" "(bar.*"]}
+                             convert-blocklist-config))))
 
-(deftest blacklist-conversion-is-no-op-when-type-literal
-  ;; with blacklist-type set to literal all blacklist entries kept as literal strings
+(deftest blocklist-conversion-is-no-op-when-type-literal
+  ;; with blocklist-type set to literal all blocklist entries kept as literal strings
   (is (= ["^foo$" "bar.*" "b[a].?z"]
-         (-> {:database {:subname "bar"
-                         :facts-blacklist-type "literal"
-                         :facts-blacklist ["^foo$" "bar.*" "b[a].?z"]}}
-             convert-blacklist-config
-             (get-in [:database :facts-blacklist])))))
+         (-> {:subname "bar"
+              :facts-blocklist-type "literal"
+              :facts-blocklist ["^foo$" "bar.*" "b[a].?z"]}
+             convert-blocklist-config
+             :facts-blocklist))))
 
-(deftest blacklist-type-only-accepts-literal-regex-as-values
+(deftest blocklist-type-only-accepts-literal-regex-as-values
   (let [config-db (fn [bl-type]
                     (-> {:database {:user "x" :password "?"
                                     :classname "something"
                                     :subname "stuff"
                                     :subprotocol "more stuff"
-                                    :facts-blacklist-type bl-type}}
+                                    :facts-blocklist-type bl-type}}
                         configure-dbs))]
 
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Value does not match schema"
                           (config-db "foo")))
 
     (is (= "regex" (get-in (config-db "regex")
-                           [:database :facts-blacklist-type])))
+                           [:database :facts-blocklist-type])))
 
     (is (= "literal" (get-in (config-db "literal")
-                             [:database :facts-blacklist-type])))))
+                             [:database :facts-blocklist-type])))))
 
-(deftest blacklist-type-defaults-to-literal
+(deftest blocklist-type-defaults-to-literal
   (let [config (-> {:database {:user "x" :password "?"
                                :classname "something"
                                :subname "stuff"
                                :subprotocol "more stuff"}}
                    configure-dbs)]
-    (is (= (get-in config [:database :facts-blacklist-type]) "literal"))))
+    (is (= (get-in config [:database :facts-blocklist-type]) "literal"))))
 
-(deftest blacklist-converted-correctly-with-ini-and-conf-files
+(deftest blocklist-converted-correctly-with-ini-and-conf-files
   (let [build-config (fn [x] (-> {:database {:user "x" :password "?"
                                              :classname "something"
                                              :subname "stuff"
                                              :subprotocol "more stuff"
-                                             :facts-blacklist x}}
+                                             :facts-blocklist x}}
                                  configure-dbs))
         ini-config (build-config "fact1, fact2, fact3")
         hocon-config (build-config ["fact1" "fact2" "fact3"])]
-    (is (= (get-in ini-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))
-    (is (= (get-in hocon-config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
+    (is (= (get-in ini-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))
+    (is (= (get-in hocon-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))))
+
+(deftest blacklist-to-blocklist-defaulting-behavior
+  (let [config {:database {:user "x" :password "?"
+                           :classname "something"
+                           :subname "stuff"
+                           :subprotocol "more stuff"}}]
+
+    (testing "setting both facts-blacklist and facts-blocklist errors"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
+                            (configure-dbs (-> config
+                                               (assoc-in
+                                                [:database :facts-blacklist]
+                                                "I, should, fail")
+                                               (assoc-in
+                                                [:database :facts-blocklist]
+                                                "when, both, are, set"))))))
+
+    (testing "facts-blacklist-is-converted-to-blocklist"
+      (let [final-config (configure-dbs (-> config
+                                            (assoc-in
+                                             [:database :facts-blacklist]
+                                             "blocklist")
+                                            (assoc-in
+                                             [:database :facts-blacklist-type]
+                                             "literal")))]
+        (is (= ["blocklist"] (get-in final-config [:database :facts-blocklist])))
+        (is (= "literal" (get-in final-config [:database :facts-blocklist-type])))))
+
+    (testing "facts-blocklist-type-is-converted-when-defaulted-to-facts-blocklist-type"
+      (is (= "literal" (get-in (configure-dbs config) [:database :facts-blocklist-type]))))))
 
 (deftest write-databases-behavior
   (is (= {"default" {:subname "x" ::conf/unnamed true}}

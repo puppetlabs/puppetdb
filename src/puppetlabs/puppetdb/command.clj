@@ -53,7 +53,8 @@
   (:require [clojure.tools.logging :as log]
             [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [puppetlabs.puppetdb.scf.storage :as scf-storage
+             :refer [command-sql-statement-timeout-ms]]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
@@ -300,7 +301,8 @@
   [{:keys [version id received payload]} start-time db conn-status]
   (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/retry-with-monitored-connection
-     db conn-status :repeatable-read
+     db conn-status {:isolation :repeatable-read
+                     :statement-timeout command-sql-statement-timeout-ms}
      (fn []
        (scf-storage/maybe-activate-node! certname producer-timestamp)
        (scf-storage/replace-catalog! catalog received)))
@@ -316,7 +318,8 @@
          stamp :producer_timestamp} payload]
     (when (seq inputs)
       (jdbc/retry-with-monitored-connection
-       db conn-status :repeatable-read
+       db conn-status {:isolation :repeatable-read
+                       :statement-timeout command-sql-statement-timeout-ms}
        (fn []
          (scf-storage/maybe-activate-node! certname stamp)
          (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp)))
@@ -325,31 +328,32 @@
 
 ;; Fact replacement
 
-(defn rm-facts-by-regex [facts-blacklist fact-map]
-  (let [blacklisted? (fn [fact-name]
-                       (some #(re-matches % fact-name) facts-blacklist))]
-    (apply dissoc fact-map (filter blacklisted? (keys fact-map)))))
+(defn rm-facts-by-regex [facts-blocklist fact-map]
+  (let [blocklisted? (fn [fact-name]
+                       (some #(re-matches % fact-name) facts-blocklist))]
+    (apply dissoc fact-map (filter blocklisted? (keys fact-map)))))
 
 (defn prep-replace-facts
   [{:keys [version received] :as command}
-   {:keys [facts-blacklist facts-blacklist-type] :as blacklist-config}]
-  (let [blacklisting? (seq blacklist-config)
-        rm-blacklisted (when blacklisting?
-                         (case facts-blacklist-type
-                           "regex" (partial rm-facts-by-regex facts-blacklist)
-                           "literal" #(apply dissoc % facts-blacklist)))]
+   {:keys [facts-blocklist facts-blocklist-type] :as blocklist-config}]
+  (let [blocklisting? (seq blocklist-config)
+        rm-blocklisted (when blocklisting?
+                         (case facts-blocklist-type
+                           "regex" (partial rm-facts-by-regex facts-blocklist)
+                           "literal" #(apply dissoc % facts-blocklist)))]
     (update command :payload
             (fn [{:keys [package_inventory] :as prev}]
               (cond-> (upon-error-throw-fatality
                        (fact/normalize-facts version received prev))
-                blacklisting? (update :values rm-blacklisted)
+                blocklisting? (update :values rm-blocklisted)
                 (seq package_inventory) (update :package_inventory distinct))))))
 
 (defn exec-replace-facts
   [{:keys [payload id received] :as command} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/retry-with-monitored-connection
-     db conn-status :repeatable-read
+     db conn-status {:isolation :repeatable-read
+                     :statement-timeout command-sql-statement-timeout-ms}
      (fn []
        (scf-storage/maybe-activate-node! certname producer_timestamp)
        (scf-storage/replace-facts! payload)))
@@ -380,7 +384,8 @@
 (defn exec-deactivate-node [{:keys [id received payload]} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/retry-with-monitored-connection
-     db conn-status :read-committed
+     db conn-status {:isolation :read-committed
+                     :statement-timeout command-sql-statement-timeout-ms}
      (fn []
        (when-not (scf-storage/certname-exists? certname)
          (scf-storage/add-certname! certname))
@@ -423,7 +428,8 @@
         expire-facts? (get-in payload [:expire :facts])]
     (when-not (nil? expire-facts?)
       (jdbc/retry-with-monitored-connection
-       db conn-status :read-committed
+       db conn-status {:isolation :read-committed
+                       :statement-timeout command-sql-statement-timeout-ms}
        (fn []
          (scf-storage/maybe-activate-node! certname producer_timestamp)
          (scf-storage/set-certname-facts-expiration certname expire-facts? producer_timestamp)))
@@ -432,10 +438,10 @@
 
 ;; ## Command processors
 
-(defn prep-command [{:keys [command] :as cmd} blacklist-config]
+(defn prep-command [{:keys [command] :as cmd} blocklist-config]
   (case command
     "replace catalog" (prep-replace-catalog cmd)
-    "replace facts" (prep-replace-facts cmd blacklist-config)
+    "replace facts" (prep-replace-facts cmd blocklist-config)
     "store report" (prep-store-report cmd)
     "deactivate node" (prep-deactivate-node cmd)
     "configure expiration" (prep-configure-expiration cmd)
@@ -464,11 +470,11 @@
   ;; only used by testing...
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
-  [command db blacklist-config]
+  [command db blocklist-config]
   (when-not (:delete? command)
     (let [start (now)]
       (-> command
-          (prep-command blacklist-config)
+          (prep-command blocklist-config)
           (exec-command db (atom {}) start)))))
 
 (defn warn-deprecated
@@ -558,7 +564,7 @@
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
   [cmd {:keys [command version certname id received] :as cmdref}
-   q response-chan stats blacklist-config maybe-send-cmd-event!]
+   q response-chan stats blocklist-config maybe-send-cmd-event!]
   (swap! stats update :executed-commands inc)
   ((:callback cmd) {:command cmd :result nil})
   (async/>!! response-chan (make-cmd-processed-message cmd nil))
@@ -696,7 +702,7 @@
 (defn process-message
   [{:keys [certname command version received delete? id] :as cmdref}
    q command-chan dlo delay-pool broadcast-pool write-dbs response-chan stats
-   blacklist-config stop-status maybe-send-cmd-event! shutdown-for-ex]
+   blocklist-config stop-status maybe-send-cmd-event! shutdown-for-ex]
   (when received
     (let [q-time (-> (fmt-time/parse iso-formatter received)
                      (time/interval (now))
@@ -733,10 +739,10 @@
             (maybe-send-cmd-event! cmdref ::processed))
 
           delete? (process-delete-cmd cmd cmdref q response-chan stats
-                                      blacklist-config maybe-send-cmd-event!)
+                                      blocklist-config maybe-send-cmd-event!)
 
           :else (-> cmd
-                    (prep-command blacklist-config)
+                    (prep-command blocklist-config)
                     (process-cmd cmdref q write-dbs broadcast-pool response-chan
                                  stats maybe-send-cmd-event!
                                  shutdown-for-ex))))
@@ -768,14 +774,14 @@
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool broadcast-pool write-dbs
-   response-chan stats blacklist-config stop-status maybe-send-cmd-event!
+   response-chan stats blocklist-config stop-status maybe-send-cmd-event!
    shutdown-for-ex]
   (fn [cmdref]
     (process-message cmdref
                      q command-chan dlo
                      delay-pool broadcast-pool write-dbs
                      response-chan stats
-                     blacklist-config stop-status maybe-send-cmd-event!
+                     blocklist-config stop-status maybe-send-cmd-event!
                      shutdown-for-ex)))
 
 (def stop-commands-wait-ms (constantly 5000))
@@ -854,8 +860,8 @@
                                              (:stats context)
                                              (-> config
                                                  :database
-                                                 (select-keys [:facts-blacklist
-                                                               :facts-blacklist-type]))
+                                                 (select-keys [:facts-blocklist
+                                                               :facts-blocklist-type]))
                                              (:stop-status context)
                                              maybe-send-cmd-event!
                                              shutdown-for-ex)]

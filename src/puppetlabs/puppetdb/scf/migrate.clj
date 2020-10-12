@@ -1964,6 +1964,16 @@
              (jdbc/double-quote idx-name)
              (jdbc/double-quote table)))))
 
+(defn add-catalog-inputs-pkey
+  []
+  (jdbc/do-commands
+   "ALTER TABLE catalog_inputs ADD CONSTRAINT catalog_inputs_pkey PRIMARY KEY (type, name, certname_id)"))
+
+(defn add-catalog-inputs-hash
+  []
+  (jdbc/do-commands
+   "ALTER TABLE certnames ADD COLUMN catalog_inputs_hash bytea"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2021,12 +2031,14 @@
    71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames
    72 add-support-for-catalog-inputs
    73 resource-events-partitioning
-   ; Make sure that if you change the structure of reports
-   ; or resource events, you also update the delete-reports
-   ; cli command.
    74 reports-partitioning
    75 add-report-type-to-reports
-   76 add-report-partition-indexes-on-id})
+   76 add-report-partition-indexes-on-id
+   77 add-catalog-inputs-pkey
+   78 add-catalog-inputs-hash})
+   ;; Make sure that if you change the structure of reports
+   ;; or resource events, you also update the delete-reports
+   ;; cli command.
 
 (defn desired-schema-version []
   "The newest migration this PuppetDB instance knows about.  Anything

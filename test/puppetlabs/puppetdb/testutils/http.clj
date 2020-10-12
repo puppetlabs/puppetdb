@@ -90,7 +90,8 @@
                        :scf-write-db-names   ["default"]
                        :product-name         "puppetdb"
                        :add-agent-report-filter true
-                       :node-purge-ttl       (t/parse-period "14d")}
+                       :node-purge-ttl       (t/parse-period "14d")
+                       :log-queries          false}
                       global-overrides)}))
 
 (defn internal-request-post
@@ -121,7 +122,8 @@
                                               :scf-write-db-names ["default"]
                                               :url-prefix ""
                                               :add-agent-report-filter true
-                                              :node-purge-ttl (t/parse-period "14d")})]
+                                              :node-purge-ttl (t/parse-period "14d")
+                                              :log-queries false})]
      (binding [*app* (wrap-with-puppetdb-middleware
                       (server/build-app get-shared-globals))]
        (f)))))

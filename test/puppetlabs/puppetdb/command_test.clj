@@ -87,11 +87,11 @@
     (fs/delete-dir (:path dlo))
     (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
 
-;; define blacklist map to allow use of with-redefs later
-(def blacklist-config {:facts-blacklist [#"blacklisted-fact"
+;; define blocklist map to allow use of with-redefs later
+(def blocklist-config {:facts-blocklist [#"blocklisted-fact"
                                          #"pre.*" #".*suff"
                                          #"gl.?b" #"p[u].*et"]
-                          :facts-blacklist-type "regex"})
+                          :facts-blocklist-type "regex"})
 
 (defn shutdown-for-ex-dummy [msg]
   (fn [ex]
@@ -122,7 +122,7 @@
                        dbs
                        response-chan
                        stats
-                       blacklist-config
+                       blocklist-config
                        (atom {:executing-delayed 0})
                        maybe-send-cmd-event!
                        (shutdown-for-ex-dummy
@@ -765,15 +765,18 @@
   (dotestseq [version catalog-inputs-versions
               :let [version-num (version-kwd->num version)
                     {:keys [certname] :as catalog-inputs} (-> wire-catalog-inputs
-                                                              (get-in [version-num :basic])
-                                                              (assoc :producer_timestamp (now)))
-                    make-cmd-req #(catalog-inputs->command-req version-num catalog-inputs)
-                    make-another-cmd-req #(catalog-inputs->command-req version-num (-> catalog-inputs
-                                                                                       (assoc :certname "foo")))]]
+                                                              (get-in [version-num :basic]))
+                    make-cmd-req #(catalog-inputs->command-req
+                                   version-num (assoc catalog-inputs
+                                                      :producer_timestamp (now)))
+                    make-another-cmd-req #(catalog-inputs->command-req
+                                           version-num (-> catalog-inputs
+                                                           (assoc :certname "foo")
+                                                           (assoc :producer_timestamp (now))))]]
     (testing (str (command-names :replace-catalog-inputs) " " version)
-      (let [inputs [{:type "hiera" :name "puppetdb::globals::version"}
-                    {:type "hiera" :name "puppetdb::disable_cleartext"}
-                    {:type "hiera" :name "puppetdb::disable_ssl"}]]
+      (let [inputs [{:type "hiera" :name "puppetdb::disable_cleartext"}
+                    {:type "hiera" :name "puppetdb::disable_ssl"}
+                    {:type "hiera" :name "puppetdb::globals::version"}]]
 
         (testing "with catalog inputs it should store the inputs"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
@@ -782,6 +785,36 @@
                    (query-to-vec "SELECT type, name FROM catalog_inputs")))
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo))))))
+
+        (testing "unchanged catalog-input sets don't cause postgres churn"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q (make-cmd-req)))
+            (is (= inputs (query-to-vec "SELECT type, name FROM catalog_inputs")))
+            (is (= 0 (task-count delay-pool)))
+            (is (= nil (fs/list-dir (:path dlo))))
+
+            (jdbc/do-commands "TRUNCATE catalog_inputs")
+            (is (= [] (query-to-vec "SELECT type, name FROM catalog_inputs")))
+
+            (let [old-metadata (scf-store/catalog-inputs-metadata certname)
+                  modified-inputs (vec (conj (take 2 (sort (:inputs catalog-inputs)))
+                                             ["hiera" "puppetdb::open_listen_port"]))]
+              ;; Resubmitting the same catalog inputs leaves the catalog_inputs table untouched
+              (handle-message (queue/store-command q (make-cmd-req)))
+              (is (= [] (query-to-vec "SELECT type, name FROM catalog_inputs")))
+              (is (not= old-metadata (scf-store/catalog-inputs-metadata certname)))
+
+              ;; Submitting a new catalot inputs set updates the catalog_inputs table
+              (handle-message (queue/store-command
+                               q
+                               (catalog-inputs->command-req version-num
+                                                            (assoc catalog-inputs
+                                                                   :inputs modified-inputs
+                                                                   :producer_timestamp (now)))))
+              (is (= [{:type "hiera" :name "puppetdb::disable_cleartext"}
+                      {:type "hiera" :name "puppetdb::disable_ssl"}
+                      {:type "hiera" :name "puppetdb::open_listen_port"}]
+                  (query-to-vec "SELECT type, name FROM catalog_inputs"))))))
 
         (testing "submitting multiple catalog inputs processed succesfully"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
@@ -893,38 +926,38 @@
                     certname]
                    {:as-arrays? true}))))))))
 
-  (deftest regex-facts-blacklist
+  (deftest regex-facts-blocklist
     (dotestseq [version fact-versions
                 :let [command (update facts :values
                                       #(assoc %
-                                              "blacklisted-fact" "val"
+                                              "blocklisted-fact" "val"
                                               "prefix" "val"
                                               "facts-suff" "val"
                                               "glob" "val"
                                               "puppet" "val"
-                                              ;; facts below shouldn't be blacklisted
+                                              ;; facts below shouldn't be blocklisted
                                               "notprefix" "val"
                                               "suff-not" "val"
-                                              "not-blacklisted-fact" "val"))]]
-      (testing "should ignore the blacklisted facts using regex"
+                                              "not-blocklisted-fact" "val"))]]
+      (testing "should ignore the blocklisted facts using regex"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}
-                  {:certname certname :name "not-blacklisted-fact" :value "val"}
+                  {:certname certname :name "not-blocklisted-fact" :value "val"}
                   {:certname certname :name "notprefix" :value "val"}
                   {:certname certname :name "suff-not" :value "val"}]
                  (query-facts :certname :name :value)))))))
 
-    (deftest literal-facts-blacklist
+    (deftest literal-facts-blocklist
         (dotestseq [version fact-versions
                     :let [command (update facts :values
-                                          #(assoc % "blacklisted-fact" "val"))]]
-          (testing "should ignore the blacklisted fact"
-            (with-redefs [blacklist-config
-                          {:facts-blacklist ["blacklisted-fact"]
-                           :facts-blacklist-type "literal"}]
+                                          #(assoc % "blocklisted-fact" "val"))]]
+          (testing "should ignore the blocklisted fact"
+            (with-redefs [blocklist-config
+                          {:facts-blocklist ["blocklisted-fact"]
+                           :facts-blocklist-type "literal"}]
               (with-message-handler {:keys [handle-message dlo delay-pool q]}
                 (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
                 (is (= [{:certname certname :name "a" :value "1"}

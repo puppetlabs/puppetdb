@@ -1680,7 +1680,7 @@
       (store-example-report! report1 (-> 12 days ago))
       (store-example-report! report2 (now))
       (let [ids (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))
-            _ (delete-reports-older-than! (-> 11 days ago))
+            _ (delete-reports-older-than! {:report-ttl (-> 11 days ago)})
             ids2 (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))]
         (is (= ids2 [(first ids) nil]))))))
 
@@ -1867,7 +1867,7 @@
 
         (store-example-report! report1 timestamp)
         (store-example-report! report2 timestamp)
-        (delete-reports-older-than! (-> 3 days ago))
+        (delete-reports-older-than! {:report-ttl (-> 3 days ago)})
 
         (is (= (query-to-vec ["SELECT certname FROM reports"])
                [{:certname "bar"}])))))
@@ -1879,7 +1879,7 @@
             report2 (assoc report :end_time (to-string (-> 2 days ago)))]
 
         (store-example-report! report2 timestamp)
-        (delete-reports-older-than! (-> 3 days ago))
+        (delete-reports-older-than! {:report-ttl (-> 3 days ago)})
         (is (= #{}
                (set (query-resource-events :latest ["=" "report" report1-hash] {})))))))
 
@@ -2116,8 +2116,8 @@
                              [["hiera", "puppetdb::disable_ssl"]
                               ["hiera", "puppetdb::disable_cleartext"]]
                              stamp-2)
-    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}
-            {:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}]
+    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}
+            {:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}]
            (query-to-vec "select * from catalog_inputs")))
     (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
@@ -2127,8 +2127,8 @@
                              (:catalog_uuid catalog)
                              [["hiera", "puppetdb::globals::version"]]
                              stamp-1)
-    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}
-            {:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}]
+    (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}
+            {:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}]
            (query-to-vec "select * from catalog_inputs")))
     (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))))

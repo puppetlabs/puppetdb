@@ -901,7 +901,7 @@
      :entity :catalog-input-contents
      :alias "catalog_input_contents"
      :subquery? false
-     :source-table "catalog_inputs"}))
+     :source-tables #{"catalog_inputs"}}))
 
 (def catalog-inputs-query
   "Query for the catalog-inputs entity"
@@ -909,35 +909,35 @@
    {::which-query :catalog-inputs
     :can-drop-unused-joins? true
     :projections
-     {"certname" {:type :string
-                  :queryable? true
-                  :field :certnames.certname
-                  :join-deps #{:certnames}}
-      "producer_timestamp" {:type :timestamp
-                            :queryable? true
-                            :field :certnames.catalog_inputs_timestamp
-                            :join-deps #{:certnames}}
-      "catalog_uuid" {:type :string
-                      :queryable? true
-                      :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)
-                      :join-deps #{:certnames}}
-      "inputs" {:type :array
-                :queryable? true
-                :field :ci.inputs
-                :join-deps #{:ci}}}
-     :selection {:from [:certnames]
-                 :join [[{:select [:certname_id
-                                   [(hcore/raw "array_agg(array[catalog_inputs.type, name])") :inputs]]
-                          :from [:catalog_inputs]
-                          :group-by [:certname_id]} :ci]
-                        [:= :certnames.id :ci.certname_id]]
-                 :where [:<> :certnames.catalog_inputs_timestamp nil]}
-     :relationships certname-relations
+    {"certname" {:type :string
+                 :queryable? true
+                 :field :certnames.certname
+                 :join-deps #{:certnames}}
+     "producer_timestamp" {:type :timestamp
+                           :queryable? true
+                           :field :certnames.catalog_inputs_timestamp
+                           :join-deps #{:certnames}}
+     "catalog_uuid" {:type :string
+                     :queryable? true
+                     :field (hsql-uuid-as-str :certnames.catalog_inputs_uuid)
+                     :join-deps #{:certnames}}
+     "inputs" {:type :array
+               :queryable? true
+               :field :ci.inputs
+               :join-deps #{:ci}}}
+    :selection {:from [:certnames]
+                :join [[{:select [:certname_id
+                                  [(hcore/raw "array_agg(array[catalog_inputs.type, name])") :inputs]]
+                         :from [:catalog_inputs]
+                         :group-by [:certname_id]} :ci]
+                       [:= :certnames.id :ci.certname_id]]
+                :where [:<> :certnames.catalog_inputs_timestamp nil]}
+    :relationships certname-relations
 
-     :entity :catalog-inputs
-     :alias "catalog_inputs"
-     :subquery? false
-     :source-table "certnames"}))
+    :entity :catalog-inputs
+    :alias "catalog_inputs"
+    :subquery? false
+    :source-tables #{"certnames"}}))
 
 (def edges-query
   "Query for catalog edges"

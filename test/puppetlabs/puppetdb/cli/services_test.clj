@@ -168,12 +168,12 @@
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
 
-(defn make-https-request-with-whitelisted-host [whitelisted-host]
-  (let [whitelist-file (temp-file "whitelist-log-reject")
+(defn make-https-request-with-allowlisted-host [allowlisted-host]
+  (let [allowlist-file (temp-file "allowlist-log-reject")
         cert-config {:ssl-cert "test-resources/localhost.pem"
                      :ssl-key "test-resources/localhost.key"
                      :ssl-ca-cert "test-resources/ca.pem"}]
-    (spit whitelist-file whitelisted-host)
+    (spit allowlist-file allowlisted-host)
     (with-test-db
       (svc-utils/call-with-puppetdb-instance
        (-> (svc-utils/create-temp-config)
@@ -182,7 +182,7 @@
                                 {:ssl-port 0
                                  :ssl-host "0.0.0.0"
                                  :ssl-protocols "TLSv1,TLSv1.1,TLSv1.2"}))
-           (assoc-in [:puppetdb :certificate-whitelist] (str whitelist-file)))
+           (assoc-in [:puppetdb :certificate-allowlist] (str allowlist-file)))
        (fn []
          (pl-http/get (str (utils/base-url->str (assoc *base-url* :version :v4))
                            "/facts")
@@ -190,14 +190,14 @@
                              {:headers {"accept" "application/json"}
                               :as :text})))))))
 
-(deftest cert-whitelists
-  (testing "hosts not in whitelist should be forbidden"
-    (let [response (make-https-request-with-whitelisted-host "bogus")]
+(deftest cert-allowlists
+  (testing "hosts not in allowlist should be forbidden"
+    (let [response (make-https-request-with-allowlisted-host "bogus")]
       (is (= 403 (:status response)))
       (is (re-find #"Permission denied" (:body response)))))
 
-  (testing "host in the cert whitelist is allowed"
-    (let [response (make-https-request-with-whitelisted-host "localhost")]
+  (testing "host in the cert allowlist is allowed"
+    (let [response (make-https-request-with-allowlisted-host "localhost")]
       (is (= 200 (:status response)))
       (is (not (re-find #"Permission denied" (:body response)))))))
 
@@ -313,8 +313,9 @@
             (scf-store/add-certname! name)
             (scf-store/deactivate-node! name deactivation-time)))
         (let [cfg (-> *server* (get-service :DefaultedConfig) conf/get-config)
-              db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)]
-          (collect-garbage db-cfg lock db-cfg
+              db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)
+              db-lock-status (svcs/database-lock-status)]
+          (collect-garbage db-cfg lock db-cfg db-lock-status
                            (db-config->clean-request db-cfg)))
         (is (= expected-remaining
                (count (purgeable-nodes node-purge-ttl))))))))
@@ -344,12 +345,14 @@
         (with-pdb-with-no-gc
           (let [pdb (get-service *server* :PuppetDBServer)
                 db-cfg (-> *server* (get-service :DefaultedConfig) conf/get-config :database)
+                db-lock-status (svcs/database-lock-status)
                 stop-status (-> pdb service-context :stop-status)
                 lock (ReentrantLock.)]
             (utils/noisy-future
-             (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg
+             (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg db-lock-status
                                                (svcs/db-config->clean-request db-cfg)
-                                               stop-status))
+                                               stop-status
+                                               false))
             @gc-blocked
             (is (= #{@collect-thread} (:collecting-garbage @stop-status)))
             (when-not slow-gc?
