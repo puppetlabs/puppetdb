@@ -834,6 +834,9 @@
                                              db service request-shutdown))))
                  job-pool)))
 
+;; Test hook
+(defn invoke-periodic-gc [f first?] (f first?))
+
 (defn start-garbage-collection
   [{:keys [clean-lock stop-status] :as context}
    job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
@@ -841,13 +844,17 @@
           :let [interval (to-millis (:gc-interval cfg))]
           :when (pos? interval)]
     (let [request (db-config->clean-request cfg)
-          gc (fn [incremental?]
+          initial-gc? (atom true)
+          gc (fn [first?]
                (with-nonfatal-exceptions-suppressed
                  (with-monitored-execution shutdown-for-ex
-                   (coordinate-gc-with-shutdown db clean-lock cfg lock-status request
-                                                stop-status incremental?))))]
-      (utils/noisy-future (gc false))
-      (interspaced interval #(gc true) job-pool :initial-delay interval))))
+                   (let [incremental? (not @first?)]
+                     (when-not incremental?
+                       (reset! first? false))
+                     (coordinate-gc-with-shutdown db clean-lock cfg lock-status
+                                                  request stop-status
+                                                  incremental?)))))]
+      (interspaced interval #(invoke-periodic-gc gc initial-gc?) job-pool))))
 
 (defn database-lock-status []
   ;; These track the number of threads either waiting
