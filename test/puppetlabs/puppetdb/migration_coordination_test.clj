@@ -31,7 +31,7 @@
                                 ;; don't shutdown on schema
                                 ;; mismatches.
                                 {:connection-timeout 300
-                                 :gc-interval 0
+                                 :gc-interval "0"
                                  :schema-check-interval 0}))
        (fn []
          (jdbc/with-transacted-connection *db*
