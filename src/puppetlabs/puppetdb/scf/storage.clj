@@ -1469,8 +1469,8 @@
                     (finally
                       (update-lock-status status-key dec))))
         drop #(if incremental?
-                (when (seq candidates)
-                  (drop-one (last candidates))
+                (when-let [[candidate & _] (seq candidates)]
+                  (drop-one candidate)
                   (when (> (bounded-count 3 candidates) 2)
                     (log/warn (trs "More than 2 partitions to prune: {0}"
                                    (pr-str (butlast candidates))))))

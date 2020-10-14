@@ -1,13 +1,18 @@
 (ns puppetlabs.puppetdb.cli.services-test
-  (:require [me.raynes.fs :as fs]
+  (:require [clojure.set :refer [subset?]]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
+            [puppetlabs.puppetdb.command.constants :as cmd-consts]
+            [puppetlabs.puppetdb.scf.partitioning
+             :refer [get-temporal-partitions]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
             [puppetlabs.puppetdb.testutils.db
-             :refer [*db* clear-db-for-testing! with-test-db]]
-            [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
+             :refer [*db* clear-db-for-testing! with-test-db
+                     with-unconnected-test-db]]
+            [puppetlabs.puppetdb.testutils.cli
+             :refer [example-certname example-report get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -19,7 +24,13 @@
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
-             :refer [*base-url* *server* with-pdb-with-no-gc]]
+             :refer [*base-url*
+                     *server*
+                     call-with-puppetdb-instance
+                     call-with-single-quiet-pdb-instance
+                     create-temp-config
+                     sync-command-post
+                     with-pdb-with-no-gc]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.testutils
@@ -29,6 +40,7 @@
             [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import
    [clojure.lang ExceptionInfo]
+   (java.util.concurrent CyclicBarrier)
    [java.util.concurrent.locks ReentrantLock]))
 
 (deftest update-checking
@@ -366,3 +378,75 @@
 
 (deftest stop-ignores-gc-that-takes-too-long
   (test-stop-with-periodic-gc-running true #"^Forcibly terminating periodic activities"))
+
+(defn change-report-time [r time]
+  ;; A *very* blunt instrument, only intended to work for now on
+  ;; example/reports.
+  (-> (assoc r
+             :producer_timestamp time
+             :start_time time
+             :end_time time)
+      (update :logs #(mapv (fn [entry] (assoc entry :time time)) %))
+      (update :resources
+              (fn [resources]
+                (mapv
+                 (fn [res]
+                   (-> res
+                       (assoc :timestamp time)
+                       (update :events (fn [events]
+                                         (mapv #(assoc % :timestamp time)
+                                               events)))))
+                 resources)))))
+
+(deftest regular-gc-drops-oldest-partitions-incrementally
+  (with-unconnected-test-db
+    (let [config (-> (create-temp-config)
+                     (assoc :database *db*)
+                     (assoc-in [:database :gc-interval] "0.01"))
+          store-report #(sync-command-post (svc-utils/pdb-cmd-url)
+                                           example-certname
+                                           "store report"
+                                           cmd-consts/latest-report-version
+                                           (change-report-time example-report %))
+          before-gc (CyclicBarrier. 2)
+          after-gc (CyclicBarrier. 2)
+          invoke-periodic (fn [f first?]
+                            (.await before-gc)
+                            (let [result (f first?)]
+                              (.await after-gc)
+                              result))]
+      (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
+        (call-with-single-quiet-pdb-instance
+         config
+         (fn []
+           ;; Wait for the first, full gc to finish.
+           (.await before-gc)
+           (.await after-gc)
+           (store-report "2011-01-01T12:00:01-03:00")
+           (store-report "2011-01-02T12:00:01-03:00")
+           (let [report-parts (set (get-temporal-partitions "reports"))
+                 event-parts (set (get-temporal-partitions "resource_events"))]
+
+             (is (subset? #{{:table "reports_20110101z", :part "20110101z"}
+                            {:table "reports_20110102z", :part "20110102z"}}
+                          report-parts))
+
+             (is (subset? #{{:table "resource_events_20110101z", :part "20110101z"}
+                            {:table "resource_events_20110102z", :part "20110102z"}}
+                          event-parts))
+
+             ;; Let the gc go and make sure it only drops the oldest partition
+             (.await before-gc)
+             (.await after-gc)
+             (is (= (->> report-parts (sort-by :table) (drop 1) set)
+                    (set (get-temporal-partitions "reports"))))
+             (is (= (->> event-parts (sort-by :table) (drop 1) set)
+                    (set (get-temporal-partitions "resource_events"))))
+
+             ;; Let the gc go and make sure it only drops the oldest partition
+             (.await before-gc)
+             (.await after-gc)
+             (is (= (->> report-parts (sort-by :table) (drop 2) set)
+                    (set (get-temporal-partitions "reports"))))
+             (is (= (->> event-parts (sort-by :table) (drop 2) set)
+                    (set (get-temporal-partitions "resource_events")))))))))))
