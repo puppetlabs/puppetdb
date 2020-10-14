@@ -62,7 +62,7 @@
       (svc-utils/call-with-single-quiet-pdb-instance
        (-> (svc-utils/create-temp-config)
            (assoc :database *db*)
-           (assoc-in [:database :gc-interval] 0)
+           (assoc-in [:database :gc-interval] "0")
            (assoc-in [:database :node-ttl] lifetime-cfg)
            (assoc-in [:database :node-purge-ttl] lifetime-cfg))
        (fn []
@@ -177,7 +177,7 @@
            (assoc-in [:database :node-ttl] "0s")
            (assoc-in [:database :report-ttl] "0s")
            (assoc-in [:database :node-purge-ttl] "1s")
-           (assoc-in [:database :gc-interval] 0))
+           (assoc-in [:database :gc-interval] "0"))
        (fn []
          (Thread/sleep 1500)
          (is (not (called? puppetlabs.puppetdb.cli.services/purge-nodes!))))))))

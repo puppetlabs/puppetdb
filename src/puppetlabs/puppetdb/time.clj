@@ -19,6 +19,7 @@
 (def hours clj-time.core/hours)
 (def minutes clj-time.core/minutes)
 (def seconds clj-time.core/seconds)
+(def millis clj-time.core/millis)
 
 (def date-time clj-time.core/date-time)
 (def before? clj-time.core/before?)

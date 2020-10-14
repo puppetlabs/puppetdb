@@ -337,7 +337,7 @@
                           configure-dbs))]
     (testing "gc-interval"
       (testing "should use the value specified in minutes"
-        (let [gc-interval (get-in (config-with {:database {:gc-interval 900}})
+        (let [gc-interval (get-in (config-with {:database {:gc-interval "900"}})
                                   [:database :gc-interval])]
           (is (time/period? gc-interval))
           (is (= 900 (time/to-minutes gc-interval)))))
@@ -345,7 +345,20 @@
         (let [gc-interval (get-in (config-with {:database {}})
                                   [:database :gc-interval])]
           (is (time/period? gc-interval))
-          (is (= 60 (time/to-minutes gc-interval))))))
+          (is (= 60 (time/to-minutes gc-interval)))))
+      (testing "handles zero values"
+        (let [gc-interval (get-in (config-with {:database {:gc-interval "0"}})
+                                  [:database :gc-interval])]
+          (is (time/period? gc-interval))
+          (is (= 0 (time/to-minutes gc-interval)))))
+      (testing "handles fractional values"
+        (let [gc-interval (get-in (config-with {:database {:gc-interval "0.01"}})
+                                  [:database :gc-interval])]
+          (is (time/period? gc-interval))
+          (is (= 600 (time/to-millis gc-interval)))))
+      (testing "handles negative values"
+        (is (thrown-with-msg? ExceptionInfo #"gc-interval cannot be negative"
+                              (config-with {:database {:gc-interval "-1"}})))))
 
     (testing "node-ttl"
       (testing "should parse node-ttl and return a period"

@@ -404,7 +404,7 @@
      (call-with-single-quiet-pdb-instance
       (-> (svc-utils/create-temp-config)
           (assoc :database *db*)
-          (assoc-in [:database :gc-interval] 0))
+          (assoc-in [:database :gc-interval] "0"))
       (fn []
         ~@body))))
 

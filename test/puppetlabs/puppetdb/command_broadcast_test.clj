@@ -52,7 +52,7 @@
 (deftest cmd-broadcast
   (with-open [pg1 (int/setup-postgres)
               pg2 (int/setup-postgres)
-              pdb1 (int/run-puppetdb pg1 {:database {"gc-interval" 0}
+              pdb1 (int/run-puppetdb pg1 {:database {:gc-interval "0"}
                                           :database-pg1 (int/server-info pg1)
                                           :database-pg2 (int/server-info pg2)})]
     ;; post a few commands to trigger broadcast to both pgs
@@ -107,7 +107,7 @@
           (is (not= 0.0 (report-min-time "pg1")))
           (is (not= 0.0 (report-min-time "pg2"))))))
 
-    (with-open [pdb2 (int/run-puppetdb pg2 {:database {"gc-interval" 0}})]
+    (with-open [pdb2 (int/run-puppetdb pg2 {:database {:gc-interval "0"}})]
       (testing "Expected data is present in pdb2's read-database pg2"
         (let [expected [{:certname "foo.local"}]]
           (is (= expected (int/pql-query pdb2 "reports [certname] {}")))
@@ -117,7 +117,7 @@
 (deftest cmd-broadcast-with-one-pg-down
   (with-open [pg1 (int/setup-postgres)
               pg2 (int/setup-postgres)
-              pdb1 (int/run-puppetdb pg1 {:database {"gc-interval" 0}
+              pdb1 (int/run-puppetdb pg1 {:database {:gc-interval "0"}
                                           :database-pg1 (int/server-info pg1)
                                           :database-pg2 (int/server-info pg2)})]
     (let [shared-globals (-> pdb1
@@ -156,7 +156,7 @@
 (deftest cmd-broadcast-with-all-pgs-down
   (with-open [pg1 (int/setup-postgres)
               pg2 (int/setup-postgres)
-              pdb1 (int/run-puppetdb pg1 {:database {"gc-interval" 0}
+              pdb1 (int/run-puppetdb pg1 {:database {:gc-interval "0"}
                                           :database-pg1 (int/server-info pg1)
                                           :database-pg2 (int/server-info pg2)})]
     (let [shared-globals (-> pdb1
@@ -197,7 +197,7 @@
 (deftest multiple-db-migrations
   (with-open [pg1 (int/setup-postgres {:migrated? false})
               pg2 (int/setup-postgres {:migrated? false})
-              pdb (int/run-puppetdb pg1 {:database {"gc-interval" 0}
+              pdb (int/run-puppetdb pg1 {:database {:gc-interval "0"}
                                          :database-pg1 (int/server-info pg1)
                                          :database-pg2 (int/server-info pg2)})]
     (post-blocking-ssl-cmd pdb :replace-facts)

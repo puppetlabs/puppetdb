@@ -101,7 +101,7 @@
   "Includes the common database config params, also the write-db specific ones"
   (merge per-database-config-in
          (all-optional
-           {:gc-interval (pls/defaulted-maybe s/Int 60)
+           {:gc-interval (pls/defaulted-maybe (s/cond-pre String s/Int) "60")
             :report-ttl (pls/defaulted-maybe String report-ttl-default)
             :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
             :node-ttl (pls/defaulted-maybe String "7d")
@@ -142,7 +142,7 @@
 (def per-write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
   (merge per-database-config-out
-         {:gc-interval Minutes
+         {:gc-interval (s/cond-pre String s/Int)
           :report-ttl Period
           :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
           :node-ttl Period
@@ -363,6 +363,33 @@
 (defn default-events-ttl [config]
   (update config :resource-events-ttl #(or % (:report-ttl config))))
 
+(defn ensure-long-or-double [x]
+  (if (number? x)
+    x
+    (or (try
+          (Long/parseLong x)
+          (catch NumberFormatException ex
+            false))
+        (try
+          (Double/parseDouble x)
+          (catch NumberFormatException ex
+            false))
+        (throw-cli-error
+         (trs "gc-interval must be a number: {0}" x)))))
+
+(defn gc-interval->ms [config]
+  (update config
+          :gc-interval
+          (fn [minutes]
+            (let [ms (* 60 1000 (ensure-long-or-double minutes))]
+              (t/millis (cond
+                          (> ms 1) ms
+                          (> ms 0) 1
+                          (< ms 0) (throw-cli-error
+                                    (trs "gc-interval cannot be negative: {0}"
+                                         minutes))
+                          :else 0))))))
+
 (defn ensure-migrator-info [config]
   ;; This expects to run after prefer-db-user-on-username-mismatch, so
   ;; the :user should always be the right answer.
@@ -382,6 +409,7 @@
       pls/convert-blacklist-settings-to-blocklist
       convert-blocklist-config
       (coerce-and-validate-final-config per-write-database-config-out)
+      gc-interval->ms
       default-events-ttl
       (prefer-db-user-on-username-mismatch (name section-key))
       ensure-migrator-info))
