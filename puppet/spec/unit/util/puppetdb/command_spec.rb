@@ -16,22 +16,23 @@ describe Puppet::Util::Puppetdb::Command do
   describe "#submit" do
     let(:http) { mock 'http' }
     before(:each) do
-      Puppet::Network::HttpPool.expects(:connection).returns http
+      Puppet::HTTP::Client.expects(:new).returns http
     end
 
     context "when the submission succeeds" do
-      let(:httpok) { Net::HTTPOK.new('1.1', 200, '') }
+      let(:nethttpok) { Net::HTTPOK.new('1.1', 200, '') }
+      let(:httpok) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
 
       it "should issue the HTTP POST and log success" do
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
-        http.expects(:post).with() do | path, payload, headers, options |
-          param_map = CGI::parse(URI(path).query)
-          assert_valid_producer_ts(path) &&
+        http.expects(:post).with() do | uri, payload, options |
+          param_map = CGI::parse(uri.query)
+          assert_valid_producer_ts("#{uri.path}?#{uri.query}") &&
             param_map['certname'].first.should == 'foo.localdomain' &&
             param_map['version'].first.should == '1' &&
             param_map['command'].first.should == 'OPEN_SESAME' &&
-            options[:compress] == :gzip &&
-            options[:metric_id] == [:puppetdb, :command, 'OPEN_SESAME']
+            options[:options][:compress] == :gzip &&
+            options[:options][:metric_id] == [:puppetdb, :command, 'OPEN_SESAME']
         end.returns(httpok)
 
         subject.submit
@@ -47,7 +48,7 @@ describe Puppet::Util::Puppetdb::Command do
       it "should issue the HTTP POST and raise an exception" do
 
         httpbad.stubs(:body).returns 'Strange things are afoot'
-        http.expects(:post).returns httpbad
+        http.expects(:post).raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(httpbad, ":(")
         expect {
           subject.submit
         }.to raise_error(Puppet::Error, /Strange things are afoot/)
@@ -58,7 +59,7 @@ describe Puppet::Util::Puppetdb::Command do
           OpenStruct.new({:soft_write_failure => true})
 
         httpbad.stubs(:body).returns 'Strange things are afoot'
-        http.expects(:post).returns httpbad
+        http.expects(:post).raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(httpbad, ":(")
         Puppet.expects(:err).with do |msg|
           msg =~ /Strange things are afoot/
         end

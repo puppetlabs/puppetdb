@@ -19,15 +19,16 @@ Puppet::Face.define(:node, '0.0.1') do
 
       args.map do |node|
         begin
-          response = Puppet::Util::Puppetdb::Http.action("/pdb/query/v4/nodes/#{CGI.escape(node)}", :query) do |http_instance, path|
-             http_instance.get(path, headers)
+          response = Puppet::Util::Puppetdb::Http.action("/pdb/query/v4/nodes/#{CGI.escape(node)}", :query) do |http_instance, path, ssl_context|
+             http_instance.get(path, {headers: headers,
+                                      options: {ssl_context: ssl_context}})
           end
-          if response.is_a? Net::HTTPSuccess
+          if response.success?
             result = JSON.parse(response.body)
-          elsif response.is_a? Net::HTTPNotFound
+          elsif response.code == 404
             result = {'name' => node}
           else
-            raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+            raise "[#{response.code} #{response.reason}] #{response.body.gsub(/[\r\n]/, '')}"
           end
         rescue => e
           Puppet.err "Could not retrieve status for #{node}: #{e}"

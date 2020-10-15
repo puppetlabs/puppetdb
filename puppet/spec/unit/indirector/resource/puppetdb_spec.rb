@@ -14,7 +14,8 @@ describe Puppet::Resource::Puppetdb do
 
   describe "#search" do
     let(:host) { 'default.local' }
-    let(:options) { {:metric_id => [:puppetdb, :resource, :search]} }
+    let(:options) { {:metric_id => [:puppetdb, :resource, :search],
+                     :ssl_context => nil} }
     let(:http) { stub 'http' }
 
     def search(type)
@@ -32,8 +33,12 @@ describe Puppet::Resource::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
-      Puppet::Network::HttpPool.stubs(:connection).returns(http)
-      http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
+      Puppet::HTTP::Client.stubs(:new).returns(http)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/resources?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns Puppet::HTTP::Response.new(response, "mock url")
 
       search("exec").should == []
     end
@@ -45,8 +50,12 @@ describe Puppet::Resource::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
-      Puppet::Network::HttpPool.stubs(:connection).returns(http)
-      http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
+      Puppet::HTTP::Client.stubs(:new).returns(http)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/resources?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns Puppet::HTTP::Response.new(response, "mock url")
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /Deprecated, yo\./
@@ -85,14 +94,19 @@ describe Puppet::Resource::Puppetdb do
 
       def stub_response(resource_hashes)
         body = resource_hashes.to_json
-        options = { :metric_id => [:puppetdb, :resource, :search] }
+        options = { :metric_id => [:puppetdb, :resource, :search],
+                    :ssl_context => nil }
 
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
 
         http = stub 'http'
-        Puppet::Network::HttpPool.stubs(:connection).returns(http)
-        http.stubs(:get).with("/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}", subject.headers, options).returns response
+        Puppet::HTTP::Client.stubs(:new).returns(http)
+        http.stubs(:get).with do |uri, opts|
+          "/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}" == "#{uri.path}?#{uri.query}" &&
+            subject.headers == opts[:headers] &&
+            options == opts[:options]
+        end.returns Puppet::HTTP::Response.new(response, "mock url")
       end
 
       context "with resources from a single host" do

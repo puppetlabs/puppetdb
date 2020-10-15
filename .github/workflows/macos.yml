@@ -74,4 +74,4 @@ jobs:
             vendor/bundle/ruby
             ~/.m2
             ~/Library/Caches/Homebrew
-      - run: ci/bin/prep-and-run-in github rspec/pup-6.4.x
+      - run: ci/bin/prep-and-run-in github rspec/pup-main

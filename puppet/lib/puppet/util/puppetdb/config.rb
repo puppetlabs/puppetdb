@@ -107,8 +107,7 @@ module Puppet::Util::Puppetdb
 
       self.new(config_hash)
     rescue => detail
-      Puppet.warning "Could not configure PuppetDB terminuses: #{detail}"
-      Puppet.warning detail.backtrace if Puppet[:trace]
+      Puppet.log_exception detail, "Could not configure PuppetDB terminuses: #{detail.message}", {level: :warning}
       raise
     end
 

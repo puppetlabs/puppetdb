@@ -22,7 +22,8 @@ describe processor do
   context "#process" do
 
     let(:http) { mock "http" }
-    let(:httpok) { Net::HTTPOK.new('1.1', 200, '') }
+    let(:nethttpok) { Net::HTTPOK.new('1.1', 200, '') }
+    let(:httpok) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
 
     def without_producer_timestamp(json_body)
       parsed = JSON.parse(json_body)
@@ -36,9 +37,9 @@ describe processor do
 
       expected_body = subject.report_to_hash(Time.now.utc).to_json
 
-      Puppet::Network::HttpPool.expects(:connection).returns(http)
-      http.expects(:post).with {|path, body, headers|
-        expect(path).to include(Puppet::Util::Puppetdb::Command::CommandsUrl)
+      Puppet::HTTP::Client.expects(:new).returns(http)
+      http.expects(:post).with {|uri, body, headers|
+        expect(uri.path).to include(Puppet::Util::Puppetdb::Command::CommandsUrl)
 
         # producer_timestamp is generated at submission time, so remove it from
         # the comparison

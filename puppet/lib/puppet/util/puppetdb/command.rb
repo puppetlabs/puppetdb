@@ -61,24 +61,26 @@ class Puppet::Util::Puppetdb::Command
     params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.iso8601(3)}"
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
-        Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path|
+        Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path, ssl_context|
           req_headers = headers
           # custom header used in PDB to reject large compressed commands and update the size metric
           req_headers["X-Uncompressed-Length"] = payload.bytesize.to_s
-          http_instance.post(path, payload, req_headers, {:compress => :gzip,
-                                                          :metric_id => [:puppetdb, :command, command]})
+          http_instance.post(path, payload, {headers: req_headers,
+                                             options: {compress: :gzip,
+                                                       metric_id: [:puppetdb, :command, command],
+                                                       ssl_context: ssl_context}})
         end
       end
 
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)
 
-      if response.is_a? Net::HTTPSuccess
+      if response.success?
         result = JSON.parse(response.body)
         Puppet.info "'#{command}' command#{for_whom} submitted to PuppetDB with UUID #{result['uuid']}"
         result
       else
         # Newline characters cause an HTTP error, so strip them
-        error = "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+        error = "[#{response.code} #{response.reason}] #{response.body.gsub(/[\r\n]/, '')}"
         if config.soft_write_failure
           Puppet.err "'#{command}'command#{for_whom} failed during submission to PuppetDB: #{error}"
         else
@@ -89,15 +91,7 @@ class Puppet::Util::Puppetdb::Command
       if config.soft_write_failure
         Puppet.err e.message
       else
-        # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-        #  we are able to do so (can't call them yet w/o breaking backwards
-        #  compatibility.)  We should either be using a nested exception or calling
-        #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
-        #  we lose context as to where the original exception occurred.
-        if Puppet[:trace]
-          Puppet.err(e)
-          Puppet.err(e.backtrace)
-        end
+        Puppet.log_exception(e)
         raise Puppet::Util::Puppetdb::CommandSubmissionError.new(e.message, {:command => command, :for_whom => for_whom})
       end
     end

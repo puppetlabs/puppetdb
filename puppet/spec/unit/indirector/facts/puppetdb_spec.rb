@@ -2,6 +2,7 @@
 require 'spec_helper'
 
 require 'puppet/util/feature'
+require 'puppet/http/errors'
 require 'puppet/indirector/facts/puppetdb'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
@@ -18,12 +19,12 @@ describe Puppet::Node::Facts::Puppetdb do
   before :each do
     Puppet::Util::Puppetdb.config.stubs(:server_urls).returns [URI("https://localhost:8282")]
     Puppet::Node::Facts.indirection.stubs(:terminus).returns(subject)
-    Puppet::Network::HttpPool.stubs(:connection).returns(http)
+    Puppet::HTTP::Client.stubs(:new).returns(http)
     create_environmentdir("my_environment")
   end
 
   describe "#save" do
-    let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:response) { Puppet::HTTP::Response.new Net::HTTPOK.new('1.1', 200, 'OK'), "mock url" }
     let(:facts)    { Puppet::Node::Facts.new('foo') }
 
     let(:options) {{
@@ -162,16 +163,21 @@ describe Puppet::Node::Facts::Puppetdb do
       Puppet::Node::Facts.indirection.find('some_node')
     end
 
-    let(:options) { {:metric_id => [:puppetdb, :facts, :find]} }
+    let(:options) { {:metric_id => [:puppetdb, :facts, :find],
+                     :ssl_context => nil} }
 
     it "should return the facts if they're found" do
       body = [{"certname" => "some_node", "environment" => "production", "name" => "a", "value" => "1"},
               {"certname" => "some_node", "environment" => "production", "name" => "b", "value" => "2"}].to_json
 
-      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response = Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns response
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
 
 
       result = find_facts
@@ -183,10 +189,14 @@ describe Puppet::Node::Facts::Puppetdb do
     it "should return nil if no facts are found" do
       body = {"error" => "No information known about factset some_node"}.to_json
 
-      response = Net::HTTPNotFound.new('1.1', 404, 'NotFound')
-      response.stubs(:body).returns body
+      notfound = Net::HTTPNotFound.new('1.1', 404, 'NotFound')
+      notfound.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns response
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(notfound, "mock url")
 
       find_facts.should be_nil
     end
@@ -195,7 +205,11 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPForbidden.new('1.1', 403, "Forbidden")
       response.stubs(:body).returns ''
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns response
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(response, "mock url")
 
       expect {
         find_facts
@@ -203,7 +217,11 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should fail if an error occurs" do
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).raises Puppet::Error, "Everything is terrible!"
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.raises Puppet::Error, "Everything is terrible!"
 
       expect {
         find_facts
@@ -211,14 +229,18 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response = Net::HTTPOK.new('1.1', 200, 'OK')
-      response['x-deprecation'] = "This is deprecated!"
+      response = Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+      response.nethttp['x-deprecation'] = "This is deprecated!"
 
       body = [].to_json
 
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns(response)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/
@@ -232,7 +254,8 @@ describe Puppet::Node::Facts::Puppetdb do
     def search_facts(query)
       Puppet::Node::Facts.indirection.search('facts', query)
     end
-    let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:response) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
     let(:options) { {:metric_id => [:puppetdb, :facts, :search]} }
 
     it "should return the nodes from the response" do
@@ -246,7 +269,11 @@ describe Puppet::Node::Facts::Puppetdb do
                                       {"name": "baz", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
 
       query = CGI.escape("[\"and\",[\"=\",[\"fact\",\"kernel\"],\"Linux\"]]")
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
 
       search_facts(args).should == ['foo', 'bar', 'baz']
     end
@@ -273,7 +300,11 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
 
       search_facts(args)
     end
@@ -287,7 +318,11 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
 
       search_facts(args)
     end
@@ -301,7 +336,11 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
 
       search_facts(args)
     end
@@ -321,7 +360,11 @@ describe Puppet::Node::Facts::Puppetdb do
 
         response.stubs(:body).returns '[]'
 
-        http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+        http.stubs(:get).with do |uri, opts|
+          "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+            subject.headers == opts[:headers] &&
+            options == opts[:options]
+        end.returns response
 
         search_facts(args)
       end
@@ -332,7 +375,11 @@ describe Puppet::Node::Facts::Puppetdb do
       response.stubs(:body).returns 'Something bad happened!'
 
       query = CGI.escape(["and"].to_json)
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(response, "mock url")
 
       expect do
         search_facts(nil)
@@ -341,10 +388,15 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response['x-deprecation'] = "This is deprecated!"
+      response.nethttp['x-deprecation'] = "This is deprecated!"
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and"].to_json)
+      http.stubs(:get).with do |uri, opts|
+        "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
+          subject.headers == opts[:headers] &&
+          options == opts[:options]
+      end.returns response
       http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       Puppet.expects(:deprecation_warning).with do |msg|

@@ -43,7 +43,7 @@ module Puppet::Util::Puppetdb
           "after #{config.server_url_timeout} seconds. #{SERVER_URL_FAIL_MSG}")
         return e
 
-      rescue SocketError, OpenSSL::SSL::SSLError, SystemCallError, Net::ProtocolError, IOError, Net::HTTPNotFound => e
+      rescue Puppet::HTTP::HTTPError, Puppet::SSL::SSLError => e
         Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
           "error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
         return e
@@ -85,20 +85,20 @@ module Puppet::Util::Puppetdb
     # something went wrong. Return a symbol indicating the problem
     # (:server_error, :notfound, or :other_404), or nil if there wasn't one.
     def self.check_http_response(response, server_url, route)
-      if response.is_a? Net::HTTPServerError
+      if response.code >= 500
         Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
-          "error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
+          "error message received was '#{response.reason}'. #{SERVER_URL_FAIL_MSG}")
         :server_error
-      elsif response.is_a? Net::HTTPNotFound
+      elsif response.code == 404
         if response.body && response.body.chars.first == "{"
           # If it appears to be json, we've probably gotten an authentic 'not found' message.
           Puppet.debug("HTTP 404 (probably normal) when connecting to #{server_url.host} on #{server_url.port} " \
-            "at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
+            "at route #{route}, error message received was '#{response.reason}'. #{SERVER_URL_FAIL_MSG}")
           :notfound
         else
           # But we can also get 404s when conneting to a puppetdb that's still starting or due to misconfiguration.
           Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
-            "error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
+            "error message received was '#{response.reason}'. #{SERVER_URL_FAIL_MSG}")
           :other_404
         end
       else
@@ -131,17 +131,17 @@ module Puppet::Util::Puppetdb
 
       for server_url_index in server_try_order
         server_url = server_urls[server_url_index]
-        route = concat_url_snippets(server_url.request_uri, path_suffix)
+        route = concat_url_snippets(server_url.to_s, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
-          if ssl_context.nil?
-            http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
-          else
-            http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
-          end
+          http = Puppet.runtime[:http]
 
           response = Timeout.timeout(config.server_url_timeout) do
-            http_callback.call(http, route)
+            begin
+              http_callback.call(http, URI(route), ssl_context)
+            rescue Puppet::HTTP::ResponseError => e
+              e.response
+            end
           end
         }
 
@@ -174,14 +174,14 @@ module Puppet::Util::Puppetdb
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
-          if ssl_context.nil?
-            http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
-          else
-            http = Puppet::Network::HttpPool.connection(server_url.host, server_url.port, ssl_context: ssl_context)
-          end
+          http = Puppet.runtime[:http]
 
           response = Timeout.timeout(config.server_url_timeout) do
-            http_callback.call(http, route)
+            begin
+              http_callback.call(http, URI(route), ssl_context)
+            rescue Puppet::HTTP::ResponseError => e
+              e.response
+            end
           end
         }
 
@@ -213,10 +213,8 @@ module Puppet::Util::Puppetdb
     def self.action(path_suffix, request_mode, &http_callback)
       config = Puppet::Util::Puppetdb.config
 
-      if Gem::Version.new(Puppet.version) < Gem::Version.new("6.4.0")
+      if config.verify_client_certificate
         ssl_context = nil
-      elsif config.verify_client_certificate
-        ssl_context = Puppet.lookup(:ssl_context)
       else
         require 'puppet/ssl/ssl_provider'
 
