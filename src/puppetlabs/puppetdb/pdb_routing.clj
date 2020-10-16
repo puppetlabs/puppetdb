@@ -87,11 +87,8 @@
 
   (enable-maint-mode
    [this]
-   (if-let [context (tksvc/service-context this)]
-     (update context ::maint-mode? reset! true)
-     (if (get-shutdown-reason)
-       true
-       (throw (IllegalStateException. (trs "Service has not started"))))))
+   (when-let [mode (::maint-mode? (tksvc/service-context this))]
+     (reset! mode true)))
 
   (disable-maint-mode
    [this]
@@ -180,4 +177,7 @@
     "PuppetDB routing service start" (get-shutdown-reason) context
     #(start-pdb-routing context (get-config) disable-maint-mode)))
 
-  (stop [this context] (enable-maint-mode)))
+  (stop
+   [this context]
+   (enable-maint-mode)
+   context))
