@@ -606,7 +606,7 @@
   ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
-  (log/info (trs "Ensuring {0} database is up to date" name))
+  (log/info (trs "Ensuring {0} database is up to date" db-name))
   (let  [migrator (:migrator-username db-config)]
     (with-open [db-pool (-> (assoc db-config
                                    :pool-name (if db-name
