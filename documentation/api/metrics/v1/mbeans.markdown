@@ -5,12 +5,36 @@ canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[CVE-2020-7943]: https://puppet.com/security/cve/CVE-2020-7943/
 
 Querying PuppetDB metrics is accomplished by making an HTTP request
-to paths under the `/metrics/v1` REST endpoint.
+to paths under the `/metrics/v1` REST endpoint. The metrics v1 API
+is disabled by default and is deprecated.  Please prefer [the `/metrics/v2` endpoint](../v2/jolokia.html).
+
+>**Note:** The `metrics/v1` endpoint has been disabled by default due to a CVE
+>described in [CVE-2020-7943][CVE-2020-7943]. You can re-enable this endpoint if
+>desired by following the instructions in the [Re-enable metrics v1 endpoint](#re-enable-metrics-v1-endpoint)
+>section below.
 
 >**Note:** In most cases, PuppetDB is simply a conduit for MBeans made available
 >by its components. PuppetDB makes no guarantee about the stability of MBean names.
+
+## Re-enable metrics v1 endpoint
+The v1 metrics endpoint is disabled by default due to a CVE described in [CVE-2020-7943][CVE-2020-7943].
+
+To re-enable this endpoint create a `metrics.conf` file in the `/etc/puppetlabs/puppetdb/conf.d/`
+directory or wherever your PuppetDB `conf.d/` directory lives. This file should contain
+the following content.
+```
+metrics: {
+    metrics-webservice: {
+        mbeans: {
+            enabled: true
+        }
+    }
+}
+```
+A PuppetDB service restart will be required to re-enable the endpoint.
 
 ## Listing available metrics
 
