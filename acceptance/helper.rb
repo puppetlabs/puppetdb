@@ -33,7 +33,7 @@ module PuppetDBExtensions
 
     platform_version =
       get_option_value(options[:platform_version],
-                       [:puppet5, :puppet6],
+                       [:puppet5, :puppet6, :'puppet7-nightly'],
                        "Puppet Platform Repo Version",
                        "PLATFORM_VERSION",
                        :puppet5)
