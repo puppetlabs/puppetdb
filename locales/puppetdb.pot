@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 8f84428f14cb4456370342853bc274fb97f36d25\n"
+"X-Git-Ref: c4a2ea70c3c58d09c3ce1cb25a7e04ee44ac553d\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -421,6 +421,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid "Cannot have duplicate write database subnames"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "gc-interval must be a number: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "gc-interval cannot be negative: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
