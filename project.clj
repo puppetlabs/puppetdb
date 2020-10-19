@@ -230,8 +230,8 @@
                        :build-type "foss"
                        :main-namespace "puppetlabs.puppetdb.cli.services"
                        :start-timeout 14400
-                       :repo-target "puppet6"
-                       :nonfinal-repo-target "puppet6-nightly"
+                       :repo-target "puppet7"
+                       :nonfinal-repo-target "puppet7-nightly"
                        :logrotate-enabled false}
                 :config-dir "ext/config/foss"
                 }
