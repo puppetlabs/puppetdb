@@ -1023,3 +1023,39 @@ If you are using a .ini file to configure PuppetDB, use the following structure:
 Multiple values may be provided by comma-separating them, with no whitespace.
 You must have exactly the same number of entries in the `server_urls` and
 `intervals` values.
+
+Experimental environment variables
+-----
+
+> *Note*: these settings are experimental and are likely to be altered
+> or removed in a future release.
+
+### `PDB_COMMAND_SQL_STATEMENT_TIMEOUT_MS`
+
+Controls how many milliseconds (by default 10 minutes) PuppetDB will
+wait for an SQL command to complete during an attempt to process a
+command (store a report, update a factset, etc.).  When set to `0` it
+will wait forever (the default before 6.13), and when set to `system`,
+it won't specify any timeout, deferring to PostgreSQL's configuration.
+
+### `PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS`
+
+Controls how many milliseconds (by default 5 minutes) PuppetDB will
+wait for the required lock when it attempts to drop a report or
+resource event partition that has expired.  When set to `0` it will
+wait forever (the default before 6.13), and when set to `system`, it
+won't specify any timeout, deferring to PostgreSQL's configuration.
+
+### `PDB_FACT_PATH_GC_SQL_LOCK_TIMEOUT_MS`
+
+Controls how many milliseconds PuppetDB's fact path garbage collection
+process will wait for the lock it needs.  When set to `0` it will wait
+forever (the default), and when set to `system`, it won't specify
+any timeout, deferring to PostgreSQL's configuration.
+
+### `PDB_EXT_INTERRUPT_LINGERING_SYNC_PULL` (Puppet Enterprise only)
+
+Can be set to `true` (the default) or `false`.  When true, will
+attempt to interrupt the thread performing sync when the
+[`entity-time-limit`](#entity-time-limit) is exceeded during a sync
+attempt, in addition to the normal periodic checks for for a timeout.
