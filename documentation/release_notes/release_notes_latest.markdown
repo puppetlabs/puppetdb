@@ -21,6 +21,86 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.13.0
+
+Released 20 October 2020
+
+### New features and improvements
+
+- PuppetDB can now log the AST and SQL corresponding to each incoming
+  query when requested by the
+  [log-queries](https://puppet.com/docs/puppetdb/latest/configure.html#log-queries)
+  configuration option.
+  ([PDB-4834](https://tickets.puppetlabs.com/browse/PDB-4834))
+
+- PuppetDB now only drops the oldest report or events partition during
+  the normal, periodic garbage collection when there's more than one
+  candidate.  This decreases the length of time PuppetDB blocks
+  operations since the drop attempts to acquire an exclusive lock on
+  the entire table (i.e. reports, not just the partition), and so will
+  block all subsequent access to that table until it finishes.
+  ([PDB-4901](https://tickets.puppetlabs.com/browse/PDB-4901))
+
+- PuppetDB now unifies report and resource event clean up during a
+  full garbage collection, instead of handling each in a separate
+  transaction.  This ensures it only waits on the exclusive lock to
+  drop relevant event partitions once.
+  ([PDB-4902](https://tickets.puppetlabs.com/browse/PDB-4902))
+
+- The fact path garbage collection process will now time out after 5
+  minutes by default if it cannot acquire the locks it requires.  See
+  the [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+  ([PDB-4907](https://tickets.puppetlabs.com/browse/PDB-4907))
+
+- SQL commands issued during an attempt to process a command (store a
+  report, update a factset, etc.) will now time out after 10 minutes
+  by default, causing the command to be retried or discarded.  See the
+  [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+  ([PDB-4906](https://tickets.puppetlabs.com/browse/PDB-4906))
+
+- PuppetDB can now detect when the inputs in a catalog have not
+  changed with respect to the previous catalog, and avoid storing them
+  again.  ([PDB-4895](https://tickets.puppetlabs.com/browse/PDB-4895))
+
+- Some additional indexing has been added to the catalog inputs
+  storage which should improve query performance.
+  ([PDB-4881](https://tickets.puppetlabs.com/browse/PDB-4881))
+
+- The `certificate-whitelist` and `facts-blacklist` configuration
+  options have been deprecated in favor of `certificate-allowlist` and
+  `facts-blocklist`.  See also:
+  https://puppet.com/blog/removing-harmful-terminology-from-our-products
+  ([PDB-4872](https://tickets.puppetlabs.com/browse/PDB-4872))
+
+- Puppet Enterprise (PE) only: by default, the sync
+  `entity-time-limit` is now additionally enforced by interruption of
+  the thread performing sync.  See the
+  [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+  ([PDB-4909](https://tickets.puppetlabs.com/browse/PDB-4909))
+
+### Bug fixes
+
+- The report and resource event garbage collections will now time out
+  if they have to wait longer than 5 minutes (by default) to acquire
+  the required table lock.  This prevents them from blocking other
+  related queries indefinitely, and prevents them from participating
+  an any permanent deadlocks.  See the
+  [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+  ([PDB-4903](https://tickets.puppetlabs.com/browse/PDB-4903))
+
+- Puppet Enterprise (PE) only: PuppetDB sync now defers to the report
+  and resource event garbage collections in order to avoid blocking
+  their access to the locks they require.
+  ([PDB-4908](https://tickets.puppetlabs.com/browse/PDB-4908))
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Zak Kent
+
 ## PuppetDB 6.12.0
 
 Released 25 August 2020
