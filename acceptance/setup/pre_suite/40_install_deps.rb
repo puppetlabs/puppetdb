@@ -15,12 +15,8 @@ unless (test_config[:skip_presuite_provisioning])
   if is_rhel8
     # work around for testing on rhel8 and the repos on the image not finding the pg packages it needs
     step "Install PostgreSQL manually" do
-      on master, "sed -i 's/gpgcheck=1/gpgcheck=0/g' /etc/dnf/dnf.conf"
-      on master, "dnf config-manager --add-repo https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/"
-      on master, "dnf clean all"
-      on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-9.6.16-2PGDG.rhel8.x86_64.rpm"
-      on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-server-9.6.16-2PGDG.rhel8.x86_64.rpm"
-      on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-8-x86_64/postgresql96-contrib-9.6.16-2PGDG.rhel8.x86_64.rpm"
+      on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+      on master, "dnf -qy module disable postgresql"
     end
   end
 end
