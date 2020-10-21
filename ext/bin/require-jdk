@@ -77,7 +77,7 @@ case "$OSTYPE" in
 esac
 
 curl -sSLo "$tmpdir/jdk.tar.gz" \
-     "https://api.adoptopenjdk.net/v2/binary/releases/$ver?os=$adoptos&arch=x64&openjdk_impl=hotspot&release=latest&type=jdk"
+     "https://api.adoptopenjdk.net/v3/binary/latest/${ver#openjdk}/ga/$adoptos/x64/jdk/hotspot/normal/adoptopenjdk?project=jdk"
 
 (cd "$tmpdir"
  mkdir tmp-unpack
