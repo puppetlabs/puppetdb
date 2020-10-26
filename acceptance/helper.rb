@@ -293,8 +293,9 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian10-64-1'
   end
 
-  def is_rhel8()
-    return test_config[:os_families].has_key? 'redhat8-64-1'
+  def is_el8()
+    return test_config[:os_families].has_key?('redhat8-64-1') ||
+           test_config[:os_families].has_key?('centos8-64-1')
   end
 
   def is_rhel7fips
@@ -315,7 +316,7 @@ module PuppetDBExtensions
     when :upgrade_oldest
       # Redhat8, Redhat7-fips, Debian 10, Ubuntu 20
       # only have builds starting somewhere in the 6 series.
-      if is_rhel8 || is_rhel7fips || is_buster || is_focal
+      if is_el8 || is_rhel7fips || is_buster || is_focal
         :puppet6
       else
         :puppet5
@@ -330,7 +331,7 @@ module PuppetDBExtensions
     # account for bionic/rhel8 not having build before certian versions
     if is_bionic
       '5.2.4'
-    elsif is_rhel8
+    elsif is_el8
       '6.0.3'
     elsif is_rhel7fips
       '6.4.0'

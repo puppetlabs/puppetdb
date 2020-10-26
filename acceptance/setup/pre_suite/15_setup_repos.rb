@@ -1,7 +1,7 @@
 unless (test_config[:skip_presuite_provisioning])
   step "Install Puppet Labs repositories" do
 
-    if is_rhel8
+    if is_el8
       on(hosts, 'update-crypto-policies --set LEGACY')
     end
 
