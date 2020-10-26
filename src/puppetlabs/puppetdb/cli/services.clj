@@ -834,20 +834,28 @@
                                              db service request-shutdown))))
                  job-pool)))
 
+;; Test hook
+(defn invoke-periodic-gc [f first?] (f first?))
+
 (defn start-garbage-collection
   [{:keys [clean-lock stop-status] :as context}
-   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
+   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex finished-initial-gc]
   (doseq [[cfg db lock-status] (map vector db-configs db-pools db-lock-statuses)
           :let [interval (to-millis (:gc-interval cfg))]
           :when (pos? interval)]
     (let [request (db-config->clean-request cfg)
-          gc (fn [incremental?]
+          initial-gc? (atom true)
+          gc (fn [first?]
                (with-nonfatal-exceptions-suppressed
                  (with-monitored-execution shutdown-for-ex
-                   (coordinate-gc-with-shutdown db clean-lock cfg lock-status request
-                                                stop-status incremental?))))]
-      (utils/noisy-future (gc false))
-      (interspaced interval #(gc true) job-pool :initial-delay interval))))
+                   (let [incremental? (not @first?)]
+                     (coordinate-gc-with-shutdown db clean-lock cfg lock-status
+                                                  request stop-status
+                                                  incremental?)
+                     (when-not incremental?
+                       (reset! first? false)
+                       (deliver finished-initial-gc true))))))]
+      (interspaced interval #(invoke-periodic-gc gc initial-gc?) job-pool))))
 
 (defn database-lock-status []
   ;; These track the number of threads either waiting
@@ -922,7 +930,8 @@
                    _ write-db-pools :error close-write-dbs
 
                    write-db-lock-statuses (repeatedly (count write-db-pools)
-                                                      database-lock-status)]
+                                                      database-lock-status)
+                   initial-gc-finished? (promise)]
 
         (init-metrics read-db write-db-pools)
 
@@ -935,7 +944,8 @@
                              shutdown-for-ex)
         (start-garbage-collection context job-pool
                                   write-db-cfgs write-db-pools write-db-lock-statuses
-                                  shutdown-for-ex)
+                                  shutdown-for-ex
+                                  initial-gc-finished?)
 
         (-> context
             (assoc :job-pool job-pool
@@ -946,6 +956,7 @@
                      :dlo dlo
                      :maybe-send-cmd-event! maybe-send-cmd-event!
                      :q q
+                     :initial-gc-finished? initial-gc-finished?
                      :scf-read-db read-db
                      :scf-write-dbs write-db-pools
                      :scf-write-db-cfgs write-db-cfgs
