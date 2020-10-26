@@ -12,7 +12,7 @@ unless (test_config[:skip_presuite_provisioning])
     end
   end
 
-  if is_rhel8
+  if is_el8
     # work around for testing on rhel8 and the repos on the image not finding the pg packages it needs
     step "Install PostgreSQL manually" do
       on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
