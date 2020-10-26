@@ -21,6 +21,16 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.13.1
+
+Released 27 October 2020
+
+### Bug fixes
+
+- Puppet Enterprise (PE) only: serialized the initial garbage collection and the
+  initial sync to prevent a deadlock.
+  ([PDB-4938](https://tickets.puppetlabs.com/browse/PDB-4938))
+
 ## PuppetDB 6.13.0
 
 Released 20 October 2020
