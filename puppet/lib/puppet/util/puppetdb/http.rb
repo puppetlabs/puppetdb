@@ -171,7 +171,7 @@ module Puppet::Util::Puppetdb
       successful_submit_count = 0
 
       for server_url in server_urls
-        route = concat_url_snippets(server_url.request_uri, path_suffix)
+        route = concat_url_snippets(server_url.to_s, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
           http = Puppet.runtime[:http]
