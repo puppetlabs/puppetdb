@@ -158,7 +158,7 @@
                      iso-week-year full-table-name)
              (format "CREATE INDEX IF NOT EXISTS reports_catalog_uuid_idx_%s ON %s USING btree (catalog_uuid)"
                      iso-week-year full-table-name)
-             (format "CREATE INDEX IF NOT EXISTS reports_certname_idx_%s ON %s USING btree (certname)"
+             (format "CREATE INDEX IF NOT EXISTS idx_reports_certname_end_time_%s ON %s USING btree (certname,end_time)"
                      iso-week-year full-table-name)
              (format "CREATE INDEX IF NOT EXISTS reports_end_time_idx_%s ON %s USING btree (end_time)"
                      iso-week-year full-table-name)
