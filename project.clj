@@ -1,6 +1,6 @@
 (def pdb-version "5.2.20-SNAPSHOT")
 (def clj-parent-version "1.4.3")
-(def tk-jetty9-ver "2.3.1")
+(def tk-jetty9-ver "2.4.1")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
