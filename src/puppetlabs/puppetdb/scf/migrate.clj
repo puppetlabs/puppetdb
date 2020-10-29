@@ -1964,6 +1964,23 @@
              (jdbc/double-quote idx-name)
              (jdbc/double-quote table)))))
 
+(defn add-report-partition-indexes-on-certname-end-time
+  []
+  (doseq [{:keys [table part] :as huh} (get-temporal-partitions "reports")
+          :let [idx-name (str "reports_certname_idx" part)]]
+    (jdbc/do-commands
+     (format "drop index if exists %s"
+             (jdbc/double-quote idx-name))))
+  (doseq [{:keys [table part] :as huh} (get-temporal-partitions "reports")
+          :let [idx-name (str "idx_reports_certname_end_time_" part)]]
+    (jdbc/do-commands
+     (format "create index if not exists %s on %s using btree (certname,end_time)"
+             (jdbc/double-quote idx-name)
+             (jdbc/double-quote table))))
+  (jdbc/do-commands
+   "drop index reports_certname_idx"
+   "create index idx_reports_certname_end_time on reports using btree (certname,end_time)"))
+
 (defn add-catalog-inputs-pkey
   []
   (jdbc/do-commands
@@ -2035,7 +2052,8 @@
    75 add-report-type-to-reports
    76 add-report-partition-indexes-on-id
    77 add-catalog-inputs-pkey
-   78 add-catalog-inputs-hash})
+   78 add-catalog-inputs-hash
+   79 add-report-partition-indexes-on-certname-end-time})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
