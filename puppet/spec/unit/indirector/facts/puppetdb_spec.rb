@@ -15,6 +15,9 @@ describe Puppet::Node::Facts::Puppetdb do
   CommandReplaceFacts = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
 
   let(:http) { stub 'http' }
+  let(:url) { "mock url" }
+  let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
+  let(:responseok) { create_http_response(url, nethttpok) }
 
   before :each do
     Puppet::Util::Puppetdb.config.stubs(:server_urls).returns [URI("https://localhost:8282")]
@@ -24,15 +27,13 @@ describe Puppet::Node::Facts::Puppetdb do
   end
 
   describe "#save" do
-    let(:response) { Puppet::HTTP::Response.new Net::HTTPOK.new('1.1', 200, 'OK'), "mock url" }
     let(:facts)    { Puppet::Node::Facts.new('foo') }
-
     let(:options) {{
       :environment => "my_environment",
     }}
 
     before :each do
-      response.stubs(:body).returns '{"uuid": "a UUID"}'
+      responseok.stubs(:body).returns '{"uuid": "a UUID"}'
     end
 
     def save
@@ -54,7 +55,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       http.expects(:post).with do |uri, body, headers|
         assert_command_req(payload, body)
-      end.returns response
+      end.returns responseok
 
       save
     end
@@ -66,7 +67,7 @@ describe Puppet::Node::Facts::Puppetdb do
       sent_payload = nil
       http.expects(:post).with do |uri, body, headers|
         sent_payload = body
-      end.returns response
+      end.returns responseok
 
       save
 
@@ -86,7 +87,7 @@ describe Puppet::Node::Facts::Puppetdb do
       sent_payload = nil
       http.expects(:post).with do |uri, body, headers|
         sent_payload = body
-      end.returns response
+      end.returns responseok
       save
       message = JSON.parse(sent_payload)
 
@@ -103,7 +104,7 @@ describe Puppet::Node::Facts::Puppetdb do
       sent_payload = nil
       http.expects(:post).with do |uri, body, headers|
         sent_payload = body
-      end.returns response
+      end.returns responseok
       save
     end
   end
@@ -170,14 +171,13 @@ describe Puppet::Node::Facts::Puppetdb do
       body = [{"certname" => "some_node", "environment" => "production", "name" => "a", "value" => "1"},
               {"certname" => "some_node", "environment" => "production", "name" => "b", "value" => "2"}].to_json
 
-      response = Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
-      response.stubs(:body).returns body
+      responseok.stubs(:body).returns body
 
       http.stubs(:get).with do |uri, opts|
         "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns response
+      end.returns responseok
 
 
       result = find_facts
@@ -196,7 +196,7 @@ describe Puppet::Node::Facts::Puppetdb do
         "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(notfound, "mock url")
+      end.raises Puppet::HTTP::ResponseError, create_http_response(url, notfound)
 
       find_facts.should be_nil
     end
@@ -209,7 +209,7 @@ describe Puppet::Node::Facts::Puppetdb do
         "/pdb/query/v4/nodes/some_node/facts" == uri.path &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(response, "mock url")
+      end.raises Puppet::HTTP::ResponseError, create_http_response(url, response)
 
       expect {
         find_facts
@@ -229,8 +229,10 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response = Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
-      response.nethttp['x-deprecation'] = "This is deprecated!"
+      nethttp = Net::HTTPOK.new('1.1', 200, 'OK')
+      nethttp['x-deprecation'] = "This is deprecated!"
+
+      response = create_http_response(url, nethttp)
 
       body = [].to_json
 
@@ -254,8 +256,6 @@ describe Puppet::Node::Facts::Puppetdb do
     def search_facts(query)
       Puppet::Node::Facts.indirection.search('facts', query)
     end
-    let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
-    let(:response) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
     let(:options) { {:metric_id => [:puppetdb, :facts, :search]} }
 
     it "should return the nodes from the response" do
@@ -263,8 +263,8 @@ describe Puppet::Node::Facts::Puppetdb do
         'facts.kernel.eq' => 'Linux',
       }
 
-      response.stubs(:body).returns '["foo", "bar", "baz"]'
-      response.stubs(:body).returns '[{"name": "foo", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
+      responseok.stubs(:body).returns '["foo", "bar", "baz"]'
+      responseok.stubs(:body).returns '[{"name": "foo", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
                                       {"name": "bar", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
                                       {"name": "baz", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
 
@@ -273,7 +273,7 @@ describe Puppet::Node::Facts::Puppetdb do
         "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns response
+      end.returns responseok
 
       search_facts(args).should == ['foo', 'bar', 'baz']
     end
@@ -298,13 +298,13 @@ describe Puppet::Node::Facts::Puppetdb do
       query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"],
                                  ["=", ["fact", "uptime"], "10 days"]].to_json)
 
-      response.stubs(:body).returns '[]'
+      responseok.stubs(:body).returns '[]'
 
       http.stubs(:get).with do |uri, opts|
         "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns response
+      end.returns responseok
 
       search_facts(args)
     end
@@ -316,13 +316,13 @@ describe Puppet::Node::Facts::Puppetdb do
 
       query = CGI.escape(["and", ["not", ["=", ["fact", "kernel"], "Linux"]]].to_json)
 
-      response.stubs(:body).returns '[]'
+      responseok.stubs(:body).returns '[]'
 
       http.stubs(:get).with do |uri, opts|
         "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns response
+      end.returns responseok
 
       search_facts(args)
     end
@@ -334,13 +334,13 @@ describe Puppet::Node::Facts::Puppetdb do
 
       query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"]].to_json)
 
-      response.stubs(:body).returns '[]'
+      responseok.stubs(:body).returns '[]'
 
       http.stubs(:get).with do |uri, opts|
         "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns response
+      end.returns responseok
 
       search_facts(args)
     end
@@ -358,13 +358,13 @@ describe Puppet::Node::Facts::Puppetdb do
 
         query = CGI.escape(["and", [operator, ["fact", "kernel"], "Linux"]].to_json)
 
-        response.stubs(:body).returns '[]'
+        responseok.stubs(:body).returns '[]'
 
         http.stubs(:get).with do |uri, opts|
           "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
             subject.headers == opts[:headers] &&
             options == opts[:options]
-        end.returns response
+        end.returns responseok
 
         search_facts(args)
       end
@@ -379,7 +379,7 @@ describe Puppet::Node::Facts::Puppetdb do
         "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(response, "mock url")
+      end.raises Puppet::HTTP::ResponseError, create_http_response(url, response)
 
       expect do
         search_facts(nil)
@@ -388,16 +388,16 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response.nethttp['x-deprecation'] = "This is deprecated!"
-      response.stubs(:body).returns '[]'
+      nethttpok['x-deprecation'] = "This is deprecated!"
+      responseok.stubs(:body).returns '[]'
 
       query = CGI.escape(["and"].to_json)
       http.stubs(:get).with do |uri, opts|
         "/pdb/query/v4/nodes?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns response
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
+      end.returns responseok
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(responseok)
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/

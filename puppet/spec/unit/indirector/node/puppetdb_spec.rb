@@ -25,32 +25,32 @@ describe Puppet::Node::Puppetdb do
 
   describe "#destroy" do
     let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
-    let(:response) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
+    let(:responseok) { create_http_response("mock url", nethttpok) }
     let(:http)     { mock 'http' }
     before :each do
       Puppet::HTTP::Client.expects(:new).returns http
     end
 
     it "should POST a '#{CommandDeactivateNode}' command" do
-      response.stubs(:body).returns '{"uuid": "a UUID"}'
+      responseok.stubs(:body).returns '{"uuid": "a UUID"}'
       http.expects(:post).with do |uri,body,headers|
         req = JSON.parse(body)
         req["certname"] == node &&
           extract_producer_timestamp(req) <= Time.now.to_i
-      end.returns response
+      end.returns responseok
 
       destroy
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response.nethttp['x-deprecation'] = 'A horrible deprecation warning!'
-      response.stubs(:body).returns '{"uuid": "a UUID"}'
+      nethttpok['x-deprecation'] = 'A horrible deprecation warning!'
+      responseok.stubs(:body).returns '{"uuid": "a UUID"}'
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /A horrible deprecation warning!/
       end
 
-      http.stubs(:post).returns response
+      http.stubs(:post).returns responseok
 
       destroy
     end

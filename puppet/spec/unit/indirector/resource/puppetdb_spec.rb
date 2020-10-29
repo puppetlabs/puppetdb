@@ -17,6 +17,8 @@ describe Puppet::Resource::Puppetdb do
     let(:options) { {:metric_id => [:puppetdb, :resource, :search],
                      :ssl_context => nil} }
     let(:http) { stub 'http' }
+    let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:responseok) { create_http_response("mock url", nethttpok) }
 
     def search(type)
       # The API for creating scope objects is different between Puppet 2.7 and
@@ -29,8 +31,7 @@ describe Puppet::Resource::Puppetdb do
     end
 
     it "should return an empty array if no resources match" do
-      response = Net::HTTPOK.new('1.1', 200, 'OK')
-      response.stubs(:body).returns '[]'
+      nethttpok.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
       Puppet::HTTP::Client.stubs(:new).returns(http)
@@ -38,16 +39,14 @@ describe Puppet::Resource::Puppetdb do
         "/pdb/query/v4/resources?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns Puppet::HTTP::Response.new(response, "mock url")
+      end.returns responseok
 
       search("exec").should == []
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
-      response = Net::HTTPOK.new('1.1', 200, 'OK')
-      response['x-deprecation'] = "Deprecated, yo."
-
-      response.stubs(:body).returns '[]'
+      nethttpok['x-deprecation'] = "Deprecated, yo."
+      nethttpok.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
       Puppet::HTTP::Client.stubs(:new).returns(http)
@@ -55,7 +54,7 @@ describe Puppet::Resource::Puppetdb do
         "/pdb/query/v4/resources?query=#{query}" == "#{uri.path}?#{uri.query}" &&
           subject.headers == opts[:headers] &&
           options == opts[:options]
-      end.returns Puppet::HTTP::Response.new(response, "mock url")
+      end.returns responseok
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /Deprecated, yo\./
@@ -97,8 +96,7 @@ describe Puppet::Resource::Puppetdb do
         options = { :metric_id => [:puppetdb, :resource, :search],
                     :ssl_context => nil }
 
-        response = Net::HTTPOK.new('1.1', 200, 'OK')
-        response.stubs(:body).returns body
+        nethttpok.stubs(:body).returns body
 
         http = stub 'http'
         Puppet::HTTP::Client.stubs(:new).returns(http)
@@ -106,7 +104,7 @@ describe Puppet::Resource::Puppetdb do
           "/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}" == "#{uri.path}?#{uri.query}" &&
             subject.headers == opts[:headers] &&
             options == opts[:options]
-        end.returns Puppet::HTTP::Response.new(response, "mock url")
+        end.returns responseok
       end
 
       context "with resources from a single host" do

@@ -23,7 +23,7 @@ describe processor do
 
     let(:http) { mock "http" }
     let(:nethttpok) { Net::HTTPOK.new('1.1', 200, '') }
-    let(:httpok) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
+    let(:responseok) { create_http_response("mock url", nethttpok) }
 
     def without_producer_timestamp(json_body)
       parsed = JSON.parse(json_body)
@@ -32,7 +32,7 @@ describe processor do
     end
 
     it "should POST the report command as a URL-encoded JSON string" do
-      httpok.stubs(:body).returns '{"uuid": "a UUID"}'
+      nethttpok.stubs(:body).returns '{"uuid": "a UUID"}'
       subject.stubs(:run_duration).returns(10)
 
       expected_body = subject.report_to_hash(Time.now.utc).to_json
@@ -44,7 +44,7 @@ describe processor do
         # producer_timestamp is generated at submission time, so remove it from
         # the comparison
         expect(without_producer_timestamp(body)).to eq(without_producer_timestamp(expected_body))
-      }.returns(httpok)
+      }.returns(responseok)
 
       subject.process
     end
