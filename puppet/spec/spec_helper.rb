@@ -41,6 +41,14 @@ def assert_valid_producer_ts(path)
   Time.iso8601(params["producer-timestamp"].first)
 end
 
+def create_http_response(url, nethttp)
+  if Puppet::PUPPETVERSION.to_f < 7
+    Puppet::HTTP::Response.new(nethttp, url)
+  else
+    Puppet::HTTP::ResponseNetHTTP.new(url, nethttp)
+  end
+end
+
 RSpec.configure do |config|
 
   config.before :each do

@@ -44,6 +44,9 @@ describe Puppet::Util::Puppetdb::Http do
   let(:http1) {stub 'http'}
   let(:http2) {stub 'http'}
   let(:http3) {stub 'http'}
+  let(:url) { "mock url" }
+  let(:nethttpok) { Net::HTTPOK.new('1.1', 200, 'OK') }
+  let(:responseok) { create_http_response(url, nethttpok) }
 
   describe "#action" do
     describe "for request_type=:query" do
@@ -51,7 +54,7 @@ describe Puppet::Util::Puppetdb::Http do
         Puppet::HTTP::Client.expects(:new).returns(http1)
         http1.expects(:get).with do |uri, opts|
           "/foo/bar/baz" == uri.path
-        end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+        end.returns responseok
 
          described_class.action("/bar/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
@@ -63,7 +66,7 @@ describe Puppet::Util::Puppetdb::Http do
 
          http1.expects(:get).with do |uri, opts|
            "/foo/baz" == uri.path
-         end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+         end.returns responseok
 
          response = described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
@@ -82,7 +85,7 @@ describe Puppet::Util::Puppetdb::Http do
 
          http1.expects(:get).with do |uri, opts|
            "/bar/baz" == uri.path
-         end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+         end.returns responseok
 
          response = described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
@@ -97,18 +100,18 @@ describe Puppet::Util::Puppetdb::Http do
 
          http1.expects(:get).with do |uri, opts|
            "/foo/baz" == uri.path
-         end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+         end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
 
          http1.expects(:get).with do |uri, opts|
            "/bar/baz" == uri.path
-         end.returns Net::HTTPOK.new('1.1', 200, 'OK')
+         end.returns responseok
 
          response = described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
          end
 
          response.code.should == 200
-         response.message.should == 'OK'
+         response.reason.should == 'OK'
        end
 
        it "raises an exception when all urls fail" do
@@ -116,10 +119,10 @@ describe Puppet::Util::Puppetdb::Http do
 
          http1.expects(:get).with do |uri, opts|
            "/foo/baz" == uri.path
-         end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+         end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
          http1.expects(:get).with do |uri, opts|
            "/bar/baz" == uri.path
-         end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+         end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
 
          expect {
             described_class.action("/baz", :query) do |http_instance, path|
@@ -136,7 +139,7 @@ describe Puppet::Util::Puppetdb::Http do
          end.raises Puppet::HTTP::HTTPError, "IO Error"
          http1.expects(:get).with do |uri, opts|
            "/bar/baz" == uri.path
-         end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+         end.returns responseok
 
          response = described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
@@ -154,7 +157,7 @@ describe Puppet::Util::Puppetdb::Http do
          end.raises Timeout::Error
          http1.expects(:get).with do |uri, opts|
            "/bar/baz" == uri.path
-         end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+         end.returns responseok
 
          response = described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
@@ -172,7 +175,7 @@ describe Puppet::Util::Puppetdb::Http do
          end.raises Puppet::HTTP::HTTPError, "Connection refused"
          http1.expects(:get).with do |uri, opts|
            "/bar/baz" == uri.path
-         end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+         end.returns responseok
 
          config.stubs(:submit_only_server_urls).returns [URI("https://server3:8282/qux")]
 
@@ -190,10 +193,11 @@ describe Puppet::Util::Puppetdb::Http do
 
            http1.expects(:get).with do |uri, opts|
              "/foo/baz" == uri.path
-           end.raises(Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")).twice
+           end.raises(Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))).twice
+
            http1.expects(:get).with do |uri, opts|
              "/bar/baz" == uri.path
-           end.returns(Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")).twice
+           end.returns(responseok).twice
 
            response = described_class.action("/baz", :query) do |http_instance, path|
              http_instance.get(path, {})
@@ -221,10 +225,10 @@ describe Puppet::Util::Puppetdb::Http do
 
            http1.expects(:get).with do |uri, opts|
              "/foo/baz" == uri.path
-           end.raises(Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")).once
+           end.raises(Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))).once
            http1.expects(:get).with do |uri, opts|
              "/bar/baz" == uri.path
-           end.returns(Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")).twice
+           end.returns(responseok).twice
 
            response = described_class.action("/baz", :query) do |http_instance, path|
              http_instance.get(path, {})
@@ -255,10 +259,10 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})
@@ -276,7 +280,7 @@ describe Puppet::Util::Puppetdb::Http do
           end.raises Puppet::HTTP::HTTPError, "Connection refused"
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})
@@ -291,10 +295,10 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.returns(Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url"))
+          end.returns(responseok)
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})
@@ -309,10 +313,10 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
 
           expect {
              described_class.action("/baz", :command) do |http_instance, path|
@@ -331,7 +335,7 @@ describe Puppet::Util::Puppetdb::Http do
           end.raises Puppet::HTTP::HTTPError, "Connection refused"
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
 
           expect {
              described_class.action("/baz", :command) do |http_instance, path|
@@ -347,11 +351,10 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
-
+          end.returns responseok
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})
@@ -368,13 +371,13 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
           http1.expects(:post).with.with do |uri, opts|
             "/qux/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})
@@ -395,7 +398,7 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
           end.never
@@ -416,7 +419,7 @@ describe Puppet::Util::Puppetdb::Http do
           end.raises Puppet::HTTP::HTTPError, "Connection refused"
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})
@@ -431,10 +434,10 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
 
           expect {
              described_class.action("/baz", :command) do |http_instance, path|
@@ -450,13 +453,13 @@ describe Puppet::Util::Puppetdb::Http do
 
           http1.expects(:post).with do |uri, opts|
             "/foo/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
           http1.expects(:post).with do |uri, opts|
             "/bar/baz" == uri.path
-          end.raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"), "mock url")
+          end.raises Puppet::HTTP::ResponseError, create_http_response(url, Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable"))
           http1.expects(:post).with do |uri, opts|
             "/qux/baz" == uri.path
-          end.returns Puppet::HTTP::Response.new(Net::HTTPOK.new('1.1', 200, 'OK'), "mock url")
+          end.returns responseok
 
           response = described_class.action("/baz", :command) do |http_instance, path|
             http_instance.post(path, {})

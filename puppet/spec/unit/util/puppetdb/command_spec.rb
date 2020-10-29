@@ -20,11 +20,12 @@ describe Puppet::Util::Puppetdb::Command do
     end
 
     context "when the submission succeeds" do
+      let(:url) { "mock url" }
       let(:nethttpok) { Net::HTTPOK.new('1.1', 200, '') }
-      let(:httpok) { Puppet::HTTP::Response.new(nethttpok, "mock url") }
+      let(:responseok) { create_http_response(url, nethttpok) }
 
       it "should issue the HTTP POST and log success" do
-        httpok.stubs(:body).returns '{"uuid": "a UUID"}'
+        nethttpok.stubs(:body).returns '{"uuid": "a UUID"}'
         http.expects(:post).with() do | uri, payload, options |
           param_map = CGI::parse(uri.query)
           assert_valid_producer_ts("#{uri.path}?#{uri.query}") &&
@@ -33,7 +34,7 @@ describe Puppet::Util::Puppetdb::Command do
             param_map['command'].first.should == 'OPEN_SESAME' &&
             options[:options][:compress] == :gzip &&
             options[:options][:metric_id] == [:puppetdb, :command, 'OPEN_SESAME']
-        end.returns(httpok)
+        end.returns(responseok)
 
         subject.submit
         test_logs.find_all { |m|
@@ -48,7 +49,7 @@ describe Puppet::Util::Puppetdb::Command do
       it "should issue the HTTP POST and raise an exception" do
 
         httpbad.stubs(:body).returns 'Strange things are afoot'
-        http.expects(:post).raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(httpbad, ":(")
+        http.expects(:post).raises Puppet::HTTP::ResponseError, create_http_response(":(", httpbad)
         expect {
           subject.submit
         }.to raise_error(Puppet::Error, /Strange things are afoot/)
@@ -59,7 +60,7 @@ describe Puppet::Util::Puppetdb::Command do
           OpenStruct.new({:soft_write_failure => true})
 
         httpbad.stubs(:body).returns 'Strange things are afoot'
-        http.expects(:post).raises Puppet::HTTP::ResponseError, Puppet::HTTP::Response.new(httpbad, ":(")
+        http.expects(:post).raises Puppet::HTTP::ResponseError, create_http_response(":(", httpbad)
         Puppet.expects(:err).with do |msg|
           msg =~ /Strange things are afoot/
         end
