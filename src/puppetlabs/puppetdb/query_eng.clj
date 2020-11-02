@@ -305,7 +305,7 @@
           query query-options))
         (http/error-response e))
       (catch org.postgresql.util.PSQLException e
-        (if (= (.getSQLState e) "2201B")
+        (if (= (.getSQLState e) (jdbc/sql-state :invalid-regular-expression))
           (do (log/debug e (trs "Caught PSQL processing exception"))
               (http/error-response (.getMessage e)))
           (throw e))))))
