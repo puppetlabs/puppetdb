@@ -368,7 +368,7 @@
   [db-spec]
   (let [f (future
             (try
-              (jdbc/with-transacted-connection db-spec
+              (jdbc/with-db-connection db-spec
                 (= 42
                    (-> "SELECT (a - b) AS answer FROM (VALUES ((7 * 7), 7)) AS x(a, b)"
                        jdbc/query
