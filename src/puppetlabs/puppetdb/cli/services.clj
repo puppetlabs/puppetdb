@@ -548,7 +548,7 @@
                        :current current
                        :oldest supported})))
     (when (neg? (compare current supported))
-      (log/error (trs "PostgreSQL {0}.{1} is deprecated. Please upgrade to PostgreSQL {2}"
+      (log/error (trs "PostgreSQL {0}.{1} is unsupported. Please upgrade to PostgreSQL {2}"
                      (first current)
                      (second current)
                      (first supported))))
