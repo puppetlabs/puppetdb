@@ -20,7 +20,7 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 [entities]: ./entities.html
 [pql]: ./pql.html
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
-[to-char]: http://www.postgresql.org/docs/9.6/static/functions-formatting.html
+[to-char]: http://www.postgresql.org/docs/11/static/functions-formatting.html
 [prefix]: 
 
 ## Summary

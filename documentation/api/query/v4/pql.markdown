@@ -248,7 +248,7 @@ operator and a valid regular expression:
 
 > **Note:** Regular expression matching is performed by the database backend, so
 > the available
-> [regexp features](http://www.postgresql.org/docs/9.6/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
+> [regexp features](http://www.postgresql.org/docs/11/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
 > are determined by PostgreSQL. For best results, use the simplest and most
 > common features that can accomplish your task.
 
