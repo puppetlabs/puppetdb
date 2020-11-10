@@ -272,10 +272,10 @@ server. Note that users installing PuppetDB via [the module][module]
 will already have PostgreSQL configured properly and these steps
 should not be necessary.
 
-If you are not using the module, you will need to configure a PostgreSQL server, version 9.6 or newer, to include a user and an empty database for PuppetDB, and the server must accept incoming connections to that database as that user.  PostgreSQL connections and authentication are discussed [here](https://www.postgresql.org/docs/9.6/static/auth-pg-hba-conf.html), and setting up users and databases is discussed in the [Getting
-Started](https://www.postgresql.org/docs/9.6/static/tutorial-start.html)
+If you are not using the module, you will need to configure a PostgreSQL server, version 11 or newer, to include a user and an empty database for PuppetDB, and the server must accept incoming connections to that database as that user.  PostgreSQL connections and authentication are discussed [here](https://www.postgresql.org/docs/11/static/auth-pg-hba-conf.html), and setting up users and databases is discussed in the [Getting
+Started](https://www.postgresql.org/docs/11/static/tutorial-start.html)
 section of the [PostgreSQL
-manual](https://www.postgresql.org/docs/9.6/static/index.html).
+manual](https://www.postgresql.org/docs/11/static/index.html).
 
 Completely configuring PostgreSQL is beyond the scope of this guide,
 but a example setup is described below. First, you can create a user
