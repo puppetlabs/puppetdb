@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: c4a2ea70c3c58d09c3ce1cb25a7e04ee44ac553d\n"
+"X-Git-Ref: 83a5245201e3048926a84b5670a7cb04d88d1fea\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -200,7 +200,7 @@ msgid "Forcibly terminating periodic activities"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "PostgreSQL {0}.{1} is deprecated. Please upgrade to PostgreSQL {2}"
+msgid "PostgreSQL {0}.{1} is unsupported. Please upgrade to PostgreSQL {2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
