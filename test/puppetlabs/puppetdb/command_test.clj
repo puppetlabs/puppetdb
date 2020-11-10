@@ -1999,3 +1999,39 @@
 (deftest stop-ignores-delayed-cmds-that-take-too-long
   (test-stop-with-delayed-commands true
                                    #"^Forcibly terminating delayed command processing"))
+
+(deftest command-sql-statement-timeout-works
+  (let [v3-report (dissoc v4-report :status)
+        recent-time (-> 1 seconds ago)]
+    (with-message-handler {:keys [handle-message dlo delay-pool q]}
+      (let [retries (atom 0)]
+        (with-redefs [scf-store/command-sql-statement-timeout-ms 1
+                      jdbc/artifical-monitored-connection-sleep 0.01
+                      ;; So the test can finish fast.
+                      jdbc/sleep-after-retry (fn [i] (swap! retries inc))]
+          (handle-message (queue/store-command q (report->command-req 3 v3-report))))
+        (is (= 5 @retries)))
+      (is (= []
+             (-> (str "select certname, configuration_version, environment_id"
+                      "  from reports")
+                 query-to-vec)))
+      (is (= 1 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo)))))))
+
+(deftest command-sql-statement-timeout-works
+  (let [recent-time (-> 1 seconds ago)]
+    (with-message-handler {:keys [handle-message dlo delay-pool q]}
+      (let [retries (atom 0)]
+        (with-redefs [scf-store/command-sql-statement-timeout-ms 1
+                      jdbc/artifical-monitored-connection-sleep 0.01
+                      ;; So the test can finish fast.
+                      jdbc/sleep-after-retry (fn [i] (swap! retries inc))]
+          (handle-message (queue/store-command q (report->command-req 4 v4-report))))
+        ;; 4 quick-retry-count retries times 5 retry-sql retries
+        (is (= 20 @retries)))
+      (is (= []
+             (-> (str "select certname, configuration_version, environment_id"
+                      "  from reports")
+                 query-to-vec)))
+      (is (= 1 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo)))))))
