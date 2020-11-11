@@ -227,6 +227,7 @@
   As `body` is executed in a separate thread, it's not possible for
   the caller to catch exceptions thrown by `body`. Errors are instead
   logged."
+  {:deprecated true} ;; Drop with deprecated-produce-streaming-body
   [writer-var & body]
   `(rio/piped-input-stream
     (fn [ostream#]
