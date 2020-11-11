@@ -140,13 +140,3 @@
           test [nil 1 "a" [1 2] {"foo" 123}]]
       (stream-json test w true)
       (is (= (parse-string (str w)) test)))))
-
-(deftest response-streaming
-  (testing "can read back what we've written"
-    (let [istream (streamed-response writer (spit writer "foo bar baz"))]
-      (is (instance? InputStream istream))
-      (is (= "foo bar baz" (slurp istream)))))
-
-  (testing "exceptions are caught"
-    (let [istream (streamed-response writer (/ 1 0))]
-      (is (= "" (slurp istream))))))

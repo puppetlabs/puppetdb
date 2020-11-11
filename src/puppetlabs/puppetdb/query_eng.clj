@@ -1,8 +1,10 @@
 (ns puppetlabs.puppetdb.query-eng
   (:require [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
+            [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
+            [murphy :refer [try! with-open!]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -22,10 +24,14 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
+            [ring.util.io :as rio]
             [schema.core :as s])
-  (:import (clojure.lang ExceptionInfo)
-           (org.postgresql.util PGobject)
-           (org.joda.time Period)))
+  (:import
+   (clojure.lang ExceptionInfo)
+   (com.fasterxml.jackson.core JsonParseException)
+   (java.io IOException InputStream)
+   (org.postgresql.util PGobject PSQLException)
+   (org.joda.time Period)))
 
 (def entity-fn-idx
   (atom
@@ -175,6 +181,10 @@
 
       (munge-fn version url-prefix))))
 
+(def use-preferred-streaming-method?
+  (->> (or (System/getenv "PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD") "yes")
+       (re-matches #"yes|true|1") seq not))
+
 (def query-options-schema
   {:scf-read-db s/Any
    :url-prefix String
@@ -207,11 +217,14 @@
        ;; log the AST of the incoming query
        (log/debugf "%s:%s:%s" "PDBQuery" log-id query))
 
-     (jdbc/with-transacted-connection scf-read-db
-       (let [{:keys [results-query]}
-             (query->sql remaining-query entity version paging-options {:log-id log-id})]
-         (jdbc/call-with-array-converted-query-rows results-query
-                                                    (comp row-fn munge-fn)))))))
+     (let [f #(let [{:keys [results-query]}
+                    (query->sql remaining-query entity version
+                                paging-options {:log-id log-id})]
+                (jdbc/call-with-array-converted-query-rows results-query
+                                                           (comp row-fn munge-fn)))]
+       (if use-preferred-streaming-method?
+         (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))
+         (jdbc/with-transacted-connection scf-read-db (f)))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -244,14 +257,146 @@
                   :else entity)]
      {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
 
-(pls/defn-validated produce-streaming-body
-  "Given a query, and database connection, return a Ring response with
-   the query results. query-map is a clojure map of the form
-   {:query ['=','certname','foo'] :order_by [{'field':'foo'}]...}
-   If the query can't be parsed, a 400 is returned."
-  [version :- s/Keyword
-   query-map
-   options :- query-options-schema]
+(defn- generated-stream
+  "Creates an InputStream connected to an OutputStream.  Runs (f
+  out-stream) in a future, and returns the input stream after
+  arranging for any exceptions thrown by f to be rethrown from by
+  either the InputStream read or close methods."
+  [f]
+  (let [err (atom nil)
+        with-ex-forwarding (fn [action]
+                             (when-let [ex @err] (throw ex))
+                             (let [result (action)]
+                               (when-let [ex @err] (throw ex))
+                               result))
+        stream (rio/piped-input-stream
+                (fn [out]
+                  (try
+                    (f out)
+                    (catch Throwable ex
+                      (reset! err ex)))))]
+    (proxy [InputStream] []
+      (available [] (.available stream))
+      (close [] (with-ex-forwarding #(.close stream)))
+      (mark [readlimit] (.mark stream readlimit))
+      (markSupported [] (.markSupported stream))
+      (read
+        ([] (with-ex-forwarding #(.read stream)))
+        ([b] (with-ex-forwarding #(.read stream b)))
+        ([b off len] (with-ex-forwarding #(.read stream b off len))))
+      (reset [] (.reset stream))
+      (skip [n] (.skip stream n)))))
+
+(defn- body-stream
+  "Returns a map whose :stream is an InputStream that produces (via a
+  future) the results of the query as JSON, and whose :status is a
+  promise to which nil or {:count n} will be delivered after the first
+  row is retrieved, or to which {:error exception} will be delivered
+  if an exception happens before then.  An exception thrown by the
+  future after that point will produce an exception from the next call
+  to the InputStream read or close methods."
+  [db query entity version query-options log-id munge-fn pretty-print]
+  ;; Client disconnects present as generic IOExceptions from the
+  ;; output writer (via stream-json), and we just log them at debug
+  ;; level.  For now, after the first row, there's nothing we can do
+  ;; to signal an error to the client making the query, other than
+  ;; halting transmission and closing the connection, which happens
+  ;; when the InputStream we return throws from its read or close
+  ;; methods.  To provide more meaningful errors to the client, we
+  ;; could add a new streaming protocol, i.e. response elements could
+  ;; be either an entity map or some status (timeout, error, ...)
+  ;; indicator.  We could also consider chunked transfer encoding with
+  ;; trailing headers, *if* clients support is good enough.
+  ;;
+  ;; produce-streaming-body blocks until status is delivered, so
+  ;; ensure it always is.
+  (let [status (promise)
+        quiet-exit (Exception. "private singleton escape exception escaped")
+        stream (generated-stream
+                ;; Runs in a future
+                (fn [out]
+                  (with-open! [out (io/writer out :encoding "UTF-8")]
+                    (try
+                      (jdbc/with-db-connection db
+                        (jdbc/with-db-transaction []
+                          (let [{:keys [results-query count-query]}
+                                (query->sql query entity version query-options
+                                            {:log-id log-id})
+                                st (when count-query
+                                     {:count (jdbc/get-result-count count-query)})
+                                stream-row (fn [row]
+                                             (let [r (munge-fn row)]
+                                               (when-not (instance? PGobject r)
+                                                 (first r))
+                                               (when-not (realized? status)
+                                                 (deliver status st))
+                                               (try
+                                                 (http/stream-json r out pretty-print)
+                                                (catch IOException ex
+                                                   (log/debug ex (trs "Unable to stream response: {0}"
+                                                                      (.getMessage ex)))
+                                                   (throw quiet-exit)))))]
+                            (jdbc/call-with-array-converted-query-rows results-query
+                                                                       stream-row)
+                            (when-not (realized? status)
+                              (deliver status st)))))
+                      (catch Exception ex
+                        ;; If it's an exit, we've already handled it.
+                        (when-not (identical? quiet-exit ex)
+                          (if (realized? status)
+                            (throw ex)
+                            (deliver status {:error ex}))))
+                      (catch Throwable ex
+                        (if (realized? status)
+                          (do
+                            (log/error ex (trs "Query streaming failed: {0} {1}"
+                                               query query-options))
+                            (throw ex))
+                          (deliver status {:error ex})))))))]
+    {:status status
+     :stream stream}))
+
+(defn preferred-produce-streaming-body
+  [version query-map options]
+  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+         :or {warn-experimental true
+              pretty-print false
+              log-queries false}} options
+        log-id (when log-queries (str (java.util.UUID/randomUUID)))
+        query-config (select-keys options [:node-purge-ttl :add-agent-report-filter])
+        {:keys [query remaining-query entity query-options]}
+        (user-query->engine-query version query-map query-config warn-experimental)]
+
+    (when log-queries
+      ;; log the AST of the incoming query
+      (log/debugf "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
+
+    (try
+      (let [munge-fn (get-munge-fn entity version query-options url-prefix)
+            {:keys [status stream]} (body-stream scf-read-db
+                                                 (coerce-from-json remaining-query)
+                                                 entity version query-options
+                                                 log-id munge-fn pretty-print)]
+        (let [{:keys [count error]} @status]
+          (when error
+            (throw error))
+          (cond-> (http/json-response* stream)
+            count (http/add-headers {:count count}))))
+      (catch JsonParseException ex
+        (log/error ex (trs "Unparsable query: {0} {1} {2}" log-id query query-options))
+        (http/error-response ex))
+      (catch IllegalArgumentException ex ;; thrown by (at least) munge-fn
+        (log/error ex (trs "Invalid query: {0} {1} {2}" log-id query query-options))
+        (http/error-response ex))
+      (catch PSQLException ex
+        (when-not (= (.getSQLState ex) (jdbc/sql-state :invalid-regular-expression))
+          (throw ex))
+        (do
+          (log/debug ex (trs "Invalid query regex: {0} {1} {2}" log-id query query-options))
+          (http/error-response ex))))))
+
+(defn- deprecated-produce-streaming-body
+  [version query-map options]
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
          :or {warn-experimental true
               pretty-print false
@@ -305,10 +450,22 @@
           query query-options))
         (http/error-response e))
       (catch org.postgresql.util.PSQLException e
-        (if (= (.getSQLState e) "2201B")
+        (if (= (.getSQLState e) (jdbc/sql-state :invalid-regular-expression))
           (do (log/debug e (trs "Caught PSQL processing exception"))
               (http/error-response (.getMessage e)))
           (throw e))))))
+
+(pls/defn-validated produce-streaming-body
+  "Given a query, and database connection, return a Ring response with
+   the query results. query-map is a clojure map of the form
+   {:query ['=','certname','foo'] :order_by [{'field':'foo'}]...}
+   If the query can't be parsed, a 400 is returned."
+  [version :- s/Keyword
+   query-map
+   options :- query-options-schema]
+  (if use-preferred-streaming-method?
+    (preferred-produce-streaming-body version query-map options)
+    (deprecated-produce-streaming-body version query-map options)))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."
