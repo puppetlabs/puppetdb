@@ -58,6 +58,7 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
@@ -1129,9 +1130,7 @@
    (let [sc (service-context this)
          _ (throw-unless-started sc)
          query-options (-> (get sc :shared-globals)
-                           (select-keys [:scf-read-db :warn-experimental
-                                         :node-purge-ttl :add-agent-report-filter
-                                         :log-queries])
+                           http-q/narrow-globals
                            (assoc :url-prefix @(get sc :url-prefix)))]
      (qeng/stream-query-result version
                                query-expr

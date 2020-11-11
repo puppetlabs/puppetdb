@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.handlers
-  (:require [puppetlabs.puppetdb.http :as http]
+  (:require [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.http :as http]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -73,9 +74,12 @@
   "Executes `query` and if a result is found, calls `found-fn` with
   that result, returns 404 otherwise."
   ([version query globals found-fn not-found-response query-params]
-   (if-let [query-result (first (stream-query-result version query query-params globals))]
-     (http/json-response (found-fn query-result))
-     not-found-response)))
+   (let [[item & items] (stream-query-result version query query-params globals)]
+     (when (seq items) ;; For now, just log
+       (log/error (trs "more than one item returned for singular query")))
+     (if item
+       (http/json-response (found-fn item))
+       not-found-response))))
 
 (defn catalog-status
   "Produces a response body for a request to retrieve the catalog for the node in route-params"
