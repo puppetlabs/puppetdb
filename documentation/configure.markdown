@@ -1059,3 +1059,12 @@ Can be set to `true` (the default) or `false`.  When true, will
 attempt to interrupt the thread performing sync when the
 [`entity-time-limit`](#entity-time-limit) is exceeded during a sync
 attempt, in addition to the normal periodic checks for for a timeout.
+
+### `PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD`
+
+When set to `true`, (the default before PuppetDB 7), use the
+deprecated query streaming method which retries queries internally
+when certain kinds of transient errors are encountered.  The
+deprecated method also holds an extra database connection open during
+the initial phase of the response.  In newer versions (since 7.0.0),
+the default is `false`.
