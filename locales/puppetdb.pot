@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 83a5245201e3048926a84b5670a7cb04d88d1fea\n"
+"X-Git-Ref: 8a9bbb7d6d3481bec82e4131a6b13386571f0121\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -684,6 +684,11 @@ msgstr ""
 msgid "Command size exceeds max-command-size"
 msgstr ""
 
+#. For now, just log
+#: src/puppetlabs/puppetdb/http/handlers.clj
+msgid "more than one item returned for singular query"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/http/query.clj
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid "Missing required query parameter ''{0}''"
@@ -1026,6 +1031,27 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
 msgid "Unknown exception when processing ast to add report type filter(s)."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Unable to stream response: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Query streaming failed: {0} {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Unparsable query: {0} {1} {2}"
+msgstr ""
+
+#. thrown by (at least) munge-fn
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Invalid query: {0} {1} {2}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Invalid query regex: {0} {1} {2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
