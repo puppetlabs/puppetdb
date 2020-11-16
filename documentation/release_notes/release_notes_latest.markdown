@@ -21,6 +21,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+
+## PuppetDB 7.0.0
+
+Released 19 November 2020
+
+### Bug fixes
+
+- PuppetDB no longer retries queries internally, suppressing some transient
+  connection errors. Instead, it immediately returns an error code.
+  You can restore the previous behavior by setting the
+  `PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD` environment variable. See the
+  [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+
+- PuppetDB won't hold an extra database connection open while generating query
+  responses. Previously it would create and hold an extra connection open during
+  the initial phase of the response. You can restore the previous behavior by
+  setting the `PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD` environment
+  variable. See the [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+
+### Upgrading
+
+- Running PuppetDB with PostgreSQL 9.6 or 10 is no longer supported. Use PostgreSQL 11 or greater instead.
+
 ## PuppetDB 6.13.1
 
 Released 27 October 2020
