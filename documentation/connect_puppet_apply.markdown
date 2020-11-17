@@ -37,7 +37,7 @@ PuppetDB requires client authentication (CA) for its SSL connections, and the Pu
 
 This option is recommended. The Puppet team optimizes for this option when they're developing, and it is better tested.
 
-When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet master's certificate authority. You can issue certificates to every node by setting up a Puppet master server with dummy manifests, running `puppet agent --test` one time on every node, signing every certificate request on the Puppet master, and running `puppet agent --test` again on every node.
+When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet Server's certificate authority. You can issue certificates to every node by setting up a Puppet Server server with dummy manifests, running `puppet agent --test` one time on every node, signing every certificate request on the Puppet Server, and running `puppet agent --test` again on every node.
 
 Do the same on your PuppetDB node, then [re-run the SSL setup script][ssl_script] (which usually runs automatically during installation). PuppetDB will now trust connections from your Puppet nodes.
 
@@ -90,7 +90,7 @@ Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike cust
 
 ### On platforms without packages
 
-If your Puppet master isn't running Puppet from a supported package, you will need to install the plugins using [file][] resources.
+If your Puppet Server isn't running Puppet from a supported package, you will need to install the plugins using [file][] resources.
 
 * [Download the PuppetDB source code][puppetdb_download]; unzip it, locate the `puppet/lib/puppet` directory, and put it in the `files` directory of the Puppet module you are using to enable PuppetDB integration.
 * Identify the install location of Puppet on your nodes.
@@ -152,7 +152,7 @@ You will need to create a template for puppet.conf based on your existing config
 
 ### Manage routes.yaml
 
-Typically, you can specify the contents of [routes.yaml][routes_yaml] directly in your manifests; if you are already using routes.yaml for some other purpose, you will need to manage it with a template based on your existing configuration. The path to this Puppet configuration file can be found with the command `puppet master --configprint route_file`.
+Typically, you can specify the contents of [routes.yaml][routes_yaml] directly in your manifests; if you are already using routes.yaml for some other purpose, you will need to manage it with a template based on your existing configuration. The path to this Puppet configuration file can be found with the command `puppet config print route_file`.
 
 Ensure that the following keys are present:
 
@@ -168,4 +168,4 @@ Ensure that the following keys are present:
         terminus: facter
         cache: puppetdb_apply
 
-This is necessary to keep Puppet from using stale facts and to keep the `puppet resource` subcommand from malfunctioning. Note that the `puppetdb_apply` terminus is specifically for `puppet apply` nodes, and differs from the configuration of Puppet masters using PuppetDB.
+This is necessary to keep Puppet from using stale facts and to keep the `puppet resource` subcommand from malfunctioning. Note that the `puppetdb_apply` terminus is specifically for `puppet apply` nodes, and differs from the configuration of Puppet Servers using PuppetDB.
