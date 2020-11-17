@@ -26,7 +26,7 @@ and queries to multiple PuppetDB servers. Second, those servers are configured
 to periodically reconcile their differences, transferring any records which they
 are missing. This process is pull-based and runs on a configurable interval.
 
-PuppetDB replication is in principle a multi-master system. You can issue
+PuppetDB replication is in principle a multi-leader system. You can issue
 commands to any server, and they can be reconciled with any other server without
 conflicts. But, in order to minimize confusion when using exported resources, we
 recommend that only one node be conventionally treated as
@@ -60,7 +60,7 @@ Manual Installation and Configuration
          server_urls = https://primary-puppetdb.mycorp.net:8081
          intervals = 2m
 
-3. Configure the Puppet master to point to both of your PuppetDB instances. In
+3. Configure the Puppet Server to point to both of your PuppetDB instances. In
    your puppetdb.conf, use this as your server configuration (in the 'main' section):
 
         server_urls = https://primary-puppetdb.mycorp.net:8081,https://replica-puppetdb.mycorp.net:8081
@@ -68,9 +68,9 @@ Manual Installation and Configuration
         command_broadcast = true
 
    It is important that your primary PuppetDB appear first in this list, so it
-   will always be tried first when submitting new data from the Puppet master.
+   will always be tried first when submitting new data from the Puppet Server.
 
-4. Restart your PuppetDBs and your Puppet master.
+4. Restart your PuppetDBs and your Puppet Server.
 
 Deployment tips
 ----
@@ -78,9 +78,9 @@ Deployment tips
 - Each PuppetDB server should be configured to use a separate PostgreSQL
   instance.
 
-- If you are using multiple compile masters, be sure that their clocks are in
+- If you are using multiple compile Server, be sure that their clocks are in
   sync (using NTP, for example). PuppetDB relies on timestamps for discerning
-  which data is newer for any given node, so the clocks on your compile masters
+  which data is newer for any given node, so the clocks on your compile servers
   need to be within `runinterval` of each other.
 
 - The timeout for HTTP connections made by Puppet Server, including those to
@@ -108,7 +108,7 @@ provides a read-only replica. If you need such a replica for performance
 reasons, then streaming replication works very well.
 
 There are other replication solutions available for PostgreSQL that do provide
-write availability. Some of these use a master election system to choose which
+write availability. Some of these use a leader election system to choose which
 database is writable. This can work, but it tends to be difficult to deploy and
 operate.
 
