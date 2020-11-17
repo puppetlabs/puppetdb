@@ -37,7 +37,7 @@ via the command line:
 
 Any node managed by Puppet agent will already have all of these, and you can
 reuse them for contacting PuppetDB. You can also generate a new cert on the CA
-Puppet master with the `puppet cert generate` command.
+Puppet Server with the `puppet cert generate` command.
 
 > **Note:** If you have turned on [certificate whitelisting][whitelist], you must
 make sure to authorize the certificate you are using:

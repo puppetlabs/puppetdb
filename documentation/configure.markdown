@@ -217,7 +217,7 @@ Optional. This describes the path to a file that contains a list of
 certificate names, one per line. Incoming HTTPS requests will have
 their certificates validated against this list of names and only those
 with an **exact** matching entry will be allowed through. (For a Puppet
-master, this compares against the value of the `certname` setting,
+Server, this compares against the value of the `certname` setting,
 rather than the `dns_alt_names` setting.)
 
 If not supplied, PuppetDB uses standard HTTPS without any additional

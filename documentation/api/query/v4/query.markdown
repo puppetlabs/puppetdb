@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/api/query/v4/query.html"
 ## Summary
 
 PuppetDB's query API can retrieve data objects from PuppetDB for use in other
-applications. For example, the PuppetDB-termini for Puppet masters use this
+applications. For example, the PuppetDB-termini for Puppet Servers use this
 API to collect exported resources.
 
 The query API is implemented as HTTP URLs on the PuppetDB server. By default,

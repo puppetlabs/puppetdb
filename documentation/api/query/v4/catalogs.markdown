@@ -48,8 +48,8 @@ See [the AST query language page][ast].
 * `hash` (string): SHA-1 hash of the resources of associated with a node's most
   recent catalog.
 * `producer_timestamp` (string): a string representing the time at which the
-  `replace_catalog` command for a given catalog was submitted from the master.
-* `producer` (string): the certname of the Puppet master that sent the catalog to PuppetDB.
+  `replace_catalog` command for a given catalog was submitted from the Puppet Server.
+* `producer` (string): the certname of the Puppet Server that sent the catalog to PuppetDB.
 
 ### Subquery relationships
 
@@ -57,7 +57,7 @@ The following list contains related entities that can be used to constrain the
 result set using implicit subqueries. For more information consult the
 documentation for [subqueries][subqueries].
 
-* [`producers`][producers]: the master that sent the catalog to PuppetDB.
+* [`producers`][producers]: the Puppet Server that sent the catalog to PuppetDB.
 * [`environments`][environments]: environment for a catalog.
 
 ### Response format
@@ -74,8 +74,8 @@ the form:
       "hash" : <sha1 sum of catalog resources>,
       "transaction_uuid" : <string to identify puppet run>,
       "code_id" : <string to identify puppet code>,
-      "producer_timestamp": <time of transmission by master>,
-      "producer": <master certname>
+      "producer_timestamp": <time of transmission by Puppet Server>,
+      "producer": <Puppet Server certname>
       "resources" : <expanded resources>,
       "edges" : <expanded edges>
     }

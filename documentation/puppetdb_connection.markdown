@@ -9,9 +9,9 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 [confdir]: {{puppet}}/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_server.html#edit-puppetdb\.conf
 
-The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet master to it][connect_to_puppetdb].
+The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet Server to it][connect_to_puppetdb].
 
-The Puppet master makes HTTPS connections to PuppetDB to store catalogs, facts, and new reports. It also uses PuppetDB to answer queries, such as those necessary to support exported resources. If the PuppetDB instance is down, depending on the configuration of the Puppet master, it could cause the Puppet run to fail. This document discusses configuration options for the `puppetdb.conf` file, including settings to make the PuppetDB terminus more tolerant of failures.
+The Puppet Server makes HTTPS connections to PuppetDB to store catalogs, facts, and new reports. It also uses PuppetDB to answer queries, such as those necessary to support exported resources. If the PuppetDB instance is down, depending on the configuration of the Puppet Server, it could cause the Puppet run to fail. This document discusses configuration options for the `puppetdb.conf` file, including settings to make the PuppetDB terminus more tolerant of failures.
 
 ## Location
 
@@ -35,7 +35,7 @@ The `[main]` section defines all of the PuppetDB terminus settings.
 
 ### `server_urls`
 
-This setting specifies how the Puppet master should connect to PuppetDB. The configuration should look something like:
+This setting specifies how the Puppet Server should connect to PuppetDB. The configuration should look something like:
 
     server_urls = https://puppetdb.example.com:8081
 
@@ -67,7 +67,7 @@ The default value is 30 seconds.
 
 ### `soft_write_failure`
 
-This setting can let the Puppet master stay partially available during a PuppetDB outage. If set to `true`, Puppet will keep compiling and serving catalogs even if PuppetDB isn't accessible for command submission. (However, any catalogs that need to **query** exported resources from PuppetDB will still fail.)
+This setting can let the Puppet Server stay partially available during a PuppetDB outage. If set to `true`, Puppet will keep compiling and serving catalogs even if PuppetDB isn't accessible for command submission. (However, any catalogs that need to **query** exported resources from PuppetDB will still fail.)
 
 The default value is false.
 

@@ -70,13 +70,13 @@ more details about the `datetime` format below.
 
 #### `producer_timestamp`
 
-DateTime. The time of catalog submission from the Puppet master to
-PuppetDB. This field is currently populated by the Puppet master. See more details
+DateTime. The time of catalog submission from the Puppet Server to
+PuppetDB. This field is currently populated by the Puppet Server. See more details
 about the `datetime` format below.
 
 #### `producer`
 
-String. The certname of the Puppet master that sent the report to
+String. The certname of the Puppet Server that sent the report to
 PuppetDB. This field may be `null`.
 
 #### `transaction_uuid`

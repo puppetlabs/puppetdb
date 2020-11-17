@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v8.html"
 [type]: {{puppet}}/lang_resources.html#type
 [attributes]: {{puppet}}/lang_resources.html#attributes
 
-PuppetDB receives catalogs from Puppet masters in the following wire format.
+PuppetDB receives catalogs from Puppet Servers in the following wire format.
 This format is subtly different from the internal format used by Puppet, so
 catalogs are converted by the
 [PuppetDB catalog terminus](../../connect_puppet_server.html) before they are
@@ -102,8 +102,8 @@ the catalog. This field may be `null`.
 
 #### `producer_timestamp`
 
-DateTime. The time of catalog submission from the Puppet master to PuppetDB.
-This field is currently populated by the Puppet master.
+DateTime. The time of catalog submission from the Puppet Server to PuppetDB.
+This field is currently populated by the Puppet Server.
 
 ### Data type: `<string>`
 

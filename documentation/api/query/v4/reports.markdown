@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [nodes]: ./nodes.html
 [rich_data]: ./query.html#rich-data
 
-Puppet agent nodes submit reports after their runs, and the Puppet master
+Puppet agent nodes submit reports after their runs, and the Puppet Server
 forwards these to PuppetDB. Each report includes:
 
 * Data about the entire run
@@ -93,13 +93,13 @@ responses.
   Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `producer_timestamp` (timestamp): the time of catalog submission from the
-  Puppet master to PuppetDB, according to the clock on the Puppet master.
+  Puppet Server to PuppetDB, according to the clock on the Puppet Server.
   Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `receive_time` (timestamp): the time at which PuppetDB received the report.
   Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `producer` (string): the certname of the Puppet master that sent the report
+* `producer` (string): the certname of the Puppet Server that sent the report
   to PuppetDB.
 
 * `transaction_uuid` (string): a string used to identify a Puppet run.
@@ -134,7 +134,7 @@ documentation for [subqueries][subqueries].
 
 * [`environments`][environments]: environment from where a report was received.
 * [`events`][events]: events received in a report.
-* [`producers`][producers]: the master that sent the report to PuppetDB.
+* [`producers`][producers]: the Puppet Server that sent the report to PuppetDB.
 
 ### Response format
 
@@ -149,8 +149,8 @@ is of the form:
       "report_format": <report wireformat version>,
       "start_time": <start of run timestamp>,
       "end_time": <end of run timestamp>,
-      "producer_timestamp": <time of transmission by master>,
-      "producer": <master certname>,
+      "producer_timestamp": <time of transmission by Puppet Server>,
+      "producer": <Puppet Server certname>,
       "transaction_uuid": <string to identify puppet run>,
       "status": <status of node after report's associated puppet run>,
       "noop": <boolean flag indicating noop run>,
@@ -282,7 +282,7 @@ Query for all reports:
       "start_time" : "2015-02-19T16:23:09.810Z",
       "end_time" : "2015-02-19T16:23:10.287Z",
       "producer_timestamp" : "2015-02-19T16:23:11.000Z",
-      "producer" : "master.localdomain",
+      "producer" : "server.localdomain",
       "resource_events" : {
         "href": "/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
         "data": [ {

@@ -47,8 +47,8 @@ details about the `datetime` format below.
 `"end_time"` is the time on the agent at which the Puppet run completed; see
 more details about the `datetime` format below.
 
-`"producer_timestamp"` is the time of catalog submission from the Puppet master to
-PuppetDB. This field is currently populated by the Puppet master. See more details
+`"producer_timestamp"` is the time of catalog submission from the Puppet Server to
+PuppetDB. This field is currently populated by the Puppet Server. See more details
 about the `datetime` format below.
 
 `"transaction_uuid"` is a string used to identify a Puppet run. It can be used to

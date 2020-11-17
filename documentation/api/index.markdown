@@ -65,7 +65,7 @@ Commands are sent via HTTP but do not use a REST-style interface.
 
 PuppetDB supports a relatively small number of commands. The command submission interface and all available commands are described at the [commands page][commands].
 
-Unlike the query API, these commands are generally only useful to Puppet itself, and all format conversion and command submission is handled by the [PuppetDB-termini][termini] on your Puppet master.
+Unlike the query API, these commands are generally only useful to Puppet itself, and all format conversion and command submission is handled by the [PuppetDB-termini][termini] on your Puppet Server.
 
 The "replace" commands all require data in one of the wire formats described below.
 

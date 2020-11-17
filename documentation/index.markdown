@@ -99,8 +99,8 @@ any Unix-like OS with JVM 8 or newer, including:
 
 ### Puppet 6.0.0
 
-Your site's Puppet masters must be running Puppet Server 6.0.0 or later.
-[You will need to connect your Puppet masters to PuppetDB after installing it][connect].
+Your site's Puppet Server must be running Puppet Server 6.0.0 or later.
+[You will need to connect your Puppet Servers to PuppetDB after installing it][connect].
 If you wish to use PuppetDB with
 [standalone nodes that are running puppet apply][apply], every node
 must be running 6.0.0 or later.
@@ -129,7 +129,7 @@ in every 30 minutes. Powerful server-grade hardware will perform even better.
 
 The actual requirements will vary wildly depending on your site's size and
 characteristics. At smallish sites, you may even be able to run PuppetDB on your
-Puppet master server.
+Puppet Server.
 
 For more on fitting PuppetDB to your site, [see our scaling recommendations.][scaling]
 

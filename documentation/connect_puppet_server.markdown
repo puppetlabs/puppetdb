@@ -1,5 +1,5 @@
 ---
-title: "Connecting Puppet masters to PuppetDB"
+title: "Connecting Puppet Servers to PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/connect_puppet_server.html"
 ---
@@ -16,21 +16,21 @@ canonical: "/puppetdb/latest/connect_puppet_server.html"
 [report_format]: ./api/wire_format/report_format_v5.html
 [puppetdb_server_urls]: ./puppetdb_connection.html#serverurls
 
-> Note: To use PuppetDB, your site's Puppet master(s) must be running
+> Note: To use PuppetDB, your site's Puppet Server(s) must be running
 > Puppet version 5.0.0 or later.
 
-After PuppetDB is installed and running, configure your master to use it. When properly connected to PuppetDB, the master does the following:
+After PuppetDB is installed and running, configure your Puppet Server to use it. When properly connected to PuppetDB, the Puppet Server does the following:
 
 * Send every node's catalog, facts, and reports to PuppetDB
 * Query PuppetDB when compiling node catalogs that collect [exported resources][exported]
 
 > Note: if you've [installed PuppetDB using the PuppetDB module][install_via_module], then the `puppetdb::master::config` class is taking care of all of this for you.
 
- **Working on your Puppet master server(s),** follow all of the instructions below:
+ **Working on your Puppet Server(s),** follow all of the instructions below:
 
 ## Step 1: Install plug-ins
 
-Currently, Puppet masters need additional Ruby plug-ins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
+Currently, Puppet Servers need additional Ruby plug-ins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
 
 ### On platforms with packages
 
@@ -40,7 +40,7 @@ Currently, Puppet masters need additional Ruby plug-ins in order to use PuppetDB
 
 ### On platforms without packages
 
-If your Puppet master isn't running Puppet from a supported package, you will need to install the plugins manually:
+If your Puppet Server isn't running Puppet from a supported package, you will need to install the plugins manually:
 
 * [Download the PuppetDB source code][puppetdb_download], unzip it, and navigate into the resulting directory in your terminal.
 
@@ -50,7 +50,7 @@ If your Puppet master isn't running Puppet from a supported package, you will ne
 
 ### Locate Puppet's config directory
 
-Find your Puppet master's config directory by running `sudo puppet config print confdir`. It will usually be at either `/etc/puppet/` or `/etc/puppetlabs/puppet/`.
+Find your Puppet Server's config directory by running `sudo puppet config print confdir`. It will usually be at either `/etc/puppet/` or `/etc/puppetlabs/puppet/`.
 
 You will edit (or create) three files in this directory:
 
@@ -98,7 +98,7 @@ More information about Puppet report processors in general can be found
 
 ### 3. Edit routes.yaml
 
-The [routes.yaml][routes_yaml] file will probably not yet exist. Find the path to this Puppet configuration file by running `puppet master --configprint route_file`.
+The [routes.yaml][routes_yaml] file will probably not yet exist. Find the path to this Puppet configuration file by running `puppet config print route_file`.
 
 Create the file, if necessary, and add the following:
 
@@ -118,16 +118,16 @@ this ownership is applied by running the following command:
 ## Step 3: Set security policy
 
 PuppetDB listens on TCP port 8081 (HTTPS). Ensure that this port is open between
-the Puppet master and PuppetDB services. If the services run on the same server, additional configuration might not be needed. If the services are on separate
+the Puppet Server and PuppetDB services. If the services run on the same server, additional configuration might not be needed. If the services are on separate
 servers, ensure that the server and network firewalls allow for traffic flow.
 
 PuppetDB works without modification with SELinux in enforcing mode.
 
-## Step 4: Restart Puppet master
+## Step 4: Restart Puppet Server
 
-Use your system's service tools to restart the Puppet master service. For open source Puppet users, the command to do this will vary, depending on the frontend web server being used.
+Use your system's service tools to restart the Puppet Server service. For open source Puppet users, the command to do this will vary, depending on the frontend web server being used.
 
-> Your Puppet master is now using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test your setup by triggering a Puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetlabs/puppetdb/puppetdb.log` file, which will include calls to the "replace facts", "replace catalog", and "store report" commands:
+> Your Puppet Server is now using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test your setup by triggering a Puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetlabs/puppetdb/puppetdb.log` file, which will include calls to the "replace facts", "replace catalog", and "store report" commands:
 >
 >     2012-05-17 13:08:41,664 INFO  [command-proc-67] [puppetdb.command] [85beb105-5f4a-4257-a5ed-cdf0d07aa1a5] [replace facts] screech.example.com
 >     2012-05-17 13:08:45,993 INFO  [command-proc-67] [puppetdb.command] [3a910863-6b33-4717-95d2-39edf92c8610] [replace catalog] screech.example.com

@@ -48,7 +48,7 @@ See [the AST query language page][ast].
 * `code_id` (string): a string used to tie a catalog to the Puppet code which
   generated the catalog
 * `producer_timestamp` (timestamp): is the time of catalog submission from the
-  master to PuppetDB, according to the clock on the master. Timestamps are
+  Puppet Server to PuppetDB, according to the clock on the Puppet Server. Timestamps are
   always [ISO-8601][8601] compatible date/time strings.
 * `status` (string): the status associated to report's node. Possible values for
   this field come from Puppet's report status, which can be found
@@ -78,7 +78,7 @@ the form:
       "catalog_uuid" : <string to identify catalog>,
       "transaction_uuid" : <string to identify puppet run>,
       "code_id" : <string to identify puppet code>,
-      "producer_timestamp": <time of transmission by master>,
+      "producer_timestamp": <time of transmission by Puppet Server>,
       "status": <status of node after report's associated puppet run>,
       "noop": <boolean flag indicating noop run>,
       "resources" : <resources>,

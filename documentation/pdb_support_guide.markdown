@@ -25,7 +25,7 @@ database to reside on three separate machines.
 
 ### Terminus
 
-The terminus resides on the Puppet master and redirects agent data to
+The terminus resides on the Puppet Server and redirects agent data to
 PDB in the form of "commands". PDB has four commands, as described in the
 [commands documentation][commands].
 
