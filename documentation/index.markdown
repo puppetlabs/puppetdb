@@ -4,7 +4,7 @@ layout: default
 ---
 
 [exported]: {{puppet}}/lang_exported.html
-[connect]: ./connect_puppet_master.html
+[connect]: ./connect_puppet_server.html
 [apply]: ./connect_puppet_apply.html
 [install_via_module]: ./install_via_module.html
 [install_from_packages]: ./install_from_packages.html

@@ -3,7 +3,7 @@ title: "Installing from packages"
 layout: default
 ---
 
-[connect_master]: ./connect_puppet_master.html
+[connect_master]: ./connect_puppet_server.html
 [connect_apply]: ./connect_puppet_apply.html
 [ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
 [configure_postgres]: ./configure.html#using-postgresql

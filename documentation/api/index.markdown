@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/index.html"
 ---
 
 [commands]: ./command/v1/commands.html
-[termini]: ../connect_puppet_master.html
+[termini]: ../connect_puppet_server.html
 [ast]: ./query/v4/ast.html
 [pql]: ./query/v4/pql.html
 

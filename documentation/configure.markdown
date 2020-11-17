@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/configure.html"
 [postgres_ssl]: ./postgres_ssl.html
 [migration_coordination]: ./migration_coordination.html
 [module]: ./install_via_module.html
-[puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
+[puppetdb.conf]: ./connect_puppet_server.html#edit-puppetdbconf
 [ha]: ./ha.html
 [node-ttl]: #node-ttl
 [admin-cmd]: ./api/admin/v1/cmd.html

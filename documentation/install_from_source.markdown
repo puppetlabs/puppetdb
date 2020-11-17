@@ -142,7 +142,7 @@ If you are running PuppetDB from source, you should start it as follows:
 Finish: Connect Puppet to PuppetDB
 -----
 
-[You should now configure your puppet master(s) to connect to PuppetDB](./connect_puppet_master.html).
+[You should now configure your puppet master(s) to connect to PuppetDB](./connect_puppet_server.html).
 
 If you use a standalone Puppet site,
 [you should configure every node to connect to PuppetDB](./connect_puppet_apply.html).

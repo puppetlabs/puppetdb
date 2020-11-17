@@ -2119,11 +2119,11 @@ Ryan Senior, and Wyatt Alt
   descriptions were incorrectly reversed).
 
 * The firewall and SELinux requirements have been documented
-  [here](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_master.html).
+  [here](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_server.html).
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_master.html) and [commands](./api/command/v1/commands.html)
+  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_server.html) and [commands](./api/command/v1/commands.html)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
@@ -2142,7 +2142,7 @@ Ryan Senior, and Wyatt Alt
 
 * Some minor edits have been made to the
   [fact-contents](http://docs.puppetlabs.com/puppetdb/2.3/api/query/v4/fact-contents.html),
-  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_master.html), and
+  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_server.html), and
   [KahaDB Corruption](http://docs.puppetlabs.com/puppetdb/2.3/trouble_kahadb_corruption.html) documentation.
 
 #### Testing
