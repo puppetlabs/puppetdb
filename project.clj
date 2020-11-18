@@ -85,6 +85,7 @@
 (def pdb-dep-pins
   `[;; Use jetty 9.4.11.v20180605 to fix CVE-2017-7656 (PDB-4160)
     [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-ver]
+    [org.bouncycastle/bcpkix-jdk15on "1.65"]
     ;; Pin jackson-databind to fix CVEs -- currently covers at least:
     ;;   CVE-2018-5968 (PDB-3809)
     ;;   CVE-2017-7658 (PDB-4161)
