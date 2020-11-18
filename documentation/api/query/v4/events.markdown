@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/events.html"
 [reports]: ./reports.html
 [rich_data]: ./query.html#rich-data
 
-Puppet agent nodes submit reports after their runs, and the Puppet master forwards these to PuppetDB. Each report includes:
+Puppet agent nodes submit reports after their runs, and the Puppet Server forwards these to PuppetDB. Each report includes:
 
 * Data about the entire run
 * Metadata about the report

@@ -18,10 +18,10 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v9.html"
 [type]: {{puppet}}/lang_resources.html#type
 [attributes]: {{puppet}}/lang_resources.html#attributes
 
-PuppetDB receives catalogs from Puppet masters in the following wire format.
+PuppetDB receives catalogs from Puppet Servers in the following wire format.
 This format is subtly different from the internal format used by Puppet, so
 catalogs are converted by the
-[PuppetDB catalog terminus](../../connect_puppet_master.html) before they are
+[PuppetDB catalog terminus](../../connect_puppet_server.html) before they are
 sent.
 
 Catalog interchange format
@@ -110,12 +110,12 @@ usage by the Puppet Enterprise Orchestration service. This field may be
 
 #### `producer_timestamp`
 
-DateTime. The time of catalog submission from the Puppet master to PuppetDB.
-This field is currently populated by the Puppet master.
+DateTime. The time of catalog submission from the Puppet Server to PuppetDB.
+This field is currently populated by the Puppet Server.
 
 #### `producer`
 
-String. The certname of the Puppet master that sent the catalog to PuppetDB.
+String. The certname of the Puppet Server that sent the catalog to PuppetDB.
 This field may be `null`.
 
 ### Data type: `<string>`

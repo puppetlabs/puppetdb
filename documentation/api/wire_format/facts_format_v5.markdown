@@ -27,9 +27,9 @@ The `"values"` key points to a _JSON Object_ that represents the set
 of facts. Each key is the fact name, and the value is the fact value.
 
 The `"producer_timestamp"` key points to a timestamp reflecting
-the time of fact set submission from the master to PuppetDB.
+the time of fact set submission from the Server to PuppetDB.
 
-The `"producer"` key is the certname of the Puppet master that sent the fact set
+The `"producer"` key is the certname of the Puppet Server that sent the fact set
 to PuppetDB. This field may be `null`.
 
 Fact names and values **must** be strings.

@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 > **Experimental endpoint**: The aggregate-event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
 
-Puppet agent nodes submit reports after their runs, and the Puppet master forwards these to PuppetDB. Each report includes:
+Puppet agent nodes submit reports after their runs, and the Puppet Server forwards these to PuppetDB. Each report includes:
 
 * Data about the entire run.
 * Metadata about the report.

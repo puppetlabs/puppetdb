@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/maintain_and_tune.html"
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [threads]: ./configure.html#command-processing-settings
 [memrec]: ./scaling_recommendations.html#bottleneck-java-heap-size
-[puppetdb_report_processor]: ./connect_puppet_master.html#enabling-report-storage
+[puppetdb_report_processor]: ./connect_puppet_server.html#enabling-report-storage
 [node_ttl]: ./configure.html#node-ttl
 [report_ttl]: ./configure.html#report-ttl
 [resources_type]: {{puppet}}/type.html#resources
@@ -48,7 +48,7 @@ For example, `http://localhost:8080/pdb/dashboard/index.html?height=240&pollingI
 When you remove a node from your Puppet deployment, it should be marked as **deactivated** in PuppetDB. This will ensure that any resources exported by that node will stop appearing in the catalogs served to the remaining agent nodes.
 
 * PuppetDB can automatically mark nodes that haven't checked in recently as **expired**. Expiration is simply the automatic version of deactivation; the distinction is important only for record keeping. Expired nodes behave the same as deactivated nodes. By default, nodes are expired after 7 days of inactivity; to configure this, use the [`node-ttl` setting][node_ttl].
-* If you prefer to manually deactivate nodes, use the following command on your puppet master:
+* If you prefer to manually deactivate nodes, use the following command on your primary server:
 
         $ sudo puppet node deactivate <node> [<node> ...]
 * Any deactivated or expired node will be reactivated if PuppetDB receives new catalogs or facts for it.
@@ -59,7 +59,7 @@ Although deactivated and expired nodes will be excluded from storeconfigs querie
 
 ## Clean up old reports
 
-When the [PuppetDB report processor][puppetdb_report_processor] is enabled on your Puppet master, PuppetDB will retain reports for each node for a fixed amount of time. The default setting is 14 days, but this timeframe can be altered by using the [`report-ttl` setting][report_ttl]. Note that the larger the value you provide for this setting, the more history you will retain, and your database size will grow accordingly.
+When the [PuppetDB report processor][puppetdb_report_processor] is enabled on your primary server, PuppetDB will retain reports for each node for a fixed amount of time. The default setting is 14 days, but this timeframe can be altered by using the [`report-ttl` setting][report_ttl]. Note that the larger the value you provide for this setting, the more history you will retain, and your database size will grow accordingly.
 
 ## Clean up the dead letter office
 

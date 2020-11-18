@@ -47,7 +47,7 @@ plain text, as outlined above.
 
 ## Does PuppetDB support Puppet apply?
 
-Yes. However, the setup is quite different from the normal master-based setup, so
+Yes. However, the setup is quite different from the normal Puppet Server based setup, so
 [consult the documentation][connect_puppet_apply] for more details.
 
 ## Why is PuppetDB written in Java?
@@ -118,13 +118,13 @@ runs, and the number of changes to the nodes on each run. For more information
 on possible causes and ways to mitigate them, refer to the [support and
 troubleshooting guide][support_guide].
 
-## My Puppet master is running slower since I enabled PuppetDB. How can I profile it?
+## My Puppet Server is running slower since I enabled PuppetDB. How can I profile it?
 
 Puppet 3.x introduced a new profiling capability that we leveraged in the
 puppetdb-termini client code. By simply adding `profile=true` to your
 `puppet.conf`, you can enable detailed profiling of all aspects of Puppet,
 including puppetdb-termini. For this to work, you must enable debugging on your
-master instance as well.
+Puppet Server instance as well.
 
 **Note:** We encourage all users to use common sense when working with profiling
 mechanisms. Using these tools will add more load, which can increase speed

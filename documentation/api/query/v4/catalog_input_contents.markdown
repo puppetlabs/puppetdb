@@ -38,7 +38,7 @@ See [the AST query language page][ast].
 * `certname` (string): the certname associated with the input.
 * `producer_timestamp` (string): a string representing the time at
   which the `replace catalog inputs` command containing the input was
-  submitted from the master.
+  submitted from the Puppet Server.
 * `catalog_uuid` (string): the unique ID of the catalog to which the
   input corresponds.
 * `type` (string): the input type (ie. `"hiera"`).
@@ -63,7 +63,7 @@ the form:
 
     {
       "certname" : <node certname>,
-      "producer_timestamp": <time of catalog transmission by master>,
+      "producer_timestamp": <time of catalog transmission by Puppet Server>,
       "catalog_uuid" : <unique id of related catalog>,
       "type": <catalog input type>,
       "name": <catalog input name>

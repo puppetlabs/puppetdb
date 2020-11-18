@@ -66,7 +66,7 @@ successfully submitted, the submitter will receive the following:
   value is a UUID corresponding to the submitted command. This can be used, for example, by
   clients to correlate submitted commands with server-side logs.
 
-The PuppetDB termini for Puppet masters use this command API to update facts,
+The PuppetDB termini for Puppet Servers use this command API to update facts,
 catalogs, and reports for nodes, and will always include the checksum.
 
 ### Blocking command submission
@@ -241,7 +241,7 @@ To post a `replace facts` command you can use the following curl command:
     curl -X POST \
       -H 'Content-Type:application/json' \
       -H 'Accept:application/json' \
-      -d '{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"master1"}' \
+      -d '{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"server1"}' \
       "http://localhost:8080/pdb/cmd/v1?command=replace_facts&version=5&certname=test1"
 
 or equivalently (with the deprecated mechanism):
@@ -249,7 +249,7 @@ or equivalently (with the deprecated mechanism):
     curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":5,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"master1"}}' \
+      -d '{"command":"replace facts","version":5,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"server1"}}' \
       http://localhost:8080/pdb/cmd/v1
 
 An example of `deactivate node`:

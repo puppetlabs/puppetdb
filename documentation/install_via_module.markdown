@@ -8,7 +8,7 @@ layout: default
 
 You can install and configure all of PuppetDB's components and prerequisites
 (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems,
-and the PuppetDB-termini for your Puppet master) using
+and the PuppetDB-termini for your Puppet Server) using
 [the PuppetDB module][module] from the Puppet Forge.
 
 * If you are **already familiar with Puppet** and have a working Puppet
@@ -24,7 +24,7 @@ Step 1: Enable the Puppet Platform package repository
 If you haven't done so already, you will need to do **one** of the following:
 
 * [Enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
-  on your PuppetDB server and Puppet master server.
+  on your PuppetDB server and Puppet Server.
 * If you don't use the Puppet Platform repository, make the PuppetDB and
   PuppetDB-terminus packages available via your alternate installation strategy.
   For the module install to succeed a command like `yum install puppetdb`, or the
@@ -37,16 +37,16 @@ Step 2: Assign classes to nodes
 Using the normal methods for your site, assign the PuppetDB module's classes to
 your servers. You have three main options for deploying PuppetDB:
 
-* If you are installing PuppetDB on the same server as your Puppet master,
+* If you are installing PuppetDB on the same server as your Puppet Server,
   assign the `puppetdb` and `puppetdb::master::config` classes to it.
 * If you want to run PuppetDB on its own server with a local PostgreSQL
   instance, assign the `puppetdb` class to it, and assign the
-  `puppetdb::master::config` class to your Puppet master. Make sure to set the
+  `puppetdb::master::config` class to your Puppet Server. Make sure to set the
   class parameters as necessary.
 * If you want PuppetDB and PostgreSQL to each run on their own servers, assign
   the `puppetdb::server` class and the `puppetdb::database::postgresql` classes
   to different servers, and the `puppetdb::master::config` class to your Puppet
-  master. Make sure to set the class parameters as necessary.
+  Server. Make sure to set the class parameters as necessary.
 
 Note: By default, the module sets up the PuppetDB dashboard to be accessible
 only via `localhost`. If you'd like to allow access to the PuppetDB dashboard

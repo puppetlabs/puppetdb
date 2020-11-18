@@ -17,7 +17,7 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 [resources]: ./resources.html
 [inventory]: ./inventory.html
 
-Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the Puppet master's external node classifier.
+Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the Puppet Server's external node classifier.
 
 When PuppetDB collects info about a node, it keeps track of the environment the node is assigned to. PuppetDB also keeps a list of environments it has seen. You can query this list by making an HTTP request to the `/environments` endpoint.
 
