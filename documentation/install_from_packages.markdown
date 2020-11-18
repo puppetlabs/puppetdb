@@ -3,7 +3,7 @@ title: "Installing from packages"
 layout: default
 ---
 
-[connect_master]: ./connect_puppet_master.html
+[connect_server]: ./connect_puppet_server.html
 [connect_apply]: ./connect_puppet_apply.html
 [ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
 [configure_postgres]: ./configure.html#using-postgresql
@@ -31,7 +31,7 @@ module.
 > **Notes:**
 >
 > * After following these instructions, you must
->   [connect your Puppet master(s) to PuppetDB][connect_master]. (If you use a
+>   [connect your Puppet Server(s) to PuppetDB][connect_server]. (If you use a
 >   standalone Puppet deployment, you will need to
 >   [connect every node to PuppetDB][connect_apply].)
 > * These instructions are for
@@ -60,7 +60,7 @@ node.
 [installpuppet]: {{puppet}}/install_pre.html
 
 Your PuppetDB server should be running Puppet agent and have a signed
-certificate from your Puppet master server. If you run `puppet agent --test`, it
+certificate from your Puppet Server. If you run `puppet agent --test`, it
 should successfully complete a run, ending with `Notice: Applied catalog in X.XX
 seconds`.
 
@@ -68,7 +68,7 @@ seconds`.
 > you will have to
 > [run the SSL config script and edit the config file][ssl_script], or
 > [manually configure PuppetDB's SSL credentials][keystore_instructions] before
-> the Puppet master will be able to connect to PuppetDB.
+> the Puppet Server will be able to connect to PuppetDB.
 
 Step 2: Enable the Puppet Platform package repository
 -----
@@ -99,12 +99,12 @@ You must also configure your PuppetDB server's firewall to accept incoming
 connections on port 8081.
 
 > PuppetDB is now fully functional and ready to receive facts, catalogs, and
-> reports from any number of Puppet master servers.
+> reports from any number of Puppet Servers.
 
 Finish: Connect Puppet to PuppetDB
 -----
 
-[You should now configure your Puppet master(s) to connect to PuppetDB][connect_master].
+[You should now configure your Puppet Server(s) to connect to PuppetDB][connect_server].
 
 If you use a standalone Puppet site,
 [you should configure every node to connect to PuppetDB][connect_apply].
@@ -114,10 +114,10 @@ Troubleshooting installation problems
 
 * Check the log file (`/var/log/puppetlabs.puppetdb/puppetdb.log`), and see
   whether PuppetDB knows what the problem is.
-* If PuppetDB is running but the Puppet master can't reach it, check
+* If PuppetDB is running but the Puppet Server can't reach it, check
   [PuppetDB's `[jetty]` configuration][configure_jetty] to see which port(s) it
   is listening on, then attempt to reach it by Telnet (`telnet <HOST> <PORT>`)
-  from the Puppet master server. If you can't connect, the firewall may be
+  from the Puppet Server. If you can't connect, the firewall may be
   blocking connections. If you can, Puppet may be attempting to use the wrong
   port, or PuppetDB's keystore may be misconfigured (see below).
 * Check whether any other service is using PuppetDB's port and interfering with
@@ -126,4 +126,4 @@ Troubleshooting installation problems
   `/etc/puppetlabs/puppetdb/ssl` directory, and make sure it has the necesary
   SSL files created. If it didn't create these during installation, you will
   need to [run the SSL config script and edit the config file][ssl_script]
-  before a puppet master can contact PuppetDB.
+  before a Puppet Server can contact PuppetDB.

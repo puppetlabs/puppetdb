@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/configure.html"
 [postgres_ssl]: ./postgres_ssl.html
 [migration_coordination]: ./migration_coordination.html
 [module]: ./install_via_module.html
-[puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
+[puppetdb.conf]: ./connect_puppet_server.html#edit-puppetdbconf
 [ha]: ./ha.html
 [node-ttl]: #node-ttl
 [admin-cmd]: ./api/admin/v1/cmd.html
@@ -217,7 +217,7 @@ Optional. This describes the path to a file that contains a list of
 certificate names, one per line. Incoming HTTPS requests will have
 their certificates validated against this list of names and only those
 with an **exact** matching entry will be allowed through. (For a Puppet
-master, this compares against the value of the `certname` setting,
+Server, this compares against the value of the `certname` setting,
 rather than the `dns_alt_names` setting.)
 
 If not supplied, PuppetDB uses standard HTTPS without any additional

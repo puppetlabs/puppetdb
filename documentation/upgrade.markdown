@@ -5,11 +5,11 @@ layout: default
 
 
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
-[connect_master]: ./connect_puppet_master.html
+[connect_server]: ./connect_puppet_server.html
 [connect_apply]: ./connect_puppet_apply.html
 [tracker]: https://tickets.puppetlabs.com/browse/PDB
 [start_source]: ./install_from_source.html#step-4-start-the-puppetdb-service
-[plugin_source]: ./connect_puppet_master.html#on-platforms-without-packages
+[plugin_source]: ./connect_puppet_server.html#on-platforms-without-packages
 [module]: ./install_via_module.html
 [puppetdb3]: /puppetdb/3.2/migrate.html
 [versioning]: ./versioning_policy.html#upgrades
@@ -38,7 +38,7 @@ Upgrading with the PuppetDB module
 If you [installed PuppetDB with the module][module], you only need to do the
 following to upgrade:
 
-1. Make sure that the Puppet master has an updated version of the
+1. Make sure that the Puppet Server has an updated version of the
    [puppetlabs-puppetdb](https://forge.puppetlabs.com/puppetlabs/puppetdb)
    module installed.
 2. If you imported the official packages into your local package repositories,
@@ -47,7 +47,7 @@ following to upgrade:
    `puppetdb::server` and `puppetdb::master::config` classes, unless it was set
    to `latest`.
 4. If you are doing a large version jump, trigger a Puppet run on the PuppetDB
-   server before the Puppet master server has a chance to do a Puppet run. (It's
+   server before the Puppet Server has a chance to do a Puppet run. (It's
    possible for a new version of the PuppetDB-termini to use API commands
    unsupported by old PuppetDB versions, which would cause Puppet failures until
    PuppetDB was upgraded, but this should be very rare.)
@@ -60,11 +60,11 @@ Manually upgrading PuppetDB
 When a new version of PuppetDB is released, you will need to upgrade:
 
 1. PuppetDB itself
-2. The [PuppetDB-termini][connect_master] on every Puppet master (or
+2. The [PuppetDB-termini][connect_server] on every Puppet Server (or
    [every node][connect_apply], if using a standalone deployment).
 
 You should **upgrade PuppetDB first.** Because PuppetDB will be down for a few
-minutes during the upgrade and Puppet masters will not be able to serve catalogs
+minutes during the upgrade and Puppet Server will not be able to serve catalogs
 until it comes back, you should schedule upgrades during a maintenance window
 during which no new nodes will be brought online.
 
@@ -95,12 +95,12 @@ the source, and
 
 ### Upgrading the terminus plugins
 
-**On your Puppet master servers:** upgrade the PuppetDB-termini package, then
-restart the Puppet master's web server:
+**On your Puppet Servers:** upgrade the PuppetDB-termini package, then
+restart the Puppet Server's web server:
 
     $ sudo puppet resource package puppetdb-termini ensure=latest
 
-The command to restart the Puppet master will vary, depending on which web
+The command to restart the Puppet Server will vary, depending on which web
 server you are using.
 
 #### On platforms without packages
@@ -108,7 +108,7 @@ server you are using.
 Obtain a fresh copy of the PuppetDB source, and follow
 [the instructions for installing the termini][plugin_source].
 
-The command to restart the Puppet master will vary, depending on which web
+The command to restart the Puppet Server will vary, depending on which web
 server you are using.
 
 ### Upgrading across multiple major versions

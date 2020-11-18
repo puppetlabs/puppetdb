@@ -22,7 +22,7 @@ If Puppet isn't fully installed and configured [install it][installpuppet] and
 request, sign, and retrieve a certificate for the node.
 
 Your node should be running the Puppet agent and have a signed certificate from
-your Puppet master server. If you run `puppet agent --test`, it should
+your Puppet Server. If you run `puppet agent --test`, it should
 successfully complete a run, ending with `Notice: Applied catalog in X.XX
 seconds`.
 

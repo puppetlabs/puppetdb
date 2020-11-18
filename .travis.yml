@@ -79,7 +79,12 @@ jobs:
       env: PDB_TEST=core+ext/openjdk11/pg-12
       script: *run-core-and-ext-tests
 
-    # Leaving this one test that uses the deprecated jdk8
+    - stage: ❧ pdb tests
+      name: core+ext jdk-11 pg-13
+      env: PDB_TEST=core+ext/openjdk11/pg-13
+      script: *run-core-and-ext-tests
+
+    # Legacy testing, we do not promise support for jdk 8 or pg 9.6
     - stage: ❧ pdb tests
       name: core+ext jdk-8 pg-11
       env: PDB_TEST=core+ext/openjdk8/pg-11

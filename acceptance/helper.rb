@@ -521,7 +521,7 @@ module PuppetDBExtensions
       # get the pg server up and running
       class { 'postgresql::globals':
           manage_package_repo => true,
-          version             => '9.6',
+          version             => '11',
       }->
       class { '::postgresql::server':
         ip_mask_allow_all_users => '0.0.0.0/0',
@@ -537,7 +537,7 @@ module PuppetDBExtensions
       if $facts['os']['family'] == 'Debian' {
         $pg_trgm_package = 'postgresql-contrib'
       } else {
-        $pg_trgm_package = 'postgresql96-contrib'
+        $pg_trgm_package = 'postgresql11-contrib'
       }
       postgresql::server::extension { 'puppetdb_pg_trgm':
         schema    => 'public',

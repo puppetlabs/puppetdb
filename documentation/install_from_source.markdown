@@ -137,12 +137,12 @@ If you are running PuppetDB from source, you should start it as follows:
     $ lein run services -c /path/to/config.ini
 
 > PuppetDB is now fully functional and ready to receive catalogs and facts from
-> any number of puppet master servers.
+> any number of Puppet Servers.
 
 Finish: Connect Puppet to PuppetDB
 -----
 
-[You should now configure your puppet master(s) to connect to PuppetDB](./connect_puppet_master.html).
+[You should now configure your Puppet Server(s) to connect to PuppetDB](./connect_puppet_server.html).
 
 If you use a standalone Puppet site,
 [you should configure every node to connect to PuppetDB](./connect_puppet_apply.html).

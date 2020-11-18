@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/producers.html"
 [reports]: ./reports.html
 [catalogs]: ./catalogs.html
 
-Producers are the Puppet masters that send reports, catalogs, and factsets to PuppetDB.
+Producers are the Puppet Servers that send reports, catalogs, and factsets to PuppetDB.
 
 When PuppetDB stores a report, catalog, or factset, it keeps track of the producer
 of the report/catalog/factset. PuppetDB also keeps a list of producers it has seen.
@@ -78,10 +78,10 @@ The response is a JSON hash of the form:
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/pdb/query/v4/producers/master.example.com'
+    curl 'http://localhost:8080/pdb/query/v4/producers/server.example.com'
 
     {
-      "name" : "master.example.com"
+      "name" : "server.example.com"
     }
 
 ## `/pdb/query/v4/producers/<PRODUCER>/[catalogs|factsets|reports]`
