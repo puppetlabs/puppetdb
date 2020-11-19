@@ -30,7 +30,7 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     USE_PUPPETSERVER=true \
 # this value may be set by users, keeping in mind that some of these values are mandatory
 # -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
-    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=$LOGDIR/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048"
+    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xloggc:$LOGDIR/puppetdb_gc.log -Djdk.tls.ephemeralDHKeySize=2048"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
@@ -161,6 +161,7 @@ COPY docker/puppetdb/logback.xml \
      docker/puppetdb/request-logging.xml \
      /etc/puppetlabs/puppetdb/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
+COPY docker/puppetdb/puppetdb /etc/default/puppetdb
 
 ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
     PUPPETDB_VERSION="$version"
