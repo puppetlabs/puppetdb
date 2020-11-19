@@ -1,6 +1,8 @@
 # Determines source "edge" or binary "release" builds
 ARG build_type=edge
 ARG UBUNTU_CODENAME=bionic
+# NOTE: never pass as a build-arg / must match .dockerenv -- used in logback.xml
+ARG LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 
 ######################################################
 # base
@@ -9,14 +11,12 @@ ARG UBUNTU_CODENAME=bionic
 FROM ubuntu:18.04 as base
 
 ARG DUMB_INIT_VERSION="1.2.2"
+ARG LOGDIR
 
 ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_POSTGRES_HOSTNAME="postgres" \
     PUPPETDB_POSTGRES_PORT="5432" \
     PUPPETDB_POSTGRES_DATABASE="puppetdb" \
-# NOTE: SSLDIR should never be set externally or it will break jetty.ini
-    SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs \
-    LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs \
     CERTNAME=puppetdb \
     DNS_ALT_NAMES="" \
     WAITFORCERT="" \
@@ -27,11 +27,10 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_REPORT_TTL=14d \
     # used by entrypoint to determine if puppetserver should be contacted for config
     # set to false when container tests are run
-    USE_PUPPETSERVER=true
-# note: LOGDIR cannot be defined in the same ENV block it's used in
+    USE_PUPPETSERVER=true \
 # this value may be set by users, keeping in mind that some of these values are mandatory
 # -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
-ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=$LOGDIR/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048"
+    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xloggc:$LOGDIR/puppetdb_gc.log -Djdk.tls.ephemeralDHKeySize=2048"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
@@ -55,7 +54,7 @@ CMD ["foreground"]
 HEALTHCHECK --start-period=5m --interval=10s --timeout=10s --retries=6 CMD ["/healthcheck.sh"]
 
 # hadolint ignore=DL3020
-ADD https://raw.githubusercontent.com/puppetlabs/pupperware/1a81f54cca38d9cc9ac4c2d124757cf9d909752c/shared/ssl.sh \
+ADD https://raw.githubusercontent.com/puppetlabs/pupperware/a2493ad0f9965996ea313a69b9e991e1a8de53bf/shared/ssl.sh \
     https://raw.githubusercontent.com/puppetlabs/wtfc/6aa5eef89728cc2903490a618430cc3e59216fa8/wtfc.sh \
     https://github.com/Yelp/dumb-init/releases/download/v"$DUMB_INIT_VERSION"/dumb-init_"$DUMB_INIT_VERSION"_amd64.deb \
     docker/puppetdb/docker-entrypoint.sh \
@@ -141,6 +140,7 @@ ARG deb_uri
 # used by entrypoint to submit metrics to Google Analytics;
 # published images should use "production" for this build_arg
 ARG pupperware_analytics_stream="dev"
+ARG LOGDIR
 
 # hadolint ignore=DL3020
 ADD $deb_uri /puppet.deb
@@ -161,6 +161,7 @@ COPY docker/puppetdb/logback.xml \
      docker/puppetdb/request-logging.xml \
      /etc/puppetlabs/puppetdb/
 COPY docker/puppetdb/conf.d /etc/puppetlabs/puppetdb/conf.d/
+COPY docker/puppetdb/puppetdb /etc/default/puppetdb
 
 ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
     PUPPETDB_VERSION="$version"
