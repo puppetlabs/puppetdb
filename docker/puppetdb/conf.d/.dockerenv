@@ -1,0 +1,4 @@
+# must match Dockerfile / used in logback.xml
+export LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
+# used by ssl.sh / consumed in jetty.ini
+export SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs

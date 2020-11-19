@@ -1,6 +1,8 @@
 # Determines source "edge" or binary "release" builds
 ARG build_type=edge
 ARG UBUNTU_CODENAME=bionic
+# NOTE: never pass as a build-arg / must match .dockerenv -- used in logback.xml
+ARG LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 
 ######################################################
 # base
@@ -9,14 +11,12 @@ ARG UBUNTU_CODENAME=bionic
 FROM ubuntu:18.04 as base
 
 ARG DUMB_INIT_VERSION="1.2.2"
+ARG LOGDIR
 
 ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_POSTGRES_HOSTNAME="postgres" \
     PUPPETDB_POSTGRES_PORT="5432" \
     PUPPETDB_POSTGRES_DATABASE="puppetdb" \
-# NOTE: SSLDIR should never be set externally or it will break jetty.ini
-    SSLDIR=/opt/puppetlabs/server/data/puppetdb/certs \
-    LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs \
     CERTNAME=puppetdb \
     DNS_ALT_NAMES="" \
     WAITFORCERT="" \
@@ -27,11 +27,10 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
     PUPPETDB_REPORT_TTL=14d \
     # used by entrypoint to determine if puppetserver should be contacted for config
     # set to false when container tests are run
-    USE_PUPPETSERVER=true
-# note: LOGDIR cannot be defined in the same ENV block it's used in
+    USE_PUPPETSERVER=true \
 # this value may be set by users, keeping in mind that some of these values are mandatory
 # -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
-ENV PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=$LOGDIR/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048"
+    PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xlog:gc*:file=$LOGDIR/puppetdb_gc.log::filecount=16,filesize=65536 -Djdk.tls.ephemeralDHKeySize=2048"
 
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
@@ -141,6 +140,7 @@ ARG deb_uri
 # used by entrypoint to submit metrics to Google Analytics;
 # published images should use "production" for this build_arg
 ARG pupperware_analytics_stream="dev"
+ARG LOGDIR
 
 # hadolint ignore=DL3020
 ADD $deb_uri /puppet.deb
