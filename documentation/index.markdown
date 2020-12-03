@@ -39,8 +39,8 @@ To start using PuppetDB today:
 Version note
 -----
 
-This documentation covers PuppetDB 6, which adds several new features and
-contains some breaking changes since PuppetDB 5.
+This documentation covers PuppetDB 7, which adds several new features and
+contains some breaking changes since PuppetDB 6.
 
 [See the release notes][releasenotes] for information on all
 changes.
@@ -68,7 +68,7 @@ through PuppetDB's query APIs (see the navigation sidebar for details).
 System requirements
 -----
 
-### \*nix server with JVM 1.8+
+### \*nix server with JVM 11+
 
 #### Standard install: RHEL, CentOS, Debian, and Ubuntu
 
@@ -76,11 +76,10 @@ Puppet provides PuppetDB packages and a module which simplify the
 setup of its SSL certificates and init scripts. The packages are
 available for the following operating systems:
 
-* Red Hat Enterprise Linux 6.6+, 7, and 8
-* Fedora 25 and 26
-* SuSE Enterprise Linux 11 and 12
+* Red Hat Enterprise Linux 6, 7, and 8
+* SuSE Enterprise Linux 12
 * Debian 8 (Jessie), 9 (Stretch), and 10 (Buster)
-* Ubuntu 16.04 (Xenial) LTS, and 18.04 (Bionic) LTS
+* Ubuntu 16.04 (Xenial) LTS, 18.04 (Bionic) LTS, and 20.04 (focal)
 
 [See here for instructions for installing via the PuppetDB module.][install_via_module]
 
@@ -89,11 +88,11 @@ available for the following operating systems:
 #### Custom install: Any Unix-like OS
 
 If you're willing to do some manual configuration, PuppetDB can run on
-any Unix-like OS with JVM 8 or newer, including:
+any Unix-like OS with JVM 11 or newer, including:
 
 * Recent MacOS X versions (using built-in support)
-* Nearly any Linux distribution using OpenJDK 8 or Oracle JDK 8
-* Nearly any \*nix distribution using OpenJDK 8 or Oracle JDK 8
+* Nearly any Linux distribution using OpenJDK 11 or Oracle JDK 11
+* Nearly any \*nix distribution using OpenJDK 11 or Oracle JDK 11
 
 [See here for advanced installation instructions.][install_advanced]
 
