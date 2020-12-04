@@ -8,6 +8,7 @@
              :refer [get-temporal-partitions]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
+            [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]
@@ -450,3 +451,32 @@
                     (set (get-temporal-partitions "reports"))))
              (is (= (->> event-parts (sort-by :table) (drop 2) set)
                     (set (get-temporal-partitions "resource_events")))))))))))
+
+(deftest always-deliver-gc-promise
+  (testing "delivers promise when gc is enabled"
+    (svc-utils/with-single-quiet-pdb-instance
+      (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
+            globals (svcs/shared-globals pdb)]
+        (is (deref (:initial-gc-finished? globals) 5000 false)))))
+
+  (testing "delivers promise when gc is disabled"
+    (with-pdb-with-no-gc
+      (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
+            globals (svcs/shared-globals pdb)]
+        (is (deref (:initial-gc-finished? globals) 5000 false)))))
+
+  (testing "delivers promise with multiple databases"
+    (with-open [pg1 (int/setup-postgres)
+                pg2 (int/setup-postgres)
+                pg3 (int/setup-postgres)]
+      (svc-utils/call-with-single-quiet-pdb-instance
+        (-> (create-temp-config)
+            (assoc :database (int/server-info pg1))
+            (assoc-in [:database :gc-interval] "30")
+            (assoc :database-pg1 (int/server-info pg1)
+                   :database-pg2 (assoc (int/server-info pg2)
+                                        :gc-interval "0")
+                   :database-pg3 (int/server-info pg3)))
+        (fn []
+          (let [globals (svcs/shared-globals (get-service svc-utils/*server* :PuppetDBServer))]
+            (is (deref (:initial-gc-finished? globals) 5000 false))))))))
