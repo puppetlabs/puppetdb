@@ -28,8 +28,6 @@ group :test do
   # Add test-unit for ruby 2.2+ support (has been removed from stdlib)
   gem 'test-unit'
 
-  # Pinning for Ruby 1.9.3 support
-  gem 'json_pure', '~> 1.8'
   # Pinning for Ruby < 2.2.0 support
   gem 'activesupport', '~> 4.2'
 
