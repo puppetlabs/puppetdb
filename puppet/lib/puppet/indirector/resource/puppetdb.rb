@@ -1,7 +1,7 @@
 require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
 require 'json'
-require 'uri'
+require 'cgi'
 
 class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
@@ -30,7 +30,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
       begin
         response = Http.action("/pdb/query/v4/resources?query=#{query_param}", :query) do |http_instance, uri, ssl_context|
           uri_ref = uri
-          profile("Resources query: #{URI.unescape(uri.path)}",
+          profile("Resources query: #{CGI.unescape(uri.path)}",
                   [:puppetdb, :resource, :search, :query, request.key]) do
             http_instance.get(uri, {headers: headers,
                                     options: {:metric_id => [:puppetdb, :resource, :search],
