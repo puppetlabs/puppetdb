@@ -10,8 +10,6 @@ require 'time'
 
 describe Puppet::Node::Puppetdb do
 
-  CommandDeactivateNode = Puppet::Util::Puppetdb::CommandNames::CommandDeactivateNode
-
   before :each do
     Puppet::Node.indirection.stubs(:terminus).returns(subject)
   end
@@ -31,7 +29,7 @@ describe Puppet::Node::Puppetdb do
       Puppet::HTTP::Client.expects(:new).returns http
     end
 
-    it "should POST a '#{CommandDeactivateNode}' command" do
+    it "should POST a '#{Puppet::Util::Puppetdb::CommandNames::CommandDeactivateNode}' command" do
       responseok.stubs(:body).returns '{"uuid": "a UUID"}'
       http.expects(:post).with do |uri,body,headers|
         req = JSON.parse(body)
