@@ -59,9 +59,9 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         response = Http.action("/pdb/query/v4/nodes/#{CGI.escape(request.key)}/facts", :query) do |http_instance, uri, ssl_context|
           profile("Query for nodes facts: #{CGI.unescape(uri.path)}",
                   [:puppetdb, :facts, :find, :query_nodes, request.key]) do
-            http_instance.get(uri, {headers: headers,
-                                    options: {metric_id: [:puppetdb, :facts, :find],
-                                              ssl_context: ssl_context}})
+            http_instance.get(uri, **{headers: headers,
+                                      options: {metric_id: [:puppetdb, :facts, :find],
+                                                ssl_context: ssl_context}})
           end
         end
         log_x_deprecation_header(response)

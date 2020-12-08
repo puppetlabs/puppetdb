@@ -32,9 +32,9 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
           uri_ref = uri
           profile("Resources query: #{CGI.unescape(uri.path)}",
                   [:puppetdb, :resource, :search, :query, request.key]) do
-            http_instance.get(uri, {headers: headers,
-                                    options: {:metric_id => [:puppetdb, :resource, :search],
-                                              ssl_context: ssl_context}})
+            http_instance.get(uri, **{headers: headers,
+                                      options: {:metric_id => [:puppetdb, :resource, :search],
+                                                ssl_context: ssl_context}})
           end
         end
 

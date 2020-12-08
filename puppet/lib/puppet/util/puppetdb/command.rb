@@ -65,10 +65,10 @@ class Puppet::Util::Puppetdb::Command
           req_headers = headers
           # custom header used in PDB to reject large compressed commands and update the size metric
           req_headers["X-Uncompressed-Length"] = payload.bytesize.to_s
-          http_instance.post(path, payload, {headers: req_headers,
-                                             options: {compress: :gzip,
-                                                       metric_id: [:puppetdb, :command, command],
-                                                       ssl_context: ssl_context}})
+          http_instance.post(path, payload, **{headers: req_headers,
+                                               options: {compress: :gzip,
+                                                         metric_id: [:puppetdb, :command, command],
+                                                         ssl_context: ssl_context}})
         end
       end
 

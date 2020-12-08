@@ -72,9 +72,9 @@ module Puppet::Util::Puppetdb
       headers = { "Accept" => "application/json",
                   "Content-Type" => "application/json; charset=UTF-8" }
       response = Puppet::Util::Puppetdb::Http.action("/pdb/query/v4", :query) do |http_instance, path, ssl_context|
-        http_instance.post(path, { 'query' => query }.to_json, {headers: headers,
-                                                                options: {metric_id: [:puppetdb, :query],
-                                                                          ssl_context: ssl_context}})
+        http_instance.post(path, { 'query' => query }.to_json, **{headers: headers,
+                                                                  options: {metric_id: [:puppetdb, :query],
+                                                                            ssl_context: ssl_context}})
       end
       JSON.parse(response.body)
     end
