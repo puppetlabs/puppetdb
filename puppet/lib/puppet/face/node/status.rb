@@ -20,8 +20,8 @@ Puppet::Face.define(:node, '0.0.1') do
       args.map do |node|
         begin
           response = Puppet::Util::Puppetdb::Http.action("/pdb/query/v4/nodes/#{CGI.escape(node)}", :query) do |http_instance, path, ssl_context|
-             http_instance.get(path, {headers: headers,
-                                      options: {ssl_context: ssl_context}})
+             http_instance.get(path, **{headers: headers,
+                                        options: {ssl_context: ssl_context}})
           end
           if response.success?
             result = JSON.parse(response.body)
