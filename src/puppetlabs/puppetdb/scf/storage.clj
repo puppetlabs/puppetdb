@@ -34,7 +34,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [env-config-for-db-ulong]]
+             :refer [env-config-for-db-ulong with-noisy-failure]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.utils.metrics :as mutils]
             [metrics.counters :refer [counter inc! value]]
@@ -1433,6 +1433,68 @@
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
+(defn query-bulldozer
+  "Creates a thread which will loop and wait for the gc-pid to get blocked
+   waiting on an AccessExclusiveLock. Once this thread detects that GC is
+   blocked it will cancel all running queries from the pdb user against the
+   pdb database which have been granted locks with the exception of queries
+   from the gc-pid or the bulldozer's pid. This should clear the way for GC
+   to grab the lock it's requesting in the main GC thread. This loop repeats
+   until the bulldozer thread is interrupted or receives confirmation from the
+   GC thread via the gc-finished? atom that the GC thread has dropped the
+   partition."
+  [db gc-pid gc-finished?]
+  (let [bulldoze-blocking-qs
+        (fn [gc-pid]
+          (jdbc/do-prepared
+           (str "select pg_cancel_backend(pid)"
+                " from pg_stat_activity"
+                " where (datname = (select current_database())"
+                "  and usename = (select current_user))"
+                "  and pid in (select unnest(pg_blocking_pids(?)))")
+           [gc-pid]))]
+    (Thread.
+     #(with-noisy-failure
+        (try
+          ;; you can't use *db* value from the GC thread because the connection
+          ;; it has may already be blocked attempting to drop the partition.
+          ;; Binding *db* to the passed in db var will cause the bulldozer thread
+          ;; to get a new Hikari connection
+          (binding [jdbc/*db* db]
+            (while (not @gc-finished?)
+              (bulldoze-blocking-qs gc-pid)
+              (Thread/sleep 1000)))
+          (catch InterruptedException ex
+            true))))))
+
+(def gc-query-bulldozer-timeout-ms
+  (env-config-for-db-ulong "PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS"
+                           (* 5 60 1000)))
+
+(defn drop-one-partition [drop-one candidate db]
+  (if-not (pos? gc-query-bulldozer-timeout-ms)
+    (drop-one candidate)
+    (let [gc-pid (-> "select pg_backend_pid();"
+                     jdbc/query-to-vec
+                     first
+                     :pg_backend_pid)
+          gc-finished? (atom false)
+          gc-bulldozer (query-bulldozer db gc-pid gc-finished?)]
+      (try
+        (.start gc-bulldozer)
+        (drop-one candidate)
+        (finally
+          (reset! gc-finished? true)
+          ;; make sure the gc-bulldozer thread has broken out of its loop
+          (.interrupt gc-bulldozer)
+          (.join gc-bulldozer gc-query-bulldozer-timeout-ms)
+          (when (.isAlive gc-bulldozer)
+            ;; if the join above timed out and the bulldozer thread is still alive
+            ;; log an ERROR because it could indicate a memory leak
+            (log/error "Unable to clean up the gc bulldozer thread.
+                        Please file a bug with the stack trace below: \n"
+                       (apply str (interpose "\n" (.getStackTrace gc-bulldozer))))))))))
+
 (def daily-partition-drop-lock-timeout-ms
   (env-config-for-db-ulong "PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS"
                            (* 5 60 1000)))
@@ -1442,7 +1504,7 @@
   Deletes only the oldest such candidate if incremntal? is true.  Will
   throw an SQLException cancelation if the operation takes much longer
   than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
-  [table-prefix date incremental? update-lock-status status-key]
+  [table-prefix date incremental? update-lock-status status-key db]
   {:pre [(kitchensink/datetime? date)
          (string? table-prefix)]}
   (let [utcz (ZoneId/of "UTC")
@@ -1469,7 +1531,10 @@
                       (update-lock-status status-key dec))))
         drop #(if incremental?
                 (when-let [[candidate & _] (seq candidates)]
-                  (drop-one candidate)
+                  ;; only kill queries during periodic GC when we expect
+                  ;; contention with concurrent queries against tables partition
+                  ;; GC needs AccessExclusiveLocks on in order to drop
+                  (drop-one-partition drop-one candidate db)
                   (when (> (bounded-count 3 candidates) 2)
                     (log/warn (trs "More than 2 partitions to prune: {0}"
                                    (pr-str (butlast candidates))))))
@@ -1497,17 +1562,17 @@
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
-  [date incremental? update-lock-status]
+  [date incremental? update-lock-status db]
   {:pre [(kitchensink/datetime? date)]}
   (prune-daily-partitions "resource_events" date incremental?
-                          update-lock-status :write-locking-resource-events))
+                          update-lock-status :write-locking-resource-events db))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an producer-timestamp
   that is prior to the specified report-time.  When event-time is
   specified, delete all the events that are older than whichever time
   is more recent."
-  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status]
+  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status db]
     :or {resource-events-ttl report-ttl
          incremental? false
          update-lock-status (constantly true)}}]
@@ -1520,9 +1585,9 @@
   (delete-resource-events-older-than! (if (before? report-ttl resource-events-ttl)
                                         resource-events-ttl report-ttl)
                                       incremental?
-                                      update-lock-status)
+                                      update-lock-status db)
   (prune-daily-partitions "reports" report-ttl incremental?
-                          update-lock-status :write-locking-reports)
+                          update-lock-status :write-locking-reports db)
   ;; since we cannot cascade back to the certnames table anymore, go clean up
   ;; the latest_report_id column after a GC
   (jdbc/do-commands
