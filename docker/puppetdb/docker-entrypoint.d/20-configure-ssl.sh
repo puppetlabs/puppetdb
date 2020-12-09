@@ -12,14 +12,11 @@ fi
 if [ -f "${SSLDIR}/private_keys/${CERTNAME}.pem" ]; then
   openssl pkcs8 -inform PEM -outform DER -in ${SSLDIR}/private_keys/${CERTNAME}.pem -topk8 -nocrypt -out ${SSLDIR}/private_keys/${CERTNAME}.pk8
 
-  # for Jetty to use statically named files
-  ln -s -f ${SSLDIR}/private_keys/${CERTNAME}.pem ${SSLDIR}/private_keys/private.pem
-  ln -s -f ${SSLDIR}/certs/${CERTNAME}.pem ${SSLDIR}/certs/public.pem
-
   # enable SSL in Jetty
   sed -i '/^# ssl-/s/^# //g' /etc/puppetlabs/puppetdb/conf.d/jetty.ini
 
   # make sure Java apps running as puppetdb can read these files
+  echo "Setting ownership for $SSLDIR to puppetdb:puppetdb"
   chown -R puppetdb:puppetdb ${SSLDIR}
 
   # and that they're further restricted
