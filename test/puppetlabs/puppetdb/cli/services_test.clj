@@ -480,3 +480,72 @@
         (fn []
           (let [globals (svcs/shared-globals (get-service svc-utils/*server* :PuppetDBServer))]
             (is (deref (:initial-gc-finished? globals) 5000 false))))))))
+
+(deftest partition-gc-clears-queries-blocking-it-from-getting-accessexclusivelocks
+  (with-unconnected-test-db
+    (let [config (-> (create-temp-config)
+                     (assoc :database *db*)
+                     (assoc-in [:database :gc-interval] "0.01"))
+          store-report #(sync-command-post (svc-utils/pdb-cmd-url)
+                                           example-certname
+                                           "store report"
+                                           cmd-consts/latest-report-version
+                                           (change-report-time example-report %))
+          after-gc (CyclicBarrier. 2)
+          invoke-periodic (fn [f first?]
+                            (let [result (f first?)]
+                              (.await after-gc)
+                              result))]
+      (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
+        (call-with-single-quiet-pdb-instance
+         config
+         (fn []
+           ;; Wait for the first, full gc to finish.
+           (.await after-gc)
+           (store-report "2011-01-01T12:00:01-03:00")
+           (store-report "2011-01-02T12:00:01-03:00")
+
+           (let [report-parts (set (get-temporal-partitions "reports"))
+                 event-parts (set (get-temporal-partitions "resource_events"))]
+
+             (is (subset? #{{:table "reports_20110101z", :part "20110101z"}
+                            {:table "reports_20110102z", :part "20110102z"}}
+                          report-parts))
+
+             (is (subset? #{{:table "resource_events_20110101z", :part "20110101z"}
+                            {:table "resource_events_20110102z", :part "20110102z"}}
+                          event-parts))
+
+             ;; these queries will sleep in front of the next GC preventing it from getting
+             ;; the AccessExclusiveLock it needs, both should get canceled by GC
+             (let [report-query (future
+                                  (jdbc/with-transacted-connection *db*
+                                    (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
+                   report-query2 (future
+                                   (jdbc/with-transacted-connection *db*
+                                     (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
+                   resource-query (future
+                                    (jdbc/with-transacted-connection *db*
+                                      (jdbc/do-commands "select event_hash, pg_sleep(1200) from resource_events")))]
+
+               ;; gc should clear the two queries from above and drop only the oldest partition
+               (.await after-gc)
+
+               (is (thrown-with-msg?
+                    java.util.concurrent.ExecutionException
+                    #"ERROR: canceling statement due to user request"
+                    (deref report-query default-timeout-ms :timeout-getting-expected-query-ex)))
+               (is (thrown-with-msg?
+                    java.util.concurrent.ExecutionException
+                    #"ERROR: canceling statement due to user request"
+                    (deref report-query2 default-timeout-ms :timeout-getting-expected-query-ex)))
+               (is (thrown-with-msg?
+                    java.util.concurrent.ExecutionException
+                    #"ERROR: canceling statement due to user request"
+                    (deref resource-query default-timeout-ms :timeout-getting-expected-query-ex))))
+
+             (is (= (->> report-parts (sort-by :table) (drop 1) set)
+                    (set (get-temporal-partitions "reports"))))
+             (is (= (->> event-parts (sort-by :table) (drop 1) set)
+                    (set (get-temporal-partitions "resource_events")))))))))))
+

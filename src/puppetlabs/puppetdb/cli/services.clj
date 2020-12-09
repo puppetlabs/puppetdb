@@ -219,7 +219,8 @@
         update-lock-status (partial update-db-lock-status db-lock-status)
         del-opts (merge {:report-ttl (ago report-ttl)
                          :incremental? incremental?
-                         :update-lock-status update-lock-status}
+                         :update-lock-status update-lock-status
+                         :db db}
                         (when resource-events-ttl
                           {:resource-events-ttl rounded-events-ttl}))]
     (try
