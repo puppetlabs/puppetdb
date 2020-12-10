@@ -21,6 +21,15 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 7.0.1
+
+Released 15 December 2020
+
+### Bug fixes
+
+- Puppet Enterprise (PE) only: fixed an issue where PuppetDB wouldn't
+  exit maintenance mode if garbage collection was disabled and sync was enabled.
+  ([PDB-4975](https://tickets.puppetlabs.com/browse/PDB-4975))
 
 ## PuppetDB 7.0.0
 
