@@ -97,34 +97,34 @@ jobs:
 
     # === integration with master branches
     - stage: ❧ pdb tests
-      name: int pup-master srv-6.x jdk-11 pg-11
-      env: PDB_TEST=int/openjdk11/pup-master/srv-6.x/pg-11
+      name: int pup-6.x srv-6.x jdk-11 pg-11
+      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-master srv-6.x jdk-11 pg-11 rich
-      env: PDB_TEST=int/openjdk11/pup-master/srv-6.x/pg-11/rich
+      name: int pup-6.x srv-6.x jdk-11 pg-11 rich
+      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-master srv-6.x jdk-11 pg-9.6 rich
-      env: PDB_TEST=int/openjdk11/pup-master/srv-6.x/pg-9.6/rich
+      name: int pup-6.x srv-6.x jdk-11 pg-9.6 rich
+      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-9.6/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-master srv-6.x jdk-8 pg-11 rich
-      env: PDB_TEST=int/openjdk8/pup-master/srv-6.x/pg-11/rich
+      name: int pup-6.x srv-6.x jdk-8 pg-11 rich
+      env: PDB_TEST=int/openjdk8/pup-6.x/srv-6.x/pg-11/rich
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-master srv-6.x jdk-8 pg-9.6 rich
-      env: PDB_TEST=int/openjdk8/pup-master/srv-6.x/pg-9.6/rich
+      name: int pup-6.x srv-6.x jdk-8 pg-9.6 rich
+      env: PDB_TEST=int/openjdk8/pup-6.x/srv-6.x/pg-9.6/rich
       script: *run-integration-tests
 
     # === rspec tests
     - stage: ❧ pdb tests
-      name: rspec pup-master
-      env: PDB_TEST=rspec/pup-master
+      name: rspec pup-6.x
+      env: PDB_TEST=rspec/pup-6.x
       script: *run-spec-tests
 
     - stage: ❧ pdb tests

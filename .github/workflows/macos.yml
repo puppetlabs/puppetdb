@@ -56,7 +56,7 @@ jobs:
             vendor/bundle/ruby
             ~/.m2
             ~/Library/Caches/Homebrew
-      - run: ci/bin/prep-and-run-in github int/openjdk11/pup-master/srv-6.x/pg-11
+      - run: ci/bin/prep-and-run-in github int/openjdk11/pup-6.x/srv-6.x/pg-11
   rspec-macos:
     runs-on: macos-10.15
     steps:
@@ -74,4 +74,4 @@ jobs:
             vendor/bundle/ruby
             ~/.m2
             ~/Library/Caches/Homebrew
-      - run: ci/bin/prep-and-run-in github rspec/pup-6.4.x
+      - run: ci/bin/prep-and-run-in github rspec/pup-6.x
