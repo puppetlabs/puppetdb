@@ -31,7 +31,6 @@
             [clojure.tools.logging :as log]
             [clojure.data :as data]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils
