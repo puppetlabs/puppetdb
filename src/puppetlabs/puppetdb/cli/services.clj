@@ -435,7 +435,9 @@
   (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
          ex nil]
     (if-not db
-      (when ex (throw ex))
+      (when ex
+        (log/error ex (trs "Failed to delete all data for host {0}" certname))
+        (throw ex))
       (let [ex (try
                  (jdbc/with-transacted-connection db
                    (scf-store/delete-certname! certname))
@@ -1161,7 +1163,9 @@
    [this certname]
    (throw-unless-started (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
-   (delete-node-from-puppetdb (service-context this) certname))
+   (kitchensink/demarcate
+     (trs "delete of all data for host {0}" certname)
+     (delete-node-from-puppetdb (service-context this) certname)))
 
   (cmd-event-mult
    [this]
