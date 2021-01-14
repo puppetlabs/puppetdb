@@ -71,7 +71,6 @@
      [io.forward/yaml "1.0.5"]
 
      ;; Only needed for :integration tests
-     [puppetlabs/trapperkeeper-authorization nil]
      [puppetlabs/trapperkeeper-filesystem-watcher nil]]
    puppetserver-test-deps))
 
@@ -161,6 +160,7 @@
                  [puppetlabs/trapperkeeper-webserver-jetty9]
                  [puppetlabs/trapperkeeper-metrics]
                  [puppetlabs/trapperkeeper-status]
+                 [puppetlabs/trapperkeeper-authorization]
 
                  ;; Various
                  [cheshire]
