@@ -63,7 +63,7 @@ cat "$tmpdir/err"
 grep 'No relations found' "$tmpdir/out" \
     || grep 'Did not find any relations' "$tmpdir/err"
 
-./pdb upgrade -c "$PDBBOX/pdb.ini"
+./pdb upgrade -c "$PDBBOX/conf.d"
 
 psql -U puppetdb puppetdb -c 'select max(version) from schema_migrations;' \
      > "$tmpdir/out"
