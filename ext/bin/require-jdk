@@ -77,6 +77,7 @@ case "$OSTYPE" in
 esac
 
 curl -sSLo "$tmpdir/jdk.tar.gz" \
+     -f --retry 3 \
      "https://api.adoptopenjdk.net/v3/binary/latest/${ver#openjdk}/ga/$adoptos/x64/jdk/hotspot/normal/adoptopenjdk?project=jdk"
 
 (cd "$tmpdir"
