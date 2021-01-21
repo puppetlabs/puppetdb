@@ -207,7 +207,7 @@ sandbox:
 
     $ export PDBBOX="$(pwd)/test-sandbox"
     $ ext/bin/pdbbox-env lein run services \
-        -c test-sandbox/pdb.ini
+        -c test-sandbox/conf.d
 
 And finally, you can of course set up and [configure your own
 PostgreSQL server][configure_postgres] for testing, but then you'll
