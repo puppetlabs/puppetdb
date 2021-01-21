@@ -65,11 +65,12 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 sed '/\[database\]/a\
   migrate = false
 ' \
-    "$PDBBOX/pdb.ini" > "$tmpdir/pdb.ini"
+    "$PDBBOX/conf.d/pdb.ini" > "$tmpdir/pdb.ini"
+mv "$tmpdir/pdb.ini" "$PDBBOX/conf.d/pdb.ini"
 
 for cmd in services upgrade; do
     rc=0
-    ./pdb "$cmd" -c "$tmpdir/pdb.ini" 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
+    ./pdb "$cmd" -c "$PDBBOX/conf.d" 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
     cat "$tmpdir/out" "$tmpdir/err"
     echo  # in case the output doesn't end with a newline
     # This will become 109 once trapperkeeper supports custom exit statuses/
