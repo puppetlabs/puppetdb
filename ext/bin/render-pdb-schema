@@ -85,7 +85,7 @@ tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-./pdb upgrade -c "$PDBBOX/pdb.ini"
+./pdb upgrade -c "$PDBBOX/conf.d"
 
 postgresql_autodoc -t dot -u puppetdb -d puppetdb -f "$tmpdir/pdb"
 dot -Tsvg "$tmpdir/pdb.dot" -o "$dest"

@@ -184,6 +184,10 @@ msgid "cleanup lock is not already held"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Failed to delete all data for host {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Skipping update check on Puppet Enterprise"
 msgstr ""
 
@@ -291,6 +295,10 @@ msgstr ""
 #: src/puppetlabs/puppetdb/cli/services.clj src/puppetlabs/puppetdb/command.clj
 #: src/puppetlabs/puppetdb/pdb_routing.clj
 msgid "Service has not started"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "delete of all data for host {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/tk_util.clj src/puppetlabs/puppetdb/cli/util.clj

@@ -119,8 +119,8 @@ jobs:
       script: *run-spec-tests
 
     - stage: ❧ pdb tests
-      name: rspec pup-master
-      env: PDB_TEST=rspec/pup-master
+      name: rspec pup-6.x
+      env: PDB_TEST=rspec/pup-6.x
       script: *run-spec-tests
 
     # === container tests

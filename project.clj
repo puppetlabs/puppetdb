@@ -1,5 +1,5 @@
 (def pdb-version "7.0.2-SNAPSHOT")
-(def clj-parent-version "4.6.9")
+(def clj-parent-version "4.6.11")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -71,7 +71,6 @@
      [io.forward/yaml "1.0.5"]
 
      ;; Only needed for :integration tests
-     [puppetlabs/trapperkeeper-authorization nil]
      [puppetlabs/trapperkeeper-filesystem-watcher nil]]
    puppetserver-test-deps))
 
@@ -161,6 +160,7 @@
                  [puppetlabs/trapperkeeper-webserver-jetty9]
                  [puppetlabs/trapperkeeper-metrics]
                  [puppetlabs/trapperkeeper-status]
+                 [puppetlabs/trapperkeeper-authorization]
 
                  ;; Various
                  [cheshire]

@@ -61,7 +61,7 @@ set -x
 rc=0
 # Show err and out, but save them separately
 PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP=4096 \
-  ./pdb services -c "$PDBBOX/pdb.ini" \
+  ./pdb services -c "$PDBBOX/conf.d" \
       > >(tee -a "$tmpdir/pdb-out") \
       2> >(tee -a "$tmpdir/pdb-err") \
     || rc=$?

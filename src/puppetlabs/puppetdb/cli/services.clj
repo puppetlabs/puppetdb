@@ -435,7 +435,9 @@
   (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
          ex nil]
     (if-not db
-      (when ex (throw ex))
+      (when ex
+        (log/error ex (trs "Failed to delete all data for host {0}" certname))
+        (throw ex))
       (let [ex (try
                  (jdbc/with-transacted-connection db
                    (scf-store/delete-certname! certname))
@@ -841,29 +843,30 @@
 (defn start-garbage-collection
   [{:keys [clean-lock stop-status] :as context}
    job-pool db-configs db-pools db-lock-statuses shutdown-for-ex finished-initial-gc]
-  (let [count-initial-gc (atom 0)
-        deliver-if-finished (fn [] (when (= 0 @count-initial-gc)
-                                     (deliver finished-initial-gc true)))]
-    (doseq [[cfg db lock-status] (map vector db-configs db-pools db-lock-statuses)
-            :let [interval (to-millis (:gc-interval cfg))]
-            :when (pos? interval)]
-      (let [request (db-config->clean-request cfg)
+  (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
+                                    (map vector db-configs db-pools db-lock-statuses))
+        pending-initial-gcs (atom (count dbs-with-gc-enabled))]
+    (when (zero? @pending-initial-gcs)
+      (deliver finished-initial-gc true))
+    (doseq [[cfg db lock-status] dbs-with-gc-enabled]
+      (let [interval (to-millis (:gc-interval cfg))
+            request (db-config->clean-request cfg)
             initial-gc? (atom true)
             gc (fn [first?]
-                 (with-nonfatal-exceptions-suppressed
-                   (with-monitored-execution shutdown-for-ex
-                     (let [incremental? (not @first?)]
-                       (coordinate-gc-with-shutdown db clean-lock cfg lock-status
-                                                    request stop-status
-                                                    incremental?)
-                       (when @first?
-                         (reset! first? false)
-                         (swap! count-initial-gc dec)
-                         (deliver-if-finished))))))]
-        (swap! count-initial-gc inc)
-        (interspaced interval #(invoke-periodic-gc gc initial-gc?) job-pool)))
-    ;; If no gc's were started, ensure we deliver on the promise
-    (deliver-if-finished)))
+                 (try
+                   (with-nonfatal-exceptions-suppressed
+                     (with-monitored-execution shutdown-for-ex
+                       (let [incremental? (not @first?)]
+                           (coordinate-gc-with-shutdown db clean-lock cfg lock-status
+                                                      request stop-status
+                                                      incremental?))))
+                   (finally
+                     (when @first?
+                       (reset! first? false)
+                       (swap! pending-initial-gcs dec)
+                       (when (zero? @pending-initial-gcs)
+                         (deliver finished-initial-gc true))))))]
+        (interspaced interval #(invoke-periodic-gc gc initial-gc?) job-pool)))))
 
 (defn database-lock-status []
   ;; These track the number of threads either waiting
@@ -1160,7 +1163,9 @@
    [this certname]
    (throw-unless-started (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
-   (delete-node-from-puppetdb (service-context this) certname))
+   (kitchensink/demarcate
+     (trs "delete of all data for host {0}" certname)
+     (delete-node-from-puppetdb (service-context this) certname)))
 
   (cmd-event-mult
    [this]
