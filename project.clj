@@ -184,9 +184,6 @@
 
                  ;; Filesystem utilities
                  [org.apache.commons/commons-lang3]
-                 ;; Version information
-                 ;; Job scheduling
-                 [overtone/at-at "1.2.0"]
 
                  ;; Database connectivity
                  [com.zaxxer/HikariCP]

@@ -21,7 +21,11 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :as time :refer [now to-string]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [await-scheduler-shutdown
+                     schedule
+                     scheduler
+                     request-scheduler-shutdown]]
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
@@ -32,16 +36,15 @@
                      create-temp-config
                      sync-command-post
                      with-pdb-with-no-gc]]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.trapperkeeper.app :as tkapp :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.testutils
              :refer [block-until-results default-timeout-ms temp-file]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import
    [clojure.lang ExceptionInfo]
-   (java.util.concurrent CyclicBarrier)
+   (java.util.concurrent CyclicBarrier TimeUnit)
    [java.util.concurrent.locks ReentrantLock]))
 
 (deftest update-checking
@@ -53,18 +56,21 @@
 
     (testing "should check for updates if running as puppetdb"
       (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
-        (let [job-pool-test (mk-pool)
+        (let [job-pool-test (scheduler 4)
               recurring-job-checkin (maybe-check-for-updates config-map {} job-pool-test
-                                                             shutdown-for-ex)]
-          (is (= 86400000 (:ms-period recurring-job-checkin))
-              "should run once a day")
-          (is (= true @(:scheduled? recurring-job-checkin))
-              "should be scheduled to run")
-          (is (= 0 (:initial-delay recurring-job-checkin))
-              "should run on start up with no delay")
-          (is (= "A reoccuring job to checkin the PuppetDB version" (:desc recurring-job-checkin))
-              "should have a description of the job running")
-          (stop-and-reset-pool! job-pool-test))))
+                                                             shutdown-for-ex)
+              ;; Skip the first, immediate check
+              delay (->> #(do
+                            (Thread/sleep 100)
+                            (.getDelay recurring-job-checkin TimeUnit/MILLISECONDS))
+                         repeatedly
+                         (drop-while #(< % 20000))
+                         first)]
+          (is (> delay (* 1000 60 60 23)) "should run once a day")
+          (is (= false (.isDone recurring-job-checkin)))
+          (is (= false (.isCancelled recurring-job-checkin)))
+          (request-scheduler-shutdown job-pool-test :interrupt)
+          (assert (await-scheduler-shutdown job-pool-test default-timeout-ms)))))
 
     (testing "should skip the update check if running as pe-puppetdb"
       (with-log-output log-output
@@ -333,52 +339,28 @@
         (is (= expected-remaining
                (count (purgeable-nodes node-purge-ttl))))))))
 
-
-;; Test mitigation of
-;; https://bugs.openjdk.java.net/browse/JDK-8176254 i.e. handling of
-;; an unexpected in-flight garbage collection (via the scheduling
-;; bug) during stop.  For now, just test that if a gc is in flight,
-;; we wait on it if it doesn't take too long, and we proceed anyway
-;; if it does.
-
-(defn test-stop-with-periodic-gc-running [slow-gc? expected-msg-rx]
-  (with-log-output log-output
-    (let [gc-blocked (promise)
-          gc-proceed (promise)
-          gc svcs/collect-garbage
-          collect-thread (promise)]
-      (with-redefs [svcs/stop-gc-wait-ms (constantly (if slow-gc?
-                                                       0 ;; no point in waiting
-                                                       default-timeout-ms))
-                    svcs/collect-garbage (fn [& args]
-                                           (deliver collect-thread (Thread/currentThread))
-                                           (deliver gc-blocked true)
-                                           @gc-proceed
-                                           (apply gc args))]
-        (with-pdb-with-no-gc
-          (let [pdb (get-service *server* :PuppetDBServer)
-                db-cfg (-> *server* (get-service :DefaultedConfig) conf/get-config :database)
-                db-lock-status (svcs/database-lock-status)
-                stop-status (-> pdb service-context :stop-status)
-                lock (ReentrantLock.)]
-            (utils/noisy-future
-             (svcs/coordinate-gc-with-shutdown db-cfg lock db-cfg db-lock-status
-                                               (svcs/db-config->clean-request db-cfg)
-                                               stop-status
-                                               false))
-            @gc-blocked
-            (is (= #{@collect-thread} (:collecting-garbage @stop-status)))
-            (when-not slow-gc?
-              (deliver gc-proceed true))))))
-    (is (= 1 (->> @log-output
-                  (logs-matching expected-msg-rx)
-                  count)))))
-
-(deftest stop-waits-a-bit-for-periodic-gc
-  (test-stop-with-periodic-gc-running false #"^Periodic activities halted"))
-
-(deftest stop-ignores-gc-that-takes-too-long
-  (test-stop-with-periodic-gc-running true #"^Forcibly terminating periodic activities"))
+(deftest test-stop-with-blocked-scheduler
+  (let [requested-shutdown? (promise)
+        ready-to-go? (promise)]
+    (with-redefs [svcs/stop-gc-wait-ms (constantly 10)
+                  svcs/shut-down-after-scheduler-unresponsive
+                  (fn [f]
+                    (deliver requested-shutdown? true)
+                    (f))]
+      (with-pdb-with-no-gc
+        (let [pdb (get-service *server* :PuppetDBServer)
+              pool (-> pdb service-context :job-pool)
+              blocker (schedule pool #(do
+                                        (deliver ready-to-go? true)
+                                        (while (not (try
+                                                      @requested-shutdown?
+                                                      (catch InterruptedException ex
+                                                        false)))
+                                          true))
+                                0)]
+          (is (= true (deref ready-to-go? default-timeout-ms false)))
+          (tkapp/stop *server*)
+          (is (= true @requested-shutdown?)))))))
 
 (defn change-report-time [r time]
   ;; A *very* blunt instrument, only intended to work for now on
