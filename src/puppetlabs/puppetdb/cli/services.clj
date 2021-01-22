@@ -49,7 +49,6 @@
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
             [murphy :refer [try! with-final]]
-            [overtone.at-at :refer [mk-pool every interspaced stop-and-reset-pool!]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -80,11 +79,15 @@
             [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [call-unless-shutting-down
+             :refer [await-scheduler-shutdown
+                     call-unless-shutting-down
                      exceptional-shutdown-requestor
                      throw-if-shutdown-pending
                      with-monitored-execution
-                     with-nonfatal-exceptions-suppressed]]
+                     with-nonfatal-exceptions-suppressed
+                     request-scheduler-shutdown
+                     schedule-with-fixed-delay
+                     scheduler]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
@@ -121,10 +124,6 @@
            :cmd-event-ch cmd-event-ch
            :cmd-event-mult cmd-event-mult
            :url-prefix (atom nil)
-           ;; This coordination is needed until we no longer
-           ;; support jdk < 10.
-           ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-           :stop-status (atom {})
            :shutdown-request (atom nil))))
 
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
@@ -451,14 +450,17 @@
   [config read-db job-pool shutdown-for-ex]
   (if (conf/foss? config)
     (let [checkin-interval-millis (* 1000 60 60 24)] ; once per day
-      (every checkin-interval-millis
-             #(with-nonfatal-exceptions-suppressed
-                (with-monitored-execution shutdown-for-ex
-                  (-> config
-                      conf/update-server
-                      (version/check-for-updates! read-db))))
-             job-pool
-             :desc "A reoccuring job to checkin the PuppetDB version"))
+      (schedule-with-fixed-delay
+       job-pool
+       #(with-nonfatal-exceptions-suppressed
+          (with-monitored-execution shutdown-for-ex
+            (try
+              (-> config
+                  conf/update-server
+                  (version/check-for-updates! read-db))
+              (catch InterruptedException ex
+                (log/info (trs "Update checker interrupted"))))))
+       0 checkin-interval-millis))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
 
 (def stop-gc-wait-ms (constantly 5000))
@@ -480,23 +482,29 @@
                    (or ex db-ex)))]
         (recur dbs ex)))))
 
+;; Test hook
+(defn shut-down-after-scheduler-unresponsive [f]
+  (f))
+
+(defn shut-down-service-scheduler-or-die [s request-shutdown]
+  (request-scheduler-shutdown s :interrupt)
+  (if (await-scheduler-shutdown s (stop-gc-wait-ms))
+    (log/info (trs "Periodic activities halted"))
+    (let [msg (trs "Unable to shut down scheduled service tasks, requesting server shutdown")]
+      (log/error msg)
+      (shut-down-after-scheduler-unresponsive
+       #(request-shutdown {:puppetlabs.trapperkeeper.core/exit
+                           {:status 2 :messages [[msg *err*]]}})))))
+
 (defn stop-puppetdb
-  "Shuts down PuppetDB, releasing resources when possible.  If this is
-  not a normal shutdown, emergency? must be set, which currently just
-  produces a fatal level level log message, instead of info."
-  [{:keys [stop-status] :as context}]
+  "Shuts down PuppetDB, releasing resources when possible."
+  [context request-shutdown]
   ;; Must also handle a nil context.
   (try!
    (log/info (trs "Shutdown request received; puppetdb exiting."))
    context
-   (finally (some-> (:job-pool context) stop-and-reset-pool!))
-   (finally
-     (when stop-status
-       ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-       (swap! stop-status assoc :stopping true)
-       (if (utils/await-ref-state stop-status ready-to-stop? (stop-gc-wait-ms) false)
-         (log/info (trs "Periodic activities halted"))
-         (log/info (trs "Forcibly terminating periodic activities")))))
+   (finally (some-> (:job-pool context)
+                    (shut-down-service-scheduler-or-die request-shutdown)))
    (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
    (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
                     .close))
@@ -690,37 +698,6 @@
 
 ;; FIXME: with-logged-ex...
 
-(defn coordinate-gc-with-shutdown
-  [write-db clean-lock config db-lock-status request stop-status incremental?]
-  ;; This function assumes it will never be called concurrently with
-  ;; itself, so that it's ok to just conj/disj below, instead of
-  ;; tracking an atomic count or similar.
-  (let [thread (Thread/currentThread)
-        update-if-not-stopping (fn [status]
-                                 (if (:stopping status)
-                                   status
-                                   (update status :collecting-garbage
-                                           ;; union not conj, so nil is ok
-                                           #(set/union % #{thread}))))]
-    (try
-      (when (get-in (swap! stop-status update-if-not-stopping)
-                    [:collecting-garbage thread])
-        (collect-garbage write-db clean-lock config db-lock-status request
-                         incremental?))
-      (catch Exception ex
-        (log/error ex)
-        (throw ex))
-      (finally
-        (swap! stop-status (fn [status]
-                             (update status :collecting-garbage
-                                     ;; Very important that this not
-                                     ;; set :collecting-garbage to
-                                     ;; #{}, so that existing code
-                                     ;; that doesn't check (seq
-                                     ;; status) will work.
-                                     #(let [s (disj % thread)]
-                                        (when (seq s) s)))))))))
-
 (defn maybe-send-cmd-event!
   "Put a map with identifying information about an enqueued command on the
    cmd-event-chan. Valid :kind values are: ::command/ingested ::command/processed"
@@ -729,35 +706,34 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-version stop-status db service request-shutdown]
+  [desired-version db service request-shutdown]
   {:pre [(integer? desired-version)]}
-  (when-not (:stopping @stop-status)
-    (let [schema-version (-> (jdbc/with-transacted-connection db
-                               (jdbc/query "select max(version) from schema_migrations"))
-                             first
-                             :max)
-          stop (fn [msg status]
-                 (log/error msg)
-                 (request-shutdown {::tk/exit
-                                    {:status status
-                                     :messages [[msg *err*]]}}))]
-      (when-not (= schema-version desired-version)
-        (cond
-          (> schema-version desired-version)
-          (stop (str
-                 (trs "Please upgrade PuppetDB: ")
-                 (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
-                      schema-version))
-                (int \M))
+  (let [schema-version (-> (jdbc/with-transacted-connection db
+                             (jdbc/query "select max(version) from schema_migrations"))
+                           first
+                           :max)
+        stop (fn [msg status]
+               (log/error msg)
+               (request-shutdown {::tk/exit
+                                  {:status status
+                                   :messages [[msg *err*]]}}))]
+    (when-not (= schema-version desired-version)
+      (cond
+        (> schema-version desired-version)
+        (stop (str
+               (trs "Please upgrade PuppetDB: ")
+               (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
+                    schema-version))
+              (int \M))
 
-          (< schema-version desired-version)
-          (stop (str
-                 (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
-                 (trs "The detected migration level {0} is out of date." schema-version))
-                (int \m))
+        (< schema-version desired-version)
+        (stop (str
+               (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
+               (trs "The detected migration level {0} is out of date." schema-version))
+              (int \m))
 
-          :else
-          (throw (Exception. "Unknown state when checking schema versions")))))))
+        :else
+        (throw (Exception. "Unknown state when checking schema versions"))))))
 
 (defn init-queue [config send-event! cmd-event-ch shutdown-for-ex]
   (let [stockdir (conf/stockpile-dir config)
@@ -819,29 +795,31 @@
   [context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
   (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
-    (interspaced schema-check-interval
-                 (fn []
-                   (with-nonfatal-exceptions-suppressed
-                     (with-monitored-execution shutdown-for-ex
-                       ;; Just for testing out of memory handling.
-                       ;; See ./ext/test.  Intentionally done in the
-                       ;; at-at task to also see that it works from a
-                       ;; "background" thread.
-                       (when allocate-at-startup-at-least-mb
-                         (log/warn (trs "Allocating as requested: PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP={0}"
-                                        (str allocate-at-startup-at-least-mb)))
-                         (vec (repeatedly allocate-at-startup-at-least-mb
-                                          #(long-array (* 1024 128))))) ;; ~1mb
-                       (check-schema-version (desired-schema-version)
-                                             (:stop-status context)
-                                             db service request-shutdown))))
-                 job-pool)))
+    (schedule-with-fixed-delay
+     job-pool
+     (fn []
+       (with-nonfatal-exceptions-suppressed
+         (with-monitored-execution shutdown-for-ex
+           (try
+             ;; Just for testing out of memory handling.  See
+             ;; ./ext/test.  Intentionally done in a scheduled task to
+             ;; also see that it works from a "background" thread.
+             (when allocate-at-startup-at-least-mb
+               (log/warn (trs "Allocating as requested: PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP={0}"
+                              (str allocate-at-startup-at-least-mb)))
+               (vec (repeatedly allocate-at-startup-at-least-mb
+                                #(long-array (* 1024 128))))) ;; ~1mb
+             (check-schema-version (desired-schema-version)
+                                   db service request-shutdown)
+             (catch InterruptedException ex
+               (log/info (trs "Schema checker interrupted")))))))
+     0 schema-check-interval)))
 
 ;; Test hook
 (defn invoke-periodic-gc [f first?] (f first?))
 
 (defn start-garbage-collection
-  [{:keys [clean-lock stop-status] :as context}
+  [{:keys [clean-lock] :as context}
    job-pool db-configs db-pools db-lock-statuses shutdown-for-ex finished-initial-gc]
   (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
                                     (map vector db-configs db-pools db-lock-statuses))
@@ -856,17 +834,19 @@
                  (try
                    (with-nonfatal-exceptions-suppressed
                      (with-monitored-execution shutdown-for-ex
-                       (let [incremental? (not @first?)]
-                           (coordinate-gc-with-shutdown db clean-lock cfg lock-status
-                                                      request stop-status
-                                                      incremental?))))
+                       (try
+                         (let [incremental? (not @first?)]
+                           (collect-garbage db clean-lock cfg lock-status request incremental?))
+                         (catch InterruptedException ex
+                           (log/info (trs "Garbage collector interrupted"))))))
                    (finally
                      (when @first?
                        (reset! first? false)
                        (swap! pending-initial-gcs dec)
                        (when (zero? @pending-initial-gcs)
                          (deliver finished-initial-gc true))))))]
-        (interspaced interval #(invoke-periodic-gc gc initial-gc?) job-pool)))))
+        (schedule-with-fixed-delay job-pool #(invoke-periodic-gc gc initial-gc?)
+                                   0 interval)))))
 
 (defn database-lock-status []
   ;; These track the number of threads either waiting
@@ -933,8 +913,9 @@
                    (init-queue config maybe-send-cmd-event! cmd-event-ch shutdown-for-ex)
 
                    _ command-loader :error #(some-> % future-cancel)
-                   job-pool (mk-pool) :error stop-and-reset-pool!
-
+                   ;; gc, schema checks, update checks
+                   job-pool (scheduler 4) :error #(shut-down-service-scheduler-or-die
+                                                   % request-shutdown)
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
 
@@ -1112,7 +1093,7 @@
                                    get-registered-endpoints
                                    (shutdown-requestor request-shutdown this)))))
 
-  (stop [this context] (stop-puppetdb context))
+  (stop [this context] (stop-puppetdb context request-shutdown))
 
   (set-url-prefix
    [this url-prefix]

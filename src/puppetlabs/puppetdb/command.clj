@@ -68,8 +68,13 @@
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [call-unless-shutting-down
+             :refer [await-scheduler-shutdown
+                     call-unless-shutting-down
                      exceptional-shutdown-requestor
+                     request-scheduler-shutdown
+                     schedule-with-fixed-delay
+                     schedule
+                     scheduler
                      throw-if-shutdown-pending
                      with-monitored-execution
                      with-nonfatal-exceptions-suppressed
@@ -90,8 +95,6 @@
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.command.dlo :as dlo]
-            [overtone.at-at :as at-at
-             :refer [interspaced mk-pool stop-and-reset-pool!]]
             [puppetlabs.puppetdb.threadpool :as pool]
             [puppetlabs.puppetdb.utils.metrics :as mutils])
   (:import
@@ -668,41 +671,36 @@
   (async/>!! command-chan narrowed-entry))
 
 ;; For testing via with-redefs
-(def schedule-msg-after at-at/after)
+(def schedule-msg-after schedule)
 
 (defn schedule-delayed-message
   "Will delay `cmd` in the `delay-pool` threadpool for
   `command-delay-ms`. It will then be enqueued in `command-chan`
   for another attempt at processing"
-  [cmd ex command-chan delay-pool stop-status shutdown-for-ex]
+  [cmd ex command-chan delay-pool shutdown-for-ex]
   (let [narrowed-entry (-> cmd
                            (queue/cons-attempt ex)
                            (dissoc :payload))
-        {:keys [command version]} cmd
-        inc-msgs-if-not-stopping #(if (:stopping %)
-                                    %
-                                    (update % :executing-delayed inc))]
+        {:keys [command version]} cmd]
     (update-counter! :awaiting-retry command version inc!)
     (schedule-msg-after
-     command-delay-ms
+     delay-pool
      (fn []
        (with-nonfatal-exceptions-suppressed
          (with-monitored-execution shutdown-for-ex
-           (let [status (swap! stop-status inc-msgs-if-not-stopping)]
-             (when-not (:stopping status)
-               (try
-                 (enqueue-delayed-message command-chan narrowed-entry)
-                 (update-counter! :awaiting-retry command version dec!)
-                 (finally
-                   (swap! stop-status #(update % :executing-delayed dec)))))))))
-     delay-pool)))
+           (try
+             (enqueue-delayed-message command-chan narrowed-entry)
+             (update-counter! :awaiting-retry command version dec!)
+             (catch InterruptedException ex
+               (log/info (trs "Revival of delayed message interrupted")))))))
+     command-delay-ms)))
 
 (def ^:private iso-formatter (fmt-time/formatters :date-time))
 
 (defn process-message
   [{:keys [certname command version received delete? id] :as cmdref}
    q command-chan dlo delay-pool broadcast-pool write-dbs response-chan stats
-   blocklist-config stop-status maybe-send-cmd-event! shutdown-for-ex]
+   blocklist-config maybe-send-cmd-event! shutdown-for-ex]
   (when received
     (let [q-time (-> (fmt-time/parse iso-formatter received)
                      (time/interval (now))
@@ -720,7 +718,7 @@
                      (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
                           id command retries certname ex (.getSuppressed ex)))
                     (schedule-delayed-message cmdref ex command-chan delay-pool
-                                              stop-status shutdown-for-ex))
+                                              shutdown-for-ex))
                   (do
                     (log/error
                      ex
@@ -774,14 +772,14 @@
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool broadcast-pool write-dbs
-   response-chan stats blocklist-config stop-status maybe-send-cmd-event!
+   response-chan stats blocklist-config maybe-send-cmd-event!
    shutdown-for-ex]
   (fn [cmdref]
     (process-message cmdref
                      q command-chan dlo
                      delay-pool broadcast-pool write-dbs
                      response-chan stats
-                     blocklist-config stop-status maybe-send-cmd-event!
+                     blocklist-config maybe-send-cmd-event!
                      shutdown-for-ex)))
 
 (def stop-commands-wait-ms (constantly 5000))
@@ -808,14 +806,37 @@
       (pool/unbounded-threadpool "cmd-broadcast-thread-%d"
                                  threadpool-shutdown-ms))))
 
+(def command-scheduler-shutdown-wait-ms (constantly (* 15 1000)))
+
+;; Test hook
+(defn shut-down-after-command-scheduler-unresponsive [f]
+  (f))
+
+(defn shut-down-command-scheduler-or-die [s request-shutdown]
+  (request-scheduler-shutdown s :interrupt)
+  ;; FIXME: timeout value?
+  (if (await-scheduler-shutdown s (command-scheduler-shutdown-wait-ms))
+    (log/info (trs "Periodic activities halted"))
+    (let [msg (trs "Unable to shut down delayed command scheduler, requesting server shutdown")]
+      (log/error msg)
+      (shut-down-after-command-scheduler-unresponsive
+       #(request-shutdown {:puppetlabs.trapperkeeper.core/exit
+                           {:status 2 :messages [msg *err*]}})))))
+
+(def delay-pool-size
+  "Thread count for delaying messages for retry, and broadcast pool
+  sanity checks."
+  2)
+
 (defn init-command-service
-  [context config]
+  [context config request-shutdown]
   ;; If anything is moved from here to start, add a some-> to stop.
   (with-final [response-chan (async/chan 1000) :error async/close!
                response-mult (async/mult response-chan) :error async/untap-all
                response-chan-for-pub (async/chan) :error async/close!
                response-pub (async/pub response-chan-for-pub :id) :error async/unsub-all
-               delay-pool (mk-pool) :error stop-and-reset-pool!
+               delay-pool (scheduler delay-pool-size) :error #(shut-down-command-scheduler-or-die
+                                                               % request-shutdown)
                concurrent-writes (get-in config [:command-processing :concurrent-writes])]
     (async/tap response-mult response-chan-for-pub)
     (assoc context
@@ -826,11 +847,7 @@
            :response-chan response-chan
            :response-mult response-mult
            :response-chan-for-pub response-chan-for-pub
-           :response-pub response-pub
-           ;; This coordination is needed until we no longer
-           ;; support jdk < 10.
-           ;; https://bugs.openjdk.java.net/browse/JDK-8176254
-           :stop-status (atom {:executing-delayed 0}))))
+           :response-pub response-pub)))
 
 (defn start-command-service
   [context config {:keys [dlo] :as globals} request-shutdown]
@@ -862,25 +879,27 @@
                                                  :database
                                                  (select-keys [:facts-blocklist
                                                                :facts-blocklist-type]))
-                                             (:stop-status context)
                                              maybe-send-cmd-event!
                                              shutdown-for-ex)]
       (when broadcast-pool
-        (interspaced
-         (* 60 1000)
+        (schedule-with-fixed-delay
+         delay-pool
          (let [normal (normal-broadcast-pool-size cmd-concurrency scf-write-dbs)
                limit (normal-broadcast-pool-size (inc cmd-concurrency) scf-write-dbs)
                next (atom (now))
                suppress (time/minutes 10)]
            #(with-nonfatal-exceptions-suppressed
               (with-monitored-execution shutdown-for-ex
-                (let [found (pool/active-count broadcast-pool)]
-                  (when (and (> found limit) (time/after? (now) next))
-                    (log/warn
-                     (trs "Expected no more than {0} broadcast threads found {1} (please report)"
-                          normal found))
-                    (reset! next (time/plus (now) (time/minutes 10))))))))
-         delay-pool))
+                (try
+                  (let [found (pool/active-count broadcast-pool)]
+                    (when (and (> found limit) (time/after? (now) next))
+                      (log/warn
+                       (trs "Expected no more than {0} broadcast threads found {1} (please report)"
+                            normal found))
+                      (reset! next (time/plus (now) (time/minutes 10)))))
+                  (catch InterruptedException ex
+                    (log/info (trs "Command broadcast pool check interrupted")))))))
+         0 (* 60 1000)))
       ;; The rejection below should only occur if new work is
       ;; submitted after the threadpool has started shutting down as
       ;; part of the service's shutdown.  Since the command will be
@@ -909,10 +928,11 @@
                ::started? true)))))
 
 (defn stop-command-service
-  [{:keys [stop-status consumer-threadpool broadcast-threadpool command-chan
+  [{:keys [consumer-threadpool broadcast-threadpool command-chan
            response-chan response-chan-for-pub response-mult response-pub
            delay-pool command-shovel]
-    :as context}]
+    :as context}
+   request-shutdown]
   ;; Must also handle a nil context.
   (try!
    (dissoc context
@@ -925,17 +945,7 @@
    (finally (when command-shovel (.interrupt command-shovel)))
    (finally (some-> broadcast-threadpool pool/shutdown-unbounded))
    (finally (some-> consumer-threadpool pool/shutdown-gated))
-   (finally (some-> delay-pool stop-and-reset-pool!))
-   (finally
-     (when stop-status
-       ;; Wait up to ~5s for https://bugs.openjdk.java.net/browse/JDK-8176254
-       (swap! stop-status #(assoc % :stopping true))
-       (if (utils/await-ref-state stop-status
-                                  #(= % {:stopping true :executing-delayed 0})
-                                  (stop-commands-wait-ms)
-                                  false)
-         (log/info (trs "Halted delayed command processsing"))
-         (log/info (trs "Forcibly terminating delayed command processing")))))
+   (finally (some-> delay-pool (shut-down-command-scheduler-or-die request-shutdown)))
    (finally
      (when command-shovel
        ;; Pools are shut down, shovel has been interrupted, etc.  It
@@ -965,7 +975,7 @@
    [this context]
    (call-unless-shutting-down
     "command service init" (get-shutdown-reason) context
-    #(init-command-service context (get-config))))
+    #(init-command-service context (get-config) request-shutdown)))
 
   (start
    [this context]
@@ -973,7 +983,7 @@
     "command service start"  (get-shutdown-reason) context
     #(start-command-service context (get-config) (shared-globals) request-shutdown)))
 
-  (stop [this context] (stop-command-service context))
+  (stop [this context] (stop-command-service context request-shutdown))
 
   (stats
    [this]
