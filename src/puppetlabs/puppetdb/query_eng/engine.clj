@@ -2910,23 +2910,28 @@
     ;;   ...}
     (try
       (log/debug (trs "Attempting to drop unused joins from query"))
-      (when (:call plan)
-        (throw (ex-info "Cannot handle function calls yet"
+      (when (and (:call plan)
+                 (or (not= 1 (count (:call plan)))
+                     (not= "count" (:function (first (:call plan))))))
+        (throw (ex-info "Can only optimize queries with a single count function call"
                         {:kind ::cannot-drop-joins
                          ::why :unsupported-function-calls})))
       (let [proj-reqs (required-by-projections plan)]
-        (if (empty? proj-reqs)
+        (if (and (empty? proj-reqs)
+                 (empty? (:call plan)))
           incoming
           (let [where-reqs (extract-where-deps plan)
                 required? (set/union proj-reqs where-reqs)
-                join-key? #{:full-join
-                            :join
-                            :left-join
-                            :merge-full-join
-                            :merge-join
-                            :merge-left-join
-                            :merge-right-join
-                            :right-join}
+                join-key? (if (empty? (:call plan))
+                            #{:full-join
+                              :join
+                              :left-join
+                              :merge-full-join
+                              :merge-join
+                              :merge-left-join
+                              :merge-right-join
+                              :right-join}
+                            #{:left-join})
                 need-join? (fn [[table spec]]
                              ;; table e.g. :factsets or [:factsets :fs]
                              ;; spec e.g. [:= :certnames.certname :fs.certname]

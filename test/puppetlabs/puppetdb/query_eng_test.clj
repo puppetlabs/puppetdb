@@ -446,6 +446,50 @@
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
+(deftest joins-dropped-for-nodes-count-query
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" [["function" "count"]] ["=" "node_state" "active"]]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+
+(deftest joins-not-dropped-for-nodes-avg-query
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query ["extract" [["function" "avg" "report_timestamp"]] ["=" "node_state" "active"]]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= normal-nodes-joins (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-nodes-count-query-with-factset-subuery
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    ;; the subquery accesses the factsets table directly, so it
+    ;; is not necessary to join it to the certname table at the top level
+    (let [q [nodes-query ["extract"
+                          [["function" "count"]]
+                          ["and"
+                           ["in" "certname"
+                            ["extract" "certname" ["select_inventory" ["=" "facts.operatingsystem" "CentOS"]]]]
+                           ["=" "node_state" "active"]]]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+
+(deftest joins-dropped-for-nodes-count-and-extract-query-with-factset-subuery
+  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [q [nodes-query  ["extract"
+                           [["function" "count"] "cached_catalog_status" "latest_report_status" "latest_report_noop" "latest_report_noop_pending" "latest_report_corrective_change"]
+                           ["and"
+                            ["and"
+                             [">=" "report_timestamp" "2021-01-25T22:12:49.198Z"]
+                             ["in" "certname" ["extract" "certname" ["select_inventory" ["=" "facts.operatingsystem" "CentOS"]]]]]
+                            ["=" "node_state" "active"]]
+                           ["group_by" "cached_catalog_status" "latest_report_status" "latest_report_noop" "latest_report_noop_pending" "latest_report_corrective_change"]]]]
+      (is (= normal-nodes-joins (compiled-selects q nil)))
+      (is (= {:left-join [:reports
+                          [:and
+                           [:= :certnames.certname :reports.certname]
+                           [:= :certnames.latest_report_id :reports.id]]
+                          :report_statuses
+                          [:= :reports.status_id :report_statuses.id]]}
+             (compiled-selects q :drop-joins))))))
+
 (deftest factsets-not-dropped-from-nodes-for-facts-env
   ;; An indirect join dependency
   (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
