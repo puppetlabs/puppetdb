@@ -115,8 +115,12 @@ body {
     return null;
   };
 
-  function setVersion() {
-    d3.json("/pdb/meta/v1/version").then(function (res) {
+  function setVersion(token) {
+    d3.json("/pdb/meta/v1/version", {
+      headers: new Headers({
+        "X-Authentication": token
+      }),
+    }).then(function (res) {
       if (res != null && res.version != null) {
         d3.select('#version').html('v' + res.version);
       }
@@ -126,8 +130,12 @@ body {
     });
   };
 
-  function checkForUpdates() {
-    d3.json("/pdb/meta/v1/version/latest").then(function (res) {
+  function checkForUpdates(token) {
+    d3.json("/pdb/meta/v1/version/latest", {
+      headers: new Headers({
+        "X-Authentication": token
+      }),
+    }).then(function (res) {
       if (res != null && res.newer) {
         d3.select('#latest-version').html('v' + res.version);
         d3.select('#update-link').classed('hidden', false);
@@ -150,7 +158,9 @@ body {
                  width: width,
                  height: height,
                  container: "#metrics"};
-  var data_url = "/pdb/dashboard/data";
+
+  var token = getParameter("token") || '';
+  var data_url = "/pdb/dashboard/data?token=" + token;
 
   var meterUpdateFunctions = {};
 
@@ -176,8 +186,8 @@ body {
   setInterval(tick, 5 * 1000);
 
   // Check the current version and for updates now, and then check for updates every 5 minutes
-  setVersion();
-  checkForUpdates();
+  setVersion(token);
+  checkForUpdates(token);
   setInterval(checkForUpdates, 5*60*1000);
 })()</script>
 
