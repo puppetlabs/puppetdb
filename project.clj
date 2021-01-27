@@ -1,5 +1,5 @@
 (def pdb-version "6.13.2-SNAPSHOT")
-(def clj-parent-version "4.6.11")
+(def clj-parent-version "4.6.14")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -62,7 +62,7 @@
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
-     [org.flatland/ordered "1.5.7"]
+     [org.flatland/ordered "1.5.9"]
      [org.clojure/test.check "0.9.0"]
      [com.gfredericks/test.chuck "0.2.7"
       :exclusions [com.andrewmcveigh/cljs-time]]
