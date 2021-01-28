@@ -192,7 +192,6 @@
                  ;; WebAPI support libraries.
                  [bidi]
                  [clj-http "2.0.1"]
-                 [com.novemberain/pantomime "2.1.0"]
                  [compojure]
                  [ring/ring-core]
 
