@@ -3,8 +3,8 @@
 set -e
 
 jar="${PDB_JAR:-target/puppetdb.jar}"
-bcprov="${BCPROV_JAR:-$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/1.66/bcprov-jdk15on-1.66.jar}"
-bcpkix="${BCPKIX_JAR:-$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/1.66/bcpkix-jdk15on-1.66.jar}"
+bcprov="${BCPROV_JAR:-$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/1.68/bcprov-jdk15on-1.68.jar}"
+bcpkix="${BCPKIX_JAR:-$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/1.68/bcpkix-jdk15on-1.68.jar}"
 
 if ! test -e "$jar"; then
     printf 'Unable to find the puppetdb jar %q; have you run "lein uberjar"?\n' \
