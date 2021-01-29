@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 8a9bbb7d6d3481bec82e4131a6b13386571f0121\n"
+"X-Git-Ref: f0bd97211944c0900474309cab0253a7b2a3145d\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -188,19 +188,23 @@ msgid "Failed to delete all data for host {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Update checker interrupted"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Skipping update check on Puppet Enterprise"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Shutdown request received; puppetdb exiting."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/services.clj
+#: src/puppetlabs/puppetdb/cli/services.clj src/puppetlabs/puppetdb/command.clj
 msgid "Periodic activities halted"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Forcibly terminating periodic activities"
+msgid "Unable to shut down scheduled service tasks, requesting server shutdown"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Shutdown request received; puppetdb exiting."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -257,6 +261,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Allocating as requested: PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP={0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Schema checker interrupted"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Garbage collector interrupted"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -362,6 +374,10 @@ msgid "[{0}] [{1}] Unable to broadcast command for {2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
+msgid "Revival of delayed message interrupted"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
 msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
 msgstr ""
 
@@ -378,15 +394,16 @@ msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
+msgid ""
+"Unable to shut down delayed command scheduler, requesting server shutdown"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
 msgid "Expected no more than {0} broadcast threads found {1} (please report)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "Halted delayed command processsing"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/command.clj
-msgid "Forcibly terminating delayed command processing"
+msgid "Command broadcast pool check interrupted"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
