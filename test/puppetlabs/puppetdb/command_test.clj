@@ -10,6 +10,7 @@
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.trapperkeeper.app :as tkapp]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -42,7 +43,11 @@
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.test]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [await-scheduler-shutdown
+                     schedule
+                     scheduler
+                     request-scheduler-shutdown]]
             [puppetlabs.puppetdb.time :as tfmt]
             [puppetlabs.puppetdb.time :as time
              :refer [ago days from-sql-date now seconds to-date-time to-string
@@ -63,7 +68,6 @@
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
-            [overtone.at-at :refer [mk-pool scheduled-jobs]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
@@ -85,7 +89,9 @@
     (some-> broadcast-pool pool/shutdown-unbounded)
     (async/close! response-chan)
     (fs/delete-dir (:path dlo))
-    (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
+    (request-scheduler-shutdown delay-pool :interrupt)
+    (when-not (await-scheduler-shutdown delay-pool (* 30 1000))
+      (throw (Exception. "Unable to shut down command test scheduler" )))))
 
 ;; define blocklist map to allow use of with-redefs later
 (def blocklist-config {:facts-blocklist [#"blocklisted-fact"
@@ -99,7 +105,7 @@
       (println msg))))
 
 (defn create-message-handler-context [q]
-  (let [delay-pool (mk-pool)
+  (let [delay-pool (scheduler delay-pool-size)
         command-chan (async/chan 10)
         response-chan (async/chan 10)
         stats (atom {:received-commands 0
@@ -123,7 +129,6 @@
                        response-chan
                        stats
                        blocklist-config
-                       (atom {:executing-delayed 0})
                        maybe-send-cmd-event!
                        (shutdown-for-ex-dummy
                         "Ignoring shutdown exception during command tests."))
@@ -157,12 +162,7 @@
              (queue/cons-attempt result (Exception. (str "thud-" i)))))))
 
 (defn task-count [delay-pool]
-  (-> delay-pool
-      :pool-atom
-      deref
-      :thread-pool
-      .getQueue
-      count))
+  (-> delay-pool .getQueue count))
 
 (defn take-with-timeout!!
   "Takes from `port` via <!!, but will throw an exception if
@@ -206,7 +206,7 @@
         (testing "when successful should not raise errors or retry"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
-            (is (= 0 (count (scheduled-jobs delay-pool))))
+            (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
@@ -216,7 +216,7 @@
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
                 (is (= (inc discards) (discard-count))))
-              (is (= 0 (count (scheduled-jobs delay-pool))))
+              (is (= 0 (task-count delay-pool)))
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a schema error occurs should be discarded to the dead letter queue"
@@ -227,7 +227,7 @@
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
                 (is (= (inc discards) (discard-count))))
-              (is (= 0 (count (scheduled-jobs delay-pool))))
+              (is (= 0 (task-count delay-pool)))
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a precondition error occurs should be discarded to the dead letter queue"
@@ -238,7 +238,7 @@
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
                 (is (= (inc discards) (discard-count))))
-              (is (= 0 (count (scheduled-jobs delay-pool))))
+              (is (= 0 (task-count delay-pool)))
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
@@ -1948,54 +1948,25 @@
                                (map #(select-keys % [:command :version :producer-timestamp :delete?]))
                                set)))))))))))))
 
-;; Test mitigation of
-;; https://bugs.openjdk.java.net/browse/JDK-8176254 i.e. handling of
-;; an unexpected in-flight garbage collection (via the scheduling
-;; bug) during stop.  For now, just test that if a gc is in flight,
-;; we wait on it if it doesn't take too long, and we proceed anyway
-;; if it does.
-
-(defn test-stop-with-delayed-commands [infinite-delay? expected-msg-rx]
-  (with-log-output log-output
-    (let [msg-count 3
-          enq-latch (java.util.concurrent.CountDownLatch. msg-count)
-          enq-proceed (promise)]
-      (with-redefs [cmd/schedule-msg-after (fn [ms f _] (f))  ;; no delay
-                    cmd/enqueue-delayed-message (fn [& args]
-                                                  (.countDown enq-latch)
-                                                  @enq-proceed
-                                                  ;; do nothing
-                                                  nil)]
-        (with-pdb-with-no-gc
-          (let [pdb (get-service *server* :PuppetDBServer)
-                q (-> pdb cli-svc/shared-globals :q)
-                dispatcher (get-service *server* :PuppetDBCommandDispatcher)
-                stop-status (-> dispatcher service-context :stop-status)
-                v5-catalog (get-in wire-catalogs [5 :empty])
-                cmdreqs (repeatedly msg-count #(catalog->command-req 5 v5-catalog))]
-            (doseq [cmdreq cmdreqs
-                    :let [cmdref (queue/store-command q cmdreq)
-                          {:keys [command version]} cmdref]]
-              ;; schedule-delayed-message assumes the metrics already exist
-              (cmd/create-metrics-for-command! command version)
-              (utils/noisy-future
-               (cmd/schedule-delayed-message cmdref (Exception.) :dummy-chan
-                                             :dummy-pool stop-status
-                                             (fn [ex]
-                                               (binding [*out* *err*]
-                                                 (println "Ignoring shutdown exception during command tests."))))))
-            (.await enq-latch)
-            (is #{:executing-delayed 3} @stop-status)
-            (when-not infinite-delay?
-              (deliver enq-proceed true))))))
-    (is (= 1 (->> @log-output
-                  (logs-matching expected-msg-rx)
-                  count)))))
-
-(deftest stop-waits-a-bit-for-delayed-cmds
-  (test-stop-with-delayed-commands false
-                                   #"^Halted delayed command processsing"))
-
-(deftest stop-ignores-delayed-cmds-that-take-too-long
-  (test-stop-with-delayed-commands true
-                                   #"^Forcibly terminating delayed command processing"))
+(deftest test-stop-with-blocked-command-scheduler
+  (let [requested-shutdown? (promise)
+        ready-to-go? (promise)]
+    (with-redefs [cmd/command-scheduler-shutdown-wait-ms (constantly 10)
+                  cmd/shut-down-after-command-scheduler-unresponsive
+                  (fn [f]
+                    (deliver requested-shutdown? true)
+                    (f))]
+      (with-pdb-with-no-gc
+        (let [pdb (get-service *server* :PuppetDBCommandDispatcher)
+              pool (-> pdb service-context :delay-pool)
+              blocker (schedule pool #(do
+                                        (deliver ready-to-go? true)
+                                        (while (not (try
+                                                      @requested-shutdown?
+                                                      (catch InterruptedException ex
+                                                        false)))
+                                          true))
+                                0)]
+          (is (= true (deref ready-to-go? default-timeout-ms false)))
+          (tkapp/stop *server*)
+          (is (= true @requested-shutdown?)))))))

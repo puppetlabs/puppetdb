@@ -104,7 +104,7 @@
 (defn maybe-log-sql [logging-options gen-sql]
   (if-let [log-id (:log-id logging-options)]
     (let [sql-output (gen-sql)]
-      (log/debugf "%s:%s:%s" "PDBQuery" log-id (:results-query sql-output))
+      (log/infof "%s:%s:%s" "PDBQuery" log-id (:results-query sql-output))
       sql-output)
     (gen-sql)))
 
@@ -215,7 +215,7 @@
 
      (when log-queries
        ;; log the AST of the incoming query
-       (log/debugf "%s:%s:%s" "PDBQuery" log-id query))
+       (log/infof "%s:%s:%s" "PDBQuery" log-id query))
 
      (let [f #(let [{:keys [results-query]}
                     (query->sql remaining-query entity version
@@ -369,7 +369,7 @@
 
     (when log-queries
       ;; log the AST of the incoming query
-      (log/debugf "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
+      (log/infof "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
 
     (try
       (let [munge-fn (get-munge-fn entity version query-options url-prefix)
@@ -408,7 +408,7 @@
 
     (when log-queries
       ;; log the AST of the incoming query
-      (log/debugf "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
+      (log/infof "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
 
     (try
       (jdbc/with-transacted-connection scf-read-db

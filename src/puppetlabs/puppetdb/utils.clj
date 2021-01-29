@@ -19,6 +19,7 @@
    [java.net MalformedURLException URISyntaxException URL]
    [java.nio ByteBuffer CharBuffer]
    [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
+   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)
    [org.postgresql.util PGobject]))
 
 (defmacro with-captured-throw [& body]
@@ -616,3 +617,30 @@
       (if env
         (-> env Long/parseLong insist-positive)
         default))))
+
+
+;; This closely follows the JVM ScheduledThreadPoolExceutor.  See
+;; those docs for additional information.
+
+(defn scheduler [core-threads]
+  (doto (ScheduledThreadPoolExecutor. core-threads)
+    (.setRemoveOnCancelPolicy true)
+    (.setExecuteExistingDelayedTasksAfterShutdownPolicy false)
+    (.setContinueExistingPeriodicTasksAfterShutdownPolicy false)))
+
+(defn request-scheduler-shutdown [s interrupt-in-flight-tasks?]
+  (if interrupt-in-flight-tasks?
+    (.shutdownNow s)
+    (.shutdown s)))
+
+(defn await-scheduler-shutdown [s wait-time]
+  (.awaitTermination s wait-time TimeUnit/MILLISECONDS))
+
+(defn schedule [s f delay]
+  (.schedule s f delay TimeUnit/MILLISECONDS))
+
+(defn schedule-at-fixed-rate [s f initial-delay period]
+  (.scheduleAtFixedRate s f initial-delay period TimeUnit/MILLISECONDS))
+
+(defn schedule-with-fixed-delay [s f initial-delay delay]
+  (.scheduleWithFixedDelay s f initial-delay delay TimeUnit/MILLISECONDS))
