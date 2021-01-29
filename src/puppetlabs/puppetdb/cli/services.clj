@@ -586,14 +586,15 @@
 
 (defn- require-db-connection-as [datasource migrator]
   (jdbc/with-db-connection datasource
-    (let [current-user (jdbc/current-user)]
-      (when-not (= current-user migrator)
+    (let [current-user (jdbc/current-user)
+          trimmed_migrator (str/replace migrator #"@.*" "")]
+      (when-not (= current-user trimmed_migrator)
         (throw
          (ex-info (format "Connected to database as %s, not migrator %s"
                           (pr-str current-user)
-                          (pr-str migrator))
+                          (pr-str trimmed_migrator))
                   {:kind ::connected-as-wrong-user
-                   :expected migrator
+                   :expected trimmed_migrator
                    :actual current-user}))))))
 
 (defn init-with-db
