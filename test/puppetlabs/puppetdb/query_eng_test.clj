@@ -447,10 +447,21 @@
       (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-nodes-count-query
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
-    (let [q [nodes-query ["extract" [["function" "count"]] ["=" "node_state" "active"]]]]
-      (is (= normal-nodes-joins (compiled-selects q nil)))
-      (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+  (testing "count(*) query"
+    (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+      (let [q [nodes-query ["extract" [["function" "count"]] ["=" "node_state" "active"]]]]
+        (is (= normal-nodes-joins (compiled-selects q nil)))
+        (is (= {:left-join []} (compiled-selects q :drop-joins))))))
+
+  (testing "count query with column in a joined table"
+    (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+      (let [q [nodes-query ["extract" [["function" "count" "report_timestamp"]] ["=" "node_state" "active"]]]]
+        (is (= normal-nodes-joins (compiled-selects q nil)))
+        (is (= {:left-join [:reports
+                            [:and
+                             [:= :certnames.certname :reports.certname]
+                             [:= :certnames.latest_report_id :reports.id]]]}
+               (compiled-selects q :drop-joins)))))))
 
 (deftest joins-not-dropped-for-nodes-avg-query
   (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
