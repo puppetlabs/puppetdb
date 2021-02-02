@@ -1068,3 +1068,11 @@ when certain kinds of transient errors are encountered.  The
 deprecated method also holds an extra database connection open during
 the initial phase of the response.  In newer versions (since 7.0.0),
 the default is `false`.
+
+### `PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS`
+
+Controls how many milliseconds (by default 5 minutes) PuppetDB GC
+will wait for the query bulldozer thread it spawns to be cleaned
+up before logging an error. When set to `0` the query bulldozer
+thread is disabled and PuppetDB GC will wait in line to get
+the AccessExclusiveLock it needs to drop partitioned tables.
