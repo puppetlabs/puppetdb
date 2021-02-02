@@ -89,7 +89,7 @@ body {
 }
 </style>
 
-<script src="d3.v2.js"></script>
+<script src="d3.v5.js"></script>
 <script src="charts.js"></script>
 
 <div id="version-info">
@@ -116,7 +116,7 @@ body {
   };
 
   function setVersion() {
-    d3.json("/pdb/meta/v1/version", function (res) {
+    d3.json("/pdb/meta/v1/version").then(function (res) {
       if (res != null && res.version != null) {
         d3.select('#version').html('v' + res.version);
       }
@@ -127,7 +127,7 @@ body {
   };
 
   function checkForUpdates() {
-    d3.json("/pdb/meta/v1/version/latest", function (res) {
+    d3.json("/pdb/meta/v1/version/latest").then(function (res) {
       if (res != null && res.newer) {
         d3.select('#latest-version').html('v' + res.version);
         d3.select('#update-link').classed('hidden', false);
@@ -155,7 +155,7 @@ body {
   var meterUpdateFunctions = {};
 
   // Initial fetch of the meters to create the UI
-  d3.json(data_url, function cb(meters) {
+  d3.json(data_url).then(function cb(meters) {
     for(var i=0; i<meters.length; i++) {
       m = meters[i];
       meterUpdateFunctions[m.id] = counterAndSparkline(m, options);
@@ -165,7 +165,7 @@ body {
 
   function tick() {
     // Get the meters in bulk, then update each widget
-    d3.json(data_url, function cb(meters) {
+    d3.json(data_url).then(function cb(meters) {
       for(var i=0; i<meters.length; i++) {
         m = meters[i];
         meterUpdateFunctions[m.id](m.value);
@@ -181,3 +181,8 @@ body {
   setInterval(checkForUpdates, 5*60*1000);
 })()</script>
 
+<!--
+  Local Variables:
+  js-indent-level: 2
+  End:
+-->
