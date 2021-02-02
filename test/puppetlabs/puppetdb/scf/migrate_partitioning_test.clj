@@ -694,19 +694,6 @@
                                                :user "pdb_test"}
                                   :same nil}
                                  {:left-only nil
-                                  :right-only
-                                  {:schema "public"
-                                   :table table-name
-                                   :index (str "idx_reports_id_" part-name)
-                                   :index_keys ["id"]
-                                   :type "btree"
-                                   :unique? true
-                                   :functional? false
-                                   :is_partial false
-                                   :primary? false
-                                   :user "pdb_test"}
-                                  :same nil}
-                                 {:left-only nil
                                   :right-only {:schema "public"
                                                :table table-name
                                                :index (str "reports_job_id_idx_" part-name)
@@ -1280,9 +1267,7 @@
 
 (deftest migration-76-schema-diff
   (clear-db-for-testing!)
-  ;; don't add the idx_reports_id index when fast forwarding past migration 74
-  (binding [partitioning/add-report-id-idx? false]
-    (fast-forward-to-migration! 75))
+  (fast-forward-to-migration! 75)
 
   (let [before-migration (schema-info-map *db*)
         today (ZonedDateTime/now (ZoneId/of "UTC"))

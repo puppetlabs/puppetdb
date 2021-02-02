@@ -1770,6 +1770,57 @@
    "DROP TABLE resource_events_premigrate"
    "DROP FUNCTION find_resource_events_unique_dates()")))
 
+(defn create-original-reports-partition
+  "Creates a partition in the reports table"
+  [date]
+  (partitioning/create-partition
+    "reports" "\"producer_timestamp\""
+    date
+    (fn [iso-week-year]
+      [(format (str "CONSTRAINT reports_certname_fkey_%s"
+                    " FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE")
+               iso-week-year)
+       (format (str "CONSTRAINT reports_env_fkey_%s"
+                    " FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE")
+               iso-week-year)
+       (format (str "CONSTRAINT reports_prod_fkey_%s"
+                    " FOREIGN KEY (producer_id) REFERENCES producers(id)")
+               iso-week-year)
+       (format (str "CONSTRAINT reports_status_fkey_%s"
+                    " FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
+               iso-week-year)])
+    (fn [full-table-name iso-week-year]
+      [(format "CREATE INDEX IF NOT EXISTS idx_reports_compound_id_%s ON %s USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_noop_pending_%s ON %s USING btree (noop_pending) WHERE (noop_pending = true)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_prod_%s ON %s USING btree (producer_id)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_producer_timestamp_%s ON %s USING btree (producer_timestamp)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS idx_reports_producer_timestamp_by_hour_certname_%s ON %s USING btree (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_cached_catalog_status_on_fail_%s ON %s USING btree (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_catalog_uuid_idx_%s ON %s USING btree (catalog_uuid)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_certname_idx_%s ON %s USING btree (certname)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_end_time_idx_%s ON %s USING btree (end_time)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_environment_id_idx_%s ON %s USING btree (environment_id)"
+               iso-week-year full-table-name)
+       (format "CREATE UNIQUE INDEX IF NOT EXISTS reports_hash_expr_idx_%s ON %s USING btree (encode(hash, 'hex'::text))"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_job_id_idx_%s ON %s USING btree (job_id) WHERE (job_id IS NOT NULL)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_noop_idx_%s ON %s USING btree (noop) WHERE (noop = true)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_status_id_idx_%s ON %s USING btree (status_id)"
+               iso-week-year full-table-name)
+       (format "CREATE INDEX IF NOT EXISTS reports_tx_uuid_expr_idx_%s ON %s USING btree (((transaction_uuid)::text))"
+               iso-week-year full-table-name)])))
+
 (defn reports-partitioning []
   (jdbc/do-commands
    ;; detach the sequence so it isn't modified during the migration
@@ -1841,7 +1892,7 @@
   (let [now (ZonedDateTime/now)
         days (range -4 4)]
     (doseq [day-offset days]
-      (partitioning/create-reports-partition (.plusDays now day-offset))))
+      (create-original-reports-partition (.plusDays now day-offset))))
 
   ;; pre-create partitions
   (log/info (trs "Creating partitions based on unique days in reports"))
@@ -1850,8 +1901,8 @@
      ["select rowdate from find_reports_unique_dates()"]
      (fn [rows]
        (doseq [row rows]
-         (partitioning/create-reports-partition (-> (:rowdate row)
-                                                    (.toInstant))))))
+         (create-original-reports-partition (-> (:rowdate row)
+                                                (.toInstant))))))
     (jdbc/do-commands
      ;; restore the transaction's timezone setting after creating the partitions
      (str "SET local timezone to '" current-timezone "'")))
