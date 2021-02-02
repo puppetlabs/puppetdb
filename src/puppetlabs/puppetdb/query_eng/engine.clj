@@ -2121,12 +2121,14 @@
 
 (defn create-fnexpression
   [[f & args]]
-  (let [[column params] (if (seq args)
-                          [(first args) (rest args)]
-                          ["*" []])
+  (let [[column join-deps params]
+        (if (seq args)
+          [(:field (first args)) (:join-deps (first args)) (rest args)]
+          ["*" #{} []])
         qmarks (repeat (count params) "?")
         fnmap {:function (pdb-fns->pg-fns f)
                :column column
+               :join-deps join-deps
                :params (vec params)
                :args (vec qmarks)}
         compiled-fn (first (compile-fnexpression fnmap))]
@@ -2156,14 +2158,17 @@
         coalesce-fact-values (fn [col]
                                (if (and (:factsets (:source-tables query-rec))
                                         (= "value" col))
-                                 (convert-type "value" :jsonb-scalar :numeric)
-                                 (or (get-in query-rec [:projections col :field]) col)))]
+                                 {:field (convert-type "value" :jsonb-scalar :numeric)
+                                  :join-deps #{:factsets}}
+                                 (if-let [column (get-in query-rec [:projections col])]
+                                   (select-keys column [:field :join-deps])
+                                   col)))]
     (if-let [calls (seq
                      (map (fn [[name & args]]
                             (apply vector
                                    name
                                    (if (empty? args)
-                                     [:*]
+                                     [{:field :* :join-deps #{}}]
                                      (map coalesce-fact-values args))))
                           fcols))]
       (-> query-rec
@@ -2864,6 +2869,9 @@
       (extract-where-deps-from-clause where plan))
     #{}))
 
+(defn extract-function-deps [plan]
+  (apply set/union (map :join-deps (:call plan))))
+
 ;; FIXME: add dotted test?
 (defn required-by-projections [plan]
   (let [proj-info (:projections plan)
@@ -2910,23 +2918,29 @@
     ;;   ...}
     (try
       (log/debug (trs "Attempting to drop unused joins from query"))
-      (when (:call plan)
-        (throw (ex-info "Cannot handle function calls yet"
+      (when (and (:call plan)
+                 (or (not= 1 (count (:call plan)))
+                     (not= "count" (:function (first (:call plan))))))
+        (throw (ex-info "Can only optimize queries with a single count function call"
                         {:kind ::cannot-drop-joins
                          ::why :unsupported-function-calls})))
       (let [proj-reqs (required-by-projections plan)]
-        (if (empty? proj-reqs)
+        (if (and (empty? proj-reqs)
+                 (empty? (:call plan)))
           incoming
           (let [where-reqs (extract-where-deps plan)
-                required? (set/union proj-reqs where-reqs)
-                join-key? #{:full-join
-                            :join
-                            :left-join
-                            :merge-full-join
-                            :merge-join
-                            :merge-left-join
-                            :merge-right-join
-                            :right-join}
+                function-reqs (extract-function-deps plan)
+                required? (set/union proj-reqs where-reqs function-reqs)
+                join-key? (if (empty? (:call plan))
+                            #{:full-join
+                              :join
+                              :left-join
+                              :merge-full-join
+                              :merge-join
+                              :merge-left-join
+                              :merge-right-join
+                              :right-join}
+                            #{:left-join})
                 need-join? (fn [[table spec]]
                              ;; table e.g. :factsets or [:factsets :fs]
                              ;; spec e.g. [:= :certnames.certname :fs.certname]
