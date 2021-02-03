@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 8c577a06f72acfceeec276b694671b804e404d91\n"
+"X-Git-Ref: e2577fb8a35fc5e12ff4ec2325efb9924b74f044\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1430,6 +1430,21 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Not replacing catalog for certname {0} because local data is newer."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Partition GC canceled queries from the following PostgreSQL pids: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid ""
+"Partition GC failed to cancel queries from the following PostgreSQL pids: "
+"{0}. "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid ""
+"The queries related to these pids may be blocking other database operations."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
