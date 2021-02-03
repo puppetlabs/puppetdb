@@ -1417,15 +1417,7 @@
         (is (= 1
                (count hashes)))
         (is (= expected
-               (first hashes)))
-
-        (testing "idx_reports_id index present in all partitions"
-          (let [assert-index-exists (fn [index indexes]
-                                      (is (true? (some #(str/includes? % index) indexes))))]
-            ;; check that idx_reports_id is present in all paritions
-            (dorun (->> (part/get-partition-names "reports")
-                        (map utils/table-indexes)
-                        (map (partial assert-index-exists "idx_reports_id"))))))))))
+               (first hashes)))))))
 
 (deftest migration-75-add-report-type-column-with-default
   (testing "reports should get default value of 'agent' for report_type"
@@ -1456,33 +1448,11 @@
         (is (= "agent" (-> (query-to-vec "select * from reports")
                            first :report_type)))))))
 
-(deftest migration-76-is-a-no-op-if-74-already-added-idx-reports-id
-  (testing "Index created with new version of migration 74"
-    (jdbc/with-db-connection *db*
-      (clear-db-for-testing!)
-      (let [assert-index-exists (fn [index indexes]
-                                  (is (true? (some #(str/includes? % index) indexes))))
-            ;; check that idx_reports_id is present in all paritions
-            check-idx-reports-id #(dorun
-                                   (->>
-                                    (part/get-partition-names "reports")
-                                    (map utils/table-indexes)
-                                    (map (partial assert-index-exists "idx_reports_id"))))]
-        (fast-forward-to-migration! 75)
-        ;; migration 74 should have added the parition indexes
-        (check-idx-reports-id)
-
-        (apply-migration-for-testing! 76)
-        ;; migration 76 should be a no-op
-        (check-idx-reports-id)))))
-
 (deftest migration-76-adds-report-id-idx-when-not-added-by-migration-74
   (testing "All report paritions have idx_reports_id index when old version of 74 applied"
     (jdbc/with-db-connection *db*
       (clear-db-for-testing!)
-      ;; don't add the idx_reports_id index when fast forwarding past migration 74
-      (binding [part/add-report-id-idx? false]
-        (fast-forward-to-migration! 75))
+      (fast-forward-to-migration! 75)
       (let [assert-no-index (fn [index indexes]
                               (is (nil? (some #(str/includes? % index) indexes))))]
         ;; check that idx_reports_id wasn't added by migration 74

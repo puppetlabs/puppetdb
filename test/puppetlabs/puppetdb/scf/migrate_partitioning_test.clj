@@ -694,19 +694,6 @@
                                                :user "pdb_test"}
                                   :same nil}
                                  {:left-only nil
-                                  :right-only
-                                  {:schema "public"
-                                   :table table-name
-                                   :index (str "idx_reports_id_" part-name)
-                                   :index_keys ["id"]
-                                   :type "btree"
-                                   :unique? true
-                                   :functional? false
-                                   :is_partial false
-                                   :primary? false
-                                   :user "pdb_test"}
-                                  :same nil}
-                                 {:left-only nil
                                   :right-only {:schema "public"
                                                :table table-name
                                                :index (str "reports_job_id_idx_" part-name)
@@ -1280,9 +1267,7 @@
 
 (deftest migration-76-schema-diff
   (clear-db-for-testing!)
-  ;; don't add the idx_reports_id index when fast forwarding past migration 74
-  (binding [partitioning/add-report-id-idx? false]
-    (fast-forward-to-migration! 75))
+  (fast-forward-to-migration! 75)
 
   (let [before-migration (schema-info-map *db*)
         today (ZonedDateTime/now (ZoneId/of "UTC"))
@@ -1310,6 +1295,79 @@
                                    :primary? false
                                    :user "pdb_test"}
                                   :same nil}]))
+                            part-names))
+            :table-diff nil
+            :constraint-diff nil}
+           (diff-schema-maps before-migration (schema-info-map *db*))))))
+
+(deftest migration-79-schema-diff
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 78)
+
+  (let [before-migration (schema-info-map *db*)
+        today (ZonedDateTime/now (ZoneId/of "UTC"))
+        days-range (range -4 4)
+        dates (map #(.plusDays today %) days-range)
+        part-names (map #(str/lower-case (partitioning/date-suffix %)) dates)]
+    (apply-migration-for-testing! 79)
+
+    (is (= {:index-diff (into
+                          [{:left-only
+                            {:schema "public"
+                             :table "reports"
+                             :index "reports_certname_idx"
+                             :index_keys  ["certname"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial false
+                             :primary? false
+                             :user "pdb_test"}
+                            :right-only nil
+                            :same nil}
+                           {:left-only nil
+                            :right-only
+                            {:schema "public"
+                             :table "reports"
+                             :index "idx_reports_certname_end_time"
+                             :index_keys  ["certname" "end_time"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial false
+                             :primary? false
+                             :user "pdb_test"}
+                            :same nil}]
+                          cat
+                          (map
+                            (fn [part-name]
+                              (let [table-name (str "reports_" part-name)]
+                                 [{:left-only
+                                   {:schema "public"
+                                    :table table-name
+                                    :index (str "reports_certname_idx_" part-name)
+                                    :index_keys  ["certname"]
+                                    :type "btree"
+                                    :unique? false
+                                    :functional? false
+                                    :is_partial false
+                                    :primary? false
+                                    :user "pdb_test"}
+                                   :right-only nil
+                                   :same nil}
+                                  {:left-only nil
+                                   :right-only
+                                   {:schema "public"
+                                    :table table-name
+                                    :index (str "idx_reports_certname_end_time_" part-name)
+                                    :index_keys ["certname" "end_time"]
+                                    :type "btree"
+                                    :unique? false
+                                    :functional? false
+                                    :is_partial false
+                                    :primary? false
+                                    :user "pdb_test"}
+                                   :same nil}]))
                             part-names))
             :table-diff nil
             :constraint-diff nil}
