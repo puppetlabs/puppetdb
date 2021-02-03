@@ -6,7 +6,11 @@
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.scf.partitioning
              :refer [get-temporal-partitions]]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [with-log-output
+                     logs-matching
+                     with-logged-event-maps
+                     with-log-level]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.db
@@ -41,7 +45,8 @@
             [puppetlabs.puppetdb.testutils
              :refer [block-until-results default-timeout-ms temp-file]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue])
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]
+            [clojure.string :as str])
   (:import
    [clojure.lang ExceptionInfo]
    (java.util.concurrent CyclicBarrier TimeUnit)
@@ -477,57 +482,67 @@
           invoke-periodic (fn [f first?]
                             (let [result (f first?)]
                               (.await after-gc)
-                              result))]
+                              result))
+          log (atom [])]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
-        (call-with-single-quiet-pdb-instance
+        (call-with-puppetdb-instance
          config
          (fn []
-           ;; Wait for the first, full gc to finish.
-           (.await after-gc)
-           (store-report "2011-01-01T12:00:01-03:00")
-           (store-report "2011-01-02T12:00:01-03:00")
-
-           (let [report-parts (set (get-temporal-partitions "reports"))
-                 event-parts (set (get-temporal-partitions "resource_events"))]
-
-             (is (subset? #{{:table "reports_20110101z", :part "20110101z"}
-                            {:table "reports_20110102z", :part "20110102z"}}
-                          report-parts))
-
-             (is (subset? #{{:table "resource_events_20110101z", :part "20110101z"}
-                            {:table "resource_events_20110102z", :part "20110102z"}}
-                          event-parts))
-
-             ;; these queries will sleep in front of the next GC preventing it from getting
-             ;; the AccessExclusiveLock it needs, both should get canceled by GC
-             (let [report-query (future
-                                  (jdbc/with-transacted-connection *db*
-                                    (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
-                   report-query2 (future
-                                   (jdbc/with-transacted-connection *db*
-                                     (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
-                   resource-query (future
-                                    (jdbc/with-transacted-connection *db*
-                                      (jdbc/do-commands "select event_hash, pg_sleep(1200) from resource_events")))]
-
-               ;; gc should clear the two queries from above and drop only the oldest partition
+           (with-log-level "puppetlabs.puppetdb.scf.storage" :info
+             (with-logged-event-maps log
+               ;; Wait for the first, full gc to finish.
                (.await after-gc)
+               (store-report "2011-01-01T12:00:01-03:00")
+               (store-report "2011-01-02T12:00:01-03:00")
 
-               (is (thrown-with-msg?
-                    java.util.concurrent.ExecutionException
-                    #"ERROR: canceling statement due to user request"
-                    (deref report-query default-timeout-ms :timeout-getting-expected-query-ex)))
-               (is (thrown-with-msg?
-                    java.util.concurrent.ExecutionException
-                    #"ERROR: canceling statement due to user request"
-                    (deref report-query2 default-timeout-ms :timeout-getting-expected-query-ex)))
-               (is (thrown-with-msg?
-                    java.util.concurrent.ExecutionException
-                    #"ERROR: canceling statement due to user request"
-                    (deref resource-query default-timeout-ms :timeout-getting-expected-query-ex))))
+               (let [report-parts (set (get-temporal-partitions "reports"))
+                     event-parts (set (get-temporal-partitions "resource_events"))]
 
-             (is (= (->> report-parts (sort-by :table) (drop 1) set)
-                    (set (get-temporal-partitions "reports"))))
-             (is (= (->> event-parts (sort-by :table) (drop 1) set)
-                    (set (get-temporal-partitions "resource_events")))))))))))
+                 (is (subset? #{{:table "reports_20110101z", :part "20110101z"}
+                                {:table "reports_20110102z", :part "20110102z"}}
+                              report-parts))
 
+                 (is (subset? #{{:table "resource_events_20110101z", :part "20110101z"}
+                                {:table "resource_events_20110102z", :part "20110102z"}}
+                              event-parts))
+
+                 ;; these queries will sleep in front of the next GC preventing it from getting
+                 ;; the AccessExclusiveLock it needs, both should get canceled by GC
+                 (let [report-query (future
+                                      (jdbc/with-transacted-connection *db*
+                                        (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
+                       report-query2 (future
+                                       (jdbc/with-transacted-connection *db*
+                                         (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
+                       resource-query (future
+                                        (jdbc/with-transacted-connection *db*
+                                          (jdbc/do-commands "select event_hash, pg_sleep(1200) from resource_events")))]
+
+                   ;; gc should clear the two queries from above and drop only the oldest partition
+                   (.await after-gc)
+
+                   (is (thrown-with-msg?
+                        java.util.concurrent.ExecutionException
+                        #"ERROR: canceling statement due to user request"
+                        (deref report-query default-timeout-ms :timeout-getting-expected-query-ex)))
+                   (is (thrown-with-msg?
+                        java.util.concurrent.ExecutionException
+                        #"ERROR: canceling statement due to user request"
+                        (deref report-query2 default-timeout-ms :timeout-getting-expected-query-ex)))
+                   (is (thrown-with-msg?
+                        java.util.concurrent.ExecutionException
+                        #"ERROR: canceling statement due to user request"
+                        (deref resource-query default-timeout-ms :timeout-getting-expected-query-ex))))
+
+                 ;; There should be two cancelled messages in the logs. One from the
+                 ;; queries cancelled by report GC and one from resource_events GC
+                 (is (= 2 (->> @log
+                               (map :message)
+                               (map #(str/includes? % "Partition GC canceled"))
+                               (filter true?)
+                               count)))
+
+                 (is (= (->> report-parts (sort-by :table) (drop 1) set)
+                        (set (get-temporal-partitions "reports"))))
+                 (is (= (->> event-parts (sort-by :table) (drop 1) set)
+                        (set (get-temporal-partitions "resource_events")))))))))))))

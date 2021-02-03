@@ -355,14 +355,14 @@ module PuppetDBExtensions
     end
 
     # infer branch from version, note this will ask for a non existent branch when on master
-    branch = /^((?:\d+\.)*)\d+/.match(version)[1] + 'x'
+    branch = /^(\d+\.)\d+\.\d+/.match(version)[1] + 'x'
     tag, status = get_latest_tag(branch)
 
     if status.success?
       return tag.delete("\n")
     else
-      # if tag doesn't exist assume branch is master
-      tag, status = get_latest_tag('master')
+      # if tag doesn't exist assume branch is main
+      tag, status = get_latest_tag('main')
       if status.success?
         return tag.delete("\n")
       else

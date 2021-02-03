@@ -1433,6 +1433,24 @@
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
+(defn maybe-log-query-cancellation
+  "Takes a seq of maps containing information about PostgreSQL pids
+   which the query-bulldozer attempted to call pg_cancel_backend(<pid>)
+   on and logs information about the cancellation attempt.
+   Example input: [{:pg_cancel_backend t/f :pid <pid>}]"
+  [result]
+  (let [{canceled true failed false} (group-by :pg_cancel_backend result)]
+    (when (seq canceled)
+      (log/info
+       (trs "Partition GC canceled queries from the following PostgreSQL pids: {0}"
+            (pr-str (mapv :pid canceled)))))
+    (when (seq failed)
+      (log/error
+       (str
+        (trs "Partition GC failed to cancel queries from the following PostgreSQL pids: {0}. "
+             (pr-str (mapv :pid failed)))
+        (trs "The queries related to these pids may be blocking other database operations."))))))
+
 (defn query-bulldozer
   "Creates a thread which will loop and wait for the gc-pid to get blocked
    waiting on an AccessExclusiveLock. Once this thread detects that GC is
@@ -1446,13 +1464,13 @@
   [db gc-pid gc-finished?]
   (let [bulldoze-blocking-qs
         (fn [gc-pid]
-          (jdbc/do-prepared
-           (str "select pg_cancel_backend(pid)"
+          (jdbc/query-to-vec
+           (str "select pg_cancel_backend(pid), pid"
                 " from pg_stat_activity"
                 " where (datname = (select current_database())"
                 "  and usename = (select current_user))"
                 "  and pid in (select unnest(pg_blocking_pids(?)))")
-           [gc-pid]))]
+           gc-pid))]
     (Thread.
      #(with-noisy-failure
         (try
@@ -1462,7 +1480,7 @@
           ;; to get a new Hikari connection
           (binding [jdbc/*db* db]
             (while (not @gc-finished?)
-              (bulldoze-blocking-qs gc-pid)
+              (maybe-log-query-cancellation (bulldoze-blocking-qs gc-pid))
               (Thread/sleep 1000)))
           (catch InterruptedException ex
             true))))))

@@ -1433,6 +1433,21 @@ msgid "Not replacing catalog for certname {0} because local data is newer."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Partition GC canceled queries from the following PostgreSQL pids: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid ""
+"Partition GC failed to cancel queries from the following PostgreSQL pids: "
+"{0}. "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid ""
+"The queries related to these pids may be blocking other database operations."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "More than 2 partitions to prune: {0}"
 msgstr ""
 
