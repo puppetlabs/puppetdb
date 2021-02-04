@@ -61,6 +61,10 @@
      :conn-lifetime (s/maybe s/Int)
      :maximum-pool-size (pls/defaulted-maybe s/Int 25)
      :subname (s/maybe String)
+     :connection-migrator-username String
+     :connection-migrator-password String
+     :connection-username String
+     :connection-password String
      :user String
      :username String
      :password String
@@ -121,6 +125,10 @@
    :connection-timeout s/Int
    :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
+   (s/optional-key :connection-migrator-username) String
+   (s/optional-key :connection-migrator-password) String
+   (s/optional-key :connection-username) String
+   (s/optional-key :connection-password) String
    (s/optional-key :user) String
    (s/optional-key :username) String
    (s/optional-key :password) String

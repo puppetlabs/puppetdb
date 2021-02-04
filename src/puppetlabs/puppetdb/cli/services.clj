@@ -619,15 +619,17 @@
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
   (log/info (trs "Ensuring {0} database is up to date" db-name))
-  (let  [migrator (:migrator-username db-config)]
+  (let  [connection-migrator (:connection-migrator-username db-config)
+         connection-migrator-password (:connection-migrator-password db-config)
+         migrator (:migrator-username db-config)]
     (with-open [db-pool (-> (assoc db-config
                                    :pool-name (if db-name
                                                 (str "PDBMigrationsPool: " db-name)
                                                 "PDBMigrationsPool")
                                    :connection-timeout 3000
                                    :rewrite-batched-inserts "true"
-                                   :user migrator
-                                   :password (:migrator-password db-config))
+                                   :user connection-migrator
+                                   :password connection-migrator-password)
                             (jdbc/make-connection-pool database-metrics-registry))]
       (let [runtime (Runtime/getRuntime)
             on-shutdown (doto (Thread.
@@ -902,7 +904,9 @@
       (with-final [read-db (-> (assoc read-database
                                       :pool-name "PDBReadPool"
                                       :expected-schema (desired-schema-version)
-                                      :read-only? true)
+                                      :read-only? true
+                                      :user (:connection-username read-database)
+                                      :password (:connection-password read-database))
                                (jdbc/pooled-datasource database-metrics-registry))
                    :error .close
 
