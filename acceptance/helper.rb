@@ -33,7 +33,7 @@ module PuppetDBExtensions
 
     platform_version =
       get_option_value(options[:platform_version],
-                       [:puppet5, :puppet6, :'puppet7-nightly'],
+                       [:puppet5, :puppet6, :puppet7],
                        "Puppet Platform Repo Version",
                        "PLATFORM_VERSION",
                        :puppet5)
@@ -883,9 +883,13 @@ EOS
           on host, "curl -O http://nightlies.puppet.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
+        elsif nightly && puppet_platform == :puppet7
+          on host, "curl -O http://nightlies.puppet.com/apt/puppet7-nightly-release-$(lsb_release -sc).deb"
+          on host, "dpkg -i puppet7-nightly-release-$(lsb_release -sc).deb"
+
         else
-          on host, "curl -O http://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
-          on host, "dpkg -i puppet6-release-$(lsb_release -sc).deb"
+          on host, "curl -O http://apt.puppet.com/puppet7-release-$(lsb_release -sc).deb"
+          on host, "dpkg -i puppet7-release-$(lsb_release -sc).deb"
         end
       else
         on host, "curl -O http://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
@@ -910,9 +914,13 @@ EOS
           on host, "curl -O http://nightlies.puppet.com/yum/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
+        elsif nightly && puppet_platform == :puppet7
+          on host, "curl -O http://nightlies.puppet.com/yum/puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "rpm -i puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
+
         else
-          on host, "curl -O http://yum.puppet.com/puppet6-release-#{variant}-#{version}.noarch.rpm"
-          on host, "rpm -i puppet6-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O http://yum.puppet.com/puppet7-release-#{variant}-#{version}.noarch.rpm"
+          on host, "rpm -i puppet7-release-#{variant}-#{version}.noarch.rpm"
         end
       else
         on host, "yum clean all -y"
