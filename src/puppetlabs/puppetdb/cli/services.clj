@@ -619,7 +619,8 @@
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
   (log/info (trs "Ensuring {0} database is up to date" db-name))
-  (let  [migrator (:migrator-username db-config)]
+  (let  [migrator (:migrator-username db-config)
+         connection-migrator-username (:connection-migrator-username db-config)]
     (with-open [db-pool (-> (assoc db-config
                                    :pool-name (if db-name
                                                 (str "PDBMigrationsPool: " db-name)
@@ -643,7 +644,7 @@
                  last-ex nil]
             (let [result (try
                            (let [datasource {:datasource db-pool}]
-                             (require-db-connection-as datasource migrator)
+                             (require-db-connection-as datasource connection-migrator-username)
                              (jdbc/with-db-connection datasource
                                (prep-db db-config)))
                            true

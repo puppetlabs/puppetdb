@@ -61,6 +61,8 @@
      :conn-lifetime (s/maybe s/Int)
      :maximum-pool-size (pls/defaulted-maybe s/Int 25)
      :subname (s/maybe String)
+     :connection-migrator-username String
+     :connection-username String
      :user String
      :username String
      :password String
@@ -121,6 +123,8 @@
    :connection-timeout s/Int
    :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
+   (s/optional-key :connection-migrator-username) String
+   (s/optional-key :connection-username) String
    (s/optional-key :user) String
    (s/optional-key :username) String
    (s/optional-key :password) String
@@ -397,6 +401,17 @@
   (-> config
       (update :migrator-username #(or % (:user config)))
       (update :migrator-password #(or % (:password config)))))
+
+
+(defn ensure-connection-users-info [config]
+  ;; This expects to run after ensure-migrator-info and prefer-db-user-on-username-mismatch,
+  ;; so the :user and :migrator-user should already be set
+  (assert (:user config))
+  (assert (:migrator-username config))
+  (-> config
+      (update :connection-username #(or % (:user config)))
+      (update :connection-migrator-username #(or % (:migrator-username config))))
+  )
 
 (defn fix-up-db-settings
   [section-key settings]
