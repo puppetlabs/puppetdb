@@ -402,6 +402,16 @@
       (update :migrator-username #(or % (:user config)))
       (update :migrator-password #(or % (:password config)))))
 
+(defn ensure-connection-users-info [config]
+  ;; This expects to run after ensure-migrator-info and prefer-db-user-on-username-mismatch,
+  ;; so the :user and :migrator-user should already be set
+  (assert (:user config))
+  (assert (:migrator-username config))
+  (-> config
+      (update :connection-username #(or % (:user config)))
+      (update :connection-migrator-username #(or % (:migrator-username config))))
+  )
+
 (defn fix-up-db-settings
   [section-key settings]
   ;; FIXME: double-check this reordering wrt each function,
@@ -416,7 +426,8 @@
       gc-interval->ms
       default-events-ttl
       (prefer-db-user-on-username-mismatch (name section-key))
-      ensure-migrator-info))
+      ensure-migrator-info
+      ensure-connection-users-info))
 
 (defn configure-read-db
   "Ensures that the config contains a suitable [read-database].  If the
