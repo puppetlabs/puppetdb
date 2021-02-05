@@ -772,11 +772,16 @@
             :let [config (get databases name)
                   pool-name (if (::conf/unnamed config)
                               "PDBWritePool"
-                              (str "PDBWritePool: " name))]]
+                              (str "PDBWritePool: " name))
+                  connection-username (:connection-username config)
+                  connection-password (:connection-password config)
+                  ]]
       (swap! pools conj
              (-> config
                  (assoc :pool-name pool-name
-                        :expected-schema desired-schema)
+                        :expected-schema desired-schema
+                        :user connection-username
+                        :password connection-password)
                  (jdbc/pooled-datasource database-metrics-registry))))
     {:write-db-names db-names
      :write-db-cfgs (mapv #(get databases %) db-names)
