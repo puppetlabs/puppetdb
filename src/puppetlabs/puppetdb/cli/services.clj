@@ -620,7 +620,7 @@
   ;; SQLException.
   (log/info (trs "Ensuring {0} database is up to date" db-name))
   (let  [connection-migrator (:connection-migrator-username db-config)
-         connection-migrator-password (:connection-migrator-password db-config)
+         migrator-password (:migrator-password db-config)
          migrator (:migrator-username db-config)]
     (with-open [db-pool (-> (assoc db-config
                                    :pool-name (if db-name
@@ -629,7 +629,7 @@
                                    :connection-timeout 3000
                                    :rewrite-batched-inserts "true"
                                    :user connection-migrator
-                                   :password connection-migrator-password)
+                                   :password migrator-password)
                             (jdbc/make-connection-pool database-metrics-registry))]
       (let [runtime (Runtime/getRuntime)
             on-shutdown (doto (Thread.
@@ -773,15 +773,12 @@
                   pool-name (if (::conf/unnamed config)
                               "PDBWritePool"
                               (str "PDBWritePool: " name))
-                  connection-username (:connection-username config)
-                  connection-password (:connection-password config)
-                  ]]
+                  connection-username (:connection-username config)]]
       (swap! pools conj
              (-> config
                  (assoc :pool-name pool-name
                         :expected-schema desired-schema
-                        :user connection-username
-                        :password connection-password)
+                        :user connection-username)
                  (jdbc/pooled-datasource database-metrics-registry))))
     {:write-db-names db-names
      :write-db-cfgs (mapv #(get databases %) db-names)
@@ -901,6 +898,7 @@
          (trs "WARNING: multiple write database support is experimental")))
       (log/warn (trs "multiple write database support is experimental")))
 
+    ; Initialize migrator pool for each DB we want to write to
     (doseq [[name config] write-dbs-config]
       (init-with-db name config))
 
@@ -910,8 +908,7 @@
                                       :pool-name "PDBReadPool"
                                       :expected-schema (desired-schema-version)
                                       :read-only? true
-                                      :user (:connection-username read-database)
-                                      :password (:connection-password read-database))
+                                      :user (:connection-username read-database))
                                (jdbc/pooled-datasource database-metrics-registry))
                    :error .close
 
@@ -926,6 +923,7 @@
                    ;; gc, schema checks, update checks
                    job-pool (scheduler 4) :error #(shut-down-service-scheduler-or-die
                                                    % request-shutdown)
+                   ; Create connection pools for each DB we want to write to
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
 
