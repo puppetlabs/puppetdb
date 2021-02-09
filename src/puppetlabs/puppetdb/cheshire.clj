@@ -123,6 +123,8 @@
 
 (def parse-strict-string core/parse-string-strict)
 
+(def parsed-seq core/parsed-seq)
+
 (def parse-stream core/parse-stream)
 
 (def byte-array-class (Class/forName "[B"))

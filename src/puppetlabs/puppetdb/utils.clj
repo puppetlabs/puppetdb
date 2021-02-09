@@ -4,7 +4,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [schema.core :as s]
             [clojure.data :as data]
             [puppetlabs.puppetdb.schema :as pls]
@@ -295,8 +294,8 @@
 (defn maybe-strip-escaped-quotes
   [s]
   (if (and (> (count s) 1)
-           (string/starts-with? s "\"")
-           (string/ends-with? s "\""))
+           (str/starts-with? s "\"")
+           (str/ends-with? s "\""))
     (subs s 1 (dec (count s)))
     s))
 
@@ -308,16 +307,16 @@
   [words]
   (let [quoted-words (map quoted words)]
     (if (> (count quoted-words) 2)
-      (str (string/join ", " (butlast quoted-words)) ", " "and " (last quoted-words))
-      (string/join " and " quoted-words))))
+      (str (str/join ", " (butlast quoted-words)) ", " "and " (last quoted-words))
+      (str/join " and " quoted-words))))
 
 (defn parse-matchfields
   [s]
-  (string/replace s #"match\((\".*\")\)" "$1"))
+  (str/replace s #"match\((\".*\")\)" "$1"))
 
 (defn parse-indexing
   [s]
-  (string/replace s #"\[(\d+)\]" ".$1"))
+  (str/replace s #"\[(\d+)\]" ".$1"))
 
 (defn split-indexing
   [path]
@@ -325,7 +324,7 @@
     (for [s path]
       (if (re-find #"\[\d+\]$" s)
         (-> s
-            (string/split #"(?=\[\d+\]$)")
+            (str/split #"(?=\[\d+\]$)")
             (update 1 #(Integer/parseInt (subs % 1 (dec (count %))))))
         s))))
 
@@ -343,7 +342,7 @@
   [strings]
   (format "(%s)" (->> strings
                       (map regex-quote)
-                      (string/join "|"))))
+                      (str/join "|"))))
 
 (defn optional-key? [x]
   ;; broken with AOT noidea: (instance? schema.core.OptionalKey k))
@@ -366,7 +365,7 @@
   or keyword) that was passed in.  This is useful for translating data structures
   from their wire format to the format that is needed for JDBC."
   [str]
-  (let [result (string/replace (name str) \- \_)]
+  (let [result (str/replace (name str) \- \_)]
     (if (keyword? str)
       (keyword result)
       result)))
@@ -379,8 +378,8 @@
   [s]
   (let [opt-key? (optional-key? s)
         result (if opt-key?
-                 (string/replace (name (:k s)) \_ \-)
-                 (string/replace (name s) \_ \-))]
+                 (str/replace (name (:k s)) \_ \-)
+                 (str/replace (name s) \_ \-))]
     (cond
       opt-key? (if (keyword? (:k s))
                  (s/optional-key (keyword result))
@@ -390,7 +389,7 @@
 
 (defn dash->underscore-keys
   "Converts all top-level keys (including nested maps) in `m` to use dashes
-  instead of underscores as word separatators"
+  instead of underscores as word separators"
   [m]
   (sp/transform [sp/ALL]
                 #(update % 0 dashes->underscores)
@@ -398,7 +397,7 @@
 
 (defn underscore->dash-keys
   "Converts all top-level keys (including nested maps) in `m` to use underscores
-  instead of underscores as word separatators"
+  instead of underscores as word separators"
   [m]
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
@@ -644,3 +643,25 @@
 
 (defn schedule-with-fixed-delay [s f initial-delay delay]
   (.scheduleWithFixedDelay s f initial-delay delay TimeUnit/MILLISECONDS))
+
+(defn pprint-json-parse-exception
+  "Returns a parsed JsonParseException message.
+  From the second line of the error message, the line and
+  column index are extracted, so that we can place an arrow,
+  pointing at that position. "
+  [error query]
+  (let [error-lines (str/split-lines (.getMessage error))
+        [_ line column] (re-find #"line: (\d+), column: (\d+)" (second error-lines))
+        line-index (Integer. line)
+        column-index (Integer. column)
+        ;subtracting 1 from the line and column index,
+        ;because they start from 1, not 0
+        query-line-index (dec line-index)
+        query-column-index (dec column-index)]
+
+    (str "Json parse error at line " line-index ", column " column-index ":\n\n"
+         ((str/split-lines query) query-line-index) "\n"
+        ;subtracting an additional 1 from the column index,
+        ;to make room for the arrow sign
+         (apply str (concat (repeat (dec query-column-index) " ") "^")) "\n\n"
+         (first error-lines))))

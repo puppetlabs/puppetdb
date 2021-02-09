@@ -14,13 +14,16 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
+            [ring.util.request :as request]
             [puppetlabs.puppetdb.query.paging :refer [parse-limit
                                                       parse-offset
                                                       parse-order-by
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when]]))
+            [puppetlabs.puppetdb.utils :refer [update-when
+                                               pprint-json-parse-exception]])
+  (:import (com.fasterxml.jackson.core JsonParseException)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -291,8 +294,11 @@
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
   [req parse-fn]
-  (-> (with-open [reader (-> req :body clojure.java.io/reader)]
-        (json/parse-stream reader true))
+  (-> (let [req-body (request/body-string req)]
+        (try
+          (json/parse-string req-body true)
+        (catch JsonParseException e
+          (throw (IllegalArgumentException. (tru (pprint-json-parse-exception e req-body)))))))
       (update :query (fn [query]
                        (if (vector? query)
                          query

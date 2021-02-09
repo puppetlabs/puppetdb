@@ -94,3 +94,16 @@
 
   (testing "truncation doesn't add extra bytes"
     (is (= "foo" (utf8-truncate "foo" 256)))))
+
+(deftest test-pprint-json-parse-exception
+  (let [query "[\"from\", \"nodes\"] lk"
+        error-message (str "Unrecognized token random: was expecting "
+                           "(JSON String, Number, Array, Object or token null, true or false)\n"
+                           " at [String.Reader line: 1, column: 21]")
+        expected-message (str "Json parse error at line 1, column 21:\n\n"
+                              "[\"from\", \"nodes\"] lk\n"
+                              "                   ^\n\n"
+                              "Unrecognized token random: was expecting "
+                              "(JSON String, Number, Array, Object or token null, true or false)")
+        mock-exception (ex-info error-message {})]
+    (is (= expected-message (pprint-json-parse-exception  mock-exception query)))))
