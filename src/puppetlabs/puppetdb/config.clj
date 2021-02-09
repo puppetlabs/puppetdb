@@ -409,8 +409,7 @@
   (assert (:migrator-username config))
   (-> config
       (update :connection-username #(or % (:user config)))
-      (update :connection-migrator-username #(or % (:migrator-username config))))
-  )
+      (update :connection-migrator-username #(or % (:migrator-username config)))))
 
 (defn fix-up-db-settings
   [section-key settings]

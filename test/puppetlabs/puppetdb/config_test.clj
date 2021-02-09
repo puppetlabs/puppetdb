@@ -282,14 +282,17 @@
             thirty-seconds-in-millis 30000]
         (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))
 
-    (let [no-migrator {:database {:classname "something"
-                                  :subname "stuff"
+    (let [no-migrator {:database {:classname   "something"
+                                  :subname     "stuff"
                                   :subprotocol "more stuff"
-                                  :username "someone"
-                                  :password "something"}}
+                                  :username    "someone"
+                                  :password    "something"}}
           migrator (update no-migrator :database assoc
                            :migrator-username "admin"
-                           :migrator-password "admin")]
+                           :migrator-password "admin")
+          connection-user (update migrator :database assoc
+                                  :connection-username "connection-user-value"
+                                  :connection-migrator-username "connection-migration-user-value")]
 
       (testing "migrator-username"
         (let [config (configure-dbs no-migrator)]
@@ -305,7 +308,20 @@
           (is (= "something" (get-in config [:read-database :migrator-password]))))
         (let [config (configure-dbs migrator)]
           (is (= "admin" (get-in config [:database :migrator-password])))
-          (is (= "admin" (get-in config [:read-database :migrator-password]))))))))
+          (is (= "admin" (get-in config [:read-database :migrator-password])))))
+
+      (testing "connection-usernames"
+        (let [config (configure-dbs no-migrator)]
+          (is (= "someone" (get-in config [:database :connection-username])))
+          (is (= "someone" (get-in config [:database :connection-migrator-username]))))
+
+        (let [config (configure-dbs migrator)]
+          (is (= "someone" (get-in config [:database :connection-username])))
+          (is (= "admin" (get-in config [:database :connection-migrator-username]))))
+
+        (let [config (configure-dbs connection-user)]
+          (is (= "connection-user-value" (get-in config [:database :connection-username])))
+          (is (= "connection-migration-user-value" (get-in config [:database :connection-migrator-username]))))))))
 
 (deftest database-user-preferred-to-username-on-mismatch
   (let [config (configure-dbs {:database {:classname "something"
