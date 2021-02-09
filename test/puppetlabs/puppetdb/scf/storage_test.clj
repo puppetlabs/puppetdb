@@ -28,6 +28,7 @@
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
+            [metrics.timers :refer [time! timer]]
             [puppetlabs.puppetdb.jdbc :as jdbc
              :refer [call-with-query-rows query-to-vec]]
             [puppetlabs.puppetdb.time :as time
@@ -291,6 +292,19 @@
                              :producer producer})
             (is (= (assoc fact-map  "one more" "here")
                    (factset-map "some_certname")))))
+
+        (defn new-facts []
+          (time! (get-storage-metric :add-new-fact) [ "new-fact-time" ]))
+        (testing "replace-facts with only additions"
+          (let [fact-map (factset-map "some_certname")]
+            (let [old-replace-facts (new-facts)]
+            (replace-facts! {:certname certname
+                             :values (assoc fact-map "one more" "here")
+                             :environment "DEV"
+                             :producer_timestamp (now)
+                             :timestamp (now)
+                             :producer producer})
+            (is (= old-replace-facts (new-facts))))))
 
         (testing "replace-facts with no change"
           (let [fact-map (factset-map "some_certname")]

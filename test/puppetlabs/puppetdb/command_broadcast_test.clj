@@ -78,7 +78,7 @@
         (let [storage-metrics (list-metrics :puppetlabs.puppetdb.storage)
               ;; filter out non-broadcast metrics created in the registry during other tests
               broadcast-metrics (filter #(re-find (re-pattern (str "pg1" "|" "pg2")) (str %)) storage-metrics)
-              expected-count 21  ;; 21 per pg metrics registered in storage.clj
+              expected-count 22  ;; 22 per pg metrics registered in storage.clj
               [pg-1 pg-2] (vals (group-by #(subs (str %) 1 9) broadcast-metrics))]
           (is (= expected-count (count pg-1)))
           (is (= (count pg-1) (count pg-2)))))
