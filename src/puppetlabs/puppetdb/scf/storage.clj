@@ -190,6 +190,7 @@
          :resource-hashes    (timer storage-metrics-registry [(pname "resource-hashes")])
          :catalog-hash       (timer storage-metrics-registry [(pname "catalog-hash")])
          :add-new-catalog    (timer storage-metrics-registry [(pname "new-catalog-time")])
+         :add-new-fact       (timer storage-metrics-registry [(pname "new-fact-time")])
          :catalog-hash-match (timer storage-metrics-registry [(pname "catalog-hash-match-time")])
          :catalog-hash-miss  (timer storage-metrics-registry [(pname "catalog-hash-miss-time")])
          :replace-catalog    (timer storage-metrics-registry [(pname "replace-catalog-time")])
@@ -1732,7 +1733,8 @@
            (if-not (.after local-factset-producer-ts (to-timestamp producer_timestamp))
              (update-facts! fact-data)
              (log/warn (trs "Not updating facts for certname {0} because local data is newer." certname)))
-           (add-facts! fact-data))))
+           (time! (get-storage-metric :add-new-fact)
+                   (add-facts! fact-data)))))
 
 (s/defn add-report!
   "Add a report and all of the associated events to the database."
