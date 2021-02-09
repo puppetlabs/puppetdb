@@ -21,6 +21,71 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.14.0
+
+Released 9 February 2021
+
+This release contains important security updates. See
+([PDB-5000](https://tickets.puppetlabs.com/browse/PDB-5000)).
+
+### New features and improvements
+
+- (PE only) PuppetDB will synchronize with another instance more efficiently
+  now. Previously it would synchronize each entity (factsets, reports, etc.)
+  incrementally, holding open PostgreSQL queries/transactions throughout the
+  entire process, which could take a long time. Those transactions could
+  substantially harm database performance, increase table fragmentation, and if
+  entangled with something like pglogical, increase transient storage
+  requirements (by blocking WAL log reclaimaton). Now instead, the queries
+  should completed up-front, as quickly as possible.
+  [PDB-2420](https://tickets.puppetlabs.com/browse/PDB-2420)
+- Changed the index on `certname` for report table partitions to be an index on
+  `(certname, end_time)` to improve performance of certain queries from the
+  PE console.
+  [PDB-5003](https://tickets.puppetlabs.com/browse/PDB-5003)
+- The `/metrics/v2` endpoint is now avaialble for external (non-localhost)
+  connections, but requires authentication. This can be configured in a new
+  configuration file `auth.conf`.
+  [PDB-4811](https://tickets.puppetlabs.com/browse/PDB-4811)
+- The `optimize_drop_unused_joins` query parameter can now optimize queries that
+  contain a single count function.
+  [PDB-4984](https://tickets.puppetlabs.com/browse/PDB-4984)
+- Added a query bulldozer which is spawned during periodic GC when PuppetDB
+  attempts to drop partitioned tables. The bulldozer will cancel any queries
+  blocking the GC process from getting the AccessExclusiveLocks it needs in
+  order to drop a partition. The [PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS
+  setting](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  allows users to disable the query-bulldozer if needed.
+  [PDB-4948](https://tickets.puppetlabs.com/browse/PDB-4948)
+
+### Bug fixes
+
+- Puppet Enterprise (PE) only: fixed an issue where PuppetDB wouldn't
+  exit maintenance mode if garbage collection was disabled and sync was enabled.
+  ([PDB-4975](https://tickets.puppetlabs.com/browse/PDB-4975))
+- Previously an attempt to stop (or restart) PuppetDB might appear to succeed,
+  even though some of its components were actually still running. That's because
+  PuppetDB wasn't actually waiting for some of the internal tasks to finish as
+  had been expected. Now PuppetDB should block during stop or restart until all
+  of the components have actually shut down. This issue is a likely contributor
+  to some cases where PuppetDB appeared to restart/reload successfully, but sync
+  never started working again.
+  [PDB-4974](https://tickets.puppetlabs.com/browse/PDB-4974)
+- PuppetDB no longer retries queries internally, suppressing some transient
+  connection errors. Instead, it immediately returns an error code.
+  You can restore the previous behavior by setting the
+  `PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD` environment variable. See the
+  [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details. [PDB-4962](https://tickets.puppetlabs.com/browse/PDB-4962)
+- PuppetDB won't hold an extra database connection open while generating query
+  responses. Previously it would create and hold an extra connection open during
+  the initial phase of the response. You can restore the previous behavior by
+  setting the `PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD` environment
+  variable. See the [configuration information](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  for further details.
+- Various security fixes.
+  ([PDB-5000](https://tickets.puppetlabs.com/browse/PDB-5000))
+
 ## PuppetDB 6.13.1
 
 Released 27 October 2020
