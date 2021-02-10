@@ -265,7 +265,7 @@
       (jdbc/with-transacted-connection db
         (try
           (scf-store/delete-resource-events-older-than! rounded-ttl incremental?
-                                                        update-lock-status)
+                                                        update-lock-status db)
           ;; FIXME: do we really want sql errors appearing at this level?
           (catch SQLException ex
             (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
