@@ -546,3 +546,26 @@
                         (set (get-temporal-partitions "reports"))))
                  (is (= (->> event-parts (sort-by :table) (drop 1) set)
                         (set (get-temporal-partitions "resource_events")))))))))))))
+
+(deftest initialize-db
+  (testing "use connection user for database connections"
+    (let [con-mig-user "conn-migration-user-value"
+          mig-pass     "migrator-password-value"
+          user         "user-value"
+          pass         "password-value"
+          validation-fn (fn [config metrics-registry]
+                          (is (= con-mig-user (:connection-migrator-username config)))
+                          (is (= con-mig-user (:user config)))
+                          (is (= mig-pass (:migrator-password config)))
+                          (is (= mig-pass (:password config)))
+                          ; We throw exception in order to interrupt execution in `init-with-db` function.
+                          (throw (Exception.
+                                   "everything ok exception")))]
+      (with-redefs [jdbc/make-connection-pool validation-fn]
+        (testing "should use connection user"
+          (is (thrown-with-msg?
+                Exception #"everything ok exception"
+                (init-with-db "test-db" {:connection-migrator-username con-mig-user
+                                         :migrator-password            mig-pass
+                                         :user                         user
+                                         :password                     pass}))))))))
