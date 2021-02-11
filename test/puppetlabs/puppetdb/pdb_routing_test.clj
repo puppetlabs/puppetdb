@@ -25,6 +25,11 @@
 (defn query-server-time [{:keys [host port]}]
   (svc-utils/get (svc-utils/meta-url-str "/server-time")))
 
+(defn construct-metrics-url []
+      (-> svc-utils/*base-url*
+          (assoc :prefix "/metrics" :version :v2)
+          (svc-utils/create-url-str "/list")))
+
 (def test-facts {:certname "foo.com"
                  :environment "DEV"
                  :producer_timestamp (to-string (now))
@@ -58,6 +63,8 @@
       (enable-maint-mode maint-mode-service)
       (is (= (:status (query-fact-names svc-utils/*base-url*))
              503))
+      (testing "query metrics successfully"
+      (is (= 200 (:status (svc-utils/get (construct-metrics-url))))))
 
       (disable-maint-mode maint-mode-service)
       (is (= #{"foo" "bar" "baz"}
