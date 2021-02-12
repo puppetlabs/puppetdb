@@ -548,7 +548,7 @@
                         (set (get-temporal-partitions "resource_events")))))))))))))
 
 (deftest initialize-db
-  (testing "use connection user for database connections"
+  (testing "when establishing migration database connections"
     (let [con-mig-user "conn-migration-user-value"
           mig-pass     "migrator-password-value"
           user         "user-value"
@@ -562,10 +562,22 @@
                           (throw (Exception.
                                    "everything ok exception")))]
       (with-redefs [jdbc/make-connection-pool validation-fn]
-        (testing "should use connection user"
+        (testing "should use connection migrator user"
           (is (thrown-with-msg?
                 Exception #"everything ok exception"
                 (init-with-db "test-db" {:connection-migrator-username con-mig-user
                                          :migrator-password            mig-pass
                                          :user                         user
                                          :password                     pass}))))))))
+
+(deftest initialize-write-dbs
+  (testing "when establishing write database connections"
+    (let [connection-username "conn-user-value"
+          databases {"default-database" , {:connection-username connection-username}}
+          validation-fn (fn [options metrics-registry]
+                          (is (= connection-username (:user options)))
+                          )
+          ]
+      (with-redefs [jdbc/pooled-datasource validation-fn]
+        (testing "should use connection user"
+          (init-write-dbs databases))))))
