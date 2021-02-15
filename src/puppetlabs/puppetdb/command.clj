@@ -121,6 +121,7 @@
 ;;         :retry-counts <histogram>
 ;;         :size <histogram>
 ;;         :ignored <counter>
+;;         :concurrent-depth <counter>
 ;;        }
 ;;      "command name"
 ;;        {<version number>
@@ -156,6 +157,7 @@
 ;; * `:invalidated`: commands marked as delete?, caused by a newer command
 ;;                   was enqueued that will overwrite an existing one in the queue
 ;; * `:depth`: number of commands currently enqueued
+;; * `:concurrent-depth`: number of threads currently waiting to write to the disk
 ;; * `:ignored`: number of obsolete commands that have been ignored.
 ;;
 
@@ -186,6 +188,9 @@
          :message-persistence-time (timer mq-metrics-registry
                                           (metrics/keyword->metric-name
                                            [:global] :message-persistence-time))
+         :concurrent-depth (counter mq-metrics-registry
+                                    (metrics/keyword->metric-name
+                                      [:global] :concurrent-depth))
          :global (create-metrics [:global])}))
 
 (defn global-metric
@@ -250,6 +255,9 @@
 
 ;; ## Command submission
 
+;; for testing via with-redefs
+(defn concurrent-depth-hook [])
+
 (defn-validated do-enqueue-command
   "Stores command in the q and returns its id."
   [q
@@ -258,7 +266,10 @@
    {:keys [command certname command-stream compression] :as command-req} :- queue/command-req-schema
    maybe-send-cmd-event!]
   (try
+    (inc! (get @metrics :concurrent-depth))
+    (concurrent-depth-hook)
     (.acquire write-semaphore)
+    (dec! (get @metrics :concurrent-depth))
     (time! (get @metrics :message-persistence-time)
            (let [cmdref (queue/store-command q command-req)
                  {:keys [id received]} cmdref]
