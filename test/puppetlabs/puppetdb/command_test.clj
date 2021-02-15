@@ -75,7 +75,7 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.nio.file Files)
-   (java.util.concurrent TimeUnit)
+   (java.util.concurrent TimeUnit CountDownLatch)
    (java.sql SQLException)
    (org.joda.time DateTime DateTimeZone)))
 
@@ -183,6 +183,11 @@
 (defn ignored-count []
   (-> (counters/counter (get-in metrics-registries [:mq :registry])
                         ["global" "ignored"])
+      counters/value))
+
+(defn concurrent-depth []
+  (-> (counters/counter (get-in metrics-registries [:mq :registry])
+                        ["global" "concurrent-depth"])
       counters/value))
 
 (defn failed-catalog-req [version certname payload]
@@ -1829,6 +1834,53 @@
                "Waited up to 5 seconds for 3 acknowledgement results")
 
            (is (= [nil nil nil] @ack-results))))))))
+
+(deftest concurrent-depth-metrics-update
+  (with-test-db
+    (svc-utils/call-with-puppetdb-instance
+      (assoc (svc-utils/create-temp-config)
+            :database *db*
+            :command-processing {:concurrent-writes 1})
+     (fn []
+       (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+             new-producer-ts (now)
+             base-cmd (get-in wire-catalogs [9 :basic])
+             semaphore (:write-semaphore (service-context dispatcher))
+             enqueue-catalog (fn []
+                               (enqueue-command
+                                dispatcher
+                                (command-names :replace-catalog)
+                                9
+                                (:certname base-cmd)
+                                                nil
+                                                (->  base-cmd
+                                                     (assoc :producer_timestamp new-producer-ts)
+                                                     tqueue/coerce-to-stream)
+                                                ""))
+             cmds-enqueued (CountDownLatch. 3)]
+
+         (testing "should drain semaphore resources"
+           (is (= 1 (.drainPermits semaphore))))
+
+           (with-redefs [cmd/concurrent-depth-hook (fn []
+                                                   (.countDown cmds-enqueued))]
+           (let [cmd-1 (utils/noisy-future (enqueue-catalog))
+                 cmd-2 (utils/noisy-future (enqueue-catalog))
+                 cmd-3 (utils/noisy-future (enqueue-catalog))]
+
+           (.await cmds-enqueued default-timeout-ms TimeUnit/MILLISECONDS)
+
+           (testing "concurrent-depth metric should be the number of commands"
+             (is (= 3 (concurrent-depth))))
+
+           (.release semaphore)
+           (when (some #(= :timeout %)
+                         (map #(deref % default-timeout-ms :timeout)
+                              [cmd-1 cmd-2 cmd-3]))
+               (throw (Exception. "timed out waiting to enqueue command"))))
+
+           (testing "concurrent-depth metric should be 0"
+             (is (= 0 (concurrent-depth))))))))))
 
 (deftest missing-queue-files-accounted-for-in-stats
   ;; Use a lock to hold up command processing while we trash the
