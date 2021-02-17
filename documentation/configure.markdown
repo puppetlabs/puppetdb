@@ -491,6 +491,14 @@ this if your PostgreSQL server is using SSL.
 The database user specified for connections performing normal
 operations (queries, command processing, etc.).
 
+### `connection-username`
+The database user for special cases when the database connection username
+is different from the username reported by the database.
+An example is managed PostgreSQL in Azure, in order to connect we need to specify
+`username@hostname`, but the user reported by the database is `username`.
+If not specified, it will default to `username`
+
+
 ### `password`
 
 This is the password to use when connecting. Only used with PostgreSQL.
@@ -500,6 +508,13 @@ This is the password to use when connecting. Only used with PostgreSQL.
 The database user specified for database migration operations, in
 particular the database validation and migration at startup.  Defaults
 to the `username`.
+
+### `connection-migrator-username`
+The database migrator user for special cases when the database connection username
+is different from the username reported by the database.
+An example is managed PostgreSQL in Azure, in order to connect we need to specify
+`username@hostname`, but the user reported by the database is `username`.
+If not specified, it will default to `migrator-username`
 
 ### `migrator-password`
 
