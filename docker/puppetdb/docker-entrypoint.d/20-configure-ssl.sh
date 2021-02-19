@@ -10,7 +10,10 @@ fi
 
 # cert files are present from Puppetserver OR have been user supplied
 if [ -f "${SSLDIR}/private_keys/${CERTNAME}.pem" ]; then
-  openssl pkcs8 -inform PEM -outform DER -in ${SSLDIR}/private_keys/${CERTNAME}.pem -topk8 -nocrypt -out ${SSLDIR}/private_keys/${CERTNAME}.pk8
+
+  openssl pkcs8 -topk8 -nocrypt -inform PEM -outform DER \
+    -in "${SSLDIR}/private_keys/server.key" \
+    -out "${SSLDIR}/private_keys/server.private_key.pk8"
 
   # enable SSL in Jetty
   sed -i '/^# ssl-/s/^# //g' /etc/puppetlabs/puppetdb/conf.d/jetty.ini

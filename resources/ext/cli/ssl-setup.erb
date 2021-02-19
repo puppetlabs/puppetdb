@@ -349,6 +349,7 @@ if [ -f "$jettyfile" ] ; then
     "ssl-key:${private_file}"
     "ssl-cert:${public_file}"
     "ssl-ca-cert:${ca_file}"
+    "client-auth = want"
   )
 
   for i in "${settings[@]}"; do
@@ -422,4 +423,5 @@ then
   echo "    ssl-key     = ${private_file}"
   echo "    ssl-cert    = ${public_file}"
   echo "    ssl-ca-cert = ${ca_file}"
+  echo "    client-auth = want"
 fi

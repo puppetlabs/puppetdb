@@ -28,6 +28,7 @@
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
+            [metrics.timers :refer [time! timer]]
             [puppetlabs.puppetdb.jdbc :as jdbc
              :refer [call-with-query-rows query-to-vec]]
             [puppetlabs.puppetdb.time :as time
@@ -89,6 +90,9 @@
       first
       :c))
 
+(defn new-facts-time []
+  (metrics.timers/number-recorded  (:add-new-fact @storage-metrics)))
+
 (deftest-db large-fact-update
   (testing "updating lots of facts"
     (let [certname "scale.com"
@@ -98,14 +102,19 @@
           facts2 (zipmap (take 11000 (repeatedly #(random/random-string 10)))
                          (take 11000 (repeatedly #(random/random-string 10))))
           timestamp2 (-> 1 days ago)
-          producer "bar.com"]
+          producer "bar.com"
+          old-facts-time (new-facts-time)]
       (add-certname! certname)
+
       (add-facts! {:certname certname
                    :values facts1
                    :timestamp timestamp1
                    :environment nil
                    :producer_timestamp timestamp1
                    :producer producer})
+
+      (testing "new-fact-time metric is updated"
+          (is (= 1 (- (new-facts-time) old-facts-time))))
 
       (testing "10000 facts stored"
         (is (= 10000 (count-facts))))

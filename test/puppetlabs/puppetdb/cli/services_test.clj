@@ -546,3 +546,36 @@
                         (set (get-temporal-partitions "reports"))))
                  (is (= (->> event-parts (sort-by :table) (drop 1) set)
                         (set (get-temporal-partitions "resource_events")))))))))))))
+
+(deftest initialize-db
+  (testing "when establishing migration database connections"
+    (let [con-mig-user "conn-migration-user-value"
+          mig-pass     "migrator-password-value"
+          user         "user-value"
+          pass         "password-value"
+          validation-fn (fn [config metrics-registry]
+                          (is (= con-mig-user (:connection-migrator-username config)))
+                          (is (= con-mig-user (:user config)))
+                          (is (= mig-pass (:migrator-password config)))
+                          (is (= mig-pass (:password config)))
+                          ; We throw exception in order to interrupt execution in `init-with-db` function.
+                          (throw (Exception.
+                                   "everything ok exception")))]
+      (with-redefs [jdbc/make-connection-pool validation-fn]
+        (testing "should use connection migrator user"
+          (is (thrown-with-msg?
+                Exception #"everything ok exception"
+                (init-with-db "test-db" {:connection-migrator-username con-mig-user
+                                         :migrator-password            mig-pass
+                                         :user                         user
+                                         :password                     pass}))))))))
+
+(deftest initialize-write-dbs
+  (testing "when establishing write database connections"
+    (let [connection-username "conn-user-value"
+          databases {"default-database" , {:connection-username connection-username}}
+          validation-fn (fn [options metrics-registry]
+                          (is (= connection-username (:user options))))]
+      (with-redefs [jdbc/pooled-datasource validation-fn]
+        (testing "should use connection user"
+          (init-write-dbs databases))))))

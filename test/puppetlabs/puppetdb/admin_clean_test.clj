@@ -67,6 +67,7 @@
     (is (= http/status-ok (:status (post-clean ["expire_nodes"]))))
     (is (= http/status-ok (:status (post-clean ["purge_nodes"]))))
     (is (= http/status-ok (:status (post-clean ["purge_reports"]))))
+    (is (= http/status-ok (:status (post-clean ["purge_resource_events"]))))
     (is (= http/status-ok (:status (post-clean ["gc_packages"]))))
     (is (= http/status-ok (:status (post-clean ["other"]))))
     (is (= http/status-bad-request (:status (post-clean ["?"]))))))

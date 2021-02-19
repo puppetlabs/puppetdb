@@ -169,6 +169,9 @@
 ;; * `:replace-facts`: the time it takes to replace the facts for a
 ;;   host
 ;;
+;; * `:new-fact`: the time it takes to persist facts for a
+;;    never before seen certname
+;;
 (def storage-metrics (atom {}))
 
 (defn get-storage-metric
@@ -190,6 +193,7 @@
          :resource-hashes    (timer storage-metrics-registry [(pname "resource-hashes")])
          :catalog-hash       (timer storage-metrics-registry [(pname "catalog-hash")])
          :add-new-catalog    (timer storage-metrics-registry [(pname "new-catalog-time")])
+         :add-new-fact       (timer storage-metrics-registry [(pname "new-fact-time")])
          :catalog-hash-match (timer storage-metrics-registry [(pname "catalog-hash-match-time")])
          :catalog-hash-miss  (timer storage-metrics-registry [(pname "catalog-hash-miss-time")])
          :replace-catalog    (timer storage-metrics-registry [(pname "replace-catalog-time")])
@@ -1136,12 +1140,13 @@
   ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
-   (jdbc/with-db-transaction []
-     (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
+   (time! (get-storage-metric :add-new-fact)
+     (jdbc/with-db-transaction []
+       (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
                         (realize-paths (facts/facts->pathmaps values)
                                        (pathmap-digestor digest))
                         (.digest digest))]
-       (jdbc/insert! :factsets
+         (jdbc/insert! :factsets
                      (merge
                       {:certname certname
                        :timestamp (to-timestamp timestamp)
@@ -1156,8 +1161,8 @@
                       (when include-hash?
                         {:hash (sutils/munge-hash-for-storage
                                 (shash/fact-identity-hash fact-data))}))))
-     (when (seq package_inventory)
-       (insert-packages certname package_inventory)))))
+       (when (seq package_inventory)
+         (insert-packages certname package_inventory))))))
 
 (s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that

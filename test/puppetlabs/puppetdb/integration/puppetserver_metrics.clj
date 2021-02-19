@@ -55,4 +55,21 @@
                  :value
                  vals
                  (map #(not= 0.0 %))
+                 (every? true?)))))
+
+    (testing "PuppetDB metrics are updated for submitting new facts"
+      ;; the terminus is configured to send gzipped commands like
+      ;; "replace-facts", this test checks that the PDB new-fact-time
+      ;; metric is updated
+      (let [new-fact-metrics-url (str "https://localhost:"
+                                  (-> pdb int/server-info :base-url :port)
+                                  "/metrics/v2/read/puppetlabs.puppetdb.storage:name=new-fact-time")
+            metrics-resp (svc-utils/get-ssl new-fact-metrics-url)]
+        (is (= 200 (:status metrics-resp)))
+        ;; assert that the new-fact-time metric has been updated and no values are 0.0
+        (is (->> metrics-resp
+                 :body
+                 :value
+                 vals
+                 (map #(not= 0.0 %))
                  (every? true?)))))))

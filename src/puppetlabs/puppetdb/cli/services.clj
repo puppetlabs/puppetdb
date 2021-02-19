@@ -265,7 +265,7 @@
       (jdbc/with-transacted-connection db
         (try
           (scf-store/delete-resource-events-older-than! rounded-ttl incremental?
-                                                        update-lock-status)
+                                                        update-lock-status db)
           ;; FIXME: do we really want sql errors appearing at this level?
           (catch SQLException ex
             (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
@@ -619,15 +619,17 @@
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
   (log/info (trs "Ensuring {0} database is up to date" db-name))
-  (let  [migrator (:migrator-username db-config)]
+  (let  [connection-migrator (:connection-migrator-username db-config)
+         migrator-password (:migrator-password db-config)
+         migrator (:migrator-username db-config)]
     (with-open [db-pool (-> (assoc db-config
                                    :pool-name (if db-name
                                                 (str "PDBMigrationsPool: " db-name)
                                                 "PDBMigrationsPool")
                                    :connection-timeout 3000
                                    :rewrite-batched-inserts "true"
-                                   :user migrator
-                                   :password (:migrator-password db-config))
+                                   :user connection-migrator
+                                   :password migrator-password)
                             (jdbc/make-connection-pool database-metrics-registry))]
       (let [runtime (Runtime/getRuntime)
             on-shutdown (doto (Thread.
@@ -770,11 +772,13 @@
             :let [config (get databases name)
                   pool-name (if (::conf/unnamed config)
                               "PDBWritePool"
-                              (str "PDBWritePool: " name))]]
+                              (str "PDBWritePool: " name))
+                  connection-username (:connection-username config)]]
       (swap! pools conj
              (-> config
                  (assoc :pool-name pool-name
-                        :expected-schema desired-schema)
+                        :expected-schema desired-schema
+                        :user connection-username)
                  (jdbc/pooled-datasource database-metrics-registry))))
     {:write-db-names db-names
      :write-db-cfgs (mapv #(get databases %) db-names)
@@ -894,6 +898,7 @@
          (trs "WARNING: multiple write database support is experimental")))
       (log/warn (trs "multiple write database support is experimental")))
 
+    ; Initialize migrator pool for each DB we want to write to
     (doseq [[name config] write-dbs-config]
       (init-with-db name config))
 
@@ -902,7 +907,8 @@
       (with-final [read-db (-> (assoc read-database
                                       :pool-name "PDBReadPool"
                                       :expected-schema (desired-schema-version)
-                                      :read-only? true)
+                                      :read-only? true
+                                      :user (:connection-username read-database))
                                (jdbc/pooled-datasource database-metrics-registry))
                    :error .close
 
@@ -917,6 +923,7 @@
                    ;; gc, schema checks, update checks
                    job-pool (scheduler 4) :error #(shut-down-service-scheduler-or-die
                                                    % request-shutdown)
+                   ; Create connection pools for each DB we want to write to
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
 
