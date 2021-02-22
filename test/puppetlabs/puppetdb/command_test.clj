@@ -43,6 +43,7 @@
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.test]
+            [puppetlabs.puppetdb.utils.string-formatter :refer [dash->underscore-keys]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
                      schedule
@@ -1545,7 +1546,7 @@
   (let [recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
       (handle-message (queue/store-command q (report->command-req 4 v4-report)))
-      (is (= [(with-env (utils/dash->underscore-keys
+      (is (= [(with-env (dash->underscore-keys
                          (select-keys v4-report
                                       [:certname :configuration-version])))]
              (-> (str "select certname, configuration_version, environment_id"
@@ -1571,7 +1572,7 @@
         recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
       (handle-message (queue/store-command q (report->command-req 3 v3-report)))
-      (is (= [(with-env (utils/dash->underscore-keys
+      (is (= [(with-env (dash->underscore-keys
                          (select-keys v3-report
                                       [:certname :configuration-version])))]
              (-> (str "select certname, configuration_version, environment_id"

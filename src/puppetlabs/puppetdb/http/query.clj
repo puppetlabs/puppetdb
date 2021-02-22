@@ -21,8 +21,8 @@
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when
-                                               pprint-json-parse-exception]])
+            [puppetlabs.puppetdb.utils :refer [update-when]]
+            [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]])
   (:import (com.fasterxml.jackson.core JsonParseException)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -298,7 +298,7 @@
         (try
           (json/parse-string req-body true)
         (catch JsonParseException e
-          (throw (IllegalArgumentException. (tru (pprint-json-parse-exception e req-body)))))))
+          (throw (IllegalArgumentException. (pprint-json-parse-exception e req-body))))))
       (update :query (fn [query]
                        (if (vector? query)
                          query

@@ -22,8 +22,9 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.utils :refer [compression-file-extension-schema
                                                content-encodings->file-extensions
-                                               match-any-of re-quote utf8-length
+                                               match-any-of utf8-length
                                                utf8-truncate]]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter :refer [re-quote]]
             [schema.core :as s]
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time]
@@ -59,7 +60,7 @@
                    (->> "_"  ; our meta field separator
                         (conj constants/filename-forbidden-characters)
                         (map str)
-                        (map re-quote)
+                        (map formatter/re-quote)
                         (str/join "|"))
                    ")")))
 

@@ -7,6 +7,7 @@
             [clojure.set :as set]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [com.rpl.specter :as sp]))
 
 ;; SCHEMA
@@ -99,11 +100,11 @@
       (assoc :resource_events [resource-event-v5-wireformat-schema])))
 
 (def resource-event-v4-wireformat-schema
-  (utils/underscore->dash-keys resource-event-v5-wireformat-schema))
+  (formatter/underscore->dash-keys resource-event-v5-wireformat-schema))
 
 (def report-v4-wireformat-schema
   (-> report-v5-wireformat-schema
-      utils/underscore->dash-keys
+      formatter/underscore->dash-keys
       (assoc :resource-events [resource-event-v4-wireformat-schema])
       (dissoc :logs :metrics :noop :producer-timestamp)))
 
@@ -218,9 +219,9 @@
 
 (defn dash->underscore-report-keys [v5-report-or-older]
   (->> v5-report-or-older
-       utils/dash->underscore-keys
+       formatter/dash->underscore-keys
        (sp/transform [:resource_events sp/ALL sp/ALL]
-                     #(update % 0 utils/dashes->underscores))))
+                     #(update % 0 formatter/dashes->underscores))))
 
 (defn- resource-event->resource
   [resource-event]

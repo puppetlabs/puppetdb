@@ -94,8 +94,8 @@
         (is (= (str "Json parse error at line 1, column 25:\n\n"
                     "[\"from\",\"foobar\"] random-stuff\n"
                     "                       ^\n\n"
-                    "Unrecognized token random: was expecting "
-                    "(JSON String, Number, Array, Object or token null, true or false)") body))
+                    "Unrecognized token 'random': was expecting "
+                    "(JSON String, Number, Array, Object or token 'null', 'true' or 'false')") body))
         (are-error-response-headers headers)
         (is (= http/status-bad-request status)))
 

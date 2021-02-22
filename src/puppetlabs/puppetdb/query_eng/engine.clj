@@ -16,6 +16,7 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :as t]
@@ -1616,14 +1617,14 @@
 (defn path->nested-map
   "Given path [a b c] and value d, produce {a {b {c d}}}"
   [path value]
-  (reduce #(hash-map (utils/maybe-strip-escaped-quotes %2) %1)
+  (reduce #(hash-map (formatter/maybe-strip-escaped-quotes %2) %1)
           (rseq (conj (vec path) value))))
 
 (defn parse-dot-query
   "Transforms a dotted query into a JSON structure appropriate
    for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (map utils/maybe-strip-escaped-quotes
+  (let [[column & path] (map formatter/maybe-strip-escaped-quotes
                              (su/dotted-query->path field))]
     (if (some #(re-matches #"^\d+$" %) path)
       {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
@@ -1641,7 +1642,7 @@
   [{:keys [field value] :as node} state]
   (let [[column & path] (->> field
                              su/dotted-query->path
-                             (map utils/maybe-strip-escaped-quotes)
+                             (map formatter/maybe-strip-escaped-quotes)
                              su/expand-array-access-in-path)
         qmarks (repeat (count path) "?")
         parameters (concat path [(su/munge-jsonb-for-storage value)
@@ -1785,7 +1786,7 @@
               (let [[head & path] (->> column
                                        utils/parse-matchfields
                                        su/dotted-query->path
-                                       (map utils/maybe-strip-escaped-quotes))
+                                       (map formatter/maybe-strip-escaped-quotes))
                     path (if (= head "trusted") (cons head path) path)
                     fact_paths (->> (jdbc/query-to-vec "SELECT path_array FROM fact_paths WHERE (path ~ ? AND path IS NOT NULL)"
                                                        (doto (PGobject.)
@@ -1905,7 +1906,7 @@
             [op field (su/db-serialize value)]
 
             [["=" field nil]]
-            ["null?" (utils/dashes->underscores field) true]
+            ["null?" (formatter/dashes->underscores field) true]
 
             [[op "tag" array-value]]
             [op "tags" (str/lower-case array-value)]
@@ -2013,7 +2014,7 @@
 
 (defn create-json-subtree-projection
   [dotted-field projections]
-  (let [json-path (map utils/maybe-strip-escaped-quotes (su/dotted-query->path dotted-field))
+  (let [json-path (map formatter/maybe-strip-escaped-quotes (su/dotted-query->path dotted-field))
         stringify-field (fn [{:keys [field field-type]}]
                           (case field-type
                             :keyword (name field)
@@ -2104,7 +2105,7 @@
   "Create an explicit subquery declaration to mimic the select_<entity>
    syntax."
   [entity expr clauses]
-  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))
+  (let [query-rec (user-query->logical-obj (str "select_" (formatter/dashes->underscores entity)))
         {:keys [limit offset order-by]} (create-paging-map clauses)]
     (if (extract-expression? expr)
       (let [[extract columns remaining-expr] expr
@@ -2308,7 +2309,7 @@
                        (seq? (rest maybe-dotted-path)))
                 (let [field (name (h/extract-sql (:field cinfo)))
                       dotted-path (->> maybe-dotted-path rest (str/join "."))
-                      json-path (map utils/maybe-strip-escaped-quotes (su/dotted-query->path dotted-path))
+                      json-path (map formatter/maybe-strip-escaped-quotes (su/dotted-query->path dotted-path))
                       path-extraction-field (jdbc/create-json-path-extraction field json-path)]
                   (map->NullExpression {:column (assoc cinfo :field (hcore/raw path-extraction-field))
                                         :null? value}))
@@ -2418,9 +2419,9 @@
               error-action
               query-name
               (if (> (count invalid-fields) 1) "fields" "field")
-              (utils/comma-separated-keywords invalid-fields)
+              (formatter/comma-separated-keywords invalid-fields)
               (if (empty? error-context) "" (str " " error-context))
-              (utils/comma-separated-keywords allowed-fields)))))
+              (formatter/comma-separated-keywords allowed-fields)))))
 
 (defn annotate-with-context
   "Add `context` as meta on each `node` that is a vector. This associates the
@@ -2462,7 +2463,7 @@
                    :cut true})
 
                 [["extract" column [subquery-name :guard (complement #{"not" "group_by" "or" "and"}) _]]]
-                (let [underscored-subquery-name (utils/dashes->underscores subquery-name)
+                (let [underscored-subquery-name (formatter/dashes->underscores subquery-name)
                       error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
                               (tru "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
                               (tru "Unsupported subquery `{0}`" subquery-name))]
@@ -2504,7 +2505,7 @@
                             (tru "''{0}'' is not a queryable object for {1}. Entity {2} has no queryable objects"
                                  field alias alias)
                             (tru "''{0}'' is not a queryable object for {1}. Known queryable objects are {2}"
-                                 field alias (utils/comma-separated-keywords qfields))))}))
+                                 field alias (formatter/comma-separated-keywords qfields))))}))
 
             ; This validation is only for top-level extract operator
             ; For in-extract operator validation, please see annotate-with-context function
@@ -2534,7 +2535,7 @@
                                 (tru "''{0}'' is not a queryable object for {1}. Entity {1} has no queryable objects"
                                      field alias)
                                 (tru "''{0}'' is not a queryable object for {1}. Known queryable objects are {2}"
-                                     field alias (utils/comma-separated-keywords qfields))))}))
+                                     field alias (formatter/comma-separated-keywords qfields))))}))
 
             [["in" field & _]]
             (let [query-context (:query-context (meta node))
@@ -2704,7 +2705,7 @@
                                      (tru "Your `from` query accepts an optional query only as a second argument.")
                                      " "
                                      (tru "Check your query and try again.")))))
-          entity (keyword (utils/underscores->dashes entity-str))]
+          entity (keyword (formatter/underscores->dashes entity-str))]
       (when warn
         (warn-experimental entity))
       {:remaining-query (:query remaining-query)

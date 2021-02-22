@@ -1,15 +1,13 @@
 (ns puppetlabs.puppetdb.pql
   (:import com.fasterxml.jackson.core.JsonParseException)
   (:require [clojure.string :refer [join]]
-            [clojure.tools.logging :as log]
             [instaparse.core :as insta]
             [instaparse.failure :as failure]
             [instaparse.print :as print]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [tru]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.pql.transform :as transform]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.utils :refer [pprint-json-parse-exception]]))
+            [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]]))
 
 (defn transform
   "Transform parsed PQL to AST."
@@ -66,7 +64,7 @@
     (with-open [string-reader (java.io.StringReader. query)]
       (doall (json/parsed-seq string-reader)))
   (catch JsonParseException e
-    (throw (IllegalArgumentException. (tru (pprint-json-parse-exception e query)))))))
+    (throw (IllegalArgumentException. (pprint-json-parse-exception e query))))))
 
 (defn parse-json-query
   "Parse a query string as JSON. Multiple queries or any other
@@ -78,7 +76,7 @@
       (if (= query-count 1)
         (first parsed-query)
         (throw (IllegalArgumentException.
-                 (i18n/tru "Only one query may be sent in a request. You sent {0}." query-count)))))))
+                 (tru "Only one query may be sent in a request. You sent {0}." query-count)))))))
 
 (defn parse-pql-query
   "Parse a query string as PQL. Parse errors will result in an

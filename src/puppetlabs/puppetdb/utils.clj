@@ -11,15 +11,13 @@
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.walk :as walk]
-            [com.rpl.specter :as sp])
+            [clojure.walk :as walk])
   (:import
    [clojure.lang ExceptionInfo]
    [java.net MalformedURLException URISyntaxException URL]
    [java.nio ByteBuffer CharBuffer]
-   [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
-   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)
-   [org.postgresql.util PGobject]))
+   [java.nio.charset Charset CoderResult StandardCharsets]
+   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)))
 
 (defmacro with-captured-throw [& body]
   `(try [(do ~@body)] (catch Throwable ex# ex#)))
@@ -29,17 +27,6 @@
   [& args]
   (binding [*out* *err*]
     (apply println args)))
-
-(defn re-quote
-  "Quotes s so that all of its characters will be matched literally."
-  [s]
-  ;; Wrap all segments not containing a \E in \Q...\E, and replace \E
-  ;; with \\E.
-  (apply str
-         "\\Q"
-         (concat (->> (str/split s #"\\E" -1)
-                      (interpose "\\E\\\\E\\Q"))
-                 ["\\E"])))
 
 (defn flush-and-exit [status]
   "Attempts to flush *out* and *err*, reporting any failures to *err*,
@@ -291,25 +278,6 @@
       (apply assoc m new-kvs)
       m)))
 
-(defn maybe-strip-escaped-quotes
-  [s]
-  (if (and (> (count s) 1)
-           (str/starts-with? s "\"")
-           (str/ends-with? s "\""))
-    (subs s 1 (dec (count s)))
-    s))
-
-(defn quoted
-  [s]
-  (str "'" s "'"))
-
-(defn comma-separated-keywords
-  [words]
-  (let [quoted-words (map quoted words)]
-    (if (> (count quoted-words) 2)
-      (str (str/join ", " (butlast quoted-words)) ", " "and " (last quoted-words))
-      (str/join " and " quoted-words))))
-
 (defn parse-matchfields
   [s]
   (str/replace s #"match\((\".*\")\)" "$1"))
@@ -350,7 +318,7 @@
 
 (defn str-schema
   "Function for converting a schema with keyword keys to
-   to one with string keys. Doens't walk the map so nested
+   to one with string keys. Doesn't walk the map so nested
    schema won't work."
   [kwd-schema]
   (reduce-kv (fn [acc k v]
@@ -358,50 +326,6 @@
                  (assoc acc (schema.core/optional-key (puppetlabs.puppetdb.utils/kwd->str (:k k))) v)
                  (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v)))
              {} kwd-schema))
-
-(defn dashes->underscores
-  "Accepts a string or a keyword as an argument, replaces all occurrences of the
-  dash/hyphen character with an underscore, and returns the same type (string
-  or keyword) that was passed in.  This is useful for translating data structures
-  from their wire format to the format that is needed for JDBC."
-  [str]
-  (let [result (str/replace (name str) \- \_)]
-    (if (keyword? str)
-      (keyword result)
-      result)))
-
-(defn underscores->dashes
-  "Accepts a string or a keyword as an argument, replaces all occurrences of the
-   underscore character with a dash, and returns the same type (string
-   or keyword) that was passed in.  This is useful for translating data structures
-   from their JDBC-compatible representation to their wire format representation."
-  [s]
-  (let [opt-key? (optional-key? s)
-        result (if opt-key?
-                 (str/replace (name (:k s)) \_ \-)
-                 (str/replace (name s) \_ \-))]
-    (cond
-      opt-key? (if (keyword? (:k s))
-                 (s/optional-key (keyword result))
-                 (s/optional-key result))
-      (keyword? s) (keyword result)
-      :else result)))
-
-(defn dash->underscore-keys
-  "Converts all top-level keys (including nested maps) in `m` to use dashes
-  instead of underscores as word separators"
-  [m]
-  (sp/transform [sp/ALL]
-                #(update % 0 dashes->underscores)
-                m))
-
-(defn underscore->dash-keys
-  "Converts all top-level keys (including nested maps) in `m` to use underscores
-  instead of underscores as word separators"
-  [m]
-  (sp/transform [sp/ALL]
-                #(update % 0 underscores->dashes)
-                m))
 
 (defn cmd-params->json-str
   [{:strs [command version certname payload]}]
@@ -643,25 +567,3 @@
 
 (defn schedule-with-fixed-delay [s f initial-delay delay]
   (.scheduleWithFixedDelay s f initial-delay delay TimeUnit/MILLISECONDS))
-
-(defn pprint-json-parse-exception
-  "Returns a parsed JsonParseException message.
-  From the second line of the error message, the line and
-  column index are extracted, so that we can place an arrow,
-  pointing at that position. "
-  [error query]
-  (let [error-lines (str/split-lines (.getMessage error))
-        [_ line column] (re-find #"line: (\d+), column: (\d+)" (second error-lines))
-        line-index (Integer. line)
-        column-index (Integer. column)
-        ;subtracting 1 from the line and column index,
-        ;because they start from 1, not 0
-        query-line-index (dec line-index)
-        query-column-index (dec column-index)]
-
-    (str "Json parse error at line " line-index ", column " column-index ":\n\n"
-         ((str/split-lines query) query-line-index) "\n"
-        ;subtracting an additional 1 from the column index,
-        ;to make room for the arrow sign
-         (apply str (concat (repeat (dec query-column-index) " ") "^")) "\n\n"
-         (first error-lines))))
