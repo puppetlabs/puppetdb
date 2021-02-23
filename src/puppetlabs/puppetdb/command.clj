@@ -419,13 +419,14 @@
                                        6 (report/wire-v6->wire-v8 %)
                                        7 (report/wire-v7->wire-v8 %)
                                        %))))
+
       (update-in [:payload :producer_timestamp] #(or % (now)))))
 
-(defn exec-store-report [{:keys [payload id received]} start-time db conn-status]
+(defn exec-store-report [options-config {:keys [payload id received]} start-time db conn-status]
   (let [{:keys [certname puppet_version producer_timestamp] :as report} payload]
     ;; Unlike the other storage functions, add-report! manages its own
     ;; transaction, so that it can dynamically create table partitions
-    (scf-storage/add-report! report received db conn-status)
+    (scf-storage/add-report! report received db conn-status true options-config)
     (log-command-processed-messsage id received start-time :store-report certname
                                     {:puppet-version puppet_version})))
 
@@ -452,10 +453,10 @@
 
 ;; ## Command processors
 
-(defn prep-command [{:keys [command] :as cmd} blocklist-config]
+(defn prep-command [{:keys [command] :as cmd} options-config]
   (case command
     "replace catalog" (prep-replace-catalog cmd)
-    "replace facts" (prep-replace-facts cmd blocklist-config)
+    "replace facts" (prep-replace-facts cmd options-config)
     "store report" (prep-store-report cmd)
     "deactivate node" (prep-deactivate-node cmd)
     "configure expiration" (prep-configure-expiration cmd)
@@ -467,29 +468,29 @@
 (defn exec-command
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
-  [{:keys [command version] :as cmd} db conn-status start]
+  ([{:keys [command version] :as cmd} db conn-status start options-config]
   (when-not (supported-command? cmd)
     (throw (ex-info (trs "Unsupported command {0} version {1}" command version)
                     {:kind ::fatal-processing-error})))
   (let [exec (case command
                "replace catalog" exec-replace-catalog
                "replace facts" exec-replace-facts
-               "store report" exec-store-report
+               "store report" (partial exec-store-report options-config)
                "deactivate node" exec-deactivate-node
                "configure expiration" exec-configure-expiration
                "replace catalog inputs" exec-replace-catalog-inputs)]
-    (exec cmd start db conn-status)))
+    (exec cmd start db conn-status))))
 
 (defn process-command!
   ;; only used by testing...
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
-  [command db blocklist-config]
+  [command db options-config]
   (when-not (:delete? command)
     (let [start (now)]
       (-> command
-          (prep-command blocklist-config)
-          (exec-command db (atom {}) start)))))
+          (prep-command options-config)
+          (exec-command db (atom {}) start options-config)))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
@@ -540,12 +541,15 @@
 (def quick-retry-count 4)
 
 (defn attempt-exec-command
-  [{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
+  ([{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
    shutdown-for-ex]
+   attempt-exec-command cmd db conn-status response-pub-chan stats-atom shutdown-for-ex {})
+  ([{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
+   shutdown-for-ex options-config]
   (try
     (let [result (call-with-quick-retry quick-retry-count
                                         shutdown-for-ex
-                                        #(exec-command cmd db conn-status (now)))]
+                                        #(exec-command cmd db conn-status (now) options-config))]
       (swap! stats-atom update :executed-commands inc)
       (callback {:command cmd :result result})
       (async/>!! response-pub-chan
@@ -557,7 +561,7 @@
       (callback {:command cmd :exception ex})
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd ex))
-      (throw ex))))
+      (throw ex)))))
 
 ;; The number of times a message can be retried before we discard it
 (def maximum-allowable-retries 5)
@@ -578,7 +582,7 @@
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
   [cmd {:keys [command version certname id received] :as cmdref}
-   q response-chan stats blocklist-config maybe-send-cmd-event!]
+   q response-chan stats options-config maybe-send-cmd-event!]
   (swap! stats update :executed-commands inc)
   ((:callback cmd) {:command cmd :result nil})
   (async/>!! response-chan (make-cmd-processed-message cmd nil))
@@ -591,7 +595,7 @@
 
 (defn broadcast-cmd
   [{:keys [certname command version id callback] :as cmd}
-   write-dbs pool response-chan stats shutdown-for-ex]
+   write-dbs pool response-chan stats shutdown-for-ex options-config]
   (let [n-dbs (count write-dbs)
         statuses (repeatedly n-dbs #(atom nil))
         results (atom [])
@@ -608,7 +612,7 @@
                        (try
                          ;; handle callback below to avoid races during cmd broadcast
                          (attempt-exec-command (assoc cmd :callback identity) db status response-chan stats
-                                               shutdown-for-ex)
+                                               shutdown-for-ex options-config)
                          nil
                          (catch Throwable ex
                            ex)))]
@@ -650,7 +654,7 @@
   relevant metrics. Any exceptions that arise are unhandled and
   expected to be caught by the caller."
   [cmd cmdref q write-dbs broadcast-pool response-chan stats
-   maybe-send-cmd-event! shutdown-for-ex]
+   maybe-send-cmd-event! shutdown-for-ex options-config]
   (let [{:keys [command version]} cmd
         retries (count (:attempts cmdref))]
     (create-metrics-for-command! command version)
@@ -664,9 +668,9 @@
       (cmd-metric command version :processing-time)]
      (try
        (if broadcast-pool
-         (broadcast-cmd cmd write-dbs broadcast-pool response-chan stats shutdown-for-ex)
+         (broadcast-cmd cmd write-dbs broadcast-pool response-chan stats shutdown-for-ex options-config)
          (attempt-exec-command cmd (first write-dbs) (atom {}) response-chan
-                               stats shutdown-for-ex))
+                               stats shutdown-for-ex options-config))
        (catch Throwable ex
          (throw ex)))
      (mark-both-metrics! command version :processed))
@@ -711,7 +715,7 @@
 (defn process-message
   [{:keys [certname command version received delete? id] :as cmdref}
    q command-chan dlo delay-pool broadcast-pool write-dbs response-chan stats
-   blocklist-config maybe-send-cmd-event! shutdown-for-ex]
+   options-config maybe-send-cmd-event! shutdown-for-ex]
   (when received
     (let [q-time (-> (fmt-time/parse iso-formatter received)
                      (time/interval (now))
@@ -748,13 +752,13 @@
             (maybe-send-cmd-event! cmdref ::processed))
 
           delete? (process-delete-cmd cmd cmdref q response-chan stats
-                                      blocklist-config maybe-send-cmd-event!)
+                                      options-config maybe-send-cmd-event!)
 
           :else (-> cmd
-                    (prep-command blocklist-config)
+                    (prep-command options-config)
                     (process-cmd cmdref q write-dbs broadcast-pool response-chan
                                  stats maybe-send-cmd-event!
-                                 shutdown-for-ex))))
+                                 shutdown-for-ex options-config))))
       (catch ExceptionInfo ex
         (let [data (ex-data ex)]
           (case (:kind data)
@@ -783,14 +787,14 @@
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool broadcast-pool write-dbs
-   response-chan stats blocklist-config maybe-send-cmd-event!
+   response-chan stats options-config maybe-send-cmd-event!
    shutdown-for-ex]
   (fn [cmdref]
     (process-message cmdref
                      q command-chan dlo
                      delay-pool broadcast-pool write-dbs
                      response-chan stats
-                     blocklist-config maybe-send-cmd-event!
+                     options-config maybe-send-cmd-event!
                      shutdown-for-ex)))
 
 (def stop-commands-wait-ms (constantly 5000))
@@ -889,7 +893,8 @@
                                              (-> config
                                                  :database
                                                  (select-keys [:facts-blocklist
-                                                               :facts-blocklist-type]))
+                                                               :facts-blocklist-type
+                                                               :resource-events-ttl]))
                                              maybe-send-cmd-event!
                                              shutdown-for-ex)]
       (when broadcast-pool

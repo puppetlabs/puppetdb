@@ -352,6 +352,12 @@
   ([base-url certname]
    (certname-query base-url "/reports" certname)))
 
+(defn get-events
+  ([certname]
+   (get-events *base-url* certname))
+  ([base-url certname]
+   (certname-query base-url "/events" certname)))
+
 (defn get-factsets
   ([certname]
    (get-factsets *base-url* certname))
