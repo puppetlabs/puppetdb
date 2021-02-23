@@ -21,6 +21,29 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.15.0
+
+Released 24 February 2021
+
+### New features and improvements
+
+- Added two new users `connection-migrator-username` and `connection-username`
+  in `database.ini` config file. The new users are used to establish connections
+  to the database when the connection username is different from the database
+  username (this is the case for managed PostgreSQL in Azure)
+  [PDB-4934](https://tickets.puppetlabs.com/browse/PDB-4934)
+- A new metric (:concurrent-depth), which counts the number of /cmd API requests
+  that are waiting to write to the disk, was added.
+  [PDB-4268](https://tickets.puppetlabs.com/browse/PDB-4268)
+- A new metric (new-fact-time) was added under puppetlabs.puppetdb.storage. This
+  metric measures the time it takes to persist facts for a never before seen
+  certname.
+  [PDB-3418](https://tickets.puppetlabs.com/browse/PDB-3418)
+- The performance dashboard is now accessible on the HTTPS port. In PE, if the
+  PuppetDB is using a certificate allowlist, users can authenticate their
+  connection with an rbac token as a URL parameter.
+  [PDB-3159](https://tickets.puppetlabs.com/browse/PDB-3159)
+
 ## PuppetDB 6.14.0
 
 Released 9 February 2021
