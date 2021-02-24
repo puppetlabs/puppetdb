@@ -4,7 +4,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [schema.core :as s]
             [clojure.data :as data]
             [puppetlabs.puppetdb.schema :as pls]
@@ -12,15 +11,13 @@
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.walk :as walk]
-            [com.rpl.specter :as sp])
+            [clojure.walk :as walk])
   (:import
    [clojure.lang ExceptionInfo]
    [java.net MalformedURLException URISyntaxException URL]
    [java.nio ByteBuffer CharBuffer]
-   [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
-   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)
-   [org.postgresql.util PGobject]))
+   [java.nio.charset Charset CoderResult StandardCharsets]
+   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)))
 
 (defmacro with-captured-throw [& body]
   `(try [(do ~@body)] (catch Throwable ex# ex#)))
@@ -30,17 +27,6 @@
   [& args]
   (binding [*out* *err*]
     (apply println args)))
-
-(defn re-quote
-  "Quotes s so that all of its characters will be matched literally."
-  [s]
-  ;; Wrap all segments not containing a \E in \Q...\E, and replace \E
-  ;; with \\E.
-  (apply str
-         "\\Q"
-         (concat (->> (str/split s #"\\E" -1)
-                      (interpose "\\E\\\\E\\Q"))
-                 ["\\E"])))
 
 (defn flush-and-exit [status]
   "Attempts to flush *out* and *err*, reporting any failures to *err*,
@@ -292,32 +278,13 @@
       (apply assoc m new-kvs)
       m)))
 
-(defn maybe-strip-escaped-quotes
-  [s]
-  (if (and (> (count s) 1)
-           (string/starts-with? s "\"")
-           (string/ends-with? s "\""))
-    (subs s 1 (dec (count s)))
-    s))
-
-(defn quoted
-  [s]
-  (str "'" s "'"))
-
-(defn comma-separated-keywords
-  [words]
-  (let [quoted-words (map quoted words)]
-    (if (> (count quoted-words) 2)
-      (str (string/join ", " (butlast quoted-words)) ", " "and " (last quoted-words))
-      (string/join " and " quoted-words))))
-
 (defn parse-matchfields
   [s]
-  (string/replace s #"match\((\".*\")\)" "$1"))
+  (str/replace s #"match\((\".*\")\)" "$1"))
 
 (defn parse-indexing
   [s]
-  (string/replace s #"\[(\d+)\]" ".$1"))
+  (str/replace s #"\[(\d+)\]" ".$1"))
 
 (defn split-indexing
   [path]
@@ -325,7 +292,7 @@
     (for [s path]
       (if (re-find #"\[\d+\]$" s)
         (-> s
-            (string/split #"(?=\[\d+\]$)")
+            (str/split #"(?=\[\d+\]$)")
             (update 1 #(Integer/parseInt (subs % 1 (dec (count %))))))
         s))))
 
@@ -343,7 +310,7 @@
   [strings]
   (format "(%s)" (->> strings
                       (map regex-quote)
-                      (string/join "|"))))
+                      (str/join "|"))))
 
 (defn optional-key? [x]
   ;; broken with AOT noidea: (instance? schema.core.OptionalKey k))
@@ -351,7 +318,7 @@
 
 (defn str-schema
   "Function for converting a schema with keyword keys to
-   to one with string keys. Doens't walk the map so nested
+   to one with string keys. Doesn't walk the map so nested
    schema won't work."
   [kwd-schema]
   (reduce-kv (fn [acc k v]
@@ -359,50 +326,6 @@
                  (assoc acc (schema.core/optional-key (puppetlabs.puppetdb.utils/kwd->str (:k k))) v)
                  (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v)))
              {} kwd-schema))
-
-(defn dashes->underscores
-  "Accepts a string or a keyword as an argument, replaces all occurrences of the
-  dash/hyphen character with an underscore, and returns the same type (string
-  or keyword) that was passed in.  This is useful for translating data structures
-  from their wire format to the format that is needed for JDBC."
-  [str]
-  (let [result (string/replace (name str) \- \_)]
-    (if (keyword? str)
-      (keyword result)
-      result)))
-
-(defn underscores->dashes
-  "Accepts a string or a keyword as an argument, replaces all occurrences of the
-   underscore character with a dash, and returns the same type (string
-   or keyword) that was passed in.  This is useful for translating data structures
-   from their JDBC-compatible representation to their wire format representation."
-  [s]
-  (let [opt-key? (optional-key? s)
-        result (if opt-key?
-                 (string/replace (name (:k s)) \_ \-)
-                 (string/replace (name s) \_ \-))]
-    (cond
-      opt-key? (if (keyword? (:k s))
-                 (s/optional-key (keyword result))
-                 (s/optional-key result))
-      (keyword? s) (keyword result)
-      :else result)))
-
-(defn dash->underscore-keys
-  "Converts all top-level keys (including nested maps) in `m` to use dashes
-  instead of underscores as word separatators"
-  [m]
-  (sp/transform [sp/ALL]
-                #(update % 0 dashes->underscores)
-                m))
-
-(defn underscore->dash-keys
-  "Converts all top-level keys (including nested maps) in `m` to use underscores
-  instead of underscores as word separatators"
-  [m]
-  (sp/transform [sp/ALL]
-                #(update % 0 underscores->dashes)
-                m))
 
 (defn cmd-params->json-str
   [{:strs [command version certname payload]}]

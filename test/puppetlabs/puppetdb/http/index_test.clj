@@ -75,7 +75,27 @@
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"")]
-        (is (= "Malformed JSON for query: [\"from\",\"foobar\"" body))
+        (is (= (str "Json parse error at line 1, column 17:\n\n"
+                    "[\"from\",\"foobar\"\n"
+                    "               ^\n\n"
+                    "Unexpected end-of-input: expected close marker for Array "
+                    "(start marker at [Source: (StringReader); line: 1, column: 1])") body))
+        (are-error-response-headers headers)
+        (is (= http/status-bad-request status)))
+
+      ;; Ensure we don't allow multiple queries in one request
+      (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] [\"from\",\"foo\"]")]
+        (is (= "Only one query may be sent in a request. You sent 2." body))
+        (are-error-response-headers headers)
+        (is (= http/status-bad-request status)))
+
+      ;; Ensure we don't allow garbage after query
+      (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] random-stuff")]
+        (is (= (str "Json parse error at line 1, column 25:\n\n"
+                    "[\"from\",\"foobar\"] random-stuff\n"
+                    "                       ^\n\n"
+                    "Unrecognized token 'random': was expecting "
+                    "(JSON String, Number, Array, Object or token 'null', 'true' or 'false')") body))
         (are-error-response-headers headers)
         (is (= http/status-bad-request status)))
 

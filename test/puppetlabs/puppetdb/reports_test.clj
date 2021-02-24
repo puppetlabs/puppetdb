@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.reports :refer :all]
             [schema.core :as s]
             [com.rpl.specter :as sp]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.time :refer [now]]
             [schema.core :as s]))
 
@@ -32,9 +32,9 @@
 
 (defn underscore->dash-report-keys [m]
   (->> m
-       utils/underscore->dash-keys
+       formatter/underscore->dash-keys
        (sp/transform [:resource-events sp/ALL sp/ALL]
-                     #(update % 0 utils/underscores->dashes))))
+                     #(update % 0 formatter/underscores->dashes))))
 
 (deftest test-v7-conversion
   (let [v8-report (wire-v7->wire-v8 v7-report)]

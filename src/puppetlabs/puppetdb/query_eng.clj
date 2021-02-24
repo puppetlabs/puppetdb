@@ -23,6 +23,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [ring.util.io :as rio]
             [schema.core :as s])
@@ -92,7 +93,7 @@
     munge-result
     (throw (IllegalArgumentException.
             (tru "Invalid entity ''{0}'' in query"
-                 (utils/dashes->underscores (name entity)))))))
+                 (formatter/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
   [query-rec]

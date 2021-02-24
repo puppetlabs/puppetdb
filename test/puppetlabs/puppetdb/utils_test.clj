@@ -1,20 +1,8 @@
 (ns puppetlabs.puppetdb.utils-test
-  (:require [clojure.math.combinatorics :refer [selections]]
-            [puppetlabs.puppetdb.utils :as tgt :refer :all]
+  (:require [puppetlabs.puppetdb.utils :refer :all]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.trapperkeeper.testutils.logging :as pllog
-             :refer [with-log-output]]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as str]
-            [clojure.walk :as walk]
-            [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]
-            [clojure.test.check.clojure-test :as cct]))
-
-(deftest re-quote-behavior
-  (doseq [x (map #(apply str %) (selections ["x" "\\Q" "\\E"] 6))]
-    (is (= x (re-matches (re-pattern (str (tgt/re-quote x) "$")) x)))))
+            [clojure.walk :as walk]))
 
 (deftest test-println-err
   (is (= "foo\n"
@@ -59,26 +47,6 @@
     (doseq [special-char special-chars]
       (is (= (str special-char) (-> (re-find match-special (format "con%stext" special-char))
                                     first))))))
-
-(def dash-keyword-generator
-  (gen/fmap (comp keyword #(str/join "-" %))
-            (gen/not-empty (gen/vector gen/string-alpha-numeric))))
-
-(def underscore-keyword-generator
-  (gen/fmap (comp keyword #(str/join "_" %))
-            (gen/not-empty (gen/vector gen/string-alpha-numeric))))
-
-(cct/defspec test-dash-conversions
-  50
-  (prop/for-all [w (gen/map dash-keyword-generator gen/any)]
-                (= w
-                   (underscore->dash-keys (dash->underscore-keys w)))))
-
-(cct/defspec test-underscore-conversions
-  50
-  (prop/for-all [w (gen/map underscore-keyword-generator gen/any)]
-                (= w
-                   (dash->underscore-keys (underscore->dash-keys w)))))
 
 (deftest test-utf8-truncate
   (is (= "ಠ" (utf8-truncate "ಠ_ಠ" 3)))
