@@ -14,11 +14,11 @@
 
 (def dash-keyword-generator
   (gen/fmap (comp keyword #(string/join "-" %))
-            (gen/not-empty (gen/vector gen/string-alpha-numeric))))
+            (gen/not-empty (gen/vector gen/string-alphanumeric))))
 
 (def underscore-keyword-generator
   (gen/fmap (comp keyword #(string/join "_" %))
-            (gen/not-empty (gen/vector gen/string-alpha-numeric))))
+            (gen/not-empty (gen/vector gen/string-alphanumeric))))
 
 (cct/defspec test-dash-conversions
              50

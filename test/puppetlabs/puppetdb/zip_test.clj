@@ -24,7 +24,7 @@
 (def misc-leaves
   "Used for emulating typical tree contents with strings numbers and keywords"
   (gen/one-of [gen/int
-               gen/string-alpha-numeric
+               gen/string-alphanumeric
                gen/keyword]))
 
 (defrecord Foo [a b c d])
