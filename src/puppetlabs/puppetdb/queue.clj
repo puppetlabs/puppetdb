@@ -1,5 +1,4 @@
 (ns puppetlabs.puppetdb.queue
-  (:refer-clojure :exclude (with-open))
   (:import (clojure.lang ExceptionInfo)
            [java.nio.charset StandardCharsets]
            [java.io InputStreamReader BufferedReader InputStream Closeable]
@@ -31,8 +30,7 @@
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]
-            [puppetlabs.puppetdb.withopen :refer [with-open]]))
+            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then

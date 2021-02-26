@@ -130,7 +130,11 @@
               (map #(clojure.string/replace % #"(.*)/[^/]+$" "$1"))
               (map symbol))))
 
-(def pdb-jvm-opts [])
+;; Avoid startup reflection warnings due to
+;; https://clojure.atlassian.net/browse/CLJ-2066
+;; https://openjdk.java.net/jeps/396
+(def pdb-jvm-opts (when (> (:feature pdb-jvm-ver) 8)
+                    ["--illegal-access=deny"]))
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"

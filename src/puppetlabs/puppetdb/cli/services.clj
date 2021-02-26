@@ -38,7 +38,6 @@
      data may linger in the database. We periodically sweep the
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
-  (:refer-clojure :exclude (with-open))
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -94,8 +93,7 @@
             [schema.core :as s]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
-            [puppetlabs.puppetdb.queue :as queue]
-            [puppetlabs.puppetdb.withopen :refer [with-open]])
+            [puppetlabs.puppetdb.queue :as queue])
   (:import
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
