@@ -108,7 +108,7 @@
   Acceptable status is returned, with a message informing the client it must
   accept the content type."
   [app content-type]
-  {:pre (string? content-type)}
+  {:pre [(string? content-type)]}
   (fn [{:keys [headers] :as req}]
     (if (http/acceptable-content-type
          content-type
