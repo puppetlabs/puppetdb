@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.scf.partitioning
              :refer [get-temporal-partitions]]
             [puppetlabs.trapperkeeper.testutils.logging
@@ -370,7 +371,7 @@
                                                       @requested-shutdown?
                                                       (catch InterruptedException ex
                                                         false)))
-                                          true))
+                                          (ignore-value true)))
                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)

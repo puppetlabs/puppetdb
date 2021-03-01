@@ -14,6 +14,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -488,6 +489,7 @@
                     (stock/open queue-path))]
       [q (message-loader q (stock/next-likely-id q) maybe-send-cmd-event! cmd-event-ch)]
       (do
-        (Files/createDirectories (get-path stockpile-root)
-                                 (make-array FileAttribute 0))
+        (ignore-value
+         (Files/createDirectories (get-path stockpile-root)
+                                  (make-array FileAttribute 0)))
         [(stock/create queue-path) nil]))))

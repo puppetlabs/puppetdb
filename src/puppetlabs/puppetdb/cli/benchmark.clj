@@ -39,6 +39,7 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -363,7 +364,8 @@
   (add!* [this item]
     (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
                                      (into-array FileAttribute []))]
-      (Files/write path (nippy/freeze item) (into-array OpenOption []))
+      (ignore-value
+       (Files/write path (nippy/freeze item) (into-array OpenOption [])))
       (.add q path)))
 
   (close-buf! [this]

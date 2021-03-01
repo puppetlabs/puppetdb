@@ -42,3 +42,9 @@
   :if-inside-macroexpansion-of #{'clojure.core.match/match}
   :within-depth 43
   :reason "Many clojure.core.match/match macro expansions contain expressions of the form (and expr).  This is normal, and probably simplifies the definition of match."})
+
+(disable-warning
+ {:linter :unused-ret-vals
+  :if-inside-macroexpansion-of #{'puppetlabs.puppetdb.lint/ignore-value}
+  :within-depth 2
+  :reason "ignore-value's entire purpose is to suppress this linter."})

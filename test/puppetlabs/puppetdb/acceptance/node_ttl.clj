@@ -4,6 +4,7 @@
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.cli.services :as cli-svc]
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+   [puppetlabs.puppetdb.lint :refer [ignore-value]]
    [puppetlabs.puppetdb.test-protocols :refer [called?]]
    [puppetlabs.puppetdb.testutils :as tu]
    [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]

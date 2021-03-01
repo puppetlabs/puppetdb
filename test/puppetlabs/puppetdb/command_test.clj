@@ -10,6 +10,7 @@
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.app :as tkapp]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
@@ -2057,7 +2058,7 @@
                                                       @requested-shutdown?
                                                       (catch InterruptedException ex
                                                         false)))
-                                          true))
+                                          (ignore-value true)))
                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)

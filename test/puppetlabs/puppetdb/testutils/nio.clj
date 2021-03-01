@@ -1,12 +1,13 @@
 (ns puppetlabs.puppetdb.testutils.nio
  (:require
-  [me.raynes.fs :refer [delete-dir]])
+  [me.raynes.fs :refer [delete-dir]]
+  [puppetlabs.puppetdb.lint :refer [ignore-value]])
  (:import
   [java.nio.file Path Files]
   [java.nio.file.attribute FileAttribute]))
 
 (defn create-temp-dir [^Path path ^String prefix]
-  (Files/createDirectories path (into-array FileAttribute []))
+  (ignore-value (Files/createDirectories path (into-array FileAttribute [])))
   (Files/createTempDirectory path prefix (into-array FileAttribute [])))
 
 (defn resolve-path [^Path path ^String suffix]
