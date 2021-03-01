@@ -377,7 +377,7 @@
 
 (pls/defn-validated url-decode :- s/Str
   [x :- s/Str]
-  (java.net.URLDecoder/decode x))
+  (java.net.URLDecoder/decode x "utf-8"))
 
 (pls/defn-validated make-pdb-handler :- handler-schema
   "Similar to `bidi.ring/make-handler` but does not merge route-params
