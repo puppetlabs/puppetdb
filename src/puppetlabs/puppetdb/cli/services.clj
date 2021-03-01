@@ -894,7 +894,6 @@
                        :clean-lock (ReentrantLock.))]
 
     (when (> (count write-dbs-config) 1)
-      (let [msg (trs "multiple write database support is experimental")])
       (binding [*out* *err*]
         (println
          (trs "WARNING: multiple write database support is experimental")))
