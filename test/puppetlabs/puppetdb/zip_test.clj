@@ -80,11 +80,15 @@
   50
   (prop/for-all [tree (gen/sized (tree-generator with-maps gen/int))]
                 (let [flipped (:node (post-order-transform (tree-zipper tree)
-                                                           [flip-sign]))]
-                  (not= tree flipped)
-                  (= tree
-                     (:node (post-order-transform (tree-zipper flipped)
-                                                  [flip-sign]))))))
+                                                           [flip-sign]))
+                      nonzero-int? #(and (integer? %) (not= 0 %))]
+                  ;; Tree only changes when there are non-zero integers.
+                  (if (some nonzero-int? (tree-seq coll? seq tree))
+                    (is (not= tree flipped))
+                    (is (= tree flipped)))
+                  (is (= tree
+                         (:node (post-order-transform (tree-zipper flipped)
+                                                      [flip-sign])))))))
 
 (defn extract-item
   "Zipper function for putting items matching `pred` into the state of
