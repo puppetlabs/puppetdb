@@ -213,15 +213,6 @@
 
 (defn query
   "Calls clojure.jdbc/query after adding (jdbc/db) as the first argument."
-  {:arglists '([sql-and-params
-                :as-arrays? false :identifiers clojure.string/lower-case
-                :result-set-fn doall :row-fn identity]
-               [sql-and-params
-                :as-arrays? true :identifiers clojure.string/lower-case
-                :result-set-fn vec :row-fn identity]
-               [[sql-string & params]]
-               [[stmt & params]]
-               [[option-map sql-string & params]])}
   [sql-params & remainder]
   (apply sql/query *db* sql-params remainder))
 
