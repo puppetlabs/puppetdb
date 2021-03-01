@@ -1738,9 +1738,10 @@
                         {:certname "foo.local" :producer_timestamp producer-ts})
                        "")
 
-      (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
+      (let [received-ts (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
-        (is (= producer-ts))))))
+        (is (= producer-ts
+               (-> received-ts time/parse time/to-java-date)))))))
 
 (defn captured-ack-command [orig-ack-command results-atom]
   (fn [q command]
