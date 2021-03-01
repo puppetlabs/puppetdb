@@ -1,5 +1,5 @@
 
-;; Alphabetically ordered by :linter
+;; Alphabetically ordered by :linter then :if-inside-macroexpansion-of
 
 (disable-warning
  {:linter :constant-test
@@ -22,3 +22,14 @@
   :if-inside-macroexpansion-of #{'clojure.core.async/alt!!}
   :within-depth 6 ;; determined experimentally
   :reason "alt!! creates one-armed or expressions"})
+
+;; This is exactly the same as the one built in to eastwood, except
+;; that we raised the :within-depth limit to accomodate some
+;; constructs like those in query-eng.engine.
+(disable-warning
+ {:linter :suspicious-expression
+  ;; specifically, those detected in function suspicious-macro-invocations
+  :for-macro 'clojure.core/and
+  :if-inside-macroexpansion-of #{'clojure.core.match/match}
+  :within-depth 43
+  :reason "Many clojure.core.match/match macro expansions contain expressions of the form (and expr).  This is normal, and probably simplifies the definition of match."})
