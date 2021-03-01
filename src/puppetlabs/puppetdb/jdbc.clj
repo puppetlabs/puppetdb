@@ -271,8 +271,8 @@
     f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
-       (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
-                           params))
+       (doseq [[i param] (map vector (range) params)]
+         (.setObject stmt (inc i) param))
        (.setFetchSize stmt (or fetch-size 500))
        (with-open [rset (.executeQuery stmt)]
          (try
@@ -302,8 +302,8 @@
     f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
-       (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
-                           params))
+       (doseq [[i param] (map vector (range) params)]
+         (.setObject stmt (inc i) param))
        (.setFetchSize stmt 500)
        (let [fix-vals (if as-arrays?
                         #(mapv any-sql-array->vec %)
