@@ -32,7 +32,7 @@
       (and (not (str/blank? x))
            (not (#{"no" "false"} x))
            (try
-             (not (zero? (Integer. x)))
+             (not (zero? (Integer/valueOf x)))
              (catch NumberFormatException ex
                true))))))
 

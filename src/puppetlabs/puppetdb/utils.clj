@@ -331,8 +331,8 @@
 (defn cmd-params->json-str
   [{:strs [command version certname payload]}]
   (json/generate-string
-    {:command command :version (Integer. version)
-     :certname certname :payload (json/->RawJsonString payload)}))
+   {:command command :version (Integer/valueOf version)
+    :certname certname :payload (json/->RawJsonString payload)}))
 
 (def ^Charset utf8 StandardCharsets/UTF_8)
 
