@@ -1,4 +1,13 @@
 
+;; Alphabetically ordered by :linter
+
+(disable-warning
+ {:linter :constant-test
+  :for-macro 'clojure.core/coll?
+  :if-inside-macroexpansion-of #{'puppetlabs.structured-logging.core/maplog}
+  :within-depth 2
+  :reason "maplog checks the logger type at compile time."})
+
 (disable-warning
  {:linter :deprecations
   :symbol-matches
