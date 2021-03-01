@@ -63,4 +63,5 @@ checkouts
 /puppet/state/
 /puppetserver/
 
-.nrepl-port
+/.eastwood
+/.nrepl-port

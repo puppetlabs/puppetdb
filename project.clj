@@ -246,8 +246,9 @@
                         :injections [(do
                                        (require 'schema.core)
                                        (schema.core/set-fn-validation! true))]}
-             :dev [:defaults
-                   {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]}]
+             :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
+                              :plugins [[jonase/eastwood "0.3.14"
+                                         :exclusions [org.clojure/clojure]]]}]
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
                                     [org.bouncycastle/bc-fips]
@@ -331,6 +332,13 @@
                                        (fn [new prev]
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
+
+  :eastwood {:config-files ["eastwood.clj"]
+             ;; local-shadows-var is too distruptive, particularly
+             ;; with respect to defservice dependency methods, and
+             ;; since there's no facility for more targeted overrides
+             ;; yet, disable it for now.
+             :exclude-linters [:local-shadows-var]}
 
   :aliases {"gem" ["with-profile" "install-gems,dev"
                    "trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
