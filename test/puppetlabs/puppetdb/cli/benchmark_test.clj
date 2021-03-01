@@ -2,6 +2,7 @@
   (:require [clojure.java.shell :refer [sh]]
             [clojure.string :as str]
             [clojure.test :refer :all]
+            [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.cli.benchmark :as benchmark]
             [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
             [puppetlabs.puppetdb.archive :as archive]
@@ -26,7 +27,7 @@
             :base-url base-url
             :version version
             :payload-string payload-string
-            :payload (clojure.walk/keywordize-keys payload-string)})))
+            :payload (keywordize-keys payload-string)})))
 
 (defn call-with-benchmark-status
   [config cli-args f]

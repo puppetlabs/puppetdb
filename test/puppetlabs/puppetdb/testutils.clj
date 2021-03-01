@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.testutils
-  (:require [puppetlabs.puppetdb.command :as dispatch]
+  (:require [clojure.pprint :refer [pprint]]
+            [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.http :as http]
@@ -393,7 +394,7 @@
 (defn pprint-str
   "Pprints `x` to a string and returns that string"
   [x]
-  (with-out-str (clojure.pprint/pprint x)))
+  (with-out-str (pprint x)))
 
 (defn call-with-test-logging-silenced
   "A fixture to temporarily redirect all logging output to an atom, rather than

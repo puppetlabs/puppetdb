@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.admin-clean-test
   (:require [clojure.math.combinatorics :refer [combinations]]
+            [clojure.pprint :refer [pprint]]
             [clojure.test :refer :all]
             [metrics.counters :as counters]
             [metrics.gauges :as gauges]
@@ -51,7 +52,7 @@
     (is (= http/status-ok (:status result)))
     (when-not (= http/status-ok (:status result))
       (binding [*out* *err*]
-        (clojure.pprint/pprint result)
+        (pprint result)
         (println "Response body:")
         (println (slurp (:body result)))))))
 

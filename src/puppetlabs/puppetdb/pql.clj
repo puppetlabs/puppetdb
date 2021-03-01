@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.pql
   (:import com.fasterxml.jackson.core.JsonParseException)
-  (:require [clojure.string :refer [join]]
+  (:require [clojure.java.io]
+            [clojure.string :refer [join]]
             [instaparse.core :as insta]
             [instaparse.failure :as failure]
             [instaparse.print :as print]

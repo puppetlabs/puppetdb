@@ -2,6 +2,7 @@
   (:refer-clojure :exclude (with-open))
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [clojure.walk]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.kitchensink.core :as kitchensink]

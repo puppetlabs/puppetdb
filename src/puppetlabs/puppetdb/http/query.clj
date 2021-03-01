@@ -4,8 +4,9 @@
    Functions that aid in the parsing, serialization, and manipulation
    of PuppetDB queries embedded in HTTP parameters."
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.walk :refer [keywordize-keys stringify-keys]]
+            [clojure.java.io]
             [clojure.core.match :as cm]
+            [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [clojure.set :as set]
             [puppetlabs.i18n.core :refer [trs tru]]
