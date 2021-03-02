@@ -14,8 +14,9 @@
                          (re-find #"[0-9]+")
                          Integer/parseInt))))))
 
-(defn dump-heap [filename]
+(defn dump-heap
   "Dumps the current heap to filename via jmap."
+  [filename]
   (try
     ;; Because jmap quietly does nothing if the file exists.
     (-> filename java.io.File. .toPath Files/delete)

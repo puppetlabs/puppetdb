@@ -2107,9 +2107,10 @@
    ;; or resource events, you also update the delete-reports
    ;; cli command.
 
-(defn desired-schema-version []
+(defn desired-schema-version
   "The newest migration this PuppetDB instance knows about.  Anything
   newer is considered invalid as far as this instance is concerned."
+  []
   (apply max (keys migrations)))
 
 (defn record-migration!

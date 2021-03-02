@@ -13,8 +13,9 @@
 
 (def supported-java-version "11")
 
-(defn jdk-support-status [version]
+(defn jdk-support-status
   "Returns :official, :tested, :deprecated, :unknown, or :no."
+  [version]
   (cond
     (re-matches #"1\.[1234567]($|(\..*))" version) :no
     (re-matches #"1\.[89]($|(\..*))" version) :deprecated

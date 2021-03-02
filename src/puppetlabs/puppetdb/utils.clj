@@ -28,9 +28,10 @@
   (binding [*out* *err*]
     (apply println args)))
 
-(defn flush-and-exit [status]
+(defn flush-and-exit
   "Attempts to flush *out* and *err*, reporting any failures to *err*,
   if possible, and then invokes (System/exit status)."
+  [status]
   (let [out-ex (try (flush) nil (catch Exception ex ex))]
     (when out-ex
       (try
@@ -518,9 +519,10 @@
        (finally
          (remove-watch ref watch-key))))))
 
-(defn update-matching-keys [m pred f & args]
+(defn update-matching-keys
   "Returns the map resulting from an (update m k f & args) for every
   key k in m satisfying (pred k)."
+  [m pred f & args]
   (reduce
    (fn [result k]
      (if (pred k)

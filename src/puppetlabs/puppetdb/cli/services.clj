@@ -142,11 +142,12 @@
      [(s/one (s/eq "purge_nodes") "command")
       (s/one purge-nodes-opts-schema "options")])])
 
-(defn reduce-clean-request [request]
+(defn reduce-clean-request
   "Converts the incoming vector of requests to a map of requests to
   their options, where the last one of each kind wins.
   e.g. [\"purge_nodes\" \"purge_reports\" {\"purge_nodes\" {...}}]
   becomes #{{\"purge_reports\" true} {\"purge_nodes\" {...}}}."
+  [request]
   (into {} (map (fn [x]
                   (if (string? x)
                     [x true]
@@ -429,9 +430,10 @@
         (finally
           (.unlock lock))))))
 
-(defn- delete-node-from-puppetdb [context certname]
+(defn- delete-node-from-puppetdb
   "Implements the PuppetDBServer delete-node method, see the protocol
    for further information"
+  [context certname]
   (loop [[db & dbs] (get-in context [:shared-globals :scf-write-dbs])
          ex nil]
     (if-not db

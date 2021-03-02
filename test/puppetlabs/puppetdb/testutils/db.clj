@@ -269,9 +269,10 @@
 (defmacro with-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))
 
-(defn call-with-test-dbs [n f]
+(defn call-with-test-dbs
   "Calls (f db-config ...) with n db-config arguments, each
   representing a database created and protected by with-test-db."
+  [n f]
   (if (pos? n)
     (with-test-db
       (call-with-test-dbs (dec n) (partial f *db*)))

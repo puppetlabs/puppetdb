@@ -277,9 +277,10 @@
                     {:kind ::parse-error}
                     nil))))
 
-(defn cmdref->cmd [q cmdref]
+(defn cmdref->cmd
   "Returns the command associated with cmdref, or nil if the file is
   missing (i.e. it's been deleted)."
+  [q cmdref]
   (let [compression (:compression cmdref)
         entry (cmdref->entry cmdref)
         stream (try

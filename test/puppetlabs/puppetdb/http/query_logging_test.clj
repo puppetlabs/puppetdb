@@ -12,13 +12,15 @@
              [puppetlabs.trapperkeeper.app :refer [get-service]]
              [puppetlabs.trapperkeeper.testutils.logging :as tk-log]))
 
-(defn logs-include? [logs unique-msg]
-  "returns true if only one instance of unique-msg is found in the log"
+(defn logs-include?
+  "Returns true if only one instance of unique-msg is found in the log."
+  [logs unique-msg]
   (= 1 (->> logs (filter #(str/includes? % unique-msg)) count)))
 
-(defn count-logs-uuids [logs]
-  "returns a map with log uuids as keys and the number of times
-   that uuid appears in the log as its value. i.e. {<uuid> 2}"
+(defn count-logs-uuids
+  "Returns a map with log uuids as keys and the number of times
+  that uuid appears in the log as its value. i.e. {<uuid> 2}."
+  [logs]
   (->> logs
        ;; query logs in 'PDBQuery:UUID:AST/SQL' format
        (map #(str/split % #":"))
@@ -26,8 +28,9 @@
        (group-by identity)
        (kitchensink/mapvals count)))
 
-(defn keep-only-pdbquery-logs [logs]
-  "filter out any log messages which don't have the PDBQuery prefix"
+(defn keep-only-pdbquery-logs
+  "Filters out any log messages which don't have the PDBQuery prefix."
+  [logs]
   ;; the drop-joins tests log other messages at the debug level
   (filter #(str/includes? % "PDBQuery") logs))
 
