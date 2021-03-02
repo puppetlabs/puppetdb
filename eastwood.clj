@@ -1,4 +1,13 @@
 
+;; Observed this error
+;;
+;;   Exception thrown during phase :analyze+eval of linting namespace ...
+;;   NullPointerException
+;;
+;; which was actually indicating that a class in a type hint hadn't
+;; been imported.
+
+
 ;; Alphabetically ordered by :linter then :if-inside-macroexpansion-of
 
 (disable-warning

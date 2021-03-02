@@ -181,9 +181,8 @@
   {:-parse-strict
    (fn [rdr key-fn array-coerce-fn]
      (parse/parse-strict
-      (.createParser
-       ^JsonFactory (or factory/*json-factory* factory/json-factory)
-       ^java.io.Reader rdr)
+      (.createParser (or factory/*json-factory* factory/json-factory)
+                     ^java.io.Reader rdr)
       key-fn nil array-coerce-fn))})
 
 (defn parse-strict
