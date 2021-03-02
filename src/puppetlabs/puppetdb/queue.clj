@@ -7,14 +7,15 @@
            [java.nio.file Files LinkOption]
            [java.nio.file.attribute FileAttribute]
            [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
-  (:require [clojure.string :as str :refer [re-quote-replacement]]
-            [puppetlabs.stockpile.queue :as stock]
+  (:require [clojure.set :as set]
+            [clojure.string :as str :refer [re-quote-replacement]]
             [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
+            [puppetlabs.stockpile.queue :as stock]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -45,7 +46,7 @@
    "set-expire" "configure expiration"})
 
 (def puppetdb-command->metadata-command
-  (into {} (for [[md pdb] metadata-command->puppetdb-command] [pdb md])))
+  (set/map-invert metadata-command->puppetdb-command))
 
 (defn stream->json [^InputStream stream]
   (try
