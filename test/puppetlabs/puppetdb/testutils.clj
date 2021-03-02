@@ -365,8 +365,9 @@
                            @after#)]
      (with-redefs [~function-to-coordinate (fn [& args#]
                                              @before#
-                                             (apply orig-fn# args#)
-                                             (deliver after# true))]
+                                             (let [result# (apply orig-fn# args#)]
+                                               (deliver after# true)
+                                               result#))]
        ~@body)))
 
 (defn mock-fn
