@@ -1704,7 +1704,7 @@
 
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
-             (jdbc/with-transacted-connection
+             (jdbc/with-transacted-connection'
                (:scf-read-db (cli-svc/shared-globals pdb))
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
