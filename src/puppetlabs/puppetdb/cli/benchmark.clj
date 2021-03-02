@@ -352,6 +352,15 @@
 
 (def benchmark-shutdown-timeout 5000)
 
+(defn go-delete-dir-or-report [storage-dir]
+  ;; This function only exists to work around an eastwood complaint
+  ;; seen when the body was inline in the caller:
+  ;;
+  ;;   Exception thrown during phase :analyze+eval of linting namespace ...
+  ;;   Local name 'G__35008' has been given a type tag 'null' here:
+  ;;   nil
+  (go (delete-dir-or-report storage-dir)))
+
 (deftype TempFileBuffer [storage-dir q]
   Buffer
   (full? [this] false)
@@ -373,7 +382,7 @@
     (println-err (trs "Cleaning up temp files from {0}"
                       (pr-str (str storage-dir))))
     (async/alt!!
-      (go (delete-dir-or-report storage-dir))
+      (go-delete-dir-or-report storage-dir)
       (println-err (trs "Finished cleaning up temp files"))
 
       (async/timeout benchmark-shutdown-timeout)
