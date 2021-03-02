@@ -843,16 +843,14 @@
   (jdbc/call-with-query-rows
    ["select id from factsets where hash is null"]
    (fn [rows]
-     (doseq [batch (partition-all 500 rows)]
-       (doall
-        (map #(jdbc/do-prepared
-               "update factsets set hash=? where id=?"
-               [(-> (:id %)
-                    .toString
-                    kitchensink/utf8-string->sha1
-                    sutils/munge-hash-for-storage)
-                (:id %)])
-             batch)))))
+     (doseq [batch (partition-all 500 rows)
+             row batch]
+       (jdbc/do-prepared "update factsets set hash=? where id=?"
+                         [(-> (:id row)
+                              .toString
+                              kitchensink/utf8-string->sha1
+                              sutils/munge-hash-for-storage)
+                          (:id row)]))))
 
   (jdbc/do-commands
    "ALTER TABLE factsets ALTER COLUMN hash SET NOT NULL"))
