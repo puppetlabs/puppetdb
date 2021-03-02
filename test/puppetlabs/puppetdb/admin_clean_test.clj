@@ -106,13 +106,15 @@
           after-test (CyclicBarrier. 2)
           after-clear (CyclicBarrier. 2)]
       (with-redefs [cli-svc/clean-puppetdb (fn [& args]
-                                             (apply orig-clean args)
-                                             (await-a-while after-clean))
+                                             (let [x (apply orig-clean args)]
+                                               (await-a-while after-clean)
+                                               x))
                     cli-svc/clear-clean-status! (fn [& args]
                                                   (await-a-while before-clear)
                                                   (await-a-while after-test)
-                                                  (apply orig-clear args)
-                                                  (await-a-while after-clear))]
+                                                  (let [x (apply orig-clear args)]
+                                                    (await-a-while after-clear)
+                                                    x))]
         (doseq [what (combinations ["expire_nodes"
                                     "purge_nodes"
                                     ["purge_nodes" {"batch_limit" 10}]
@@ -150,8 +152,9 @@
                    (checked-admin-post "cmd" (clean-cmd req)))
                   (await-a-while after-clean))]
       (with-redefs [cli-svc/clean-puppetdb (fn [& args]
-                                             (apply orig-clean args)
-                                             (await-a-while after-clean))]
+                                             (let [x (apply orig-clean args)]
+                                               (await-a-while after-clean)
+                                               x))]
         (doseq [[batches expected-remaining] [[nil 0] ; i.e. purge everything
                                               [[7] 3]
                                               [[3 4] 3]
