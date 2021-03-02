@@ -26,6 +26,7 @@
                      example-catalog example-report example-facts]]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.metrics :refer [number-recorded]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]])
   (:import
@@ -187,15 +188,15 @@
    "other" (counters/value (:other-cleans @cli-svc/admin-metrics))})
 
 (defn- clean-timer-counts []
-  {"expire_nodes" (timers/number-recorded
+  {"expire_nodes" (number-recorded
                    (:node-expiration-time @cli-svc/admin-metrics))
-   "purge_nodes" (timers/number-recorded
+   "purge_nodes" (number-recorded
                   (:node-purge-time @cli-svc/admin-metrics))
-   "purge_reports" (timers/number-recorded
+   "purge_reports" (number-recorded
                     (:report-purge-time @cli-svc/admin-metrics))
-   "gc_packages" (timers/number-recorded
+   "gc_packages" (number-recorded
                   (:package-gc-time @cli-svc/admin-metrics))
-   "other" (timers/number-recorded
+   "other" (number-recorded
             (:other-clean-time @cli-svc/admin-metrics))})
 
 (defn- check-counts [get-counts]
