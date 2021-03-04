@@ -132,16 +132,6 @@
                                   content-encoding)
                              http/status-unsupported-type)))))
 
-(defn base-type [content-type]
-  "Parse a base type out of a Content-Type, returns nil if there's no match.
-  Does not validate any parameters."
-  ;; Content-Type header grammar https://tools.ietf.org/html/rfc7231#section-3.1.1.1
-  ;; token definition https://tools.ietf.org/html/rfc7230#section-3.2.6
-  ;; white space definition https://tools.ietf.org/html/rfc7230#section-3.2.3
-  (let [token #"[a-zA-Z0-9!#$%&'*+.^_`|~-]+"
-        matcher (format "^(%s/%s)(?:[ \t;]|$)" token token)]
-    (second (re-find (re-pattern matcher) content-type))))
-
 (defn verify-content-type
   "Verification for the specified list of content-types."
   [app content-types]
@@ -151,7 +141,7 @@
     (if (= (:request-method req) :post)
       (let [content-type (headers "content-type")
             mediatype (if (nil? content-type) nil
-                          (base-type content-type))]
+                          (kitchensink/base-type content-type))]
         (if (or (nil? mediatype) (some #{mediatype} content-types))
           (app req)
           (http/error-response (tru "content type {0} not supported" mediatype)
