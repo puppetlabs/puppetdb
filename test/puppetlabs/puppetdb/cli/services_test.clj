@@ -139,6 +139,15 @@
                    :certname "foo.local"}}
                 (set result))))))))
 
+(deftest query-with-explain
+  (svc-utils/with-single-quiet-pdb-instance
+      (check-service-query
+       :v4 ["from" "facts" ["=" "certname" "foo.local"]]
+       {:explain? true}
+       (fn [result]
+         (is (= true (contains? (first result) (keyword "query plan"))))
+         (is (= true (instance? org.postgresql.util.PGobject ((keyword "query plan") (first result) ))))))))
+
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
     (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
