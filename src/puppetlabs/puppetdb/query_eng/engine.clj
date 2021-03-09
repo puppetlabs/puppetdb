@@ -2967,6 +2967,13 @@
             incoming)
           (throw ex))))))
 
+(def default-explain-form
+  "EXPLAIN (VERBOSE,ANALYZE,BUFFERS,FORMAT JSON) ")
+
+(defn wrap-with-explain [query explain-options]
+  (if explain-options
+    (str default-explain-form query)
+    query))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -2978,7 +2985,7 @@
   extracted parameters, to be used in a prepared statement.
   For :parameterized-plan, returns the final plan and parameters that
   would be used to generate the :sql result."
-  [query-rec user-query {:keys [include_total] :as query-options} target]
+  [query-rec user-query {:keys [include_total explain?] :as query-options} target]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
   (let [allowed-fields (map keyword (queryable-fields query-rec))
@@ -3002,7 +3009,7 @@
       :parameterized-plan parameterized-plan
       :sql (let [{:keys [plan params]} parameterized-plan
                  sql (plan->sql plan paging-options)
-                 paged-sql (jdbc/paged-sql sql paging-options)]
+                 paged-sql (wrap-with-explain (jdbc/paged-sql sql paging-options) explain?)]
              (cond-> {:results-query (apply vector paged-sql params)}
                include_total (assoc :count-query
                                     (apply vector (jdbc/count-sql sql)
