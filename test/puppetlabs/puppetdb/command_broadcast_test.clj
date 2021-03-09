@@ -135,10 +135,10 @@
           orig-exec-cmds cmd/exec-command]
 
       ;; break exec-command for all db2 submissions
-      (with-redefs [cmd/exec-command (fn [{:keys [command version] :as cmd} db conn-status start]
+      (with-redefs [cmd/exec-command (fn [{:keys [command version] :as cmd} db conn-status start {}]
                                        (when (= db2 db)
                                          (throw (SQLException. "BOOM")))
-                                       (orig-exec-cmds cmd db conn-status start))]
+                                       (orig-exec-cmds cmd db conn-status start {}))]
 
         ;; post a few commands to trigger broadcast, submission will fail to one backend
         (populate-db pdb1)

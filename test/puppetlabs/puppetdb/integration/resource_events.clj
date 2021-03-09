@@ -79,3 +79,13 @@
           ;; should be one left - the one that's got a timestamp of today
           (testing "Verify that the resource events have been deleted"
             (is (= 1 (count (int/pql-query pdb "events { timestamp > 0 }"))))))))))
+
+  (deftest ^:integration resource-events-zero-ttl
+  (with-open [pg (int/setup-postgres)]
+    (with-open [pdb (int/run-puppetdb pg {:database {:resource-events-ttl "0d"}})
+                ps (int/run-puppet-server [pdb] {})]
+      (testing "Run agent once to populate database"
+        (int/run-puppet-as "ttl-agent" ps pdb "notify { 'irrelevant manifest': }"))
+
+      (testing "Verify the agent run created no event"
+        (is (= 0 (count (int/pql-query pdb "events { timestamp > 0 }"))))))))
