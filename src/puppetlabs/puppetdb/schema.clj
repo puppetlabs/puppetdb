@@ -53,6 +53,7 @@
    or a sequence and return a vector of those facts"
   [fl]
   (cond
+    (= "" fl) []
     (string? fl) (->> (str/split fl #",")
                       (map str/trim)
                       (apply vector))

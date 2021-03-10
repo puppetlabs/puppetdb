@@ -349,17 +349,18 @@
 
 (defn prep-replace-facts
   [{:keys [version received] :as command}
-   {:keys [facts-blocklist facts-blocklist-type] :as blocklist-config}]
-  (let [blocklisting? (seq blocklist-config)
-        rm-blocklisted (when blocklisting?
+   {:keys [facts-blocklist facts-blocklist-type]}]
+  (let [rm-blocklisted (when (seq facts-blocklist)
                          (case facts-blocklist-type
                            "regex" (partial rm-facts-by-regex facts-blocklist)
-                           "literal" #(apply dissoc % facts-blocklist)))]
+                           "literal" #(apply dissoc % facts-blocklist)
+                           (throw (IllegalArgumentException.
+                                    (trs "facts-blocklist-type was ''{0}'' but it must be either regex or literal" facts-blocklist-type)))))]
     (update command :payload
             (fn [{:keys [package_inventory] :as prev}]
               (cond-> (upon-error-throw-fatality
                        (fact/normalize-facts version received prev))
-                blocklisting? (update :values rm-blocklisted)
+                (seq facts-blocklist) (update :values rm-blocklisted)
                 (seq package_inventory) (update :package_inventory distinct))))))
 
 (defn exec-replace-facts
