@@ -1,0 +1,58 @@
+
+name: main
+on:
+  schedule:
+    # 12:00 UTC
+    - cron: '0 12 * * *'
+
+jobs:
+  core:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+
+        # These run on every branch
+        flavor:
+          - core+ext/openjdk11/pg-15
+          # legacy testing, we do not promise support for jdk 8
+          - core+ext/openjdk8/pg-11
+
+        branch: [7.x, main]
+        os: [ubuntu-18.04]
+
+        # Defaults for special-case influencing vars
+        lein-profile: ['']
+        drop-joins: ['']
+        deprecated-query-streaming: ['']
+
+        # Special cases
+        include:
+          - os: ubuntu-18.04
+            flavor: core+ext/openjdk11/pg-11
+            drop-joins: by-request
+          - os: ubuntu-18.04
+            flavor: core+ext/openjdk11/pg-11
+            lein-profile: fips
+          - os: ubuntu-18.04
+            branch: 7.x
+            flavor: core+ext/openjdk11/pg-11
+            deprecated-query-streaming: 'by-request'
+          # non-rich variants
+          - os: ubuntu-18.04
+            branch: 7.x
+            flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
+          - os: ubuntu-18.04
+            branch: 7.x
+            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
+      - env:
+          LEIN_PROFILES: ${{ matrix.lein-profile }}
+          PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS: ${{ matrix.drop-joins }}
+          PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD: ${{ matrix.deprecated-query-streaming }}
+        run: ci/bin/prep-and-run-in github ${{ matrix.flavor }}

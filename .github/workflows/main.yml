@@ -3,28 +3,27 @@ name: main
 on: [push, pull_request]
 
 jobs:
-  core:
+  # We use "o" as the name to keep it short since the flavor repeats
+  # it, and the current actions interface doesn't show very many
+  # characters in the test names.
+  o:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-18.04]
 
         flavor:
           - core+ext/openjdk11/pg-11
           - core+ext/openjdk11/pg-14
-          - core+ext/openjdk11/pg-15
-          # legacy testing, we do not promise support for jdk 8 or pg 9.6
-          - core+ext/openjdk8/pg-11
 
           # integration
-          - int/openjdk11/pup-6.x/srv-6.x/pg-11
           - int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
-          - int/openjdk11/pup-7.x/srv-7.x/pg-11
           - int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
 
           - rspec/pup-7.x
           - lint/openjdk11
+
+        os: [ubuntu-18.04]
 
         # Defaults for special-case influencing vars
         lein-profile: ['']
@@ -33,19 +32,10 @@ jobs:
 
         # Special cases
         include:
-          - os: ubuntu-18.04
-            flavor: core+ext/openjdk11/pg-11
-            lein-profile: fips
-          - os: ubuntu-18.04
-            flavor: core+ext/openjdk11/pg-11
-            drop-joins: by-request
-          - os: ubuntu-18.04
-            flavor: core+ext/openjdk11/pg-11
-            deprecated-query-streaming: 'no'
           - os: macos-10.15
-            flavor: core+ext/openjdk11/pg-11/rich
+            flavor: core+ext/openjdk11/pg-11
           - os: macos-10.15
-            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
+            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
           - os: macos-10.15
             flavor: rspec/pup-7.x
 
