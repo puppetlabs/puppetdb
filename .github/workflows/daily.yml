@@ -1,31 +1,25 @@
 
 name: main
-on: [push, pull_request]
+on:
+  schedule:
+    # 12:00 UTC
+    - cron: '0 12 * * *'
 
 jobs:
-  # We use "o" as the name to keep it short since the flavor repeats
-  # it, and the current actions interface doesn't show very many
-  # characters in the test names.
-  o:
+  core:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
 
         flavor:
-          - core+ext/openjdk11/pg-11
-          - core+ext/openjdk11/pg-9.6
-          # integration
-          - int/openjdk11/pup-6.x/srv-6.x/pg-11
-          - int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
-          - int/openjdk11/pup-6.x/srv-6.x/pg-9.6/rich
-          - int/openjdk8/pup-6.x/srv-6.x/pg-11/rich
-          - int/openjdk8/pup-6.x/srv-6.x/pg-9.6/rich
-          # rspec
-          - rspec/pup-6.x
-          - rspec/pup-6.4.x
-          - lint/openjdk11
+          - core+ext/openjdk11/pg-12
+          - core+ext/openjdk11/pg-13
+          # legacy testing, we do not promise support for jdk 8 or pg 9.6
+          - core+ext/openjdk8/pg-11
+          - core+ext/openjdk8/pg-9.6
 
+        branch: [6.x, main]
         os: [ubuntu-18.04]
 
         # Defaults for special-case influencing vars
@@ -37,18 +31,22 @@ jobs:
         include:
           - os: ubuntu-18.04
             flavor: core+ext/openjdk11/pg-11
-            drop-joins: always
-          - os: macos-10.15
-            flavor: core+ext/openjdk11/pg-11/rich
-          - os: macos-10.15
-            flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
-          - os: macos-10.15
-            flavor: rspec/pup-6.x
+            lein-profile: fips
+          - os: ubuntu-18.04
+            branch: 6.x
+            flavor: core+ext/openjdk11/pg-11
+            deprecated-query-streaming: 'no'
+          - os: ubuntu-18.04
+            branch: main
+            flavor: core+ext/openjdk11/pg-11
+            deprecated-query-streaming: 'yes'
 
     steps:
       - uses: actions/checkout@v2
         with:
+          ref: ${{ matrix.branch }}
           persist-credentials: false
+      # If the checkout doesn't happen before caching, this won't be right...
       - uses: actions/cache@v2
         with:
           key: ${{ matrix.flavor }}-${{ hashFiles('project.clj') }}
