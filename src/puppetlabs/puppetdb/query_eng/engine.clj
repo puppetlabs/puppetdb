@@ -2982,31 +2982,31 @@
   extracted parameters, to be used in a prepared statement.
   For :parameterized-plan, returns the final plan and parameters that
   would be used to generate the :sql result."
-  [query-rec user-query {:keys [include_total explain] :as query-options} target]
+  [query-rec user-query {:keys [include_total explain] :as options} target]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
   (let [allowed-fields (map keyword (queryable-fields query-rec))
-        paging-options (some->> query-options
+        validated-options (some->> options
                                 (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))
         [query-rec user-query] (rewrite-fact-query query-rec user-query)
         optimize-joins (if (or always-enable-drop-unused-joins?
                                ;; Why paging-options?  See PDB-1936
-                               (:optimize_drop_unused_joins paging-options))
+                               (:optimize_drop_unused_joins validated-options))
                          maybe-drop-unused-joins
                          identity)
         parameterized-plan (->> user-query
                                 (push-down-context query-rec)
                                 expand-user-query
                                 optimize-user-query
-                                (convert-to-plan query-rec paging-options)
+                                (convert-to-plan query-rec validated-options)
                                 extract-all-params
                                 optimize-joins)]
     (case target
       :parameterized-plan parameterized-plan
       :sql (let [{:keys [plan params]} parameterized-plan
-                 sql (plan->sql plan paging-options)
-                 paged-sql (wrap-with-explain (jdbc/paged-sql sql paging-options) explain)]
+                 sql (plan->sql plan validated-options)
+                 paged-sql (wrap-with-explain (jdbc/paged-sql sql validated-options) explain)]
              (cond-> {:results-query (apply vector paged-sql params)}
                include_total (assoc :count-query
                                     (apply vector (jdbc/count-sql sql)
@@ -3018,5 +3018,5 @@
    in a prepared statement."
   ([query-rec user-query]
    (compile-query query-rec user-query {} :sql))
-  ([query-rec user-query query-options]
-   (compile-query query-rec user-query query-options :sql)))
+  ([query-rec user-query options]
+   (compile-query query-rec user-query options :sql)))
