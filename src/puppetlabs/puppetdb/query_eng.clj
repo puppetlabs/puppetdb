@@ -112,13 +112,13 @@
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
-  ([query entity version query-options]
-   (query->sql query entity version query-options {}))
-  ([query entity version query-options logging-options]
+  ([query entity version options]
+   (query->sql query entity version options {}))
+  ([query entity version options logging-options]
    {:pre  [((some-fn nil? sequential?) query)]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
-           (or (not (:include_total query-options))
+           (or (not (:include_total options))
                (jdbc/valid-jdbc-query? (:count-query %)))]}
 
    (maybe-log-sql
@@ -126,23 +126,23 @@
     (fn []
       (cond
         (= :aggregate-event-counts entity)
-        (aggregate-event-counts/query->sql version query query-options)
+        (aggregate-event-counts/query->sql version query options)
 
         (= :event-counts entity)
-        (event-counts/query->sql version query query-options)
+        (event-counts/query->sql version query options)
 
-        (and (= :events entity) (:distinct_resources query-options))
-        (events/legacy-query->sql false version query query-options)
+        (and (= :events entity) (:distinct_resources options))
+        (events/legacy-query->sql false version query options)
 
         :else
         (let [query-rec (cond
                           ;; Move this so that we always look for
                           ;; include_facts_expiration (PDB-4586).
-                          (and (:include_facts_expiration query-options)
+                          (and (:include_facts_expiration options)
                                (= entity :nodes))
                           (get-in @entity-fn-idx [:nodes-with-fact-expiration :rec])
 
-                          (and (:include_package_inventory query-options)
+                          (and (:include_package_inventory options)
                                (= entity :factsets))
                           (get-in @entity-fn-idx [:factsets-with-packages :rec])
 
@@ -150,8 +150,8 @@
                           (get-in @entity-fn-idx [entity :rec]))
               columns (orderable-columns query-rec)
               unknown-err-msg (trs "Unknown exception when processing ast to add report type filter(s).")]
-          (paging/validate-order-by! columns query-options)
-          (if (:add-agent-report-filter query-options)
+          (paging/validate-order-by! columns options)
+          (if (:add-agent-report-filter options)
             (let [ast (try
                         (dr/maybe-add-agent-report-filter-to-query query-rec query)
                         (catch ExceptionInfo e
@@ -169,9 +169,9 @@
                 (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
                                 {:kind ::dr/unrecognized-ast-syntax
                                  :ast query
-                                 :sql (eng/compile-user-query->sql query-rec query query-options)}))
-                (eng/compile-user-query->sql query-rec ast query-options)))
-            (eng/compile-user-query->sql query-rec query query-options))))))))
+                                 :sql (eng/compile-user-query->sql query-rec query options)}))
+                (eng/compile-user-query->sql query-rec ast options)))
+            (eng/compile-user-query->sql query-rec query options))))))))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
@@ -200,21 +200,21 @@
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, return a Ring response with the query
    results."
-  ([version query paging-options options]
+  ([version query options context]
    ;; We default to doall because tests need this for the most part
-   (stream-query-result version query paging-options options doall))
+   (stream-query-result version query options context doall))
   ([version :- s/Keyword
     query
-    paging-options
-    options :- query-options-schema
+    options
+    context :- query-options-schema
     row-fn]
    (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
           :or {warn-experimental true
                pretty-print false
-               log-queries false}} options
+               log-queries false}} context
          log-id (when log-queries (str (java.util.UUID/randomUUID)))
          {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
-         munge-fn (get-munge-fn entity version paging-options url-prefix)]
+         munge-fn (get-munge-fn entity version options url-prefix)]
 
      (when log-queries
        ;; log the AST of the incoming query
@@ -222,7 +222,7 @@
 
      (let [f #(let [{:keys [results-query]}
                     (query->sql remaining-query entity version
-                                paging-options {:log-id log-id})]
+                                options {:log-id log-id})]
                 (jdbc/call-with-array-converted-query-rows results-query
                                                            (comp row-fn munge-fn)))]
        (if use-preferred-streaming-method?
