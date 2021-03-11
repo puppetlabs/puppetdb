@@ -12,6 +12,8 @@
 
 set -ueo pipefail
 
+nopf() { set +o pipefail; }
+
 usage()
 {
     echo "Usage: [JDK_INFO_JAVA=bin/java] $(basename $0) <--print (version|major|spec)>..."
@@ -49,7 +51,7 @@ print-info() {
     #   openjdk version "1.8.0_171"
     #   openjdk version "10.0.2" 2018-07-17
     #   openjdk version "10.0.2-adoptopenjdk" 2018-07-17
-    ver=$(set +o pipefail; echo "$ver_out" | head -1 | cut -d' ' -f 3 | sed -E 's/^"(.+)"$/\1/')
+    ver=$((nopf; echo "$ver_out" | head -1) | cut -d' ' -f 3 | sed -E 's/^"(.+)"$/\1/')
 
     case "$what" in
         version) echo "$ver" ;;
@@ -57,7 +59,7 @@ print-info() {
         spec)
             local maj_ver
             maj_ver=$(extract-major "$ver")
-            if echo "$ver_out" | grep -qiF openjdk; then
+            if (nopf; echo "$ver_out" | grep -qiF openjdk); then
                 echo "openjdk$maj_ver"
             else
                 echo "oraclejdk$maj_ver"
