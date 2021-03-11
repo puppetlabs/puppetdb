@@ -2,6 +2,8 @@
 
 set -ueo pipefail
 
+pfn() { set +o pipefail; }
+
 clojure_ver=1.10.1
 spec_ver=0.2.176 # spec.alpha
 specs_ver=0.2.44 # core.specs.alpha
@@ -11,7 +13,7 @@ script_home="$(cd "$(dirname "$0")" && pwd)"
 find_jar_or_die()
 {
     local name="$1" ver="$2"
-    jar="$(find ~/.m2 -name "$name-$ver.jar" | head -1)"
+    jar="$((pfn; find ~/.m2 -name "$name-$ver.jar") | head -1)"
     if ! test "$jar"; then
         echo "error: can't find $name $ver in ~/.m2" 1>&2
         exit 2
