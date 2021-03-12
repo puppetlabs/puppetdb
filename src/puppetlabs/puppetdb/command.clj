@@ -481,10 +481,11 @@
                "replace catalog inputs" exec-replace-catalog-inputs)]
     (exec cmd start db conn-status)))
 
+;; Used in testing and by initial sync
 (defn process-command!
-  ;; only used by testing...
   "Takes a command object and processes it to completion. Dispatch is
-   based on the command's name and version information"
+   based on the command's name and version information. Should be given
+   the options-config returned by select-command-processing-config"
   [command db options-config]
   (when-not (:delete? command)
     (let [start (now)]
@@ -864,6 +865,14 @@
            :response-chan-for-pub response-chan-for-pub
            :response-pub response-pub)))
 
+(defn select-command-processing-config
+  [config]
+  (-> config
+      :database
+      (select-keys [:facts-blocklist
+                    :facts-blocklist-type
+                    :resource-events-ttl])))
+
 (defn start-command-service
   [context config {:keys [dlo] :as globals} request-shutdown]
   (if (or (not globals) ;; Check that puppetdb service actually started (TK-487)
@@ -890,11 +899,7 @@
                                              scf-write-dbs
                                              response-chan
                                              (:stats context)
-                                             (-> config
-                                                 :database
-                                                 (select-keys [:facts-blocklist
-                                                               :facts-blocklist-type
-                                                               :resource-events-ttl]))
+                                             (select-command-processing-config config)
                                              maybe-send-cmd-event!
                                              shutdown-for-ex)]
       (when broadcast-pool
