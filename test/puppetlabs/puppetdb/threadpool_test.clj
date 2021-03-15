@@ -3,7 +3,8 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.threadpool :refer :all]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.utils :refer [await-ref-state]]
+            [puppetlabs.puppetdb.utils :refer [await-ref-state
+                                               noisy-future]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger
                                                                 with-logging-to-atom
                                                                 with-log-suppressed-unless-notable]]
@@ -31,8 +32,9 @@
                        [:done id]))]
 
       (with-open [gtp (gated-threadpool 1 "test-pool-%d" 1000)]
-        (let [fut (future
-                    (dochan gtp worker-fn in-chan))]
+        (let [blocked? (atom false)
+              fut (future
+                    (dochan gtp worker-fn in-chan blocked?))]
           (async/>!! in-chan {:id :a})
           (is (= [:done :a] (async/<!! out-chan)))
           (is (= 1 @counter))
@@ -53,8 +55,9 @@
                        [:done (:foo some-command)]))]
 
       (with-open [gtp (gated-threadpool 1 "test-pool-%d" 1000)]
-        (let [fut (future
-                    (dochan gtp worker-fn in-chan))]
+        (let [blocked? (atom false)
+              fut (future
+                    (dochan gtp worker-fn in-chan blocked?))]
 
           (async/>!! in-chan {:foo 1})
           (async/close! in-chan)
@@ -89,8 +92,9 @@
                        [:done id]))]
 
       (with-open [gtp (gated-threadpool 2 "test-pool-%d" 1000)]
-        (let [fut (future
-                    (dochan gtp worker-fn in-chan))]
+        (let [blocked? (atom false)
+              fut (future
+                    (dochan gtp worker-fn in-chan blocked?))]
 
           (async/>!! in-chan {:id :a})
           (is (= true (deref (:a in-flight-promises) tu/default-timeout-ms ::not-found)))
@@ -118,6 +122,42 @@
 
           (is (not= ::timed-out (deref fut tu/default-timeout-ms ::timed-out)))
           (is (true? (future-done? fut))))))))
+
+
+(deftest dochan-blocking
+  (testing "blocking and unblocking"
+    (let [counter (atom 0)
+          in-chan (async/chan 10)
+          out-chan (async/chan 10)
+          worker-fn (wrap-out-chan
+                      out-chan
+                      (fn [{:keys [id]}]
+                        (swap! counter inc)
+                        [:done id]))
+          blocked? (atom true)]
+
+      (with-open [gtp (gated-threadpool 1 "test-pool-%d" 1000)]
+        (let [fut (noisy-future
+                    (dochan gtp worker-fn in-chan blocked?)
+                    ::finished)
+              channel (noisy-future (async/<!! out-chan))]
+
+          (async/>!! in-chan {:id :a})
+
+          (testing "blocking"
+            (is (= "Did not wake up!" (deref channel 500 "Did not wake up!")))
+            (is (= 0 @counter)))
+
+          (testing "unblocking"
+            (reset! blocked? false)
+            (locking blocked? (.notifyAll blocked?))
+            (is (= [:done :a] (deref channel)))
+            (is (= 1 @counter)))
+
+          (async/close! in-chan)
+          (is (= ::finished (deref fut tu/default-timeout-ms ::timed-out)))
+          (is (future-done? fut)))))))
+
 
 (def max-log-msg-wait-ms (* 10 1000))
 
@@ -214,8 +254,9 @@
              ;; Shutting down the threadpool when the channel is not
              ;; empty will result in an exception, below ensures that
              ;; happens
-             (let [ex (try
-                        (dochan threadpool-ctx handler-fn in-chan)
+             (let [blocked? (atom false)
+                   ex (try
+                        (dochan threadpool-ctx handler-fn in-chan blocked?)
                         (catch Throwable ex ex))]
                (is (= ExceptionInfo (class ex)))
                (when (= ExceptionInfo (class ex))
