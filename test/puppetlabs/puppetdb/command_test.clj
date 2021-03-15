@@ -72,7 +72,8 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.threadpool :as pool])
+            [puppetlabs.puppetdb.threadpool :as pool]
+            [puppetlabs.puppetdb.utils :refer [await-ref-state]])
   (:import
    (clojure.lang ExceptionInfo)
    (java.nio.file Files)
@@ -1882,6 +1883,43 @@
 
            (testing "concurrent-depth metric should be 0"
              (is (= 0 (concurrent-depth))))))))))
+
+(deftest block-command-processing
+  (with-test-db
+    (svc-utils/with-pdb-with-no-gc
+      (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+            stats (-> dispatcher service-context :stats)
+            new-producer-ts (now)
+            base-cmd (get-in wire-catalogs [9 :basic])
+            enqueue-catalog (fn []
+                              (enqueue-command
+                                dispatcher
+                                (command-names :replace-catalog)
+                                9
+                                (:certname base-cmd)
+                                nil
+                                (->  base-cmd
+                                     (assoc :producer_timestamp new-producer-ts)
+                                     tqueue/coerce-to-stream)
+                                ""))]
+
+        (testing "should pause execution"
+          (pause-execution dispatcher)
+          (enqueue-catalog)
+
+          (is (= 1 (-> stats
+                       (await-ref-state #(= 1 (% :received-commands))
+                                        default-timeout-ms :timeout)
+                       :received-commands))))
+
+          (is (= :timeout (await-ref-state stats #(= 1 (% :executed-commands)) 500 :timeout)))
+
+        (testing "should resume execution"
+          (resume-execution dispatcher)
+
+          (is (not= :timeout (await-ref-state stats #(= (% :executed-commands) 1)
+                                              default-timeout-ms :timeout))))))))
+
 
 (deftest missing-queue-files-accounted-for-in-stats
   ;; Use a lock to hold up command processing while we trash the

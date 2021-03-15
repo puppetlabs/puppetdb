@@ -511,7 +511,12 @@
 
   (response-mult [this]
     "Returns a core.async mult to which {:id :exception} maps are written after
-     each command has been processed. " ))
+     each command has been processed.")
+
+  (pause-execution [this]
+    "Pause command execution")
+  (resume-execution [this]
+    "Resume command execution"))
 
 (defn make-cmd-processed-message [cmd ex]
   (conj
@@ -848,7 +853,8 @@
                response-pub (async/pub response-chan-for-pub :id) :error async/unsub-all
                delay-pool (scheduler delay-pool-size) :error #(shut-down-command-scheduler-or-die
                                                                % request-shutdown)
-               concurrent-writes (get-in config [:command-processing :concurrent-writes])]
+               concurrent-writes (get-in config [:command-processing :concurrent-writes])
+               blocked? (atom false)]
     (async/tap response-mult response-chan-for-pub)
     (assoc context
            :delay-pool delay-pool ;; For general scheduling, not just delays
@@ -858,7 +864,8 @@
            :response-chan response-chan
            :response-mult response-mult
            :response-chan-for-pub response-chan-for-pub
-           :response-pub response-pub)))
+           :response-pub response-pub
+           :blocked? blocked?)))
 
 (defn start-command-service
   [context config {:keys [dlo] :as globals} request-shutdown]
@@ -918,9 +925,10 @@
       ;; bubble up and be reported.
 
       ;; FIXME: check that nil command-chan is actually fatal if appropriate
-      (let [shovel #(with-monitored-execution shutdown-for-ex
+      (let [blocked? (context :blocked?)
+            shovel #(with-monitored-execution shutdown-for-ex
                       (try
-                        (pool/dochan command-pool handle-cmd command-chan)
+                        (pool/dochan command-pool handle-cmd command-chan blocked?)
                         (catch ExceptionInfo ex
                           (when-not (= :puppetlabs.puppetdb.threadpool/rejected
                                        (:kind (ex-data ex)))
@@ -941,7 +949,7 @@
 (defn stop-command-service
   [{:keys [consumer-threadpool broadcast-threadpool command-chan
            response-chan response-chan-for-pub response-mult response-pub
-           delay-pool command-shovel]
+           delay-pool command-shovel blocked?]
     :as context}
    request-shutdown]
   ;; Must also handle a nil context.
@@ -956,6 +964,9 @@
    (finally (when command-shovel (.interrupt command-shovel)))
    (finally (some-> broadcast-threadpool pool/shutdown-unbounded))
    (finally (some-> consumer-threadpool pool/shutdown-gated))
+
+   ; we don't unblock the worker pool from dochan because the command-shovel
+   ; will be interrupted and we don't want to process any request before that
    (finally (some-> delay-pool (shut-down-command-scheduler-or-die request-shutdown)))
    (finally
      (when command-shovel
@@ -969,6 +980,14 @@
    (finally (some-> response-mult async/untap-all))
    (finally (some-> response-chan-for-pub async/close!))
    (finally (some-> response-chan async/close!))))
+
+(defn pause-command-service
+  [blocked?]
+  (locking blocked? (reset! blocked? true) (.notifyAll blocked?)))
+
+(defn resume-command-service
+  [blocked?]
+  (locking blocked? (reset! blocked? false) (.notifyAll blocked?)))
 
 (defn throw-unless-ready [context]
   (when-not (seq context)
@@ -1032,4 +1051,12 @@
    [this]
    (throw-unless-ready (service-context this))
    (throw-if-shutdown-pending (get-shutdown-reason))
-   (-> this service-context :response-mult)))
+   (-> this service-context :response-mult))
+
+  (pause-execution
+    [this]
+    (pause-command-service (-> this service-context :blocked?)))
+
+  (resume-execution
+    [this]
+    (resume-command-service (-> this service-context :blocked?))))

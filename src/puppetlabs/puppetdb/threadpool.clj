@@ -108,8 +108,9 @@
 (defn dochan
   "Calls on-input on each item found on in-chan, using the gated thread
   pool."
-  [pool on-input in-chan]
+  [pool on-input in-chan blocked?]
   (loop [cmd (async/<!! in-chan)]
+    (locking blocked? (while @blocked? (.wait blocked?)))
     (when cmd
       (try
         (.execute pool (fn [] (on-input cmd)))
