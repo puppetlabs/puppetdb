@@ -15,7 +15,6 @@ misuse()
 
 verify-jdk() {
     local spec="$1"
-    echo spec: [$spec]
     local actual_jdk expected_jdk
     expected_jdk="$(ext/bin/jdk-from-spec "$spec")"
     actual_jdk="$(ext/bin/jdk-info --print spec)"
