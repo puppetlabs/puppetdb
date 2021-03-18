@@ -547,10 +547,7 @@
 (def quick-retry-count 4)
 
 (defn attempt-exec-command
-  ([{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
-   shutdown-for-ex]
-   attempt-exec-command cmd db conn-status response-pub-chan stats-atom shutdown-for-ex {})
-  ([{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
+  [{:keys [callback] :as cmd} db conn-status response-pub-chan stats-atom
    shutdown-for-ex options-config]
   (try
     (let [result (call-with-quick-retry quick-retry-count
@@ -567,7 +564,7 @@
       (callback {:command cmd :exception ex})
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd ex))
-      (throw ex)))))
+      (throw ex))))
 
 ;; The number of times a message can be retried before we discard it
 (def maximum-allowable-retries 5)
