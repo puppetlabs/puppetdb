@@ -228,9 +228,10 @@
                        :start-timeout 14400
                        :repo-target "puppet6"
                        :nonfinal-repo-target "puppet6-nightly"
-                       :logrotate-enabled false}
-                :config-dir "ext/config/foss"
-                }
+                       :logrotate-enabled false
+                       :java-args ~(str "-Xmx192m "
+                                        "-Djdk.tls.ephemeralDHKeySize=2048")}
+                :config-dir "ext/config/foss"}
 
   :deploy-repositories [["releases" ~(deploy-info "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-releases__local/")]
                         ["snapshots" ~(deploy-info "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-snapshots__local/")]]
