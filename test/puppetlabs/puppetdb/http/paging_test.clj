@@ -45,6 +45,20 @@
         (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' for :limit; expected a positive non-zero integer" body)))))
 
+  (testing "'explain' should only accept `analyze` string"
+    (doseq [invalid-explain [:somekeyword
+                             :analyze
+                             "some_invalid_string"
+                             ""
+                             123]]
+      (let [response  (*app* (get-request endpoint
+                                          ["these" "are" "unused"]
+                                          {:explain invalid-explain}))
+            body      (get response :body "null")]
+        (is (= (:status response) http/status-bad-request))
+        (are-error-response-headers (:headers response))
+        (is (re-find #"Illegal value '.*' for :explain; expected `analyze`." body)))))
+
   (testing "'offset' should only accept positive integers"
     (doseq [invalid-offset [-1
                             1.1

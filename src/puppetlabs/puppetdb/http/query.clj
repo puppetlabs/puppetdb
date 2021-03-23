@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
             [ring.util.request :as request]
-            [puppetlabs.puppetdb.query.paging :refer [parse-limit
+            [puppetlabs.puppetdb.query.paging :refer [parse-explain
+                                                      parse-limit
                                                       parse-offset
                                                       parse-order-by
                                                       parse-order-by-json]]
@@ -39,6 +40,7 @@
    (s/optional-key :include_total) (s/maybe s/Bool)
    (s/optional-key :optimize_drop_unused_joins) (s/maybe s/Bool)
    (s/optional-key :pretty) (s/maybe s/Bool)
+   (s/optional-key :explain) (s/maybe s/Keyword)
    (s/optional-key :include_facts_expiration) (s/maybe s/Bool)
    (s/optional-key :include_package_inventory) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
@@ -275,6 +277,7 @@
       (update-when [:include_total] coerce-to-boolean)
       (update-when [:optimize_drop_unused_joins] coerce-to-boolean)
       (update-when [:pretty] coerce-to-boolean)
+      (update-when [:explain] parse-explain)
       (update-when [:include_facts_expiration] coerce-to-boolean)
       (update-when [:include_package_inventory] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))

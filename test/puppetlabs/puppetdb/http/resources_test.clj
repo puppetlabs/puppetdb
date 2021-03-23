@@ -158,6 +158,16 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
         (is-response-equal (query-response method endpoint query) result)))))
 
+(deftest-http-app query-with-explain-printing
+  [[version endpoint] endpoints
+   method [:get :post]]
+    (testing "should support explain and not munge rows when quering in resources endpoint"
+      (let [results (json/parse-string
+                    (slurp (:body (query-response method endpoint nil
+                                                  {:explain "analyze"}))))]
+        (is (not (empty? results)))
+        (is (= true (contains? (first results) "query plan"))))))
+
 (deftest-http-app environments-resource-endpoint
   [[version endpoint] endpoints
    method [:get :post]]
