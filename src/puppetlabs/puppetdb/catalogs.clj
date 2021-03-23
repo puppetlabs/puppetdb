@@ -92,6 +92,7 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
             [puppetlabs.i18n.core :refer [trs]]))
@@ -220,7 +221,7 @@
 (defn wire-v5->wire-v9 [catalog]
   (-> catalog
       (set/rename-keys {:name :certname})
-      utils/dash->underscore-keys
+      formatter/dash->underscore-keys
       (dissoc :api_version)
       wire-v6->wire-v9))
 

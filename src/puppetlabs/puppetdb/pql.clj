@@ -1,14 +1,14 @@
 (ns puppetlabs.puppetdb.pql
   (:import com.fasterxml.jackson.core.JsonParseException)
-  (:require [clojure.string :refer [join]]
-            [clojure.tools.logging :as log]
+  (:require [clojure.java.io]
+            [clojure.string :refer [join]]
             [instaparse.core :as insta]
             [instaparse.failure :as failure]
             [instaparse.print :as print]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [tru]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.pql.transform :as transform]
-            [puppetlabs.i18n.core :refer [trs tru]]))
+            [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]]))
 
 (defn transform
   "Transform parsed PQL to AST."
@@ -57,16 +57,27 @@
                     (format "%s\n" (print-reason r))))]
     (join [opening expected freasons preasons])))
 
-(defn parse-json-query
-  "Parse a query string as JSON. Parse errors will result in an
-  IllegalArgumentException"
+(defn parse-json-sequence
+  "Parse a query string as JSON. Parse errors
+   will result in an IllegalArgumentException"
   [query]
   (try
-    (json/parse-strict-string query true)
-    (catch JsonParseException e
-      (throw (IllegalArgumentException.
-              (i18n/tru "Malformed JSON for query: {0}" query)
-              e)))))
+    (with-open [string-reader (java.io.StringReader. query)]
+      (doall (json/parsed-seq string-reader)))
+  (catch JsonParseException e
+    (throw (IllegalArgumentException. (pprint-json-parse-exception e query))))))
+
+(defn parse-json-query
+  "Parse a query string as JSON. Multiple queries or any other
+  data, after the query, will result in an IllegalArgumentException"
+  [query]
+  (when query
+    (let [parsed-query (parse-json-sequence query)
+          query-count (count parsed-query)]
+      (if (= query-count 1)
+        (first parsed-query)
+        (throw (IllegalArgumentException.
+                 (tru "Only one query may be sent in a request. You sent {0}." query-count)))))))
 
 (defn parse-pql-query
   "Parse a query string as PQL. Parse errors will result in an

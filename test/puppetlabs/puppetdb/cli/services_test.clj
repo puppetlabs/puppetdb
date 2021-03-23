@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.scf.partitioning
              :refer [get-temporal-partitions]]
             [puppetlabs.trapperkeeper.testutils.logging
@@ -138,6 +139,15 @@
                    :environment "DEV",
                    :certname "foo.local"}}
                 (set result))))))))
+
+(deftest query-with-explain
+  (svc-utils/with-single-quiet-pdb-instance
+      (check-service-query
+       :v4 ["from" "facts" ["=" "certname" "foo.local"]]
+       {:explain? true}
+       (fn [result]
+         (is (= true (contains? (first result) (keyword "query plan"))))
+         (is (= true (instance? org.postgresql.util.PGobject ((keyword "query plan") (first result) ))))))))
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
@@ -361,7 +371,7 @@
                                                       @requested-shutdown?
                                                       (catch InterruptedException ex
                                                         false)))
-                                          true))
+                                          (ignore-value true)))
                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)

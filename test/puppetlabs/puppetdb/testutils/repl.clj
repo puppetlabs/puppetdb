@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.repl
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [clojure.pprint :refer [pprint]]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as testutils]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.cli.services :as svcs]
@@ -49,7 +50,7 @@
   @(tka/app-context system))
 
 (defn print-context []
-  (clojure.pprint/pprint (context)))
+  (pprint (context)))
 
 (defn reset []
   (stop)

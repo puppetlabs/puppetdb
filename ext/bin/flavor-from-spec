@@ -4,7 +4,7 @@ from __future__ import print_function
 from sys import exit, stderr
 import os, sys
 
-valid_flavors = ('core', 'ext', 'core+ext', 'int', 'rspec')
+valid_flavors = ('core', 'ext', 'core+ext', 'int', 'lint', 'rspec')
 
 def usage(stream):
     print('Usage: flavor-from-spec core/openjdk8/pg-9.6', file=stream)

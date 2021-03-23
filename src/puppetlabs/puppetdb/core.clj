@@ -33,9 +33,10 @@
     (require (vector namespace))
     (apply (ns-resolve namespace fn-name) args)))
 
-(defn run-subcommand [subcommand args]
+(defn run-subcommand
   "Runs the given subcommand, which should handle shutdown and the
   process exit status itself."
+  [subcommand args]
   (case subcommand
     "help" (run-cli-cmd #(help args))
     "upgrade" (run-resolved "services" 'cli [args {:upgrade-and-exit? true}])

@@ -503,12 +503,12 @@
           (doseq [[[timestamp-order name-order] expected]
                   [[["asc" "desc"] ordered-names]
                    [["asc" "asc"] ordered-names]]]
-            (let [result (ordered-query-result method endpoint nil
-                                               {:order_by (vector-param method
-                                                            [{"field" "facts_timestamp"
-                                                              "order" timestamp-order}
-                                                             {"field" "certname"
-                                                              "order" name-order}])})]))))
+            (ordered-query-result method endpoint nil
+                                  {:order_by (vector-param method
+                                                           [{"field" "facts_timestamp"
+                                                             "order" timestamp-order}
+                                                            {"field" "certname"
+                                                             "order" name-order}])}))))
 
       (testing "offset"
         (let [ordered-names ["db.example.com" "puppet.example.com" "web1.example.com" "web2.example.com"]

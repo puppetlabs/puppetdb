@@ -222,9 +222,9 @@
                     :database-y {:subname "other-stuff"}}
                    configure-dbs)]
     (is (= config (forbid-duplicate-write-db-subnames config))))
-  (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}
-                    :database-x {:subname "stuff"}
-                    :database-y {:subname "stuff"}})]
+  (let [config {:database {:user "x" :password "?" :subname "stuff"}
+                :database-x {:subname "stuff"}
+                :database-y {:subname "stuff"}}]
     (is (thrown+-with-msg?
          [:type ::conf/cli-error] #"^Cannot have duplicate write"
          (configure-dbs config)))))

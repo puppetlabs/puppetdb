@@ -4,6 +4,7 @@
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.cli.services :as cli-svc]
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+   [puppetlabs.puppetdb.lint :refer [ignore-value]]
    [puppetlabs.puppetdb.test-protocols :refer [called?]]
    [puppetlabs.puppetdb.testutils :as tu]
    [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
@@ -133,9 +134,9 @@
                  (is (= "bar" (-> result first (get "certname"))))
                  (is (tc/after? (now)
                                 (-> result first (get "expired") parse-wire-datetime))))
-               (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
-                   {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
-                  (facts))
+               (is (= [{"certname" "bar", "facts" [{"name" "y", "value" 1}]}
+                       {"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                      (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
                (is (= [{"certname" "foo" "expired" nil}] (nodes)))
                (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
@@ -150,8 +151,8 @@
                  (is (= "foo" (-> result first (get "certname"))))
                  (is (tc/after? (now)
                                 (-> result first (get "expired") parse-wire-datetime))))
-               (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
-                  (facts))
+               (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                      (facts)))
                (cli-svc/clean pdb ["purge_nodes"])
                (is (= [] (nodes)))
                (= [] (facts))))

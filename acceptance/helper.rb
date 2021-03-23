@@ -722,7 +722,7 @@ EOS
   # @param expected_output [Regexp] a regexp to use for matching the output
   # @return [void]
   def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
-    command = "curl --tlsv1 #{curl_args}"
+    command = "curl --tlsv1.3 #{curl_args}"
     log_prefix = host.log_prefix
     logger.debug "\n#{log_prefix} #{Time.new.strftime('%H:%M:%S')}$ #{command}"
     logger.debug "  Trying command #{max_retries} times."

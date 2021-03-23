@@ -2,7 +2,15 @@
   (:require [metrics.timers :refer [time!]]
             [clojure.set :as set]))
 
-;;; Metrics and timing
+;; Work around https://github.com/metrics-clojure/metrics-clojure/issues/144
+(alter-meta! #'metrics.timers/number-recorded
+             (fn [m]
+               (let [msg "Unexpected type tag on metrics.timers/number-recorded"]
+                 (update m :tag #(cond
+                                   (= % 'long) %  ;; during compilation
+                                   (= % long) 'long
+                                   :else (throw (Exception. msg)))))))
+(def number-recorded metrics.timers/number-recorded)
 
 (defn multitime!*
   "Helper for `multitime!`. Given a set of timer objects and a

@@ -31,7 +31,7 @@ test "$install" || misuse
 flavor=$(ext/bin/flavor-from-spec "$spec")
 
 case "$flavor" in
-    core|ext|core+ext|int)
+    core|ext|core+ext|int|lint)
         jdk="$(ext/bin/jdk-from-spec "$spec")"
         jdkver="${jdk##*jdk}"
         mkdir -p "$install"

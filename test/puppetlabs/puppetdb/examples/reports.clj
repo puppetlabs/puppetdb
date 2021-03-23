@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.examples.reports
   (:require [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [schema.core :as s]))
 
 (def reports
@@ -427,5 +427,5 @@
   (s/validate reports/report-v4-wireformat-schema
               (-> v5-report
                   (dissoc :producer_timestamp :metrics :logs :noop)
-                  utils/underscore->dash-keys
-                  (update :resource-events #(map utils/underscore->dash-keys %)))))
+                  formatter/underscore->dash-keys
+                  (update :resource-events #(map formatter/underscore->dash-keys %)))))

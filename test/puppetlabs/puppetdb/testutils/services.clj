@@ -312,9 +312,9 @@
          :ssl-key  default-ssl-key}))
 
 (pls/defn-validated post-ssl-or-throw
+  "Same as `post-ssl` except will throw if an error status is returned."
   [url-str :- String
    body]
-  "Same as `post-ssl` except will throw if an error status is returned."
   (let [resp (post-ssl url-str body)]
     (if (>= (:status resp) 400)
       (throw
@@ -351,6 +351,12 @@
    (get-reports *base-url* certname))
   ([base-url certname]
    (certname-query base-url "/reports" certname)))
+
+(defn get-events
+  ([certname]
+   (get-events *base-url* certname))
+  ([base-url certname]
+   (certname-query base-url "/events" certname)))
 
 (defn get-factsets
   ([certname]

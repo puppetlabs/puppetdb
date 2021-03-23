@@ -63,9 +63,9 @@
   (:require [clojure.string :as str]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :refer [parse-number keyset valset order-by-expr?]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
@@ -662,7 +662,7 @@
       (throw (IllegalArgumentException.
               (i18n/tru "= requires exactly two arguments, but {0} were supplied"
                         (count args)))))
-    (let [path (utils/dashes->underscores path)]
+    (let [path (formatter/dashes->underscores path)]
       (match [path]
              ["certname"]
              {:where "reports.certname = ?"
@@ -716,7 +716,7 @@
     (when-not (= (count args) 2)
       (throw (IllegalArgumentException.
                (i18n/tru "~ requires exactly two arguments, but {0} were supplied" (count args)))))
-    (let [path (utils/dashes->underscores path)]
+    (let [path (formatter/dashes->underscores path)]
       (match [path]
              ["certname"]
              {:where (legacy-sql-regexp-match "reports.certname")
@@ -752,7 +752,7 @@
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException.
             (i18n/tru "= requires exactly two arguments, but {0} were supplied" (count args)))))
-  (let [db-field (utils/dashes->underscores path)]
+  (let [db-field (formatter/dashes->underscores path)]
     (match [db-field]
            [(field :guard fields)]
            {:where (format "%s = ?" field)

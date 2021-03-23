@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.examples
-  (:require [puppetlabs.puppetdb.utils :as utils]))
+  (:require [puppetlabs.puppetdb.utils.string-formatter :as formatter]))
 
 (def catalogs
   {:empty
@@ -148,12 +148,12 @@
                          :job_id :catalog_uuid :producer)
                  (assoc :name (:certname v9-empty-wire-catalog)
                         :api_version 1)
-                 utils/underscore->dash-keys)}
+                 formatter/underscore->dash-keys)}
    5 {:empty (-> v9-empty-wire-catalog
                  (assoc :name (:certname v9-empty-wire-catalog)
                         :api_version 1)
                  (dissoc :certname :job_id :code_id :catalog_uuid :producer)
-                 utils/underscore->dash-keys)}
+                 formatter/underscore->dash-keys)}
    6 {:empty (-> v9-empty-wire-catalog
                  (dissoc :job_id :code_id :catalog_uuid :producer))}
    7 {:empty (-> v9-empty-wire-catalog

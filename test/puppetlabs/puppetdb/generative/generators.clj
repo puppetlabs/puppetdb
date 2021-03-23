@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.generative.generators
   (:require
+   [clojure.string :as str]
    [puppetlabs.puppetdb.generative.overridable-generators :as gen :refer [defgen]]
    [puppetlabs.puppetdb.time :as time]))
 
@@ -7,7 +8,7 @@
 
 (defn string+
   ([] (string+ 255))
-  ([max-len] (gen/fmap clojure.string/join (gen/vector gen/char-alphanumeric 1 max-len))))
+  ([max-len] (gen/fmap str/join (gen/vector gen/char-alphanumeric 1 max-len))))
 
 (def pg-smallint (gen/choose -32768 32767))
 (def pg-integer (gen/choose -2147483648 2147483647))

@@ -82,14 +82,14 @@
               (is (= (set exp) (set resp))))))))
 
     (testing "trivial pagination"
-      (let [order-by (vector-param method [(merge {:field "certname"})])
+      (let [order-by (vector-param method [{:field "certname"}])
             resp (query-inputs nil {:order_by order-by
                                     :offset 0
                                     :limit 2})
             exp (->> (sort-by :certname all-expected) (take 2))]
         (is (= (count exp) (count resp)))
         (is (= (set exp) (set resp))))
-      (let [order-by (vector-param method [(merge {:field "certname"})])
+      (let [order-by (vector-param method [{:field "certname"}])
             resp (query-inputs nil {:order_by order-by
                                     :offset 2})
             exp (->> (sort-by :certname all-expected) (drop 2))]

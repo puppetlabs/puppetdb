@@ -2,7 +2,9 @@
   (:require [clojure.java.shell :refer [sh]]
             [clojure.string :as str]
             [clojure.test :refer :all]
+            [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.cli.benchmark :as benchmark]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.client :as client]
@@ -26,7 +28,7 @@
             :base-url base-url
             :version version
             :payload-string payload-string
-            :payload (clojure.walk/keywordize-keys payload-string)})))
+            :payload (keywordize-keys payload-string)})))
 
 (defn call-with-benchmark-status
   [config cli-args f]
@@ -123,8 +125,10 @@
                (clojure.pprint/pprint r))
              (is (= 200 (:status r))))
            (do
-             (Files/copy (:body r) (get-path export-out-file)
-                         (copts [copt-replace]))
+             (ignore-value
+              (Files/copy ^java.io.InputStream (:body r)
+                          (get-path export-out-file)
+                          (copts [copt-replace])))
              (let [numhosts 2
                    nummsgs 3
                    submitted (benchmark-nummsgs {}

@@ -4,8 +4,9 @@
    Functions that aid in the parsing, serialization, and manipulation
    of PuppetDB queries embedded in HTTP parameters."
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.walk :refer [keywordize-keys stringify-keys]]
+            [clojure.java.io]
             [clojure.core.match :as cm]
+            [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [clojure.set :as set]
             [puppetlabs.i18n.core :refer [trs tru]]
@@ -14,13 +15,16 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
+            [ring.util.request :as request]
             [puppetlabs.puppetdb.query.paging :refer [parse-limit
                                                       parse-offset
                                                       parse-order-by
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when]]))
+            [puppetlabs.puppetdb.utils :refer [update-when]]
+            [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]])
+  (:import (com.fasterxml.jackson.core JsonParseException)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -291,8 +295,11 @@
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
   [req parse-fn]
-  (-> (with-open [reader (-> req :body clojure.java.io/reader)]
-        (json/parse-stream reader true))
+  (-> (let [req-body (request/body-string req)]
+        (try
+          (json/parse-string req-body true)
+        (catch JsonParseException e
+          (throw (IllegalArgumentException. (pprint-json-parse-exception e req-body))))))
       (update :query (fn [query]
                        (if (vector? query)
                          query

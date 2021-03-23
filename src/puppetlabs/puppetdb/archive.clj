@@ -3,7 +3,6 @@
 
    This namespace contains functions for reading and writing compressed
    archive files. Currently only supports gzipped tar archives."
-  (:refer-clojure :exclude (with-open))
   (:import [java.io
             Closeable
             File
@@ -19,10 +18,10 @@
            [org.apache.commons.compress.compressors.gzip
             GzipCompressorOutputStream
             GzipCompressorInputStream])
-  (:require [clojure.java.io :refer :all]
-            [puppetlabs.i18n.core :refer [tru]]
-            [puppetlabs.puppetdb.time :refer [now to-java-date]]
-            [puppetlabs.puppetdb.withopen :refer [with-open]]))
+  (:require
+   [clojure.java.io :refer :all]
+   [puppetlabs.i18n.core :refer [tru]]
+   [puppetlabs.puppetdb.time :refer [now to-java-date]]))
 
 ;; A simple type for writing tar/gz streams
 (defrecord TarGzWriter [^Closeable tar-stream ^Closeable tar-writer ^Closeable gzip-stream]

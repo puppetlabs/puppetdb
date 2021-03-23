@@ -75,7 +75,27 @@
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"")]
-        (is (= "Malformed JSON for query: [\"from\",\"foobar\"" body))
+        (is (= (str "Json parse error at line 1, column 17:\n\n"
+                    "[\"from\",\"foobar\"\n"
+                    "               ^\n\n"
+                    "Unexpected end-of-input: expected close marker for Array "
+                    "(start marker at [Source: (StringReader); line: 1, column: 1])") body))
+        (are-error-response-headers headers)
+        (is (= http/status-bad-request status)))
+
+      ;; Ensure we don't allow multiple queries in one request
+      (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] [\"from\",\"foo\"]")]
+        (is (= "Only one query may be sent in a request. You sent 2." body))
+        (are-error-response-headers headers)
+        (is (= http/status-bad-request status)))
+
+      ;; Ensure we don't allow garbage after query
+      (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] random-stuff")]
+        (is (= (str "Json parse error at line 1, column 25:\n\n"
+                    "[\"from\",\"foobar\"] random-stuff\n"
+                    "                       ^\n\n"
+                    "Unrecognized token 'random': was expecting "
+                    "(JSON String, Number, Array, Object or token 'null', 'true' or 'false')") body))
         (are-error-response-headers headers)
         (is (= http/status-bad-request status)))
 
@@ -398,9 +418,9 @@
                              ["extract" ["name" "value"]
                               ["in" ["value"]
                                ["extract" ["value"]
-                                ["select_facts"]]]]])))))))))
+                                ["select_facts"]]]]]))))))))))
 
-  (deftest ast-fact-value-resource-title-join
+(deftest ast-fact-value-resource-title-join
     (let [certname "foo.local"
           environment "dev"
           right-now (now)
@@ -411,7 +431,8 @@
                           "bar" 2
                           "baz" 3}
                  :timestamp right-now
-                 :producer_timestamp right-now}
+                 :producer_timestamp right-now
+                 :producer "foo1"}
           resource {:type "File"
                     :title "/etc/apache/apache2.conf"
                     :exported false
@@ -453,4 +474,4 @@
                                   ["in" ["title"]
                                    ["extract" ["value"]
                                     ["select_facts"
-                                     ["=" "name" "apache_conf"]]]]]]))))))))))))
+                                     ["=" "name" "apache_conf"]]]]]])))))))))))

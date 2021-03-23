@@ -2,6 +2,7 @@
   (:require
    [clojure.java.io :as io]
    [clojure.string :as str]
+   [digest]
    [metrics.counters :as counters]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :refer [timestamp]]

@@ -7,7 +7,9 @@
             [clojure.string :as str]
             [schema.utils :as su]
             [cheshire.custom :as json]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [schema.spec.core]
+            [schema.spec.variant])
   (:import
    (java.util.regex Pattern)))
 
@@ -53,6 +55,7 @@
    or a sequence and return a vector of those facts"
   [fl]
   (cond
+    (= "" fl) []
     (string? fl) (->> (str/split fl #",")
                       (map str/trim)
                       (apply vector))

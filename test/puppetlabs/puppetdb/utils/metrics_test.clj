@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.utils.metrics-test
   (:require [puppetlabs.puppetdb.utils.metrics :refer :all]
             [clojure.test :refer :all]
-            [metrics.timers :refer [timer number-recorded]]))
+            [metrics.timers :refer [timer]]))
 
 (deftest test-multitime-macro
   (testing "should update all supplied timers"

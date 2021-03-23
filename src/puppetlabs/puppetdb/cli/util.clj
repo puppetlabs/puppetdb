@@ -8,13 +8,17 @@
 
 (def err-exit-status 2)
 
+;; FIXME: maybe change this to rely on java.lang.Runtime$Version for
+;; jdk > 8 (cf. pdb-jdk-ver in project.clj).
+
 ;; Testing hook
 (defn java-version [] (System/getProperty "java.version"))
 
 (def supported-java-version "11")
 
-(defn jdk-support-status [version]
+(defn jdk-support-status
   "Returns :official, :tested, :deprecated, :unknown, or :no."
+  [version]
   (cond
     (re-matches #"1\.[1234567]($|(\..*))" version) :no
     (re-matches #"1\.[89]($|(\..*))" version) :deprecated

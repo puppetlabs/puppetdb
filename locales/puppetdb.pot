@@ -350,6 +350,10 @@ msgid "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
+msgid "facts-blocklist-type was ''{0}'' but it must be either regex or literal"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
 msgid "Unsupported command {0} version {1}"
 msgstr ""
 
@@ -908,7 +912,7 @@ msgid "{0} (followed by end-of-string)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj
-msgid "Malformed JSON for query: {0}"
+msgid "Only one query may be sent in a request. You sent {0}."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query.clj
@@ -1540,4 +1544,8 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj
 msgid "{0} is negative"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/utils/string_formatter.clj
+msgid "Json parse error at line {0}, column {1}:nn{2}n{3}^nn{4}"
 msgstr ""

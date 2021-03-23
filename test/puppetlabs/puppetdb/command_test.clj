@@ -10,6 +10,7 @@
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.app :as tkapp]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
@@ -43,6 +44,7 @@
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.test]
+            [puppetlabs.puppetdb.utils.string-formatter :refer [dash->underscore-keys]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
                      schedule
@@ -71,7 +73,8 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.threadpool :as pool])
+            [puppetlabs.puppetdb.threadpool :as pool]
+            [puppetlabs.puppetdb.utils :refer [await-ref-state]])
   (:import
    (clojure.lang ExceptionInfo)
    (java.nio.file Files)
@@ -1550,7 +1553,7 @@
   (let [recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
       (handle-message (queue/store-command q (report->command-req 4 v4-report)))
-      (is (= [(with-env (utils/dash->underscore-keys
+      (is (= [(with-env (dash->underscore-keys
                          (select-keys v4-report
                                       [:certname :configuration-version])))]
              (-> (str "select certname, configuration_version, environment_id"
@@ -1576,7 +1579,7 @@
         recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
       (handle-message (queue/store-command q (report->command-req 3 v3-report)))
-      (is (= [(with-env (utils/dash->underscore-keys
+      (is (= [(with-env (dash->underscore-keys
                          (select-keys v3-report
                                       [:certname :configuration-version])))]
              (-> (str "select certname, configuration_version, environment_id"
@@ -1702,7 +1705,7 @@
 
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
-             (jdbc/with-transacted-connection
+             (jdbc/with-transacted-connection'
                (:scf-read-db (cli-svc/shared-globals pdb))
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
@@ -1736,9 +1739,10 @@
                         {:certname "foo.local" :producer_timestamp producer-ts})
                        "")
 
-      (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
+      (let [received-ts (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
-        (is (= producer-ts))))))
+        (is (= producer-ts
+               (-> received-ts time/parse time/to-java-date)))))))
 
 (defn captured-ack-command [orig-ack-command results-atom]
   (fn [q command]
@@ -1882,6 +1886,43 @@
            (testing "concurrent-depth metric should be 0"
              (is (= 0 (concurrent-depth))))))))))
 
+(deftest block-command-processing
+  (with-test-db
+    (svc-utils/with-pdb-with-no-gc
+      (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+            stats (-> dispatcher service-context :stats)
+            new-producer-ts (now)
+            base-cmd (get-in wire-catalogs [9 :basic])
+            enqueue-catalog (fn []
+                              (enqueue-command
+                                dispatcher
+                                (command-names :replace-catalog)
+                                9
+                                (:certname base-cmd)
+                                nil
+                                (->  base-cmd
+                                     (assoc :producer_timestamp new-producer-ts)
+                                     tqueue/coerce-to-stream)
+                                ""))]
+
+        (testing "should pause execution"
+          (pause-execution dispatcher)
+          (enqueue-catalog)
+
+          (is (= 1 (-> stats
+                       (await-ref-state #(= 1 (% :received-commands))
+                                        default-timeout-ms :timeout)
+                       :received-commands))))
+
+          (is (= :timeout (await-ref-state stats #(= 1 (% :executed-commands)) 500 :timeout)))
+
+        (testing "should resume execution"
+          (resume-execution dispatcher)
+
+          (is (not= :timeout (await-ref-state stats #(= (% :executed-commands) 1)
+                                              default-timeout-ms :timeout))))))))
+
+
 (deftest missing-queue-files-accounted-for-in-stats
   ;; Use a lock to hold up command processing while we trash the
   ;; queue.
@@ -2017,7 +2058,7 @@
                                                       @requested-shutdown?
                                                       (catch InterruptedException ex
                                                         false)))
-                                          true))
+                                          (ignore-value true)))
                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)

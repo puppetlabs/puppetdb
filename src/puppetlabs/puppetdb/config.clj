@@ -233,12 +233,12 @@
    :max-enqueued s/Int})
 
 (pls/defn-validated write-databases
-  [config]
   "Returns a map of database names to their configs.  Each
   :database-NAME section in the config will produce a map entry with
   NAME as the key.  If the config only contains a single :database
   section, its key will be \"default\" and its config map will
   have ::unnamed set to true."
+  [config]
   (let [prefix "database-"
         result (reduce-kv (fn [result k cfg]
                             (let [n (name k)]

@@ -581,15 +581,6 @@
       (is (= #{1 2} (set (map :id original-catalogs))))
       (is (= #{2} (set (map :id new-catalogs)))))))
 
-(deftest test-migrate-from-unsupported-version
-  (clear-db-for-testing!)
-  (fast-forward-to-migration! 28)
-  (jdbc/do-commands "DELETE FROM schema_migrations")
-  (record-migration! 27)
-  (is (thrown-with-msg? IllegalStateException
-                        #"Found an old and unsupported database migration.*"
-                        (initialize-schema))))
-
 (deftest test-fact-values-value->jsonb
   (clear-db-for-testing!)
   (fast-forward-to-migration! 49)

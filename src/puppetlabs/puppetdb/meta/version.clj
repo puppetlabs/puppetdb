@@ -44,5 +44,5 @@
 (defn check-for-updates!
   [update-server db]
   (try
-    @(version-check/check-for-updates! (pdb-version-check-values db) update-server)
+    @(version-check/check-for-update (pdb-version-check-values db) update-server)
     (catch Exception e)))
