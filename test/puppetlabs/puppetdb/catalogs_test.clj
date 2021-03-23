@@ -104,10 +104,10 @@
             v7-catalog (dissoc v8-catalog :catalog_uuid)
             v6-catalog (dissoc v7-catalog :code_id)]
         (testing "should accept catalogs with the correct set of keys"
-          (= catalog (s/validate catalog-wireformat-schema catalog))
-          (= v8-catalog (s/validate catalog-v8-wireformat-schema v8-catalog))
-          (= v7-catalog (s/validate catalog-v7-wireformat-schema v7-catalog))
-          (= v6-catalog (s/validate catalog-v6-wireformat-schema v6-catalog)))
+          (is (= catalog (s/validate catalog-wireformat-schema catalog)))
+          (is (= v8-catalog (s/validate catalog-v8-wireformat-schema v8-catalog)))
+          (is (= v7-catalog (s/validate catalog-v7-wireformat-schema v7-catalog)))
+          (is (= v6-catalog (s/validate catalog-v6-wireformat-schema v6-catalog))))
 
         (testing "should fail if the catalog has an extra key"
           (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"

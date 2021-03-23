@@ -15,7 +15,6 @@ misuse()
 
 verify-jdk() {
     local spec="$1"
-    echo spec: [$spec]
     local actual_jdk expected_jdk
     expected_jdk="$(ext/bin/jdk-from-spec "$spec")"
     actual_jdk="$(ext/bin/jdk-info --print spec)"
@@ -31,7 +30,7 @@ test $# -ne 1 && misuse
 spec="$1"
 test_kind=$(ext/bin/flavor-from-spec "$spec")
 case "$test_kind" in
-    core|ext|core+ext|int)
+    core|ext|core+ext|int|lint)
         verify-jdk "$spec"
         ;;
     rspec)

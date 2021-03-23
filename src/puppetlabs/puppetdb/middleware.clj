@@ -108,7 +108,7 @@
   Acceptable status is returned, with a message informing the client it must
   accept the content type."
   [app content-type]
-  {:pre (string? content-type)}
+  {:pre [(string? content-type)]}
   (fn [{:keys [headers] :as req}]
     (if (http/acceptable-content-type
          content-type
@@ -377,7 +377,7 @@
 
 (pls/defn-validated url-decode :- s/Str
   [x :- s/Str]
-  (java.net.URLDecoder/decode x))
+  (java.net.URLDecoder/decode x "utf-8"))
 
 (pls/defn-validated make-pdb-handler :- handler-schema
   "Similar to `bidi.ring/make-handler` but does not merge route-params

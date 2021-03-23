@@ -1236,7 +1236,7 @@
                        fact-json-updates)
                       ["id=?" factset_id])))))
 
-(defn delete-unused-fact-paths []
+(defn delete-unused-fact-paths
   "Deletes paths from fact_paths that are no longer needed by any
   factset.  In the unusual case where a path changes type, the
   previous version will linger.  This requires a parent transaction
@@ -1244,6 +1244,7 @@
   need postgres' \"stronger than the standard\" repeatable-read
   behavior).  Otherwise paths could be added to fact_paths elsewhere
   during the gc, not be noticed, and then be deleted at the end."
+  []
   ;; Use a temp table for now until we figure out why pg is creating a
   ;; vast number of temp files when this is all handled as a single
   ;; query.  (PDB-3924)
@@ -1655,10 +1656,10 @@
              (.after time)))))
 
 (pls/defn-validated have-newer-record-for-certname?
-  [certname :- String
-   timestamp :- pls/Timestamp]
   "Returns a truthy value indicating whether a record exists that has
   a producer_timestamp newer than the given timestamp."
+  [certname :- String
+   timestamp :- pls/Timestamp]
   (some (fn [entity]
           (have-record-produced-after? entity certname timestamp))
         [:catalogs :factsets :reports]))
@@ -1694,9 +1695,10 @@
                               AND (deactivated IS NULL OR deactivated < ?)"
                          [sql-timestamp certname sql-timestamp])))))
 
-(pls/defn-validated expire-stale-nodes [horizon :- Period]
+(pls/defn-validated expire-stale-nodes
   "Expires nodes with no activity within the provided horizon (prior
   to now) and returns a collection of the affected certnames."
+  [horizon :- Period]
   (let [stale-start-ts (to-timestamp (ago horizon))
         expired-ts (to-timestamp (now))]
     (map :certname

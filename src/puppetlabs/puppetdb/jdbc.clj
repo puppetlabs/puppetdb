@@ -213,15 +213,6 @@
 
 (defn query
   "Calls clojure.jdbc/query after adding (jdbc/db) as the first argument."
-  {:arglists '([sql-and-params
-                :as-arrays? false :identifiers clojure.string/lower-case
-                :result-set-fn doall :row-fn identity]
-               [sql-and-params
-                :as-arrays? true :identifiers clojure.string/lower-case
-                :result-set-fn vec :row-fn identity]
-               [[sql-string & params]]
-               [[stmt & params]]
-               [[option-map sql-string & params]])}
   [sql-params & remainder]
   (apply sql/query *db* sql-params remainder))
 
@@ -280,8 +271,8 @@
     f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
-       (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
-                           params))
+       (doseq [[i param] (map vector (range) params)]
+         (.setObject stmt (inc i) param))
        (.setFetchSize stmt (or fetch-size 500))
        (with-open [rset (.executeQuery stmt)]
          (try
@@ -311,8 +302,8 @@
     f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
-       (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
-                           params))
+       (doseq [[i param] (map vector (range) params)]
+         (.setObject stmt (inc i) param))
        (.setFetchSize stmt 500)
        (let [fix-vals (if as-arrays?
                         #(mapv any-sql-array->vec %)
@@ -677,19 +668,20 @@
 (defn current-database []
   (-> "select current_database();" query-to-vec first :current_database))
 
-(defn-validated has-database-privilege?
-  [user db privilege] :- s/Bool
+(defn-validated has-database-privilege? :- s/Bool
+  [user db privilege]
   (-> ["select has_database_privilege(?, ?, ?)" user db privilege]
       query-to-vec first :has_database_privilege))
 
-(defn-validated has-role?
-  [user role privilege] :- s/Bool
+(defn-validated has-role? :- s/Bool
+  [user role privilege]
   (-> ["select pg_has_role(?, ?, ?)" user role privilege]
       query-to-vec first :pg_has_role))
 
-(defn disconnect-db [db]
+(defn disconnect-db
   "Forcibly disconnects all connections to the named db.  Requires
   that the current DB session has sufficient authorization."
+  [db]
   (query-to-vec
    (str "select pg_terminate_backend (pg_stat_activity.pid)"
         "  from pg_stat_activity"
@@ -697,10 +689,11 @@
         "    and pid <> pg_backend_pid()")
    db))
 
-(defn disconnect-db-role [db user]
+(defn disconnect-db-role
   "Forcibly disconnects all connections from the specified role to the
   named db.  Requires that the current DB session has sufficient
   authorization."
+  [db user]
   (query-to-vec
    (str "select pg_terminate_backend (pg_stat_activity.pid)"
         "  from pg_stat_activity"

@@ -1,5 +1,4 @@
 (ns puppetlabs.puppetdb.queue
-  (:refer-clojure :exclude (with-open))
   (:import (clojure.lang ExceptionInfo)
            [java.nio.charset StandardCharsets]
            [java.io InputStreamReader BufferedReader InputStream Closeable]
@@ -7,13 +6,15 @@
            [java.nio.file Files LinkOption]
            [java.nio.file.attribute FileAttribute]
            [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
-  (:require [clojure.string :as str :refer [re-quote-replacement]]
-            [puppetlabs.stockpile.queue :as stock]
+  (:require [clojure.set :as set]
+            [clojure.string :as str :refer [re-quote-replacement]]
             [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
+            [puppetlabs.stockpile.queue :as stock]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -29,8 +30,7 @@
             [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]
-            [puppetlabs.puppetdb.withopen :refer [with-open]]))
+            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -44,7 +44,7 @@
    "set-expire" "configure expiration"})
 
 (def puppetdb-command->metadata-command
-  (into {} (for [[md pdb] metadata-command->puppetdb-command] [pdb md])))
+  (set/map-invert metadata-command->puppetdb-command))
 
 (defn stream->json [^InputStream stream]
   (try
@@ -277,9 +277,10 @@
                     {:kind ::parse-error}
                     nil))))
 
-(defn cmdref->cmd [q cmdref]
+(defn cmdref->cmd
   "Returns the command associated with cmdref, or nil if the file is
   missing (i.e. it's been deleted)."
+  [q cmdref]
   (let [compression (:compression cmdref)
         entry (cmdref->entry cmdref)
         stream (try
@@ -487,6 +488,7 @@
                     (stock/open queue-path))]
       [q (message-loader q (stock/next-likely-id q) maybe-send-cmd-event! cmd-event-ch)]
       (do
-        (Files/createDirectories (get-path stockpile-root)
-                                 (make-array FileAttribute 0))
+        (ignore-value
+         (Files/createDirectories (get-path stockpile-root)
+                                  (make-array FileAttribute 0)))
         [(stock/create queue-path) nil]))))

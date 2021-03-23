@@ -73,10 +73,11 @@
        (finally
          (async/unsub p# t# c#)))))
 
-(defn- restrained-drained-stream [stream max-size]
+(defn- restrained-drained-stream
   "Returns a stream that will throw an ex-info exception
   of :kind ::body-stream-overflow and drain the rest of the stream if
   more than max-size-data is read."
+  [stream max-size]
   ;; The drain is because ruby.  i.e. if we closed the connection
   ;; without that, one of the ruby clients wouldn't handle the broken
   ;; pipe in a friendly way.

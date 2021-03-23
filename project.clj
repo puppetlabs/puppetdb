@@ -20,10 +20,20 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def i18n-version "0.8.0")
+(def pdb-jvm-ver
+  ;; https://docs.oracle.com/javase/10/docs/api/java/lang/Runtime.Version.html
+  ;; ...and do something similar for older versions.
+  (let [prop (System/getProperty "java.version")]
+    ;; Remove java.version use when JDK < 9 is no longer supported.
+    (if (clojure.string/starts-with? prop "1.")
+      ;; Versions prior to 10 were numbered 1.X, e.g. 1.8
+      (let [[_ feature interim] (clojure.string/split prop #"[._]")]
+        {:feature (Long/valueOf feature) :interim (Long/valueOf interim)})
+      ;; Eval so we don't break compilation on older JDKs
+      (let [ver (eval '(java.lang.Runtime/version))]
+        {:feature (.feature ver) :interim (.interim ver)}))))
 
-(def need-permgen?
-  (= "1.7" (System/getProperty "java.specification.version")))
+(def i18n-version "0.8.0")
 
 (def pdb-repositories
   (if (true-in-env? "PUPPET_SUPPRESS_INTERNAL_LEIN_REPOS")
@@ -120,6 +130,12 @@
               (map #(clojure.string/replace % #"(.*)/[^/]+$" "$1"))
               (map symbol))))
 
+;; Avoid startup reflection warnings due to
+;; https://clojure.atlassian.net/browse/CLJ-2066
+;; https://openjdk.java.net/jeps/396
+(def pdb-jvm-opts (when (> (:feature pdb-jvm-ver) 8)
+                    ["--illegal-access=deny"]))
+
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
 
@@ -201,9 +217,7 @@
                  ;; fixing a illegal reflective access
                  [org.tcrawley/dynapath "1.0.0"]]
 
-  :jvm-opts ~(if need-permgen?
-              ["-XX:MaxPermSize=200M"]
-              [])
+  :jvm-opts ~pdb-jvm-opts
 
   :repositories ~pdb-repositories
 
@@ -246,8 +260,9 @@
                         :injections [(do
                                        (require 'schema.core)
                                        (schema.core/set-fn-validation! true))]}
-             :dev [:defaults
-                   {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]}]
+             :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
+                              :plugins [[jonase/eastwood "0.3.14"
+                                         :exclusions [org.clojure/clojure]]]}]
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
                                     [org.bouncycastle/bc-fips]
@@ -256,17 +271,13 @@
                      ;; this only ensures that we run with the proper profiles
                      ;; during testing. This JVM opt will be set in the puppet module
                      ;; that sets up the JVM classpaths during installation.
-                     :jvm-opts ~(let [version (System/getProperty "java.version")
-                                      [major minor _] (clojure.string/split version #"\.")
-                                      unsupported-ex (ex-info "Unsupported major Java version. Expects 8 or 11."
-                                                       {:major major
-                                                        :minor minor})]
-                                  (condp = (java.lang.Integer/parseInt major)
-                                    1 (if (= 8 (java.lang.Integer/parseInt minor))
-                                        ["-Djava.security.properties==dev-resources/jdk8-fips-security"]
-                                        (throw unsupported-ex))
-                                    11 ["-Djava.security.properties==dev-resources/jdk11-fips-security"]
-                                    (throw unsupported-ex)))}]
+                     :jvm-opts ~(let [{:keys [feature interim]} pdb-jvm-ver]
+                                  (conj pdb-jvm-opts
+                                        (case feature
+                                          8 "-Djava.security.properties==dev-resources/jdk8-fips-security"
+                                          11 "-Djava.security.properties==dev-resources/jdk11-fips-security"
+                                          (throw (ex-info "Unsupported major Java version. Expects 8 or 11."
+                                                          {:major feature :minor interim})))))}]
              :ezbake {:dependencies ^:replace [;; NOTE: we need to explicitly pass in `nil` values
                                                ;; for the version numbers here in order to correctly
                                                ;; inherit the versions from our parent project.
@@ -305,10 +316,6 @@
                             :target-path "target-gems"
                             :dependencies ~puppetserver-test-deps}
              :ci {:plugins [[lein-pprint "1.1.1"]]}
-             :test {:jvm-opts ~(if need-permgen?
-                                 ;; integration tests cycle jruby a lot, which chews through permgen
-                                 ^:replace ["-XX:MaxPermSize=500M"]
-                                 [])}
              ; We only want to include bouncycastle in the FOSS uberjar.
              ; PE should be handled by selecting the proper bouncycastle jar
              ; at runtime (standard/fips)
@@ -331,6 +338,13 @@
                                        (fn [new prev]
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
+
+  :eastwood {:config-files ["eastwood.clj"]
+             ;; local-shadows-var is too distruptive, particularly
+             ;; with respect to defservice dependency methods, and
+             ;; since there's no facility for more targeted overrides
+             ;; yet, disable it for now.
+             :exclude-linters [:local-shadows-var]}
 
   :aliases {"gem" ["with-profile" "install-gems,dev"
                    "trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"

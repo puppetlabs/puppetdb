@@ -418,9 +418,9 @@
                              ["extract" ["name" "value"]
                               ["in" ["value"]
                                ["extract" ["value"]
-                                ["select_facts"]]]]])))))))))
+                                ["select_facts"]]]]]))))))))))
 
-  (deftest ast-fact-value-resource-title-join
+(deftest ast-fact-value-resource-title-join
     (let [certname "foo.local"
           environment "dev"
           right-now (now)
@@ -431,7 +431,8 @@
                           "bar" 2
                           "baz" 3}
                  :timestamp right-now
-                 :producer_timestamp right-now}
+                 :producer_timestamp right-now
+                 :producer "foo1"}
           resource {:type "File"
                     :title "/etc/apache/apache2.conf"
                     :exported false
@@ -473,4 +474,4 @@
                                   ["in" ["title"]
                                    ["extract" ["value"]
                                     ["select_facts"
-                                     ["=" "name" "apache_conf"]]]]]]))))))))))))
+                                     ["=" "name" "apache_conf"]]]]]])))))))))))

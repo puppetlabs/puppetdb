@@ -7,7 +7,9 @@
             [clojure.string :as str]
             [schema.utils :as su]
             [cheshire.custom :as json]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [schema.spec.core]
+            [schema.spec.variant])
   (:import
    (java.util.regex Pattern)))
 

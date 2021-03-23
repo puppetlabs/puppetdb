@@ -39,7 +39,7 @@ brew install ruby
 
 flavor=$(ext/bin/flavor-from-spec "$spec")
 case "$flavor" in
-    core|ext|core+ext|int)  # Not needed for rspec right now
+    core|ext|core+ext|int|lint)  # Not needed for rspec right now
         jdk="$(ext/bin/jdk-from-spec "$spec")"
         jdkver="${jdk##*jdk}"
         pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"

@@ -1,6 +1,9 @@
 (ns puppetlabs.puppetdb.testutils.db
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.data]
+            [clojure.java.jdbc :as sql]
+            [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.test]
             [environ.core :refer [env]]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -269,9 +272,10 @@
 (defmacro with-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))
 
-(defn call-with-test-dbs [n f]
+(defn call-with-test-dbs
   "Calls (f db-config ...) with n db-config arguments, each
   representing a database created and protected by with-test-db."
+  [n f]
   (if (pos? n)
     (with-test-db
       (call-with-test-dbs (dec n) (partial f *db*)))
@@ -369,9 +373,9 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
   [row]
   (-> row
       (update :table #(.getValue %))
-      (clojure.set/rename-keys {:is_unique :unique?
-                                :is_functional :functional?
-                                :is_primary :primary?})))
+      (set/rename-keys {:is_unique :unique?
+                        :is_functional :functional?
+                        :is_primary :primary?})))
 
 (defn query-indexes
   "Returns the list of all PuppetDB created indexes, sorted by table,
@@ -402,7 +406,7 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
 (defn db->table-map
   "Converts the metadata column names to something more natural in Clojure"
   [row]
-  (clojure.set/rename-keys row {:is_nullable :nullable?}))
+  (set/rename-keys row {:is_nullable :nullable?}))
 
 (defn query-tables
   "Return a map, keyed by [<table-name> <column-name>] that contains
@@ -441,7 +445,7 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
 (defn db->constraint-map
   "Converts the constraint column names to something more natural in Clojure"
   [row]
-  (clojure.set/rename-keys row {:is_deferrable :deferrable?}))
+  (set/rename-keys row {:is_deferrable :deferrable?}))
 
 (defn query-constraints
   [db]

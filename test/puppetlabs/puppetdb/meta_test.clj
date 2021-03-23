@@ -85,7 +85,7 @@
                 log-levels-emitted (set (map second @logz))]
             (is (nil? (log-levels-emitted :info)))))))))
 
-(deftest test-latest-version
+(deftest update-server-http-errors-not-logged-as-info
   (dotestseq [[version endpoint] endpoints]
     (testing "doesn't log update server HTTP errors at INFO"
       (with-test-db

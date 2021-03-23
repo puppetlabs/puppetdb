@@ -94,13 +94,13 @@
   ;; 64-bit
   ;; https://puppet.com/docs/puppet/5.3/lang_data_number.html#the-integer-data-type
   ([int]
-   (Long. int))
+   (Long/valueOf int))
   ([neg int]
-   (Long. (str neg int))))
+   (Long/valueOf (str neg int))))
 
 (defn transform-real
   [& args]
-  (Double. (apply str args)))
+  (Double/valueOf (apply str args)))
 
 (defn transform-exp
   ([int]

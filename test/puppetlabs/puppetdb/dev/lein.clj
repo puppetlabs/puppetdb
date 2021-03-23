@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.dev.lein
   (:require
-   [clojure.edn :as edn])
+   [clojure.edn :as edn]
+   [puppetlabs.puppetdb.lint :refer [ignore-value]])
   (:import
    (java.lang ProcessBuilder
               ProcessBuilder$Redirect)))
@@ -46,7 +47,7 @@
              "is not in" argc)))
     (when echo
       (binding [*out* *err*]
-        (apply (case echo true print :edn pr) cmd)
+        (ignore-value (apply (case echo true print :edn pr) cmd))
         (newline)
         (flush)))
     (let [proc (doto (ProcessBuilder. cmd)

@@ -51,6 +51,8 @@ flavor=$(ext/bin/flavor-from-spec "$spec")
 
 apt-get-update
 
+apt-get -y install bundler
+
 case "$flavor" in
     core|ext|core+ext|int)
         pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"

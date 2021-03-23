@@ -34,6 +34,7 @@
    :configure_expiration latest-configure-expiration-version
    :replace_catalog_inputs latest-catalog-inputs-version})
 
-(defn normalize-command-name [command]
+(defn normalize-command-name
   "Normalize command name from an incoming request's query param"
+  [command]
   (str/replace command "_" " "))

@@ -44,6 +44,16 @@ else
     exit 2
 fi
 
+if [ "$host_type" = github ] && [[ "$OSTYPE" != darwin* ]]; then
+    # The current ubuntu image sets this to point to /usr/local/...
+    # which causes chaos with respect to some built-in lein
+    # auto-install behaviors when it discovers we don't have write
+    # access there.  Since as far as I know there's no reason it
+    # should be set, unset it.
+    mkdir -p ci/local/etc
+    echo 'unset LEIN_HOME' >> ci/local/etc/pdb-test-env
+fi
+
 if test -e ci/local/etc/pdb-test-env; then
     cat ci/local/etc/pdb-test-env 1>&2
     source ci/local/etc/pdb-test-env

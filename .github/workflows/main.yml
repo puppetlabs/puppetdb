@@ -1,0 +1,42 @@
+
+name: main
+on: [push, pull_request]
+
+jobs:
+  core:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-18.04]
+
+        flavor:
+          - lint/openjdk11
+
+        # Defaults for special-case influencing vars
+        lein-profile: ['']
+
+        # Special cases
+        include:
+          - os: macos-10.15
+            flavor: core+ext/openjdk11/pg-11/rich
+          - os: macos-10.15
+            flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
+          - os: macos-10.15
+            flavor: rspec/pup-6.x
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - uses: actions/cache@v2
+        with:
+          key: ${{ matrix.flavor }}-${{ hashFiles('project.clj') }}
+          path: |
+            ci/local/jdk
+            vendor/bundle/ruby
+            ~/.m2
+            ~/Library/Caches/Homebrew
+      - env:
+          LEIN_PROFILES: ${{ matrix.lein-profile }}
+        run: ci/bin/prep-and-run-in github ${{ matrix.flavor }}

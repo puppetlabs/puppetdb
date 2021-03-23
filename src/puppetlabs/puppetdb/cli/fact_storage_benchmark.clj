@@ -116,8 +116,9 @@
        (map (fn [row] [(get row k) row]))
        (into {})))
 
-(defn benchmark [args]
+(defn benchmark
   "Runs benchmark as directed by the command line args."
+  [args]
   (let [[pdb-hostname & [test-name]] args]
     (binding [*out* *err*]
       (println "Running facts benchmark against puppetdb at" pdb-hostname))

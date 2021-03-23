@@ -210,4 +210,4 @@
               (testing (format "metric %s quantiles increasing" f)
                 (is (= quantiles (sort quantiles))))
               (testing (format "metric %s contains no nils" f)
-                (every? (complement nil?) quantiles)))))))))
+                (is (every? (complement nil?) quantiles))))))))))

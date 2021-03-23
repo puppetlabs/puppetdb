@@ -2067,16 +2067,13 @@
 (defn get-clause
   [clause clauses]
   (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
-    (cond
-      (> (count candidates) 1)
+    (when (> (count candidates) 1)
       (throw (IllegalArgumentException.
-              (tru "Multiple ''{0}'' clauses are not permitted" clause)))
-
-      (not (second (first candidates)))
+              (tru "Multiple ''{0}'' clauses are not permitted" clause))))
+    (when (not (second (first candidates)))
       (throw (IllegalArgumentException.
               (tru "Received ''{0}'' clause without an argument" clause))))
-
-      :else (second (first candidates))))
+    (-> candidates first second)))
 
 (defn process-order-by
   [clauses]

@@ -10,6 +10,7 @@
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.app :as tkapp]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
@@ -1704,7 +1705,7 @@
 
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
-             (jdbc/with-transacted-connection
+             (jdbc/with-transacted-connection'
                (:scf-read-db (cli-svc/shared-globals pdb))
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
@@ -1738,9 +1739,10 @@
                         {:certname "foo.local" :producer_timestamp producer-ts})
                        "")
 
-      (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
+      (let [received-ts (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
-        (is (= producer-ts))))))
+        (is (= producer-ts
+               (-> received-ts time/parse time/to-java-date)))))))
 
 (defn captured-ack-command [orig-ack-command results-atom]
   (fn [q command]
@@ -2056,7 +2058,7 @@
                                                       @requested-shutdown?
                                                       (catch InterruptedException ex
                                                         false)))
-                                          true))
+                                          (ignore-value true)))
                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)
