@@ -183,6 +183,25 @@
   [limit :- (s/maybe (s/cond-pre String s/Int))]
   (when limit (validate-limit limit)))
 
+(defn validate-explain
+  "Validates that the explain string is a string containing `analyze`. Returns the
+  keyword form if validation was successful, otherwise an
+  IllegalArgumentException is thrown."
+  [explain]
+  {:pre  [(string? explain)]
+   :post [(and (keyword? %) (= % :analyze))]}
+  (if (= explain "analyze")
+      (keyword explain)
+      (throw (IllegalArgumentException.
+              (tru "Illegal value ''{0}'' for :explain; expected `analyze`." explain)))))
+
+(pls/defn-validated parse-explain :- (s/maybe s/Keyword)
+  "Parse the optional `explain` query parameter. Returns a keyword
+  `explain` upon successful validation. Throws an exception if provided `explain` is
+  not a valid string"
+  [explain :- (s/maybe String)]
+  (when explain (validate-explain explain)))
+
 (defn validate-offset
   "Validates that the offset string is a non-negative integer. Returns the
   integer form if validation was successful, otherwise an

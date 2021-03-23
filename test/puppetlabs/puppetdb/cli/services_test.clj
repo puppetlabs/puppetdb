@@ -144,7 +144,7 @@
   (svc-utils/with-single-quiet-pdb-instance
       (check-service-query
        :v4 ["from" "facts" ["=" "certname" "foo.local"]]
-       {:explain? true}
+       {:explain :analyze}
        (fn [result]
          (is (= true (contains? (first result) (keyword "query plan"))))
          (is (= true (instance? org.postgresql.util.PGobject ((keyword "query plan") (first result) ))))))))

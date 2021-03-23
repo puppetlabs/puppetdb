@@ -176,11 +176,13 @@
 (defn get-munge-fn
   [entity version paging-options url-prefix]
   (let [munge-fn (get-munge entity)]
-    (case entity
-      :event-counts
-      (munge-fn (:summarize_by paging-options) version url-prefix)
+    (if (= (:explain paging-options) :analyze)
+      identity
+      (case entity
+        :event-counts
+        (munge-fn (:summarize_by paging-options) version url-prefix)
 
-      (munge-fn version url-prefix))))
+        (munge-fn version url-prefix)))))
 
 (def use-preferred-streaming-method?
   (->> (or (System/getenv "PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD") "yes")
