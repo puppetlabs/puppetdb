@@ -26,7 +26,9 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.constants :as constants]
-            [puppetlabs.puppetdb.command.constants :as const]))
+            [puppetlabs.puppetdb.command.constants :as const])
+  (:import (javax.servlet ServletException)
+           (org.postgresql.util PSQLException)))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -101,6 +103,23 @@
       (app req)
       (catch IllegalArgumentException e
         (http/error-response e)))))
+
+(defn cause-finder
+  [ex]
+  (let [cause (.getCause ex)]
+    (if (nil? cause)
+      (.getMessage ex)
+      (recur cause))))
+
+(defn wrap-with-exception-handling
+  [app]
+  (fn [req]
+    (try
+      (app req)
+      (catch Exception e
+        (log/error e)
+        (http/error-response (cause-finder e)
+                             http/status-internal-error)))))
 
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
