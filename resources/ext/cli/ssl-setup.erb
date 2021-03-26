@@ -349,7 +349,7 @@ if [ -f "$jettyfile" ] ; then
     "ssl-key:${private_file}"
     "ssl-cert:${public_file}"
     "ssl-ca-cert:${ca_file}"
-    "client-auth = want"
+    "client-auth:want"
   )
 
   for i in "${settings[@]}"; do
