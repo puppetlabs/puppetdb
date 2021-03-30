@@ -26,26 +26,28 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds]]
-            [puppetlabs.puppetdb.time :refer [now days ago] :as time]))
+            [puppetlabs.puppetdb.time :as time]))
 
 (use-fixtures :each tu/call-with-test-logging-silenced)
 
 (deftest test-basic-roundtrip
   (let [export-out-file (tu/temp-file "export-test" ".tar.gz")
+        current-time (time/now)
         catalog-input-cmd (-> (sample-input-cmds)
                               (get "host-1")
                               (update :certname (constantly example-certname))
                               (update :producer_timestamp time/to-string))
-        plan-report-ts (-> 1 days ago time/to-string)
-        plan-report (assoc example-report :type "plan" :producer_timestamp plan-report-ts)]
 
+        plan-report-ts (-> 1 time/days time/ago time/to-string)
+        test-report (tu/change-report-time example-report (time/unparse (time/formatters :date-time) current-time))
+        plan-report (assoc test-report :type "plan" :producer_timestamp (time/to-string plan-report-ts))]
     (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace catalog" cmd-consts/latest-catalog-version example-catalog)
-       (let [report-with-duplicate-events (update-in example-report
+       (let [report-with-duplicate-events (update-in test-report
                                                      [:resources 0 :events]
                                                      (fn [events] (conj events (first events))))]
          ;; this will add a duplicate event into a report, which will then be dropped at the database
@@ -67,25 +69,23 @@
                                     "configure expiration"
                                     cmd-consts/latest-configure-expiration-version
                                     example-configure-expiration-true)
-       (scf-storage/maybe-activate-node! "i_dont_have_an_expiration_setting" (now))
+       (scf-storage/maybe-activate-node! "i_dont_have_an_expiration_setting" (time/now))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace catalog inputs"
                                     cmd-consts/latest-catalog-inputs-version
                                     catalog-input-cmd)
-
        (is (= catalog-input-cmd
               (-> (svc-utils/pdb-cmd-url)
                   svc-utils/get-all-catalog-inputs
                   first)))
-
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [(tur/update-report-pe-fields example-report)
+       (is (= [(tur/update-report-pe-fields test-report)
                (tur/update-report-pe-fields plan-report)]
               (filter-reports [:and
-                               [:= :certname example-certname]
-                               [:null? :type false]])))
+                   [:= :certname example-certname]
+                   [:null? :type false]])))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
@@ -107,7 +107,7 @@
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [(tur/update-report-pe-fields example-report)
+       (is (= [(tur/update-report-pe-fields test-report)
                (tur/update-report-pe-fields plan-report)]
               (filter-reports [:and
                                [:= :certname example-certname]
@@ -127,10 +127,31 @@
                   svc-utils/get-all-catalog-inputs
                   first)))))))
 
+(deftest test-basic-roundtrip-with-expired-events
+  (tur/with-corrective-change
+    (let [current-time (time/to-string (time/now))
+          test-report (assoc example-report :producer_timestamp current-time)]
+
+      (svc-utils/call-with-single-quiet-pdb-instance
+        (fn []
+          ; reports in example/reports have old timestamps, we only update one event so it won't be filtered out
+          (let [current-resource-event (assoc (get-in test-report [:resources 0 :events 0]) :timestamp current-time)
+                report-with-only-one-current-event (update-in test-report
+                                                        [:resources 0 :events]
+                                                        (fn [events] (conj events current-resource-event)))]
+           (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                        "store report" cmd-consts/latest-report-version report-with-only-one-current-event)
+
+           (is (= 1 (count (get-in (get-reports example-certname) [0 :resources 0 :events]))))
+           (is (= [current-resource-event]
+                  (get-in (get-reports example-certname) [0 :resources 0 :events])))))))))
+
 (deftest test-anonymized-export
   (doseq [profile (keys anon/anon-profiles)]
     (let [export-out-file (tu/temp-file "export-test" ".tar.gz")
-          anon-out-file (tu/temp-file "anon-test" ".tar.gz")]
+          anon-out-file (tu/temp-file "anon-test" ".tar.gz")
+          current-time (time/now)
+          test-report (tu/change-report-time example-report (time/unparse (time/formatters :date-time) current-time))]
 
       (svc-utils/call-with-single-quiet-pdb-instance
        (fn []
@@ -139,7 +160,7 @@
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "replace catalog" cmd-consts/latest-catalog-version example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" cmd-consts/latest-report-version example-report)
+                                      "store report" cmd-consts/latest-report-version test-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "replace facts" cmd-consts/latest-facts-version example-facts)
 
@@ -153,7 +174,7 @@
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
-         (is (= [(tur/update-report-pe-fields example-report)]
+         (is (= [(tur/update-report-pe-fields test-report)]
                 (get-reports example-certname)))
          (is (= (tuf/munge-facts example-facts)
                 (tuf/munge-facts (get-factsets example-certname))))

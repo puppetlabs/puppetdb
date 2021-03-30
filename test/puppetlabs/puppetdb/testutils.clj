@@ -10,6 +10,7 @@
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-log-output with-test-logging]]
@@ -440,3 +441,25 @@
         table]
        jdbc/query-to-vec
        (map :indexdef)))
+
+(defn change-report-time [r time]
+  ;; A *very* blunt instrument, only intended to work for now on
+  ;; example/reports.
+  (-> (assoc r
+             :producer_timestamp time
+             :start_time time
+             :end_time time)
+      (update :logs #(mapv (fn [entry] (assoc entry :time time)) %))
+      (update :resources
+              (fn [resources]
+                (vec (map-indexed
+                 (fn [index resource]
+                   (let [current-time (time/to-date-time time)
+                         minus (time/minus current-time (time/parse-period (str (- 10 index) "s")))
+                         timestamp (time/unparse (time/formatters :date-time) minus)]
+                     (-> resource
+                         (assoc :timestamp timestamp)
+                         (update :events (fn [events]
+                                              (mapv #(assoc % :timestamp timestamp)
+                                                    events))))))
+                 resources))))))

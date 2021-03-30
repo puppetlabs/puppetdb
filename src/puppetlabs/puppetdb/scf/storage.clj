@@ -42,7 +42,7 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before?]]
+            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before? after?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
@@ -1389,6 +1389,17 @@
                                    reports/resources->resource-events
                                    (map normalize-resource-event)))))
 
+(defn resource-event-expired?
+  [timestamp resource-events-ttl]
+  (time/after? (org.joda.time.DateTime. timestamp)
+               (.minus (now) resource-events-ttl)))
+
+(defn filter-expired-resources
+   [resource-events-ttl resource-list]
+   (if resource-events-ttl
+     (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
+   resource-list))
+
 (s/defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1397,7 +1408,8 @@
   [orig-report :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool
-   save-event? :- s/Bool]
+   save-event? :- s/Bool
+   options-config]
   (time! (get-storage-metric :store-report)
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
@@ -1412,6 +1424,7 @@
                              (query-to-vec report-hash)
                              seq)
                  (let [certname-id (certname-id certname)
+                       resource-events-ttl (get options-config :resource-events-ttl)
                        table-name (str "reports_" (-> producer_timestamp
                                                       (partitioning/to-zoned-date-time)
                                                       (partitioning/date-suffix)))
@@ -1468,6 +1481,7 @@
                                 ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
                                 ;; section 5.10.6
                                 remove-dupes
+                                (filter-expired-resources resource-events-ttl)
                                 (map set-last-record!)
                                 insert!
                                 dorun)
@@ -1805,7 +1819,7 @@
                                   :statement-timeout command-sql-statement-timeout-ms}
                   (fn []
                     (maybe-activate-node! certname producer-timestamp)
-                    (add-report!* report received-timestamp update-latest-report? save-event))))]
+                    (add-report!* report received-timestamp update-latest-report? save-event options-config))))]
     (try
       (store!)
       (catch org.postgresql.util.PSQLException e
