@@ -10,6 +10,7 @@ export BUNDLE_PATH = $(PWD)/.bundle/gems
 export BUNDLE_BIN = $(PWD)/.bundle/bin
 export GEMFILE = $(PWD)/Gemfile
 export DOCKER_BUILDKIT ?= 1
+export PUPPETSERVER_IMAGE ?= puppet/puppetserver:edge
 
 ifeq ($(IS_RELEASE),true)
 	VERSION ?= $(shell echo $(git_describe) | sed 's/-.*//')

@@ -19,6 +19,8 @@ variables:
   LINT_IGNORES: DL3008 DL3028
   DOCKER_BUILDKIT: 1
   BUILD_OPTIONS: --memory 4g --build-arg build_type=edge
+  PRELOAD_CERTS: 1
+  PUPPETSERVER_IMAGE: puppet/puppetserver:edge
 
 workspace:
   clean: resources
