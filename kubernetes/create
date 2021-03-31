@@ -1,5 +1,0 @@
-#!/bin/bash
-kubectl apply -f secrets.yml
-kubectl apply -f postgresql.yml
-kubectl apply -f puppetdb-config.yml
-kubectl apply -f puppetdb.yml

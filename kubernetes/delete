@@ -1,7 +1,0 @@
-#!/bin/bash
-kubectl delete -f puppetdb.yml
-kubectl delete -f puppetdb-config.yml
-kubectl delete -f postgresql.yml
-kubectl delete -f secrets.yml
-kubectl delete pvc postgresql-data-postgresql-0
-kubectl delete pvc puppetdb-var
