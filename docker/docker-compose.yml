@@ -1,4 +1,4 @@
-version: '3.5'
+version: '3.7'
 
 services:
   puppet:
@@ -9,6 +9,8 @@ services:
       - PUPPETSERVER_HOSTNAME=puppet
       - CA_ALLOW_SUBJECT_ALT_NAMES=true
       - PUPPETDB_SERVER_URLS=https://puppetdb:8081
+    volumes:
+      - puppetserver-config:/etc/puppetlabs/puppet
     ports:
       - 8140:8140
 
@@ -16,6 +18,8 @@ services:
     hostname: postgres
     image: postgres:9.6
     environment:
+      # loading certs requires a non-default PGDATA
+      - PGDATA=/var/lib/postgresql/data/pgdata
       - POSTGRES_PASSWORD=puppetdb
       - POSTGRES_USER=puppetdb
       - POSTGRES_DB=puppetdb
@@ -29,6 +33,7 @@ services:
     expose:
       - 5432
     volumes:
+      - puppetdb-postgres:/var/lib/postgresql/data
       - ./puppetdb/postgres-custom:/docker-entrypoint-initdb.d
 
   puppetdb:
@@ -40,6 +45,8 @@ services:
       - PUPPETDB_PASSWORD=puppetdb
       - PUPPETDB_USER=puppetdb
       - PUPPETSERVER_HOSTNAME=puppet
+    volumes:
+      - puppetdb:/opt/puppetlabs/server/data/puppetdb
     ports:
       - 8080
       - 8081
@@ -50,3 +57,7 @@ services:
 networks:
   default:
     name: puppetdb_test
+volumes:
+  puppetserver-config:
+  puppetdb:
+  puppetdb-postgres:
