@@ -1,7 +1,0 @@
----
-dependencies:
-- name: postgresql
-  # v1.0.0 of this chart is postgresql 9.6 
-  version: 1.0.0
-  repository: https://kubernetes-charts.storage.googleapis.com/
-  condition: postgresql.install
