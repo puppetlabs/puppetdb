@@ -208,6 +208,14 @@
         (assert-success! response)
         (slurp (:body response))))
 
+    (testing "broken query should bot output error's stacktrace"
+      (let [query ["extract"
+                    [["function" "count" "certname"]]
+                      ["in" "facts.os.family" ["array" ["RedHat"]]]]
+            {:keys [body status]} (query-response method endpoint query)]
+        (is (= status 500))
+        (is (= body "Value does not match schema: (not (map? nil))"))))
+
     (testing "inventory queries"
       (testing "well-formed queries"
         (doseq [[query result] (queries-and-results timestamp)]
