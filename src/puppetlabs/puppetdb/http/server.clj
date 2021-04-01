@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.middleware :refer [wrap-with-globals
                                                     wrap-with-metrics
                                                     wrap-with-illegal-argument-catch
+                                                    wrap-with-exception-handling
                                                     verify-accepts-json
                                                     verify-content-type
                                                     make-pdb-handler
@@ -74,5 +75,7 @@
                       (verify-content-type ["application/json"])
                       verify-sync-version
                       (wrap-with-metrics (atom {}) http/leading-uris)
-                      (wrap-with-globals get-shared-globals))]
+                      (wrap-with-globals get-shared-globals)
+                      wrap-with-exception-handling)]
+
       (handler req))))

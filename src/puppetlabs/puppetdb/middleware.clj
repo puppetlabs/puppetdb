@@ -102,6 +102,23 @@
       (catch IllegalArgumentException e
         (http/error-response e)))))
 
+(defn cause-finder
+  [ex]
+  (let [cause (.getCause ex)]
+    (if (nil? cause)
+      (.getMessage ex)
+      (recur cause))))
+
+(defn wrap-with-exception-handling
+  [app]
+  (fn [req]
+    (try
+      (app req)
+      (catch Exception e
+        (log/error e)
+        (http/error-response (cause-finder e)
+                             http/status-internal-error)))))
+
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
   provided `content-type`. If the content type isn't acceptable, a 406 Not

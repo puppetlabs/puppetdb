@@ -1,0 +1,11 @@
+version: '3.7'
+
+services:
+  puppet:
+    environment:
+      # NOTE: puppet oss layout is different than PE puppet
+      - CERT_SRCDIR=puppet-oss
+      - CERT_DESTDIR=ssl
+  postgres:
+    environment:
+      - CERT_VOLUME=puppetdb-postgres

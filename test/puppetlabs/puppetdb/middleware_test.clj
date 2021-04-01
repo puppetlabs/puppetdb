@@ -49,6 +49,13 @@
       (is (= #{"oof/" "rab/" "zab/"} (keyset (@storage :timers))))
       (is (= #{"oof/" "rab/" "zab/"} (keyset (@storage :meters)))))))
 
+(deftest find-exception-cause
+  (testing "Should find the cause of nested exceptions"
+    (let [ex (IllegalArgumentException. (Exception. "The lower exception"))
+          ex2 (.initCause (Exception. "First exception") (Exception. "Second exception"))]
+      (is (= "The lower exception" (cause-finder ex)))
+      (is (= "Second exception" (cause-finder ex2))))))
+
 (defn create-authorizing-request [hostname]
   {:scheme :https
    :ssl-client-cn hostname})
