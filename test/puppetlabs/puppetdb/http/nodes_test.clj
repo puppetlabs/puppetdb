@@ -102,6 +102,12 @@
       (is-query-result' ["~" "certname" "\\w+.example.com"] [db puppet web1 web2])
       (is-query-result' ["~" "certname" "example.net"] []))
 
+    (testing "query that generates 0x00 byte error does not show the error type in the response"
+      (let [certname (str "host-1" (char 0))
+            {:keys [body status]} (query-response method endpoint ["=" "certname" certname])]
+         (is (= 500 status))
+         (is (= "ERROR: invalid byte sequence for encoding \"UTF8\": 0x00" body))))
+
     (testing "querying on latest report hash works"
       (let [cert-hashes (query-result method endpoint ["extract"
                                                        ["certname" "latest_report_hash"]
