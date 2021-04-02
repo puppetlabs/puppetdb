@@ -397,6 +397,9 @@
           (log/debug ex (trs "Invalid query regex: {0} {1} {2}" log-id query query-options))
           (http/error-response ex))))))
 
+;; for testing via with-redefs
+(def munge-fn-hook identity)
+
 (defn- deprecated-produce-streaming-body
   [version query-map options]
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
@@ -431,8 +434,11 @@
                                   #(do (when-not (instance? PGobject %)
                                          (first %))
                                        (deliver query-error nil) %)
-                                  munge-fn)))
-                         (catch java.sql.SQLException e
+                                  (munge-fn-hook munge-fn))))
+                         ;; catch throwable to make sure any trouble is forwarded to the
+                         ;; query-error promise below. If something throws and is not passed
+                         ;; along the deref will block indefinitely.
+                         (catch Throwable e
                            (deliver query-error e))))]
           (if @query-error
             (throw @query-error)
