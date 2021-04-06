@@ -85,7 +85,7 @@
 
       ;; Ensure we don't allow multiple queries in one request
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] [\"from\",\"foo\"]")]
-        (is (= "Only one query may be sent in a request. You sent 2." body))
+        (is (re-matches #"Only one query may be sent in a request. Found JSON .* after the query .*" body))
         (are-error-response-headers headers)
         (is (= http/status-bad-request status)))
 

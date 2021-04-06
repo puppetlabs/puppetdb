@@ -72,12 +72,11 @@
   data, after the query, will result in an IllegalArgumentException"
   [query]
   (when query
-    (let [parsed-query (parse-json-sequence query)
-          query-count (count parsed-query)]
-      (if (= query-count 1)
-        (first parsed-query)
+    (let [[parsed & others] (parse-json-sequence query)]
+      (when others
         (throw (IllegalArgumentException.
-                 (tru "Only one query may be sent in a request. You sent {0}." query-count)))))))
+                 (tru "Only one query may be sent in a request. Found JSON {0} after the query {1}" others parsed))))
+      parsed)))
 
 (defn parse-pql-query
   "Parse a query string as PQL. Parse errors will result in an
