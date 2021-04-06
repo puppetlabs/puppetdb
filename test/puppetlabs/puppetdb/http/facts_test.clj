@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.http.facts-test
   (:require [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
@@ -2255,6 +2253,21 @@
                       [{"certname" "foo1" "value" "testing.com"}
                        {"certname" "foo2" "value" "testing.com"}
                        {"certname" "foo3" "value" "testing.com"}]))))))
+
+(deftest-http-app  ^:skipped test-for-known-issues
+  [[version endpoint] fact-contents-endpoints
+   method [:get :post]]
+
+   (populate-for-structured-tests reference-time)
+
+   ; enable this test after ticket https://tickets.puppetlabs.com/browse/PDB-5104 is solved
+   (testing "to_string function on integers"
+      (is (= (query-result method endpoint
+                           ["extract" [["function" "to_string" "value" "FM9999"]]
+                            ["and"
+                            ["=" "name" "uptime_seconds"]
+                            ["=" "certname" "foo1"]]])
+           #{{:to_string "1000"}}))))
 
 (def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
 
