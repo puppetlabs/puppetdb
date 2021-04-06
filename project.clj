@@ -329,9 +329,10 @@
 
   :main puppetlabs.puppetdb.core
 
-  :test-selectors {:default (complement :integration)
-                   :unit (complement :integration)
-                   :integration :integration}
+  :test-selectors {:default (fn [m] (not (or (:integration m) (:skipped m))))
+                   :unit (fn [m] (not (or (:integration m) (:skipped m))))
+                   :integration :integration
+                   :skipped :skipped}
 
   ;; This is used to merge the locales.clj of all the dependencies into a single
   ;; file inside the uberjar

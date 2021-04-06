@@ -179,6 +179,18 @@
                                             ["=" "certname" (:certname basic)]])
              #{(select-keys basic [:hash :certname :transaction_uuid])})))))
 
+(deftest-http-app ^:skipped test-for-known-issues
+  [[version endpoint] endpoints
+    method [:get :post]]
+
+    (store-example-report! (:basic reports) (now))
+
+    ; enable this test after ticket https://tickets.puppetlabs.com/browse/PDB-5103 is solved
+    (testing "to_string month format"
+      (is (= (query-result method endpoint
+                         ["extract" [["function" "to_string" "producer_timestamp" "month"]]])
+           #{{:to_string "january"}}))))
+
 (deftest-http-app query-report-with-malformed-json
   [version [:v4]]
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))

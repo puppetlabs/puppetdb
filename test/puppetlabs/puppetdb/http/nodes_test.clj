@@ -433,6 +433,20 @@
           (are-error-response-headers headers)
           (is (re-find msg body)))))))
 
+;TODO fix all skipped tests
+(deftest-http-app ^:skipped tests-for-PDB-5026
+  [[version endpoint] endpoints
+  method [:get :post]]
+
+  ; enable this test after ticket https://tickets.puppetlabs.com/browse/PDB-5026 is solved
+  (testing "in a reports subquery"
+    (let [expected ["web1.example.com" "web2.example.com" "puppet.example.com" "db.example.com"]
+          result (query-result method endpoint  ["in", "certname",
+                                                 ["from", "reports",
+                                                  ["extract", "certname"],
+                                                  ["order_by", ["certname"]]]])]
+      (is (= (mapv :certname result) expected)))))
+
 (deftest-http-app query-with-pretty-printing
   [[version endpoint] endpoints
    method [:get :post]]
