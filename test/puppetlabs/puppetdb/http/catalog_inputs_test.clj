@@ -33,6 +33,9 @@
 
     (let [cmd (input-cmds "host-1")
           exp (set (stringify-timestamp [cmd]))]
+      (testing "empty query string"
+        (let [resp (query-inputs "")]
+          (is (= (count all-expected) (count resp)))))
       (testing "certname match"
         (let [resp (query-inputs ["=" "certname" "host-1"])]
           (is (= (count exp) (count resp)))
