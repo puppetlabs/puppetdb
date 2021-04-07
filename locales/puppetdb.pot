@@ -276,11 +276,11 @@ msgid "PuppetDB version {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "multiple write database support is experimental"
+msgid "WARNING: multiple write database support is experimental"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "WARNING: multiple write database support is experimental"
+msgid "multiple write database support is experimental"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -912,7 +912,8 @@ msgid "{0} (followed by end-of-string)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj
-msgid "Only one query may be sent in a request. You sent {0}."
+msgid ""
+"Only one query may be sent in a request. Found JSON {0} after the query {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query.clj

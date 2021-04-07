@@ -14,6 +14,8 @@
                      vector-param
                      query-response]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
+            [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook
+                                                   use-preferred-streaming-method?]]
             [flatland.ordered.map :as omap]))
 
 (def endpoints [[:v4 "/v4/nodes"]])
@@ -101,6 +103,12 @@
       (is-query-result' ["~" "certname" "web\\d+.example.com"] [web1 web2])
       (is-query-result' ["~" "certname" "\\w+.example.com"] [db puppet web1 web2])
       (is-query-result' ["~" "certname" "example.net"] []))
+
+    (testing "query that generates 0x00 byte error does not show the error type in the response"
+      (let [certname (str "host-1" (char 0))
+            {:keys [body status]} (query-response method endpoint ["=" "certname" certname])]
+         (is (= 500 status))
+         (is (= "ERROR: invalid byte sequence for encoding \"UTF8\": 0x00" body))))
 
     (testing "querying on latest report hash works"
       (let [cert-hashes (query-result method endpoint ["extract"
@@ -637,3 +645,17 @@
               *app*)]
       (is (= http/status-ok status))
       (is (= [{:certname "puppet.example.com"}] (convert-response response))))))
+
+(deftest-http-app error-in-query-streaming-is-communicated-to-caller
+  [[version endpoint] endpoints]
+  (store-example-nodes)
+  (with-redefs [munge-fn-hook (fn [_] (throw (Exception. "BOOM!")))
+                ;; make sure this test always hits the deprecated-produce-streaming-body func
+                use-preferred-streaming-method? false]
+    (testing "an error inside of the http/streamed-response thread makes it back to the caller"
+      (let [{:keys [status body]}
+            (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
+                (assoc-in [:headers "content-type"] "application/json")
+                *app*)]
+        (is (= 500 status))
+        (is (= "BOOM!" body))))))

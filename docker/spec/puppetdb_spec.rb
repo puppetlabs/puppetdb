@@ -5,7 +5,7 @@ RSpec.configure do |c|
     ENV['PUPPETDB_IMAGE'] = require_test_image
     pull_images('puppetdb')
     teardown_cluster()
-    docker_compose_up()
+    docker_compose_up(preload_certs: true)
   end
 
   c.after(:suite) do
