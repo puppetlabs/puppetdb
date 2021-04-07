@@ -1,5 +1,9 @@
 include Pupperware::SpecHelpers
 
+# unifies volume naming
+ENV['COMPOSE_PROJECT_NAME'] ||= 'puppetdb'
+Pupperware::SpecHelpers.load_compose_services = 'postgres,puppet'
+
 RSpec.configure do |c|
   c.before(:suite) do
     ENV['PUPPETDB_IMAGE'] = require_test_image
