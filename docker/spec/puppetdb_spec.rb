@@ -21,8 +21,8 @@ end
 describe 'puppetdb container specs' do
   it 'should have installed postgres extensions' do
     installed_extensions = get_postgres_extensions
-    expect(installed_extensions).to match(/^\s+pg_trgm\s+/)
-    expect(installed_extensions).to match(/^\s+pgcrypto\s+/)
+    expect(installed_extensions).to match(/\s+pg_trgm\s+/)
+    expect(installed_extensions).to match(/\s+pgcrypto\s+/)
   end
 
   it 'should have started puppetdb' do
