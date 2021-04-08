@@ -50,7 +50,8 @@
 
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage
@@ -100,6 +101,7 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
+   (java.sql SQLException)
    (java.util.concurrent RejectedExecutionException Semaphore)
    (org.joda.time DateTime)))
 
@@ -454,6 +456,8 @@
 ;; ## Command processors
 
 (defn prep-command [{:keys [command] :as cmd} options-config]
+  ;; Note: prep commands should not be accessing the database,
+  ;; i.e. all db access is expected to be in the exec commands.
   (case command
     "replace catalog" (prep-replace-catalog cmd)
     "replace facts" (prep-replace-facts cmd options-config)
@@ -479,7 +483,21 @@
                "deactivate node" exec-deactivate-node
                "configure expiration" exec-configure-expiration
                "replace catalog inputs" exec-replace-catalog-inputs)]
-    (exec cmd start db conn-status)))
+    (try
+      (exec cmd start db conn-status)
+      (catch SQLException ex
+        ;; Discussion on #postgresql indicates that all 54-class
+        ;; states can be considered "terminal", and for now, we're
+        ;; also assuming that all commands don't vary their behavior
+        ;; across retries sufficiently for that to matter either.
+        ;; This was originally introduced to handle
+        ;; program_limit_exceeded errors caused by attemptps to insert
+        ;; resource titles that were too big to fit in a postgres
+        ;; index.
+        ;; cf. https://www.postgresql.org/docs/11/errcodes-appendix.html
+        (when (str/starts-with? (.getSQLState ex) "54")
+          (throw (fatality ex)))
+        (throw ex)))))
 
 ;; Used in testing and by initial sync
 (defn process-command!
