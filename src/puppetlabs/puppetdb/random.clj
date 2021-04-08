@@ -1,38 +1,29 @@
 (ns puppetlabs.puppetdb.random
   (:require
    [clojure.string :as string]
-   [clojure.walk :refer [keywordize-keys]]))
+   [clojure.walk :refer [keywordize-keys]])
+  (:import
+   (org.apache.commons.lang3 RandomStringUtils)))
 
 (def ^{:doc "Convenience for java.util.Random"}
   random (java.util.Random.))
 
 (defn random-string
   "Generate a random string of optional length"
-  ([] (random-string (inc (rand-int 10))))
+  ([] (RandomStringUtils/randomAlphabetic (inc (rand-int 10))))
   ([length]
-     {:pre  [(integer? length)
-             (pos? length)]
-      :post [(string? %)
-             (= length (count %))]}
-     (let [ascii-codes (concat (range 48 58) (range 65 91) (range 97 123))]
-       (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
+   (RandomStringUtils/randomAlphabetic length)))
 
 (defn random-string-alpha
   "Generate a random string of optional length, only lower case alphabet chars"
   ([] (random-string (inc (rand-int 10))))
   ([length]
-     {:pre  [(integer? length)
-             (pos? length)]
-      :post [(string? %)
-             (= length (count %))]}
-     (let [ascii-codes (concat (range 97 123))]
-       (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
+   (.toLowerCase (RandomStringUtils/randomAlphabetic length))))
 
 (defn random-bool
   "Generate a random boolean"
   []
-  {:post [(boolean? %)]}
-  (rand-nth [true false]))
+  (< (Math/random) 0.5))
 
 (defn random-node-name
   "Generate a random node name."
