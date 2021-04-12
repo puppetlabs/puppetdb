@@ -57,27 +57,6 @@
                     (format "%s\n" (print-reason r))))]
     (join [opening expected freasons preasons])))
 
-(defn parse-json-sequence
-  "Parse a query string as JSON. Parse errors
-   will result in an IllegalArgumentException"
-  [query]
-  (try
-    (with-open [string-reader (java.io.StringReader. query)]
-      (doall (json/parsed-seq string-reader)))
-  (catch JsonParseException e
-    (throw (IllegalArgumentException. (pprint-json-parse-exception e query))))))
-
-(defn parse-json-query
-  "Parse a query string as JSON. Multiple queries or any other
-  data, after the query, will result in an IllegalArgumentException"
-  [query]
-  (when query
-    (let [[parsed & others] (parse-json-sequence query)]
-      (when others
-        (throw (IllegalArgumentException.
-                 (tru "Only one query may be sent in a request. Found JSON {0} after the query {1}" others parsed))))
-      parsed)))
-
 (defn parse-pql-query
   "Parse a query string as PQL. Parse errors will result in an
   IllegalArgumentException"
@@ -87,11 +66,3 @@
       (throw (IllegalArgumentException.
               (pprint-failure pql-result)))
       (first pql-result))))
-
-(defn parse-json-or-pql-to-ast
-  "Parse a query string either as JSON or PQL to transform it to AST"
-  [query]
-  (when query
-    (if (re-find #"^\s*\[" query)
-      (parse-json-query query)
-      (parse-pql-query query))))

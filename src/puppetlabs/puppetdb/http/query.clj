@@ -282,6 +282,36 @@
       (update-when [:include_package_inventory] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))
 
+(defn parse-json-sequence
+  "Parse a query string as JSON. Parse errors
+   will result in an IllegalArgumentException"
+  [query]
+  (try
+    (with-open [string-reader (java.io.StringReader. query)]
+      (doall (json/parsed-seq string-reader)))
+    (catch JsonParseException e
+      (throw (IllegalArgumentException. (pprint-json-parse-exception e query))))))
+
+(defn parse-json-query
+  "Parse a query string as JSON. Multiple queries or any other
+  data, after the query, will result in an IllegalArgumentException"
+  [query]
+  (when query
+    (let [[parsed & others] (parse-json-sequence query)]
+      (when others
+        (throw (IllegalArgumentException.
+                (tru "Only one query may be sent in a request. Found JSON {0} after the query {1}"
+                     others parsed))))
+      parsed)))
+
+(defn parse-json-or-pql-to-ast
+  "Parse a query string either as JSON or PQL to transform it to AST"
+  [query]
+  (when query
+    (if (re-find #"^\s*\[" query)
+      (parse-json-query query)
+      (pql/parse-pql-query query))))
+
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
   [{:keys [params] :as req}
@@ -324,7 +354,7 @@
   "Query handler that converts the incoming request (GET or POST)
   parameters/body to a pdb query map"
   ([handler param-spec]
-   (extract-query handler param-spec pql/parse-json-query))
+   (extract-query handler param-spec parse-json-query))
   ([handler param-spec parse-fn]
    (fn [{:keys [puppetdb-query] :as req}]
      (handler
@@ -339,7 +369,7 @@
 
 (defn extract-query-pql
   [handler param-spec]
-  (extract-query handler param-spec pql/parse-json-or-pql-to-ast))
+  (extract-query handler param-spec parse-json-or-pql-to-ast))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
