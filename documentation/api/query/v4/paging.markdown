@@ -98,3 +98,17 @@ This value should be an integer. Note that the order in which results are return
       --data-urlencode 'order_by=[{"field": "certname"}]' \
       --data-urlencode 'limit=5' \
       --data-urlencode 'offset=5'
+
+### `explain`
+
+This parameter can be used to tell PuppetDB to return the execution plan of a statement. The execution plan shows how the table(s) referenced by the statement will be scanned, the estimated statement execution cost and the actual run time statistics. 
+
+This value should be an the string "analyze", any other value will not be validated.
+
+#### Example:
+
+[Using `curl` from localhost][curl]:
+
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'order_by=[{"field": "certname"}]' \
+      --data-urlencode 'explain=analyze'
