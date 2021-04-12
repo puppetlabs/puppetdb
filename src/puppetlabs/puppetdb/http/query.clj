@@ -282,6 +282,8 @@
       (update-when [:include_package_inventory] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))
 
+(defn ast-format? [query] (re-find #"^\s*\[" query))
+
 (defn parse-json-sequence
   "Parse a query string as JSON. Parse errors
    will result in an IllegalArgumentException"
@@ -304,18 +306,29 @@
                      others parsed))))
       parsed)))
 
-(defn parse-json-or-pql-to-ast
+(defn parse-pql-or-ast
   "Parse a query string either as JSON or PQL to transform it to AST"
   [query]
   (when query
-    (if (re-find #"^\s*\[" query)
+    (if (ast-format? query)
       (parse-json-query query)
       (pql/parse-pql-query query))))
+
+(defn validate-pql-params
+  [query-body query-params]
+  (let [query-params (keywordize-keys query-params)]
+    (when (and query-body
+               (string? query-body)
+               (not (ast-format? query-body))
+               (some #(contains? query-params %) [:limit :order_by :offset]))
+      (throw (IllegalArgumentException.
+              (tru "Paging options (limit, order_by, offset) must be included in the PQL query"))))))
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
   [{:keys [params] :as req}
    parse-fn]
+  (validate-pql-params (get params "query") (:query-params req))
   (-> params
       (update-when ["query"] parse-fn)
       (update-when ["order_by"] parse-order-by-json)
@@ -330,9 +343,11 @@
   [req parse-fn]
   (-> (let [req-body (request/body-string req)]
         (try
-          (json/parse-string req-body true)
-        (catch JsonParseException e
-          (throw (IllegalArgumentException. (pprint-json-parse-exception e req-body))))))
+          (let [string-req-body (json/parse-string req-body true)]
+            (validate-pql-params (:query string-req-body) string-req-body)
+            string-req-body)
+          (catch JsonParseException e
+            (throw (IllegalArgumentException. (pprint-json-parse-exception e req-body))))))
       (update :query (fn [query]
                        (if (vector? query)
                          query
@@ -367,9 +382,9 @@
               (assoc :puppetdb-query query-map)
               (assoc-in [:globals :pretty-print] pretty-print))))))))
 
-(defn extract-query-pql
+(defn extract-pql-or-ast-query
   [handler param-spec]
-  (extract-query handler param-spec parse-json-or-pql-to-ast))
+  (extract-query handler param-spec parse-pql-or-ast))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
