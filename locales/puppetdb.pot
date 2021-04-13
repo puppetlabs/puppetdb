@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9596d5a552bbf1bb32ca4657ba22035e6be728b3\n"
+"X-Git-Ref: 2a2e980ebc325f4ef298152b4d23edb99b3057a3\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1043,6 +1043,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query/paging.clj
 msgid "Illegal value ''{0}'' for :limit; expected a positive non-zero integer."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/paging.clj
+msgid "Illegal value ''{0}'' for :explain; expected `analyze`."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query/paging.clj
