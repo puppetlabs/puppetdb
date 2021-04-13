@@ -44,6 +44,7 @@ aliases:
     - curl --location https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname --kernel-name`-`uname --machine` > docker-compose
     - chmod +x docker-compose
     - sudo mv docker-compose /usr/local/bin
+    - docker buildx create --name travis_builder --use
 
   - &run-docker-tests
     - set -e
@@ -51,6 +52,9 @@ aliases:
     - make lint
     - make build
     - make test
+
+  - &after-docker-tests
+    - docker buildx rm travis_builder
 
 jobs:
   allow_failures:
@@ -146,6 +150,7 @@ jobs:
       env: DOCKER_COMPOSE_VERSION=1.28.6 DOCKER_BUILD_FLAGS="--progress plain" PUPPETSERVER_IMAGE="puppet/puppetserver:edge"
       before_install: *before-docker-tests
       script: *run-docker-tests
+      after_script: *after-docker-tests
 
 on_success: ci/bin/travis-on-success
 
