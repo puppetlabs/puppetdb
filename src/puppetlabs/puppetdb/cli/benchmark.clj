@@ -485,7 +485,7 @@
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
   function to wait for the benchmark process to terminate (only happens when you
   pass nummsgs), and :stop, function to request termination of the benchmark
-  process and and wait for it to stop cleanly. These functions return true if
+  process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
   (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} options
