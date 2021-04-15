@@ -52,8 +52,9 @@ else
 endif
 
 build: prep
-	docker build \
+	docker buildx build \
 		${DOCKER_BUILD_FLAGS} \
+		--load \
 		--pull \
 		--build-arg build_type=$(BUILD_TYPE) \
 		--build-arg vcs_ref=$(vcs_ref) \

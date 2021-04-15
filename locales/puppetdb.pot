@@ -1046,6 +1046,10 @@ msgid "Illegal value ''{0}'' for :limit; expected a positive non-zero integer."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query/paging.clj
+msgid "Illegal value ''{0}'' for :explain; expected `analyze`."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/paging.clj
 msgid "Illegal value ''{0}'' for :offset; expected a non-negative integer."
 msgstr ""
 
