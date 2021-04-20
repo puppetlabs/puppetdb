@@ -10,30 +10,172 @@
    date is used.
    - Path to where the new export will be saved. If not provided it will be saved in the same place as the
    input export but with the 'shifted' prefix."
-
+  (:import [java.time ZonedDateTime Duration]
+           [java.time.format DateTimeFormatter])
   (:require
-    [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
-    [puppetlabs.puppetdb.utils :as utils]
-    [puppetlabs.kitchensink.core :as kitchensink]
-    [clojure.java.io :as io]
-    [puppetlabs.puppetdb.time :refer [to-timestamp now]]))
+   [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
+   [puppetlabs.puppetdb.utils :as utils]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [clojure.java.io :as io]
+   [puppetlabs.puppetdb.archive :as archive]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [clojure.string :as str]))
+
+(defn shift-timestamp
+  [timestamp-string period & h-format]
+
+  (let [format (if (nil? h-format)
+                 "yyyy-MM-dd'T'HH:mm:ss.SSSz"
+                 "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")]
+    (if-not (nil? timestamp-string)
+      (.format (DateTimeFormatter/ofPattern format) (.plus (ZonedDateTime/parse timestamp-string) period))
+      nil)))
+
+(defn timeshift-resources
+  [resources shift-interval]
+
+  (mapv
+    (fn [resource]
+      (-> resource
+        (update :timestamp #(shift-timestamp % shift-interval true))
+        (update :events (fn[events]
+                           (mapv
+                             (fn [event]
+                               (update event :timestamp #(shift-timestamp % shift-interval true)))
+                             events)))))
+    resources))
+
+(defn timeshift-logs
+  [logs shift-interval]
+
+  (mapv
+    (fn [log]
+      (update log :time #(shift-timestamp % shift-interval)))
+    logs))
+
+(defn shift-report-timestamps
+  [parsed-data shift-interval]
+
+  (update parsed-data :content (fn[content]
+                                 (-> content
+                                  (update :producer_timestamp #(shift-timestamp % shift-interval))
+                                  (update :start_time #(shift-timestamp % shift-interval))
+                                  (update :end_time #(shift-timestamp % shift-interval))
+                                  (update :logs #(timeshift-logs % shift-interval))
+                                  (update :resources #(timeshift-resources % shift-interval))))))
+
+(defn shift-timestamps-from-entry
+  [parsed-data shift-interval]
+
+  (let [data-type (:type parsed-data)]
+    (cond
+      (some #{data-type} [:catalog :fact]) (update-in parsed-data [:content :producer_timestamp] #(shift-timestamp % shift-interval))
+      (= :report data-type) (shift-report-timestamps parsed-data shift-interval)
+      :else parsed-data)))
+
+
+(defn extract-tar-entry
+  [tar-entry tar-reader]
+
+  (let [parsed-entry (-> tar-reader
+                       archive/read-entry-content
+                       (json/parse-string true))
+        file-path (.getName tar-entry)
+        parsed-data {:path file-path, :content parsed-entry}]
+    (condp re-find (.getName tar-entry)
+      #"catalogs.*\.json$" (assoc parsed-data :type :catalog)
+      #"reports.*\.json$" (assoc parsed-data :type :report)
+      #"facts.*\.json$" (assoc parsed-data :type :fact)
+      #"export-metadata.json$" (assoc parsed-data :type :metadata))))
+
+(defn timeshift-input-archive
+  [output-path input-path interval-period]
+
+  (with-open [tar-writer (archive/tarball-writer output-path)]
+    (with-open [tar-reader (archive/tarball-reader input-path)]
+      (doseq [archive-entry (archive/all-entries tar-reader)]
+        (let [shifted-entry (-> archive-entry
+                              (extract-tar-entry tar-reader)
+                              (shift-timestamps-from-entry interval-period))]
+          (archive/add-entry tar-writer "utf-8" (:path shifted-entry) (json/generate-pretty-string (:content shifted-entry))))))))
+
+(defn set-output-archive-path
+  [output-path input-path]
+
+  (if (nil? output-path)
+    (let [input-path input-path
+          path-tokens (str/split input-path #"/")
+          file-name (str "shifted-" (last path-tokens))]
+      (str/join "/" (conj (pop path-tokens) file-name)))
+    output-path))
+
+(def newest-timestamp (atom nil))
+
+(defn set-newest-timestamp
+  [timestamp]
+
+  (if (and
+        (not (nil? timestamp))
+        (or (nil? @newest-timestamp) (.isAfter timestamp @newest-timestamp)))
+    (reset! newest-timestamp timestamp)))
+
+(defn update-newest-timestamp
+  [timestamp-string]
+
+  (-> (ZonedDateTime/parse timestamp-string)
+      (set-newest-timestamp)))
+
+(defn set-newest-timestamp-from-report
+  [json-data]
+
+  (update-newest-timestamp (json-data :start_time))
+  (update-newest-timestamp (json-data :end_time))
+
+  (doseq [log (json-data :logs)]
+    (update-newest-timestamp (log :time)))
+
+  (doseq [resource (json-data :resources)]
+    (update-newest-timestamp (resource :timestamp))
+    (doseq [event (resource :events)]
+      (update-newest-timestamp (event :timestamp)))))
+
+(defn get-newest-timestamp-from-entry
+  [parsed-data]
+
+  (let [data-type (:type parsed-data)]
+    (if (some #{data-type} [:catalog :fact :report])
+      (update-newest-timestamp ((:content parsed-data) :producer_timestamp)))
+    (if (= :report data-type)
+      (set-newest-timestamp-from-report (:content parsed-data)))))
+
+(defn calculate-newest-timestamp
+  [archive-path]
+
+  (with-open [tar-reader (archive/tarball-reader archive-path)]
+    (doseq [archive-entry (archive/all-entries tar-reader)]
+      (-> archive-entry
+        (extract-tar-entry tar-reader)
+        (get-newest-timestamp-from-entry)))))
 
 (defn time-shift-export
   [args]
 
-  (println args)
-  (println "Not implemented"))
+  (calculate-newest-timestamp (:input args))
+  (let [shift-interval (Duration/between @newest-timestamp (:shift-to-time args))
+        output-path (set-output-archive-path (:output args) (:input args))]
+    (timeshift-input-archive output-path (:input args) shift-interval)))
 
 (defn parse-time-shift-parameter
   [time-string]
 
-  (let [parsed-time (to-timestamp time-string)]
+  (let [parsed-time (ZonedDateTime/parse time-string)]
     (if-not parsed-time
       (utils/throw-sink-cli-error "Error: time shift date must be in UTC format!"))
     parsed-time))
 
 (defn file-exists?
   [file_path]
+
   (.exists (io/file file_path)))
 
 (defn validate-options
@@ -42,13 +184,13 @@
   (if-not (file-exists? (:input options))
     (utils/throw-sink-cli-error "Error: input archive path must be valid!"))
 
-  (let [parsed-time (if (:time-shift-to options)
-                      (parse-time-shift-parameter (:time-shift-to options))
-                      (now))]
+  (let [parsed-time (if (:shift-to-time options)
+                      (parse-time-shift-parameter (:shift-to-time options))
+                      (ZonedDateTime/now))]
 
     {:input (:input options)
      :output (:output options)
-     :time-shift-to parsed-time}))
+     :shift-to-time parsed-time}))
 
 (defn- validate-cli!
   [args]
