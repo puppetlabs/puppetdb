@@ -176,7 +176,26 @@
 
       (testing "should return the same value twice"
         (is (= (fact-identity-hash sample)
-               (fact-identity-hash sample)))))))
+               (fact-identity-hash sample))))))
+
+  (testing "fact-identity-hash package_inventory ordering"
+    (let [sample {:certname "foo.com"
+                  :values {"domain" "mydomain.com"
+                           "fqdn" "myhost.mydomain.com"
+                           "hostname" "myhost"
+                           "kernel" "Linux"
+                           "operatingsystem" "Debian"}
+                  :environment nil
+                  :package_inventory [["acl" "2.2.52-3" "apt"]
+                                      ["beaker-pe" "1.9.1" "gem"]
+                                      ["cups" "2.2.1-8" "apt"]
+                                      ["diffutils" "1:3.5-1" "apt"]]}]
+
+      (testing "package_inventory order shouldn't affect hash"
+        (is (= (fact-identity-hash sample)
+               (-> sample
+                   (update :package_inventory reverse)
+                   fact-identity-hash)))))))
 
 (deftest catalog-dedupe
   (testing "Catalogs with the same metadata but different content should have different hashes"

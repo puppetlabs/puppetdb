@@ -230,7 +230,9 @@
                     ;; way to tell them apart during sync, and we need the the hashing
                     ;; to be consistent.
                     (if (seq (:package_inventory fact-data))
-                      fact-data
+                      ;; sort package_inventory to guard aganist random ordering
+                      ;; producing differing hashes when all else is equal.
+                      (update fact-data :package_inventory sort)
                       (dissoc fact-data :package_inventory))
                     (dissoc :timestamp :producer_timestamp :producer)
                     generic-identity-hash)
