@@ -21,6 +21,34 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 7.3.1
+
+Released 26 April 2021. The 7.3.0 tag was burned in order to update additional
+dependencies.
+
+### New features and improvements
+
+- Added a new query parameter `explain` that will return the query plan and
+  actual run time statistics for the query.
+  [PDB-5055](https://tickets.puppetlabs.com/browse/PDB-5055)
+
+- Add ability to disable storage of resource events
+  [PDB-3635](https://tickets.puppetlabs.com/browse/PDB-3635)
+
+### Bug fixes
+
+- Fixed a bug in the ssl-setup command that would insert a duplicate setting
+  into the jetty.ini config.
+  [PDB-5084](https://tickets.puppetlabs.com/browse/PDB-5084)
+- PuppetDB will no longer return HTML formatted stack traces from the API
+  endpoint, now only the error message will be returned. The full error can
+  still be found it the logs if needed.
+  [PDB-5063](https://tickets.puppetlabs.com/browse/PDB-5063)
+- Trailing characters after a query, which were usually from mismatched `]` in
+  an AST query, will no longer be ignored. Instead an error will be returned to
+  alert the user to the potential error in their query.
+  [PDB-2488](https://tickets.puppetlabs.com/browse/PDB-2488)
+
 ## PuppetDB 7.2.0
 
 Released 24 February 2021
