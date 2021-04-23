@@ -1843,12 +1843,13 @@
      (jdbc/with-transacted-connection' db :repeatable-read
        ;; May or may not require postgresql's "stronger than the
        ;; standard" behavior for repeatable read.
-       (try
-         (some->> fact-path-gc-lock-timeout-ms
-                  (format "set local lock_timeout = %d")
-                  (sql/execute! jdbc/*db*))
-         (delete-unused-fact-paths)
-         (catch SQLException ex
-           (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
-             (throw ex))
-           (log/warn (trs "sweep of stale fact paths timed out"))))))))
+       (kitchensink/demarcate "sweep of unused fact paths"
+         (try
+           (some->> fact-path-gc-lock-timeout-ms
+                    (format "set local lock_timeout = %d")
+                    (sql/execute! jdbc/*db*))
+           (delete-unused-fact-paths)
+           (catch SQLException ex
+             (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
+               (throw ex))
+             (log/warn (trs "sweep of unused fact paths timed out")))))))))
