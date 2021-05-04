@@ -32,6 +32,9 @@ ENV PUPPERWARE_ANALYTICS_ENABLED=false \
 # -Djavax.net.debug=ssl may be particularly useful to set for debugging SSL
     PUPPETDB_JAVA_ARGS="-Djava.net.preferIPv4Stack=true -Xms256m -Xmx256m -XX:+UseParallelGC -Xloggc:$LOGDIR/puppetdb_gc.log -Djdk.tls.ephemeralDHKeySize=2048"
 
+# puppetdb data and generated certs
+VOLUME /opt/puppetlabs/server/data/puppetdb
+
 LABEL org.label-schema.maintainer="Puppet Release Team <release@puppet.com>" \
       org.label-schema.vendor="Puppet" \
       org.label-schema.url="https://github.com/puppetlabs/puppetdb" \
@@ -69,11 +72,6 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y ca-certificates curl dnsutils netcat && \
     chmod +x /ssl.sh /wtfc.sh /docker-entrypoint.sh /healthcheck.sh /docker-entrypoint.d/*.sh && \
     dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb
-
-# VOLUME definitions are always at end of Dockerfile to capture all written data
-# Initially set this way for LCOW bug - https://github.com/moby/moby/issues/39892
-# puppetdb data and generated certs
-VOLUME /opt/puppetlabs/server/data/puppetdb
 
 ######################################################
 # edge (build from source)
