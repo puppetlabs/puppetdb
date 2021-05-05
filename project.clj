@@ -209,6 +209,7 @@
                  ;; WebAPI support libraries.
                  [bidi]
                  [clj-http "2.0.1"]
+                 [commons-io]
                  [compojure]
                  [ring/ring-core]
 
@@ -263,7 +264,12 @@
                                        (schema.core/set-fn-validation! true))]}
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
                               :plugins [[jonase/eastwood "0.3.14"
-                                         :exclusions [org.clojure/clojure]]]}]
+                                         :exclusions [org.clojure/clojure]]
+                                        [lein-nvd "1.4.1"
+                                         :exclusions [org.apache.commons/commons-lang3
+                                                      org.slf4j/jcl-over-slf4j
+                                                      org.clojure/clojure
+                                                      org.slf4j/slf4j-api]]]}]
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
                                     [org.bouncycastle/bc-fips]

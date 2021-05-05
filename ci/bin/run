@@ -34,6 +34,7 @@ case "$flavor" in
     lint)
         ext/bin/check-spec-env "$spec"
         lein eastwood
+        lein nvd check
         ;;
     rspec)
         puppet_ref="$(ext/bin/prefixed-ref-from-spec "$spec" pup-)"
