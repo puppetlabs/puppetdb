@@ -1,10 +1,23 @@
-#!/usr/bin/env python
+"""": # -*-python-*-
+command -v python3 > /dev/null && exec python3 "$0" "$@"
+command -v python2 > /dev/null && exec python2 "$0" "$@"
+echo "error: unable to find python3 or python2" 1>&2; exit 2
+"""
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 from functools import partial
 from pipes import quote
 from subprocess import CalledProcessError
-import re, subprocess, sys
+import os, re, subprocess, sys
+
+py_maj = sys.version_info[0]
+
+if py_maj >= 3:
+    def argv_bytes(arg):
+        return os.fsencode(arg)
+else:
+    def argv_bytes(arg):
+        return arg
 
 def log(*args, **kwargs):
     assert 'file' not in kwargs
@@ -16,6 +29,9 @@ def usage():
 Usage:
   wrtrepo --help
   wrtrepo ref-lands-where [--ref-tree TREE] REF
+
+Examples:
+  wrtrepo ref-lands-where HEAD
 """
     return msg.lstrip()
 
@@ -27,14 +43,15 @@ ex = subprocess.call
 exc = subprocess.check_call
 exo = subprocess.check_output
 
+
 def refs_under(ref_tree):
-  assert not ref_tree.startswith('/')
-  assert not ref_tree.endswith('/')
+  assert not ref_tree.startswith(b'/')
+  assert not ref_tree.endswith(b'/')
   return exo(['git', 'for-each-ref','--format=%(refname)',
               ref_tree]).splitlines()
 
 def is_release_branch_name(name, expected_prefix):
-    return re.match(expected_prefix + r'/[0-9]+\.[0-9]+\.x$', name)
+    return re.match(expected_prefix + br'/[0-9]+\.[0-9]+\.x$', name)
 
 def tags_on_branch(commit_ref):
     return exo(['git', 'tag', '--merged', commit_ref]).splitlines()
@@ -54,13 +71,13 @@ def releases_before_ref(ref, ref_tree):
             yield most_recent_tag
     
 def releases_before_ref_for_argv(argv):
-    ref_tree = 'refs/remotes/origin'
+    ref_tree = b'refs/remotes/origin'
     while argv:
         arg = argv[0]
         if arg == '--ref-tree':
             if len(argv) < 2:
                 misuse()
-            ref_tree = argv[1]
+            ref_tree = argv_bytes(argv[1])
             argv = argv[2:]
         elif arg == '--':
             argv = argv[1:]
@@ -71,13 +88,14 @@ def releases_before_ref_for_argv(argv):
             break
     if len(argv) != 1:
         misuse()
-    ref = argv[0]
+    ref = argv_bytes(argv[0])
     preceeding_tags = list(releases_before_ref(ref, ref_tree))
     if preceeding_tags:
         for tag in preceeding_tags:
-            print('New in release after', tag, 'of', ref_tree)
+            # For now, just hope that the locale is suitable
+            print('New in release after', tag.decode(), 'of', ref_tree.decode())
     else:
-        print('Appears to have been released')        
+        print("Appears to have been released, or isn't on a release branch")
     return 0
 
 if sys.argv[1:] == ['--help']:
