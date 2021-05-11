@@ -193,8 +193,7 @@
 
 (defn get-href [pdb suffix]
   (-> pdb
-      int/root-url-str
-      (str suffix)
+      (int/build-url-str suffix)
       svc-utils/get-ssl
       :body))
 
