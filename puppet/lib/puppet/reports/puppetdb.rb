@@ -20,8 +20,9 @@ Puppet::Reports.register_report(:puppetdb) do
   def process
     profile("report#process", [:puppetdb, :report, :process]) do
       current_time = Time.now
-      report_hash = report_to_hash(current_time)
-      submit_command(self.host, report_hash, CommandStoreReport, 8, current_time.utc)
+      submit_command(self.host, CommandStoreReport, 8, current_time.utc) do
+        report_to_hash(current_time)
+      end
     end
 
     nil
