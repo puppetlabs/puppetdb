@@ -115,6 +115,13 @@
       :base-url
       svc-utils/root-url-str))
 
+(defn build-url-str [pdb-server suffix]
+  (-> pdb-server
+      server-info
+      :base-url
+      (assoc :prefix suffix)
+      utils/base-url->str-with-prefix))
+
 (defn pql-query [pdb-server query]
   (-> pdb-server
       server-info
