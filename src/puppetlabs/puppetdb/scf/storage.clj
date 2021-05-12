@@ -339,8 +339,8 @@
                                (comp :id first sql/result-set-seq))))
 
 (pls/defn-validated ensure-row :- (s/maybe s/Int)
-  "Check if the given row (defined by `row-map` exists in `table`, creates it if it does not. Always returns
-   the id of the row (whether created or existing)"
+  "Ensures the row defined by row-map exists in the table,
+   creating it if it does not.  Returns the id of the row."
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (when row-map
@@ -1698,24 +1698,27 @@
                :limit 1}]
     (:producer_timestamp (first (jdbc/query (hcore/format query))))))
 
-(pls/defn-validated have-record-produced-after?
-  [entity :- s/Keyword
-   certname :- String
-   time :- pls/Timestamp]
-  (let [time (to-timestamp time)]
-    (boolean
-     (some-> entity
-             (timestamp-of-newest-record certname)
-             (.after time)))))
-
 (pls/defn-validated have-newer-record-for-certname?
   "Returns a truthy value indicating whether a record exists that has
   a producer_timestamp newer than the given timestamp."
   [certname :- String
    timestamp :- pls/Timestamp]
-  (some (fn [entity]
-          (have-record-produced-after? entity certname timestamp))
-        [:catalogs :factsets :reports]))
+  (when-let [newest (-> ["select producer_timestamp"
+                         "  from (select producer_timestamp from catalogs"
+                         "          where certname = ?"
+                         "          order by producer_timestamp desc limit 1) cats"
+                         "  union all (select producer_timestamp from factsets"
+                         "               where certname = ?"
+                         "               order by producer_timestamp desc limit 1)"
+                         "  union all (select producer_timestamp from reports"
+                         "               where certname = ?"
+                         "               order by producer_timestamp desc limit 1)"
+                         "  order by producer_timestamp desc"
+                         "  limit 1"]
+                        (jdbc/do-prepared (repeat 3 certname))
+                        first
+                        :producer_timestamp)]
+    (.after newest timestamp)))
 
 (pls/defn-validated maybe-activate-node!
   "Reactivate the given host, only if it was deactivated or expired before
