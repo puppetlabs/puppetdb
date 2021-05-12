@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: f0bd97211944c0900474309cab0253a7b2a3145d\n"
+"X-Git-Ref: 77d6916d341ddebec4f670db2828b84f91a6c540\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -729,6 +729,16 @@ msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
+msgid ""
+"Only one query may be sent in a request. Found JSON {0} after the query {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
+msgid ""
+"Paging options (limit, order_by, offset) must be included in the PQL query"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
 msgid "PuppetDB queries must be made via GET/POST"
 msgstr ""
 
@@ -909,11 +919,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj
 msgid "{0} (followed by end-of-string)"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/pql.clj
-msgid ""
-"Only one query may be sent in a request. Found JSON {0} after the query {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query.clj
@@ -1437,6 +1442,17 @@ msgstr ""
 msgid "Unhandled date type {0}"
 msgstr ""
 
+#. Don't localize the line numbers
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Failed to insert resource for {0} (file: {1}, line: {2})."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid ""
+"  May indicate use of $facts[''my_fact''] instead of "
+"$'{'facts[''my_fact'']'}'"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Not replacing catalog for certname {0} because local data is newer."
 msgstr ""
@@ -1469,7 +1485,7 @@ msgid "Not updating facts for certname {0} because local data is newer."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "sweep of stale fact paths timed out"
+msgid "sweep of unused fact paths timed out"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage_utils.clj
