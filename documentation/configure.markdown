@@ -888,7 +888,9 @@ be set up to log information about any HTTP requests Jetty receives
 according to the logging configuration, as long as the XML file
 pointed to exists and is valid. Information on configuring the
 `logback-access` module is available
-[here](http://logback.qos.ch/access.html#configuration).
+[here](http://logback.qos.ch/access.html#configuration) and additional
+information about configuring the pattern layout can be found
+[here](http://logback.qos.ch/manual/layouts.html#AccessPatternLayout).
 
 A configuration file may resemble the following:
 
