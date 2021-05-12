@@ -44,14 +44,14 @@
             [puppetlabs.trapperkeeper.app :as tkapp :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.testutils
-             :refer [block-until-results default-timeout-ms temp-file]]
+             :refer [block-until-results default-timeout-ms temp-file change-report-time]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [clojure.string :as str])
-  (:import
-   [clojure.lang ExceptionInfo]
-   (java.util.concurrent CyclicBarrier TimeUnit)
-   [java.util.concurrent.locks ReentrantLock]))
+            [clojure.string :as str]
+            [puppetlabs.puppetdb.scf.storage :as storage])
+  (:import [clojure.lang ExceptionInfo]
+           (java.util.concurrent CyclicBarrier TimeUnit)
+           [java.util.concurrent.locks ReentrantLock]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -377,25 +377,6 @@
           (tkapp/stop *server*)
           (is (= true @requested-shutdown?)))))))
 
-(defn change-report-time [r time]
-  ;; A *very* blunt instrument, only intended to work for now on
-  ;; example/reports.
-  (-> (assoc r
-             :producer_timestamp time
-             :start_time time
-             :end_time time)
-      (update :logs #(mapv (fn [entry] (assoc entry :time time)) %))
-      (update :resources
-              (fn [resources]
-                (mapv
-                 (fn [res]
-                   (-> res
-                       (assoc :timestamp time)
-                       (update :events (fn [events]
-                                         (mapv #(assoc % :timestamp time)
-                                               events)))))
-                 resources)))))
-
 (deftest regular-gc-drops-oldest-partitions-incrementally
   (with-unconnected-test-db
     (let [config (-> (create-temp-config)
@@ -493,8 +474,10 @@
                             (let [result (f first?)]
                               (.await after-gc)
                               result))
+          event-expired? (fn [_ _] true)
           log (atom [])]
-      (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
+      (with-redefs [svcs/invoke-periodic-gc invoke-periodic
+                    storage/resource-event-expired? event-expired?]
         (call-with-puppetdb-instance
          config
          (fn []

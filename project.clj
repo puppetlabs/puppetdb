@@ -1,6 +1,6 @@
 (def pdb-version "7.3.2-SNAPSHOT")
 
-(def clj-parent-version "4.6.20")
+(def clj-parent-version "4.6.22")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -209,6 +209,7 @@
                  ;; WebAPI support libraries.
                  [bidi]
                  [clj-http "2.0.1"]
+                 [commons-io]
                  [compojure]
                  [ring/ring-core]
 
@@ -263,7 +264,12 @@
                                        (schema.core/set-fn-validation! true))]}
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
                               :plugins [[jonase/eastwood "0.3.14"
-                                         :exclusions [org.clojure/clojure]]]}]
+                                         :exclusions [org.clojure/clojure]]
+                                        [lein-nvd "1.4.1"
+                                         :exclusions [org.apache.commons/commons-lang3
+                                                      org.slf4j/jcl-over-slf4j
+                                                      org.clojure/clojure
+                                                      org.slf4j/slf4j-api]]]}]
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
                                     [org.bouncycastle/bc-fips]
@@ -329,9 +335,10 @@
 
   :main puppetlabs.puppetdb.core
 
-  :test-selectors {:default (complement :integration)
-                   :unit (complement :integration)
-                   :integration :integration}
+  :test-selectors {:default (fn [m] (not (or (:integration m) (:skipped m))))
+                   :unit (fn [m] (not (or (:integration m) (:skipped m))))
+                   :integration :integration
+                   :skipped :skipped}
 
   ;; This is used to merge the locales.clj of all the dependencies into a single
   ;; file inside the uberjar
@@ -355,4 +362,8 @@
                             ~puppetserver-test-dep-gem-list
                             "--config" "./test-resources/puppetserver/puppetserver.conf"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
-            "distclean" ~(pdb-run-clean pdb-distclean-paths)})
+            "distclean" ~(pdb-run-clean pdb-distclean-paths)
+            "timeshift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"
+                                        " the period between the most recent one in the archive and the one "
+                                        "you provide, or the current date."])}
+                               ["trampoline" "run" "-m" "puppetlabs.puppetdb.cli.time-shift-export"]})

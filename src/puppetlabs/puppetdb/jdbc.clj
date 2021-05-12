@@ -22,6 +22,7 @@
 
 (defn sql-state [kw-name]
   (or ({:invalid-regular-expression "2201B"
+        :program-limit-exceeded "54000"
         :lock-not-available "55P03"
         :query-canceled "57014"}
        kw-name)

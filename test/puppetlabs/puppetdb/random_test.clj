@@ -9,10 +9,8 @@
     (is (= 100 (count (random-string 100)))))
 
   (testing "should only accept a positive integer"
-    (is (thrown? AssertionError (random-string -1)))
-    (is (thrown? AssertionError (random-string 0)))
-    (is (thrown? AssertionError (random-string "asdf")))
-    (is (thrown? AssertionError (random-string 1.2)))))
+    (is (thrown? IllegalArgumentException (random-string -1)))
+    (is (thrown? ClassCastException (random-string "asdf")))))
 
 (deftest test-random-string-alpha
   (testing "should return a string of specified length"
@@ -21,10 +19,8 @@
     (is (= 100 (count (random-string-alpha 100)))))
 
   (testing "should only accept a positive integer"
-    (is (thrown? AssertionError (random-string-alpha -1)))
-    (is (thrown? AssertionError (random-string-alpha 0)))
-    (is (thrown? AssertionError (random-string-alpha "asdf")))
-    (is (thrown? AssertionError (random-string-alpha 1.2)))))
+    (is (thrown? IllegalArgumentException (random-string-alpha -1)))
+    (is (thrown? ClassCastException (random-string-alpha "asdf")))))
 
 (deftest test-random-bool
   (testing "should return a boolean"

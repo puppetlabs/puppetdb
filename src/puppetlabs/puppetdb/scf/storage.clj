@@ -42,7 +42,7 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before?]]
+            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before? after?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
@@ -534,7 +534,8 @@
 (s/defn insert-records*
   "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
   [table :- s/Keyword
-   record-coll :- [{s/Keyword s/Any}]]
+   record-coll]
+  (s/validate [{s/Keyword s/Any}] (vec (take 3 record-coll)))
   (jdbc/insert-multi! table record-coll))
 
 (s/defn add-params!
@@ -574,30 +575,52 @@
     (update-in resource [:tags] sutils/to-jdbc-varchar-array)
     resource))
 
+(defn handle-resource-insert-sqlexception
+  "Handles a java.sql.SQLException encountered while inserting of a
+  resource. This may occur when the inserted resource has a value too
+  big for a postgres btree index."
+  [ex certname file line]
+  (when (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex))
+    (let [msg (str
+               ;; Don't localize the line numbers
+               (trs "Failed to insert resource for {0} (file: {1}, line: {2})."
+                    certname file (str line))
+               (trs "  May indicate use of $facts[''my_fact''] instead of $'{'facts[''my_fact'']'}'"))]
+      (throw (SQLException. msg (.getSQLState ex) (.getErrorCode ex) ex))))
+  (throw ex))
+
 (s/defn insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
   [certname-id :- Long
+   certname :- String
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources :- resource-ref->resource-schema]
   (fn [refs-to-insert]
     {:pre [(every? resource-ref? refs-to-insert)]}
 
     (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
-
-    (insert-records*
-     :catalog_resources
-     (map (fn [resource-ref]
-            (let [{:keys [type title exported parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
-              (convert-tags-array
-               {:certname_id certname-id
-                :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
-                :type type
-                :title title
-                :tags tags
-                :exported exported
-                :file file
-                :line line})))
-          refs-to-insert))))
+    (let [last-record (atom nil)]
+      (try
+        (insert-records*
+         :catalog_resources
+         (map (fn [resource-ref]
+                (let [{:keys [type title exported parameters tags file line]
+                       :as resource}
+                      (get refs-to-resources resource-ref)]
+                  (reset! last-record resource)
+                  (convert-tags-array
+                   {:certname_id certname-id
+                    :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
+                    :type type
+                    :title title
+                    :tags tags
+                    :exported exported
+                    :file file
+                    :line line})))
+              refs-to-insert))
+        (catch SQLException ex
+          (let [{:keys [file line]} @last-record]
+            (handle-resource-insert-sqlexception ex certname file line)))))))
 
 (s/defn delete-catalog-resources!
   "Returns a function accepts old catalog resources that should be deleted."
@@ -645,6 +668,7 @@
 (s/defn update-catalog-resources!
   "Returns a function accepting keys that were the same from the old resources and the new resources."
   [certname-id :- Long
+   certname :- String
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources
    old-resources]
@@ -657,11 +681,14 @@
 
       (update! (get-storage-metric :catalog-volatility) (count updated-resources))
 
-      (doseq [[{:keys [type title]} updated-cols] updated-resources]
-        (jdbc/update! :catalog_resources
-                      (convert-tags-array updated-cols)
-                      ["certname_id = ? and type = ? and title = ?"
-                       certname-id type title])))))
+      (doseq [[{:keys [type title file line]} updated-cols] updated-resources]
+        (try
+          (jdbc/update! :catalog_resources
+                        (convert-tags-array updated-cols)
+                        ["certname_id = ? and type = ? and title = ?"
+                         certname-id type title])
+          (catch SQLException ex
+            (handle-resource-insert-sqlexception ex certname file line)))))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
@@ -672,6 +699,7 @@
 (s/defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [certname-id :- Long
+   certname :- String
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (let [old-resources (catalog-resources certname-id)
@@ -681,8 +709,10 @@
      (utils/diff-fn old-resources
                     diffable-resources
                     (delete-catalog-resources! certname-id)
-                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
-                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
+                    (insert-catalog-resources! certname-id certname refs-to-hashes
+                                               diffable-resources)
+                    (update-catalog-resources! certname-id certname refs-to-hashes
+                                               diffable-resources old-resources)))))
 
 (s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -788,7 +818,7 @@
    {:keys [resources edges certname]} :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (time! (get-storage-metric :add-resources)
-         (add-resources! certname-id resources refs-to-hashes))
+         (add-resources! certname-id certname resources refs-to-hashes))
   (time! (get-storage-metric :add-edges)
          (replace-edges! certname edges refs-to-hashes)))
 
@@ -1359,6 +1389,17 @@
                                    reports/resources->resource-events
                                    (map normalize-resource-event)))))
 
+(defn resource-event-expired?
+  [timestamp resource-events-ttl]
+  (time/after? (org.joda.time.DateTime. timestamp)
+               (.minus (now) resource-events-ttl)))
+
+(defn filter-expired-resources
+   [resource-events-ttl resource-list]
+   (if resource-events-ttl
+     (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
+   resource-list))
+
 (s/defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1367,7 +1408,8 @@
   [orig-report :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool
-   save-event? :- s/Bool]
+   save-event? :- s/Bool
+   options-config]
   (time! (get-storage-metric :store-report)
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
@@ -1382,6 +1424,7 @@
                              (query-to-vec report-hash)
                              seq)
                  (let [certname-id (certname-id certname)
+                       resource-events-ttl (get options-config :resource-events-ttl)
                        table-name (str "reports_" (-> producer_timestamp
                                                       (partitioning/to-zoned-date-time)
                                                       (partitioning/date-suffix)))
@@ -1415,28 +1458,36 @@
                                               maybe-corrective-change
                                               (jdbc/insert! table-name))]
                    (when (and (seq resource_events) save-event?)
-                      (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
-                            adjust-event #(-> %
-                                              maybe-corrective-change
-                                              (assoc :report_id report-id
-                                                      :certname_id certname-id))
-                            add-event-hash #(-> %
-                                                ;; this cannot be merged with the function above, because the report-id
-                                                ;; field *has* to exist first
-                                                (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
-                                                                        (sutils/munge-hash-for-storage))))
-                            ;; group by the hash, and choose the oldest (aka first) of any duplicates.
-                            remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
-                        (->> resource_events
-                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                              (map adjust-event)
-                              (map add-event-hash)
-                              ;; ON CONFLICT does *not* work properly in partitions, see:
-                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-                              ;; section 5.10.6
-                              remove-dupes
-                              insert!
-                              dorun)))
+                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
+                           adjust-event #(-> %
+                                             maybe-corrective-change
+                                             (assoc :report_id report-id
+                                                    :certname_id certname-id))
+                           add-event-hash #(-> %
+                                               ;; this cannot be merged with the function above, because the report-id
+                                               ;; field *has* to exist first
+                                               (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
+                                                                       (sutils/munge-hash-for-storage))))
+                           ;; group by the hash, and choose the oldest (aka first) of any duplicates.
+                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
+                       (let [last-record (atom nil)
+                             set-last-record! #(reset! last-record %)]
+                         (try
+                           (->> resource_events
+                                (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                                (map adjust-event)
+                                (map add-event-hash)
+                                ;; ON CONFLICT does *not* work properly in partitions, see:
+                                ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+                                ;; section 5.10.6
+                                remove-dupes
+                                (filter-expired-resources resource-events-ttl)
+                                (map set-last-record!)
+                                insert!
+                                dorun)
+                           (catch SQLException ex
+                             (let [{:keys [file line]} @last-record]
+                               (handle-resource-insert-sqlexception ex certname file line)))))))
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
@@ -1768,7 +1819,7 @@
                                   :statement-timeout command-sql-statement-timeout-ms}
                   (fn []
                     (maybe-activate-node! certname producer-timestamp)
-                    (add-report!* report received-timestamp update-latest-report? save-event))))]
+                    (add-report!* report received-timestamp update-latest-report? save-event options-config))))]
     (try
       (store!)
       (catch org.postgresql.util.PSQLException e
@@ -1806,12 +1857,13 @@
      (jdbc/with-transacted-connection' db :repeatable-read
        ;; May or may not require postgresql's "stronger than the
        ;; standard" behavior for repeatable read.
-       (try
-         (some->> fact-path-gc-lock-timeout-ms
-                  (format "set local lock_timeout = %d")
-                  (sql/execute! jdbc/*db*))
-         (delete-unused-fact-paths)
-         (catch SQLException ex
-           (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
-             (throw ex))
-           (log/warn (trs "sweep of stale fact paths timed out"))))))))
+       (kitchensink/demarcate "sweep of unused fact paths"
+         (try
+           (some->> fact-path-gc-lock-timeout-ms
+                    (format "set local lock_timeout = %d")
+                    (sql/execute! jdbc/*db*))
+           (delete-unused-fact-paths)
+           (catch SQLException ex
+             (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
+               (throw ex))
+             (log/warn (trs "sweep of unused fact paths timed out")))))))))

@@ -32,7 +32,9 @@
             [puppetlabs.puppetdb.jdbc :as jdbc
              :refer [call-with-query-rows query-to-vec]]
             [puppetlabs.puppetdb.time :as time
-             :refer [ago before? days from-now now to-string to-timestamp]]))
+             :refer [ago before? days from-now now to-string to-timestamp]])
+  (:import
+   (java.sql SQLException)))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
@@ -839,6 +841,24 @@
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
 (def current-time (str (now)))
+
+(deftest-db exceeding-db-index-limit-produces-annotated-error
+  (add-certname! certname)
+  (let [bad-resource {:type "Class"
+                      :title (str/join "" (repeat 1000000 "yo"))
+                      :line 1337
+                      :exported false
+                      :file "badfile.txt"}]
+    (try
+      (replace-catalog!
+       (update catalog :resources
+               assoc {:type "Class" :title "updog"} bad-resource))
+      (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
+      (catch SQLException ex
+        (is (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex)))
+        (is (re-matches
+             #"Failed to insert resource for basic\.catalogs\.com \(file: /tmp/foo, line: 10\).*"
+             (.getMessage ex)))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
