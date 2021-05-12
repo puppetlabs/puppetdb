@@ -323,8 +323,9 @@
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
         q (format "select id from %s where %s"
-                  (name table)
-                  (str/join " " (map #(str (name %) "=?") cols)))]
+                  (jdbc/double-quote (name table))
+                  (str/join " " (map #(str (jdbc/double-quote (name %)) "=?")
+                                     cols)))]
     (jdbc/query-with-resultset (apply vector q (map row-map cols))
                                (comp :id first sql/result-set-seq))))
 
