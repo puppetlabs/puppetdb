@@ -30,10 +30,9 @@ describe Puppet::Util::Puppetdb do
       command1.expects(:submit).once
       Puppet::Util::Puppetdb::Command.expects(:new).once.returns(command1)
       subject.submit_command(command1.certname,
-                             command1.payload,
                              command1.command,
                              command1.producer_timestamp_utc,
-                             command1.version)
+                             command1.version) { command1.payload }
     end
 
   end

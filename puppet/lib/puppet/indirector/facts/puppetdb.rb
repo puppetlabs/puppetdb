@@ -18,38 +18,37 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def save(request)
     profile("facts#save", [:puppetdb, :facts, :save, request.key]) do
-
       current_time = Time.now
 
-      payload = profile("Encode facts command submission payload",
-                        [:puppetdb, :facts, :encode]) do
-        facts = request.instance.dup
-        facts.values = facts.values.dup
-        facts.values[:trusted] = get_trusted_info(request.node)
+      submit_command(request.key, CommandReplaceFacts, 5, current_time.clone.utc) do
+        profile("Encode facts command submission payload",
+                          [:puppetdb, :facts, :encode]) do
+          facts = request.instance.dup
+          facts.values = facts.values.dup
+          facts.values[:trusted] = get_trusted_info(request.node)
 
-        inventory = facts.values['_puppet_inventory_1']
-        package_inventory = inventory['packages'] if inventory.respond_to?(:keys)
-        facts.values.delete('_puppet_inventory_1')
+          inventory = facts.values['_puppet_inventory_1']
+          package_inventory = inventory['packages'] if inventory.respond_to?(:keys)
+          facts.values.delete('_puppet_inventory_1')
 
-        payload_value = {
-          "certname" => facts.name,
-          "values" => facts.values,
-          # PDB-453: we call to_s to avoid a 'stack level too deep' error
-          # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with
-          # legacy storeconfigs.
-          "environment" => request.options[:environment] || request.environment.to_s,
-          "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(current_time),
-          "producer" => Puppet[:node_name_value]
-        }
+          payload_value = {
+            "certname" => facts.name,
+            "values" => facts.values,
+            # PDB-453: we call to_s to avoid a 'stack level too deep' error
+            # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with
+            # legacy storeconfigs.
+            "environment" => request.options[:environment] || request.environment.to_s,
+            "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(current_time),
+            "producer" => Puppet[:node_name_value]
+          }
 
-        if inventory
-          payload_value['package_inventory'] = package_inventory
+          if inventory
+            payload_value['package_inventory'] = package_inventory
+          end
+
+          payload_value
         end
-
-        payload_value
       end
-
-      submit_command(request.key, payload, CommandReplaceFacts, 5, current_time.clone.utc)
     end
   end
 

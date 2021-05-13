@@ -1123,16 +1123,16 @@
      (:shared-globals context)))
 
   (query
-   [this version query-expr paging-options row-callback-fn]
+   [this version query-expr options row-callback-fn]
    (throw-if-shutdown-pending (get-shutdown-reason))
    (let [sc (service-context this)
          _ (throw-unless-started sc)
-         query-options (-> (get sc :shared-globals)
+         context (-> (get sc :shared-globals)
                            http-q/narrow-globals
                            (assoc :url-prefix @(get sc :url-prefix)))]
      (qeng/stream-query-result version
                                query-expr
-                               paging-options query-options
+                               options context
                                row-callback-fn)))
 
   (clean

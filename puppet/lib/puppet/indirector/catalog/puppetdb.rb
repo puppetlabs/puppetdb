@@ -7,12 +7,35 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
 
+  def generate_commands(certname, producer_timestamp_utc, &block)
+    catalog, inputs = yield
+    catalog_command = Puppet::Util::Puppetdb::Command.new(CommandReplaceCatalog, 9, certname, producer_timestamp_utc, catalog)
+    inputs_command = inputs ? Puppet::Util::Puppetdb::Command.new(CommandReplaceCatalogInputs, 1, certname, producer_timestamp_utc, inputs) : false
+
+    [catalog_command, inputs_command]
+  end
+
+  # @!group Public instance methods
+
+  # Submit a command to PuppetDB.
+  #
+  # @param certname [String] The certname this command operates on
+  # @param command_name [String] name of command
+  # @param version [Number] version number of command
+  # @param &block [Block] A block returning the JSON payload
+  # @return [Hash <String, String>]
+  def submit_catalog_commands(certname, producer_timestamp_utc, &block)
+    catalog_command, inputs_command = generate_commands(certname, producer_timestamp_utc, &block)
+    catalog_command.submit
+    inputs_command.submit if inputs_command
+  end
+
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
       current_time = Time.now
-      catalog, inputs = munge_catalog(request.instance, current_time, extract_extra_request_data(request))
-      submit_command(request.key, catalog, CommandReplaceCatalog, 9, current_time.clone.utc)
-      submit_command(request.key, inputs, CommandReplaceCatalogInputs, 1, current_time.clone.utc) if inputs
+      submit_catalog_commands(request.key, current_time.clone.utc) do
+        munge_catalog(request.instance, current_time, extract_extra_request_data(request))
+      end
     end
   end
 

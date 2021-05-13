@@ -46,19 +46,35 @@ module Puppet::Util::Puppetdb
     end
   end
 
+  # Generate a command for PuppetDB.
+  #
+  # This function allows the memory used by the local parameter "payload" to
+  # be released after it is converted to a JSON string for HTTP submission by
+  # the Command.new function.
+  #
+  # @param certname [String] The certname this command operates on
+  # @param command_name [String] name of command
+  # @param version [Number] version number of command
+  # @param &block [Block] A block returning the JSON payload
+  # @return [Puppet::Util::Puppetdb::Command]
+  def generate_command(certname, command_name, version, producer_timestamp_utc, &block)
+    payload = yield
+    Puppet::Util::Puppetdb::Command.new(command_name, version, certname, producer_timestamp_utc, payload)
+  end
+
   # @!group Public instance methods
 
   # Submit a command to PuppetDB.
   #
   # @param certname [String] The certname this command operates on
-  # @param payload [String] payload
   # @param command_name [String] name of command
   # @param version [Number] version number of command
+  # @param &block [Block] A block returning the JSON payload
   # @return [Hash <String, String>]
-  def submit_command(certname, payload, command_name, version, producer_timestamp_utc)
+  def submit_command(certname, command_name, version, producer_timestamp_utc, &block)
     profile("Submitted command '#{command_name}' version '#{version}'",
             [:puppetdb, :command, :submit, command_name, version]) do
-      command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, producer_timestamp_utc, payload)
+      command = generate_command(certname, command_name, version, producer_timestamp_utc, &block)
       command.submit
     end
   end

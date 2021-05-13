@@ -24,8 +24,9 @@ class Puppet::Util::Puppetdb::Command
   #   primitive (numeric type, string, array, or hash) that is natively supported
   #   by JSON serialization / deserialization libraries.
   def initialize(command, version, certname, producer_timestamp_utc, payload)
+    checksum_payload = nil
     profile("Format payload", [:puppetdb, :payload, :format]) do
-      @checksum_payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
+      checksum_payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
         :command => command,
         :version => version,
         :certname => certname,
@@ -42,6 +43,7 @@ class Puppet::Util::Puppetdb::Command
       # Puppet 4.1.0. We need a better answer to non-utf8 data end-to-end.
       }.to_pson, "Error encoding a '#{command}' command for host '#{certname}'")
     end
+    @checksum = Digest::SHA1.hexdigest(checksum_payload)
     @command = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(command).gsub(" ", "_")
     @version = version
     @certname = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(certname)
@@ -49,14 +51,12 @@ class Puppet::Util::Puppetdb::Command
     @payload = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(payload.to_pson)
   end
 
-  attr_reader :command, :version, :certname, :producer_timestamp_utc, :payload, :checksum_payload
+  attr_reader :command, :version, :certname, :producer_timestamp_utc, :payload, :checksum
 
   # Submit the command, returning the result hash.
   #
   # @return [Hash <String, String>]
   def submit
-    checksum = Digest::SHA1.hexdigest(checksum_payload)
-
     for_whom = " for #{certname}" if certname
     params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.iso8601(3)}"
     begin
