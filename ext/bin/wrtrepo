@@ -57,8 +57,8 @@ def tags_on_branch(commit_ref):
     return exo(['git', 'tag', '--sort=v:refname', '--merged',
                 commit_ref]).splitlines()
 
-def is_commit_an_ancestor(potential_ancestor, other):
-    rc = ex(['git', 'merge-base', '--is-ancestor', potential_ancestor, other])
+def is_ref_an_ancestor(ref, maybe_descendant):
+    rc = ex(['git', 'merge-base', '--is-ancestor', ref, maybe_descendant])
     if rc == 0: return True
     if rc == 1: return False
     sys.exit(rc)
@@ -67,8 +67,8 @@ def releases_before_ref(ref, ref_tree):
     for release_branch in [x for x in refs_under(ref_tree)
                            if is_release_branch_name(x, ref_tree)]:
         most_recent_tag = tags_on_branch(release_branch)[-1]
-        if is_commit_an_ancestor(ref, release_branch) \
-           and not is_commit_an_ancestor(ref, most_recent_tag):
+        if is_ref_an_ancestor(release_branch, ref) \
+           and not is_ref_an_ancestor(ref, most_recent_tag):
             yield most_recent_tag
     
 def releases_before_ref_for_argv(argv):
