@@ -179,6 +179,33 @@
                                             ["=" "certname" (:certname basic)]])
              #{(select-keys basic [:hash :certname :transaction_uuid])})))))
 
+(deftest-http-app query-with-type-any
+  [[version endpoint] endpoints
+    method [:get :post]]
+
+  (doseq [queries [["extract" [] ["=" "type" "any"]]
+                   ["extract" [] ["and"
+                                  ["=" "type" "any"]
+                                  ["=" "node_state" "any"]]]
+                   ["extract" [] ["or"
+                                  ["=" "type" "any"]
+                                  ["=" "node_state" "any"]]]
+                   ["extract" [] ["not"
+                                  ["=" "type" "any"]]]]]
+    (let [basic (:basic reports)
+          _ (store-example-report! basic (now))
+          plan-report (-> (:basic2 reports)
+                        (assoc :type "plan"))
+          _ (store-example-report! plan-report (now))
+          query-result (query-result method endpoint queries)]
+
+      (testing "should query all reports"
+        (is (= (count query-result) 2)))
+
+      (testing "results should contain an agent and a plan report"
+        (is (= (sort (vector (:type (first query-result)) (:type (last query-result))))
+               ["agent" "plan"]))))))
+
 (deftest-http-app ^:skipped test-for-known-issues
   [[version endpoint] endpoints
     method [:get :post]]
