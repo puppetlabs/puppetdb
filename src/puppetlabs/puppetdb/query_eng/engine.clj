@@ -1810,6 +1810,9 @@
             [["=" "value" (value :guard #(ks/boolean? %))]]
             ["and" ["=" ["function" "jsonb_typeof" "value"] "boolean"] ["=" "value" value]]
 
+            [["=" "type" "any"]]
+            ::elide
+
             [["=" ["node" "active"] value]]
             (expand-query-node ["=" "node_state" (if value "active" "inactive")])
 
@@ -1932,13 +1935,17 @@
   [x]
   (instance? clojure.lang.IPersistentVector x))
 
+(defn removeable-clause?
+  [clause]
+  (or (= ::elide clause) (= ["not"] clause) (= ["and"] clause) (= ["or"] clause)))
+
 (defn remove-elided-nodes
   "This step removes elided nodes (marked with ::elide by expand-user-query) from
   `and` and `or` clauses."
   [node]
   (cm/match [node]
             [[& clauses]]
-            (into [] (remove #(= ::elide %) clauses))
+            (into [] (remove removeable-clause? clauses))
 
             :else nil))
 
@@ -1978,8 +1985,14 @@
               ;;pass the test, but better validation for all clauses
               ;;needs to be added
               [["and" & clauses]]
-              (when (some (fn [clause] (and (not= ::elide clause) (empty? clause))) clauses)
-                (throw (IllegalArgumentException. (tru "[] is not well-formed: queries must contain at least one operator"))))
+              (if (empty? clauses)
+                (throw (IllegalArgumentException. (tru "''and'' takes at least one argument, but none were supplied")))
+                (when (some (fn [clause] (and (not= ::elide clause) (empty? clause))) clauses)
+                  (throw (IllegalArgumentException. (tru "[] is not well-formed: queries must contain at least one operator")))))
+
+              [["or" & clauses]]
+              (when (empty? clauses)
+                (throw (IllegalArgumentException. (tru "''or'' takes at least one argument, but none were supplied"))))
 
               ;;Facts is doing validation against nots only having 1
               ;;clause, adding this here to fix that test, need to make
