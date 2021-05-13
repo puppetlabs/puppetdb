@@ -51,7 +51,7 @@ def refs_under(ref_tree):
               ref_tree]).splitlines()
 
 def is_release_branch_name(name, expected_prefix):
-    return re.match(expected_prefix + br'/[0-9]+\.[0-9]+\.x$', name)
+    return re.match(expected_prefix + br'/[0-9]+(\.[0-9]+)?\.x$', name)
 
 def tags_on_branch(commit_ref):
     return exo(['git', 'tag', '--merged', commit_ref]).splitlines()
