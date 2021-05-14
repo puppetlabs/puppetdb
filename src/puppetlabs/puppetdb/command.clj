@@ -313,15 +313,19 @@
   (upon-error-throw-fatality
    (assoc command :payload (cat/parse-catalog payload version received))))
 
+;; Test hook: concurrent-catalog-updates
+;; Test hook: concurrent-catalog-resource-updates
+(defn do-replace-catalog [catalog certname producer-timestamp received]
+  (scf-storage/maybe-activate-node! certname producer-timestamp)
+  (scf-storage/replace-catalog! catalog received))
+
 (defn exec-replace-catalog
   [{:keys [version id received payload]} start-time db conn-status]
   (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/retry-with-monitored-connection
      db conn-status {:isolation :repeatable-read
                      :statement-timeout command-sql-statement-timeout-ms}
-     (fn []
-       (scf-storage/maybe-activate-node! certname producer-timestamp)
-       (scf-storage/replace-catalog! catalog received)))
+     #(do-replace-catalog catalog certname producer-timestamp received))
     (log-command-processed-messsage id received start-time :replace-catalog certname)))
 
 ;; Catalog input replacement
@@ -365,15 +369,18 @@
                 (seq facts-blocklist) (update :values rm-blocklisted)
                 (seq package_inventory) (update :package_inventory distinct))))))
 
+;; Test hook: concurrent-fact-updates
+(defn do-replace-facts [certname producer-timestamp payload]
+  (scf-storage/maybe-activate-node! certname producer-timestamp)
+  (scf-storage/replace-facts! payload))
+
 (defn exec-replace-facts
   [{:keys [payload id received] :as command} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/retry-with-monitored-connection
      db conn-status {:isolation :repeatable-read
                      :statement-timeout command-sql-statement-timeout-ms}
-     (fn []
-       (scf-storage/maybe-activate-node! certname producer_timestamp)
-       (scf-storage/replace-facts! payload)))
+     #(do-replace-facts certname producer_timestamp payload))
     (log-command-processed-messsage id received start-time :replace-facts certname)))
 
 ;; Node deactivation
@@ -404,8 +411,7 @@
      db conn-status {:isolation :read-committed
                      :statement-timeout command-sql-statement-timeout-ms}
      (fn []
-       (when-not (scf-storage/certname-exists? certname)
-         (scf-storage/add-certname! certname))
+       (scf-storage/ensure-certname certname)
        (scf-storage/deactivate-node! certname producer_timestamp)))
     (log-command-processed-messsage id received start-time :deactivate-node certname)))
 

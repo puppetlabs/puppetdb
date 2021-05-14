@@ -1306,7 +1306,7 @@
                        :payload facts}
 
             latch (java.util.concurrent.CountDownLatch. 2)
-            storage-replace-facts! scf-store/update-facts!]
+            orig-replace cmd/do-replace-facts]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1320,16 +1320,15 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 10000
-                      scf-store/update-facts!
-                      (fn [fact-data]
-                        (.countDown latch)
-                        (.await latch)
-                        (storage-replace-facts! fact-data))]
+                      cmd/do-replace-facts (fn [& args]
+                                             (.countDown latch)
+                                             (.await latch)
+                                             (apply orig-replace args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
-                fut (future
-                      (handle-message (queue/store-command q (facts->command-req 4 facts)))
-                      (reset! first-message? true))
+                fut (utils/noisy-future
+                     (handle-message (queue/store-command q (facts->command-req 4 facts)))
+                     (reset! first-message? true))
 
                 new-facts (update-in facts [:values]
                                      (fn [values]
@@ -1360,7 +1359,7 @@
             {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             latch (java.util.concurrent.CountDownLatch. 2)
-            orig-replace-catalog! scf-store/replace-catalog!]
+            orig-do-catalog cmd/do-replace-catalog]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1368,11 +1367,10 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-catalog!
-                      (fn [& args]
-                        (.countDown latch)
-                        (.await latch)
-                        (apply orig-replace-catalog! args))]
+                      cmd/do-replace-catalog (fn [& args]
+                                               (.countDown latch)
+                                               (.await latch)
+                                               (apply orig-do-catalog args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
@@ -1405,7 +1403,7 @@
             {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             latch (java.util.concurrent.CountDownLatch. 2)
-            orig-replace-catalog! scf-store/replace-catalog!]
+            orig-do-catalog cmd/do-replace-catalog]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1413,14 +1411,14 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-catalog!
-                      (fn [& args]
-                        (.countDown latch)
-                        (.await latch)
-                        (apply orig-replace-catalog! args))]
-          (let [fut (future
-                      (handle-message (queue/store-command q (catalog->command-req 6 wire-catalog)))
-                      ::handled-first-message)
+                      cmd/do-replace-catalog (fn [& args]
+                                               (.countDown latch)
+                                               (.await latch)
+                                               (apply orig-do-catalog args))]
+          (let [fut (utils/noisy-future
+                     (handle-message
+                      (queue/store-command q (catalog->command-req 6 wire-catalog)))
+                     ::handled-first-message)
 
                 new-wire-catalog (update wire-catalog :resources
                                          conj

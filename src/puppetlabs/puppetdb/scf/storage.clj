@@ -108,8 +108,6 @@
      (s/one String "target hash")
      (s/one String "relationship type")]})
 
-(declare add-certname!)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metrics
 
@@ -241,6 +239,17 @@
   (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
                             certname]))))
 
+(pls/defn-validated add-certname!
+  "Add the given host to the db"
+  [certname :- String]
+  (jdbc/insert! :certnames {:certname certname}))
+
+(pls/defn-validated ensure-certname
+  "Adds the given host to the db iff it isn't already there."
+  [certname :- String]
+  (jdbc/insert-multi! :certnames [{:certname certname}]
+                      {:on-conflict "do nothing"}))
+
 (defn delete-certname!
   "Delete the given host from the db"
   [certname]
@@ -305,11 +314,11 @@
   already present."
   [certname]
   {:pre [(string? certname)]}
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (jdbc/update! :certnames
-                {:deactivated nil, :expired nil}
-                ["certname=?" certname]))
+  (jdbc/do-prepared
+   (str "insert into certnames (certname)"
+        "  values (?)"
+        "  on conflict (certname) do update set deactivated=?, expired=?")
+   [certname nil nil]))
 
 (pls/defn-validated create-row :- s/Int
   "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
@@ -1676,18 +1685,10 @@
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Public
-
 ;; A db version that is "allowed" but not supported is deprecated
 (def oldest-allowed-db [9 6])
 
 (def oldest-supported-db [11 0])
-
-(pls/defn-validated add-certname!
-  "Add the given host to the db"
-  [certname :- String]
-  (jdbc/insert! :certnames {:certname certname}))
 
 (defn timestamp-of-newest-record [entity certname]
   (let [query {:select [:producer_timestamp]
@@ -1723,14 +1724,14 @@
   Adds the host to the database if it was not already present."
   [certname :- String
    time :- pls/Timestamp]
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (let [timestamp (to-timestamp time)
-        replaced  (jdbc/update! :certnames
-                                {:deactivated nil, :expired nil}
-                                ["certname=? AND (deactivated<? OR expired<?)"
-                                 certname timestamp timestamp])]
-    (pos? (first replaced))))
+  (let [timestamp (to-timestamp time)]
+    (-> (jdbc/do-prepared
+         (str "insert into certnames (certname) values (?)"
+              "  on conflict (certname) do update set deactivated=null, expired=null"
+              "  where (certnames.deactivated < ? or certnames.expired < ?)")
+         [certname timestamp timestamp])
+        first
+        pos?)))
 
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
