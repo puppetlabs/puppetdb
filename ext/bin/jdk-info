@@ -35,7 +35,7 @@ print-info() {
     #   openjdk version "1.8.0_171"
     #   openjdk version "10.0.2" 2018-07-17
     #   openjdk version "10.0.2-adoptopenjdk" 2018-07-17
-    ver=$(echo "$ver_out" | head -1 | cut -d' ' -f 3 | sed -E 's/^"(.+)"$/\1/')
+    ver=$(set +o pipefail; echo "$ver_out" | head -1 | cut -d' ' -f 3 | sed -E 's/^"(.+)"$/\1/')
 
     case "$what" in
         version) echo "$ver" ;;
