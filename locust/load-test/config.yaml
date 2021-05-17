@@ -1,0 +1,16 @@
+# Example
+#  path: path without the host. The host is set in cli as an option
+#  query: query should be hash for POST and string for GET
+#  method: GET/POST
+#  headers: any custom headers that will be sent with the request
+---
+- path: "/pdb/query/v4/facts"
+  query: ["~", "certname", "host*"]
+  limit: 100
+  offset: 1
+  method: GET
+  headers: ''
+- path: "/pdb/query/v4/facts"
+  query: ["~", "certname", "host"]
+  method: POST
+  headers: {content-type: application/json}
