@@ -1,0 +1,42 @@
+{
+  "logs" : [ {
+    "file" : null,
+    "line" : null,
+    "tags" : [ "notice" ],
+    "time" : "2021-05-13T11:11:01.000Z",
+    "level" : "notice",
+    "source" : "Puppet",
+    "message" : "Finished catalog run in 0.35 seconds"
+  }, {
+    "file" : null,
+    "line" : null,
+    "tags" : [ "notice", "completed_stage", "main" ],
+    "time" : "2021-05-13T11:10:00.000Z",
+    "level" : "notice",
+    "source" : "Stage[main]",
+    "message" : "Would have triggered 'refresh' from 2 events"
+  }],
+  "start_time" : "2021-05-13T11:12:00.000Z",
+  "producer_timestamp" : "2021-05-13T11:12:00.000Z",
+  "end_time" : "2021-05-13T11:10:00.000Z",
+  "resources" : [ {
+    "corrective_change" : null,
+    "events" : [ {
+      "new_value" : "bar",
+      "corrective_change" : null,
+      "property" : "content",
+      "name" : null,
+      "old_value" : "foo",
+      "status" : "success",
+      "timestamp" : "2021-05-13T11:13:00.000Z",
+      "message" : null
+    } ],
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false,
+    "line" : 123,
+    "resource_type" : "File",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/10_default-ssl-docroot",
+    "timestamp" : "2021-05-13T11:10:00.000Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ]
+  } ]
+}

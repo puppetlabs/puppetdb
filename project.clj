@@ -363,7 +363,7 @@
                             "--config" "./test-resources/puppetserver/puppetserver.conf"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
             "distclean" ~(pdb-run-clean pdb-distclean-paths)
-            "timeshift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"
+            "time-shift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"
                                         " the period between the most recent one in the archive and the one "
                                         "you provide, or the current date."])}
                                ["trampoline" "run" "-m" "puppetlabs.puppetdb.cli.time-shift-export"]})
