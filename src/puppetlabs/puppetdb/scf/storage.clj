@@ -108,8 +108,6 @@
      (s/one String "target hash")
      (s/one String "relationship type")]})
 
-(declare add-certname!)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metrics
 
@@ -241,6 +239,17 @@
   (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
                             certname]))))
 
+(pls/defn-validated add-certname!
+  "Add the given host to the db"
+  [certname :- String]
+  (jdbc/insert! :certnames {:certname certname}))
+
+(pls/defn-validated ensure-certname
+  "Adds the given host to the db iff it isn't already there."
+  [certname :- String]
+  (jdbc/insert-multi! :certnames [{:certname certname}]
+                      {:on-conflict "do nothing"}))
+
 (defn delete-certname!
   "Delete the given host from the db"
   [certname]
@@ -305,11 +314,11 @@
   already present."
   [certname]
   {:pre [(string? certname)]}
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (jdbc/update! :certnames
-                {:deactivated nil, :expired nil}
-                ["certname=?" certname]))
+  (jdbc/do-prepared
+   (str "insert into certnames (certname)"
+        "  values (?)"
+        "  on conflict (certname) do update set deactivated=?, expired=?")
+   [certname nil nil]))
 
 (pls/defn-validated create-row :- s/Int
   "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
@@ -323,14 +332,15 @@
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
         q (format "select id from %s where %s"
-                  (name table)
-                  (str/join " " (map #(str (name %) "=?") cols)))]
+                  (jdbc/double-quote (name table))
+                  (str/join " " (map #(str (jdbc/double-quote (name %)) "=?")
+                                     cols)))]
     (jdbc/query-with-resultset (apply vector q (map row-map cols))
                                (comp :id first sql/result-set-seq))))
 
 (pls/defn-validated ensure-row :- (s/maybe s/Int)
-  "Check if the given row (defined by `row-map` exists in `table`, creates it if it does not. Always returns
-   the id of the row (whether created or existing)"
+  "Ensures the row defined by row-map exists in the table,
+   creating it if it does not.  Returns the id of the row."
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (when row-map
@@ -1675,18 +1685,10 @@
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Public
-
 ;; A db version that is "allowed" but not supported is deprecated
 (def oldest-allowed-db [9 6])
 
 (def oldest-supported-db [11 0])
-
-(pls/defn-validated add-certname!
-  "Add the given host to the db"
-  [certname :- String]
-  (jdbc/insert! :certnames {:certname certname}))
 
 (defn timestamp-of-newest-record [entity certname]
   (let [query {:select [:producer_timestamp]
@@ -1696,24 +1698,27 @@
                :limit 1}]
     (:producer_timestamp (first (jdbc/query (hcore/format query))))))
 
-(pls/defn-validated have-record-produced-after?
-  [entity :- s/Keyword
-   certname :- String
-   time :- pls/Timestamp]
-  (let [time (to-timestamp time)]
-    (boolean
-     (some-> entity
-             (timestamp-of-newest-record certname)
-             (.after time)))))
-
 (pls/defn-validated have-newer-record-for-certname?
   "Returns a truthy value indicating whether a record exists that has
   a producer_timestamp newer than the given timestamp."
   [certname :- String
    timestamp :- pls/Timestamp]
-  (some (fn [entity]
-          (have-record-produced-after? entity certname timestamp))
-        [:catalogs :factsets :reports]))
+  (when-let [newest (-> ["select producer_timestamp"
+                         "  from (select producer_timestamp from catalogs"
+                         "          where certname = ?"
+                         "          order by producer_timestamp desc limit 1) cats"
+                         "  union all (select producer_timestamp from factsets"
+                         "               where certname = ?"
+                         "               order by producer_timestamp desc limit 1)"
+                         "  union all (select producer_timestamp from reports"
+                         "               where certname = ?"
+                         "               order by producer_timestamp desc limit 1)"
+                         "  order by producer_timestamp desc"
+                         "  limit 1"]
+                        (jdbc/do-prepared (repeat 3 certname))
+                        first
+                        :producer_timestamp)]
+    (.after newest timestamp)))
 
 (pls/defn-validated maybe-activate-node!
   "Reactivate the given host, only if it was deactivated or expired before
@@ -1722,14 +1727,14 @@
   Adds the host to the database if it was not already present."
   [certname :- String
    time :- pls/Timestamp]
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (let [timestamp (to-timestamp time)
-        replaced  (jdbc/update! :certnames
-                                {:deactivated nil, :expired nil}
-                                ["certname=? AND (deactivated<? OR expired<?)"
-                                 certname timestamp timestamp])]
-    (pos? (first replaced))))
+  (let [timestamp (to-timestamp time)]
+    (-> (jdbc/do-prepared
+         (str "insert into certnames (certname) values (?)"
+              "  on conflict (certname) do update set deactivated=null, expired=null"
+              "  where (certnames.deactivated < ? or certnames.expired < ?)")
+         [certname timestamp timestamp])
+        first
+        pos?)))
 
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is

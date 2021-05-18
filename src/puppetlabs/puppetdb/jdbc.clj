@@ -56,21 +56,23 @@
 
 (defn do-commands
   "Runs the given commands in a transaction on the database given
-  by (jdbc/db).  If a command is a seq, converts it to a string
+  by (jdbc/db).  If a command is a collection, converts it to a string
   via (clojure.string/join command)."
   [& commands]
   (sql/db-do-commands *db* true
-                      (mapv #(cond
-                               (string? %) %
-                               (seq %) (string/join %)
-                               :else %)
+                      (mapv #(if (coll? %) (string/join %) %)
                             commands)))
 
 (defn do-prepared
-  "Executes an optionally parametrized sql expression in a transaction on the
-  database given by (jdbc/db)."
+  "Executes an optionally parametrized sql expression in a transaction
+  on the database given by (jdbc/db).  If a command is a collection,
+  converts it to a string via (clojure.string/join command)."
   [sql & params]
-  (sql/db-do-prepared *db* true (into [sql] params) {:multi? true}))
+  (sql/db-do-prepared *db* true
+                      (apply vector
+                             (if (coll? sql) (string/join sql) sql)
+                             params)
+                      {:multi? true}))
 
 (defn do-commands-outside-txn [& commands]
   (let [^Connection conn (:connection *db*)
