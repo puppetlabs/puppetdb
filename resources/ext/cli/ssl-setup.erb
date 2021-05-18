@@ -104,11 +104,12 @@ function contains() {
 #    replaceline "^$mysetting.*" "mysetting = myvalue" /etc/myconfig
 #
 function replaceline {
-  backupfile $3
-  tmp=$3.tmp.`date +%s`
-  sed "s/$1/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3 > $tmp
-  mv $tmp $3
-  chmod 644 $3
+  local regex="$1" repl="$2" file="$3"
+  backupfile "$file"
+  tmp="$file.tmp.$(date +%s)"
+  cp -p "$file" "$tmp"  # preserve perms
+  sed "s/$regex/$(echo "$repl" | sed -e 's/[\/&]/\\&/g')/g" "$file" > "$tmp"
+  mv "$tmp" "$file"
 }
 
 # This function comments out a line in a file, based on a regexp
@@ -121,15 +122,17 @@ function replaceline {
 #    commentline "^$mysetting.*" /etc/myconfig
 #
 function commentline {
-  backupfile $2
-  tmp=$2.tmp.`date +%s`
-  sed "/$1/ s/^/# /" $2 > $tmp
-  mv $tmp $2
+  local regex="$1" file="$2"
+  backupfile "$file"
+  tmp="$file.tmp.$(date +%s)"
+  cp -p "$file" "$tmp"  # preserve perms
+  sed "/$regex/ s/^/# /" "$file" > "$tmp"
+  mv "$tmp" "$file"
 }
 
 # This function appends a line to a file
 #
-# $1 - line to append
+# $1 - string to append (will be followed by a newline)
 # $2 - file to operate on
 #
 # Example:
@@ -137,11 +140,13 @@ function commentline {
 #    appendline "mysetting = myvalue" /etc/myconfig
 #
 function appendline {
-  backupfile $2
-  tmp=$2.tmp.`date +%s`
-  cat $2 > ${tmp}
-  echo $1 >> ${tmp}
-  mv ${tmp} $2
+  local line="$1" file="$2"
+  backupfile "$file"
+  tmp="$file.tmp.$(date +%s)"
+  cp -p "$file" "$tmp"  # preserve perms
+  cat "$file" > "$tmp"
+  echo "$line" >> "$tmp"
+  mv "$tmp" "$file"
 }
 
 # This function copies the necessary PEM files from Puppet to the PuppetDB
@@ -174,12 +179,12 @@ function copy_pem_from_puppet {
       exit 1
     fi
   done
-  rm -rf $ssl_dir
-  mkdir -p $ssl_dir
+  if test -e "$ssl_dir"; then rm -r "$ssl_dir"; fi
+  mkdir -m 700 "$ssl_dir"
   echo "Copying files: ${orig_ca_file}, ${orig_private_file} and ${orig_public_file} to ${ssl_dir}"
-  cp -pr $orig_ca_file $ca_file
-  cp -pr $orig_private_file $private_file
-  cp -pr $orig_public_file $public_file
+  cp -p "$orig_ca_file" "$ca_file"
+  cp -p "$orig_private_file" "$private_file"
+  cp -p "$orig_public_file" "$public_file"
 }
 
 ########
@@ -337,9 +342,9 @@ else
 fi
 
 # Fix SSL permissions
-chmod 600 ${ssl_dir}/*
-chmod 700 ${ssl_dir}
-chown -R ${user}:${group} ${ssl_dir}
+chmod 600 "$ssl_dir"/*
+chmod 700 "$ssl_dir"
+chown -R "$user:$group" "$ssl_dir"
 
 if [ -f "$jettyfile" ] ; then
   # Check settings are correct and fix or warn
