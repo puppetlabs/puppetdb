@@ -2522,10 +2522,10 @@
   (fn [node state]
     (when (vec? node)
       (cm/match [node]
-                [["from" entity query]]
+                [["from" entity query & _]]
                 (let [query (push-down-context (user-query->logical-obj (str "select_" entity)) query)
                       nested-qc (:query-context (meta query))]
-                  {:node (vary-meta ["from" entity query]
+                  {:node (vary-meta (assoc node 2 query)
                                     assoc :query-context nested-qc)
                    :state state
                    :cut true})
