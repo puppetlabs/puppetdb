@@ -23,7 +23,6 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 [pql]: ./pql.markdown
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
 [to-char]: http://www.postgresql.org/docs/9.6/static/functions-formatting.html
-[prefix]: 
 
 ## Summary
 
@@ -164,7 +163,7 @@ To reduce the keypairs returned for each result in the response, you can use **e
     ["extract", ["hash", "certname", "transaction_uuid"],
       ["=", "certname", "foo.com"]]
 
-When only extracting a single column, the [] are optional:
+When only extracting a single column, the `[]` are optional:
 
     ["extract", "transaction_uuid",
       ["=", "certname", "foo.com"]]
@@ -237,7 +236,7 @@ endpoint. It may be expanded to other endpoints in the future based on demand.
 Certain types of JSON data returned by PuppetDB can be queried in a structured
 way using `dot notation`. The rules for dot notation are:
 * Hash descendence is represented by a period-separated sequence of key names
-* Array indexing (`inventory` only) is represented with brackets ([]) on the
+* Array indexing (`inventory` only) is represented with brackets (`[]`) on the
 end of a key.
 * Regular expression matching (`inventory` only) is represented with the
   `match` keyword.
@@ -282,15 +281,15 @@ For example, given the inventory response
 
 valid queries would include
 
-*    ["=", "facts.kernel", "Darwin"]
+* `["=", "facts.kernel", "Darwin"]`
 
-*    ["=", "facts.system_uptime.days", 0]
+* `["=", "facts.system_uptime.days", 0]`
 
-*    [">", "facts.system_uptime.hours", 0]
+* `[">", "facts.system_uptime.hours", 0]`
 
-*    ["~", "facts.processors.models[0]", "Intel.*"]
+* `["~", "facts.processors.models[0]", "Intel.*"]`
 
-*    ["=", "partitions.match(\"sda.*\").mount", "/home"]
+* `["=", "partitions.match(\"sda.*\").mount", "/home"]`
 
 ### Dotted Projections
 
@@ -314,7 +313,7 @@ To get a response with only the elements you've asked for
 ## Context operators
 
 *Note:* Setting the context at the top of the query is only supported on the
-[root] endpoint.
+[root][root] endpoint.
 
 Setting context in a query allows you to choose the entity you are querying
 on. This augments the endpoint support we have today, whereby the endpoint
@@ -463,7 +462,7 @@ That is:
 
 These statements work together as follows (working "outward" and starting with the subquery):
 
-* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], [fact-contents][], or [nodes][]). Each of these objects has many **fields.**
+* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][resources], [facts][facts], [fact-contents][fact-contents], or [nodes][nodes]). Each of these objects has many **fields.**
 * The `extract` statement collects the value of one or more **fields** across every object returned by the subquery.
 * The `in` statement **matches** if its field values are present in the list returned by the `extract` statement.
 

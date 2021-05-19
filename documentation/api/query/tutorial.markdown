@@ -320,7 +320,7 @@ For instance, suppose you're configuring a load balancer, and need the IP addres
       ["=", "type", "Class"],
       ["=", "title", "Apache"]]
 
-This will find all the Class[Apache] resources, which each knows the certname
+This will find all the `Class[Apache]` resources, which each knows the certname
 of the node it came from. Then you could put all those certnames into a fact
 query:
 
@@ -335,7 +335,7 @@ query:
 
 But this query is lengthy, and it requires some logic to assemble and run the
 second query. There has to be a better way! What if we could find the
-Class[Apache] servers and use the results of that query to find the
+`Class[Apache]` servers and use the results of that query to find the
 certname? We can, with this fact query:
 
     ["and",

@@ -69,7 +69,7 @@ Each change below is marked with the corresponding release version.
 * (2.2.0) The v4 facts endpoint returns proper JSON rather than stringified JSON
   under the `value` field in the case of a structured fact.
 
-* (2.2.0) Queries against fact values must use the appropriate type. Possible types are integer, float, Boolean, string, JSON, and null. Where the v3 API would return the same results for [">","value","10"] and [">","value",10], only the second form will work on v4. The same applies for equality queries on Boolean values.
+* (2.2.0) Queries against fact values must use the appropriate type. Possible types are integer, float, Boolean, string, JSON, and null. Where the v3 API would return the same results for `[">","value","10"]` and `[">","value",10]`, only the second form will work on v4. The same applies for equality queries on Boolean values.
 
 ### /pdb/query/v4/factsets
 

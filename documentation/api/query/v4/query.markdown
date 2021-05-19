@@ -41,7 +41,7 @@ Alternatively, you can provide the entity context instead of using the `<ENDPOIN
 
     https://puppetdb:8081/pdb/query/v4?query=<QUERY STRING>
 
-Consult the [root] endpoint documentation for more details.
+Consult the [root][] endpoint documentation for more details.
 
 ### API URLs
 
@@ -85,7 +85,7 @@ A complete query string describes a comparison operation. When submitting a quer
 result from the endpoint to see if it matches the comparison from the query string, and will only return those objects
 that match.
 
-> **Note:** Only the [root] endpoint supports PQL.
+> **Note:** Only the [root][] endpoint supports PQL.
 
 #### Paging
 
@@ -107,9 +107,9 @@ data values may appear in the report resource event `old_value` and
 `new_value` fields, and in catalog parameter values.
 
 For example, a Timestamp value would be recorded in PuppetDB as a
-string like "2012-10-10T00:00:00.000000000 UTC", and a Deferred value
-would be recorded as a string like "Deferred({'name' => 'join',
-'arguments' => [[1, 2, 3], ':']})".
+string like `"2012-10-10T00:00:00.000000000 UTC"`, and a Deferred value
+would be recorded as a string like
+`"Deferred({'name' => 'join', 'arguments' => [[1, 2, 3], ':']})"`.
 
 ## Tutorial and tips
 

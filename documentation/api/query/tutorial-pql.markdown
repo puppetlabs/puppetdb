@@ -474,7 +474,7 @@ the query itself. You can mix and match subquery filters also like so:
     }
 
 This query will query all `nodes` that are Debian and have the class
-Class[apache] defined.
+`Class[apache]` defined.
 
 For more information regarding implicit subqueries, consult the
 [reference guide][implicit].

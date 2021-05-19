@@ -37,7 +37,7 @@ See the [`events`][events] endpoint for additional documentation, as this endpoi
 ### URL parameters
 
 * `query`: optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`] endpoint; additional information about this endpoint can be found [here][events]. For general info about queries, see [our guide to query structure][query].
+This query is forwarded to the [`events`][events] endpoint; additional information about this endpoint can be found [here][events]. For general info about queries, see [our guide to query structure][query].
 
 * `summarize_by`: required. A string specifying which type of object you'd like to see counts for. Supported values are `resource`, `containing_class`, and `certname`.
 
