@@ -56,7 +56,7 @@ If Puppet isn't fully installed and configured on your PuppetDB server,
 [install it][installpuppet] and request/sign/retrieve a certificate for the
 node.
 
-[installpuppet]: {{puppet}}/install_pre.html
+[installpuppet]: https://puppet.com/docs/puppet/latest/install_pre.html
 
 Your PuppetDB server should be running Puppet agent and have a signed
 certificate from your Puppet Server. If you run `puppet agent --test`, it
@@ -72,7 +72,7 @@ seconds`.
 ## Step 2: Enable the Puppet Platform package repository
 
 If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
+[enable the Puppet Platform package repository](https://puppet.com/docs/puppet/latest/puppet_platform.html)
 
 ## Step 3: Install PuppetDB
 

@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 
 [resource]: ./resources.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[statuses]: {{puppet}}/format_report.html#puppettransactionreport
+[statuses]: https://puppet.com/docs/puppet/latest/format_report.html#puppettransactionreport
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601

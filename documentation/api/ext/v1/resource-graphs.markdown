@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/api/ext/v1/resource-graphs.html"
 [ast]: ../../query/v4/ast.html
 [environments]: ../../query/v4/environments.html
 [nodes]: ../../query/v4/nodes.html
-[statuses]: {{puppet}}/format_report.html#puppettransactionreport
+[statuses]: https://puppet.com/docs/puppet/latest/format_report.html#puppettransactionreport
 
 You can query resource-graphs by making an HTTP request to the
 `/pdb/ext/v1/resource-graphs` endpoint.

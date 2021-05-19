@@ -6,19 +6,19 @@ canonical: "/puppetdb/latest/connect_puppet_apply.html"
 
 # Connecting standalone Puppet nodes to PuppetDB
 
-[exported]: {{puppet}}/lang_exported.html
-[package]: {{puppet}}/type.html#package
-[file]: {{puppet}}/type.html#file
-[yumrepo]: {{puppet}}/type.html#yumrepo
+[exported]: https://puppet.com/docs/puppet/latest/lang_exported.html
+[package]: https://puppet.com/docs/puppet/latest/type.html#package
+[file]: https://puppet.com/docs/puppet/latest/type.html#file
+[yumrepo]: https://puppet.com/docs/puppet/latest/type.html#yumrepo
 [apt]: http://forge.puppetlabs.com/puppetlabs/apt
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
-[puppetdb_conf]: {{puppet}}/config_file_puppetdb.html
-[routes_yaml]: {{puppet}}/config_file_routes.html
-[exported]: {{puppet}}/lang_exported.html
+[puppetdb_conf]: https://puppet.com/docs/puppet/latest/config_file_puppetdb.html
+[routes_yaml]: https://puppet.com/docs/puppet/latest/config_file_routes.html
+[exported]: https://puppet.com/docs/puppet/latest/lang_exported.html
 [jetty]: ./configure.html#jetty-http-settings
 [ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
-[settings_namespace]: {{puppet}}/lang_facts_and_builtin_vars.html#puppet-master-variables
-[package_repos]: {{puppet}}/puppet_collections.html
+[settings_namespace]: https://puppet.com/docs/puppet/latest/lang_facts_and_builtin_vars.html#puppet-master-variables
+[package_repos]: https://puppet.com/docs/puppet/latest/puppet_collections.html
 
 > **Note:** To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 

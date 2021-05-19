@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/scaling_recommendations.html"
 [pg_ha]: http://www.postgresql.org/docs/current/interactive/high-availability.html
 [pg_replication]: http://wiki.postgresql.org/wiki/Replication,_Clustering,_and_Connection_Pooling
 [ram]: #bottleneck-java-heap-size
-[runinterval]: {{puppet}}/configuration.html#runinterval
+[runinterval]: https://puppet.com/docs/puppet/latest/configuration.html#runinterval
 
 PuppetDB will be a critical component of your Puppet deployment, as agent nodes will be unable to request catalogs if it goes down. Therefore, you should make sure it can handle your site's load and is resilient against failures.
 

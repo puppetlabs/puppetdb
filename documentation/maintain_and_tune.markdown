@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/maintain_and_tune.html"
 [puppetdb_report_processor]: ./connect_puppet_server.html#enabling-report-storage
 [node_ttl]: ./configure.html#node-ttl
 [report_ttl]: ./configure.html#report-ttl
-[resources_type]: {{puppet}}/type.html#resources
+[resources_type]: https://puppet.com/docs/puppet/latest/type.html#resources
 [logback]: ./configure.html#the-logback-logging-config-file
 [dashboard]: #monitor-the-performance-dashboard
 

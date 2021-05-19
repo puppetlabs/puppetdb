@@ -24,7 +24,7 @@ and the PuppetDB-termini for your Puppet Server) using
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
+* [Enable the Puppet Platform package repository](https://puppet.com/docs/puppet/latest/puppet_platform.html)
   on your PuppetDB server and Puppet Server.
 * If you don't use the Puppet Platform repository, make the PuppetDB and
   PuppetDB-terminus packages available via your alternate installation strategy.

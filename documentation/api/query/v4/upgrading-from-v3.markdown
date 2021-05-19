@@ -18,9 +18,9 @@ of the changes listed and changes in versions subsequent to 3.0, see the
 
 Each change below is marked with the corresponding release version.
 
-### Backward-incompatible changes
+## Backward-incompatible changes
 
-#### Changes affecting all endpoints
+### Changes affecting all endpoints
 
 * (3.0) The query API has been moved from `/` to `/pdb/query`, so
   http://localhost:8080/v4/facts has become
@@ -43,7 +43,7 @@ Each change below is marked with the corresponding release version.
   now return a 404 if the parent data does not exist. In the past, an empty array was returned in this case, but this gave the impression that there was a parent
   but the particular child data was empty. To improve clarity, missing parent data now returns a 404 "Not Found" status code and a proper JSON error.
 
-#### /pdb/query/v4/catalogs
+### /pdb/query/v4/catalogs
 
 * (3.0) The v4 catalogs endpoint has caused the response of the
   `edges` and `resources` fields to be expanded. For more information,
@@ -64,14 +64,14 @@ Each change below is marked with the corresponding release version.
   information, see the
   [/pdb/query/v4/catalogs documentation]({{puppetdb}}/api/query/v4/catalogs.html).
 
-#### /pdb/query/v4/facts
+### /pdb/query/v4/facts
 
 * (2.2.0) The v4 facts endpoint returns proper JSON rather than stringified JSON
   under the `value` field in the case of a structured fact.
 
 * (2.2.0) Queries against fact values must use the appropriate type. Possible types are integer, float, Boolean, string, JSON, and null. Where the v3 API would return the same results for [">","value","10"] and [">","value",10], only the second form will work on v4. The same applies for equality queries on Boolean values.
 
-#### /pdb/query/v4/factsets
+### /pdb/query/v4/factsets
 
 * (2.2) The v4 factsets endpoint was added to facilitate the grouping
   of facts per node. For more information, see the
@@ -86,7 +86,7 @@ Each change below is marked with the corresponding release version.
 * (3.0) The `/pdb/query/v4/factsets/<node>/facts` endpoints will now
   return results even for deactivated or expired nodes.
 
-#### /pdb/query/v4/aggregate-event-counts
+### /pdb/query/v4/aggregate-event-counts
 
 * (3.0) the `aggregate-event-counts` endpoint is no longer supported on HSQLDB.
 
@@ -96,7 +96,7 @@ Each change below is marked with the corresponding release version.
   more information, see the [aggregate-event-counts
   documentation]({{puppetdb}}/api/query/v4/aggregate_event_counts).
 
-#### /metrics/v1 (formerly /v3/metrics)
+### /metrics/v1 (formerly /v3/metrics)
 
 * (3.0) The former metrics endpoint has been split off into a separate service, and
   reversioned at v1. If you are currently accessing mbeans at
@@ -106,7 +106,7 @@ Each change below is marked with the corresponding release version.
 * (3.0) PuppetDB's mbeans (listed at /metrics/v1/mbeans) are no longer prefixed with
   "com."
 
-#### /pdb/cmd/v1 (formerly /v3/commands)
+### /pdb/cmd/v1 (formerly /v3/commands)
 
   * (3.0) For users posting commands directly to the
     /pdb/cmd/v1 endpoint, the only valid command submission
@@ -115,17 +115,17 @@ Each change below is marked with the corresponding release version.
     [store report v5]({{puppetdb}}/api/wire_format/report_format_v5.html),
     and [replace facts v4]({{puppetdb}}/api/wire_format/facts_format_v4.html).
 
-#### /pdb/meta/v1/version (formerly /v3/version)
+### /pdb/meta/v1/version (formerly /v3/version)
 * (3.0) The version endpoint has been split from the query service and mounted
   at `pdb/meta/v1/version`.
 
-#### /pdb/meta/v1/server-time (formerly /v3/server-time)
+### /pdb/meta/v1/server-time (formerly /v3/server-time)
 * (3.0) The server-time endpoint has been split from the query service and mounted
   at `pdb/meta/v1/server-time`.
 
-### New API features
+## New API features
 
-#### New endpoints
+### New endpoints
 
 * (2.2.0) `/pdb/query/v4/factsets` This endpoint returns a key-value
   hash for each certname. For more information, see the
@@ -161,7 +161,7 @@ Each change below is marked with the corresponding release version.
   edges data specific to a particular catalog. See
   [/pdb/query/v4/catalogs documentation](./catalogs.html)
 
-#### Features affecting all endpoints
+### Features affecting all endpoints
 
 * (3.0) Extract is available as a top-level query operator, useful for selecting only
   certain fields from a response. See the [documentation on the extract operator]({{puppetdb}}/api/query/v4/ast.html#extract) for more information.
@@ -169,14 +169,14 @@ Each change below is marked with the corresponding release version.
 * (2.2.0) The `in` and `extract` operators have been changed to accept multiple fields,
   allowing more concise subquerying as explained [here](https://github.com/puppetlabs/puppetdb/pull/1053).
 
-#### /pdb/query/v4/events
+### /pdb/query/v4/events
 
 * (3.0) The v4 events endpoint does not require a query parameter, so
   `/pdb/query/v4/events` is now a valid query. See the
   [events endpoint documentation]({{puppetdb}}/api/query/v4/events.html#pdbqueryv4events)
   for more information.
 
-#### /pdb/query/v4/reports
+### /pdb/query/v4/reports
 
 * (3.0) The response of the reports endpoint includes the new fields `noop`,
   `environment`, `status`, `resource_events`, `logs`, and `metrics`. For more information, see the [documentation on the reports endpoint]({{puppetdb}}/api/query/v4/reports.html). For comparison, see [an example of the new format]({{puppetdb}}/api/query/v4/reports.html#examples), and [an example of the old format](/puppetdb/2.3/api/query/v3/reports.html#response-format) (PuppetDB 2.3 docs).
@@ -186,7 +186,7 @@ Each change below is marked with the corresponding release version.
   corresponding events query, there is no corresponding field in the response.
   For more information, see the [documentation on the report query fields]({{puppetdb}}/api/query/v4/reports.html#query-fields).
 
-#### /pdb/query/v4/catalogs
+### /pdb/query/v4/catalogs
 
 * (3.0) The v4 catalogs endpoint is queryable like the other
   endpoints, whereas before it could only return a catalog for a
@@ -195,7 +195,7 @@ Each change below is marked with the corresponding release version.
   too. For more information, see the
   [catalog query examples]({{puppetdb}}/api/query/v4/catalogs.html#examples).
 
-#### Operators
+### Operators
 
 * (2.2.0) The new `select_fact_contents` subquery operator allows for filtering the
   results of other endpoints based on detailed queries about structured fact

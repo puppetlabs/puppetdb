@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/wire_format/report_format_v5.html"
 ---
 # Report wire format - v5
 
-[puppetreportformat]: {{puppet}}/format_report.html
+[puppetreportformat]: https://puppet.com/docs/puppet/latest/format_report.html
 [reportsv4]: ../query/v4/reports.markdown
 
 ## Report interchange format

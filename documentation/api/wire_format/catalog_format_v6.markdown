@@ -6,19 +6,19 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v6.html"
 
 # Catalog wire format - v6
 
-[containment]: {{puppet}}/lang_containment.html
-[relationship]: {{puppet}}/lang_relationships.html
-[chain]: {{puppet}}/lang_relationships.html#syntax-chaining-arrows
-[metaparameters]: {{puppet}}/lang_relationships.html#syntax-relationship-metaparameters
-[require]: {{puppet}}/lang_relationships.html#syntax-the-require-function
-[resource_ref]: {{puppet}}/lang_data_resource_reference.html
-[numbers]: {{puppet}}/lang_data_number.html
-[undef]: {{puppet}}/lang_data_undef.html
-[namevar]: {{puppet}}/lang_resources.html#namenamevar
-[resource]: {{puppet}}/lang_resources.html
-[title]: {{puppet}}/lang_resources.html#title
-[type]: {{puppet}}/lang_resources.html#type
-[attributes]: {{puppet}}/lang_resources.html#attributes
+[containment]: https://puppet.com/docs/puppet/latest/lang_containment.html
+[relationship]: https://puppet.com/docs/puppet/latest/lang_relationships.html
+[chain]: https://puppet.com/docs/puppet/latest/lang_relationships.html#syntax-chaining-arrows
+[metaparameters]: https://puppet.com/docs/puppet/latest/lang_relationships.html#syntax-relationship-metaparameters
+[require]: https://puppet.com/docs/puppet/latest/lang_relationships.html#syntax-the-require-function
+[resource_ref]: https://puppet.com/docs/puppet/latest/lang_data_resource_reference.html
+[numbers]: https://puppet.com/docs/puppet/latest/lang_data_number.html
+[undef]: https://puppet.com/docs/puppet/latest/lang_data_undef.html
+[namevar]: https://puppet.com/docs/puppet/latest/lang_resources.html#namenamevar
+[resource]: https://puppet.com/docs/puppet/latest/lang_resources.html
+[title]: https://puppet.com/docs/puppet/latest/lang_resources.html#title
+[type]: https://puppet.com/docs/puppet/latest/lang_resources.html#type
+[attributes]: https://puppet.com/docs/puppet/latest/lang_resources.html#attributes
 
 PuppetDB receives catalogs from Puppet Servers in the following wire format. This format is subtly different from the internal format used by Puppet, so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_server.html) before they are sent.
 
@@ -52,7 +52,7 @@ String. The name of the node for which the catalog was compiled.
 
 #### `version`
 
-String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting]({{puppet}}/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
+String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting](https://puppet.com/docs/puppet/latest/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
 
 #### `environment`
 

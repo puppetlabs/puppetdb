@@ -8,10 +8,10 @@ canonical: "/puppetdb/latest/connect_puppet_server.html"
 
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
 [puppetdb_conf]: ./puppetdb_connection.html
-[routes_yaml]: {{puppet}}/config_file_routes.html
-[exported]: {{puppet}}/lang_exported.html
+[routes_yaml]: https://puppet.com/docs/puppet/latest/config_file_routes.html
+[exported]: https://puppet.com/docs/puppet/latest/lang_exported.html
 [install_via_module]: ./install_via_module.html
-[report_processors]: {{puppet}}/reporting_about.html
+[report_processors]: https://puppet.com/docs/puppet/latest/reporting_about.html
 [event]: ./api/query/v4/events.html
 [report]: ./api/query/v4/reports.html
 [store_report]: ./api/command/v1/commands.html#store-report-version-7
@@ -36,7 +36,7 @@ Currently, Puppet Servers need additional Ruby plug-ins in order to use PuppetDB
 
 ### On platforms with packages
 
-[Enable the Puppet Collection repo]({{puppet}}/puppet_collections.html) and then install the `puppetdb-termini` package:
+[Enable the Puppet Collection repo](https://puppet.com/docs/puppet/latest/puppet_collections.html) and then install the `puppetdb-termini` package:
 
     $ sudo puppet resource package puppetdb-termini ensure=latest
 

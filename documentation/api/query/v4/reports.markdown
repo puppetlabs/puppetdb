@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [ast]: ./ast.html
 [events]: ./events.html
 [paging]: ./paging.html
-[statuses]: {{puppet}}/format_report.html#puppettransactionreport
+[statuses]: https://puppet.com/docs/puppet/latest/format_report.html#puppettransactionreport
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
 [subqueries]: ./ast.html#subquery-operators

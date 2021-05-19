@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 
 [puppetdb_root]: ./index.html
 [connect_to_puppetdb]: ./connect_puppet_server.html
-[confdir]: {{puppet}}/dirs_confdir.html
+[confdir]: https://puppet.com/docs/puppet/latest/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_server.html#edit-puppetdb\.conf
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet Server to it][connect_to_puppetdb].

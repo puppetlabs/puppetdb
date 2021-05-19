@@ -5,8 +5,8 @@ layout: default
 
 # PuppetDB CLI
 
-[installpuppet]: {{puppet}}/install_pre.html
-[repos]: {{puppet}}/puppet_platform.html
+[installpuppet]: https://puppet.com/docs/puppet/latest/install_pre.html
+[repos]: https://puppet.com/docs/puppet/latest/puppet_platform.html
 [export]: ./anonymization.html
 [installpeclienttools]: https://puppet.com/docs/pe/latest/installing_pe_client_tools.html
 
