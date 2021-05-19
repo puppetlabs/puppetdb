@@ -4,13 +4,15 @@ layout: default
 canonical: "/puppetdb/latest/api/ext/v1/resource-graphs.html"
 ---
 
-[paging]: ../../query/v4/paging.html
-[query]: ../../query/v4/query.html
-[subqueries]: ../../query/v4/ast.html#subquery-operators
-[ast]: ../../query/v4/ast.html
-[environments]: ../../query/v4/environments.html
-[nodes]: ../../query/v4/nodes.html
-[statuses]: {{puppet}}/format_report.html#puppettransactionreport
+# Extensions API (PE only)
+
+[paging]: ../../query/v4/paging.markdown
+[query]: ../../query/v4/query.markdown
+[subqueries]: ../../query/v4/ast.markdown#subquery-operators
+[ast]: ../../query/v4/ast.markdown
+[environments]: ../../query/v4/environments.markdown
+[nodes]: ../../query/v4/nodes.markdown
+[statuses]: https://puppet.com/docs/puppet/latest/format_report.html#puppettransactionreport
 
 You can query resource-graphs by making an HTTP request to the
 `/pdb/ext/v1/resource-graphs` endpoint.

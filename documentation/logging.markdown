@@ -2,9 +2,8 @@
 title: "Logging configuration"
 layout: default
 ---
-
-Structured logging
------
+# Logging configuration
+## Structured logging
 
 PuppetDB uses logback, a standard Java logging library. In certain subsystems,
 namely HA, we provide extended structured logging information. By configuring

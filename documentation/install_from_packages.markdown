@@ -2,17 +2,18 @@
 title: "Installing from packages"
 layout: default
 ---
+# Installing from packages
 
-[connect_server]: ./connect_puppet_server.html
-[connect_apply]: ./connect_puppet_apply.html
-[ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
-[configure_postgres]: ./configure.html#using-postgresql
-[configure_heap]: ./configure.html#configuring-the-java-heap-size
-[configure_jetty]: ./configure.html#jetty-http-settings
-[requirements]: ./index.html#standard-install-rhel-centos-debian-and-ubuntu
-[install_module]: ./install_via_module.html
+[connect_server]: ./connect_puppet_server.markdown
+[connect_apply]: ./connect_puppet_apply.markdown
+[ssl_script]: ./maintain_and_tune.markdown#redo-ssl-setup-after-changing-certificates
+[configure_postgres]: ./configure.markdown#using-postgresql
+[configure_heap]: ./configure.markdown#configuring-the-java-heap-size
+[configure_jetty]: ./configure.markdown#jetty-http-settings
+[requirements]: ./index.markdown#standard-install-rhel-centos-debian-and-ubuntu
+[install_module]: ./install_via_module.markdown
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
-[keystore_instructions]: ./postgres_ssl.html
+[keystore_instructions]: ./postgres_ssl.markdown
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.
@@ -37,27 +38,25 @@ module.
 > * These instructions are for
 >   [platforms with official PuppetDB packages][requirements]. To install on
 >   other systems, follow
->   [our instructions for installing from source](./install_from_source.html).
+>   [our instructions for installing from source](./install_from_source.markdown).
 > * If this is a production deployment,
->   [review the scaling recommendations](./scaling_recommendations.html) before
+>   [review the scaling recommendations](./scaling_recommendations.markdown) before
 >   installing. You should ensure that your PuppetDB server will be able to
 >   comfortably handle your site's load.
 
-Platform specific install notes
------
+## Platform specific install notes
 
 **Ubuntu 18.04**
 * Enable the [universe repository](https://help.ubuntu.com/community/Repositories/Ubuntu), which contains packages necessary for PuppetDB
 * Ensure Java 8 is installed
 
-Step 1: Install and configure Puppet
------
+## Step 1: Install and configure Puppet
 
 If Puppet isn't fully installed and configured on your PuppetDB server,
 [install it][installpuppet] and request/sign/retrieve a certificate for the
 node.
 
-[installpuppet]: {{puppet}}/install_pre.html
+[installpuppet]: https://puppet.com/docs/puppet/latest/install_pre.html
 
 Your PuppetDB server should be running Puppet agent and have a signed
 certificate from your Puppet Server. If you run `puppet agent --test`, it
@@ -70,26 +69,22 @@ seconds`.
 > [manually configure PuppetDB's SSL credentials][keystore_instructions] before
 > the Puppet Server will be able to connect to PuppetDB.
 
-Step 2: Enable the Puppet Platform package repository
------
+## Step 2: Enable the Puppet Platform package repository
 
 If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
+[enable the Puppet Platform package repository](https://puppet.com/docs/puppet/latest/puppet_platform.html)
 
-Step 3: Install PuppetDB
------
+## Step 3: Install PuppetDB
 
 Use Puppet to install PuppetDB:
 
     $ sudo puppet resource package puppetdb ensure=latest
 
-Step 4: Configure database
------
+## Step 4: Configure database
 
 - [Set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres].
 
-Step 5: Start the PuppetDB service
------
+## Step 5: Start the PuppetDB service
 
 Use Puppet to start the PuppetDB service and enable it on startup.
 
@@ -101,16 +96,14 @@ connections on port 8081.
 > PuppetDB is now fully functional and ready to receive facts, catalogs, and
 > reports from any number of Puppet Servers.
 
-Finish: Connect Puppet to PuppetDB
------
+## Finish: Connect Puppet to PuppetDB
 
 [You should now configure your Puppet Server(s) to connect to PuppetDB][connect_server].
 
 If you use a standalone Puppet site,
 [you should configure every node to connect to PuppetDB][connect_apply].
 
-Troubleshooting installation problems
------
+## Troubleshooting installation problems
 
 * Check the log file (`/var/log/puppetlabs.puppetdb/puppetdb.log`), and see
   whether PuppetDB knows what the problem is.

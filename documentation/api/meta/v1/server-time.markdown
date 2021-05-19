@@ -4,7 +4,9 @@ layout: default
 canonical: "/puppetdb/latest/api/meta/v1/server-time.html"
 ---
 
-[curl]: ../../query/curl.html#using-curl-from-localhost-non-sslhttp
+# Server time endpoint
+
+[curl]: ../../query/curl.markdown#using-curl-from-localhost-non-sslhttp
 
 The `/server-time` endpoint can be used to retrieve the server time from the PuppetDB server.
 

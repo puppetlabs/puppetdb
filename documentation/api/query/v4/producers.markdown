@@ -4,13 +4,15 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/producers.html"
 ---
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[factsets]: ./factsets.html
-[reports]: ./reports.html
-[catalogs]: ./catalogs.html
+# Producers endpoint
+
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[factsets]: ./factsets.markdown
+[reports]: ./reports.markdown
+[catalogs]: ./catalogs.markdown
 
 Producers are the Puppet Servers that send reports, catalogs, and factsets to PuppetDB.
 
@@ -31,7 +33,7 @@ This will return all producers known to PuppetDB.
 
 ### Query operators
 
-See [the AST query language page](./ast.html)
+See [the AST query language page](./ast.markdown)
 
 ### Query fields
 

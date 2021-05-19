@@ -1,0 +1,58 @@
+name: PuppetDB docs
+
+on: 
+  push:
+    branches:
+    - doc-latest
+    - doc-6.y
+
+  workflow_dispatch:
+  
+jobs:
+  build-dita:
+    name: Build HTML and upload to s3
+    runs-on: ubuntu-latest
+    steps:
+    - name: Initialize
+      uses: actions/checkout@v2
+
+    - name: Clone puppet-docs-dita-ot
+      run: |
+        git clone https://${{ secrets.TECHPUBS_GITHUB_TOKEN }}:x-oauth-basic@github.com/puppetlabs/puppet-docs-dita-ot.git --branch main
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 2.7.1
+        bundler-cache: true
+      env:
+        BUNDLE_GEMFILE: puppet-docs-dita-ot/Gemfile
+        BUNDLE_WITHOUT: references
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.TECHPUBS_AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.TECHPUBS_AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-2
+
+    - name: Build docs
+      env: 
+        GIT_HUB_TOKEN: ${{ secrets.TECHPUBS_GITHUB_TOKEN }}
+        BUNDLE_GEMFILE: puppet-docs-dita-ot/Gemfile
+        SLACK_TOKEN: ${{ secrets.TECHPUBS_SLACK_TOKEN }}
+        DOCS_LOCAL_DEV: false
+      run: bundle exec rake -f puppet-docs-dita-ot/Rakefile build_html\[puppet-docs-dita-ot/prod.yaml\]
+
+    - name: Trigger Netlify
+      run: curl -X POST ${{ secrets.NETLIFY_PROD }}
+
+    - name: Notify Slack if the build fails
+      if: ${{ failure() }}
+      run: >-
+        curl -X POST -H 'Content-type: application/json'
+        --data '{"text":"*Build failed*\n
+        _User:_ '"$GITHUB_ACTOR"'\n
+        _Repo:_ '"$GITHUB_REPOSITORY"'\n
+        _Branch:_ '"$GITHUB_REF"'\n
+        _Commit link:_ '"https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"'"}'
+        ${{ secrets.SLACK_WEBHOOK }}

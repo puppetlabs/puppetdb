@@ -3,27 +3,26 @@ title: "Upgrading PuppetDB"
 layout: default
 ---
 
+# Upgrading PuppetDB
 
-[dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
-[connect_server]: ./connect_puppet_server.html
-[connect_apply]: ./connect_puppet_apply.html
+[dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
+[connect_server]: ./connect_puppet_server.markdown
+[connect_apply]: ./connect_puppet_apply.markdown
 [tracker]: https://tickets.puppetlabs.com/browse/PDB
-[start_source]: ./install_from_source.html#step-4-start-the-puppetdb-service
-[plugin_source]: ./connect_puppet_server.html#on-platforms-without-packages
-[module]: ./install_via_module.html
+[start_source]: ./install_from_source.markdown#step-4-start-the-puppetdb-service
+[plugin_source]: ./connect_puppet_server.markdown#on-platforms-without-packages
+[module]: ./install_via_module.markdown
 [puppetdb3]: /puppetdb/3.2/migrate.html
-[versioning]: ./versioning_policy.html#upgrades
+[versioning]: ./versioning_policy.markdown#upgrades
 
-Checking for updates
------
+## Checking for updates
 
 PuppetDB's [performance dashboard][dashboard] displays the current version in
 the upper right corner. It also automatically checks for updates and will show a
 link to the newest version under the version indicator if your deployment is out
 of date.
 
-Migrating existing data
------
+## Migrating existing data
 
 If you are not planning to change your underlying PuppetDB database
 configuration prior to upgrading, you don't need to worry about migrating your
@@ -32,8 +31,7 @@ switch to a different database, you should export your existing data prior to
 changing your database configuration, but you must use PuppetDB 3.x to do so.
 Please consult the [Migrating Data][puppetdb3] for more information.
 
-Upgrading with the PuppetDB module
------
+## Upgrading with the PuppetDB module
 
 If you [installed PuppetDB with the module][module], you only need to do the
 following to upgrade:
@@ -52,8 +50,7 @@ following to upgrade:
    unsupported by old PuppetDB versions, which would cause Puppet failures until
    PuppetDB was upgraded, but this should be very rare.)
 
-Manually upgrading PuppetDB
------
+## Manually upgrading PuppetDB
 
 ### What to upgrade
 

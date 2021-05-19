@@ -4,12 +4,14 @@ title: "API curl tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
+# API curl tips
+
 [curl]: http://curl.haxx.se/docs/manpage.html
-[dashboard]: ../../maintain_and_tune.html#monitor-the-performance-dashboard
-[whitelist]: ../../configure.html#certificate-whitelist
-[entities]: ./v4/entities.html
+[dashboard]: ../../maintain_and_tune.markdown#monitor-the-performance-dashboard
+[whitelist]: ../../configure.markdown#certificate-whitelist
+[entities]: ./v4/entities.markdown
 [pql]: ./tutorial-pql.markdown
-[pdb-cli]: ../../pdb_client_tools.md
+[pdb-cli]: ../../pdb_client_tools.markdown
 
 You can use [`curl`][curl] to directly interact with PuppetDB's REST API. This is useful for testing, prototyping, and quickly fetching arbitrary data.
 
@@ -122,7 +124,10 @@ POST queries use the following syntax:
 
 ## Querying PuppetDB based on specific resource attributes
 
-You can use POST to query for a specific resource attribute. Note that this requires you to escape your quotes (`"`). Alternatively, use the [PuppetDB CLI](pdb-cli), together with the [Puppet Query Language (PQL)](pql) to make queries without having to escape characters.
+You can use POST to query for a specific resource attribute. Note that this
+requires you to escape your quotes (`"`). Alternatively, use the [PuppetDB
+CLI][pdb-cli], together with the [Puppet Query Language (PQL)][pql] to make
+queries without having to escape characters.
 
 To query for the following resource attributes: 
 

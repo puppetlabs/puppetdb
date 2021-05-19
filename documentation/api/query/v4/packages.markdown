@@ -3,22 +3,23 @@ title: "Package endpoints"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/packages.html"
 ---
+# Package endpoints
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[facts-format]: ../../wire_format/facts_format_v5.html
-[factsets]: ./factsets.html
-[reports]: ./reports.html
-[catalogs]: ./catalogs.html
-[nodes]: ./nodes.html
-[facts]: ./facts.html
-[fact_contents]: ./fact_contents.html
-[events]: ./events.html
-[edges]: ./edges.html
-[resources]: ./resources.html
-[inventory]: ./inventory.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[facts-format]: ../../wire_format/facts_format_v5.markdown
+[factsets]: ./factsets.markdown
+[reports]: ./reports.markdown
+[catalogs]: ./catalogs.markdown
+[nodes]: ./nodes.markdown
+[facts]: ./facts.markdown
+[fact_contents]: ./fact_contents.markdown
+[events]: ./events.markdown
+[edges]: ./edges.markdown
+[resources]: ./resources.markdown
+[inventory]: inventory.markdown
 
 > **PE feature**: Package metadata collection, storage, and querying is
 > a Puppet Enterprise-only feature.

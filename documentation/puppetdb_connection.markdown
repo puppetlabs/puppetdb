@@ -4,10 +4,12 @@ layout: default
 canonical: "/puppetdb/latest/puppetdb_connection.html"
 ---
 
-[puppetdb_root]: ./index.html
-[connect_to_puppetdb]: ./connect_puppet_server.html
-[confdir]: {{puppet}}/dirs_confdir.html
-[puppetdb_conf]: ./connect_puppet_server.html#edit-puppetdb\.conf
+# Configuring a Puppet/PuppetDB connection
+
+[puppetdb_root]: ./index.markdown
+[connect_to_puppetdb]: ./connect_puppet_server.markdown
+[confdir]: https://puppet.com/docs/puppet/latest/dirs_confdir.html
+[puppetdb_conf]: ./connect_puppet_server.markdown#edit-puppetdb\.conf
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet Server to it][connect_to_puppetdb].
 
@@ -28,8 +30,7 @@ The location of the `confdir` varies, depending on the OS, Puppet distribution, 
 
 The `puppetdb.conf` file uses the same INI-like format as `puppet.conf`, but only uses a `[main]` section.
 
-`[main]` Settings
------
+## `[main]` Settings
 
 The `[main]` section defines all of the PuppetDB terminus settings.
 

@@ -4,18 +4,18 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
-[configure_postgres]: ./configure.html#using-postgresql
+[configure_postgres]: configure.markdown#using-postgresql
 [kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
+[upgrading]: api/query/v4/upgrading-from-v3.markdown
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
+[upgrades]: upgrade.markdown
+[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
+[pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
-[upgrade_policy]: ./versioning_policy.html#upgrades
+[queue_support_guide]: pdb_support_guide.markdown#message-queue
+[upgrade_policy]: versioning_policy.markdown#upgrades
 
 ---
 
@@ -156,7 +156,7 @@ when the minimum successful submissions have been met. ([PDB-4020](https://ticke
 
 ### Deprecations
 
-- PuppetDB no longer officially supports JDK 7. PuppetDB 6.0.0 officially supports JDK 8, and has been tested against JDK 10. Please see the [FAQ](./puppetdb-faq.html#which-versions-of-java-are-supported) for further, or more current information. ([PDB-4069](https://tickets.puppetlabs.com/browse/PDB-4069))
+- PuppetDB no longer officially supports JDK 7. PuppetDB 6.0.0 officially supports JDK 8, and has been tested against JDK 10. Please see the [FAQ](puppetdb-faq.markdown#which-versions-of-java-are-supported) for further, or more current information. ([PDB-4069](https://tickets.puppetlabs.com/browse/PDB-4069))
 - Support for these database configuration options has been completely retired: `classname`, `subprotocol`, `log-slow-statements`, and `conn-keep-alive`. Aside from warning at startup, PuppetDB will completely ignore them, and references to them have been removed from the documentation. ([PDB-3935](https://tickets.puppetlabs.com/browse/PDB-3935))
 
 ### Contributors
