@@ -72,9 +72,9 @@ module Puppet::Util::Puppetdb
   # @param &block [Block] A block returning the JSON payload
   # @return [Hash <String, String>]
   def submit_command(certname, command_name, version, producer_timestamp_utc, &block)
+    command = generate_command(certname, command_name, version, producer_timestamp_utc, &block)
     profile("Submitted command '#{command_name}' version '#{version}'",
             [:puppetdb, :command, :submit, command_name, version]) do
-      command = generate_command(certname, command_name, version, producer_timestamp_utc, &block)
       command.submit
     end
   end
