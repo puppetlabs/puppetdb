@@ -4,10 +4,12 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 ---
 
-[events]: ./events.html
-[paging]: ./paging.html
-[curl]: ../curl.html
-[query]: ./query.html
+# Event counts endpoint
+
+[events]: ./events.markdown
+[paging]: ./paging.markdown
+[curl]: ../curl.markdown
+[query]: query.markdown
 
 > **Experimental endpoint**: The event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
@@ -20,9 +22,9 @@ Puppet agent nodes submit reports after their runs, and the Puppet Server forwar
 
 After this information is stored in PuppetDB, it can be queried in various ways.
 
-* You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`](./reports.html) endpoint.
+* You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`](./reports.markdown) endpoint.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
-* You can query **summaries of event data** by making an HTTP request to the `/event-counts` or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
+* You can query **summaries of event data** by making an HTTP request to the `/event-counts` or [`aggregate-event-counts`](./aggregate-event-counts.markdown) endpoints.
 
 ## `/pdb/query/v4/event-counts`
 
@@ -35,7 +37,7 @@ See the [`events`][events] endpoint for additional documentation, as this endpoi
 ### URL parameters
 
 * `query`: optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`] endpoint; additional information about this endpoint can be found [here][events]. For general info about queries, see [our guide to query structure][query].
+This query is forwarded to the [`events`][events] endpoint; additional information about this endpoint can be found [here][events]. For general info about queries, see [our guide to query structure][query].
 
 * `summarize_by`: required. A string specifying which type of object you'd like to see counts for. Supported values are `resource`, `containing_class`, and `certname`.
 
@@ -51,11 +53,11 @@ to the `events` query. See the [`events` documentation][events] for more informa
 
 ### Query operators
 
-This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same operators.](./events.html#query-operators)
+This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same operators.](./events.markdown#query-operators)
 
 ### Query fields
 
-This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same fields.](./events.html#query-fields)
+This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same fields.](./events.markdown#query-fields)
 
 ### Response format
 

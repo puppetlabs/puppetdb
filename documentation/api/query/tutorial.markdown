@@ -4,10 +4,12 @@ layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
-[array]: ./v4/ast.html#array
-[curl]: ./curl.html
-[select]: ./v4/ast.html#selectentity-subquery-statements
-[config_jetty]: ../../configure.html#jetty-http-settings
+# API query tutorial
+
+[array]: ./v4/ast.markdown#array
+[curl]: ./curl.markdown
+[select]: ./v4/ast.markdown#selectentity-subquery-statements
+[config_jetty]: ../../configure.markdown#jetty-http-settings
 
 This page walks through the construction of several types of PuppetDB
 queries. We use the **version 4 API** in all examples.
@@ -175,7 +177,7 @@ that of another attribute), it must be namespaced using
 `["parameter", <parameter name>]`.
 
 For easy reference, the full set of queryable attributes can be found in [the resource
-endpoint documentation](./v4/resources.html).
+endpoint documentation](./v4/resources.markdown).
 
 ### Regular expressions
 
@@ -318,7 +320,7 @@ For instance, suppose you're configuring a load balancer, and need the IP addres
       ["=", "type", "Class"],
       ["=", "title", "Apache"]]
 
-This will find all the Class[Apache] resources, which each knows the certname
+This will find all the `Class[Apache]` resources, which each knows the certname
 of the node it came from. Then you could put all those certnames into a fact
 query:
 
@@ -333,7 +335,7 @@ query:
 
 But this query is lengthy, and it requires some logic to assemble and run the
 second query. There has to be a better way! What if we could find the
-Class[Apache] servers and use the results of that query to find the
+`Class[Apache]` servers and use the results of that query to find the
 certname? We can, with this fact query:
 
     ["and",

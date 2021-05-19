@@ -3,15 +3,16 @@ title: "Edges endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/edges.html"
 ---
+# Edges endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[catalogs]: ./catalogs.html
-[nodes]: ./nodes.html
-[resources]: ./resources.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[catalogs]: ./catalogs.markdown
+[nodes]: ./nodes.markdown
+[resources]: ./resources.markdown
 
 Catalog edges are relationships formed between two [resources][resources].
 They represent the edges inside the catalog graph, whereas resources represent

@@ -3,8 +3,10 @@ title: "Puppet Query Language (PQL) examples"
 layout: default
 ---
 
-[tutorial]: ./tutorial-pql.html
-[reference]: ./v4/pql.html
+# Examples
+
+[tutorial]: ./tutorial-pql.markdown
+[reference]: ./v4/pql.markdown
 
 ## Example Queries
 

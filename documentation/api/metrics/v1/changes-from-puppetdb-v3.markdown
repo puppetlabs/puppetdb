@@ -4,12 +4,14 @@ layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/changes-from-puppetdb-v3.html"
 ---
 
+# Metrics API changes in PuppetDB 4
+
 Most of the metrics' names changed in PuppetDB 4 to standardize with other
 Puppet components and provide a more intuitive naming scheme. This document
 details the correspondence between the metric names before and after PuppetDB
 4.
 
-### Population metrics
+## Population metrics
 
 ```
 # Before
@@ -36,7 +38,7 @@ puppetlabs.puppetdb.population:name=avg-resources-per-node
 puppetlabs.puppetdb.population:name=pct-resource-dupes
 ```
 
-### HTTP metrics
+## HTTP metrics
 
 Prior to PuppetDB 4 the HTTP metrics were scattered in different namespaces. All
 the HTTP metrics are now grouped under the same namespace.
@@ -69,7 +71,7 @@ puppetlabs.puppetdb.http:name=/pdb/query/v4/catalogs.service-time
 Note that these metrics are now under the same `puppetlabs.puppetdb.http`
 namespace.
 
-### Message Queue (MQ) metrics
+## Message Queue (MQ) metrics
 
 Command processing metrics related to the message queue
 have been moved to the `puppetlabs.puppetdb.mq` namespace.
@@ -110,7 +112,7 @@ puppetlabs.puppetdb.mq:name=<name>.processing-time
 puppetlabs.puppetdb.mq:name=<name>.retried
 ```
 
-### Dead Letter Office (DLO) metrics
+## Dead Letter Office (DLO) metrics
 
 The metrics for the DLO now have the following structure:
 
@@ -128,7 +130,7 @@ puppetlabs.puppetdb.command.dlo:type=<filename>,name=<misc>
 puppetlabs.puppetdb.dlo:name=<filename>.<misc>
 ```
 
-### Storage metrics
+## Storage metrics
 
 The storage metrics' names have been shortened with the following convention:
 

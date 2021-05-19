@@ -4,30 +4,31 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/entities.html"
 ---
 
-[aggregate-event-counts]: ./aggregate-event-counts.html
-[catalogs]: ./catalogs.html
-[edges]: ./edges.html
-[environments]: ./environments.html
-[event-counts]: ./event-counts.html
-[events]: ./events.html
-[fact-names]: ./fact-names.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
-[fact-paths]: ./fact-paths.html
-[nodes]: ./nodes.html
-[producers]: ./producers.html
-[query]: ./query.html
-[reports]: ./reports.html
-[resources]: ./resources.html
-[root]: ./index.html
-[from]: ./ast.html#context-operators
-[subquery]: ./ast.html#subquery-operators
-[erd]: ../../../images/pdb_erd.png
+# Entities
+
+[aggregate-event-counts]: aggregate-event-counts.markdown
+[catalogs]: catalogs.markdown
+[edges]: edges.markdown
+[environments]: environments.markdown
+[event-counts]: event-counts.markdown
+[events]: events.markdown
+[fact-names]: fact-names.markdown
+[facts]: facts.markdown
+[fact-contents]: fact-contents.markdown
+[fact-paths]: fact-paths.markdown
+[nodes]: ./nodes.markdown
+[producers]: producers.markdown
+[query]: query.markdown
+[reports]: reports.markdown
+[resources]: resources.markdown
+[root]: index.markdown
+[from]: ast.markdown#context-operators
+[subquery]: ast.markdown#subquery-operators
 
 The PuppetDB API provides access to a series of data entities that map to the Puppet ecosystem
 and the data that PuppetDB stores.
 
-![erd][erd]
+![erd](../../../images/pdb_erd.png)
 
 ## Entity types
 

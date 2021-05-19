@@ -3,33 +3,28 @@ title: "Known issues"
 layout: default
 canonical: "/puppetdb/latest/known_issues.html"
 ---
-
-
-Bugs and feature requests
------
+# Known issues
+## Bugs and feature requests
 
 [tracker]: https://tickets.puppetlabs.com/browse/PDB
 
 PuppetDB's bugs and feature requests are managed in [Puppet's issue tracker][tracker]. Search this database if you're having problems and please report any new issues to us!
 
-PuppetDB returns an error from the status endpoint
------
+## PuppetDB returns an error from the status endpoint
 
 In PuppetDB 6.11.0, 6.11.1, and 6.11.2, when PuppetDB cannot connect to the
 database and a user queries the `/status/v1/services/puppetdb-status` endpoint
 it would return an exception in the status response instead of reporting the
 databases as down.  [PDB-4836](https://tickets.puppetlabs.com/browse/PDB-4836)
 
-PuppetDB rejects Puppet Server SSL connections
------
+## PuppetDB rejects Puppet Server SSL connections
 
 Starting in PuppetDB 6.6.0, PuppetDB can reject Puppet Server SSL connections due to a restricted set of cipher suites.
 In an upcoming release, PuppetDB will be switched to default to the same cipher suites as Puppet Server.
 In the interim, the workaround is to set the `cipher-suites` manually. See the ticket for the recommended set.
 [PDB-4513](https://tickets.puppetlabs.com/browse/PDB-4513)
 
-Hash projection has character limit of 63
------
+## Hash projection has character limit of 63
 
 [PDB-2634](https://tickets.puppetlabs.com/browse/PDB-2634) Added support for using dot notation for projections.
 This supports queries like the one below.
@@ -40,8 +35,7 @@ inventory[facts.os.family] {
 ```
 The dotted hash projection `facts.os.family` must be 63, or fewer, characters. [PDB-4521](https://tickets.puppetlabs.com/browse/PDB-4521)
 
-Broader issues
------
+## Broader issues
 
 ### Autorequire relationships are opaque
 

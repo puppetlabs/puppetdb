@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="puppetdb" title="PuppetDB">
+    <topicmeta>
+        <prodinfo>
+            <prodname>puppetdb</prodname>
+            <vrmlist>
+                <vrm version="6"/>
+            </vrmlist>
+        </prodinfo>
+    </topicmeta>
+
+    <topichead navtitle="General information">
+      <topicref href="index.markdown" format="markdown"/>
+      <topicref href="CONTRIBUTING.md" format="markdown"/>
+      <topicref href="puppetdb-faq.markdown" format="markdown"/>
+      <topicref href="release_notes.markdown" format="markdown"/>
+      <topicref href="versioning_policy.markdown" format="markdown"/>
+      <topicref href="known_issues.markdown" format="markdown"/>
+      <topicref href="community_add_ons.markdown" format="markdown"/>
+    </topichead>
+    
+    <topichead navtitle="Installation">
+      <topicref href="install_via_module.markdown" format="markdown"/>
+      <topicref href="install_from_packages.markdown" format="markdown"/>
+      <topicref href="install_from_source.markdown" format="markdown"/>
+      <topicref href="upgrade.markdown" format="markdown" />
+      <topicref href="connect_puppet_server.markdown" format="markdown" />
+      <topicref href="connect_puppet_apply.markdown" format="markdown" />
+    </topichead>
+
+    <topichead navtitle="Configuration">
+      <topicref href="configure.markdown" format="markdown"/>
+      <topicref href="puppetdb_connection.markdown" format="markdown"/>
+      <topicref href="postgres_ssl.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Usage/admin">
+      <topicref href="using.markdown" format="markdown"/>
+      <topicref href="maintain_and_tune.markdown" format="markdown"/>
+      <topicref href="pdb_client_tools.markdown" format="markdown"/>
+      <topicref href="anonymization.markdown" format="markdown"/>
+      <topicref href="scaling_recommendations.markdown" format="markdown"/>
+      <topicref href="repl.markdown" format="markdown"/>
+      <topicref href="load_testing_tool.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Troubleshooting">
+      <topicref href="pdb_support_guide.markdown" format="markdown"/>
+      <topicref href="trouble_session_logging.markdown" format="markdown"/>
+    </topichead>
+    
+    <topichead navtitle="PQL - Puppet Query Language">
+      <topicref href="api/query/tutorial-pql.markdown" format="markdown"/>
+      <topicref href="api/query/v4/pql.markdown" format="markdown"/>
+      <topicref href="api/query/examples-pql.markdown" format="markdown"/>
+    </topichead>
+    
+    <topichead navtitle="API">
+      <topicref href="api/index.markdown" format="markdown"/>
+      <topicref href="api/query/tutorial.markdown" format="markdown"/>
+      <topicref href="api/query/curl.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Query API version 4">
+      <topicref href="api/query/v4/upgrading-from-v3.markdown" format="markdown"/>
+      <topicref href="api/query/v4/query.markdown" format="markdown"/>
+      <topicref href="api/query/v4/entities.markdown" format="markdown"/>
+      <topicref href="api/query/v4/ast.markdown" format="markdown"/>
+      <topicref href="api/query/v4/paging.markdown" format="markdown"/>
+      <topicref href="api/query/v4/index.markdown" format="markdown"/>
+      <topicref href="api/query/v4/nodes.markdown" format="markdown"/>
+      <topicref href="api/query/v4/environments.markdown" format="markdown"/>
+      <topicref href="api/query/v4/producers.markdown" format="markdown"/>
+      <topicref href="api/query/v4/factsets.markdown" format="markdown"/>
+      <topicref href="api/query/v4/facts.markdown" format="markdown"/>
+      <topicref href="api/query/v4/fact-names.markdown" format="markdown"/>
+      <topicref href="api/query/v4/fact-paths.markdown" format="markdown"/>
+      <topicref href="api/query/v4/fact-contents.markdown" format="markdown"/>
+      <topicref href="api/query/v4/inventory.markdown" format="markdown"/>
+      <topicref href="api/query/v4/catalogs.markdown" format="markdown"/>
+      <topicref href="api/query/v4/resources.markdown" format="markdown"/>
+      <topicref href="api/query/v4/edges.markdown" format="markdown"/>
+      <topicref href="api/query/v4/reports.markdown" format="markdown"/>
+      <topicref href="api/query/v4/events.markdown" format="markdown"/>
+      <topicref href="api/query/v4/event-counts.markdown" format="markdown"/>
+      <topicref href="api/query/v4/aggregate-event-counts.markdown" format="markdown"/>
+      <topicref href="api/query/v4/packages.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Extensions API version 1 (PE-only)">
+      <topicref href="api/ext/v1/state-overview.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Admin API version 1">
+      <topicref href="api/admin/v1/archive.markdown" format="markdown"/>
+      <topicref href="api/admin/v1/cmd.markdown" format="markdown"/>
+      <topicref href="api/admin/v1/summary-stats.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Status API version 1">
+      <topicref href="api/status/v1/status.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Metadata API version 1">
+      <topicref href="api/meta/v1/version.markdown" format="markdown"/>
+      <topicref href="api/meta/v1/server-time.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Metrics API version 1">
+      <topicref href="api/metrics/v1/mbeans.markdown" format="markdown"/>
+      <topicref href="api/metrics/v1/changes-from-puppetdb-v3.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="API">
+      <topicref href="api/index.markdown" format="markdown"/>
+      <topicref href="api/query/tutorial.markdown" format="markdown"/>
+      <topicref href="api/query/curl.markdown" format="markdown"/>
+    </topichead>
+
+    <topichead navtitle="Wire formats">
+      <topicref href="api/wire_format/catalog_format_v9.markdown" format="markdown"/>
+      <topicref href="api/wire_format/facts_format_v5.markdown" format="markdown"/>
+      <topicref href="api/wire_format/report_format_v8.markdown" format="markdown"/>
+      <topicref href="api/wire_format/deactivate_node_format_v3.markdown" format="markdown"/>
+    </topichead>
+</map>

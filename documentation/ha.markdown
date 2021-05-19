@@ -3,13 +3,14 @@ title: "High Availability (HA)"
 layout: default
 ---
 
-[configure]: ./configure.html
-[pe-configure]: ./pe-configure.html
-[logging]: ./logging.html
-[metrics]: ./api/metrics/v1/index.html
+# High Availability (HA)
 
-Configuring PuppetDB for High Availability
------
+[configure]: ./configure.markdown
+[pe-configure]: https://puppet.com/docs/pe/latest/config_puppetdb.html
+[logging]: ./logging.markdown
+[metrics]: ./api/metrics/v1/mbeans.markdown
+
+## Configuring PuppetDB for High Availability
 
 In Puppet Enterprise 2016.5 and later, PuppetDB may be configured for high
 availability in order to withstand network partitions or system failure.
@@ -18,8 +19,7 @@ PuppetDB is automatically configured for high availability as part of an HA
 deployment of Puppet Enterprise. For more information about high availability in
 Puppet Enterprise, see [High availability overview](https://puppet.com/docs/pe/latest/dr_overview.html).
 
-HA Overview
------
+## HA Overview
 
 PuppetDB HA has two parts: first, Puppet Server is configured to send commands
 and queries to multiple PuppetDB servers. Second, those servers are configured
@@ -91,13 +91,11 @@ Deployment tips
   exact value will depend on your infrastructure, but 10 seconds is a good place
   to start. A catalog compilation can require as many as 4 timeouts, so be sure
   that you choose a value that is less that 25% of the timeout configured on any
-  upstream load balancers. See
-  the
-  [Puppet Server configuration documentation]({{puppetserver}}/config_file_puppetserver.html) for
-  details.
+  upstream load balancers. See the
+  [Puppet Server configuration documentation](https://puppet.com/docs/puppet/latest/server/config_file_puppetserver.html)
+  for details.
 
-FAQ
------
+## FAQ
 
 Q: *Why not just use PostgreSQL streaming replication?*
 
@@ -157,8 +155,7 @@ With this configuration, a Puppet run will fail if any data cannot be written to
 at least two PuppetDB servers. This may be useful if you have three PuppetDB
 servers, for example.
 
-Operations
------
+## Operations
 
 PuppetDB provides several facilities to help you monitor the state of
 replication:

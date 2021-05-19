@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_inputs_format_v1.html"
 ---
 
+# Replace catalog inputs wire format - v1 (experimental)
+
 The v1 `replace catalog inputs` command tells PuppetDB to replace the current
 set of catalog inputs with the new.
 
@@ -11,8 +13,7 @@ Changing the value of this setting for a certname has the same effect
 as receipt of a new catalog with respect to extending the lifetime of
 the node.
 
-Replace catalog inputs command format
------
+## Replace catalog inputs command format
 
 ### Version
 

@@ -4,15 +4,17 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/resources.html"
 ---
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[catalogs]: ./catalogs.html
-[environments]: ./environments.html
-[nodes]: ./nodes.html
-[dotted]: ./ast.html#dot-notation
+# Resources endpoint
+
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[catalogs]: ./catalogs.markdown
+[environments]: ./environments.markdown
+[nodes]: ./nodes.markdown
+[dotted]: ./ast.markdown#dot-notation
 
 You can query resources by making an HTTP request to the
 `/resources` endpoint.
