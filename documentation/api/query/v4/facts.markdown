@@ -6,15 +6,15 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 
 # Facts endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[environments]: ./environments.html
-[factsets]: ./factsets.html
-[fact-contents]: ./fact-contents.html
-[nodes]: ./nodes.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[environments]: ./environments.markdown
+[factsets]: ./factsets.markdown
+[fact-contents]: ./fact-contents.markdown
+[nodes]: ./nodes.markdown
 
 You can query facts by making an HTTP request to the `/facts` endpoint.
 

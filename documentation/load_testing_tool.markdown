@@ -4,7 +4,7 @@ layout: default
 ---
 # Load testing
 
-[export]: ./anonymization.html
+[export]: ./anonymization.markdown
 
 A basic tool for simulating PuppetDB loads is included with the standard
 PuppetDB distribution. **This tool is currently experimental and is likely to

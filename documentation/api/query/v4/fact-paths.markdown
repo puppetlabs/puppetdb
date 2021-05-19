@@ -5,14 +5,14 @@ canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 ---
 # Fact-paths endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[fact-names]: ./fact-names.html
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[fact-names]: ./fact-names.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[facts]: ./facts.markdown
+[fact-contents]: ./fact-contents.markdown
 
 The `/fact-paths` endpoint retrieves the set of all known fact paths for all
 known nodes, and is intended as a counterpart to the [fact-names][fact-names]

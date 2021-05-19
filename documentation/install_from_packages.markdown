@@ -4,16 +4,16 @@ layout: default
 ---
 # Installing from packages
 
-[connect_server]: ./connect_puppet_server.html
-[connect_apply]: ./connect_puppet_apply.html
-[ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
-[configure_postgres]: ./configure.html#using-postgresql
-[configure_heap]: ./configure.html#configuring-the-java-heap-size
-[configure_jetty]: ./configure.html#jetty-http-settings
-[requirements]: ./index.html#standard-install-rhel-centos-debian-and-ubuntu
-[install_module]: ./install_via_module.html
+[connect_server]: ./connect_puppet_server.markdown
+[connect_apply]: ./connect_puppet_apply.markdown
+[ssl_script]: ./maintain_and_tune.markdown#redo-ssl-setup-after-changing-certificates
+[configure_postgres]: ./configure.markdown#using-postgresql
+[configure_heap]: ./configure.markdown#configuring-the-java-heap-size
+[configure_jetty]: ./configure.markdown#jetty-http-settings
+[requirements]: ./index.markdown#standard-install-rhel-centos-debian-and-ubuntu
+[install_module]: ./install_via_module.markdown
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
-[keystore_instructions]: ./postgres_ssl.html
+[keystore_instructions]: ./postgres_ssl.markdown
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.
@@ -38,9 +38,9 @@ module.
 > * These instructions are for
 >   [platforms with official PuppetDB packages][requirements]. To install on
 >   other systems, follow
->   [our instructions for installing from source](./install_from_source.html).
+>   [our instructions for installing from source](./install_from_source.markdown).
 > * If this is a production deployment,
->   [review the scaling recommendations](./scaling_recommendations.html) before
+>   [review the scaling recommendations](./scaling_recommendations.markdown) before
 >   installing. You should ensure that your PuppetDB server will be able to
 >   comfortably handle your site's load.
 

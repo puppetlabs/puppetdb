@@ -5,11 +5,11 @@ canonical: "/puppetdb/latest/scaling_recommendations.html"
 ---
 # Scaling recommendations
 
-[configure_heap]: ./configure.html#configuring-the-java-heap-size
-[dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
-[heap]: ./maintain_and_tune.html#tune-the-max-heap-size
-[threads]: ./maintain_and_tune.html#tune-the-number-of-threads
-[postgres]: ./configure.html#using-postgresql
+[configure_heap]: ./configure.markdown#configuring-the-java-heap-size
+[dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
+[heap]: ./maintain_and_tune.markdown#tune-the-max-heap-size
+[threads]: ./maintain_and_tune.markdown#tune-the-number-of-threads
+[postgres]: ./configure.markdown#using-postgresql
 [pg_ha]: http://www.postgresql.org/docs/current/interactive/high-availability.html
 [pg_replication]: http://wiki.postgresql.org/wiki/Replication,_Clustering,_and_Connection_Pooling
 [ram]: #bottleneck-java-heap-size

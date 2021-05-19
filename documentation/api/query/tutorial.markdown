@@ -6,10 +6,10 @@ canonical: "/puppetdb/latest/api/query/tutorial.html"
 
 # API query tutorial
 
-[array]: ./v4/ast.html#array
-[curl]: ./curl.html
-[select]: ./v4/ast.html#selectentity-subquery-statements
-[config_jetty]: ../../configure.html#jetty-http-settings
+[array]: ./v4/ast.markdown#array
+[curl]: ./curl.markdown
+[select]: ./v4/ast.markdown#selectentity-subquery-statements
+[config_jetty]: ../../configure.markdown#jetty-http-settings
 
 This page walks through the construction of several types of PuppetDB
 queries. We use the **version 4 API** in all examples.
@@ -177,7 +177,7 @@ that of another attribute), it must be namespaced using
 `["parameter", <parameter name>]`.
 
 For easy reference, the full set of queryable attributes can be found in [the resource
-endpoint documentation](./v4/resources.html).
+endpoint documentation](./v4/resources.markdown).
 
 ### Regular expressions
 

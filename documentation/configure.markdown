@@ -8,17 +8,17 @@ canonical: "/puppetdb/latest/configure.html"
 
 [java-patterns]: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
 [logback]: http://logback.qos.ch/manual/configuration.html
-[dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
+[dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
 [pe-dashboard]: https://support.puppet.com/hc/en-us/articles/208484488-Enable-and-view-the-PuppetDB-performance-dashboard-for-Puppet-Enterprise-3-3-2-to-2019-1
-[repl]: ./repl.html
+[repl]: ./repl.markdown
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[postgres_ssl]: ./postgres_ssl.html
-[migration_coordination]: ./migration_coordination.html
-[module]: ./install_via_module.html
-[puppetdb.conf]: ./connect_puppet_server.html#edit-puppetdbconf
-[ha]: ./ha.html
+[postgres_ssl]: ./postgres_ssl.markdown
+[migration_coordination]: ./migration_coordination.markdown
+[module]: ./install_via_module.markdown
+[puppetdb.conf]: ./connect_puppet_server.markdown#edit-puppetdbconf
+[ha]: ./ha.markdown
 [node-ttl]: #node-ttl
-[admin-cmd]: ./api/admin/v1/cmd.html
+[admin-cmd]: ./api/admin/v1/cmd.markdown
 
 PuppetDB has three main groups of settings:
 
@@ -397,7 +397,7 @@ Then specify `puppetdb_migrator` as the
 [migrator-username](#migrator-username) and set the
 [migrator-password](#migrator-password) as described below.
 
-See the [migration coordination documentation](migration_coordination)
+See the [migration coordination documentation][migration_coordination]
 for a more detailed explanation of the process.
 
 ### `gc-interval`

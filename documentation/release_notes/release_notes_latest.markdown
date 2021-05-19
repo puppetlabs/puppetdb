@@ -1,24 +1,24 @@
 ---
 title: "PuppetDB: Release notes"
 layout: default
-canonical: "/puppetdb/latest/release_notes.html"
+canonical: "/puppetdb/latest/release_notes.markdown"
 ---
 # Release notes
 
-[configure_postgres]: ./configure.html#using-postgresql
+[configure_postgres]: configure.markdown#using-postgresql
 [kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
+[upgrading]: api/query/v4/upgrading-from-v3.markdown
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
+[upgrades]: upgrade.markdown
+[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
+[pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
-[upgrade_policy]: ./versioning_policy.html#upgrades
-[facts]: ./api/query/v4/facts.html
-[puppet_apply]: ./connect_puppet_apply.html
+[queue_support_guide]: pdb_support_guide.markdown#message-queue
+[upgrade_policy]: versioning_policy.markdown#upgrades
+[facts]: api/query/v4/facts.markdown
+[puppet_apply]: ./connect_puppet_apply.markdown
 
 ---
 
@@ -348,7 +348,7 @@ Austin Blatt, Claire Cadman, and Morgan Rhodes
 - **File indexing on `catalog_resources`.** After you configure the PostgreSQL `pg_trgm` extension, PuppetDB adds an index to the file column on the `catalog_resources` table. [PDB-4640](https://tickets.puppetlabs.com/browse/PDB-4640)
   > **Note:** As of this release, running PostgreSQL without the `pg_trgm` extension is deprecated. 
 
-- **Improved queries.** PuppetDB now has an [experimental query optimizer](./api/query/v4/query#experimental_query_optimization) that may be able to substantially decrease the cost and response time of some queries. [PDB-4512](https://tickets.puppetlabs.com/browse/PDB-4512)
+- **Improved queries.** PuppetDB now has an [experimental query optimizer](./api/query/v4/query.markdown#experimental_query_optimization) that may be able to substantially decrease the cost and response time of some queries. [PDB-4512](https://tickets.puppetlabs.com/browse/PDB-4512)
 
 ### Bug fixes
 
@@ -379,12 +379,13 @@ Austin Blatt, Heston Hoffman, Reinhard Vicinus, Robert Roland, and Zak Kent
   `resource-events-ttl` configuration parameter to automatically delete report events older
   than the specified time. The parameter rounds up to the nearest day.
   For example, `14h` rounds up to `1d`. For more information, see [Configuring
-  PuppetDB](./configure.html#resource-events-ttl).
+  PuppetDB](configure.markdown#resource-events-ttl).
   [PDB-2487](https://tickets.puppetlabs.com/browse/PDB-2487)
 
 - **New `delete` command.** Use the `delete` command to immediately delete the
-  data associated with a certname. For more information, see [Commands
-  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+  data associated with a certname. For more information, see
+  [Commands endpoint](api/admin/v1/cmd.markdown#delete-version-1).
+  [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
 
 ### Bug fixes
 
@@ -456,8 +457,8 @@ Waggett, Robert Roland, Scot Kreienkamp, Vadym Chepkov, and Zak Kent
   entire JSON file [PDB-2634](https://tickets.puppetlabs.com/browse/PDB-2634). 
   
   For examples of using dot notation in PQL and AST, see the following: 
-  - [Puppet Query Language (PQL) examples](./api/query/examples-pql.markdown) 
-  - [AST query language (AST)](./api/query/v4/ast.markdown)
+  - [Puppet Query Language (PQL) examples](api/query/examples-pql.markdown) 
+  - [AST query language (AST)](api/query/v4/ast.markdown)
 
 ### Bug fixes
 
@@ -490,7 +491,7 @@ Rob Browning, Robert Roland, and Zak Kent
 - **New experimental `catalog-input-contents` endpoint.** Use the [`catalog-input-contents`](./api/query/v4/catalog_input_contents.markdown) endpoint to query for the most recent
 catalog inputs that PuppetDB has received for any nodes. ([PDB-4371](https://tickets.puppetlabs.com/browse/PDB-4371)
 
-- **Submit `inputs` to a catalog.** PuppetDB can now optionally store "inputs", such as Hiera keys, during catalog compilation. See the [command's wire format](puppet.com/docs/puppetdb/latest/api/wire_format/catalog_inputs_format_v1.md) for more information on how to submit them. [PDB-4372](https://tickets.puppetlabs.com/browse/PDB-4372)
+- **Submit `inputs` to a catalog.** PuppetDB can now optionally store "inputs", such as Hiera keys, during catalog compilation. See the [command's wire format](api/wire_format/catalog_inputs_format_v1.markdown) for more information on how to submit them. [PDB-4372](https://tickets.puppetlabs.com/browse/PDB-4372)
 
 ### Bug fixes
 

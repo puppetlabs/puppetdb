@@ -6,17 +6,17 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 
 # Factsets endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[facts]: ./facts.html
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
-[environments]: ./environments.html
-[producers]: ./producers.html
-[nodes]: ./nodes.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[facts]: ./facts.markdown
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[facts]: ./facts.markdown
+[fact-contents]: ./fact-contents.markdown
+[environments]: ./environments.markdown
+[producers]: ./producers.markdown
+[nodes]: ./nodes.markdown
 
 You can query factsets by making an HTTP request to the `/factsets` endpoint.
 

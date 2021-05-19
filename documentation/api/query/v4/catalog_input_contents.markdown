@@ -6,12 +6,12 @@ canonical: "/puppetdb/latest/api/query/v4/catalog_input_contents.html"
 
 # Catalog input contents endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[nodes]: ./nodes.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[nodes]: ./nodes.markdown
 
 > **Experimental Endpoint**: This endpoint is designated as
 > experimental. It may be altered or removed in a future release.

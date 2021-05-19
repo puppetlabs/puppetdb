@@ -11,7 +11,7 @@ This interface is mostly of use to developers who know Clojure and are familiar 
 
 ## Enabling the REPL
 
-To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the listening IP address, and choose a port](./configure.html#nrepl-settings):
+To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the listening IP address, and choose a port](./configure.markdown#nrepl-settings):
 
     # /etc/puppetdb/conf.d/repl.ini
     [nrepl]
@@ -72,4 +72,4 @@ You can also manipulate the running PuppetDB instance by redefining functions on
 
 Now any time that function is called, you'll see a message logged.
 
-Note that any changes you make to the running system are transient; they don't persist between restarts of the service. If you wish to make longer-lived changes to the code, consider [running PuppetDB directly from source](./install_from_source.html).
+Note that any changes you make to the running system are transient; they don't persist between restarts of the service. If you wish to make longer-lived changes to the code, consider [running PuppetDB directly from source](./install_from_source.markdown).

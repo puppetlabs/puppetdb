@@ -5,10 +5,10 @@ layout: default
 
 # High Availability (HA)
 
-[configure]: ./configure.html
-[pe-configure]: ./pe-configure.html
-[logging]: ./logging.html
-[metrics]: ./api/metrics/v1/index.html
+[configure]: ./configure.markdown
+[pe-configure]: https://puppet.com/docs/pe/latest/config_puppetdb.html
+[logging]: ./logging.markdown
+[metrics]: ./api/metrics/v1/mbeans.markdown
 
 ## Configuring PuppetDB for High Availability
 
@@ -91,10 +91,9 @@ Deployment tips
   exact value will depend on your infrastructure, but 10 seconds is a good place
   to start. A catalog compilation can require as many as 4 timeouts, so be sure
   that you choose a value that is less that 25% of the timeout configured on any
-  upstream load balancers. See
-  the
-  [Puppet Server configuration documentation]({{puppetserver}}/config_file_puppetserver.html) for
-  details.
+  upstream load balancers. See the
+  [Puppet Server configuration documentation](https://puppet.com/docs/puppet/latest/server/config_file_puppetserver.html)
+  for details.
 
 ## FAQ
 

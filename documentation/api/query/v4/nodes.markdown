@@ -6,24 +6,24 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 
 # Nodes endpoint
 
-[resource]: ./resources.html
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[resource]: ./resources.markdown
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
 [statuses]: https://puppet.com/docs/puppet/latest/format_report.html#puppettransactionreport
-[paging]: ./paging.html
-[query]: ./query.html
+[paging]: ./paging.markdown
+[query]: query.markdown
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
-[subqueries]: ./ast.html#subquery-operators
-[ast]: ./ast.html
-[factsets]: ./factsets.html
-[reports]: ./reports.html
-[catalogs]: ./catalogs.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
-[events]: ./events.html
-[edges]: ./edges.html
-[resources]: ./resources.html
-[inventory]: ./inventory.html
-[expirev1]: ../../wire_format/configure_expiration_format_v1.html
+[subqueries]: ./ast.markdown#subquery-operators
+[ast]: ./ast.markdown
+[factsets]: ./factsets.markdown
+[reports]: ./reports.markdown
+[catalogs]: ./catalogs.markdown
+[facts]: ./facts.markdown
+[fact-contents]: ./fact-contents.markdown
+[events]: ./events.markdown
+[edges]: ./edges.markdown
+[resources]: ./resources.markdown
+[inventory]: inventory.markdown
+[expirev1]: ../../wire_format/configure_expiration_format_v1.markdown
 
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
@@ -200,7 +200,7 @@ If a node of that certname doesn't exist, the response will instead be a hash of
 
 ## `/pdb/query/v4/nodes/<NODE>/facts`
 
-[facts]: ./facts.html
+[facts]: ./facts.markdown
 
 This will return the facts for the given node. Facts from deactivated and
 expired nodes aren't included in the response.

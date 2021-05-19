@@ -5,20 +5,20 @@ canonical: "/puppetdb/latest/api/query/v4/inventory.html"
 ---
 # Inventory endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[subqueries]: ./ast.html#subquery-operators
-[dotted]: ./ast.html#dot-notation
-[environments]: ./environments.html
-[factsets]: ./factsets.html
-[catalogs]: ./catalogs.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
-[events]: ./events.html
-[edges]: ./edges.html
-[resources]: ./resources.html
-[nodes]: ./nodes.html
-[query]: ./query.html
-[ast]: ./ast.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[subqueries]: ./ast.markdown#subquery-operators
+[dotted]: ./ast.markdown#dot-notation
+[environments]: ./environments.markdown
+[factsets]: ./factsets.markdown
+[catalogs]: ./catalogs.markdown
+[facts]: ./facts.markdown
+[fact-contents]: ./fact-contents.markdown
+[events]: ./events.markdown
+[edges]: ./edges.markdown
+[resources]: ./resources.markdown
+[nodes]: ./nodes.markdown
+[query]: query.markdown
+[ast]: ./ast.markdown
 
 The `/inventory` endpoint enables an alternative query syntax for digging into
 structured facts, and can be used instead of the `facts`, `fact-contents`, and

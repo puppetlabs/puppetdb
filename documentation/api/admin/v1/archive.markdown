@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/admin/v1/archive.html"
 ---
 # Archive endpoint
 
-[curl]: ../../query/curl.html#using-curl-from-localhost-non-sslhttp
+[curl]: ../../query/curl.markdown#using-curl-from-localhost-non-sslhttp
 
 The `/archive` endpoint can be used for importing and exporting PuppetDB
 archives.

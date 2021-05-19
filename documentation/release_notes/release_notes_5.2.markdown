@@ -4,17 +4,17 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
-[configure_postgres]: ./configure.html#using-postgresql
+[configure_postgres]: configure.markdown#using-postgresql
 [kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
+[upgrading]: api/query/v4/upgrading-from-v3.markdown
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
+[upgrades]: upgrade.markdown
+[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
+[pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
+[queue_support_guide]: pdb_support_guide.markdown#message-queue
 
 ---
 
@@ -107,8 +107,9 @@ Austin Blatt, Claire Cadman, and Zak Kent
 ### New features and improvements
 
 - **New `delete` command.** Use the `delete` command to immediately delete the
-  data associated with a certname. For more information, see [Commands
-  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+  data associated with a certname. For more information, see
+  [Commands endpoint](api/admin/v1/cmd.markdown#delete-version-1).
+  [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
 
 ### Bug fixes
 
@@ -449,7 +450,8 @@ PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
 ### Contributors
 Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zak Kent
 
-## 5.1.3
+5.1.3
+-----
 
 PuppetDB 5.1.3 includes bugfixes and performance improvements.
 
@@ -466,7 +468,8 @@ PuppetDB 5.1.3 includes bugfixes and performance improvements.
 ### Contributors
 Morgan Rhodes, Rob Browning, Russell Mull, and Zak Kent
 
-## 5.1.1
+5.1.1
+-----
 PuppetDB 5.1.1 is a bugfix release.
 
 ### Bug Fixes
@@ -477,7 +480,8 @@ PuppetDB 5.1.1 is a bugfix release.
 ### Contributors
 Morgan Rhodes, Rob Browning, Russell Mull, and Zak Kent
 
-## 5.1.0
+5.1.0
+-----
 
 PuppetDB 5.1.0 is a bugfix and performance release. It contains significant
 schema migrations, most notably for fact storage. It also improves handling of
@@ -534,7 +538,8 @@ Britt Gresham, Dan Lidral-PorterJoe Pinsonault, Jorie Tappa, Josh Cooper,
 Melissa Stone, Mike Eller, Rob Browning, Romain Tartière, Russell Mull,
 Scott Walker, and Wyatt Alt
 
-## 5.0.1
+5.0.1
+-----
 
 PuppetDB 5.0.1 is a major release with new features, improved
 performance, and some backward incompatibilities.  Notable
@@ -678,6 +683,7 @@ Nick Walker, Rob Browning, Russell Mull, Ruth Linehan, Ryan Senior,
 Spencer McElmurry, Thomas Hallgren, Wayne Warren, Wyatt Alt, and Zak
 Kent
 
-## 5.0.0
+5.0.0
+-----
 
 PuppetDB 5.0.0 was not released due to a packaging error.

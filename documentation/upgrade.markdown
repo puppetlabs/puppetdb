@@ -5,15 +5,15 @@ layout: default
 
 # Upgrading PuppetDB
 
-[dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
-[connect_server]: ./connect_puppet_server.html
-[connect_apply]: ./connect_puppet_apply.html
+[dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
+[connect_server]: ./connect_puppet_server.markdown
+[connect_apply]: ./connect_puppet_apply.markdown
 [tracker]: https://tickets.puppetlabs.com/browse/PDB
-[start_source]: ./install_from_source.html#step-4-start-the-puppetdb-service
-[plugin_source]: ./connect_puppet_server.html#on-platforms-without-packages
-[module]: ./install_via_module.html
+[start_source]: ./install_from_source.markdown#step-4-start-the-puppetdb-service
+[plugin_source]: ./connect_puppet_server.markdown#on-platforms-without-packages
+[module]: ./install_via_module.markdown
 [puppetdb3]: /puppetdb/3.2/migrate.html
-[versioning]: ./versioning_policy.html#upgrades
+[versioning]: ./versioning_policy.markdown#upgrades
 
 ## Checking for updates
 

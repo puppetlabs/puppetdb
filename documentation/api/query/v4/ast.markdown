@@ -6,21 +6,21 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 
 # AST query language
 
-[root]: ./index.html
-[catalogs]: ./catalogs.html
-[edges]: ./edges.html
-[environments]: ./environments.html
-[events]: ./events.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
-[fact-paths]: ./fact-paths.html
-[nodes]: ./nodes.html
-[producers]: ./producers.html
-[query]: ./query.html
-[reports]: ./reports.html
-[resources]: ./resources.html
-[entities]: ./entities.html
-[pql]: ./pql.html
+[root]: ./index.markdown
+[catalogs]: ./catalogs.markdown
+[edges]: ./edges.markdown
+[environments]: ./environments.markdown
+[events]: ./events.markdown
+[facts]: ./facts.markdown
+[fact-contents]: ./fact-contents.markdown
+[fact-paths]: ./fact-paths.markdown
+[nodes]: ./nodes.markdown
+[producers]: ./producers.markdown
+[query]: query.markdown
+[reports]: ./reports.markdown
+[resources]: ./resources.markdown
+[entities]: ./entities.markdown
+[pql]: ./pql.markdown
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
 [to-char]: http://www.postgresql.org/docs/9.6/static/functions-formatting.html
 [prefix]: 

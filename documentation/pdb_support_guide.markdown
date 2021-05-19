@@ -5,12 +5,12 @@ layout: default
 
 # Troubleshooting and support
 
-[commands]: ./api/command/v1/commands.html#list-of-commands
-[threads]: ./configure.html#threads
+[commands]: ./api/command/v1/commands.markdown#list-of-commands
+[threads]: ./configure.markdown#threads
 [pgstattuple]: http://www.postgresql.org/docs/9.6/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
-[fact-precedence]: {{facter}}/custom_facts.html#fact-precedence
+[fact-precedence]: https://puppet.com/docs/puppet/latest/custom_facts.html#fact-precedence
 [dbvis]: https://www.dbvis.com/
 [stockpile]: https://github.com/puppetlabs/stockpile
 

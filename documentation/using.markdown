@@ -15,7 +15,7 @@ If you wish to build applications on PuppetDB, see the navigation sidebar for li
 
 ## Checking node status
 
-The PuppetDB plugins [installed on your Puppet Server(s)](./connect_puppet_server.html) include a `status` action for the `node` face. On your Puppet Server, run:
+The PuppetDB plugins [installed on your Puppet Server(s)](./connect_puppet_server.markdown) include a `status` action for the `node` face. On your Puppet Server, run:
 
     $ sudo puppet node status <NODE>
 

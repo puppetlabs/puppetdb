@@ -20,7 +20,8 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v7.html"
 [type]: https://puppet.com/docs/puppet/latest/lang_resources.html#type
 [attributes]: https://puppet.com/docs/puppet/latest/lang_resources.html#attributes
 
-PuppetDB receives catalogs from Puppet Servers in the following wire format. This format is subtly different from the internal format used by Puppet, so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_server.html) before they are sent.
+PuppetDB receives catalogs from Puppet Servers in the following wire format. This format is subtly different from the internal format used by Puppet, so catalogs are converted by the
+[PuppetDB catalog terminus](../../connect_puppet_server.markdown) before they are sent.
 
 ## Catalog interchange format
 

@@ -5,8 +5,8 @@ layout: default
 
 # Examples
 
-[tutorial]: ./tutorial-pql.html
-[reference]: ./v4/pql.html
+[tutorial]: ./tutorial-pql.markdown
+[reference]: ./v4/pql.markdown
 
 ## Example Queries
 

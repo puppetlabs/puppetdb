@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 **None of the following projects are published by or endorsed by Puppet.** They are linked to here for informational purposes only.
 
 [nagios]: https://github.com/jasonhancock/nagios-puppetdb
-[dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
+[dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
 [query]: https://github.com/dalen/puppet-puppetdbquery
 [exports]: http://forge.puppetlabs.com/zack/exports
 [exported]: https://puppet.com/docs/puppet/latest/lang_exported.html
@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 
 ## [Jason Hancock --- nagios-puppetdb][nagios]
 
-[A collection of Nagios scripts/plugins for monitoring PuppetDB.][nagios] These plugins get data using [PuppetDB's metrics APIs](./api/metrics/v1/mbeans.html). Pulling this data into Nagios lets you monitor key metrics over time and receive alerts when they cross certain thresholds. This can partially or completely replace the [built-in performance dashboard][dashboard]. Especially useful for knowing when the heap size or thread count needs tuning.
+[A collection of Nagios scripts/plugins for monitoring PuppetDB.][nagios] These plugins get data using [PuppetDB's metrics APIs](./api/metrics/v1/mbeans.markdown). Pulling this data into Nagios lets you monitor key metrics over time and receive alerts when they cross certain thresholds. This can partially or completely replace the [built-in performance dashboard][dashboard]. Especially useful for knowing when the heap size or thread count needs tuning.
 
 ## [Erik Dalén --- PuppetDB query functions for Puppet][query]
 

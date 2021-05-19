@@ -5,18 +5,18 @@ layout: default
 
 # Tutorial
 
-[lists]: ./v4/pql.html#lists
-[curl]: ./curl.html
-[config_jetty]: ../../configure.html#jetty-http-settings
-[resources]: ./v4/resources.html
-[entities]: ./v4/entities.html
-[pql]: ./v4/pql.html
-[projection]: ./v4/pql.html#projection
-[regexp]: ./v4/pql.html#regexp-
-[in]: ./v4/pql.html#array-match-in
-[implicit]: ./v4/pql.html#implicit-subqueries
-[cli_install]: ../../pdb_client_tools.html
-[examples]: ./examples-pql.html
+[lists]: ./v4/pql.markdown#lists
+[curl]: ./curl.markdown
+[config_jetty]: ../../configure.markdown#jetty-http-settings
+[resources]: ./v4/resources.markdown
+[entities]: ./v4/entities.markdown
+[pql]: ./v4/pql.markdown
+[projection]: ./v4/pql.markdown#projection
+[regexp]: ./v4/pql.markdown#regexp-
+[in]: ./v4/pql.markdown#array-match-in
+[implicit]: ./v4/pql.markdown#implicit-subqueries
+[cli_install]: ../../pdb_client_tools.markdown
+[examples]: ./examples-pql.markdown
 
 This page walks through the construction of several types of Puppet
 Query Language (PQL) queries. We use the **version 4 API** in all examples.

@@ -6,18 +6,18 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 
 # Environments endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[subqueries]: ./ast.html#subquery-operators
-[factsets]: ./factsets.html
-[reports]: ./reports.html
-[catalogs]: ./catalogs.html
-[facts]: ./facts.html
-[fact-contents]: ./fact-contents.html
-[events]: ./events.html
-[resources]: ./resources.html
-[inventory]: ./inventory.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[subqueries]: ./ast.markdown#subquery-operators
+[factsets]: ./factsets.markdown
+[reports]: ./reports.markdown
+[catalogs]: ./catalogs.markdown
+[facts]: ./facts.markdown
+[fact-contents]: ./fact-contents.markdown
+[events]: ./events.markdown
+[resources]: ./resources.markdown
+[inventory]: inventory.markdown
 
 Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the Puppet Server's external node classifier.
 
@@ -36,7 +36,7 @@ This will return all environments known to PuppetDB.
 
 ### Query operators
 
-See [the AST query language page](./ast.html)
+See [the AST query language page](./ast.markdown)
 
 ### Query fields
 

@@ -6,19 +6,19 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 
 # Commands endpoint
 
-[factsv4]: ../../wire_format/facts_format_v4.html
-[factsv5]: ../../wire_format/facts_format_v5.html
-[catalogv6]: ../../wire_format/catalog_format_v6.html
-[catalogv7]: ../../wire_format/catalog_format_v7.html
-[catalogv8]: ../../wire_format/catalog_format_v8.html
-[catalogv9]: ../../wire_format/catalog_format_v9.html
-[reportv5]: ../../wire_format/report_format_v5.html
-[reportv6]: ../../wire_format/report_format_v6.html
-[reportv7]: ../../wire_format/report_format_v7.html
-[reportv8]: ../../wire_format/report_format_v8.html
-[deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
-[expirev1]: ../../wire_format/configure_expiration_format_v1.html
-[inputsv1]: ../../wire_format/catalog_inputs_format_v1.html
+[factsv4]: ../../wire_format/facts_format_v4.markdown
+[factsv5]: ../../wire_format/facts_format_v5.markdown
+[catalogv6]: ../../wire_format/catalog_format_v6.markdown
+[catalogv7]: ../../wire_format/catalog_format_v7.markdown
+[catalogv8]: ../../wire_format/catalog_format_v8.markdown
+[catalogv9]: ../../wire_format/catalog_format_v9.markdown
+[reportv5]: ../../wire_format/report_format_v5.markdown
+[reportv6]: ../../wire_format/report_format_v6.markdown
+[reportv7]: ../../wire_format/report_format_v7.markdown
+[reportv8]: ../../wire_format/report_format_v8.markdown
+[deactivatev3]: ../../wire_format/deactivate_node_format_v3.markdown
+[expirev1]: ../../wire_format/configure_expiration_format_v1.markdown
+[inputsv1]: ../../wire_format/catalog_inputs_format_v1.markdown
 
 Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:

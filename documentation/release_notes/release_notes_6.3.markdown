@@ -4,19 +4,19 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
-[configure_postgres]: ./configure.html#using-postgresql
+[configure_postgres]: configure.markdown#using-postgresql
 [kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
+[upgrading]: api/query/v4/upgrading-from-v3.markdown
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
+[upgrades]: upgrade.markdown
+[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
+[pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
-[upgrade_policy]: ./versioning_policy.html#upgrades
-[facts]: ./api/query/v4/facts.html
+[queue_support_guide]: pdb_support_guide.markdown#message-queue
+[upgrade_policy]: versioning_policy.markdown#upgrades
+[facts]: api/query/v4/facts.markdown
 
 ---
 
@@ -25,8 +25,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 ### New features and improvements
 
 - **New `delete` command.** Use the `delete` command to immediately delete the
-  data associated with a certname. For more information, see [Commands
-  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+  data associated with a certname. For more information, see
+  [Commands endpoint](api/admin/v1/cmd.markdown#delete-version-1).
+  [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
 
 ### Bug fixes
 

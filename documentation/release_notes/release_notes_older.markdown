@@ -1,20 +1,20 @@
 ---
 title: "PuppetDB release notes"
 layout: default
-canonical: "/puppetdb/latest/release_notes.html"
+canonical: "/puppetdb/latest/release_notes.markdown"
 ---
 
-[configure_postgres]: ./configure.html#using-postgresql
+[configure_postgres]: configure.markdown#using-postgresql
 [kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
+[upgrading]: api/query/v4/upgrading-from-v3.markdown
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
+[upgrades]: upgrade.markdown
+[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
+[pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
+[queue_support_guide]: pdb_support_guide.markdown#message-queue
 
 ---
 
@@ -256,7 +256,7 @@ retries for common error scenarios.
   represented as a map. Trusted facts are also returned as a map in a
   separate keypair. This new data can be queried via our "dotted
   syntax" in both AST and PQL query languages. More information is
-  available via the [API docs](./api/query/v4/inventory.html).
+  available via the [API docs](api/query/v4/inventory.markdown).
   ([PDB-2632](https://tickets.puppetlabs.com/browse/PDB-2632))
 
 * Added support for "dotted query" syntax to resource
@@ -266,7 +266,7 @@ retries for common error scenarios.
 * Added a new `ast_only` parameter to the root query endpoint
   that translates a PQL query to an equivalent AST query. More
   information is available in the [root
-  endpoint](./api/query/v4/index.html#url-parameters) docs.
+  endpoint](api/query/v4/index.markdown#url-parameters) docs.
   ([PDB-2528](https://tickets.puppetlabs.com/browse/PDB-2528))
 
 * Added "quick retries" on command failures. This will retry commands
@@ -281,7 +281,7 @@ retries for common error scenarios.
   (like purging old reports or deactivated nodes).  With that, you can
   disable the automatic scheduling of those processes, and run them
   selectively, perhaps via cron, to avoid increasing the load during
-  peak usage times.  See the [admin command](./api/admin/v1/cmd.html)
+  peak usage times.  See the [admin command](api/admin/v1/cmd.markdown)
   endpoint documentation for more information.
   ([PDB-2478](https://tickets.puppetlabs.com/browse/PDB-2478))
 
@@ -386,7 +386,7 @@ handling, and improves the speed of removing old reports and node expiration and
 
 * Allow configuration of AciveMQ Broker's memoryLimit. For PuppetDB instances
   with larger amount of memory and heavy load, this can improve performance.
-  More information in the [config docs](./configure.html#memory-usage)
+  More information in the [config docs](configure.markdown#memory-usage)
   ([PDB-2726](https://tickets.puppetlabs.com/browse/PDB-2726)).
 
 * Preliminary support for HUP signal handling. Note that due to
@@ -977,7 +977,7 @@ performing subqueries, and many more enhancements and bug fixes.
   field in preparation for new filesync service.
   ([PDB-1810](https://tickets.puppetlabs.com/browse/PDB-1810))
 
-* Introduction of [`latest_report_status` and `latest_report_hash`](http://docs.puppetlabs.com/puppetdb/3.2/api/query/v4/nodes.html#query-fields)
+* Introduction of [`latest_report_status` and `latest_report_hash`](http://docs.puppetlabs.com/puppetdb/3.2/api/query/v4/nodes.markdown#query-fields)
   to the `nodes` entity, as projected from the a nodes latest report.
   ([PDB-1820](https://tickets.puppetlabs.com/browse/PDB-1820))
 
@@ -1454,7 +1454,7 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
   latest puppet run for each node.
   ([PDB-1244](https://tickets.puppetlabs.com/browse/PDB-1244))
 
-* Support for querying [edges](./api/query/v4/edges.html) directly. Previously edges were only returned as part of a catalog. You can also query edges specific to a particular catalog using the new `edges` suffix on the [catalogs](./api/query/v4/catalogs.html) endpoint. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-1228)).
+* Support for querying [edges](api/query/v4/edges.markdown) directly. Previously edges were only returned as part of a catalog. You can also query edges specific to a particular catalog using the new `edges` suffix on the [catalogs](api/query/v4/catalogs.markdown) endpoint. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-1228)).
 
 * Support for passing in an export archive to the load testing tool. ([PDB-1249](https://tickets.puppetlabs.com/browse/PDB-1249))
 
@@ -1469,7 +1469,7 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
 
 * Support for disabling update checking via the `[puppetdb] disable-update-checking` configuration key. ([PDB-158](https://tickets.puppetlabs.com/browse/PDB-158))
 
-    The value defaults to false; see the [configuration](./configure.html) documentation for more details.
+    The value defaults to false; see the [configuration](configure.markdown) documentation for more details.
 
 #### API changes
 
@@ -2088,7 +2088,7 @@ Ryan Senior, and Wyatt Alt
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_server.html) and [commands](./api/command/v1/commands.html)
+  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_server.html) and [commands](api/command/v1/commands.markdown)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
@@ -2098,7 +2098,7 @@ Ryan Senior, and Wyatt Alt
   [configuration](http://docs.puppetlabs.com/puppetdb/2.3/configure.html) documentation.
 
 * The relationship between "MQ depth" and "Command Queue depth" has
-  been clarified in the [tuning and maintenance](http://docs.puppetlabs.com/puppetdb/2.3/maintain_and_tune.html)
+  been clarified in the [tuning and maintenance](http://docs.puppetlabs.com/puppetdb/2.3/maintain_and_tune.markdown)
   documentation.
 
 * An example that uses curl with SSL to communicate with Puppet
@@ -2566,7 +2566,7 @@ All these tools have been modified to support structured facts. `export` specifi
     Upgrading PuppetDB using the module is pretty easy, but we should point
     out that the module should be updated *first*.
 
-* [PDB-550](https://tickets.puppetlabs.com/browse/PDB-550) Update PuppetDB docs to include info on [LibPQFactory](./postgres_ssl.html)
+* [PDB-550](https://tickets.puppetlabs.com/browse/PDB-550) Update PuppetDB docs to include info on [LibPQFactory](postgres_ssl.markdown)
 
     We have now updated our PostgreSQL SSL connectivity to documentation to include
     details on how to use the LibPQFactory methodology. This hopefully will alleviate
