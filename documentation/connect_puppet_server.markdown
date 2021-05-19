@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/connect_puppet_server.html"
 ---
 
+# Connecting Puppet Servers to PuppetDB
+
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
 [puppetdb_conf]: ./puppetdb_connection.html
 [routes_yaml]: {{puppet}}/config_file_routes.html

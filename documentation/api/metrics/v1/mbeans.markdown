@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 ---
 
+# Metrics endpoint
+
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [CVE-2020-7943]: https://puppet.com/security/cve/CVE-2020-7943/
 

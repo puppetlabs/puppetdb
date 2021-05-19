@@ -3,6 +3,7 @@ title: "Scaling recommendations"
 layout: default
 canonical: "/puppetdb/latest/scaling_recommendations.html"
 ---
+# Scaling recommendations
 
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
@@ -19,8 +20,7 @@ PuppetDB will be a critical component of your Puppet deployment, as agent nodes 
 When scaling any service, there are several possible performance and reliability bottlenecks. These can be dealt with in turn as they become problems.
 
 
-Bottleneck: Database performance
------
+## Bottleneck: Database performance
 
 ### PostgreSQL speed and availability
 
@@ -41,8 +41,7 @@ following links may be helpful:
 * ["High availability, load balancing, and replication"][pg_ha], from the PostgreSQL manual
 * ["Replication, clustering, and connection pooling"][pg_replication], from the PostgreSQL wiki
 
-Bottleneck: Java heap size
------
+## Bottleneck: Java heap size
 
 PuppetDB is limited by the amount of memory available to it, which is [set in the init script's config file][configure_heap]. If PuppetDB runs out of memory, it will start logging `OutOfMemoryError` exceptions and delaying command processing. Unlike many of the bottlenecks listed here, this one is fairly binary: PuppetDB either has enough memory to function under its load, or it doesn't. The exact amount needed will depend on the number of nodes, the similarity of the nodes, the complexity of each node's catalog, and how often the nodes check in.
 
@@ -53,8 +52,7 @@ Use one of the following rules of thumb to choose an initial heap size; afterwar
 * If you are using PostgreSQL, allocate 128 MB of memory as a base, plus 1 MB for each Puppet node in your infrastructure.
 * If you are using the embedded database, allocate at least 1 GB of heap.
 
-Bottleneck: Node check-in interval
------
+## Bottleneck: Node check-in interval
 
 The more frequently your Puppet nodes check in, the heavier the load on your PuppetDB server.
 
@@ -62,8 +60,7 @@ You can reduce the need for higher performance by changing the [`runinterval`][r
 
 The frequency with which nodes should check in will depend on your site's policies and expectations --- this is as much a cultural decision as it is a technical one. A possible compromise is to use a wider default check-in interval, but implement MCollective's `puppetd` plugin to trigger immediate runs when needed.
 
-Bottleneck: CPU cores and number of worker threads
------
+## Bottleneck: CPU cores and number of worker threads
 
 PuppetDB can take advantage of multiple CPU cores to handle the commands in its queue. Each core can run a worker thread. By default, PuppetDB will use half of the cores in its machine.
 
@@ -72,8 +69,7 @@ You can increase performance by running PuppetDB on a machine with many CPU core
 * More threads will allow PuppetDB to keep up with more incoming commands per minute. Watch the queue depth in the performance dashboard to see whether you need more threads.
 * Too many worker threads can potentially starve the message queue and web server of resources, which will prevent incoming commands from entering the queue in a timely fashion. Watch your server's CPU usage to see whether the cores are saturated.
 
-Bottleneck: Single point of failure
------
+## Bottleneck: Single point of failure
 
 Although a single PuppetDB and PostgreSQL server probably _can_ handle all of the load at the site, you may want to run multiple servers for the sake of resilience and redundancy. To configure high-availability PuppetDB, you should:
 
@@ -82,8 +78,7 @@ Although a single PuppetDB and PostgreSQL server probably _can_ handle all of th
 * Configure every PuppetDB instance to use the same PostgreSQL database. (In the case of clustered PostgreSQL servers, they may be speaking to different machines, but conceptually they should all be writing to one database.)
 
 
-Bottleneck: SSL performance
------
+## Bottleneck: SSL performance
 
 PuppetDB uses its own embedded SSL processing, which is usually not a performance problem. However, truly large deployments will be able to squeeze out more performance by terminating SSL with Apache or NGINX instead. If you are using multiple PuppetDB servers behind a reverse proxy, we recommend terminating SSL at the proxy server.
 

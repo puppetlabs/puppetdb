@@ -3,6 +3,7 @@ title: "Coordinating database migrations"
 layout: default
 canonical: "/puppetdb/latest/migration_coordination.html"
 ---
+# Coordinating database migrations
 
 [config]: ./configure.html
 

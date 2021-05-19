@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/puppetdb_connection.html"
 ---
 
+# Configuring a Puppet/PuppetDB connection
+
 [puppetdb_root]: ./index.html
 [connect_to_puppetdb]: ./connect_puppet_server.html
 [confdir]: {{puppet}}/dirs_confdir.html
@@ -28,8 +30,7 @@ The location of the `confdir` varies, depending on the OS, Puppet distribution, 
 
 The `puppetdb.conf` file uses the same INI-like format as `puppet.conf`, but only uses a `[main]` section.
 
-`[main]` Settings
------
+## `[main]` Settings
 
 The `[main]` section defines all of the PuppetDB terminus settings.
 

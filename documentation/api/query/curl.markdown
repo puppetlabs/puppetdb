@@ -4,6 +4,8 @@ title: "API curl tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
+# API curl tips
+
 [curl]: http://curl.haxx.se/docs/manpage.html
 [dashboard]: ../../maintain_and_tune.html#monitor-the-performance-dashboard
 [whitelist]: ../../configure.html#certificate-whitelist

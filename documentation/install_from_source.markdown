@@ -2,6 +2,7 @@
 title: "Installing from source"
 layout: default
 ---
+# Installing from source
 
 [leiningen]: https://github.com/technomancy/leiningen#installation
 [configure_postgres]: ./configure.html#using-postgresql
@@ -22,8 +23,7 @@ either approach will be easier than installing from source. However, if you are
 testing a new version, developing PuppetDB, or installing it on a system not
 supported with official packages, you will need to install PuppetDB from source.
 
-Step 1: Installation prerequisites
------
+## Step 1: Installation prerequisites
 
 Use your system's package tools to ensure that the following prerequisites are installed:
 
@@ -35,8 +35,7 @@ Use your system's package tools to ensure that the following prerequisites are i
 * Git (for checking out the source code)
 * Rake (version 0.9.6 or newer)
 
-Step 2, option A: Install from source
------
+## Step 2, option A: Install from source
 
 Install Leiningen:
 
@@ -79,8 +78,7 @@ Or for terminus code only:
 
     $ sudo bash install.sh termini
 
-Step 2, option B: Run directly from source
------
+## Step 2, option B: Run directly from source
 
 While installing from source is useful for simply running a development version
 for testing, for development it's better to be able to run **directly** from
@@ -108,8 +106,7 @@ flat config file.
 
 Next, you will need to [setup some test users][running_tests] to run the tests locally
 
-Step 3: Configure a database
------
+## Step 3: Configure a database
 
 In most cases you should
 [set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres].
@@ -119,8 +116,7 @@ You can change PuppetDB's database at any time while the service is shut down,
 but note that changing the database does not migrate PuppetDB's data, so the new
 database will be empty.
 
-Step 4: Start the PuppetDB service
------
+## Step 4: Start the PuppetDB service
 
 If you _installed_ PuppetDB from source, you can start PuppetDB by running the
 following:
@@ -139,8 +135,7 @@ If you are running PuppetDB from source, you should start it as follows:
 > PuppetDB is now fully functional and ready to receive catalogs and facts from
 > any number of Puppet Servers.
 
-Finish: Connect Puppet to PuppetDB
------
+## Finish: Connect Puppet to PuppetDB
 
 [You should now configure your Puppet Server(s) to connect to PuppetDB](./connect_puppet_server.html).
 

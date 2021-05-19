@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/state-overview.html"
 ---
 
+# State overview endpoint
+
 [event-counts]: ./event-counts.html
 [events]: ./events.html
 [curl]: ../curl.html

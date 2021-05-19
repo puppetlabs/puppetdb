@@ -3,6 +3,8 @@ title: "Installing PuppetDB via Puppet module"
 layout: default
 ---
 
+# Installing PuppetDB via Puppet module
+
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
 [config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
 
@@ -18,8 +20,7 @@ and the PuppetDB-termini for your Puppet Server) using
   follow our guide to
   [installing PuppetDB from packages](./install_from_packages.html).
 
-Step 1: Enable the Puppet Platform package repository
------
+## Step 1: Enable the Puppet Platform package repository
 
 If you haven't done so already, you will need to do **one** of the following:
 
@@ -31,8 +32,7 @@ If you haven't done so already, you will need to do **one** of the following:
   equivalent one that uses your system's package manager, needs to be able to
   succeed.
 
-Step 2: Assign classes to nodes
------
+## Step 2: Assign classes to nodes
 
 Using the normal methods for your site, assign the PuppetDB module's classes to
 your servers. You have three main options for deploying PuppetDB:

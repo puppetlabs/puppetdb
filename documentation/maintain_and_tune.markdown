@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/maintain_and_tune.html"
 ---
 
+# Maintaining and tuning
+
 [configure_jetty]: ./configure.html#jetty-http-settings
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [threads]: ./configure.html#command-processing-settings

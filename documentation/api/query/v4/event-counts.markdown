@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 ---
 
+# Event counts endpoint
+
 [events]: ./events.html
 [paging]: ./paging.html
 [curl]: ../curl.html

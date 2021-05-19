@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/meta/v1/version.html"
 ---
 
+# Version endpoint
+
 [curl]: ../../query/curl.html#using-curl-from-localhost-non-sslhttp
 
 The `/version` endpoint can be used to retrieve version information from the PuppetDB server.

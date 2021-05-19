@@ -3,6 +3,7 @@ title: "Root endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---
+# Root endpoint
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html

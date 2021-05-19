@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/status/v1/status.html"
 ---
 
+# Status endpoint
+
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [status-api]: https://puppet.com/docs/pe/latest/status_api.html
 

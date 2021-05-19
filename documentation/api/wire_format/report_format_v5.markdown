@@ -3,6 +3,7 @@ title: "Report wire format, version 5"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/report_format_v5.html"
 ---
+# Report wire format - v5
 
 [puppetreportformat]: {{puppet}}/format_report.html
 [reportsv4]: ../query/v4/reports.markdown

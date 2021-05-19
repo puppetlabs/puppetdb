@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/events.html"
 ---
 
+# Events endpoint
+
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [report]: ./reports.html
 [ast]: ./ast.html

@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/connect_puppet_apply.html"
 ---
 
+# Connecting standalone Puppet nodes to PuppetDB
+
 [exported]: {{puppet}}/lang_exported.html
 [package]: {{puppet}}/type.html#package
 [file]: {{puppet}}/type.html#file

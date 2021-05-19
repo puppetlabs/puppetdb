@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
+# API query tutorial
+
 [array]: ./v4/ast.html#array
 [curl]: ./curl.html
 [select]: ./v4/ast.html#selectentity-subquery-statements

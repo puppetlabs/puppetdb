@@ -449,8 +449,7 @@ PuppetDB 5.1.4 is a bug-fix release, and adds packages for Debian 9 ("Stretch").
 ### Contributors
 Molly Waggett, Russell Mull, Sara Meisburger, Wyatt Alt, and Zak Kent
 
-5.1.3
------
+## 5.1.3
 
 PuppetDB 5.1.3 includes bugfixes and performance improvements.
 
@@ -467,8 +466,7 @@ PuppetDB 5.1.3 includes bugfixes and performance improvements.
 ### Contributors
 Morgan Rhodes, Rob Browning, Russell Mull, and Zak Kent
 
-5.1.1
------
+## 5.1.1
 PuppetDB 5.1.1 is a bugfix release.
 
 ### Bug Fixes
@@ -479,8 +477,7 @@ PuppetDB 5.1.1 is a bugfix release.
 ### Contributors
 Morgan Rhodes, Rob Browning, Russell Mull, and Zak Kent
 
-5.1.0
------
+## 5.1.0
 
 PuppetDB 5.1.0 is a bugfix and performance release. It contains significant
 schema migrations, most notably for fact storage. It also improves handling of
@@ -537,8 +534,7 @@ Britt Gresham, Dan Lidral-PorterJoe Pinsonault, Jorie Tappa, Josh Cooper,
 Melissa Stone, Mike Eller, Rob Browning, Romain Tartière, Russell Mull,
 Scott Walker, and Wyatt Alt
 
-5.0.1
------
+## 5.0.1
 
 PuppetDB 5.0.1 is a major release with new features, improved
 performance, and some backward incompatibilities.  Notable
@@ -682,7 +678,6 @@ Nick Walker, Rob Browning, Russell Mull, Ruth Linehan, Ryan Senior,
 Spencer McElmurry, Thomas Hallgren, Wayne Warren, Wyatt Alt, and Zak
 Kent
 
-5.0.0
------
+## 5.0.0
 
 PuppetDB 5.0.0 was not released due to a packaging error.

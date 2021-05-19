@@ -18,13 +18,11 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
-4.4.1
------
+## 4.4.1
 
 PuppetDB 4.4.1 was a PE-only bugfix release.
 
-4.4.0
------
+## 4.4.0
 
 PuppetDB 4.4.0 is a backward-compatible feature release that is primarily
 focused on improving command processing performance.
@@ -100,8 +98,7 @@ Andreas Paul, Andrew Roetker, Brian Cain, Dan Lidral-Porter, Jeremy Barlow, Ken
 Barber, Morgan Rhodes, Nick Walker, Rob Browning, Russell Mull, Ruth Linehan,
 Ryan Senior, Wyatt Alt
 
-4.3.2
------
+## 4.3.2
 
 PuppetDB 4.3.2 is a bugfix release to fix a report storage performance
 regression in versions 4.2.4, 4.2.5, 4.3.0, and 4.3.1. All affected users are
@@ -119,13 +116,11 @@ encouraged to upgrade to this release.
 
 Jessykah Bird, Russell Mull
 
-4.3.1
------
+## 4.3.1
 
 PuppetDB 4.3.1 was a PE-only bugfix release.
 
-4.3.0
------
+## 4.3.0
 
 PuppetDB 4.3.0 is a backward-compatible feature release that changes
 the way PuppetDB handles incoming commands.  Previously they were
@@ -147,8 +142,7 @@ Andrew Roetker, Dan Lidral-Porter, Jeremy Barlow, Karel Březina, Ken Barber,
 Kylo Ginsberg, Molly Waggett, Rob Browning, Ryan Senior, Tiffany
 Longworth, and Wyatt Alt.
 
-4.2.4
------
+## 4.2.4
 
 PuppetDB 4.2.4 is a minor bugfix release.
 
@@ -205,12 +199,10 @@ Andrew Roetker, Jeremy Barlow, Karel Březina, Ken Barber, Kylo
 Ginsberg, Melissa Stone, Molly Waggett, Rob Browning, Ruth Linehan,
 Ryan Senior, Tiffany Longworth, and Wyatt Alt.
 
-4.2.3
------
+## 4.2.3
 PuppetDB 4.2.3 was not publically released.
 
-4.2.2
------
+## 4.2.2
 PuppetDB 4.2.2 is a minor bugfix release.
 
 ### Bug fixes:
@@ -232,8 +224,7 @@ PuppetDB 4.2.2 is a minor bugfix release.
 Ken Barber, Melissa Stone, Rob Browning, Ryan Senior, Wyatt Alt
 
 
-4.2.1
------
+## 4.2.1
 PuppetDB 4.2.1 is a minor bugfix release.
 
 ### Bug fixes:
@@ -250,8 +241,7 @@ PuppetDB 4.2.1 is a minor bugfix release.
 
 Karel Březina, Molly Waggett, Ryan Senior, Wyatt Alt
 
-4.2.0
------
+## 4.2.0
 
 PuppetDB 4.2.0 is a backward-compatible feature release that adds a
 new inventory endpoint, the ability to query structured data (like
@@ -341,18 +331,15 @@ retries for common error scenarios.
   - prismatic/schema 1.0.4 -> 1.1.2
   - Ezbake 0.3.25 -> 0.4.3 ([PDB-2910](https://tickets.puppetlabs.com/browse/PDB-2910))
 
-4.1.4
------
+## 4.1.4
 
 PuppetDB 4.1.4 was not publicly released.
 
-4.1.3
------
+## 4.1.3
 
 PuppetDB 4.1.3 was not publicly released.
 
-4.1.2
------
+## 4.1.2
 
 PuppetDB 4.1.2 is a backward-compatible bugfix release that speeds up node
 queries, fixes a bug that slowed garbage collection, and improves error logging.
@@ -386,8 +373,7 @@ queries, fixes a bug that slowed garbage collection, and improves error logging.
 Andrew Roetker, Chris Cowell, Garrett Guillotte, Molly Waggett, Rob Browning,
 Ryan Senior, and Wyatt Alt
 
-4.1.0
------
+## 4.1.0
 
 PuppetDB 4.1.0 is a backward-compatible feature release that adds packages for
 Ubuntu Xenial - 16.04, Ubuntu Wily - 15.10, adds preliminary support for HUP signal
@@ -463,8 +449,7 @@ handling, and improves the speed of removing old reports and node expiration and
   released puppetserver packages
   ([PDB-2501](https://tickets.puppetlabs.com/browse/PDB-2501)).
 
-4.0.2
------
+## 4.0.2
 
 PuppetDB 4.0.2 is a backward-compatible bugfix release that should
 improve report processing performance, and fix a node-expiration bug,
@@ -515,8 +500,7 @@ disallowed colons in request routes.
 Andrew Roetker, Ken Barber, Melissa Stone, Michelle Fredette, Morgan
 Rhodes, Rob Browning, Ryan Senior, and Wyatt Alt
 
-4.0.1
------
+## 4.0.1
 
 PuppetDB 4.0.1 is a backward-compatible release that fixes database
 connection issues related to the maximum-pool-size, and fixes a bug
@@ -558,8 +542,7 @@ to fail.  This version was not publicly released.
 Andrew Roetker, Garrett Guillotte, Ken Barber, Nick Fagerlund, Ryan
 Senior, and Wyatt Alt
 
-4.0.0
------
+## 4.0.0
 
 PuppetDB 4.0.0 is a major release which introduces new features and
 some breaking changes. Highlights of the new features include a new
@@ -855,8 +838,7 @@ details on other breaking changes are below
   ([PDB-2309](https://tickets.puppetlabs.com/browse/PDB-2309))
 
 
-3.2.4
------
+## 3.2.4
 
 PuppetDB 3.2.4 is a backward-compatible security and bugfix release that fixes a
 directory permissions issue, improves the performance of certain metrics
@@ -906,8 +888,7 @@ queries, and reduces the size of anonymized export tarballs.
 Andrew Roetker, Garrett Guillotte, Geoff Nichols, Isaac Eldridge, Ken Barber,
 Kurt Wall, Russell Mull, Ryan Senior, Sean P. McDonald, and Wyatt Alt
 
-3.2.3
------
+## 3.2.3
 
 PuppetDB 3.2.3 is a bugfix release that addresses an issue affecting new
 installs on non-english PostgreSQL installations, as well as submission
@@ -943,8 +924,7 @@ failures that can occur on catalogs containing large amounts of binary data.
 Andrew Roetker, Ken Barber, Rob Browning, Rob Nelson, Russell Mull, Ryan
 Senior, and Wyatt Alt
 
-3.2.2
------
+## 3.2.2
 
 PuppetDB 3.2.2 is a bugfix release that should improve query
 performance for some fields, and changes ssl-setup to not depend on
@@ -974,13 +954,11 @@ the `puppet master` command.
 Andrew Roetker, Ken Barber, Morgan Haskel, Rob Braden, Russell Mull,
 Ryan Senior, Wayne Warren, and Wyatt Alt.
 
-3.2.1
------
+## 3.2.1
 
 PuppetDB 3.2.1 was not publicly released.
 
-3.2.0
------
+## 3.2.0
 
 PuppetDB 3.2.0 is a backward-compatible feature release that introduces some new
 API fields and parameters, better UTF-8 handling, a new experimental way of
@@ -1084,8 +1062,7 @@ performing subqueries, and many more enhancements and bug fixes.
 Andrew Roetker, Ken Barber, Nick Fagerlund, Rob Browing, Russell Mull,
 Ryan Senior, Tim Skirvin, Wayne Warren, and Wyatt Alt.
 
-3.1.0
------
+## 3.1.0
 
 PuppetDB 3.1.0 is a backward-compatible feature release that includes
 new aggregate operators and a new admin route that improves import/export
@@ -1140,8 +1117,7 @@ performance.
 
   Andrew Roetker, Ken Barber, Rob Browning, Russell Mull, Ryan Senior, and Wyatt Alt.
 
-3.0.2
------
+## 3.0.2
 
 PuppetDB 3.0.2 is a bugfix release to address performance issues with the
 aggregate-event-count and fact-paths endpoints as well as memory starvation
@@ -1178,8 +1154,7 @@ involving structured-facts.
 Andrew Roetker, Jorie Tappa, Ken Barber, Melissa Stone, Nick Fagerlund, Rob
 Browning, Russell Mull, and Wyatt Alt.
 
-3.0.1
------
+## 3.0.1
 
 PuppetDB 3.0.1 is a bugfix release to fix packaging problems in PuppetDB 3.0.0
 for RPM-based systems.
@@ -1203,8 +1178,7 @@ for RPM-based systems.
 ### Contributors
 Andrew Roetker, Michael Stahnke, Nick Fagerlund, and Wyatt Alt.
 
-3.0.0
------
+## 3.0.0
 
 PuppetDB 3.0.0 is a major release which introduces new features and some breaking changes.
 
@@ -1659,8 +1633,7 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
 * Include the navigation sidebar inside the `puppetdb` repo. ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
 
 
-2.3.8
------
+## 2.3.8
 
 PuppetDB 2.3.8 is a backward-compatible bugfix release to address a garbage
 collection issue that can arise when a node changes 6554 or more fact values
@@ -1696,8 +1669,7 @@ Ken Barber, Ryan Senior, Wyatt Alt
 
 * Minor changes to testing and documentation updates.
 
-2.3.7
------
+## 2.3.7
 
 PuppetDB 2.3.7 is a backwards-compatible bugfix release to resolve
 an issue with ActiveMQ configuration.
@@ -1728,8 +1700,7 @@ Andrew Roetker, Russell Mull
   large commands were submitted.
   ([PDB-700](https://tickets.puppetlabs.com/browse/PDB-700))
 
-2.3.6
------
+## 2.3.6
 
 PuppetDB 2.3.6 is a backwards-compatible bugfix release to introduce
 deprecation warnings for PostgreSQL versions less than 9.4. It also fixes a bug
@@ -1777,8 +1748,7 @@ Alt
 puppetlabs-puppetdb module.
 ([PDB-1750](https://tickets.puppetlabs.com/browse/PDB-1750))
 
-2.3.5
------
+## 2.3.5
 
 PuppetDB 2.3.5 is a backwards-compatible bugfix release primarily geared toward
 extending support for the all in one agent.
@@ -1829,8 +1799,7 @@ Mull, Ryan Senior, Wyatt Alt
   addition to Puppet 3.
   ([PDB-1300](https://tickets.puppetlabs.com/browse/PDB-1300))
 
-2.3.4
------
+## 2.3.4
 
 PuppetDB 2.3.4 is a backwards-compatible bugfix release that addresses an issue
 that would prevent fact storage for nodes under certain circumstances.
@@ -1890,8 +1859,7 @@ the facts update for the node would fail. ([PDB-1448](https://tickets.puppetlabs
   and may change or remove them in a future release.
   ([PDB-1479](https://tickets.puppetlabs.com/browse/PDB-1479))
 
-2.3.3
------
+## 2.3.3
 
 PuppetDB 2.3.3 is a backwards-compatible bugfix release that adds
 support for Puppet 4 on Debian and Ubuntu platforms.
@@ -1922,8 +1890,7 @@ Matthaus Owens, Rob Browning
 * PuppetDB now supports Puppet 4 on Debian and Ubuntu.
   ([PDB-1389](https://tickets.puppetlabs.com/browse/PDB-1389))
 
-2.3.2
------
+## 2.3.2
 
 PuppetDB 2.3.2 is a backwards-compatible bugfix release that corrects
 two problems which could prevent migration to the database format
@@ -1968,8 +1935,7 @@ Rob Browning
   names (initially assumed in 2.3.1).
   ([PDB-1363](https://tickets.puppetlabs.com/browse/PDB-1363))
 
-2.3.1
------
+## 2.3.1
 
 PuppetDB 2.3.1 is a backwards-compatible bugfix release that may
 notably increase performance for larger installations.
@@ -2036,8 +2002,7 @@ Wyatt Alt, Rob Browning, Ryan Senior, juniorsysadmin
 * The documentation sidebar (TOC) is now hosted in the PuppetDB
   repository. ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
 
-2.3.0
------
+## 2.3.0
 
 PuppetDB 2.3.0 is a backwards-compatible release that adds support for
 Puppet 4.
@@ -2201,8 +2166,7 @@ Ryan Senior, and Wyatt Alt
 * The legacy certificate whitelist test has been fixed.
   ([PDB-1247](https://tickets.puppetlabs.com/browse/PDB-1247))
 
-2.2.2
------
+## 2.2.2
 
 PuppetDB 2.2.2 is a backwards-compatible security release to update our default
 ssl settings and tests in response to the POODLE SSLv3 vulnerability disclosed 10/14/2014.
@@ -2270,8 +2234,7 @@ Ken Barber, Ryan Senior
 
 * Update docs to include --tlsv1 in all https curl examples
 
-2.2.1
------
+## 2.2.1
 
 PuppetDB 2.2.1 consists of bug fixes and documentation updates and is
 backwards compatible with PuppetDB 2.2.0.
@@ -2415,8 +2378,7 @@ Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Al
 
 * Remove deprecated open_postgres_port option from puppetdb helper class
 
-2.2.0
------
+## 2.2.0
 
 This release was primarily focused on providing structured facts support for PuppetDB. Structured facts
 allow a user to include hashes and arrays in their fact data, but also it provides the availability of
@@ -2663,8 +2625,7 @@ All these tools have been modified to support structured facts. `export` specifi
     Without it, it makes it hard to run beaker acceptance tests from the command
     line.
 
-2.1.0
------
+## 2.1.0
 
 PuppetDB 2.1.0 is a feature release focusing on new query
 capabilities, streaming JSON support on all endpoints and a new report
@@ -2887,8 +2848,7 @@ Bug fixes and maintenance:
     coerce features of Schema. This commit switches to the new version and
     makes the necessary changes to use the coerce feature.
 
-2.0.0
------
+## 2.0.0
 
 PuppetDB 2.0.0 is a feature release focusing on environments support.
 Note that this is a major version bump and there are several breaking
@@ -3233,8 +3193,7 @@ Notable improvements and fixes:
 * (DOCUMENT-6) Update config page for PuppetDB module's improved settings behavior
 
 
-1.6.3
------
+## 1.6.3
 
 PuppetDB 1.6.3 is a bugfix release.
 
@@ -3293,8 +3252,7 @@ Notable improvements and fixes:
 
 * Added examples to documentation for latest-report? and file
 
-1.6.2
------
+## 1.6.2
 
 PuppetDB 1.6.2 is a bugfix release.
 
@@ -3357,14 +3315,12 @@ Notable improvements and fixes:
     1.5.2 used System V scripts while 1.6.x used SystemD which caused
     failures.
 
-1.6.1
------
+## 1.6.1
 
 Not released due to SystemD-related packaging issues on Fedora
 
 
-1.6.0
------
+## 1.6.0
 
 PuppetDB 1.6.0 is a performance and bugfix release.
 
@@ -3523,8 +3479,7 @@ Notable improvements and fixes:
     certificate chain (typically represented as a sequence of certs in a
     single file) for trust.
 
-1.5.2
------
+## 1.5.2
 
 PuppetDB 1.5.2 is a maintenance and bugfix release.
 
@@ -3548,15 +3503,13 @@ Notable changes and fixes:
     using `nodes/<node>/resources` version of `nodes` endpoint; these were always
     being returned in the `v2` response format, even when using `/v3/nodes`.
 
-1.5.1
------
+## 1.5.1
 
 NOTE: This version was not officially released, as additional fixes
 came in between the time we tagged this and the time we were going to
 publish release artifacts.
 
-1.5.0
------
+## 1.5.0
 
 PuppetDB 1.5.0 is a new feature release.    (For detailed information about
 any of the API changes, please see the official documentation for PuppetDB 1.5.)
@@ -3701,8 +3654,7 @@ Bug fixes:
     low of a value for this setting on systems with large numbers of cores could
     prevent Jetty from handling requests).
 
-1.4.0
------
+## 1.4.0
 
 PuppetDB 1.4.0 is a new feature release.
 
@@ -3837,8 +3789,7 @@ Other important changes & refactors:
     This better matches up with the standard firewall or load balancer
     idle connection timeouts in the wild.
 
-1.3.2
------
+## 1.3.2
 
 PuppetDB 1.3.2 is a bugfix release.  Many thanks to the following
 people who contributed patches to this release:
@@ -3856,8 +3807,7 @@ Bug fixes:
     longer than that.    This change simply increases the maximum length of
     the column.
 
-1.3.1
------
+## 1.3.1
 
 PuppetDB 1.3.1 is a bugfix release.  Many thanks to the following
 people who contributed patches to this release:
@@ -3901,8 +3851,7 @@ Bug fixes:
     for PE environments.
 
 
-1.3.0
------
+## 1.3.0
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -3947,8 +3896,7 @@ Bug fixes:
 * Improvements to developer experience (remove dependency on `rake` for
     building/running clojure code)
 
-1.2.0
------
+## 1.2.0
 
 Many thanks to following people who contributed patches to this
 release:
@@ -4023,8 +3971,7 @@ Bug fixes:
     directories which could cause the puppetdb-terminus package to fail to
     install in some cases. This has been resolved.
 
-1.1.1
------
+## 1.1.1
 
 PuppetDB 1.1.1 is a bugfix release.  It contains the following fixes:
 
@@ -4045,8 +3992,7 @@ PuppetDB 1.1.1 is a bugfix release.  It contains the following fixes:
     upgrade path for 1.0.x users.
 
 
-1.1.0
------
+## 1.1.0
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -4172,8 +4118,7 @@ Behavior changes:
     *received* after a node is deactivated will continue to reactivate the node
     as before.
 
-1.0.5
------
+## 1.0.5
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -4190,8 +4135,7 @@ Fixes:
     10-20%, as well as a possible very minor improvement in catalog insert
     performance.
 
-1.0.4
------
+## 1.0.4
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -4206,8 +4150,7 @@ Fixes:
     comparisons in postgres to a format that is compatible with both 8.4
     and 9.1.
 
-1.0.3
------
+## 1.0.3
 
 NOTE: This version was not officially released, as additional fixes
 came in between the time we tagged this and the time we were going to
@@ -4249,8 +4192,7 @@ Fixes:
     returned to callers.
 
 
-1.0.2
------
+## 1.0.2
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -4268,8 +4210,7 @@ Fixes:
     code in vendordir (/usr/lib/ruby/vendor_ruby), so this commit moves the
     terminus install dir to be vendordir.
 
-1.0.1
------
+## 1.0.1
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -4323,13 +4264,11 @@ Fixes:
     identify files which belong to puppet vs puppetdb-terminus.
 
 
-1.0.0
------
+## 1.0.0
 
 The 1.0.0 release contains no changes from 0.11.0 except a minor packaging change.
 
-0.11.0
------
+## 0.11.0
 
 Many thanks to the following people who contributed patches to this
 release:
@@ -4426,8 +4365,7 @@ Notable fixes:
     We now display the latest version info during daemon startup and on the
     web dashboard.
 
-0.10.0
------
+## 0.10.0
 
 Many thanks to the following people who contributed patches to this
 release:

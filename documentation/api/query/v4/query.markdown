@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/query.html"
 ---
 
+# Query structure
+
 [prefix]: http://en.wikipedia.org/wiki/Polish_notation
 [jetty]: ../../../configure.html#jetty-http-settings
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding

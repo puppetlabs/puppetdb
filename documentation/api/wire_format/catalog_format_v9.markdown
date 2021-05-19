@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format_v9.html"
 ---
 
+# Catalog wire format - v9
+
 [containment]: {{puppet}}/lang_containment.html
 [relationship]: {{puppet}}/lang_relationships.html
 [chain]: {{puppet}}/lang_relationships.html#syntax-chaining-arrows
@@ -24,8 +26,7 @@ catalogs are converted by the
 [PuppetDB catalog terminus](../../connect_puppet_server.html) before they are
 sent.
 
-Catalog interchange format
------
+## Catalog interchange format
 
 ### Version
 

@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/admin/v1/cmd.html"
 ---
 
+# Admin commands endpoint
+
 [curl]: ../../query/curl.html#using-curl-from-localhost-non-sslhttp
 [config-purge-limit]: ../../../configure.markdown#node-purge-gc-batch-limit
 

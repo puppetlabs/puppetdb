@@ -3,6 +3,8 @@ title: "Puppet Query Language (PQL) tutorial"
 layout: default
 ---
 
+# Tutorial
+
 [lists]: ./v4/pql.html#lists
 [curl]: ./curl.html
 [config_jetty]: ../../configure.html#jetty-http-settings

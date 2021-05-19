@@ -3,6 +3,7 @@ title: "FAQ"
 layout: default
 subtitle: "Frequently asked questions"
 ---
+# Frequently asked questions
 
 [maintaining_tuning]: ./maintain_and_tune.html
 [connect_puppet_apply]: ./connect_puppet_apply.html

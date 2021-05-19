@@ -3,6 +3,8 @@ title: "PuppetDB CLI"
 layout: default
 ---
 
+# PuppetDB CLI
+
 [installpuppet]: {{puppet}}/install_pre.html
 [repos]: {{puppet}}/puppet_platform.html
 [export]: ./anonymization.html

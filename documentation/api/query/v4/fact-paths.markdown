@@ -3,6 +3,7 @@ title: "Fact-paths endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 ---
+# Fact-paths endpoint
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html

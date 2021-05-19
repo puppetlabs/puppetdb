@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 ---
 
+# Fact-contents endpoint
+
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html

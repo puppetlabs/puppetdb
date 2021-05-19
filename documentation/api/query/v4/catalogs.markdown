@@ -3,6 +3,7 @@ title: "Catalogs endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 ---
+# Catalogs endpoint
 
 [catalog]: ../../wire_format/catalog_format_v4.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp

@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 ---
 
+# Nodes endpoint
+
 [resource]: ./resources.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [statuses]: {{puppet}}/format_report.html#puppettransactionreport

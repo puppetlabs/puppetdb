@@ -3,6 +3,7 @@ title: "Versioning policy"
 layout: default
 canonical: "/puppetdb/latest/versioning_policy.html"
 ---
+# Versioning policy
 
 [semver]: http://semver.org
 [commands]: ./api/command/v1/commands.html

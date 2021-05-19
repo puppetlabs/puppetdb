@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/upgrading-from-v3.html"
 ---
 
+# Upgrading from version 3
+
 This page describes changes that users will need to be aware of
 to make their code compliant with the changes in PuppetDB 3.0. Most of these
 changes are observable in released versions of the v4 query API, which has been

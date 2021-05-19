@@ -3,13 +3,13 @@ title: "Debugging with remote REPL"
 layout: default
 canonical: "/puppetdb/latest/repl.html"
 ---
+# Debugging with remote REPL
 
 PuppetDB includes a remote REPL interface, which is disabled by default.
 
 This interface is mostly of use to developers who know Clojure and are familiar with PuppetDB's codebase. It allows you to modify PuppetDB's code on the fly. Most users will never need to use the REPL, and for security reasons, it should generally be left disabled.
 
-Enabling the REPL
------
+## Enabling the REPL
 
 To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the listening IP address, and choose a port](./configure.html#nrepl-settings):
 
@@ -21,8 +21,7 @@ To enable the REPL, you must edit PuppetDB's config file to [enable it, configur
 
 After configuration, restart the PuppetDB service.
 
-Connecting to a remote REPL
------
+## Connecting to a remote REPL
 
 When PuppetDB is accepting remote REPL connections, you can connect to it and begin issuing low-level debugging commands and Clojure code.
 
@@ -42,8 +41,7 @@ For example, with a NREPL configured on port 8082, and using Leiningen to connec
     user=> (+ 1 2 3)
     6
 
-Executing functions
------
+## Executing functions
 
 Within the REPL, you can interactively execute PuppetDB's functions. For example, to manually compact the database:
 
@@ -56,8 +54,7 @@ Within the REPL, you can interactively execute PuppetDB's functions. For example
     user=> (garbage-collect! (:database configuration))
     (0)
 
-Redefining functions
------
+## Redefining functions
 
 You can also manipulate the running PuppetDB instance by redefining functions on the fly. Let's say that for debugging purposes, you'd like to log every time a catalog is deleted. You can just redefine the existing `delete-catalog!` function dynamically:
 

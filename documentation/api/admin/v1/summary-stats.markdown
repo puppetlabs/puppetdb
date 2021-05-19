@@ -3,6 +3,8 @@ title: "Summary-stats endpoint"
 layout: default
 ---
 
+# Summary-stats endpoint
+
 > **Experimental Endpoint**: The summary-stats endpoint is designated
 > as experimental. It may be altered or removed in a future release.
 

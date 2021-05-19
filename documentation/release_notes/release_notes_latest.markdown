@@ -3,6 +3,7 @@ title: "PuppetDB: Release notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
+# Release notes
 
 [configure_postgres]: ./configure.html#using-postgresql
 [kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html

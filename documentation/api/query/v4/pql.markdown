@@ -3,6 +3,8 @@ title: "Puppet Query Language (PQL) reference guide"
 layout: default
 ---
 
+# Reference guide
+
 [entities]: ./entities.html
 [subquery]: #subqueries
 [ast]: ./ast.html

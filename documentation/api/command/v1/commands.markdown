@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/command/v1/commands.html"
 ---
 
+# Commands endpoint
+
 [factsv4]: ../../wire_format/facts_format_v4.html
 [factsv5]: ../../wire_format/facts_format_v5.html
 [catalogv6]: ../../wire_format/catalog_format_v6.html

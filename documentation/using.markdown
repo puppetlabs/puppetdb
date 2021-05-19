@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/using.html"
 ---
 
+# Using PuppetDB
+
 [exported]: {{puppet}}/lang_exported.html
 
 
@@ -11,8 +13,7 @@ Currently, PuppetDB's primary use is enabling advanced Puppet features. As use b
 
 If you wish to build applications on PuppetDB, see the navigation sidebar for links to the API specifications.
 
-Checking node status
------
+## Checking node status
 
 The PuppetDB plugins [installed on your Puppet Server(s)](./connect_puppet_server.html) include a `status` action for the `node` face. On your Puppet Server, run:
 
@@ -20,8 +21,7 @@ The PuppetDB plugins [installed on your Puppet Server(s)](./connect_puppet_serve
 
 where `<NODE>` is the name of the node you wish to investigate. This will tell you whether the node is active, when its last catalog was submitted, and when its last facts were submitted.
 
-Using exported resources
------
+## Using exported resources
 
 PuppetDB lets you use exported resources, which allows your nodes to publish information for use by other nodes.
 

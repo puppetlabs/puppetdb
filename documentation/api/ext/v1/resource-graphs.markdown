@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/ext/v1/resource-graphs.html"
 ---
 
+# Extensions API (PE only)
+
 [paging]: ../../query/v4/paging.html
 [query]: ../../query/v4/query.html
 [subqueries]: ../../query/v4/ast.html#subquery-operators

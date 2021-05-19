@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/ast.html"
 ---
 
+# AST query language
+
 [root]: ./index.html
 [catalogs]: ./catalogs.html
 [edges]: ./edges.html

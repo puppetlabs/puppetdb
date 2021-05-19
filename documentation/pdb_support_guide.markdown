@@ -3,6 +3,8 @@ title: "Support and Troubleshooting Guide"
 layout: default
 ---
 
+# Troubleshooting and support
+
 [commands]: ./api/command/v1/commands.html#list-of-commands
 [threads]: ./configure.html#threads
 [pgstattuple]: http://www.postgresql.org/docs/9.6/static/pgstattuple.html
