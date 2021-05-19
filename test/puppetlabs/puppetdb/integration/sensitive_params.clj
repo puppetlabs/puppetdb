@@ -9,7 +9,7 @@
   (:import
    [java.net URI]
    [java.nio.file Files]
-   [java.nio.file.attribute PosixFilePermission PosixFilePermissions]))
+   [java.nio.file.attribute PosixFilePermissions]))
 
 (defn pg-dump
   "Returns the content of pg as a string via pg_dump or nil on failure."
@@ -46,12 +46,7 @@
       (finally
         (Files/deleteIfExists pgpass)))))
 
-;;
-;; Disabling this due to issues with the Jenkins test
-;; instances. PDB-3461 covers the infrastructure related change needed
-;; to fix this test. This should be uncommented once that is complete.
-;;
-#_(deftest ^:integration sensitive-parameter-redaction
+(deftest ^:integration sensitive-parameter-redaction
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server-as "my_puppetserver" [pdb] {})]
@@ -60,11 +55,10 @@
 
       ;; Create an initial parameter, and make sure it's visible
       (int/run-puppet-as "my_agent" ps pdb
-                         (format "notify {'hi':  message => '%s'}"
-                                 not-secret))
-      (let [notifications (filter #(and (= ["Notify" "hi"]
-                                           [(:type %) (:title %)]))
-                                  (int/pql-query pdb "resources {}"))
+        (format "notify {'hi':  message => '%s'}"
+          not-secret))
+      (let [notifications (filter #(= ["Notify" "hi"] [(:type %) (:title %)])
+                            (int/pql-query pdb "resources {}"))
             [notify] notifications]
         (is (= 1 (count notifications)))
         (is (= {:message not-secret} (:parameters notify))))
@@ -74,27 +68,10 @@
 
       ;; Now change the parameter to be a secret, and make sure it's redacted
       (int/run-puppet-as "my_agent" ps pdb
-                         (format "notify {'hi':  message => Sensitive('%s')}"
-                                 secret))
-      (let [[notify & other-bits] (filter #(and (= ["Notify" "hi"]
-                                                   [(:type %) (:title %)]))
-                                          (int/pql-query pdb "resources {}"))]
+        (format "notify {'hi':  message => Sensitive('%s')}"
+          secret))
+      (let [[notify & other-bits] (filter #(= ["Notify" "hi"] [(:type %) (:title %)])
+                                    (int/pql-query pdb "resources {}"))]
         (is (empty? other-bits))
         (is (= {} (:parameters notify))))
-      (let [dump (pg-dump pg)
-            ;; Once PUP-7417 is resolved, these tests will fail, and
-            ;; then everything below here should be replaced with this:
-            ;;   (is (not (str/includes? dump secret)))
-            ;; but for now, check for the issue and then ignore it.
-            dump-lines (str/split-lines dump)
-            expected-leak (fn [line]
-                            (every? (partial str/includes? line)
-                                    ["\"file\": null"
-                                     "\"line\": null"
-                                     "\"tags\": [\"notice\"]"
-                                     "\"level\": \"notice\""
-                                     "\"source\": \"Puppet\""
-                                     (format "\"message\": \"%s\"" secret)]))]
-        (is (some expected-leak dump-lines))
-        (is (not-any? #(str/includes? % secret)
-                      (remove expected-leak dump-lines)))))))
+      (is (not (str/includes? (pg-dump pg) secret))))))
