@@ -2659,8 +2659,7 @@
 
 ;; Top-level parsing
 
-(def experimental-entities
-  #{:event-counts :aggregate-event-counts})
+(def experimental-entities #{})
 
 (defn warn-experimental
   "Show a warning if the endpoint is experimental."

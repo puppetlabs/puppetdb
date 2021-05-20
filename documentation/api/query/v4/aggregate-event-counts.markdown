@@ -9,9 +9,6 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 [curl]: ../curl.html
 [query]: ./query.html
 
-> **Experimental endpoint**: The aggregate-event-counts endpoint is designated
-> as experimental. It may be altered or removed in a future release.
-
 Puppet agent nodes submit reports after their runs, and the Puppet Server forwards these to PuppetDB. Each report includes:
 
 * Data about the entire run.
@@ -44,8 +41,7 @@ For general info about queries, see [our guide to query structure.][query]
 
 * `counts_filter`: optional. A JSON array of query predicates in the usual prefix form. This query is applied to the final event-counts output, but before the results are aggregated. Supported operators are `=`, `>`, `<`, `>=`, and `<=`. Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
-* `distinct_resources`: optional. (**Experimental: it is possible that the behavior
-of this parameter may change in future releases.**) This parameter is passed along
+* `distinct_resources`: optional. This parameter is passed along
 to the `events` query. See the [`events` documentation][events] for more information.
 
 ### Query operators
