@@ -27,6 +27,7 @@
       <topicref href="upgrade.markdown" format="markdown" />
       <topicref href="connect_puppet_server.markdown" format="markdown" />
       <topicref href="connect_puppet_apply.markdown" format="markdown" />
+      <topocref href="test.md" format="markdown" />
     </topichead>
 
     <topichead navtitle="Configuration">
