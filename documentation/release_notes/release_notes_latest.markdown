@@ -21,6 +21,29 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 7.4.0
+
+Released 25 May 2021
+
+### New features and improvements
+- Improved some command processing operations so they require less work and
+  fewer round trips to the database.
+  [PDB-5128](https://tickets.puppetlabs.com/browse/PDB-5128)
+- Significantly reduced the memory usage by the puppetdb terminus to process
+  commands.
+  [PDB-5107](https://tickets.puppetlabs.com/browse/PDB-5107)
+
+### Bug fixes
+- The ssl-setup command (which is also invoked by the PuppetDB package installation scripts)
+  will now handle ssl-related filesystem permissions more carefully. Previously it could reset
+  them when it shouldn't have, and/or leave them briefly with incorrect, potentially overly
+  permissive values.
+  [PDB-2590](https://tickets.puppetlabs.com/browse/PDB-2590)
+- (PE only) Fixed an issue related to the identity hash calculation for factsets
+  which under certain circumstances could cause factsets to be repeatedly pulled
+  by PE PuppetDB Sync.
+  [PDB-5021](https://tickets.puppetlabs.com/browse/PDB-5021)
+
 ## PuppetDB 7.3.1
 
 Released 26 April 2021. The 7.3.0 tag was burned in order to update additional
