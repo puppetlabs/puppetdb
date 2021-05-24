@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 827e6eafd28a3680cc1ab34ec5f2e57ba4230a00\n"
+"X-Git-Ref: 8a2c953a362583a9400709be7d961736a91b2a86\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1145,7 +1145,15 @@ msgid "Query operator ~> is not allowed on field {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "''and'' takes at least one argument, but none were supplied"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "[] is not well-formed: queries must contain at least one operator"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "''or'' takes at least one argument, but none were supplied"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
