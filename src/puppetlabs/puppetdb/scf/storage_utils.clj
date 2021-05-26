@@ -225,13 +225,6 @@
     (hcore/raw (format "%s #> ? = ?" field))
     (hcore/raw (format "%s @> ?" field))))
 
-(defn fn-binary-expression
-  "Produce a predicate that compares the result of a function against a
-   provided value."
-  [op function args]
-  (let [fargs (str/join ", " args)]
-    (hcore/raw (format "%s(%s) %s ?" function fargs op))))
-
 (defn jsonb-path-binary-expression
   "Produce a predicate that compares against nested value with op and checks the
   existence of a (presumably) top-level value. The existence check is necessary
