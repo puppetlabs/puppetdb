@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 8a2c953a362583a9400709be7d961736a91b2a86\n"
+"X-Git-Ref: f4234abbb3c57c7a92afb4f31da0d9e0e4b54119\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -731,11 +731,6 @@ msgstr ""
 #: src/puppetlabs/puppetdb/http/query.clj
 msgid ""
 "Only one query may be sent in a request. Found JSON {0} after the query {1}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/http/query.clj
-msgid ""
-"Paging options (limit, order_by, offset) must be included in the PQL query"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
