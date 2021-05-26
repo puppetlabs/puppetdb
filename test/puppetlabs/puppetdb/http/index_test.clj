@@ -105,25 +105,17 @@
         (is (= status http/status-bad-request))))
 
     (testing "pagination"
-      (testing "AST with order_by parameter"
-        (let [results (ordered-query-result method endpoint ["from" "nodes"]
-                                            {:order_by
-                                             (vector-param method
-                                                           [{"field" "certname"
-                                                             "order" "ASC"}])})]
-          (is (= "host1" (:certname (first results))))
-          (is (= 3 (count results)))))
-
-      (testing "PQL with order_by parameter"
-        (doseq [query ["nodes {}"
+      (testing "with order_by parameter"
+        (doseq [query [["from" "nodes"]
+                       "nodes {}"
                        "nodes [] {}"]]
-          (let [{:keys [status body]} (query-response method endpoint query
-                                                      {:order_by
-                                                       (vector-param method
-                                                                     [{"field" "certname"
-                                                                       "order" "ASC"}])})]
-            (is (= "Paging options (limit, order_by, offset) must be included in the PQL query" body))
-            (is (= http/status-bad-request status)))))
+          (let [results (ordered-query-result method endpoint query
+                                              {:order_by
+                                               (vector-param method
+                                                             [{"field" "certname"
+                                                               "order" "ASC"}])})]
+            (is (= "host1" (:certname (first results))))
+            (is (= 3 (count results))))))
 
       (testing "with order_by in query"
         (let [results (ordered-query-result
@@ -131,28 +123,18 @@
           (is (= "host1" (:certname (first results))))
           (is (= 3 (count results)))))
 
-      (testing "AST with all options in parameters"
-        (let [results (ordered-query-result method endpoint ["from" "nodes"]
-                                            {:order_by
-                                                     (vector-param method
-                                                                   [{"field" "certname"
-                                                                     "order" "DESC"}])
-                                             :limit  2
-                                             :offset 1})]
-          (is (= "host2" (:certname (first results))))
-          (is (= 2 (count results)))))
-
-      (testing "query parameters are disallowed for PQL"
-        (doseq [query ["nodes {}"
-                       "nodes [] {}"]
-                params [{:offset 1}
-                        {:limit 1}
-                        {:order_by (vector-param method
-                                                 [{"field" "certname"
-                                                   "order" "DESC"}])}]]
-          (let [{:keys [status body]} (query-response method endpoint query params)]
-            (is (= "Paging options (limit, order_by, offset) must be included in the PQL query" body))
-            (is (= http/status-bad-request status)))))
+      (testing "with all options in parameters"
+        (doseq [query [["from" "nodes"]
+                       "nodes {}"]]
+          (let [results (ordered-query-result method endpoint query
+                                              {:order_by
+                                               (vector-param method
+                                                             [{"field" "certname"
+                                                               "order" "DESC"}])
+                                               :limit 2
+                                               :offset 1})]
+            (is (= "host2" (:certname (first results))))
+            (is (= 2 (count results))))))
 
       (testing "with all options in query"
         (let [results (ordered-query-result

@@ -167,7 +167,7 @@
                             (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
                             (no-certname-entities (get-entity req)) req
                             :else (http-q/restrict-query-to-active-nodes req))))
-                  (http-q/extract-pql-or-ast-query
+                  (http-q/extract-query-pql
                    (merge-param-specs typical-params
                                       {:optional ["ast_only"]
                                        :required ["query"]}))))))

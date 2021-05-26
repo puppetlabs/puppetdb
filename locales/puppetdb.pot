@@ -734,11 +734,6 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
-msgid ""
-"Paging options (limit, order_by, offset) must be included in the PQL query"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/http/query.clj
 msgid "PuppetDB queries must be made via GET/POST"
 msgstr ""
 
@@ -1145,7 +1140,15 @@ msgid "Query operator ~> is not allowed on field {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "''and'' takes at least one argument, but none were supplied"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "[] is not well-formed: queries must contain at least one operator"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "''or'' takes at least one argument, but none were supplied"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj

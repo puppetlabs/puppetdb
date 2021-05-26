@@ -178,6 +178,17 @@
                       :results-query
                       first)))))
 
+(deftest test-valid-query-operators
+  (is (thrown-with-msg? IllegalArgumentException
+                        #"'and' takes at least one argument, but none were supplied"
+                        (compile-user-query->sql resources-query ["and"])))
+  (is (thrown-with-msg? IllegalArgumentException
+                        #"'not' takes exactly one argument, but 0 were supplied"
+                        (compile-user-query->sql resources-query ["not"])))
+  (is (thrown-with-msg? IllegalArgumentException
+                        #"'or' takes at least one argument, but none were supplied"
+                        (compile-user-query->sql resources-query ["or"]))))
+
 (deftest test-valid-query-fields
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources. Known queryable objects are.*"
