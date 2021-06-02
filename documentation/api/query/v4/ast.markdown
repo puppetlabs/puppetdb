@@ -121,7 +121,7 @@ The following example would match any network interface names starting with "eth
 
 If you want to match any index for an array path element, you can use regular expressions, as the element acts like a string:
 
-    ["~>", "path", ["array_fact", ".*"]]
+    ["~>", "path", [<array_fact>, ".*"]]
 
 ### `null?` (is null)
 
@@ -348,7 +348,7 @@ For example,
 
     ["order_by", ["certname"]]
 
-    ["order_by", ["certname", ["timestamp", "desc"]]]
+    ["order_by", ["certname", ["producer_timestamp", "desc"]]]
 
 When no ordering is explicitly specified, as in the case of "certname" in the
 example above, ascending order is assumed. Here are a few examples of queries
@@ -358,21 +358,21 @@ Return the most recent ten reports for a certname:
 
     ["from", "reports",
       ["=", "certname", "myserver"],
-      ["order_by", [["timestamp", "desc"]]],
+      ["order_by", [["producer_timestamp", "desc"]]],
       ["limit", 10]]
 
 Return the next page of ten reports:
 
     ["from", "reports",
       ["=", "certname", "myserver"],
-      ["order_by", [["timestamp", "desc"]]],
+      ["order_by", [["receive_time", "desc"]]],
       ["limit", 10],
       ["offset", 10]]
 
 Return the most recent ten reports for any certname:
 
     ["from", "reports",
-      ["order_by", [["timestamp", "desc"]]],
+      ["order_by", [["producer_timestamp", "desc"]]],
       ["limit", 10]]
 
 Return the nodes represented in the ten most recent reports:
@@ -435,7 +435,7 @@ you can do the following on the [`facts`][facts] endpoint:
       ["=", "name", "networking"],
       ["subquery", "fact_contents",
         ["and",
-          ["~>", "path", ["networking", ".*", "macaddresses", ".*"]],
+          ["~>", "path", ["networking", ".*", "macaddress", ".*"]],
           ["=", "value", "aa:bb:cc:dd:ee:00"]]]]
 
 ### Explicit subqueries
@@ -594,7 +594,7 @@ This query string queries the `/nodes` endpoint for all nodes with `Class[Apache
         ["select_resources",
           ["and",
             ["=", "type", "Class"],
-            ["=", "title", "Apache"]]]]]]
+            ["=", "title", "Apache"]]]]]
 
 This query string queries the `/facts` endpoint for the IP address of
 all Debian nodes.
@@ -625,7 +625,7 @@ its first macaddress on the interface `eth0`, you could use this query on '/node
       ["extract", "certname",
         ["select_fact_contents",
           ["and",
-            ["=", "path", ["networking", "eth0", "macaddresses", 0]],
+            ["=", "path", ["networking", "eth0", "macaddress", 0]],
             ["=", "value", "aa:bb:cc:dd:ee:00"]]]]]
 
 To exhibit a subquery using multiple fields, you could use the following
@@ -691,5 +691,5 @@ its first macaddress on the interface `eth0`, you could use this query on `/node
       ["from", "fact_contents",
         ["extract", "certname",
           ["and",
-            ["=", "path", ["networking", "eth0", "macaddresses", 0]],
+            ["=", "path", ["networking", "eth0", "macaddress", 0]],
             ["=", "value", "aa:bb:cc:dd:ee:00"]]]]]
