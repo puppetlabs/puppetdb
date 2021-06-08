@@ -1438,18 +1438,19 @@
                                                    [:is-not :deactivated nil]
                                                    [:is-not :expired nil]]}})))
 
-(defn quote-dotted-projections
+(defn quote-projections
   [projection]
   (when (> (count projection) 63)
     (throw (IllegalArgumentException.
-             (tru "Projected field name ''{0}'' exceeds current maximum length of 63 characters" (count projection) projection))))
-  (if (is-dotted-projection? projection)
-    (jdbc/double-quote projection)
-    projection))
+            (tru "Projected field name ''{0}'' exceeds current maximum length of 63 characters"
+                 (count projection) projection))))
+  (jdbc/double-quote projection))
 
+;; Skipped (only safe if incoming data is safe)
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity subquery?]} {:keys  [node-purge-ttl]}]
+  [{:keys [projected-fields group-by call selection projections entity subquery?]}
+   {:keys [node-purge-ttl]}]
   (let [fs (seq (map (comp hcore/raw :statement) call))
         select (if (and fs
                         (empty? projected-fields))
@@ -1457,7 +1458,7 @@
                  (vec (concat (->> projections
                                    (remove (comp :query-only? second))
                                    (mapv (fn [[name {:keys [field]}]]
-                                           [field (quote-dotted-projections name)])))
+                                           [field (quote-projections name)])))
                               fs)))
         new-selection (-> (cond-> selection (not subquery?) (wrap-with-node-state-cte node-purge-ttl))
                           (assoc :select select)
