@@ -1982,8 +1982,7 @@
 
               [["=" field value]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when (and (or (= :numeric col-type)
-                               (= :numeric col-type)) (string? value))
+                (when (and (= :numeric col-type) (string? value))
                   (throw
                    (IllegalArgumentException.
                     (tru
