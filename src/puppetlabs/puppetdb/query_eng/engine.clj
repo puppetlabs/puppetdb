@@ -1389,6 +1389,9 @@
   (->> projections
        (filter (comp :queryable? val))
        keys
+       ;; Maybe this could/should be set rather than sort.  Could make
+       ;; some of the other code/logic simpler, unless it really does
+       ;; need to be sorted...
        sort))
 
 (defn projectable-fields
@@ -1645,7 +1648,11 @@
   (let [[column & path] (map formatter/maybe-strip-escaped-quotes
                              (su/dotted-query->path field))]
     (if (some #(re-matches #"^\d+$" %) path)
+      ;; This path is taken for match() operators that match indexes,
+      ;; i.e.  facts.foo.match("\d+") because by this point they'll be
+      ;; plain integer path components.
       {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
+       ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
        :state (reduce conj state [(doto (PGobject.)
                                     (.setType "text[]")
                                     (.setValue (str "{" (string/join "," (map #(string/replace % "'" "''") path)) "}")))
