@@ -583,6 +583,45 @@
   (require-valid-db-server min-version-override)
   (require-current-schema (trs "Database is not fully migrated.")))
 
+(defn validate-read-only-user
+  "Check that the postgres user supplied in the read-database config
+   has the appropriate read-only permissions. Log ERROR level warnings
+   if this user is not configured properly"
+  [read-db read-user]
+  (let [table-perms (jdbc/with-db-connection read-db
+                      (jdbc/query-to-vec
+                       ["select privilege_type, table_name
+                          from information_schema.table_privileges
+                          where grantee = ?;" read-user]))
+        table-owner (jdbc/with-db-connection read-db
+                      (jdbc/query-to-vec
+                       ["select * from pg_tables where tableowner = ?" read-user]))
+        superuser (jdbc/with-db-connection read-db
+                    (jdbc/query-to-vec
+                     ["select usesuper from pg_user where usename = ?" read-user]))
+        schema-owner (jdbc/with-db-connection read-db
+                       (jdbc/query-to-vec
+                        ["select pg_get_userbyid(nspowner)
+                           from pg_namespace
+                           where nspname = (select schemaname from pg_tables
+                                              where tablename = 'certnames')"]))
+        log-msg (fn [msg]
+                  (binding [*out* *err*]
+                    (println msg))
+                  (log/error msg))]
+
+    (when-not (every? (fn [r] (= "SELECT" (:privilege_type r))) table-perms)
+      (log-msg (trs "The read-database user is not configured properly because it has privileges other than SELECT on the puppetdb tables")))
+
+    (when (seq table-owner)
+      (log-msg (trs "The read-database user is not configured properly because it has ownership of tables")))
+
+    (when (:usesuper (first superuser))
+      (log-msg (trs "The read-database user is not configured properly because it is a superuser")))
+
+    (when (= read-user (:pg_get_userbyid (first schema-owner)))
+      (log-msg (trs "The read-database user is not configured properly because it owns the schema that contains the puppetdb database")))))
+
 (defn prep-db
   [{:keys [username migrator-username migrate min-required-version]}]
   (require-valid-db-server min-required-version)
@@ -914,6 +953,8 @@
                    _ (jdbc/with-db-connection read-db
                        (require-valid-db
                         (get-in config [:database :min-required-version])))
+
+                   _ (validate-read-only-user read-db (:connection-username read-database))
 
                    {:keys [command-chan command-loader dlo q]}
                    (init-queue config maybe-send-cmd-event! cmd-event-ch shutdown-for-ex)
