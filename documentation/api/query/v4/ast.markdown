@@ -188,8 +188,8 @@ The **function** operator is used to call a function on the result of a
 subquery. Supported functions are described below.
 
 #### `avg`, `sum`, `min`, `max`
-These functions will operator on any numeric column and take the column name as
-an argument, as in the examples above.
+These functions operate on any numeric column and they take the column
+name as an argument, as in the examples above.
 
 #### `count`
 The `count` function can be used with or without a column. When no column is
