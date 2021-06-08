@@ -55,7 +55,8 @@
 
 (defn validate-dotted-field
   [dotted-field]
-  (and (string? dotted-field) (re-find #"(facts|trusted)\..+" dotted-field)))
+  ;; Q: why isn't parameters in here (cf. :dotted-fields below)
+  (and (string? dotted-field) (re-find #"^(facts|trusted)\..+" dotted-field)))
 
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
