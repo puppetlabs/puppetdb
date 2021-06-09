@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: f4234abbb3c57c7a92afb4f31da0d9e0e4b54119\n"
+"X-Git-Ref: ceda436d87fe8830921f44118a9c64f8e4d32e85\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1108,6 +1108,10 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "{0} is not a valid function"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "All values in 'array' must be the same type."
 msgstr ""
 
@@ -1165,6 +1169,18 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Received ''{0}'' clause without an argument"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "wrong number of arguments ({0}) provided for function {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "field {0} is not a valid queryable field"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "field {0} must be a numeric type"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
