@@ -1589,8 +1589,8 @@
   (let [set-timeout #(->> (format "set local lock_timeout = %d" %)
                           (sql/execute! jdbc/*db*))]
     ;; FIXME: possibly too crude...
-    (let [orig (-> "show lock_timeout"
-                   query-to-vec first :lock_timeout Long/parseLong)]
+    (let [orig (-> "select setting from pg_settings where name = 'lock_timeout'"
+                   query-to-vec first :setting Long/parseLong)]
       (set-timeout timeout-ms)
       (let [result (f)]
         ;; FIXME: For now we assume that when there's an exception,
