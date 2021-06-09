@@ -2161,3 +2161,19 @@
            (query-to-vec "select * from catalog_inputs")))
     (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))))
+
+(defn get-lock-timeout []
+  (-> "select setting from pg_settings where name = 'lock_timeout'"
+      query-to-vec first :setting Long/parseLong))
+
+(deftest-db call-with-lock-timeout-behavior
+  (let [orig (get-lock-timeout)]
+    (jdbc/with-db-transaction []
+      ;; Ensure an existing (in transaction (or global)) non-zero
+      ;; timeout doesn't cause an exception.  Previously, we were
+      ;; relying on "show lock_timeout", which produces human readable
+      ;; values like 300ms rather than the integer milliseconds value
+      ;; we expect to parse.
+      (sql/execute! jdbc/*db* "set local lock_timeout = 300")
+      (is (= 1000 (call-with-lock-timeout get-lock-timeout 1000))))
+    (is (= orig (get-lock-timeout)))))
