@@ -55,7 +55,8 @@
 
 (defn validate-dotted-field
   [dotted-field]
-  (and (string? dotted-field) (re-find #"(facts|trusted)\..+" dotted-field)))
+  ;; Q: why isn't parameters in here (cf. :dotted-fields below)
+  (and (string? dotted-field) (re-find #"^(facts|trusted)\..+" dotted-field)))
 
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
@@ -1388,6 +1389,9 @@
   (->> projections
        (filter (comp :queryable? val))
        keys
+       ;; Maybe this could/should be set rather than sort.  Could make
+       ;; some of the other code/logic simpler, unless it really does
+       ;; need to be sorted...
        sort))
 
 (defn projectable-fields
@@ -1438,18 +1442,19 @@
                                                    [:is-not :deactivated nil]
                                                    [:is-not :expired nil]]}})))
 
-(defn quote-dotted-projections
+(defn quote-projections
   [projection]
   (when (> (count projection) 63)
     (throw (IllegalArgumentException.
-             (tru "Projected field name ''{0}'' exceeds current maximum length of 63 characters" (count projection) projection))))
-  (if (is-dotted-projection? projection)
-    (jdbc/double-quote projection)
-    projection))
+            (tru "Projected field name ''{0}'' exceeds current maximum length of 63 characters"
+                 (count projection) projection))))
+  (jdbc/double-quote projection))
 
+;; Skipped (only safe if incoming data is safe)
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity subquery?]} {:keys  [node-purge-ttl]}]
+  [{:keys [projected-fields group-by call selection projections entity subquery?]}
+   {:keys [node-purge-ttl]}]
   (let [fs (seq (map (comp hcore/raw :statement) call))
         select (if (and fs
                         (empty? projected-fields))
@@ -1457,7 +1462,7 @@
                  (vec (concat (->> projections
                                    (remove (comp :query-only? second))
                                    (mapv (fn [[name {:keys [field]}]]
-                                           [field (quote-dotted-projections name)])))
+                                           [field (quote-projections name)])))
                               fs)))
         new-selection (-> (cond-> selection (not subquery?) (wrap-with-node-state-cte node-purge-ttl))
                           (assoc :select select)
@@ -1471,6 +1476,22 @@
       (honeysql-from-query options)
       (hcore/format :allow-dashed-names? true)
       first))
+
+(defn fn-binary-expression->hsql
+  "Produce a predicate that compares the result of a function against a
+  provided value. The operator, function name and its arguments must
+  have already been validated."
+  [op function args]
+  (let [quoted-args
+        (case function
+          ("sum" "avg" "min" "max" "count" "jsonb_typeof") (mapv jdbc/double-quote args)
+          "to_char" [(jdbc/double-quote (first args)) (jdbc/single-quote (second args))]
+          (throw (IllegalArgumentException. (tru "{0} is not a valid function"
+                                                 (pr-str function)))))]
+    (hcore/raw (format "%s(%s) %s ?"
+                       function
+                       (str/join ", " quoted-args)
+                       op))))
 
 (defprotocol SQLGen
   (-plan->sql [query options] "Given the `query` plan node, convert it to a SQL string"))
@@ -1523,7 +1544,7 @@
 
   FnBinaryExpression
   (-plan->sql [{:keys [value function args operator]} options]
-    (su/fn-binary-expression operator function args))
+    (fn-binary-expression->hsql operator function args))
 
   JsonbPathBinaryExpression
   (-plan->sql [{:keys [field value column-data operator]} options]
@@ -1627,7 +1648,11 @@
   (let [[column & path] (map formatter/maybe-strip-escaped-quotes
                              (su/dotted-query->path field))]
     (if (some #(re-matches #"^\d+$" %) path)
+      ;; This path is taken for match() operators that match indexes,
+      ;; i.e.  facts.foo.match("\d+") because by this point they'll be
+      ;; plain integer path components.
       {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
+       ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
        :state (reduce conj state [(doto (PGobject.)
                                     (.setType "text[]")
                                     (.setValue (str "{" (string/join "," (map #(string/replace % "'" "''") path)) "}")))
@@ -1957,8 +1982,7 @@
 
               [["=" field value]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when (and (or (= :numeric col-type)
-                               (= :numeric col-type)) (string? value))
+                (when (and (= :numeric col-type) (string? value))
                   (throw
                    (IllegalArgumentException.
                     (tru
@@ -2193,16 +2217,74 @@
   (or (t/to-timestamp ts)
       (throw (IllegalArgumentException. (tru "''{0}'' is not a valid timestamp value" ts)))))
 
+(defn validate-argument-count
+  [f args allowed-count]
+  (let [arg-count (count args)]
+    (when-not (allowed-count arg-count)
+      (throw (IllegalArgumentException.
+              (tru "wrong number of arguments ({0}) provided for function {1}"
+                   arg-count f))))))
+
+;; TODO remove me when no longer used
+(defn validate-queryable-field
+  [query-rec maybe-field]
+  (when-not (some #(= % maybe-field) (queryable-fields query-rec))
+    (throw (IllegalArgumentException. (tru "field {0} is not a valid queryable field"
+                                           (pr-str maybe-field))))))
+
+;; TODO we should reuse validate-query-operation-fields (defined below) here. Don't allow
+;; any json-extracts, functions do not support them currently
+(defn validate-fn-binary-expr
+  "Throws an exception if the args are not appropriate for the AST
+  function named f."
+  [query-rec f args]
+  (let [maybe-field (first args)]
+    (case f
+      ("sum" "avg" "min" "max")
+      (do
+        (validate-argument-count f args #{1})
+        (validate-queryable-field query-rec maybe-field)
+        ;; TODO Is this numeric guard too strict?  AST docs suggest maybe not.
+        ;; TODO add a test, no tests failed when 'numeric' was misspelled
+        (when (not= :numeric (get-in query-rec [:projections maybe-field :type]))
+          (throw (IllegalArgumentException. (tru "field {0} must be a numeric type"
+                                                 (pr-str maybe-field))))))
+
+      "count"
+      (do
+        (validate-argument-count f args #{0 1})
+        (when maybe-field
+          (validate-queryable-field query-rec maybe-field)))
+
+      "to_string"
+      (do
+        (validate-argument-count f args #{2})
+        ;; TODO: validate second to_char field (the string format) for
+        ;; now we are relying on the quoting in
+        ;; fn-binary-expression->hsql to maintain the safety of the
+        ;; format string
+        (validate-queryable-field query-rec maybe-field))
+
+      "jsonb_typeof"
+      (do
+        (validate-argument-count f args #{1})
+        (validate-queryable-field query-rec maybe-field))
+
+      (throw (IllegalArgumentException. (tru "{0} is not a valid function"
+                                             (pr-str f)))))))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
             ;; operator-function-clause
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["function" f & args] value]]
-            (map->FnBinaryExpression {:operator op
-                                      :function f
-                                      :args args
-                                      :value value})
+            (do
+              (validate-fn-binary-expr query-rec f args)
+              (map->FnBinaryExpression {:operator op
+                                        :function f
+                                        :args args
+                                        :value value}))
 
             [["=" column-name value]]
             (let [colname (first (str/split column-name #"\."))
