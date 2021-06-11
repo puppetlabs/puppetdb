@@ -65,3 +65,8 @@ checkouts
 
 /.eastwood
 /.nrepl-port
+
+# locust output files and python cache
+*.csv
+*report.html
+locust/load-test/__pycache__/
