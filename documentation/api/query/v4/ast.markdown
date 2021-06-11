@@ -209,7 +209,18 @@ specified column is not null.
 The `to_string` function operates on timestamps and integers, allowing them to
 be formatted in a user-defined manner before being returned from puppetdb.
 Available  formats are the same as those documented for [PostgreSQL's `to_char`
-function][to-char].
+function][to-char]. For instance, to get the full lower case month name of the
+`producer_timestamp`,  you can query the reports endpoint with:
+
+```
+["extract", [["function", "to_string", "producer_timestamp", "month"]]]
+```
+
+To get the last 2 digits of the year a report was submitted  from the Puppet Server:
+
+```
+["extract", [["function", "to_string", "producer_timestamp", "YY"]]]]
+```
 
 ### `group_by`
 
