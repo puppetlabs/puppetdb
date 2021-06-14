@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* *read-db* with-test-db]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.time :as t]
@@ -117,7 +117,7 @@
   adjust-globals is provided."
   ([f] (call-with-http-app f identity))
   ([f adjust-globals]
-   (let [get-shared-globals #(adjust-globals {:scf-read-db *db*
+   (let [get-shared-globals #(adjust-globals {:scf-read-db *read-db*
                                               :scf-write-dbs [*db*]
                                               :scf-write-db-names ["default"]
                                               :url-prefix ""

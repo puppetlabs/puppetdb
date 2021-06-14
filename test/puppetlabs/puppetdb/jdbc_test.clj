@@ -3,7 +3,6 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* antonym-data
-                     create-temp-db
                      insert-entries
                      defaulted-read-db-config
                      defaulted-write-db-config

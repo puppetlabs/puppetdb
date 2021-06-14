@@ -25,11 +25,17 @@
 (defprotocol TestServer
   (server-info [this]))
 
+(defprotocol PostgresServer
+  (read-db-info [this]))
+
 ;;; Postgres fixture
 
-(defrecord PostgresTestServer [db-config]
+(defrecord PostgresTestServer [db-config read-db-config]
   TestServer
   (server-info [_] db-config)
+
+  PostgresServer
+  (read-db-info [_] read-db-config)
 
   java.lang.AutoCloseable
   (close [_] (dbutils/drop-test-db db-config)))
@@ -37,8 +43,9 @@
 (defn setup-postgres
   ([] (setup-postgres {:migrated? true}))
   ([create-opts]
-   (let [db-config (dbutils/create-temp-db create-opts)]
-     (PostgresTestServer. db-config))))
+   ;; TODO: replace with configure-temp-db and ensure the read-only is properly configured/used
+   (let [[db-config read-db-config] (dbutils/configure-temp-db create-opts)]
+     (PostgresTestServer. db-config read-db-config))))
 
 ;;; PuppetDB fixture
 

@@ -604,23 +604,19 @@
                         ["select pg_get_userbyid(nspowner)
                            from pg_namespace
                            where nspname = (select schemaname from pg_tables
-                                              where tablename = 'certnames')"]))
-        log-msg (fn [msg]
-                  (binding [*out* *err*]
-                    (println msg))
-                  (log/error msg))]
+                                              where tablename = 'certnames')"]))]
 
     (when-not (every? (fn [r] (= "SELECT" (:privilege_type r))) table-perms)
-      (log-msg (trs "The read-database user is not configured properly because it has privileges other than SELECT on the puppetdb tables")))
+      (log/error (trs "The read-database user is not configured properly because it has privileges other than SELECT on the puppetdb tables")))
 
     (when (seq table-owner)
-      (log-msg (trs "The read-database user is not configured properly because it has ownership of tables")))
+      (log/error (trs "The read-database user is not configured properly because it has ownership of tables")))
 
     (when (:usesuper (first superuser))
-      (log-msg (trs "The read-database user is not configured properly because it is a superuser")))
+      (log/error (trs "The read-database user is not configured properly because it is a superuser")))
 
     (when (= read-user (:pg_get_userbyid (first schema-owner)))
-      (log-msg (trs "The read-database user is not configured properly because it owns the schema that contains the puppetdb database")))))
+      (log/error (trs "The read-database user is not configured properly because it owns the schema that contains the puppetdb database")))))
 
 (defn prep-db
   [{:keys [username migrator-username migrate min-required-version]}]
