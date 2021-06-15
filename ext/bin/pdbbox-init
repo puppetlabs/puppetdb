@@ -123,6 +123,7 @@ cat > "$tmp_pass" <<-EOF
 	*:*:*:pdb_test_admin:$admin_passwd
 	*:*:*:puppetdb:$passwd
 	*:*:*:puppetdb_read:$read_passwd
+	*:*:*:puppetdb_migrator:$migrator_passwd
 	*:*:*:postgres:$pg_passwd
 	EOF
 mv "$tmp_pass" "$PGBOX/pgpass"
@@ -144,7 +145,7 @@ pgbox env psql -c 'grant pdb_test to pdb_test_migrator'
 setup-pdb()
 {
   local dbname="$1"
-  pgbox env createdb -E UTF8 -O puppetdb "$dbname"
+  pgbox env createdb -E UTF8 -O postgres "$dbname"
   pgbox env psql "$dbname" <<ADMIN
     create extension pg_trgm;
 
@@ -153,14 +154,27 @@ setup-pdb()
 
     -- Grant read to all future tables in public schema to the read-only user
     alter default privileges for user puppetdb in schema public grant select on tables to puppetdb_read;
+
+    -- configure the migrator user
+    revoke connect on database $dbname from public;
+    grant connect on database $dbname to puppetdb_migrator with grant option;
 ADMIN
+
+  pgbox env psql "$dbname" -U puppetdb_migrator <<MIGRATOR
+    grant connect on database $dbname to puppetdb;
+    grant connect on database $dbname to puppetdb_read;
+MIGRATOR
 }
 
 pgbox env createuser -DRS puppetdb
 pgbox env createuser -DRS puppetdb_read
+pgbox env createuser -DRS puppetdb_migrator
+
+pgbox env psql -c 'grant puppetdb to puppetdb_migrator'
 
 set-passwd puppetdb "$pdbbox/test-pass" "$tmp_dir"
 set-passwd puppetdb_read "$pdbbox/test-pass-read" "$tmp_dir"
+set-passwd puppetdb_migrator "$pdbbox/test-pass-migrator" "$tmp_dir"
 
 setup-pdb puppetdb
 setup-pdb puppetdb2
@@ -215,6 +229,8 @@ logging-config = $abs_pdbbox/logback.xml
 subname = //$host:$pgport/puppetdb
 username = puppetdb
 password = $passwd
+migrator-username = puppetdb_migrator
+migrator-password = $migrator_passwd
 
 [read-database]
 subname = //$host:$pgport/puppetdb
