@@ -1585,6 +1585,25 @@
   (env-config-for-db-ulong "PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS"
                            (* 5 60 1000)))
 
+(defn call-with-lock-timeout [f timeout-ms]
+  (let [set-timeout #(->> (format "set local lock_timeout = %d" %)
+                          (sql/execute! jdbc/*db*))]
+    ;; FIXME: possibly too crude...
+    (let [orig (-> "select setting from pg_settings where name = 'lock_timeout'"
+                   query-to-vec first :setting Long/parseLong)]
+      (set-timeout timeout-ms)
+      (let [result (f)]
+        ;; FIXME: For now we assume that when there's an exception,
+        ;; the transaction's about to end, and that'll restore the
+        ;; original value.  We don't use finally because we noticed
+        ;; some trouble there, presumably during an exception that had
+        ;; made restore operation invalid, and we didn't have time to
+        ;; investigate.  Depending on what the issue was, we might be
+        ;; able to put the set-timeout in a murphy finally block
+        ;; (i.e. to chain the two exceptions).
+        (set-timeout orig)
+        result))))
+
 (defn prune-daily-partitions
   "Deletes obsolete day-oriented partitions older than the date.
   Deletes only the oldest such candidate if incremntal? is true.  Will
@@ -1625,24 +1644,10 @@
                     (log/warn (trs "More than 2 partitions to prune: {0}"
                                    (pr-str (butlast candidates))))))
                 (doseq [candidate candidates]
-                  (drop-one candidate)))
-        set-timeout #(->> (format "set local lock_timeout = %d" %)
-                          (sql/execute! jdbc/*db*))]
-    ;; FIXME: possibly too crude...
+                  (drop-one candidate)))]
     (if-not daily-partition-drop-lock-timeout-ms
       (drop)
-      (let [orig (-> "show lock_timeout"
-                     query-to-vec first :lock_timeout Long/parseLong)]
-        (set-timeout daily-partition-drop-lock-timeout-ms)
-        (let [result (drop)]
-          ;; FIXME: For now we assume that when there's an exception,
-          ;; the transaction's about to end, and that'll restore the
-          ;; original value.  We don't use finally because we noticed
-          ;; some trouble there, presumably during an exception that
-          ;; had made restore operation invalid, and we didn't have
-          ;; time to investigate.
-          (set-timeout orig)
-          result)))))
+      (call-with-lock-timeout drop daily-partition-drop-lock-timeout-ms))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given

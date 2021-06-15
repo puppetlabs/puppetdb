@@ -121,7 +121,7 @@ The following example would match any network interface names starting with "eth
 
 If you want to match any index for an array path element, you can use regular expressions, as the element acts like a string:
 
-    ["~>", "path", ["array_fact", ".*"]]
+    ["~>", "path", [<array_fact>, ".*"]]
 
 ### `null?` (is null)
 
@@ -196,8 +196,8 @@ The **function** operator is used to call a function on the result of a
 subquery. Supported functions are described below.
 
 #### `avg`, `sum`, `min`, `max`
-These functions will operator on any numeric column and take the column name as
-an argument, as in the examples above.
+These functions operate on any numeric column and they take the column
+name as an argument, as in the examples above.
 
 #### `count`
 The `count` function can be used with or without a column. When no column is
@@ -209,7 +209,18 @@ specified column is not null.
 The `to_string` function operates on timestamps and integers, allowing them to
 be formatted in a user-defined manner before being returned from puppetdb.
 Available  formats are the same as those documented for [PostgreSQL's `to_char`
-function][to-char].
+function][to-char]. For instance, to get the full lower case month name of the
+`producer_timestamp`,  you can query the reports endpoint with:
+
+```
+["extract", [["function", "to_string", "producer_timestamp", "month"]]]
+```
+
+To get the last 2 digits of the year a report was submitted  from the Puppet Server:
+
+```
+["extract", [["function", "to_string", "producer_timestamp", "YY"]]]]
+```
 
 ### `group_by`
 
@@ -348,7 +359,7 @@ For example,
 
     ["order_by", ["certname"]]
 
-    ["order_by", ["certname", ["timestamp", "desc"]]]
+    ["order_by", ["certname", ["producer_timestamp", "desc"]]]
 
 When no ordering is explicitly specified, as in the case of "certname" in the
 example above, ascending order is assumed. Here are a few examples of queries
@@ -358,21 +369,21 @@ Return the most recent ten reports for a certname:
 
     ["from", "reports",
       ["=", "certname", "myserver"],
-      ["order_by", [["timestamp", "desc"]]],
+      ["order_by", [["producer_timestamp", "desc"]]],
       ["limit", 10]]
 
 Return the next page of ten reports:
 
     ["from", "reports",
       ["=", "certname", "myserver"],
-      ["order_by", [["timestamp", "desc"]]],
+      ["order_by", [["receive_time", "desc"]]],
       ["limit", 10],
       ["offset", 10]]
 
 Return the most recent ten reports for any certname:
 
     ["from", "reports",
-      ["order_by", [["timestamp", "desc"]]],
+      ["order_by", [["producer_timestamp", "desc"]]],
       ["limit", 10]]
 
 Return the nodes represented in the ten most recent reports:
@@ -435,7 +446,7 @@ you can do the following on the [`facts`][facts] endpoint:
       ["=", "name", "networking"],
       ["subquery", "fact_contents",
         ["and",
-          ["~>", "path", ["networking", ".*", "macaddresses", ".*"]],
+          ["~>", "path", ["networking", ".*", "macaddress", ".*"]],
           ["=", "value", "aa:bb:cc:dd:ee:00"]]]]
 
 ### Explicit subqueries
@@ -594,7 +605,7 @@ This query string queries the `/nodes` endpoint for all nodes with `Class[Apache
         ["select_resources",
           ["and",
             ["=", "type", "Class"],
-            ["=", "title", "Apache"]]]]]]
+            ["=", "title", "Apache"]]]]]
 
 This query string queries the `/facts` endpoint for the IP address of
 all Debian nodes.
@@ -625,7 +636,7 @@ its first macaddress on the interface `eth0`, you could use this query on '/node
       ["extract", "certname",
         ["select_fact_contents",
           ["and",
-            ["=", "path", ["networking", "eth0", "macaddresses", 0]],
+            ["=", "path", ["networking", "eth0", "macaddress", 0]],
             ["=", "value", "aa:bb:cc:dd:ee:00"]]]]]
 
 To exhibit a subquery using multiple fields, you could use the following
@@ -691,5 +702,5 @@ its first macaddress on the interface `eth0`, you could use this query on `/node
       ["from", "fact_contents",
         ["extract", "certname",
           ["and",
-            ["=", "path", ["networking", "eth0", "macaddresses", 0]],
+            ["=", "path", ["networking", "eth0", "macaddress", 0]],
             ["=", "value", "aa:bb:cc:dd:ee:00"]]]]]

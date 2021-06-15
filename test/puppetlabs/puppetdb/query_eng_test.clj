@@ -46,7 +46,7 @@
 
 (deftest test-plan-cte
   (is (re-matches
-         #"WITH inactive_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL AND deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\) OR \(expired IS NOT NULL and expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\), not_active_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL OR expired IS NOT NULL\)\) SELECT table.foo AS foo FROM table WHERE \(1 = 1\)"
+         #"WITH inactive_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL AND deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\) OR \(expired IS NOT NULL and expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\), not_active_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL OR expired IS NOT NULL\)\) SELECT table.foo AS \"foo\" FROM table WHERE \(1 = 1\)"
          (plan->sql (map->Query {:projections {"foo" {:type :string
                                            :queryable? true
                                            :field :table.foo}}
@@ -130,12 +130,12 @@
          ["=" "name" "networking"]]]])))
 
 (deftest test-extract-with-no-subexpression-compiles
-  (is (re-find #"SELECT .*certname FROM reports"
+  (is (re-find #"SELECT .*\"certname\" FROM reports"
                (->> ["extract" "certname"]
                     (compile-user-query->sql reports-query)
                     :results-query
                     first)))
-  (is (re-find #"SELECT .*certname FROM reports"
+  (is (re-find #"SELECT .*\"certname\" FROM reports"
                (->> ["extract" ["certname"]]
                     (compile-user-query->sql reports-query)
                     :results-query
@@ -145,7 +145,7 @@
                     (compile-user-query->sql reports-query)
                     :results-query
                     first)))
-  (is (re-find #"SELECT .*certname AS certname, count\(\*\) .* FROM reports"
+  (is (re-find #"SELECT .*certname AS \"certname\", count\(\*\) .* FROM reports"
                (->> ["extract" [["function" "count"] "certname"] ["group_by" "certname"]]
                     (compile-user-query->sql reports-query)
                     :results-query

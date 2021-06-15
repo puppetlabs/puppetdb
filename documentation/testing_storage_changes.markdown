@@ -39,3 +39,24 @@ yourself first.
 Fact storage benchmark profiles are configured in `test-configs` var in
 `src/puppetlabs/puppetdb/cli/fact_storage_benchmark.clj`. The profiles are run
 in order if none is specified at the command line.
+
+
+## Query performance testing with Locust
+
+If PuppetDB is running and listening on port 8080, you can run a
+simple query performance test using [Locust](https://locust.io/) like
+this:
+
+```
+locust/run_load_test
+```
+
+See `locust/run_load_test --help` for some additional
+information.
+
+Dependencies are installed during the run, but if you want 
+to install dependencies only for the current user you can run
+`pip install --user locust pyyaml`, which will install to
+~/.local, in which case you'll need to make sure the relevant
+`site-packages` dir in there is in your `PYTHONPATH`  (and `bin` dir
+is in your `PATH`).
