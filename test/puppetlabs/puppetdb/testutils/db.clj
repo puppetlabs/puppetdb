@@ -6,6 +6,7 @@
             [clojure.test]
             [environ.core :refer [env]]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
+            [puppetlabs.puppetdb.cli.services :refer [validate-read-only-user]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -22,7 +23,8 @@
 (def test-env
   (let [user (env :pdb-test-db-user "pdb_test")
         migrator (env :pdb-test-db-migrator "pdb_test_migrator")
-        admin (env :pdb-test-db-admin "pdb_test_admin")]
+        admin (env :pdb-test-db-admin "pdb_test_admin")
+        read-only (env :pdb-test-db-read "pdb_test_read")]
     ;; Since we're going to use these in raw SQL later (i.e. not via ?).
     (doseq [[who name] [[:user user] [:migrator migrator] [:admin admin]]]
       (when-not (valid-sql-id? name)
@@ -34,6 +36,8 @@
      :port (env :pdb-test-db-port 5432)
      :user {:name user
             :password (env :pdb-test-db-user-password "pdb_test")}
+     :read {:name read-only
+            :password (env :pdb-test-db-read-password "pdb_test_read")}
      :migrator {:name migrator
                 :password (env :pdb-test-db-migrator-password "pdb_test_migrator")}
      :admin {:name admin
@@ -69,6 +73,18 @@
    :password (get-in test-env [:user :password])
    :migrator-username (get-in test-env [:migrator :name])
    :migrator-password (get-in test-env [:migrator :password])
+   :maximum-pool-size 5})
+
+(defn read-db-config
+  "Returns a config suitable for routine pdb operations (i.e. not
+  admin/superuser operations)."
+  [database]
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
+   :user (get-in test-env [:read :name])
+   :username (get-in test-env [:read :name])
+   :password (get-in test-env [:read :password])
    :maximum-pool-size 5})
 
 (defn subname->validated-db-name [subname]
@@ -175,10 +191,11 @@
 
 (def ^:private test-db-counter (atom 0))
 
-(defn create-temp-db
+(defn configure-temp-db
   "Creates a temporary test database.  Prefer with-test-db, etc.  If
-  migrated? is true, the database will already be fully migrated."
-  ([] (create-temp-db {:migrated? true}))
+   migrated? is true, the database will already be fully migrated. Returns
+   [scf-write-db, scf-read-db]"
+  ([] (configure-temp-db {:migrated? true}))
   ([{:keys [migrated?] :as opts}]
    (when migrated?
      (ensure-pdb-db-templates-exist))
@@ -188,25 +205,47 @@
               (str "pdb_test_" pdb-test-id "_" n))
          db-q (jdbc/double-quote db)
          config (routine-db-config db)
-         user (get-in test-env [:user :name])
-         user-q (jdbc/double-quote user)
-         migrator (get-in test-env [:migrator :name])
-         migrator-q (jdbc/double-quote migrator)]
+         read-config (read-db-config db)
+         user-q (jdbc/double-quote (get-in test-env [:user :name]))
+         migrator-q (jdbc/double-quote (get-in test-env [:migrator :name]))
+         read-user-q (jdbc/double-quote (get-in test-env [:read :name]))]
      (jdbc/with-db-connection (db-admin-config)
        (jdbc/do-commands-outside-txn
         (format "drop database if exists %s" db-q)
         (if migrated?
           (format "create database %s template %s" db-q template-name)
           (format "create database %s" db-q))
-        ;; Needed by migration coordination
+
+        ;; Needed by migration coordination, the user role must already be granted to migrator
+        ;; which happens in pdbbox-init
         (format "revoke connect on database %s from public" db-q)
         (format "grant connect on database %s to %s with grant option" db-q migrator-q)
         (format "set role %s" migrator-q)
         (format "grant connect on database %s to %s" db-q user-q)))
+
+      ;; Switch to run these schema permissions commands on the newly created test database
+      (jdbc/with-db-connection (db-admin-config db)
+        (jdbc/do-commands-outside-txn
+         ;; Configure a read-only user
+         "revoke create on schema public from public"
+         (format "grant create on schema public to %s" user-q)
+         (format "alter default privileges for user %s in schema public grant select on tables to %s"
+                 user-q read-user-q)
+         (format "grant select on all tables in schema public to %s" read-user-q)
+         ;; Explicitly grant connect because it has been revoked above
+         (format "set role %s" migrator-q)
+         (format "grant connect on database %s to %s" db-q read-user-q)))
      (require-suitable-pg-arrangement config)
-     config)))
+     (validate-read-only-user read-config (get-in test-env [:read :name]))
+     [config read-config])))
+
+;; FIXME: create-temp-db is only around to ensure backwards compatibility
+;; new tests should not use this and instead use configure-temp-db directly
+;; in order to test using the read-only user
+(def create-temp-db (comp first configure-temp-db))
 
 (def ^:dynamic *db* nil)
+(def ^:dynamic *read-db* nil)
 
 (defn drop-test-db [db-config]
   (let [db-name (subname->validated-db-name (:subname db-config))
@@ -250,12 +289,14 @@
   there are no clojure.tests failures or errors, drops the database,
   otherwise displays its subname."
   [f]
-  (binding [*db* (create-temp-db)]
-    ;; storage metrics are created during service start
-    ;; ensure they exist in tests before storage code is run
-    (init-storage-metrics *db*)
-    (with-db-info-on-failure-or-drop *db*
-      (f))))
+  (let [[write-db read-db] (configure-temp-db)]
+    (binding [*db* write-db
+              *read-db* read-db]
+      ;; storage metrics are created during service start
+      ;; ensure they exist in tests before storage code is run
+      (init-storage-metrics *db*)
+      (with-db-info-on-failure-or-drop *db*
+        (f)))))
 
 (defmacro with-unconnected-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))
