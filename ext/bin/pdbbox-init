@@ -76,26 +76,42 @@ pg_passwd="$(cd "$PGBOX" && cat pass-admin)"
 admin_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 migrator_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
+read_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 
 # This code relies on echo being a function in bash, not a subprocess
 # and "here documents" to prevent passwords from being visible in
 # "ps", etc.  We also assume that mktemp perms are always go-wrx,
 # across all the relevant platforms.
 
-tmp_pass="$(mktemp "$tmp_dir/tmp-test-pass-XXXXXX")"
-chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
-echo -n "$passwd" > "$tmp_pass"
-mv "$tmp_pass" "$pdbbox/test-pass"
+save-passwd() {
+    test $# -eq 3
+    local passwd="$1" tmp_dir="$2" dest="$3"
 
-tmp_pass="$(mktemp "$tmp_dir/tmp-test-pass-migrator-XXXXXX")"
-chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
-echo -n "$migrator_passwd" > "$tmp_pass"
-mv "$tmp_pass" "$pdbbox/test-pass-migrator"
+    # This code relies on echo being a function in bash, not a
+    # subprocess and "here documents" to prevent passwords from being
+    # visible in "ps", etc.  We also assume that mktemp perms are
+    # always go-wrx, across all the relevant platforms.
+    tmp_pass="$(mktemp "$tmp_dir/tmp-save-pass-XXXXXX")"
+    chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
+    echo -n "$passwd" > "$tmp_pass"
+    mv "$tmp_pass" "$dest"
+}
 
-tmp_pass="$(mktemp "$tmp_dir/tmp-test-pass-admin-XXXXXX")"
-chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
-echo -n "$admin_passwd" > "$tmp_pass"
-mv "$tmp_pass" "$pdbbox/test-pass-admin"
+set-passwd() {
+    test $# -eq 3
+    local role="$1" pwfile="$2" tmp_dir="$3" tmp_cmds
+    tmp_cmds="$(mktemp "$tmp_dir/set-pass-XXXXXX")"
+    chmod 0600 "$tmp_cmds" # Not entirely safe, but expected to be redundant
+    echo -n "alter role $role with password '" > "$tmp_cmds"
+    cat "$pwfile" >> "$tmp_cmds"
+    echo "';" >> "$tmp_cmds"
+    pgbox env psql -f "$tmp_cmds"
+}
+
+save-passwd "$passwd" "$tmp_dir" "$pdbbox/test-pass"
+save-passwd "$migrator_passwd" "$tmp_dir" "$pdbbox/test-pass-migrator"
+save-passwd "$admin_passwd" "$tmp_dir" "$pdbbox/test-pass-admin"
+save-passwd "$read_passwd" "$tmp_dir" "$pdbbox/test-pass-read"
 
 tmp_pass="$(mktemp "$tmp_dir/tmp-pass-XXXXXX")"
 chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
@@ -103,8 +119,11 @@ cat > "$tmp_pass" <<-EOF
 	# hostname:port:database:username:password
 	*:*:*:pdb_test:$passwd
 	*:*:*:pdb_test_migrator:$migrator_passwd
+	*:*:*:pdb_test_read:$read_passwd
 	*:*:*:pdb_test_admin:$admin_passwd
 	*:*:*:puppetdb:$passwd
+	*:*:*:puppetdb_read:$read_passwd
+	*:*:*:puppetdb_migrator:$migrator_passwd
 	*:*:*:postgres:$pg_passwd
 	EOF
 mv "$tmp_pass" "$PGBOX/pgpass"
@@ -112,39 +131,50 @@ mv "$tmp_pass" "$PGBOX/pgpass"
 pgbox env createuser -dERs pdb_test_admin
 pgbox env createuser -DERS pdb_test
 pgbox env createuser -DERS pdb_test_migrator
+pgbox env createuser -DERS pdb_test_read
 
 tmp_cmds="$(mktemp "$tmp_dir/tmp-cmds-XXXXXX")"
 
-echo -n "alter role pdb_test with password '" > "$tmp_cmds"
-cat "$pdbbox/test-pass" >> "$tmp_cmds"
-echo "';" >> "$tmp_cmds"
-pgbox env psql -f "$tmp_cmds"
-
-echo -n "alter role pdb_test_migrator with password '" > "$tmp_cmds"
-cat "$pdbbox/test-pass-migrator" >> "$tmp_cmds"
-echo "';" >> "$tmp_cmds"
-pgbox env psql -f "$tmp_cmds"
-
-echo -n "alter role pdb_test_admin with password '" > "$tmp_cmds"
-cat "$pdbbox/test-pass-admin" >> "$tmp_cmds"
-echo "';" >> "$tmp_cmds"
-pgbox env psql -f "$tmp_cmds"
+set-passwd pdb_test "$pdbbox/test-pass" "$tmp_dir"
+set-passwd pdb_test_admin "$pdbbox/test-pass-admin" "$tmp_dir"
+set-passwd pdb_test_migrator "$pdbbox/test-pass-migrator" "$tmp_dir"
+set-passwd pdb_test_read "$pdbbox/test-pass-read" "$tmp_dir"
 
 pgbox env psql -c 'grant pdb_test to pdb_test_migrator'
 
 setup-pdb()
 {
   local dbname="$1"
-  pgbox env createdb -E UTF8 -O puppetdb "$dbname"
-  pgbox env psql "$dbname" -c 'create extension pg_trgm'
+  pgbox env createdb -E UTF8 -O postgres "$dbname"
+  pgbox env psql "$dbname" <<ADMIN
+    create extension pg_trgm;
+
+    revoke create on schema public from public;
+    grant create on schema public to puppetdb;
+
+    -- Grant read to all future tables in public schema to the read-only user
+    alter default privileges for user puppetdb in schema public grant select on tables to puppetdb_read;
+
+    -- configure the migrator user
+    revoke connect on database $dbname from public;
+    grant connect on database $dbname to puppetdb_migrator with grant option;
+ADMIN
+
+  pgbox env psql "$dbname" -U puppetdb_migrator <<MIGRATOR
+    grant connect on database $dbname to puppetdb;
+    grant connect on database $dbname to puppetdb_read;
+MIGRATOR
 }
 
 pgbox env createuser -DRS puppetdb
+pgbox env createuser -DRS puppetdb_read
+pgbox env createuser -DRS puppetdb_migrator
 
-echo -n "alter role puppetdb with password '" > "$tmp_cmds"
-cat "$pdbbox/test-pass" >> "$tmp_cmds"
-echo "';" >> "$tmp_cmds"
-pgbox env psql -f "$tmp_cmds"
+pgbox env psql -c 'grant puppetdb to puppetdb_migrator'
+
+set-passwd puppetdb "$pdbbox/test-pass" "$tmp_dir"
+set-passwd puppetdb_read "$pdbbox/test-pass-read" "$tmp_dir"
+set-passwd puppetdb_migrator "$pdbbox/test-pass-migrator" "$tmp_dir"
 
 setup-pdb puppetdb
 setup-pdb puppetdb2
@@ -199,6 +229,13 @@ logging-config = $abs_pdbbox/logback.xml
 subname = //$host:$pgport/puppetdb
 username = puppetdb
 password = $passwd
+migrator-username = puppetdb_migrator
+migrator-password = $migrator_passwd
+
+[read-database]
+subname = //$host:$pgport/puppetdb
+username = puppetdb_read
+password = $read_passwd
 
 [nrepl]
 enabled = false

@@ -450,6 +450,7 @@
       (svc-utils/call-with-single-quiet-pdb-instance
         (-> (create-temp-config)
             (assoc :database (int/server-info pg1))
+            (assoc :read-database (int/read-db-info pg1))
             (assoc-in [:database :gc-interval] "30")
             (assoc :database-pg1 (int/server-info pg1)
                    :database-pg2 (assoc (int/server-info pg2)
