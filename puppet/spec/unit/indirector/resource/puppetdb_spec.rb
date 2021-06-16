@@ -121,7 +121,9 @@ describe Puppet::Resource::Puppetdb do
             item.type.should == 'File'
             item[:ensure].should == 'present'
             # This functionality was changed by PUP-7493
-            if Gem::Version.new(Puppet.version) < Gem::Version.new("6.24.0")
+            if Gem::Version.new(Puppet.version) < Gem::Version.new("6.24.0") ||
+                (Gem::Version.new(Puppet.version) >= Gem::Version.new("7.0.0") &&
+                 Gem::Version.new(Puppet.version) < Gem::Version.new("7.9.0"))
               item[:mode].should == '777'
             else
               item[:mode].should == '0777'
