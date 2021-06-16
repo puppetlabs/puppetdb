@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 77d6916d341ddebec4f670db2828b84f91a6c540\n"
+"X-Git-Ref: 87f1eec2f19409e089b9ffe1ef4ac080c5a49a14\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -217,6 +217,29 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Database is not fully migrated."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"The read-database user is not configured properly because it has privileges "
+"other than SELECT on the puppetdb tables"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"The read-database user is not configured properly because it has ownership "
+"of tables"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"The read-database user is not configured properly because it is a superuser"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid ""
+"The read-database user is not configured properly because it owns the schema "
+"that contains the puppetdb database"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
