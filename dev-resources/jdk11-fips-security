@@ -61,7 +61,7 @@
 # List of providers and their preference orders (see above):
 #
 security.provider.1=org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
-security.provider.2=org.bouncycastle.jsse.provider.BouncyCastleJsseProvider fips:BCFIPS
+security.provider.2=org.bouncycastle.jsse.provider.BouncyCastleJsseProvider fips:org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
 security.provider.3=SUN
 security.provider.4=SunRsaSign
 #security.provider.5=SunEC
