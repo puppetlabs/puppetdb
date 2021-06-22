@@ -2254,7 +2254,7 @@
                        {"certname" "foo2" "value" "testing.com"}
                        {"certname" "foo3" "value" "testing.com"}]))))))
 
-(deftest-http-app  ^:skipped test-for-known-issues
+(deftest-http-app test-for-known-issues
   [[version endpoint] fact-contents-endpoints
    method [:get :post]]
 

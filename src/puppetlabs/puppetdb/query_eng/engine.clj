@@ -1698,7 +1698,7 @@
   "Zip through the query plan, replacing each user provided query parameter with '?'
   and return the parameters as a vector"
   [plan]
-  (let [{:keys [node state]} (zip/post-order-visit (zip/tree-zipper plan)
+  (let [{:keys [node state]} (zip/pre-order-visit (zip/tree-zipper plan)
                                                    []
                                                    [extract-params])]
     {:plan node
