@@ -1,9 +1,10 @@
 (ns puppetlabs.puppetdb.pql.parser-test
-  (:require [clojure.test :refer :all]
-            [clojure.string :as str]
-            [instaparse.core :as insta]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.pql :refer [parse]]))
+  (:require
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [instaparse.core :as insta]
+   [puppetlabs.puppetdb.pql :refer [parse]]
+   [puppetlabs.puppetdb.query-eng.parse :refer [dotted-query->path]]))
 
 ;; These tests are ordered the same as in the EBNF file, so one can
 ;; develop the expressions and tests side-by-side.
@@ -564,7 +565,7 @@
 
   (testing "field"
     (are [in] (= (parse in :start :field)
-                 (vec (concat [:field] (sutils/dotted-query->path in))))
+                 (vec (concat [:field] (dotted-query->path in))))
          "certname"
          "value"
          "field_underscore"
