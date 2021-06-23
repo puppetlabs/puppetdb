@@ -21,6 +21,49 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 6.17.0
+
+Released June 24 2021. This release contains a fix for
+[CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/).
+
+### Security fixes
+
+* Fixed an issue where someone with the ability to query PuppetDB could
+  arbitrarily write, update, or delete data
+  [CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/)
+  [PDB-5138](https://tickets.puppetlabs.com/browse/PDB-5138)
+
+
+### New features and improvements
+
+* Significantly reduced the memory usage by the puppetdb terminus to process
+  commands. [PDB-5107](https://tickets.puppetlabs.com/browse/PDB-5107)
+* Some command processing operations should require less work and require fewer
+  round trips to the database.
+  [PDB-5128](https://tickets.puppetlabs.com/browse/PDB-5128)
+* If the read-only user has database permissions that it does not need,
+  PuppetDB will log errors.
+  [PDB-5145](https://tickets.puppetlabs.com/browse/PDB-5145)
+
+
+### Bug Fixes
+
+* (PE only) Fixed an issue causing unnecessary factset sync
+  [PDB-5021](https://tickets.puppetlabs.com/browse/PDB-5021)
+* Lock timeouts will be parsed correctly now. Previously, if a lock timeout had
+  been set either via the experimental
+  [PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  variable, or other means, PuppetDB might fail to interpret the value
+  correctly, and as a result, fail to prune older data correctly.
+  [(PDB-5141)](https://tickets.puppetlabs.com/browse/PDB-5141)
+* All reports can be queried by including type = "any" as a query filter.
+  [PDB-4766](https://tickets.puppetlabs.com/browse/PDB-4766)
+* The ssl-setup command (which is also invoked by the PuppetDB package
+  installation scripts) should handle ssl-related filesystem permissions more
+  carefully. Previously it might reset them when it shouldn't have, and/or
+  leave them briefly with incorrect, potentially overly permissive values.
+  [PDB-2590](https://tickets.puppetlabs.com/browse/PDB-2590)
+
 ## PuppetDB 6.16.1
 
 Released 26 April 2021. The 6.16.0 tag was burned in order to update additional
