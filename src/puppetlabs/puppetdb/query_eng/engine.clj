@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query-eng.parse :as parse]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.utils :as utils]
@@ -1637,15 +1638,15 @@
 (defn path->nested-map
   "Given path [a b c] and value d, produce {a {b {c d}}}"
   [path value]
-  (reduce #(hash-map (formatter/maybe-strip-escaped-quotes %2) %1)
+  (reduce #(hash-map (parse/maybe-strip-escaped-quotes %2) %1)
           (rseq (conj (vec path) value))))
 
 (defn parse-dot-query
   "Transforms a dotted query into a JSON structure appropriate
    for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (map formatter/maybe-strip-escaped-quotes
-                             (su/dotted-query->path field))]
+  (let [[column & path] (map parse/maybe-strip-escaped-quotes
+                             (parse/dotted-query->path field))]
     (if (some #(re-matches #"^\d+$" %) path)
       ;; This path is taken for match() operators that match indexes,
       ;; i.e.  facts.foo.match("\d+") because by this point they'll be
@@ -1665,9 +1666,9 @@
    for comparison in the database."
   [{:keys [field value] :as node} state]
   (let [[column & path] (->> field
-                             su/dotted-query->path
-                             (map formatter/maybe-strip-escaped-quotes)
-                             su/expand-array-access-in-path)
+                             parse/dotted-query->path
+                             (map parse/maybe-strip-escaped-quotes)
+                             parse/expand-array-access-in-path)
         qmarks (repeat (count path) "?")
         parameters (concat path [(su/munge-jsonb-for-storage value)
                                  (first path)])]
@@ -1808,14 +1809,14 @@
             ;; (= :inventory (get-in (meta node) [:query-context :entity]))
             (if (string/includes? column "match(")
               (let [[head & path] (->> column
-                                       utils/parse-matchfields
-                                       su/dotted-query->path
-                                       (map formatter/maybe-strip-escaped-quotes))
+                                       parse/parse-matchfields
+                                       parse/dotted-query->path
+                                       (map parse/maybe-strip-escaped-quotes))
                     path (if (= head "trusted") (cons head path) path)
                     fact_paths (->> (jdbc/query-to-vec "SELECT path_array FROM fact_paths WHERE (path ~ ? AND path IS NOT NULL)"
                                                        (doto (PGobject.)
                                                          (.setType "text")
-                                                         (.setValue (string/join "#~" (utils/split-indexing path)))))
+                                                         (.setValue (string/join "#~" (parse/split-indexing path)))))
                                     (map :path_array)
                                     (map (fn [path] (if (= (first path) "trusted") path (cons "facts" path))))
                                     (map #(string/join "." %)))]
@@ -2053,7 +2054,8 @@
 
 (defn create-json-subtree-projection
   [dotted-field projections]
-  (let [json-path (map formatter/maybe-strip-escaped-quotes (su/dotted-query->path dotted-field))
+  (let [json-path (->> (parse/dotted-query->path dotted-field)
+                       (map parse/maybe-strip-escaped-quotes))
         stringify-field (fn [{:keys [field field-type]}]
                           (case field-type
                             :keyword (name field)
@@ -2417,7 +2419,8 @@
                        (seq? (rest maybe-dotted-path)))
                 (let [field (name (h/extract-sql (:field cinfo)))
                       dotted-path (->> maybe-dotted-path rest (str/join "."))
-                      json-path (map formatter/maybe-strip-escaped-quotes (su/dotted-query->path dotted-path))
+                      json-path (->> (parse/dotted-query->path dotted-path)
+                                     (map parse/maybe-strip-escaped-quotes ))
                       path-extraction-field (jdbc/create-json-path-extraction field json-path)]
                   (map->NullExpression {:column (assoc cinfo :field (hcore/raw path-extraction-field))
                                         :null? value}))
@@ -3011,7 +3014,7 @@
                           (remove (comp :query-only? val))
                           keys)))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
-        basename #(let [path-or-field (su/dotted-query->path %)]
+        basename #(let [path-or-field (parse/dotted-query->path %)]
                     (if (coll? path-or-field)
                       (first path-or-field)
                       path-or-field))
