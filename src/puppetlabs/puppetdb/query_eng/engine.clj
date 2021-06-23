@@ -1796,9 +1796,6 @@
        (map first)
        (some numeric-functions)))
 
-(def non-predicate-clause
-  #{"group_by" "limit" "offset"})
-
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
