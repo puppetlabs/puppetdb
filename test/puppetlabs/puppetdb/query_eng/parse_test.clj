@@ -138,10 +138,3 @@
   (testing "dotted path with quote"
     (is (= (parse/dotted-query->path "facts.\"foo.bar\"baz\".biz")
            ["facts" "\"foo.bar\"baz\"" "biz"]))))
-
-(deftest expand-array-access-in-path-test
-  (are [in out] (= out (parse/expand-array-access-in-path in))
-    ["a" "b[0]" "c"] ["a" "b" 0 "c"]
-    ["a" "b" "c"] ["a" "b" "c"]
-    ["a[0]"] ["a" 0]
-    ["a[0]foo"] ["a[0]foo"]))
