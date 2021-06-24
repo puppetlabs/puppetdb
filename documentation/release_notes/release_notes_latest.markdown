@@ -23,8 +23,14 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## PuppetDB 6.17.0
 
-Released June 24 2021. This release contains a fix for
-[CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/).
+Released June 24 2021.
+
+This release contains a fix for
+[CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/). As part of
+the mitigation of this CVE you should [create and configure a read only
+user][configure_postgres]. If you are using Puppet Enterprise, or you are
+managing your postgres database using the Open Source module (version 7.9.0+)
+the read only user will be configured automatically.
 
 ### Security fixes
 
