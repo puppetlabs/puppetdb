@@ -1666,14 +1666,17 @@
   "Transforms a dotted query into a JSON structure appropriate
    for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (->> field
-                             parse/dotted-query->path
-                             (map parse/maybe-strip-escaped-quotes)
-                             parse/expand-array-access-in-path)
-        qmarks (repeat (count path) "?")
+  ;; node is JsonbPathBinaryExpression
+  ;; Convert facts.foo[5] to ["facts" "foo" 5]
+  (let [[column & path] (mapcat #(case (:kind %)
+                                   ::parse/indexed-field-part [(:name %) (:index %)]
+                                   ::parse/named-field-part [(:name %)])
+                                (parse/parse-field field))
         parameters (concat path [(su/munge-jsonb-for-storage value)
                                  (first path)])]
-    {:node (assoc node :value qmarks :field column)
+    {:node (assoc node
+                  :value (repeat (count path) "?")
+                  :field column)
      :state (reduce conj state parameters)}))
 
 
@@ -1697,6 +1700,7 @@
     (parse-dot-query node state)
 
     (instance? JsonbPathBinaryExpression node)
+    ;; Q: this shouldn't accept match()es?
     (parse-dot-query-with-array-elements node state)
 
     (instance? FnBinaryExpression node)
