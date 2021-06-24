@@ -2550,13 +2550,19 @@
 
 (declare push-down-context)
 
+(defn- valid-dotted-field?
+  [field allowed-json-extract?]
+  (let [[top & path] (parse/parse-field field)]
+    (and (seq path) (allowed-json-extract? (:name top)))))
+
 (defn unsupported-fields
   [field allowed-fields allowed-json-extracts]
-  (let [supported-calls (set (map #(vector "function" %) (keys pdb-fns->pg-fns)))]
-    (remove #(or (contains? (set allowed-fields) %)
-                 (contains? supported-calls (take 2 %))
-                 (and (is-dotted-projection? %)
-                      (contains? (set allowed-json-extracts) (first (str/split % #"\.")))))
+  (let [allowed-json-extract? (set allowed-json-extracts)
+        allowed-field? (set allowed-fields)
+        supported-call? (set (map #(vector "function" %) (keys pdb-fns->pg-fns)))]
+    (remove #(or (allowed-field? %)
+                 (supported-call? (take 2 %))
+                 (valid-dotted-field? % allowed-json-extract?))
             (ks/as-collection field))))
 
 (defn validate-query-operation-fields
