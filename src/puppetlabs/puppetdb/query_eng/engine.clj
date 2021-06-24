@@ -62,11 +62,6 @@
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
 
-(defn is-dotted-projection?
-  [projection]
-  ;; If the projection has a dot it must be of the form fact.foo
-  (str/includes? projection "."))
-
 ; The use of 'column' here is a misnomer. This refers to the result of
 ; a query and the top level keys used should match up to query entities
 ; and the values of 'columns', 'local-column', and 'foreign-column'
@@ -2102,48 +2097,48 @@
              (first expr)))
 
 (defn create-json-subtree-projection
-  [dotted-field projections]
-  (let [json-path (->> (parse/dotted-query->path dotted-field)
-                       (map parse/maybe-strip-escaped-quotes))
-        stringify-field (fn [{:keys [field field-type]}]
-                          (case field-type
-                            :keyword (name field)
-                            :raw (:s field)
-                            (throw (IllegalArgumentException.
-                                     (tru "Cannot determine field type for field ''{0}''" field)))))]
-  {:type :json
-   :queryable? false
-   :field (hcore/raw
-            (jdbc/create-json-path-extraction
-              ; Extract the original field as a string
-              (->> json-path
-                   first
-                   projections
-                   stringify-field)
-              (rest json-path)))
-   ;; json-path will be something like ("facts" "kernel" ...)
-   :join-deps (get-in projections [(first json-path) :join-deps])}))
+  [[top & path :as parsed-field] projections]
+  (let [stringify (fn [{:keys [field field-type]}]
+                    (case field-type
+                      :keyword (name field)
+                      :raw (:s field)
+                      (throw (IllegalArgumentException.
+                              (tru "Cannot determine field type for field ''{0}''" field)))))]
+    {:type :json
+     :queryable? false
+     :field (hcore/raw
+             (jdbc/create-json-path-extraction
+              ;; Extract the original field as a string
+              (-> top :name projections stringify)
+              (map #(case (:kind %)
+                      ::parse/named-field-part (:name %))
+                   path)))
+     ;; json-path will be something like ("facts" "kernel" ...)
+     :join-deps (get-in projections [(:name top) :join-deps])}))
 
 (defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
    `column-list`. Updating :projected-fields causes the select in the SQL query
    to be modified."
   [{:keys [projections] :as query-rec} column-list expr]
-  (let [names->fields (fn [names projections]
-                        (mapv #(if (is-dotted-projection? %)
-                                 (vector % (create-json-subtree-projection % projections))
-                                 (vector % (projections %)))
-                              names))]
+  (let [names->fields (fn [projections]
+                        (mapv (fn [field parsed]
+                                (vector field
+                                        (if (> (count parsed) 1) ;; dotted projection?
+                                          (create-json-subtree-projection parsed projections)
+                                          (projections field))))
+                              column-list
+                              (map parse/parse-field column-list)))]
     (if (or (nil? expr)
             (not (subquery-expression? expr)))
       (assoc query-rec
              :where (user-node->plan-node query-rec expr)
-             :projected-fields (names->fields column-list projections))
+             :projected-fields (names->fields projections))
       (let [[subname & subexpr] expr
             logobj (user-query->logical-obj subname)
             projections (:projections logobj)]
         (assoc logobj
-               :projected-fields (names->fields column-list projections)
+               :projected-fields (names->fields projections)
                :where (some->> (seq subexpr)
                                first
                                (user-node->plan-node logobj)))))))
