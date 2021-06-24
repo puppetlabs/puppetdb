@@ -192,15 +192,4 @@
             (recur xs (conj result x)))
           (recur splits (conj result s)))))))
 
-(defn expand-array-access-in-path
-  "Given a path like [\"a\" \"b[0]\" \"c\"], expand the [0] to get
-   [\"a\" \"b\" 0 \"c\"]"
-  [path]
-  (mapcat (fn [el]
-            (let [[[_ field index-str]] (re-seq #"^(.*)\[(\d+)\]$" el)]
-              (if index-str
-                [field (Integer/parseInt index-str)]
-                [el])))
-          path))
-
 (set! *warn-on-reflection* warn-on-reflection-orig)
