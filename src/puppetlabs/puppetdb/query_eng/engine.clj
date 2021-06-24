@@ -54,11 +54,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
-(defn validate-dotted-field
-  [dotted-field]
-  ;; Q: why isn't parameters in here (cf. :dotted-fields below)
-  (and (string? dotted-field) (re-find #"^(facts|trusted)\..+" dotted-field)))
-
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
@@ -1866,7 +1861,14 @@
   [node]
   (cm/match [node]
 
-            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
+            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"})
+              ;; Q: why isn't "parameters" included in the guard set
+              ;; (cf. :dotted-fields below)?
+              (column :guard #(and (string? %)
+                                   (#{"facts" "trusted"} (-> (parse/parse-field %)
+                                                             first
+                                                             :name))))
+              value]]
             ;; (= :inventory (get-in (meta node) [:query-context :entity]))
             (maybe-add-match-function-filter op column value)
 
