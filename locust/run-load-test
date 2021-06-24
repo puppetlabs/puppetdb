@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys, subprocess, os
+from datetime import datetime
 
 def usage():
     usage = """
@@ -13,13 +14,16 @@ Defaults:
   -s [--spawn_rate] 1
   -t [--run_time]   1m
   -f [--locustfile] locust/load-test/load-test.py
-  --html            report.html
+  -T [--tags]       example
+  -c [--csv]        <current_date_time>
+  --html            <current_data_time>.html
 """
     print(usage)
 
 def add_default_args(program_args):
     defaults = [['--headless'], ['-H', 'http://localhost:8080'],
-           ["-u", '1'], ["-r", '1'], ["-t", '1m'], ['-f', locust_filepath], ['--html', 'report.html']]
+                ["-u", '1'], ["-r", '1'], ["-t", '1m'], ['-f', locust_filepath],
+                ['--html', f'{timestamp}.html'], ['--tags', 'example'], ['--csv', timestamp]]
     additional_args = []
     for default_arg in defaults:
         found = False
@@ -37,6 +41,7 @@ missing_defaults = []
 dir_path = os.path.dirname(os.path.realpath(__file__))
 workdir = os.getcwd()
 locust_filepath = os.path.join(dir_path, 'load-test', 'load-test.py')
+timestamp = datetime.now().strftime("%d-%m-%YT%H:%M:%S")
 
 sys_args = sys.argv[1:]
 if '--help' in sys_args:
