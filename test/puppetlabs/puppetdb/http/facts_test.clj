@@ -2254,20 +2254,18 @@
                        {"certname" "foo2" "value" "testing.com"}
                        {"certname" "foo3" "value" "testing.com"}]))))))
 
-(deftest-http-app  ^:skipped test-for-known-issues
-  [[version endpoint] fact-contents-endpoints
+(deftest-http-app to-string-function-with-mask
+  [[version endpoint] [[:v4 v4-facts-endpoint]
+                       [:v4 "/v4/fact-contents"]]
    method [:get :post]]
-
    (populate-for-structured-tests reference-time)
 
-   ; enable this test after ticket https://tickets.puppetlabs.com/browse/PDB-5104 is solved
-   (testing "to_string function on integers"
-      (is (= (query-result method endpoint
-                           ["extract" [["function" "to_string" "value" "FM9999"]]
-                            ["and"
+     (is (= (query-result method endpoint
+                          ["extract" [["function" "to_string" "value" "FM9999"]]
+                           ["and"
                             ["=" "name" "uptime_seconds"]
                             ["=" "certname" "foo1"]]])
-           #{{:to_string "1000"}}))))
+            #{{:to_string "4000"}})))
 
 (def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
 
