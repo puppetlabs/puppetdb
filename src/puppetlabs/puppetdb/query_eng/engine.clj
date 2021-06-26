@@ -1631,29 +1631,49 @@
       (instance? ArrayBinaryExpression node)
       (instance? ArrayRegexExpression node)))
 
-(defn path->nested-map
-  "Given path [a b c] and value d, produce {a {b {c d}}}"
-  [path value]
-  (reduce #(hash-map (parse/maybe-strip-escaped-quotes %2) %1)
-          (rseq (conj (vec path) value))))
-
 (defn parse-dot-query
   "Transforms a dotted query into a JSON structure appropriate
    for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (map parse/maybe-strip-escaped-quotes
-                             (parse/dotted-query->path field))]
-    (if (some #(re-matches #"^\d+$" %) path)
-      ;; This path is taken for match() operators that match indexes,
-      ;; i.e.  facts.foo.match("\d+") because by this point they'll be
-      ;; plain integer path components.
-      {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
-       ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
-       :state (reduce conj state [(jdbc/strs->db-array path)
+  ;; node is JsonContainsExpression
+  (let [[column & path] (parse/parse-field field 0 {:indexes? false
+                                                    :matches? false})
+        ;; FIXME: this is a conflation - one fix might be to parse all
+        ;; fields *once* at the start of query processing, and then
+        ;; pass that representation all the way through.
+        ;;
+        ;; The handling of match() wrt fact_paths complicates that
+        ;; because right now we don't have any (efficient) way of
+        ;; knowing all the types of the path elements we retrieve from
+        ;; the path_array, i.e. for ["foo" "5" "bar"], is "5" a custom
+        ;; fact name, or an array lookup?  The situation could be
+        ;; different if we pushed the path lookups further down, and
+        ;; didn't insinuate them via AST.  At the moment, we preserve
+        ;; backward compatibility by just treating everything as a
+        ;; named field by setting indexes? and matches? above.
+        maybe-index? #(re-matches #"[0-9]+" (:name %))]
+    (if (some maybe-index? path)
+      ;; If this matches, then the path component might be an array
+      ;; access, e.g. via the database-generated paths created by
+      ;; maybe-add-match-function-filter like foo.5.bar, and so we
+      ;; have to be conservative and set array-in-path so that we'll
+      ;; eventually use the right json operators (e.g. #> instead of
+      ;; @>).
+      {:node (assoc node
+                    :value ["?" "?"]
+                    :field (:name column)
+                    :array-in-path true)
+       :state (reduce conj state [(jdbc/strs->db-array (map :name path))
                                   (su/munge-jsonb-for-storage value)])}
-      {:node (assoc node :value "?" :field column :array-in-path false)
-       :state (conj state (su/munge-jsonb-for-storage
-                           (path->nested-map path value)))})))
+      {:node (assoc node
+                    :value "?"
+                    :field (:name column)
+                    :array-in-path false)
+       :state (conj state
+                    (su/munge-jsonb-for-storage
+                     ;; Convert path [a b c] and value d to {a {b {c d}}}
+                     (reduce (fn [result name] (hash-map name result))
+                             (cons value (reverse (map :name path))))))})))
 
 (defn parse-dot-query-with-array-elements
   "Transforms a dotted query into a JSON structure appropriate
