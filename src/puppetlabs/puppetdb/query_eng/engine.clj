@@ -2473,17 +2473,27 @@
                        value op)))))
 
             [["null?" column-name value]]
-            (let [maybe-dotted-path (str/split column-name #"\.")
-                  cinfo (get-in query-rec [:projections (first maybe-dotted-path)])]
-
+            ;; For now, this assumes that foo[5] and match(...) are
+            ;; just custom fact names, and doesn't handle foo.5.bar as
+            ;; a foo array access, to maintain backward compatibility,
+            ;; i.e. create-json-path-extraction doesn't do anything
+            ;; but single quote the compoents for a pg json path
+            ;; lookup, e.g. json->'x'->'y'.  If we want null? to work
+            ;; on nested arrays, then we'll need to distinguish,
+            ;; i.e. foo.b'ar[5].baz should become
+            ;; foo->'b''ar'->5->'baz'.
+            ;; cf. https://www.postgresql.org/docs/11/functions-json.html
+            (let [[top & path] (parse/parse-field column-name 0
+                                                  {:indexes? false
+                                                   :matches? false})
+                  cinfo (get-in query-rec [:projections (:name top)])]
               (if (and (= :queryable-json (:type cinfo))
-                       (seq? (rest maybe-dotted-path)))
+                       (seq path))
                 (let [field (name (h/extract-sql (:field cinfo)))
-                      dotted-path (->> maybe-dotted-path rest (str/join "."))
-                      json-path (->> (parse/dotted-query->path dotted-path)
-                                     (map parse/maybe-strip-escaped-quotes ))
-                      path-extraction-field (jdbc/create-json-path-extraction field json-path)]
-                  (map->NullExpression {:column (assoc cinfo :field (hcore/raw path-extraction-field))
+                      json-path (->> (map :name path)
+                                     (jdbc/create-json-path-extraction field)
+                                     hcore/raw)]
+                  (map->NullExpression {:column (assoc cinfo :field json-path)
                                         :null? value}))
                 (map->NullExpression {:column cinfo :null? value})))
 
