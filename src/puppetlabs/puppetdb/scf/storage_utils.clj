@@ -244,12 +244,6 @@
   (hcore/raw
    (format "%s = ANY(?)" (first (hfmt/format column)))))
 
-(defn json-contains
-  [field array-in-path]
-  (if array-in-path
-    (hcore/raw (format "%s #> ? = ?" field))
-    (hcore/raw (format "%s @> ?" field))))
-
 (defn jsonb-path-binary-expression
   "Produce a predicate that compares against nested value with op and checks the
   existence of a (presumably) top-level value. The existence check is necessary
