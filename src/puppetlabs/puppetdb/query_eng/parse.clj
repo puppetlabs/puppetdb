@@ -55,7 +55,7 @@
 (defn- index-or-name
   "Returns an ::indexed-field-part segment if s is of the form name[digits],
   otherwise a ::named-field-part segment."
-  [s]
+  [s indexes?]
   (if-let [[_ n i] (re-matches #"(?s:(.+)\[(\d+)\])" s)]
     ;; Must be Integer, not Long to avoid pg errors like this:
     ;; "ERROR: operator does not exist: jsonb -> bigint"
@@ -65,7 +65,11 @@
 (defn- parse-field-components
   "Parses the components of a dotted query field that come after the
   first, and conjoins a map describing each one onto the result."
-  [^String s offset result]
+  [^String s offset
+   {:keys [indexes? matches?]
+    :or {indexes? true matches? true}
+    :as opts}
+   result]
   (let [field-m (re-matcher field-rx s)
         match-m (re-matcher match-rx s)
         qfield-m (re-matcher quoted-field-rx s)]
@@ -94,7 +98,7 @@
                         {:kind ::invalid-field-component
                          :field s
                          :offset i}))
-              (find-at match-m i)
+              (and matches? (find-at match-m i))
               (recur (.end match-m)
                      (conj result {:kind ::match-field-part
                                    :pattern (.group match-m 1)}))
@@ -103,10 +107,12 @@
               ;; hopefully a bit easier to follow.
               (find-at qfield-m i)
               (recur (.end qfield-m)
-                     (conj result (index-or-name (.group qfield-m 1))))
+                     (conj result (index-or-name (.group qfield-m 1)
+                                                 indexes?)))
               (find-at field-m i)
               (recur (.end field-m)
-                     (conj result (index-or-name (.group field-m))))
+                     (conj result (index-or-name (.group field-m)
+                                                 indexes?)))
               ;; Probably currently unreachable
               :else (throw
                      (ex-info (format "Don't recognize AST field component at character %d: %s"
@@ -119,8 +125,9 @@
   "Parses an AST field like \"certname\", \"facts.partition[3]\" and
   returns a vector of the field components as maps.  The first
   component will always be a ::named-field-part."
-  ([s] (parse-field s 0))
-  ([s offset]
+  ([s] (parse-field s 0 {}))
+  ([s offset opts]
+   (assert (string? s))
    (when (= offset (count s))
      (throw (ex-info "Empty AST field" {:kind ::invalid-field :field s})))
    (let [field-m (re-matcher top-field-rx s)]
@@ -132,7 +139,7 @@
                   :offset 0})))
      ;; Q: OK to disallow an initial quoted-field?
      (let [result [{:kind ::named-field-part :name (.group field-m)}]]
-       (parse-field-components s (.end field-m) result)))))
+       (parse-field-components s (.end field-m) opts result)))))
 
 (defn- quote-path-name-for-field-str [s]
   (when (re-matches #"(?s:.*\..*\\)" s)
