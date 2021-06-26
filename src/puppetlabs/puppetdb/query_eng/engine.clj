@@ -3089,10 +3089,7 @@
                           (remove (comp :query-only? val))
                           keys)))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
-        basename #(let [path-or-field (parse/dotted-query->path %)]
-                    (if (coll? path-or-field)
-                      (first path-or-field)
-                      path-or-field))
+        basename #(-> % parse/parse-field first :name)
         required-joins (map #(get-in proj-info [% :join-deps])
                             (map basename fields))]
     (when (some nil? required-joins)
