@@ -1527,10 +1527,15 @@
 
   JsonContainsExpression
   (-plan->sql [{:keys [field column-data array-in-path]} options]
-    (su/json-contains (if (instance? SqlRaw (:field column-data))
-                        (-> column-data :field :s)
-                        field)
-                      array-in-path))
+    (let [f (if (instance? SqlRaw (:field column-data))
+              (-> column-data :field :s)
+              field)]
+      ;; This distinction is necessary (at least) because @> cannot
+      ;; traverse into arrays, but should be otherwise preferred
+      ;; because it can use an index.
+      (if array-in-path
+        (hcore/raw (format "%s #> ? = ?" f))
+        (hcore/raw (format "%s @> ?" f)))))
 
   FnBinaryExpression
   (-plan->sql [{:keys [value function args operator]} options]
