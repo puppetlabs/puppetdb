@@ -163,40 +163,4 @@
   [names]
   (str/join \. (map quote-path-name-for-field-str names)))
 
-(defn maybe-strip-escaped-quotes
-  [s]
-  (if (and (> (count s) 1)
-           (str/starts-with? s "\"")
-           (str/ends-with? s "\""))
-    (subs s 1 (dec (count s)))
-    s))
-
-(defn- handle-quoted-path-segment
-  [v]
-  (loop [result []
-         [s & splits] v]
-    (let [s-len (count s)]
-      (if (and (str/ends-with? s "\"")
-               (not (= s-len 1))
-               (or (<= s-len 2) (not (= (nth s (- s-len 2)) \\))))
-        [(str/join "." (conj result s)) splits]
-        (recur (conj result s) splits)))))
-
-(defn dotted-query->path
-  [string]
-  (loop [[s & splits :as v] (str/split string #"\.")
-         result []]
-    (if (nil? s)
-      result
-      (let [s-len (count s)]
-        (if (and (str/starts-with? s "\"")
-                 (or (= s-len 1)
-                     (or (not (str/ends-with? s "\""))
-                         (and (str/ends-with? s "\"")
-                              (>= s-len 2)
-                              (= (nth s (- s-len 2)) \\)))))
-          (let [[x xs] (handle-quoted-path-segment v)]
-            (recur xs (conj result x)))
-          (recur splits (conj result s)))))))
-
 (set! *warn-on-reflection* warn-on-reflection-orig)
