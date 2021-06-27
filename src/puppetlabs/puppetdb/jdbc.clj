@@ -13,7 +13,8 @@
   (:import
    (com.zaxxer.hikari HikariDataSource HikariConfig)
    (java.sql Connection SQLException SQLTransientConnectionException)
-   (java.util.concurrent TimeUnit)))
+   (java.util.concurrent TimeUnit)
+   (org.postgresql.util PGobject)))
 
 (def ^:dynamic *db* nil)
 
@@ -392,6 +393,26 @@
   [s]
   (str "\"" (escape-double-quotes s) "\""))
 
+(defn string->text-array-literal
+  "Escape string s for inclusion in a postgres text[] literal,
+  e.g. \"foo\\\"bar\" becomes the \"foo\\\\\\\"bar\" in
+  '{\"foo\\\\\\\"bar\"}'"
+  ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
+  ;; https://www.postgresql.org/docs/11/sql-syntax-lexical.html#SQL-SYNTAX-CONSTANTS
+  [s]
+  (assert (string? s))
+  (str \" (str/replace s "\\" "\\\\") \"))
+
+(defn strs->db-array
+  [strs]
+  (assert (every? string? strs))
+  ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
+  (let [quoted (map string->text-array-literal strs)]
+    (doto (PGobject.)
+      (.setType "text[]")
+      (.setValue (str \{ (str/join \, quoted) \})))))
+
+;; Q: move/replace?
 (defn create-json-path-extraction
   "Given a base json field and a path of keys to traverse, construct the proper
   SQL query of the form base->'key'->'key2'..."
