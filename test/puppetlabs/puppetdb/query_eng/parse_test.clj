@@ -114,27 +114,3 @@
   (is (= "x.y" (parse/path-names->field-str ["x" "y"])))
   (is (= "x.y z" (parse/path-names->field-str ["x" "y z"])))
   (is (= "x.\"y.z\"" (parse/path-names->field-str ["x" "y.z"]))))
-
-(deftest dotted-query-to-path
-  (testing "vanilla dotted path"
-    (is (= (parse/dotted-query->path "facts.foo.bar")
-           ["facts" "foo" "bar"])))
-  (testing "dot inside quotes"
-    (is (= (parse/dotted-query->path "facts.\"foo.bar\".baz")
-           ["facts" "\"foo.bar\"" "baz"]))
-    (is (= (parse/dotted-query->path "facts.\"foo.baz.bar\".baz")
-           ["facts" "\"foo.baz.bar\"" "baz"]))
-    (is (= (parse/dotted-query->path "facts.\"foo.bar\".\"baz.bar\"")
-           ["facts" "\"foo.bar\"" "\"baz.bar\""])))
-  (testing "consecutive dots"
-    (is (= (parse/dotted-query->path "facts.\"foo..bar\"")
-           ["facts" "\"foo..bar\""])))
-  (testing "path with quote in middle"
-    (is (= (parse/dotted-query->path "facts.foo\"bar.baz")
-           ["facts" "foo\"bar" "baz"])))
-  (testing "path containing escaped quote"
-    (is (= (parse/dotted-query->path "\"fo\\\".o\"")
-           ["\"fo\\\".o\""])))
-  (testing "dotted path with quote"
-    (is (= (parse/dotted-query->path "facts.\"foo.bar\"baz\".biz")
-           ["facts" "\"foo.bar\"baz\"" "biz"]))))
