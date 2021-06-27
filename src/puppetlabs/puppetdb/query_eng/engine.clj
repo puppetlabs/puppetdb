@@ -2061,7 +2061,9 @@
                      "Argument \"{0}\" is incompatible with numeric field \"{1}\"."
                      value (name field))))))
 
-              [[(:or ">" ">=" "<" "<=")  (field :guard #(not (str/includes? %  "."))) _]]
+              [[(:or ">" ">=" "<" "<=")
+                (field :guard #(= (count (parse/parse-field %)) 1))
+                _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
                               (contains? #{:numeric :timestamp :jsonb-scalar}
@@ -2374,8 +2376,9 @@
                                         :value value}))
 
             [["=" column-name value]]
-            (let [colname (first (str/split column-name #"\."))
-                  cinfo (get-in query-rec [:projections colname])]
+            ;; FIXME: pass parsed representation down
+            (let [[top & path] (parse/parse-field column-name)
+                  cinfo (get-in query-rec [:projections (:name top)])]
               (case (:type cinfo)
                :timestamp
                (map->BinaryExpression {:operator :=
@@ -2392,7 +2395,7 @@
                                        :value (facts/factpath-to-string value)})
 
                :queryable-json
-               (if (string/includes? column-name "[")
+               (if (some #(= ::parse/indexed-field-part (:kind %)) path)
                  (map->JsonbPathBinaryExpression {:field column-name
                                                   :column-data cinfo
                                                   :value value
@@ -2450,8 +2453,9 @@
                                                                    (map str value))})))
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
-            (let [colname (first (str/split column-name #"\."))
-                  {:keys [type] :as cinfo} (get-in query-rec [:projections colname])]
+            ;; FIXME: pass parsed representation down
+            (let [[top & path] (parse/parse-field column-name)
+                  {:keys [type] :as cinfo} (get-in query-rec [:projections (:name top)])]
               (cond
                 (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
@@ -2506,8 +2510,9 @@
                 (map->NullExpression {:column cinfo :null? value})))
 
             [["~" column-name value]]
-            (let [colname (first (str/split column-name #"\."))
-                  cinfo (get-in query-rec [:projections colname])]
+            ;; FIXME: pass parsed representation down
+            (let [[top] (parse/parse-field column-name)
+                  cinfo (get-in query-rec [:projections (:name top)])]
               (case (:type cinfo)
                 :array
                 (map->ArrayRegexExpression {:column cinfo :value value})
