@@ -1648,9 +1648,7 @@
       ;; plain integer path components.
       {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
        ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
-       :state (reduce conj state [(doto (PGobject.)
-                                    (.setType "text[]")
-                                    (.setValue (str "{" (string/join "," (map #(string/replace % "'" "''") path)) "}")))
+       :state (reduce conj state [(jdbc/strs->db-array path)
                                   (su/munge-jsonb-for-storage value)])}
       {:node (assoc node :value "?" :field column :array-in-path false)
        :state (conj state (su/munge-jsonb-for-storage
