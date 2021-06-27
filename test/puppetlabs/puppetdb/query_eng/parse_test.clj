@@ -98,6 +98,23 @@
           {:kind ::parse/named-field-part :name "bar\""}]
          (parse/parse-field "foo.bar\""))))
 
+(defn reconstruction-ex-info [path]
+  (try
+    (parse/path-names->field-str path)
+    (catch ExceptionInfo ex
+      {:msg (.getMessage ex)
+       :data (ex-data ex)})))
+
+(deftest field-reconstruction-from-path
+  (is (= {:kind ::parse/unquotable-field-segment :name ".nope\\"}
+         (-> ["yep" ".nope\\"] reconstruction-ex-info :data)))
+  (is (= {:kind ::parse/unquotable-field-segment :name "nope.\\"}
+         (-> ["yep" "yep" "nope.\\"] reconstruction-ex-info :data)))
+  (is (= "x" (parse/path-names->field-str ["x"])))
+  (is (= "x.y" (parse/path-names->field-str ["x" "y"])))
+  (is (= "x.y z" (parse/path-names->field-str ["x" "y z"])))
+  (is (= "x.\"y.z\"" (parse/path-names->field-str ["x" "y.z"]))))
+
 (deftest dotted-query-to-path
   (testing "vanilla dotted path"
     (is (= (parse/dotted-query->path "facts.foo.bar")
