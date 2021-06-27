@@ -1796,6 +1796,70 @@
        (map first)
        (some numeric-functions)))
 
+(defn- db-path->ast-field [path]
+  (try
+    (parse/path-names->field-str path)
+    (catch ExceptionInfo ex
+      (when-not (= ::parse/unquotable-field-segment (:kind (ex-data ex)))
+        (throw ex))
+      (throw (Exception.
+              (tru "Currently unable to match this path: {0}"
+                   (pr-str (-> ex ex-data :data))))))))
+
+(defn maybe-add-match-function-filter [operator field value]
+  ;; FIXME: this currently treats *all* path segments as match()es
+  ;; when there's any match().  Perhaps change in the next X release,
+  ;; or next endpoint version.
+  (let [parts (parse/parse-field field)]
+    (when (some #(= ::parse/match-field-part (:kind %)) parts)
+      (let [[head & path] parts
+            path (if (= (:name head) "trusted")
+                   ;; Real location is facts.trusted...
+                   (cons head path)
+                   path)
+            ;; Q: factpath-regexp-to-regexp?
+            pg-rx (->> path
+                       (mapcat #(case (:kind %)
+                                  ::parse/indexed-field-part [(:name %) (:index %)]
+                                  ::parse/match-field-part [(:pattern %)]
+                                  ::parse/named-field-part [(:name %)]))
+                       (string/join "#~"))
+            ;; Right now, this code communicates the paths via AST
+            ;; dotted fields, which is insufficient because the
+            ;; current syntax can't represent all possible fact names
+            ;; (see db-path->ast-field).
+            ;;
+            ;; Eventually, and depending on what we decide about
+            ;; match(), we might want to either:
+            ;;   - move this down into the ->plan functions so we
+            ;;     don't have to round-trip through AST, or otherwise
+            ;;     allow us to carry the parsed field representation
+            ;;     rather than a reconsituted AST field string.
+            ;;   - rework AST's quoting syntax (in a new endpoint
+            ;;     version)
+            ;;   - just rely on the well specified syntax we already
+            ;;     have, and provide support paths as JSON vectors,
+            ;;     e.g. ["foo" "bar"], ["foo" ["nth" "bar" 5], "baz"],
+            ;;     ["foo" ["match" "\\d+"]], etc.
+            fact_paths (->> (jdbc/query-to-vec (str "SELECT path_array FROM fact_paths"
+                                                    "  WHERE (path ~ ? AND path IS NOT NULL)")
+                                               (doto (PGobject.)
+                                                 (.setType "text")
+                                                 (.setValue pg-rx)))
+                            (map :path_array)
+                            (map (fn [path]
+                                   (if (= (first path) "trusted")
+                                     path
+                                     (cons "facts" path))))
+                            ;; cf. parse-dot-query which relies on the
+                            ;; fact that any array indexing will match
+                            ;; \d+, i.e. foo.5.bar.
+                            (map db-path->ast-field))]
+        (case (count fact_paths)
+          0 ["or" "false"] ;; Could this just be false?
+          1 (vector operator (first fact_paths) value)
+          (into ["or"] (map #(vector operator % value) fact_paths)))))))
+
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
@@ -1804,23 +1868,7 @@
 
             [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
             ;; (= :inventory (get-in (meta node) [:query-context :entity]))
-            (if (string/includes? column "match(")
-              (let [[head & path] (->> column
-                                       parse/parse-matchfields
-                                       parse/dotted-query->path
-                                       (map parse/maybe-strip-escaped-quotes))
-                    path (if (= head "trusted") (cons head path) path)
-                    fact_paths (->> (jdbc/query-to-vec "SELECT path_array FROM fact_paths WHERE (path ~ ? AND path IS NOT NULL)"
-                                                       (doto (PGobject.)
-                                                         (.setType "text")
-                                                         (.setValue (string/join "#~" (parse/split-indexing path)))))
-                                    (map :path_array)
-                                    (map (fn [path] (if (= (first path) "trusted") path (cons "facts" path))))
-                                    (map #(string/join "." %)))]
-                (into ["or"] (map #(vector op % value) fact_paths)))
-              (if (re-matches #"^trusted.*" column)
-                [op (str "facts." column) value]
-                [op column value]))
+            (maybe-add-match-function-filter op column value)
 
             [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
             (when (= :facts (get-in meta node [:query-context :entity]))

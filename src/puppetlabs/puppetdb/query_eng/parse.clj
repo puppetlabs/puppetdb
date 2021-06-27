@@ -134,6 +134,28 @@
      (let [result [{:kind ::named-field-part :name (.group field-m)}]]
        (parse-field-components s (.end field-m) result)))))
 
+(defn- quote-path-name-for-field-str [s]
+  (when (re-matches #"(?s:.*\..*\\)" s)
+    ;; Currently no way to represent a string including a dot that
+    ;; ends in a backslash.
+    (throw (ex-info (str "AST has no way to quote a path segment including a dot and ending in backslash: "
+                         (pr-str s))
+                    {:kind ::unquotable-field-segment
+                     :name s})))
+  (if (str/index-of s \.)
+    (str \" s \")
+    s))
+
+(defn path-names->field-str
+  "Returns a properly quoted AST field string (dotted path) for the
+  given names (only handles names, not ::indexed-field-part
+  or ::match-field-part expressions).  Throws an exception if any name
+  cannot be quoted, since AST's current quoting syntax is
+  incomplete (e.g. cannot represent a name that contains a dot and
+  ends in backslash."
+  [names]
+  (str/join \. (map quote-path-name-for-field-str names)))
+
 (defn maybe-strip-escaped-quotes
   [s]
   (if (and (> (count s) 1)
@@ -141,20 +163,6 @@
            (str/ends-with? s "\""))
     (subs s 1 (dec (count s)))
     s))
-
-(defn parse-matchfields
-  [s]
-  (str/replace s #"match\((\".*\")\)" "$1"))
-
-(defn split-indexing
-  [path]
-  (flatten
-    (for [s path]
-      (if (re-find #"\[\d+\]$" s)
-        (-> s
-            (str/split #"(?=\[\d+\]$)")
-            (update 1 #(Integer/parseInt (subs % 1 (dec (count %))))))
-        s))))
 
 (defn- handle-quoted-path-segment
   [v]
