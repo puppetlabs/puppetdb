@@ -206,17 +206,17 @@
         (is (= (sort (vector (:type (first query-result)) (:type (last query-result))))
                ["agent" "plan"]))))))
 
-(deftest-http-app ^:skipped test-for-known-issues
+(deftest-http-app month-from-producer-timestamp
   [[version endpoint] endpoints
     method [:get :post]]
 
     (store-example-report! (:basic reports) (now))
-
-    ; enable this test after ticket https://tickets.puppetlabs.com/browse/PDB-5103 is solved
     (testing "to_string month format"
       (is (= (query-result method endpoint
                          ["extract" [["function" "to_string" "producer_timestamp" "month"]]])
-           #{{:to_string "january"}}))))
+  ; The response is blank-padded to 9 characters. More info in the PostgreSQL documentation about
+  ; formatting masks: https://www.postgresql.org/docs/11/functions-formatting.html#FUNCTIONS-FORMATTING-DATETIME-TABLE
+           #{{:to_string "january  "}}))))
 
 (deftest-http-app query-report-with-malformed-json
   [version [:v4]]
