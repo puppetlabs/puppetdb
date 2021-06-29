@@ -434,7 +434,7 @@ module PuppetDBExtensions
       disable_update_checking => true,
     }
     #{postgres_manifest}
-    Postgresql::Server::Db['puppetdb'] -> Class['puppetdb::server']
+    Class['::puppetdb::database::postgresql'] -> Class['puppetdb::server']
     EOS
     apply_manifest_on(host, manifest)
     print_ini_files(host)
@@ -518,32 +518,16 @@ module PuppetDBExtensions
 
   def postgres_manifest
     manifest = <<-EOS
-      # get the pg server up and running
-      class { 'postgresql::globals':
-          manage_package_repo => true,
-          version             => '11',
-      }->
-      class { '::postgresql::server':
-        ip_mask_allow_all_users => '0.0.0.0/0',
-        listen_addresses        => 'localhost',
-      }
       # create the puppetdb database
-      postgresql::server::db { 'puppetdb':
-        user     => 'puppetdb',
-        password => 'puppetdb',
-        grant    => 'all',
-      }
-      # create the pg_trgm extension
-      if $facts['os']['family'] == 'Debian' {
-        $pg_trgm_package = 'postgresql-contrib'
-      } else {
-        $pg_trgm_package = 'postgresql11-contrib'
-      }
-      postgresql::server::extension { 'puppetdb_pg_trgm':
-        schema    => 'public',
-        database  => 'puppetdb',
-        extension => 'pg_trgm',
-        package_name => $pg_trgm_package,
+      class { '::puppetdb::database::postgresql':
+      listen_addresses            => 'localhost',
+      manage_package_repo         =>  true,
+      postgres_version            => '11',
+      database_name               => 'puppetdb',
+      database_username           => 'puppetdb',
+      database_password           => 'puppetdb',
+      read_database_username      => 'puppetdb-read',
+      read_database_password      => 'puppetdb-read',
       }
     EOS
     manifest
