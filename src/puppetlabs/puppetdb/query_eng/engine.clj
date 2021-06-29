@@ -1710,14 +1710,14 @@
     {:node (assoc node :value "?")
      :state (apply conj (:params node) state)}
 
-    ;; Handle a parameterized :selection -- the query's :selection
-    ;; must already have question marks in all the right places, and
-    ;; have the corresponding parameter values in :selection-params.
+    ;; Handle a parameterized :selection -- when the :selection
+    ;; appears in the tree traversal put the corresponding parameter values
+    ;; from :selection-params.
     ;; See rewrite-fact-query for an example.
-    (and (instance? Query node)
-         (-> node :selection :selection-params))
+    (and (map? node)
+         (:selection-params node))
     {:node node
-     :state (apply conj (-> node :selection :selection-params) state)}))
+     :state (apply conj (:selection-params node) state)}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'

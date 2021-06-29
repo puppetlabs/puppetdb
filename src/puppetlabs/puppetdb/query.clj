@@ -85,7 +85,8 @@
           (s/optional-key :min) s/Any
           (s/optional-key :max) s/Any
           (s/optional-key :avg) s/Any
-          (s/optional-key :sum) s/Any}))
+          (s/optional-key :sum) s/Any
+          (s/optional-key :to_string) s/Str}))
 
 (defn execute-paged-query*
   "Helper function to executed paged queries.  Builds up the paged sql string,
