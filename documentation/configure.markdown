@@ -277,14 +277,34 @@ Started](https://www.postgresql.org/docs/11/static/tutorial-start.html)
 section of the [PostgreSQL
 manual](https://www.postgresql.org/docs/11/static/index.html).
 
-Completely configuring PostgreSQL is beyond the scope of this guide,
-but a example setup is described below. First, you can create a user
-and database as follows:
+Completely configuring PostgreSQL is beyond the scope of this guide, but a
+example setup is described below. First, you can create a user and database as
+follows. Then, to have a secure installation you must create a read-only user
+to configure the `[read-database]` config section. This limits the postgresql level
+permissions of PuppetDB queries and prevents them from writing, updating, or
+deleting any data.
 
-    $ sudo -u postgres sh
-    $ createuser -DRSP puppetdb
-    $ createdb -E UTF8 -O puppetdb puppetdb
-    $ exit
+```
+sudo -u postgres sh
+createuser -DRSP puppetdb
+createuser -DRSP puppetdb_read
+createdb -E UTF8 -O postgres puppetdb
+psql puppetdb -c 'revoke create on schema public from public'
+psql puppetdb -c 'grant create on schema public to puppetdb'
+psql puppetdb -c 'alter default privileges for user puppetdb in schema public grant select on tables to puppetdb_read'
+psql puppetdb -c 'alter default privileges for user puppetdb in schema public grant usage on sequences to puppetdb_read'
+psql puppetdb -c 'alter default privileges for user puppetdb in schema public grant execute on functions to puppetdb_read'
+```
+
+If you already have PuppetDB installed and running and are adding a read-only
+user, you will need to grant the same privileges as above to existing objects.
+
+```
+psql puppetdb -c 'grant select on all tables in schema public to puppetdb_read'
+psql puppetdb -c 'grant usage on all sequences in schema public to puppetdb_read'
+psql puppetdb -c 'grant execute on all functions in schema public to puppetdb_read'
+exit
+```
 
 Particularly if you plan to run more than one PuppetDB instance
 connecting to the same database, we recommend you also
@@ -388,14 +408,16 @@ user, and it must also be allowed to terminate the normal user's
 existing connections.  One way to arrange that is to do sometthing
 like this after creating the `puppetdb` user as described above:
 
-    $ sudo -u postgres sh
-    $ createuser -DRSP puppetdb_migrator
-    $ psql puppetdb -c 'revoke connect on database puppetdb from public'
-    $ psql puppetdb -c 'grant connect on database puppetdb to puppetdb_migrator with grant option'
-    $ psql puppetdb -c 'grant connect on database puppetdb to puppetdb' \
-        -U puppetdb_migrator
-    $ psql puppetdb -c 'grant puppetdb to puppetdb_migrator'
-    $ exit
+```
+sudo -u postgres sh
+createuser -DRSP puppetdb_migrator
+psql puppetdb -c 'revoke connect on database puppetdb from public'
+psql puppetdb -c 'grant connect on database puppetdb to puppetdb_migrator with grant option'
+
+psql puppetdb -c 'set role puppetdb_migrator; grant connect on database puppetdb to puppetdb'
+psql puppetdb -c 'set role puppetdb_migrator; grant connect on database puppetdb to puppetdb_read'
+psql puppetdb -c 'grant puppetdb to puppetdb_migrator'
+exit
 
 Then specify `puppetdb_migrator` as the
 [migrator-username](#migrator-username) and set the

@@ -274,7 +274,7 @@
 
 (s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
   "Delegates to clj-time.core/to-timestamp, except when `ts` is a
-  String. When a String, this funciton will attempt to convert it
+  String. When a String, this function will attempt to convert it
   using a more likely correct date format first (which is faster than
   to-timestamp's more naive approach)"
   [ts]

@@ -4,27 +4,37 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
-[configure_postgres]: ./configure.html#using-postgresql
-[kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
-[pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
-[puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
-[migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
-[stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
-[upgrade_policy]: ./versioning_policy.html#upgrades
-[facts]: ./api/query/v4/facts.html
-[puppet_apply]: ./connect_puppet_apply.html
+[configure_postgres]: ../configure.html#using-postgresql
+[metrics]: ../api/metrics/v1/changes-from-puppetdb-v3.html
+[puppet_apply]: ../connect_puppet_apply.html
 
 ---
 
 ## PuppetDB 7.4.1
 
-Released June 24 2021. This release contains a fix for
-[CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/).
+Released June 24 2021.
+
+This release contains a fix for
+[CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/). As part of
+the mitigation of this CVE you should [create and configure a read only
+user][configure_postgres]. If you are using Puppet Enterprise, or you are
+managing your postgres database using the Open Source module (version 7.9.0+)
+the read only user will be configured automatically.
+
+Related patches, addressing the vulnerability:
+
+  * (PDB-5138) validate-dotted-field: anchor regexp
+    [c146e624d230f7410fb648d58ae28c0e3cd457a2](https://github.com/puppetlabs/puppetdb/commit/c146e624d230f7410fb648d58ae28c0e3cd457a2)
+  * (PDB-5138) quote-projections: quote all projections
+    [f8dc81678cf347739838e42cc1c426d96406c266](https://github.com/puppetlabs/puppetdb/commit/f8dc81678cf347739838e42cc1c426d96406c266)
+  * (PDB-5138) Strictly validate function AST
+    [72bd137511487643a3a6236ad9e72a5dd4a6fadb](https://github.com/puppetlabs/puppetdb/commit/72bd137511487643a3a6236ad9e72a5dd4a6fadb)
+
+A patch to ensure PuppetDB logs if the query user's permissions are
+insufficiently restricted:
+
+  * (PDB-5145) Detect and log ERROR level messages if read-only user is misconfigured
+    [4077d580913c45e471e12cecc9f90df62d95f38f](https://github.com/puppetlabs/puppetdb/commit/4077d580913c45e471e12cecc9f90df62d95f38f)
 
 ### Security fixes
 

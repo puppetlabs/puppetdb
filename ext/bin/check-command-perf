@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<EOF
+
+Usage: [PDB_JAR=JAR] PDBBOX=BOX_DIR $(basename "$0") STOCKPILE_ARCHIVE"
+
+  Unarchive STOCKPILE_ARCHIVE into $PDBBOX/var/stockpile/cmd/q and run
+  pdb to time how long it takes to consume the stockpile files. The result
+  of this test can be seen in the console.
+
+  In order for this script to work properly you need to enable v1/metrics
+  endpoint. See info at:
+  https://puppet.com/docs/puppetdb/latest/api/metrics/v1/mbeans.html#re-enable-metrics-v1-endpoint
+
+  The version of pdb will be the one run via ./pdb which defaults to
+  the uberjar in target/.
+
+EOF
+}
+
+misuse() { usage 1>&2; exit 2; }
+
+jar="${PDB_JAR:-target/puppetdb.jar}"
+
+if [ -z "$PDBBOX" ]; then
+    echo "PDBBOX is not set in the environment. Do you have a pdbbox created?" 1>&2
+    misuse
+fi
+
+if [ "$#" -le 0 ]; then
+    echo "A STOCKPILE_ARCHIVE wasn't provided." 1>&2
+    misuse
+fi
+
+if [ ! -e "$jar" ]; then
+    printf 'Unable to find the puppetdb jar %q; have you run "lein uberjar"?\n' \
+      "$jar" 1>&2
+    exit 2
+fi
+
+tmpdir=''
+pdb_id=''
+
+on-exit() {
+    if [ "$tmpdir" ]; then rm -rf "$tmpdir"; fi
+    if [ "$pdb_id" ]; then kill "$pdb_id" &>/dev/null; fi
+}
+trap on-exit EXIT
+
+get-metric() {
+    local metric="$1"
+    local mbeans='http://localhost:8080/metrics/v1/mbeans'
+    curl -sSX GET "$mbeans/puppetlabs.puppetdb.mq:name=$metric"
+}
+
+target_dir="$PDBBOX/var/stockpile/cmd/q"
+stockpile=""
+
+if [ "$(ls "$target_dir" | wc -l)" -gt 0 ]; then
+    echo "$target_dir is not empty. Please make sure the dir is empty before proceeding." 1>&2
+    exit 2
+fi
+
+if [ -z "$1" ]; then
+    echo "An archive that contains the stockpile must be provided!" 1>&2
+    misuse
+else
+    stockpile="$1"
+fi
+
+printf 'Unpacking %q into %q\n' "$stockpile" "$target_dir" 1>&2
+
+tar zxf "$stockpile" -C "$target_dir"
+commands_count="$(ls "$target_dir" | wc -l)"
+
+echo "Running PDB" 1>&2
+
+tmpdir="$(mktemp -d "test-command-performance-XXXXXX")"
+tmpdir="$(cd "$tmpdir" && pwd)"
+
+./pdb services -c "$PDBBOX/conf.d" >"$tmpdir/log.txt" 2>&1 &
+pdb_id=$!
+
+printf "Waiting for PDB startup (log: %q)\n" "$tmpdir/log.txt" 1>&2
+
+while ! grep -Fq "Finished database garbage collection" "$tmpdir/log.txt"; do
+    sleep 1
+    if [ "$(grep -F "Error during service start!!!" "$tmpdir/log.txt")" ]; then
+      echo "PDB failed during start-up." 1>&2
+      exit 2
+    fi
+done
+
+start=$(date +%s)
+
+echo "Comand ingestion in progress..." 1>&2
+
+while [ "$(get-metric global.processed | jq .Count)" -ne "$commands_count" ]; do
+    sleep 0.5
+done
+
+end=$(date +%s)
+processing_time=$(get-metric global.processing-time)
+runtime=$((end - start))
+
+cat <<EOS
+Processing-seconds: $processing_time
+Elapsed-seconds: $runtime
+EOS
