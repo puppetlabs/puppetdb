@@ -27,6 +27,24 @@ apt-get-update() {
     echo "Executed apt-get update $i times"
 }
 
+install-pg() {
+    local need_pgdg=
+    for pkg in "$@"; do
+        if ! apt-cahe show "$pkg"; then
+            need_pgdg=1
+            break
+        fi
+    done
+    if test "$need_pgdg"; then
+        curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+        echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -sc)-pgdg main" \
+             > /etc/apt/sources.list.d/pdb-pgdg.list
+        apt-get-update
+    fi
+
+    apt-get -y install "$@"
+}
+
 spec=''
 install=''
 while test $# -gt 0; do
@@ -57,9 +75,9 @@ case "$flavor" in
     core|ext|core+ext|int)
         pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
         if test "$pgver" = 9.6; then
-            apt-get -y install postgresql-9.6 postgresql-contrib-9.6
+            install-pg postgresql-9.6 postgresql-contrib-9.6
         else
-            apt-get -y install postgresql-"$pgver"
+            install-pg postgresql-"$pgver"
         fi
         ;;
 esac
