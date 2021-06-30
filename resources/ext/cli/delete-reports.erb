@@ -2,8 +2,7 @@
 
 set -e
 
-pdb_service=<%= EZBake::Config[:user] %>
-pdb_db_name="$pdb_service"
+pdb_db_name=<%= EZBake::Config[:user] %>
 pg_port=5432
 <% if EZBake::Config[:is_pe_build] %>
 pg_user=pe-postgres
@@ -20,11 +19,14 @@ function printerr {
 function usage {
   cat <<USAGE
 Usage: puppetdb delete-reports [OPTIONS]
-    --service SERVICE     the puppetdb service name (default: $pdb_service)
     --db-name NAME        the puppetdb database name (default: $pdb_db_name)
     --pg-user USER        the postgres system user (default: $pg_user)
     --pg-port PORT        the postgres port to connect (default: $pg_port)
     --psql    PATH        the path to the psql command (default: $psql_cmd)
+
+    This cli command can conflict with command submission from running
+    PuppetDBs. If that happens, you should stop your PuppetDBs and re-run
+    this command to avoid the conflict.
 USAGE
 }
 
@@ -35,12 +37,6 @@ function misuse {
 
 while test $# -gt 0; do
   case "$1" in
-    --service)
-      shift
-      test $# -gt 0 || misuse
-      pdb_service="$1"
-      shift
-      ;;
     --db-name)
       shift
       test $# -gt 0 || misuse
@@ -73,11 +69,6 @@ while test $# -gt 0; do
         misuse
   esac
 done
-
-printerr "Stopping puppetdb..."
-# Allow service stop to fail to support using
-# delete-reports script on an external postgres
-(service "$pdb_service" stop && printerr "Stopped puppetdb.") || printerr "Failed to stop PuppetDB, continuing."
 
 tmp_dir="$(mktemp -d)"
 tmp_dir="$(cd "$tmp_dir" && pwd)"
