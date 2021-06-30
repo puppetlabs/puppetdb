@@ -15,16 +15,20 @@ jobs:
         flavor:
           - core+ext/openjdk11/pg-11
           - core+ext/openjdk11/pg-9.6
+
           # integration
           - int/openjdk11/pup-6.x/srv-6.x/pg-11
           - int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
           - int/openjdk11/pup-6.x/srv-6.x/pg-9.6/rich
           - int/openjdk8/pup-6.x/srv-6.x/pg-11/rich
           - int/openjdk8/pup-6.x/srv-6.x/pg-9.6/rich
+
           # rspec
           - rspec/pup-6.x
           - rspec/pup-6.4.x
+
           - lint/openjdk11
+          - nvd/openjdk11
 
         os: [ubuntu-18.04]
 

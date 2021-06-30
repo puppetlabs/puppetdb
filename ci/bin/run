@@ -34,6 +34,9 @@ case "$flavor" in
     lint)
         ext/bin/check-spec-env "$spec"
         lein eastwood
+        ;;
+    nvd)
+        ext/bin/check-spec-env "$spec"
         lein nvd check
         ;;
     rspec)

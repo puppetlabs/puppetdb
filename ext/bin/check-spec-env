@@ -30,7 +30,7 @@ test $# -ne 1 && misuse
 spec="$1"
 test_kind=$(ext/bin/flavor-from-spec "$spec")
 case "$test_kind" in
-    core|ext|core+ext|int|lint)
+    core|ext|core+ext|int|lint|nvd)
         verify-jdk "$spec"
         ;;
     rspec)
