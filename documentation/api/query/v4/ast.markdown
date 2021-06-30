@@ -222,6 +222,17 @@ To get the last 2 digits of the year a report was submitted  from the Puppet Ser
 ["extract", [["function", "to_string", "producer_timestamp", "YY"]]]]
 ```
 
+To get the uptime_seconds fact's value as a string, the following query can be used on
+facts or fact-contents endpoint:
+
+```
+["extract", [["function", "to_string", "value", "999999999"]], ["=","name", "uptime_seconds"]]
+```
+
+Please note that in order for `to_string` function to work with integer values, a mask
+must be provided. For more information about masks and how to provide them, please read
+the documentation for [PostgreSQL's `to_char`function][to-char].
+
 ### `group_by`
 
 The **group_by** operator must be applied as the last argument of an extract,
