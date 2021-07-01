@@ -4,19 +4,21 @@ layout: default
 canonical: "/puppetdb/latest/configure.html"
 ---
 
+# Configuring PuppetDB
+
 [java-patterns]: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
 [logback]: http://logback.qos.ch/manual/configuration.html
-[dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
+[dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
 [pe-dashboard]: https://support.puppet.com/hc/en-us/articles/208484488-Enable-and-view-the-PuppetDB-performance-dashboard-for-Puppet-Enterprise-3-3-2-to-2019-1
-[repl]: ./repl.html
+[repl]: ./repl.markdown
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[postgres_ssl]: ./postgres_ssl.html
-[migration_coordination]: ./migration_coordination.html
-[module]: ./install_via_module.html
-[puppetdb.conf]: ./connect_puppet_server.html#edit-puppetdbconf
-[ha]: ./ha.html
+[postgres_ssl]: ./postgres_ssl.markdown
+[migration_coordination]: ./migration_coordination.markdown
+[module]: ./install_via_module.markdown
+[puppetdb.conf]: ./connect_puppet_server.markdown#edit-puppetdbconf
+[ha]: ./ha.markdown
 [node-ttl]: #node-ttl
-[admin-cmd]: ./api/admin/v1/cmd.html
+[admin-cmd]: ./api/admin/v1/cmd.markdown
 
 PuppetDB has three main groups of settings:
 
@@ -24,8 +26,7 @@ PuppetDB has three main groups of settings:
 * Logging settings, which go in the [logback.xml](#logging-config) file and can be changed without restarting PuppetDB.
 * All other settings, which go in PuppetDB's configuration file(s) and take effect after the service is restarted.
 
-Init Script Config File
------
+## Init Script Config File
 
 If you installed PuppetDB from packages or used the `rake install`
 installation method, an init script was created for PuppetDB. This
@@ -74,8 +75,7 @@ up a JMX socket on port 1099:
     JAVA_ARGS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=1099"
 
 
-The Logback logging-config file
------
+## The Logback logging-config file
 
 Logging is configured with a logback.xml file, whose location is
 defined with the [`logging-config`](#logging-config) setting. If you
@@ -85,8 +85,7 @@ new settings without requiring a restart.
 [See the Logback documentation][logback] for more information about logging options.
 
 
-The PuppetDB configuration file(s)
------
+## The PuppetDB configuration file(s)
 
 PuppetDB is configured using an INI-style config format with several
 `[sections]`. This is very similar to the format used by Puppet. All
@@ -166,8 +165,7 @@ resources as shown below, set the class to refresh the
     }
 ~~~
 
-`[global]` settings
------
+## `[global]` settings
 
 The `[global]` section is used to configure application-wide behavior.
 
@@ -205,8 +203,7 @@ make external HTTP requests. In this case you can configure a proxy
 server to send requests to the `updates.puppetlabs.com` URL and
 override this setting to point to your proxy server.
 
-`[puppetdb]` settings
------
+## `[puppetdb]` settings
 
 The `[puppetdb]` section is used to configure PuppetDB
 application-specific behavior.
@@ -253,8 +250,7 @@ debugging query performance. If unset, the default value is `false`.
 [See the Logback documentation][logback] for more information about logging
 options and how to enable debug level logging.
 
-`[database]` settings
------
+## `[database]` settings
 
 The `[database]` section configures PuppetDB's database settings.
 PuppetDB stores its data in PostgreSQL.
@@ -423,7 +419,7 @@ Then specify `puppetdb_migrator` as the
 [migrator-username](#migrator-username) and set the
 [migrator-password](#migrator-password) as described below.
 
-See the [migration coordination documentation](migration_coordination)
+See the [migration coordination documentation][migration_coordination]
 for a more detailed explanation of the process.
 
 ### `gc-interval`
@@ -627,8 +623,7 @@ is compatible with against the database's schema version. The default is every
 30 seconds. If a mismatch is detected PuppetDB will exit with an error message
 suggesting appropriate action. If set to zero, this check is disabled.
 
-`[read-database]` settings
------
+## `[read-database]` settings
 
 The `[read-database]` section configures PuppetDB's _read-database_
 settings, useful when running a PostgreSQL [Hot
@@ -650,7 +645,7 @@ Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with
 the port on which PostgreSQL is listening. Replace `<DATABASE>` with
 the name of the database you've created for use with PuppetDB.
 
-#### Using SSL With PostgreSQL
+### Using SSL With PostgreSQL
 
 It's possible to use SSL to protect connections to the database. There
 are several extra steps and considerations when doing so; see the
@@ -714,8 +709,7 @@ from the pool of database connections. If not supplied, defaults to
 500.
 
 
-`[command-processing]` Settings
------
+## `[command-processing]` Settings
 
 The `[command-processing]` section configures the command-processing
 subsystem.
@@ -764,8 +758,7 @@ logging for the `puppetlabs.puppetdb.middleware` appender in the
 `reject-large-commands` is set to false.
 
 
-`[jetty]` (HTTP) settings
------
+## `[jetty]` (HTTP) settings
 
 The `[jetty]` section configures HTTP for PuppetDB.
 
@@ -947,8 +940,7 @@ sent that exceeds this value, Jetty will return an HTTP 413 error
 response. This defaults to 8192 bytes, and only needs to be configured
 if an exceedingly large header is being sent in an HTTP request.
 
-`[nrepl]` settings
------
+## `[nrepl]` settings
 
 The `[nrepl]` section configures remote runtime modification. For
 more detailed info, see [our guide to debugging with the remote REPL][repl].
@@ -980,8 +972,7 @@ is the only recommended setting for production environments.
 
 If you wish to listen on all interfaces, you can specify `0.0.0.0`, for example, although this is generally not recommended for production.
 
-`[developer]` settings
------
+## `[developer]` settings
 
 The `[developer]` section contains configuration items that may be useful to
 users developing against the PuppetDB API. These settings may impede
@@ -995,8 +986,7 @@ incurs a penalty in data transfer speed and size. Users may override this
 setting on a per-query basis by supplying a `?pretty=` parameter in the URL,
 valued `true` or `false`.
 
-`[sync]` settings (Puppet Enterprise only)
------
+## `[sync]` settings (Puppet Enterprise only)
 
 The `[sync]` section of the PuppetDB configuration file is used to configure
 synchronization for a high-availability system. See
@@ -1063,8 +1053,7 @@ Multiple values may be provided by comma-separating them, with no whitespace.
 You must have exactly the same number of entries in the `server_urls` and
 `intervals` values.
 
-Experimental environment variables
------
+## Experimental environment variables
 
 > *Note*: these settings are experimental and are likely to be altered
 > or removed in a future release.

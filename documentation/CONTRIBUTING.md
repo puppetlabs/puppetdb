@@ -5,7 +5,7 @@ layout: default
 
 [configure_postgres]: ./configure.markdown#using-postgresql
 
-# How to contribute
+# Contributing to PuppetDB
 
 Third-party patches are essential for keeping puppet great. We simply can't
 access the huge number of platforms and myriad configurations for running

@@ -3,8 +3,9 @@ title: "Coordinating database migrations"
 layout: default
 canonical: "/puppetdb/latest/migration_coordination.html"
 ---
+# Coordinating database migrations
 
-[config]: ./configure.html
+[config]: ./configure.markdown
 
 By default at startup PuppetDB will attempt to perform any database
 updates that might be needed.  If there is a possibiity that multiple

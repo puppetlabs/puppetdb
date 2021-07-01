@@ -3,13 +3,15 @@ title: "Puppet Query Language (PQL) reference guide"
 layout: default
 ---
 
-[entities]: ./entities.html
+# Reference guide
+
+[entities]: ./entities.markdown
 [subquery]: #subqueries
-[ast]: ./ast.html
-[client-tools]: ../../../pdb_client_tools.html
-[config_jetty]: ../../../configure.html#jetty-http-settings
-[examples]: ../examples-pql.html
-[tutorial]: ../tutorial-pql.html
+[ast]: ./ast.markdown
+[client-tools]: ../../../pdb_client_tools.markdown
+[config_jetty]: ../../../configure.markdown#jetty-http-settings
+[examples]: ../examples-pql.markdown
+[tutorial]: ../tutorial-pql.markdown
 
 > **Experimental Feature**: This featureset is experimental and is subject to rapid development and change.
 

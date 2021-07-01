@@ -3,8 +3,10 @@ title: "Installing PuppetDB via Puppet module"
 layout: default
 ---
 
+# Installing PuppetDB via Puppet module
+
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
-[config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
+[config_with_module]: ./configure.markdown#playing-nice-with-the-puppetdb-module
 
 You can install and configure all of PuppetDB's components and prerequisites
 (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems,
@@ -16,14 +18,13 @@ and the PuppetDB-termini for your Puppet Server) using
   we expect that you already know how to assign Puppet classes to nodes.
 * If you are **just getting started with Puppet,** you may find it easier to
   follow our guide to
-  [installing PuppetDB from packages](./install_from_packages.html).
+  [installing PuppetDB from packages](./install_from_packages.markdown).
 
-Step 1: Enable the Puppet Platform package repository
------
+## Step 1: Enable the Puppet Platform package repository
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet Platform package repository]({{puppet}}/puppet_platform.html)
+* [Enable the Puppet Platform package repository](https://puppet.com/docs/puppet/latest/puppet_platform.html)
   on your PuppetDB server and Puppet Server.
 * If you don't use the Puppet Platform repository, make the PuppetDB and
   PuppetDB-terminus packages available via your alternate installation strategy.
@@ -31,8 +32,7 @@ If you haven't done so already, you will need to do **one** of the following:
   equivalent one that uses your system's package manager, needs to be able to
   succeed.
 
-Step 2: Assign classes to nodes
------
+## Step 2: Assign classes to nodes
 
 Using the normal methods for your site, assign the PuppetDB module's classes to
 your servers. You have three main options for deploying PuppetDB:

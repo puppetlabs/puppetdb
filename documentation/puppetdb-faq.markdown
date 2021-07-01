@@ -3,15 +3,16 @@ title: "FAQ"
 layout: default
 subtitle: "Frequently asked questions"
 ---
+# Frequently asked questions
 
-[maintaining_tuning]: ./maintain_and_tune.html
-[connect_puppet_apply]: ./connect_puppet_apply.html
+[maintaining_tuning]: ./maintain_and_tune.markdown
+[connect_puppet_apply]: ./connect_puppet_apply.markdown
 [support_guide]: ./pdb_support_guide.markdown
 [puppetdb3]: /puppetdb/3.2/migrate.html
-[threads]: ./configure.html#threads
-[concurrent-writes]: ./configure.html#concurrent-writes
-[mq metrics]: ./api/metrics/v1/mbeans.html#message-queue-metrics
-[java heap]: ./configure.html#configuring-the-java-heap-size
+[threads]: ./configure.markdown#threads
+[concurrent-writes]: ./configure.markdown#concurrent-writes
+[mq metrics]: ./api/metrics/v1/mbeans.markdown#message-queue-metrics
+[java heap]: ./configure.markdown#configuring-the-java-heap-size
 
 ## Can I migrate my data from ActiveRecord storeconfigs?
 

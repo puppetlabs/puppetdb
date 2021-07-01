@@ -3,14 +3,15 @@ title: "Root endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---
+# Root endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
-[from]: ./ast.html#context-operators
-[entities]: ./entities.html
-[pql]: ./pql.html
-[ast]: ./ast.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
+[from]: ./ast.markdown#context-operators
+[entities]: ./entities.markdown
+[pql]: ./pql.markdown
+[ast]: ./ast.markdown
 
 The root query endpoint can be used to retrieve any known entities from a
 single endpoint.

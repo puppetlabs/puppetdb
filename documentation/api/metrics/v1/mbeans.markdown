@@ -4,12 +4,14 @@ layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 ---
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+# Metrics endpoint
+
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
 [CVE-2020-7943]: https://puppet.com/security/cve/CVE-2020-7943/
 
 Querying PuppetDB metrics is accomplished by making an HTTP request
 to paths under the `/metrics/v1` REST endpoint. The metrics v1 API
-is disabled by default and is deprecated.  Please prefer [the `/metrics/v2` endpoint](../v2/jolokia.html).
+is disabled by default and is deprecated.  Please prefer [the `/metrics/v2` endpoint](../v2/jolokia.markdown).
 
 >**Note:** The `metrics/v1` endpoint has been disabled by default due to a CVE
 >described in [CVE-2020-7943][CVE-2020-7943]. You can re-enable this endpoint if

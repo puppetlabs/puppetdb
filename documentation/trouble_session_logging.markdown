@@ -3,9 +3,8 @@ title: "Troubleshooting: Session Logging"
 layout: default
 canonical: "/puppetdb/latest/trouble_session_logging.html"
 ---
-
-What is Session Logging?
------
+# Troubleshooting: Session Logging
+## What is Session Logging?
 
 PuppetDB's default log level only contains successfully negotiated HTTP or
 HTTPS connections. Sessions that do not make it to the application-layer are
@@ -18,8 +17,7 @@ Session logging can be very noisy and possibly impact availability of the
 PuppetDB node. It is best enabled as needed and disabled after troubleshooting
 is completed.
 
-Foreground debugging
------
+## Foreground debugging
 
 Running PuppetDB in the foreground will enable all logging, including session
 logging. It is extremely noisy but extremely simple to setup. Stop the
@@ -44,8 +42,7 @@ to:
 When troubleshooting is complete, cancel the foreground job (commonly
 ctrl+c/`^C`) and restart the daemonized service.
 
-Daemonized Debugging
------
+## Daemonized Debugging
 
 To selectively enable session logging, or to make it part of your permanent
 configuration, the file `logback.xml` inside the puppetdb directory
@@ -63,8 +60,7 @@ Restart the service. Failed connections will now log to `puppetdb.log` or
 `/var/log/puppetlabs/puppetdb/puppetdb.log` and
 `/var/log/puppetlabs/puppetdb/puppetdb-access.log`).
 
-Caveats
------
+## Caveats
 
 PuppetDB will still only log sessions that make it to the java process.
 Attempts that are blocked by a firewall such as iptables or directed to an

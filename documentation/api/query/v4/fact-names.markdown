@@ -3,10 +3,11 @@ title: "Fact-names endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 ---
+# Fact-names endpoint
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[paging]: ./paging.html
-[query]: ./query.html
+[curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.markdown
+[query]: query.markdown
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 

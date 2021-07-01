@@ -4,10 +4,12 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 ---
 
-[event-counts]: ./event-counts.html
-[events]: ./events.html
-[curl]: ../curl.html
-[query]: ./query.html
+# Aggregate event counts endpoint
+
+[event-counts]: ./event-counts.markdown
+[events]: ./events.markdown
+[curl]: ../curl.markdown
+[query]: query.markdown
 
 > **Experimental endpoint**: The aggregate-event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
@@ -20,7 +22,7 @@ Puppet agent nodes submit reports after their runs, and the Puppet Server forwar
 
 After this information is stored in PuppetDB, it can be queried in various ways.
 
-* You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`](./reports.html) endpoint.
+* You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`](./reports.markdown) endpoint.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`][event-counts] or `aggregate-event-counts` endpoints.
 
@@ -50,11 +52,11 @@ to the `events` query. See the [`events` documentation][events] for more informa
 
 ### Query operators
 
-This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same operators.](./events.html#query-operators)
+This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same operators.](./events.markdown#query-operators)
 
 ### Query fields
 
-This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same fields.](./events.html#query-fields)
+This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same fields.](./events.markdown#query-fields)
 
 ### Response format
 

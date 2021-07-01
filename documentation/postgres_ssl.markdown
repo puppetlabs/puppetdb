@@ -3,7 +3,7 @@ title: "Setting up SSL for PostgreSQL"
 layout: default
 canonical: "/puppetdb/latest/postgres_ssl.html"
 ---
-
+# Setting up SSL for PostgreSQL
 ## Talking to PostgreSQL using SSL/TLS
 
 This guide will help you configure SSL/TLS-secured connectivity between PuppetDB and PostgreSQL.

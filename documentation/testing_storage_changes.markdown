@@ -3,7 +3,7 @@ title: "Testing storage changes"
 layout: default
 canonical: "/puppetdb/latest/testing_storage_changes.html"
 ---
-
+# Testing storage changes
 In order to keeps PuppetDB's storage code nice and fast, we have developed some
 tooling to help test its performance.
 

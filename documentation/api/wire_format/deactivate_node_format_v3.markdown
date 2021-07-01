@@ -4,10 +4,11 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/deactivate_node_format_v3.html"
 ---
 
+# Deactivate node wire format - v3
+
 PuppetDB receives deactivate node commands from Puppet Servers in the following wire format.
 
-Deactivate node command format
------
+## Deactivate node command format
 
 ### Version
 

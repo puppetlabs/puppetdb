@@ -2,6 +2,7 @@
 title: "Export, import and anonymization"
 layout: default
 ---
+# Exporting and anonymizing data
 
 This document covers using the export, import and anonymization tools for
 PuppetDB.
@@ -11,24 +12,21 @@ uploaded to another PuppetDB via the import tool. The export tool also has the
 ability to anonymize the archive before returning it. This is particularly
 useful when sharing PuppetDB data that contains sensitive items.
 
-Using the `export` command
------
+## Using the `export` command
 
 To create an anonymized PuppetDB archive directly, use the Puppet `db` subcommand
 from any node with puppet-client-tools installed:
 
     $ puppet db export my-puppetdb-export.tar.gz --anonymization moderate
 
-Using the `import` command
------
+## Using the `import` command
 
 To import an anonymized PuppetDB tarball, use the Puppet `db` subcommand from
 any node with puppet-client-tools installed:
 
     $ puppet db import my-puppetdb-export.tar.gz
 
-How does it work?
------
+## How does it work?
 
 The tool walks through your entire data set, applying different rules to each of
 the leaf data based on the profile you have chosen. The data structure is left
@@ -42,8 +40,7 @@ original string are replaced with the same random string throughout the data.
 By keeping its original shape, the data can be anonymized based on your needs
 but still hold some value to the consumer of your anonymized data.
 
-Anonymization profiles
------
+## Anonymization profiles
 
 You may not need to anonymize all data in every case, so we have provided a
 number of profiles offering varying levels of anonymization.
@@ -100,8 +97,7 @@ most of the data in its original state. The following categories are anonymized:
   strings `password`, `pwd`, `secret`, `key`, or `private` are anonymized.
 * Log messages: are always anonymized.
 
-Verifying your anonymized data
------
+## Verifying your anonymized data
 
 After anonymizing data with the `puppetdb export` tool, we **strongly
 recommend** that you analyze the anonymized data before sharing it with another

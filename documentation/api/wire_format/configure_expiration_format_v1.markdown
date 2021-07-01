@@ -4,6 +4,8 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/configure_expiration_v1.html"
 ---
 
+# Configure expiration wire format - v1 (experimental)
+
 The v1 `configure expiration` command tells PuppetDB whether or not
 factsets for a given certname should ever be expired (and by
 extension, the node itself).  By default, unless expiration has been
@@ -18,8 +20,7 @@ the node.
 > removed in a future release, and for the time being, PuppetDB
 > exports will not include this information.
 
-Configure expiration command format
------
+## Configure expiration command format
 
 ### Version
 

@@ -2,8 +2,9 @@
 title: "Load testing"
 layout: default
 ---
+# Load testing
 
-[export]: ./anonymization.html
+[export]: ./anonymization.markdown
 
 A basic tool for simulating PuppetDB loads is included with the standard
 PuppetDB distribution. **This tool is currently experimental and is likely to
@@ -19,8 +20,7 @@ a production/running system, to simulate real-world conditions. While originally
 designed as a PuppetDB developer tool, we expect that many users may find it
 useful.
 
-Getting data for the tool
------
+## Getting data for the tool
 
 The load testing tool does not yet have the ability to generate its own data. To
 run simulations, you will need a collection of catalogs, facts and/or reports.
@@ -33,8 +33,7 @@ Unzip the exported data. When unzipped/untared, find the
 directories. One or all of these directories can be used as input to the load
 testing tool.
 
-Running the load testing tool (benchmark)
------
+## Running the load testing tool (benchmark)
 
 Before running the load testing tool, make sure you have the full path to your
 example data. You'll also need a config file (such as `config.ini`) with the

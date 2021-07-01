@@ -3,8 +3,7 @@ title: "Facts wire format, version 4"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/facts_format_v4.html"
 ---
-
-## Facts wire format: Version 4
+# Facts wire format - v4
 
 Facts are represented as JSON. Unless otherwise noted, `null` is not
 allowed anywhere in the set of facts.

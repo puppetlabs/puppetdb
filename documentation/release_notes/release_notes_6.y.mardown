@@ -4,22 +4,128 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
-[configure_postgres]: ./configure.html#using-postgresql
-[kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
-[pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/upgrading-from-v3.html
-[puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
-[migrate]: /puppetdb/3.2/migrate.html
-[upgrades]: ./upgrade.html
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/tutorial-pql.html
-[stockpile]: https://github.com/puppetlabs/stockpile
-[queue_support_guide]: ./pdb_support_guide.html#message-queue
-[upgrade_policy]: ./versioning_policy.html#upgrades
-[facts]: ./api/query/v4/facts.html
-[puppet_apply]: ./connect_puppet_apply.html
+[configure_postgres]: ./configure.markdown#using-postgresql
+[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.markdown
+[puppet_apply]: ./connect_puppet_apply.markdown
 
 ---
+
+# PuppetDB: Release notes
+
+## PuppetDB 6.17.0
+
+Released June 24 2021.
+
+This release contains a fix for
+[CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/). As part of
+the mitigation of this CVE you should [create and configure a read only
+user][configure_postgres]. If you are using Puppet Enterprise, or you are
+managing your postgres database using the Open Source module (version 7.9.0+)
+the read only user will be configured automatically.
+
+Related patches, addressing the vulnerability:
+
+  * (PDB-5138) validate-dotted-field: anchor regexp
+    [c146e624d230f7410fb648d58ae28c0e3cd457a2](https://github.com/puppetlabs/puppetdb/commit/c146e624d230f7410fb648d58ae28c0e3cd457a2)
+  * (PDB-5138) quote-projections: quote all projections
+    [f8dc81678cf347739838e42cc1c426d96406c266](https://github.com/puppetlabs/puppetdb/commit/f8dc81678cf347739838e42cc1c426d96406c266)
+  * (PDB-5138) Strictly validate function AST
+    [72bd137511487643a3a6236ad9e72a5dd4a6fadb](https://github.com/puppetlabs/puppetdb/commit/72bd137511487643a3a6236ad9e72a5dd4a6fadb)
+
+A patch to ensure PuppetDB logs if the query user's permissions are
+insufficiently restricted:
+
+  * (PDB-5145) Detect and log ERROR level messages if read-only user is misconfigured
+    [4077d580913c45e471e12cecc9f90df62d95f38f](https://github.com/puppetlabs/puppetdb/commit/4077d580913c45e471e12cecc9f90df62d95f38f)
+
+### Security fixes
+
+* Fixed an issue where someone with the ability to query PuppetDB could
+  arbitrarily write, update, or delete data
+  [CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/)
+  [PDB-5138](https://tickets.puppetlabs.com/browse/PDB-5138)
+
+
+### New features and improvements
+
+* Significantly reduced the memory usage by the puppetdb terminus to process
+  commands. [PDB-5107](https://tickets.puppetlabs.com/browse/PDB-5107)
+* Some command processing operations should require less work and require fewer
+  round trips to the database.
+  [PDB-5128](https://tickets.puppetlabs.com/browse/PDB-5128)
+* If the read-only user has database permissions that it does not need,
+  PuppetDB will log errors.
+  [PDB-5145](https://tickets.puppetlabs.com/browse/PDB-5145)
+
+
+### Bug Fixes
+
+* (PE only) Fixed an issue causing unnecessary factset sync
+  [PDB-5021](https://tickets.puppetlabs.com/browse/PDB-5021)
+* Lock timeouts will be parsed correctly now. Previously, if a lock timeout had
+  been set either via the experimental
+  [PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS](https://puppet.com/docs/puppetdb/latest/configure.html#experimental-environment-variables)
+  variable, or other means, PuppetDB might fail to interpret the value
+  correctly, and as a result, fail to prune older data correctly.
+  [(PDB-5141)](https://tickets.puppetlabs.com/browse/PDB-5141)
+* All reports can be queried by including type = "any" as a query filter.
+  [PDB-4766](https://tickets.puppetlabs.com/browse/PDB-4766)
+* The ssl-setup command (which is also invoked by the PuppetDB package
+  installation scripts) should handle ssl-related filesystem permissions more
+  carefully. Previously it might reset them when it shouldn't have, and/or
+  leave them briefly with incorrect, potentially overly permissive values.
+  [PDB-2590](https://tickets.puppetlabs.com/browse/PDB-2590)
+
+## PuppetDB 6.16.1
+
+Released 26 April 2021. The 6.16.0 tag was burned in order to update additional
+dependencies.
+
+### New features and improvements
+
+- Added a new query parameter `explain` that will return the query plan and
+  actual run time statistics for the query.
+  [PDB-5055](https://tickets.puppetlabs.com/browse/PDB-5055)
+
+- Add ability to disable storage of resource events
+  [PDB-3635](https://tickets.puppetlabs.com/browse/PDB-3635)
+
+### Bug fixes
+
+- Fixed a bug in the ssl-setup command that would insert a duplicate setting
+  into the jetty.ini config.
+  [PDB-5084](https://tickets.puppetlabs.com/browse/PDB-5084)
+- PuppetDB will no longer return HTML formatted stack traces from the API
+  endpoint, now only the error message will be returned. The full error can
+  still be found it the logs if needed.
+  [PDB-5063](https://tickets.puppetlabs.com/browse/PDB-5063)
+- Trailing characters after a query, which were usually from mismatched `]` in
+  an AST query, will no longer be ignored. Instead an error will be returned to
+  alert the user to the potential error in their query.
+  [PDB-2488](https://tickets.puppetlabs.com/browse/PDB-2488)
+
+## PuppetDB 6.15.0
+
+Released 24 February 2021
+
+### New features and improvements
+
+- Added two new users `connection-migrator-username` and `connection-username`
+  in `database.ini` config file. The new users are used to establish connections
+  to the database when the connection username is different from the database
+  username (this is the case for managed PostgreSQL in Azure)
+  [PDB-4934](https://tickets.puppetlabs.com/browse/PDB-4934)
+- A new metric (:concurrent-depth), which counts the number of /cmd API requests
+  that are waiting to write to the disk, was added.
+  [PDB-4268](https://tickets.puppetlabs.com/browse/PDB-4268)
+- A new metric (new-fact-time) was added under puppetlabs.puppetdb.storage. This
+  metric measures the time it takes to persist facts for a never before seen
+  certname.
+  [PDB-3418](https://tickets.puppetlabs.com/browse/PDB-3418)
+- The performance dashboard is now accessible on the HTTPS port. In PE, if the
+  PuppetDB is using a certificate allowlist, users can authenticate their
+  connection with an rbac token as a URL parameter.
+  [PDB-3159](https://tickets.puppetlabs.com/browse/PDB-3159)
 
 ## PuppetDB 6.14.0
 
@@ -296,7 +402,7 @@ Austin Blatt, Claire Cadman, and Morgan Rhodes
 - **File indexing on `catalog_resources`.** After you configure the PostgreSQL `pg_trgm` extension, PuppetDB adds an index to the file column on the `catalog_resources` table. [PDB-4640](https://tickets.puppetlabs.com/browse/PDB-4640)
   > **Note:** As of this release, running PostgreSQL without the `pg_trgm` extension is deprecated. 
 
-- **Improved queries.** PuppetDB now has an [experimental query optimizer](./api/query/v4/query#experimental_query_optimization) that may be able to substantially decrease the cost and response time of some queries. [PDB-4512](https://tickets.puppetlabs.com/browse/PDB-4512)
+- **Improved queries.** PuppetDB now has an [experimental query optimizer](./api/query/v4/query.markdown#experimental_query_optimization) that may be able to substantially decrease the cost and response time of some queries. [PDB-4512](https://tickets.puppetlabs.com/browse/PDB-4512)
 
 ### Bug fixes
 
@@ -327,12 +433,12 @@ Austin Blatt, Heston Hoffman, Reinhard Vicinus, Robert Roland, and Zak Kent
   `resource-events-ttl` configuration parameter to automatically delete report events older
   than the specified time. The parameter rounds up to the nearest day.
   For example, `14h` rounds up to `1d`. For more information, see [Configuring
-  PuppetDB](./configure.html#resource-events-ttl).
+  PuppetDB](./configure.markdown#resource-events-ttl).
   [PDB-2487](https://tickets.puppetlabs.com/browse/PDB-2487)
 
 - **New `delete` command.** Use the `delete` command to immediately delete the
   data associated with a certname. For more information, see [Commands
-  endpoint](./api/admin/v1/cmd.html#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
+  endpoint](./api/admin/v1/cmd.markdown#delete-version-1). [PDB-3300](https://tickets.puppetlabs.com/browse/PDB-3300)
 
 ### Bug fixes
 
@@ -438,7 +544,7 @@ Rob Browning, Robert Roland, and Zak Kent
 - **New experimental `catalog-input-contents` endpoint.** Use the [`catalog-input-contents`](./api/query/v4/catalog_input_contents.markdown) endpoint to query for the most recent
 catalog inputs that PuppetDB has received for any nodes. ([PDB-4371](https://tickets.puppetlabs.com/browse/PDB-4371)
 
-- **Submit `inputs` to a catalog.** PuppetDB can now optionally store "inputs", such as Hiera keys, during catalog compilation. See the [command's wire format](puppet.com/docs/puppetdb/latest/api/wire_format/catalog_inputs_format_v1.md) for more information on how to submit them. [PDB-4372](https://tickets.puppetlabs.com/browse/PDB-4372)
+- **Submit `inputs` to a catalog.** PuppetDB can now optionally store "inputs", such as Hiera keys, during catalog compilation. See the [command's wire format](api/wire_format/catalog_inputs_format_v1.markdown) for more information on how to submit them. [PDB-4372](https://tickets.puppetlabs.com/browse/PDB-4372)
 
 ### Bug fixes
 
