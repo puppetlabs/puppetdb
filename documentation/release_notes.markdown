@@ -10,6 +10,8 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+# PuppetDB: Release notes
+
 ## PuppetDB 7.4.1
 
 Released June 24 2021.
