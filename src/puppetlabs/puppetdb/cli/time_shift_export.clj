@@ -25,8 +25,14 @@
    [clojure.java.io :as io]
    [puppetlabs.puppetdb.archive :as archive]
    [puppetlabs.puppetdb.time :refer [parse-wire-datetime after? now interval plus]]
+   [clj-time.coerce :as time-coerce]
    [puppetlabs.puppetdb.cheshire :as json]
    [clojure.string :as str]))
+
+(def command-type-versions
+  {"catalog" 9
+   "report" 8
+   "facts" 5})
 
 (defn time-shift-timestamp
   [timestamp-string shift-period]
@@ -76,15 +82,54 @@
       "facts" (time-shift-producer-timestamp json-data shift-period)
       "export-metadata" json-data)))
 
+(def counter (atom -1))
+
+(defn next-command-index []
+  (swap! counter inc))
+
+(defn rename-filename
+  [tar-entry format shifted-data]
+  (let [file-path (.getName tar-entry)]
+  (when (and (= format "stockpile") (not (str/includes? file-path "export-metadata"))  )
+      (let [path-elements  (butlast (str/split file-path #"\/"))
+            command-type (last path-elements)
+            command-type (if (= command-type "facts") command-type (str/join "" (drop-last command-type)))
+            filename (clojure.core/format "%s-%s_%s_%s_%s.json"
+                                          (next-command-index)
+                                          (time-coerce/to-long (:producer_timestamp shifted-data))
+                                          command-type
+                                          (str (get command-type-versions command-type))
+                                          (:certname shifted-data))]
+        (.setName tar-entry filename))))
+  shifted-data)
+
+(defn write-archive [tar-writer tar-entry format data]
+  (let [is_format_stockpile (= format "stockpile")
+        file-path (.getName tar-entry)]
+    (when
+      (or (not is_format_stockpile)
+          (and is_format_stockpile
+               (not (str/includes? file-path "export-metadata"))))
+      (archive/add-entry tar-writer "utf-8" file-path data))))
+
+(defn print-progress
+  [index]
+  (when (and (> index 0) (= (mod index 30) 0))
+    (utils/print-err ".")))
+
 (defn time-shift-input-archive
-  [input-path output-path shift-period]
-  (with-open [tar-writer (archive/tarball-writer (or output-path System/out))]
-    (with-open [tar-reader (archive/tarball-reader input-path)]
-      (doseq [tar-entry (archive/all-entries tar-reader)]
-        (->> tar-entry
-             (time-shift-timestamps-from-entry shift-period tar-reader)
-             json/generate-pretty-string
-             (archive/add-entry tar-writer "utf-8" (.getName tar-entry)))))))
+  [args]
+  (let [format (:format args)]
+    (utils/println-err "Started the timeshift. Please wait")
+    (with-open [tar-writer (archive/tarball-writer (or (:output args) System/out))]
+      (with-open [tar-reader (archive/tarball-reader (:input args))]
+        (doseq [[index tar-entry] (map-indexed vector (archive/all-entries tar-reader))]
+          (print-progress index)
+          (->> tar-entry
+               (time-shift-timestamps-from-entry (:shift-to-time args) tar-reader)
+               (rename-filename tar-entry format)
+               json/generate-pretty-string
+               (write-archive tar-writer tar-entry format)))))))
 
 (defn get-newest-timestamp
   [first-timestamp second-timestamp]
@@ -116,13 +161,10 @@
 
 (defn compare-command-versions
   [command-type actual-version]
-  (let [expected-command-versions {:catalog 9
-                                   :report 8
-                                   :fact 5}
-        expected-version (command-type expected-command-versions)]
+  (let [expected-version (get command-type-versions command-type)]
 
     (when-not (= actual-version expected-version)
-      (println (str "Export " (name command-type) " command version is " actual-version " instead of " expected-version))
+      (utils/println-err (str "Export " (name command-type) " command version is " actual-version " instead of " expected-version))
       (exit 2))))
 
 (defn check-command-versions
@@ -131,9 +173,9 @@
         report-command-version (get-in json-data [:command_versions :store_report])
         fact-command-version (get-in json-data [:command_versions :replace_facts])]
 
-    (compare-command-versions :catalog catalog-command-version)
-    (compare-command-versions :report report-command-version)
-    (compare-command-versions :fact fact-command-version)))
+    (compare-command-versions "catalog" catalog-command-version)
+    (compare-command-versions "report" report-command-version)
+    (compare-command-versions "facts" fact-command-version)))
 
 (defn get-newest-timestamp-from-entry
   [tar-reader tar-entry]
@@ -160,12 +202,9 @@
 
 (defn time-shift-export
   [args]
-  (let [input-path (:input args)
-        newest-timestamp (newest-timestamp-from-archive input-path)
-        shift-period (.toPeriod (interval newest-timestamp (:shift-to-time args)))
-        output-path (:output args)]
-
-    (time-shift-input-archive input-path output-path shift-period)))
+  (let [newest-timestamp (newest-timestamp-from-archive (:input args))
+        shift-period (.toPeriod (interval newest-timestamp (:shift-to-time args)))]
+    (time-shift-input-archive (assoc args :shift-to-time shift-period))))
 
 (defn parse-time-shift-parameter
   [time-string]
@@ -185,16 +224,15 @@
   (let [parsed-time (if (:shift-to-time options)
                       (parse-time-shift-parameter (:shift-to-time options))
                       (now))]
-    {:input (:input options)
-     :output (:output options)
-     :shift-to-time parsed-time}))
+    (assoc options :shift-to-time parsed-time)))
 
 (defn- validate-cli!
   [args]
   (let [specs [["-i" "--input ARCHIVE" "Path to a .tgz file containing the export to be read."]
                ["-o" "--output ARCHIVE" "Path to where the time shifted .tgz file will be saved."
                 :default nil]
-               ["-t" "--shift-to-time DATE" "Reference DATE in UTC format to which all the timestamps will be shifted."]]
+               ["-t" "--shift-to-time DATE" "Reference DATE in UTC format to which all the timestamps will be shifted."]
+               ["-f" "--format stockpile" "File names will be renamed to stockpile format and directory structure will be removed."]]
         required [:input]]
     (utils/try-process-cli (fn []
                              (-> args

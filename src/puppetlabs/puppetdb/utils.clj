@@ -28,6 +28,12 @@
   (binding [*out* *err*]
     (apply println args)))
 
+(defn print-err
+  [& args]
+  (binding [*out* *err*]
+    (apply print args)
+    (flush)))
+
 (defn flush-and-exit
   "Attempts to flush *out* and *err*, reporting any failures to *err*,
   if possible, and then invokes (System/exit status)."
