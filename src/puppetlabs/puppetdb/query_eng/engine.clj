@@ -2170,20 +2170,25 @@
     (map->FnExpression (-> fnmap
                            (assoc :statement compiled-fn)))))
 
-(defn alias-columns
-  "Alias columns with their fully qualified names, and function expressions
-   with the function name."
-  [query-rec c]
-  (or (get-in query-rec [:projections c :field]) (keyword c)))
+(defn group-by-entry->sql-field
+  "Converts a column into its qualified SQL field name or a function expression
+   into its function name. Throws an IllegalArgumentException if there is an
+   invalid field or function"
+  [query-rec column-or-fn-name]
+  (or (get-in query-rec [:projections column-or-fn-name :field])
+      (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
+        (keyword column-or-fn-name)
+        (throw (IllegalArgumentException.
+                (tru "{0} is niether a valid column name nor function name"
+                     (pr-str column-or-fn-name)))))))
 
-(pls/defn-validated columns->fields
-  "Convert a list of columns to their true SQL field names."
-  [query-rec
-   columns]
-  (->> columns
+(defn group-by-entries->fields
+  "Convert a list of group by columns and functions to their true SQL field names."
+  [query-rec entries]
+  (->> entries
        (map #(if (= "function" (first %)) (second %) %))
        (sort-by #(if (string? %) % (:column %)))
-       (mapv (partial alias-columns query-rec))))
+       (mapv (partial group-by-entry->sql-field query-rec))))
 
 (pls/defn-validated create-extract-node
   :- {(s/optional-key :projected-fields) [projection-schema]
@@ -2462,7 +2467,7 @@
 
             [["extract" column ["group_by" & clauses]]]
             (-> query-rec
-                (assoc :group-by (columns->fields query-rec clauses))
+                (assoc :group-by (group-by-entries->fields query-rec clauses))
                 (create-extract-node column nil))
 
             [["extract" column expr]]
@@ -2470,7 +2475,7 @@
 
             [["extract" column expr ["group_by" & clauses]]]
             (-> query-rec
-                (assoc :group-by (columns->fields query-rec clauses))
+                (assoc :group-by (group-by-entries->fields query-rec clauses))
                 (create-extract-node column expr))
 
             :else nil))
