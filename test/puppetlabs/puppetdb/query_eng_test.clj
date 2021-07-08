@@ -452,20 +452,20 @@
 ;;; clauses in query-eng.engine, e.g. dotted-match-filter-clause.
 
 (deftest joins-dropped-for-trivial-nodes-query
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" "certname"]]]
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-nodes-count-query
   (testing "count(*) query"
-    (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
       (let [q [nodes-query ["extract" [["function" "count"]] ["=" "node_state" "active"]]]]
         (is (= normal-nodes-joins (compiled-selects q nil)))
         (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
   (testing "count query with column in a joined table"
-    (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
       (let [q [nodes-query ["extract" [["function" "count" "report_timestamp"]] ["=" "node_state" "active"]]]]
         (is (= normal-nodes-joins (compiled-selects q nil)))
         (is (= {:left-join [:reports
@@ -475,13 +475,13 @@
                (compiled-selects q :drop-joins)))))))
 
 (deftest joins-not-dropped-for-nodes-avg-query
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" [["function" "avg" "report_timestamp"]] ["=" "node_state" "active"]]]]
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= normal-nodes-joins (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-nodes-count-query-with-factset-subuery
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     ;; the subquery accesses the factsets table directly, so it
     ;; is not necessary to join it to the certname table at the top level
     (let [q [nodes-query ["extract"
@@ -494,7 +494,7 @@
       (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-nodes-count-and-extract-query-with-factset-subuery
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query  ["extract"
                            [["function" "count"] "cached_catalog_status" "latest_report_status" "latest_report_noop" "latest_report_noop_pending" "latest_report_corrective_change"]
                            ["and"
@@ -514,7 +514,7 @@
 
 (deftest factsets-not-dropped-from-nodes-for-facts-env
   ;; An indirect join dependency
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" "facts_environment"]]]
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= {:left-join [[:factsets :fs]
@@ -526,7 +526,7 @@
 
 (deftest reports-not-dropped-from-nodes-for-latest-report-status
   ;; An indirect join dependency
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" "latest_report_status"]]]
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= {:left-join [:reports
@@ -539,7 +539,7 @@
 
 (deftest catalogs-not-dropped-from-nodes-for-catalog-env
   ;; An indirect join dependency
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" "catalog_environment"]]]
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= {:left-join [:catalogs
@@ -551,7 +551,7 @@
 
 (deftest reports-not-dropped-from-nodes-for-report-env
   ;; An indirect join dependency
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" "report_environment"]]]
       (is (= normal-nodes-joins (compiled-selects q nil)))
       (is (= {:left-join [:reports
@@ -563,14 +563,14 @@
              (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-extract-deps-operator-field-clause
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [facts-query ["extract" "certname" ["=" "certname" "host1"]]]]
       (is (= normal-facts-joins (compiled-selects q nil)))
       (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-extract-deps-jsonb-type-equal-clause
   ;; This also involves the extract-where-deps clauses-clause
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [facts-query ["extract" "name"
                           ["and" ["=" "name" "kernel"] ["=" "value" "Linux"]]]]]
       (is (= (assoc normal-facts-joins
@@ -583,7 +583,7 @@
   ;; This also involves the extract-where-deps single-column-clause
   ;; This also involves the extract-where-deps multiple-column-clause
   ;; This also involves the extract-where-deps clause-clause
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [nodes-query ["extract" "certname"
                           ["or"
                            ["=" "node_state" "active"]
@@ -592,7 +592,7 @@
       (is (= {:left-join []} (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-dotted-filter-clause
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (let [q [inventory-query ["extract" "certname"
                               [">" "facts.system_uptime.hours" 0]]]]
       (is (= normal-inventory-joins (compiled-selects q nil)))
@@ -600,7 +600,7 @@
              (compiled-selects q :drop-joins))))))
 
 (deftest joins-dropped-for-dotted-match-filter-clause
-  (when-not (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
     (with-test-db ;; required by fact_paths query in expand-query-node
       (with-transacted-connection *db*
         ;; Need fact in order for the engine to create the right shape query

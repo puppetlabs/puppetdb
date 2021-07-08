@@ -72,8 +72,8 @@ jobs:
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-11 drop-joins
-      env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=always
+      name: core+ext jdk-11 pg-11 no-drop-joins
+      env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=by-request
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests

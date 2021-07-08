@@ -119,9 +119,10 @@ For a walkthrough on constructing queries, see [the query tutorial page][tutoria
 
 > *Note*: this feature is experimental and may be altered or removed
 > in a future release, and while it is expected to be safe to enable
-> it for queries that fall within the constraints described below,
-> some caution is still advisable.  If something were to go wrong,
-> the result set returned by the query might be incorrect.
+> it, and it is now enabled by default, some caution is still
+> advisable.  If something were to go wrong, the result set returned
+> by the query might be incorrect.  See below for one way to
+> double-check the results if you suspect something might be amiss.
 
 PuppetDB has an experimental query optimizer that may be able to
 substantially decrease the cost (and correspondingly decrease the
@@ -132,17 +133,16 @@ At the moment, this optimization can only be applied for queries that
 ask for a subset of the available query response fields, for example,
 a query against the nodes endpoint that only extracts the `certname`.
 Further, for any given query it may or may not have any effect at all,
-and the effect, if any, may vary across PuppetDB releases.  It is also
-not currrently safe to apply the optimization to queries that include
-aggregate/grouping operations or functions.
+and the effect may vary across PuppetDB releases.
 
-To enable the optimization for a query that does not include simply
-add `optimize_drop_unused_joins=true` as a parameter.  For now, the
-result data should be treated with some caution, and at a minimum, you
-may want to inspect the results of the query to make sure that the
-optimizer doesn't affect the result set.  If you'd like to determine
-wheter or not PuppetDB attempted to optimize a query, any efforts
-are logged at debug level.
+This optimization is now enabled by default, but the default can be
+changed by setting the `PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS`
+environment variable to `by-request` before starting puppetdb.
+
+To enable the optimization for an individual query, just add
+`optimize_drop_unused_joins=true` as a parameter.  If you'd like to
+determine wheter or not PuppetDB attempted to optimize a query, any
+efforts are logged at debug level.
 
 (If you happen to have `diff` and `jq` installed, you should be able
  to compare the results of a given query with and without the

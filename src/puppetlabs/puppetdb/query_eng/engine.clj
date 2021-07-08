@@ -44,10 +44,27 @@
 
 (def always-enable-drop-unused-joins?
   "When set to true, act as if the opimization has been requested for
-  every query.  This is unsafe in general, and this is only intended
-  for testing.  Will be set to true if the environment variable
-  PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS is set to always at startup."
+  every query.  This is only intended for testing.  Will be set to
+  true if the environment variable
+  PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS is set to \"always\" at
+  startup."
   (= "always" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS")))
+
+(def enable-drop-unused-joins-by-default?
+  "When true, enable the opimization whenever a query doesn't set the
+  optimize_drop_unused_joins parameter.  This will be true if
+  PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS is unset or is set to
+  \"by-default\" at startup, and will be false if it is set to
+  \"by-request\"."
+  (let [v (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS")]
+    (case v
+      "always" true
+      "by-default" true
+      "by-request" false
+      nil true
+      (throw
+       (Exception. (trs "Invalid PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS setting {0}"
+                        (pr-str v)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3087,7 +3104,8 @@
         [query-rec user-query] (rewrite-fact-query query-rec user-query)
         optimize-joins (if (or always-enable-drop-unused-joins?
                                ;; Why paging-options?  See PDB-1936
-                               (:optimize_drop_unused_joins validated-options))
+                               (:optimize_drop_unused_joins validated-options
+                                                            enable-drop-unused-joins-by-default?))
                          maybe-drop-unused-joins
                          identity)
         parameterized-plan (->> user-query
