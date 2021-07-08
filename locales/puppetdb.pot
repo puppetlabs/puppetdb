@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 769719e7dda5a1f98d8ca6eca11405c7b70e0f32\n"
+"X-Git-Ref: 5de27c4982e1375d864fe20459a7c70b191fcac2\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1192,6 +1192,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Received ''{0}'' clause without an argument"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "{0} is niether a valid column name nor function name"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
