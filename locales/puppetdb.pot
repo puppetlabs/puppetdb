@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 87f1eec2f19409e089b9ffe1ef4ac080c5a49a14\n"
+"X-Git-Ref: 5adec593cfe401810ce54234d441ee19fefac8ad\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1123,6 +1123,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/default_reports.clj
 msgid "Unrecognized ast clause {0} in ast query {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "Invalid PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS setting {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
