@@ -292,7 +292,10 @@
                            :migrator-password "admin")
           connection-user (update migrator :database assoc
                                   :connection-username "connection-user-value"
-                                  :connection-migrator-username "connection-migration-user-value")]
+                                  :connection-migrator-username "connection-migration-user-value")
+          ssl-connection {:database {:classname   "something"
+                                  :subname     "stuff?ssl=true"
+                                  :username    "someone"}}]
 
       (testing "migrator-username"
         (let [config (configure-dbs no-migrator)]
@@ -321,7 +324,17 @@
 
         (let [config (configure-dbs connection-user)]
           (is (= "connection-user-value" (get-in config [:database :connection-username])))
-          (is (= "connection-migration-user-value" (get-in config [:database :connection-migrator-username]))))))))
+          (is (= "connection-migration-user-value" (get-in config [:database :connection-migrator-username])))))
+
+      (testing "ssl-connection"
+        (let [config (configure-dbs ssl-connection)]
+          (is (= "" (get-in config [:database :migrator-password])))
+          (is (= "" (get-in config [:read-database :migrator-password])))))
+
+      (testing "ssl-connection-with-password"
+        (let [config (configure-dbs (assoc-in ssl-connection [:database :password] "password"))]
+          (is (= "password" (get-in config [:database :migrator-password])))
+          (is (= "password" (get-in config [:read-database :migrator-password]))))))))
 
 (deftest database-user-preferred-to-username-on-mismatch
   (let [config (configure-dbs {:database {:classname "something"

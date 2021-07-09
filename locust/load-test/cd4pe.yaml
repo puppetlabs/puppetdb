@@ -1,0 +1,21 @@
+---
+- path: "/pdb/query/v4/resources"
+  method: POST
+  headers: {content-type: application/json}
+  query: ["extract",["parameters"],["and",["=","title","Puppet_enterprise::Master::Code_manager"]]]
+  alias: code manager resource
+- path: "/pdb/query/v4/resources"
+  method: POST
+  headers: {content-type: application/json}
+  query: ["extract",["title","type","resource","file","certname","line","environment"],["and",["or",["and",["null?","file",false],["or",["~","file","impact_analysis_tests_prod/site/profile/manifests/nested.pp"],["~","file","impact_analysis_tests_prod/site/profile/manifests/nested/includes.pp"]]],["=","title","Profile::Nested"],["=","title","Profile::Nested::Includes"]],["=","environment","impact_analysis_tests_prod"]]]
+  alias: impact analysis 1
+- path: "/pdb/query/v4/resources"
+  method: POST
+  headers: {content-type: application/json}
+  query: ["extract",["title","type","resource","file","certname","line","environment"],["and",["or",["and",["null?","file",false],["or",["~","file","impact_analysis_tests_prod/site/role/manifests/example2.pp"]]],["=","title","Role::Example2"]],["=","environment","impact_analysis_tests_prod"]]]
+  alias: impact analysis 2
+- path: "/pdb/query/v4/resources"
+  method: POST
+  headers: {content-type: application/json}
+  query: ["extract",["title","type","resource","file","certname","line","environment"],["and",["or",["and",["null?","file",false],["or",["~","file","impact_analysis_tests_prod/modules/cd4pe"],["~","file","impact_analysis_tests_prod/modules/cd4pe_tests"],["~","file","impact_analysis_tests_prod/manifests/site.pp"],["~","file","impact_analysis_tests_prod/site/profile/manifests/base.pp"],["~","file","impact_analysis_tests_prod/site/profile/manifests/firewall.pp"],["~","file","impact_analysis_tests_prod/site/role/manifests/example.pp"],["~","file","impact_analysis_tests_prod/site/role/manifests/webserver.pp"]]],["=","title","Impact_analysis_tests_prod::Site"],["=","title","Profile::Base"],["=","title","Profile::Firewall"],["=","title","Role::Example"],["=","title","Role::Webserver"]],["=","environment","impact_analysis_tests_prod"]]]
+  alias: firewall analysis cd4pe

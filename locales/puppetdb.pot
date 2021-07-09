@@ -1199,6 +1199,10 @@ msgid "Received ''{0}'' clause without an argument"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "{0} is niether a valid column name nor function name"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "wrong number of arguments ({0}) provided for function {1}"
 msgstr ""
 
