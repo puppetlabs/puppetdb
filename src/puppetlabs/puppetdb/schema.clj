@@ -77,6 +77,14 @@
   "Schema type for JodaTime timestamps"
   (s/pred kitchensink/datetime? 'datetime?))
 
+(def WireTimestamp
+  "Schema type for wire format datetime strings"
+  ;; FIXME: drop the classes once we fix the wire-format conversions
+  ;; to always produce strings.
+  (s/cond-pre java.sql.Timestamp
+              org.joda.time.DateTime
+              (s/pred time/wire-datetime? 'wire-datetime?)))
+
 (def Function
   "Schema type for fn objects"
   (s/pred fn? 'fn?))

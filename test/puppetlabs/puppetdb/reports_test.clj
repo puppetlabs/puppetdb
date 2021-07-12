@@ -27,7 +27,7 @@
 
     (testing "should fail when a resource event has the wrong data type for a key"
       (is (thrown-with-msg?
-           RuntimeException #":timestamp \(not \(datetime\? \"foo\"\)\)"
+           RuntimeException #":timestamp \(not \(matches-some-precondition\? \"foo\"\)\)"
            (s/validate report-wireformat-schema (assoc-in report [:resources 0 :timestamp] "foo")))))))
 
 (defn underscore->dash-report-keys [m]

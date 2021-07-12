@@ -1421,7 +1421,7 @@
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
   [orig-report :- reports/report-wireformat-schema
-   received-timestamp :- pls/Timestamp
+   received-timestamp :- pls/WireTimestamp
    update-latest-report? :- s/Bool
    save-event? :- s/Bool
    options-config]
