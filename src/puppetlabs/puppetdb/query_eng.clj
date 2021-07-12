@@ -148,8 +148,7 @@
 
                           :else
                           (get-in @entity-fn-idx [entity :rec]))
-              columns (orderable-columns query-rec)
-              unknown-err-msg (trs "Unknown exception when processing ast to add report type filter(s).")]
+              columns (orderable-columns query-rec)]
           (paging/validate-order-by! columns options)
           (if (:add-agent-report-filter options)
             (let [ast (try
@@ -158,12 +157,12 @@
                           (let [data (ex-data e)
                                 msg (.getMessage e)]
                             (when (not= ::dr/unrecognized-ast-syntax (:kind data))
-                              (log/error e unknown-err-msg)
+                              (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
                               (throw e))
                             (log/error e msg)
                             ::failed))
                         (catch Exception e
-                          (log/error e unknown-err-msg)
+                          (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
                           (throw e)))]
               (if (= ast ::failed)
                 (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
