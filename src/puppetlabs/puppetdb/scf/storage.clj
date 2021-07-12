@@ -284,10 +284,13 @@
    ["SELECT expired FROM certnames WHERE certname=?" certname]
    (comp :expired first sql/result-set-seq)))
 
-(defn-validated purge-deactivated-and-expired-nodes!
+(defn purge-deactivated-and-expired-nodes!
   "Delete nodes from the database which were deactivated before horizon."
-  ([horizon :- (s/pred kitchensink/datetime?)]
+  ([horizon]
    (let [ts (to-timestamp horizon)]
+     (when-not ts
+       (throw (Exception. (trs "Provided horizon not a valid timestamp {0}"
+                               (pr-str horizon)))))
      (jdbc/do-prepared
       (str "with ids as (delete from certnames"
            "               where deactivated < ? or expired < ?"
@@ -296,8 +299,10 @@
            "    where certname_id in (select * from ids)")
       [ts ts])))
   ([horizon batch-limit]
-   {:pre [(kitchensink/datetime? horizon)]}
    (let [ts (to-timestamp horizon)]
+     (when-not ts
+       (throw (Exception. (trs "Provided horizon not a valid timestamp {0}"
+                               (pr-str horizon)))))
      (jdbc/do-prepared
       (str "with ids as (delete from certnames"
            "               where id in (select id from certnames"
@@ -1610,8 +1615,7 @@
   throw an SQLException cancelation if the operation takes much longer
   than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
   [table-prefix date incremental? update-lock-status status-key db]
-  {:pre [(kitchensink/datetime? date)
-         (string? table-prefix)]}
+  {:pre [(string? table-prefix)]}
   (let [utcz (ZoneId/of "UTC")
         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
                                           utcz)
@@ -1654,7 +1658,6 @@
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
   [date incremental? update-lock-status db]
-  {:pre [(kitchensink/datetime? date)]}
   (prune-daily-partitions "resource_events" date incremental?
                           update-lock-status :write-locking-resource-events db))
 
@@ -1667,8 +1670,8 @@
     :or {resource-events-ttl report-ttl
          incremental? false
          update-lock-status (constantly true)}}]
-  {:pre [(kitchensink/datetime? report-ttl)
-         (kitchensink/datetime? resource-events-ttl)
+  {:pre [(instance? org.joda.time.DateTime report-ttl)
+         (instance? org.joda.time.DateTime resource-events-ttl)
          (ifn? update-lock-status)]}
   ;; force a resource-events GC. prior to partitioning, this would have happened
   ;; via a cascade when the report was deleted, but now we just drop whole tables
