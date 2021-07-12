@@ -15,7 +15,7 @@
 (def event-wireformat-schema
   {:status s/Str
    :corrective_change (s/maybe s/Bool)
-   :timestamp pls/Timestamp
+   :timestamp pls/WireTimestamp
    :property (s/maybe s/Str)
    :new_value (s/maybe pls/JSONable)
    :old_value (s/maybe pls/JSONable)
@@ -24,7 +24,7 @@
 
 (def resource-wireformat-schema
   {:skipped s/Bool
-   :timestamp pls/Timestamp
+   :timestamp pls/WireTimestamp
    :resource_type s/Str
    :resource_title s/Str
    :file (s/maybe s/Str)
@@ -45,16 +45,16 @@
    :message s/Str
    :source s/Str
    :tags [s/Str]
-   :time pls/Timestamp})
+   :time pls/WireTimestamp})
 
 (def report-wireformat-schema
   {:certname s/Str
    :puppet_version s/Str
    :report_format s/Int
    :configuration_version s/Str
-   :start_time pls/Timestamp
-   :end_time pls/Timestamp
-   :producer_timestamp pls/Timestamp
+   :start_time pls/WireTimestamp
+   :end_time pls/WireTimestamp
+   :producer_timestamp pls/WireTimestamp
    :producer (s/maybe s/Str)
    :corrective_change (s/maybe s/Bool)
    :resources [resource-wireformat-schema]
@@ -282,6 +282,7 @@
 
 (pls/defn-validated report-query->wire-v8 :- report-wireformat-schema
   [report :- report-query-schema]
+  ;; FIXME: convert timestamps to wire format
   (-> report
       generic-query->wire-transform
       (update :resource_events (comp resource-events-wire->resources

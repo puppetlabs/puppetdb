@@ -308,14 +308,22 @@
         (catch java.time.format.DateTimeParseException ex
           nil)))))
 
+(defn wire-datetime->instant
+  "Parses s as a PuppetDB wire format <datetime> and returns a
+  LocalDate, or nil if the string cannot be parsed."
+  [s]
+  (when s (or (parse-iso-z s) (parse-offset-iso s))))
+
 (defn parse-wire-datetime
   "Parses s as a PuppetDB wire format <datetime> and returns a
   LocalDate, or nil if the string cannot be parsed."
   [s]
-  (when s
-    (some-> (or (parse-iso-z s) (parse-offset-iso s))
-            ;; temporary migration shim
-            (-> .toEpochMilli (DateTime. DateTimeZone/UTC)))))
+  ;; temporary migration shim
+  (some-> s wire-datetime->instant .toEpochMilli (DateTime. DateTimeZone/UTC)))
+
+(defn wire-datetime?
+  [s]
+  (when (string? s) (wire-datetime->instant s)))
 
 (defn joda-datetime->java-zoneddatetime
   "Convert a org.joda.time.DateTime object to a java.time.ZonedDateTime"
