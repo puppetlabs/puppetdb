@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 5de27c4982e1375d864fe20459a7c70b191fcac2\n"
+"X-Git-Ref: 445eccabcd7f6d11c2e743f75c4699b8ed16e99e\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1267,11 +1267,21 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid ""
+"Could not drop-joins from {0} query. One or more projections were missing :"
+"join-deps {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Not dropping unused joins from query (disallowed)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Attempting to drop unused joins from query"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "{0} join in {1} query was expected to be a keyword"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
