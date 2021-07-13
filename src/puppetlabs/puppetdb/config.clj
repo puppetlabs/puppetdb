@@ -394,15 +394,22 @@
                                          minutes))
                           :else 0))))))
 
+(defn using-ssl? [config]
+  (and
+    (str/includes? (:subname config) "ssl=true")
+    (nil? (:password config))))
+
 (defn ensure-migrator-info [config]
   ;; This expects to run after prefer-db-user-on-username-mismatch, so
   ;; the :user should always be the right answer.
   (assert (:user config))
   (-> config
       (update :migrator-username #(or % (:user config)))
-      (update :migrator-password #(or % (:password config)))))
+      (cond-> (using-ssl? config) (update :migrator-password #(or % ""))
+              :always (update :migrator-password #(or % (:password config))))))
 
 (defn ensure-connection-users-info [config]
+
   ;; This expects to run after ensure-migrator-info and prefer-db-user-on-username-mismatch,
   ;; so the :user and :migrator-user should already be set
   (assert (:user config))

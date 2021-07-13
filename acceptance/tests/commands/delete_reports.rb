@@ -25,9 +25,7 @@ test_name "test puppetdb delete" do
     on(database, "#{bin_loc}/puppetdb delete-reports")
   end
 
-  start_puppetdb(database)
-
-  step "Verify puppetdb can be queried after restarting" do
+  step "Verify puppetdb can still be queried" do
     check_record_count("nodes", agents.length)
   end
 
