@@ -50,12 +50,15 @@ jobs:
             flavor: rspec/pup-6.x
 
     steps:
+      - id: computed
+        run: |
+          echo "::set-output name=day::$(date +%Y-%m-%d)"
       - uses: actions/checkout@v2
         with:
           persist-credentials: false
       - uses: actions/cache@v2
         with:
-          key: ${{ matrix.flavor }}-${{ runner.os }}-${{ hashFiles('**/project.clj') }}
+          key: ${{ matrix.flavor }}-${{ runner.os }}-${{ hashFiles('**/project.clj') }}-${{ steps.computed.outputs.day }}
           path: |
             ci/local/jdk
             vendor/bundle/ruby
