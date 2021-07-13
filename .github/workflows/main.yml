@@ -45,7 +45,7 @@ jobs:
           persist-credentials: false
       - uses: actions/cache@v2
         with:
-          key: ${{ matrix.flavor }}-${{ runner.os }}-${{ hashFiles('project.clj') }}
+          key: ${{ matrix.flavor }}-${{ runner.os }}-${{ hashFiles('**/project.clj') }}
           path: |
             ci/local/jdk
             vendor/bundle/ruby
