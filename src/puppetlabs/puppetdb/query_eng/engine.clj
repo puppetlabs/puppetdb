@@ -2992,7 +2992,13 @@
                       path-or-field))
         required-joins (map #(get-in proj-info [% :join-deps])
                             (map basename fields))]
-    (assert (not-any? nil? required-joins))
+    (when (some nil? required-joins)
+      (throw (ex-info
+              (tru "Could not drop-joins from {0} query. One or more projections were missing :join-deps {1}"
+                   (name (::which-query plan))
+                   (pr-str required-joins))
+              {:kind ::cannot-drop-joins
+               ::why :missing-join-deps-information})))
     (apply set/union required-joins)))
 
 (defn maybe-drop-unused-joins [{:keys [plan] :as incoming}]
@@ -3042,9 +3048,13 @@
                 need-join? (fn [[table spec]]
                              ;; table e.g. :factsets or [:factsets :fs]
                              ;; spec e.g. [:= :certnames.certname :fs.certname]
-                             (let [name (cond-> table (coll? table) second)]
-                               (assert (keyword? name))
-                               (required? name)))
+                             (let [join-name (cond-> table (coll? table) second)]
+                               (when-not (keyword? join-name)
+                                 (throw (IllegalArgumentException.
+                                         (tru "{0} join in {1} query was expected to be a keyword"
+                                              join-name
+                                              (name (::which-query plan))))))
+                               (required? join-name)))
                 drop-joins (fn [result k v]
                              (if-not (join-key? k)
                                result
