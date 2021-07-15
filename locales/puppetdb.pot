@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 5adec593cfe401810ce54234d441ee19fefac8ad\n"
+"X-Git-Ref: 911fc20fde33515d86d4022744d6a93aaf6161c2\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1199,6 +1199,10 @@ msgid "Received ''{0}'' clause without an argument"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "{0} is niether a valid column name nor function name"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "wrong number of arguments ({0}) provided for function {1}"
 msgstr ""
 
@@ -1267,11 +1271,21 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid ""
+"Could not drop-joins from {0} query. One or more projections were missing :"
+"join-deps {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Not dropping unused joins from query (disallowed)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Attempting to drop unused joins from query"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "{0} join in {1} query was expected to be a keyword"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
