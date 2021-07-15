@@ -3,144 +3,144 @@
   method: GET
   headers: {content-type: application/json}
   query:
-  alias: fact names
+  alias: CONS - fact names
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"]], ["=", "node_state", "active"]]]
-  alias: active nodes
+  alias: CONS - active nodes
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", ["certname", "report_environment", "report_timestamp", "latest_report_hash", "latest_report_status", "latest_report_noop", "latest_report_noop_pending", "latest_report_corrective_change", "latest_report_job_id"], ["and", ["null?", "report_timestamp", true], ["=", "node_state", "active"]]]]
-  alias: node details
+  alias: CONS - node details
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"]], ["and", ["<", "report_timestamp", "2021-03-24T09:30:23.308Z"], ["=", "node_state", "active"]]]]
-  alias: count reports before timestamp
+  alias: CONS - count reports before timestamp
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"]], ["and", ["null?", "report_timestamp", true], ["=", "node_state", "active"]]]]
-  alias: nodes with a report
+  alias: CONS - nodes with a report
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"], "cached_catalog_status", "latest_report_status", "latest_report_noop", "latest_report_noop_pending", "latest_report_corrective_change"], ["and", [">=", "report_timestamp", "2021-03-24T09:30:23.308Z"], ["=", "node_state", "active"]], ["group_by", "cached_catalog_status", "latest_report_status", "latest_report_noop", "latest_report_noop_pending", "latest_report_corrective_change"]]]
-  alias: latest report stats
+  alias: CONS - latest report stats
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", ["certname"], ["and", [">", "report_timestamp", "2021-03-01T00:00:00Z"], ["=", "node_state", "active"]]]]
-  alias: node name by report timestamp
+  alias: CONS - node name by report timestamp
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "events", ["extract", ["corrective_change", ["function", "count"]], ["and", ["and", [">", "run_end_time", "2021-03-24T00:00:00Z"], ["<", "run_end_time", "2021-03-24T10:30:23Z"]], ["=", "node_state", "active"]], ["group_by", "corrective_change"]]]
-  alias: corrective changes
+  alias: CONS - corrective changes
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"]], ["and", ["and", ["=", "latest_report_status", "failed"], [">=", "report_timestamp", "2021-03-24T09:31:59.338Z"], ["=", "latest_report_noop", false]], ["=", "node_state", "active"]]]]
-  alias: latest failed report
+  alias: CONS - latest failed report
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", ["certname", "report_environment", "report_timestamp", "latest_report_hash", "latest_report_status", "latest_report_noop", "latest_report_noop_pending", "latest_report_corrective_change", "latest_report_job_id"], ["and", ["and", ["=", "latest_report_status", "failed"], [">=", "report_timestamp", "2021-03-24T09:31:59.586Z"], ["=", "latest_report_noop", false]], ["=", "node_state", "active"]]]]
-  alias: node details for last failed report
+  alias: CONS - node details for last failed report
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"]], ["and", ["<", "report_timestamp", "2021-03-24T09:31:59.586Z"], ["=", "node_state", "active"]]]]
-  alias: nodes count with reports earlier than
+  alias: CONS - nodes count with reports earlier than
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"]], ["and", ["null?", "report_timestamp", true], ["=", "node_state", "active"]]]]
-  alias: nodes with no reports
+  alias: CONS - nodes with no reports
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", [["function", "count"], "cached_catalog_status", "latest_report_status", "latest_report_noop", "latest_report_noop_pending", "latest_report_corrective_change"], ["and", [">=", "report_timestamp", "2021-03-24T09:31:59.586Z"], ["=", "node_state", "active"]], ["group_by", "cached_catalog_status", "latest_report_status", "latest_report_noop", "latest_report_noop_pending", "latest_report_corrective_change"]]]
-  alias: nodes count with specific attributes
+  alias: CONS - nodes count with specific attributes
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "reports", ["extract", ["hash", "end_time", "certname", "status", "job_id", "noop", "noop_pending", "metrics", "environment", "corrective_change"]]]
-  alias: reports attributes
+  alias: CONS - reports attributes
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "reports", ["extract", [["function", "count"]]]]
-  alias: reports count
+  alias: CONS - reports count
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "reports", ["extract", ["resource_events", "certname"], ["=", "hash", "59f87cec2e662b083874b8d0fd122899684bf197"]]]
-  alias: specific report
+  alias: CONS - specific report
 #- path: "/pdb/query/v4"
 #  method: POST
 #  headers: {content-type: application/json}
 #  query: ["from", "aggregate_event_counts", ["=", "latest_report?", true]]
-#  alias: aggregate event counts
+#  alias: CONS - aggregate event counts
 #- path: "/pdb/query/v4"
 #  method: POST
 #  headers: {content-type: application/json}
 #  query: ["from", "event_counts", ["=", "latest_report?", true]]
-#  alias: event counts
+#  alias: CONS - event counts
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "inventory", ["extract", ["certname"], ["=", "node_state", "active"]]]
-  alias: active nodes from inventory
+  alias: CONS - active nodes from inventory
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "nodes", ["extract", ["certname", "report_timestamp", "latest_report_hash"], ["=", "node_state", "active"]]]
-  alias: nodes details
+  alias: CONS - nodes details
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "facts", ["and", ["=", "certname", "leaky-hijacking.delivery.puppetlabs.net"], ["=", "node_state", "active"]]]
-  alias: facts for specific node
+  alias: CONS - facts for specific node
 #- path: "/pdb/query/v4"
 #  method: POST
 #  headers: {content-type: application/json}
 #  query: ["from", "packages", ["extract", [["function", "count"]], nil]]
-#  alias: packages count
+#  alias: CONS - packages count
 #- path: "/pdb/query/v4"
 #  method: POST
 #  headers: {content-type: application/json}
 #  query: ["from", "package_inventory", ["extract", ["package_name", "version", "provider", ["function", "count"]], ["and", ["=", ["node", "active"], "true"], ["in", ["package_name", "version", "provider"], ["from", "packages", ["extract", ["package_name", "version", "provider"], nil], ["order_by", ["package_name", "version", "provider"]], ["limit", 50], ["offset", 0]]]], ["group_by", "package_name", "version", "provider"]], ["order_by", ["package_name", "version", "provider"]]]
-#  alias: packages details
+#  alias: CONS - packages details
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "facts", ["and", ["and", ["or", ["=", "name", "pe_patch"], ["=", "name", "kernel"]], ["in", ["certname"], ["from", "resources", ["extract", "certname", ["and", ["=", "type", "Class"], ["=", "title", "Pe_patch"]]]]]], ["=", "node_state", "active"]]]
-  alias: specific facts
+  alias: CONS - specific facts
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "resources", ["extract", ["certname"], ["and", ["and", ["=", "type", "Class"], ["or", ["=", "title", "Puppet_enterprise::Profile::Certificate_authority"], ["or", ["=", "title", "Puppet_enterprise::Profile::Master"], ["=", "title", "Puppet_enterprise::Profile::Console"]], ["=", "title", "Puppet_enterprise::Profile::Puppetdb"]], ["subquery", "nodes", ["and", ["null?", "deactivated", true], ["null?", "expired", true]]]], ["=", "node_state", "active"]]]]
-  alias: specific resources
+  alias: CONS - specific resources
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "resources", ["extract", ["certname", "parameters"], ["and", ["and", ["=", "type", "Class"], ["and", ["=", "title", "Puppet_enterprise"], ["in", "certname", ["from", "resources", ["extract", ["certname"], ["and", ["=", "type", "Class"], ["or", ["=", "title", "Puppet_enterprise::Profile::Master"], ["=", "title", "Puppet_enterprise::Profile::Console"], ["=", "title", "Puppet_enterprise::Profile::Puppetdb"]], ["subquery", "nodes", ["and", ["null?", "deactivated", true], ["null?", "expired", true]]]]]]]], ["subquery", "nodes", ["and", ["null?", "deactivated", true], ["null?", "expired", true]]]], ["=", "node_state", "active"]]]]
-  alias: puppet_enterprise resource parameters
+  alias: CONS - puppet_enterprise resource parameters
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "facts", ["extract", ["name", "value"], ["and", ["=", "certname", "leaky-hijacking.delivery.puppetlabs.net"], ["=", "node_state", "active"]]]]
-  alias: facts name and value for specific node
+  alias: CONS - facts name and value for specific node
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "resources", ["extract", ["title", "parameters"], ["and", ["and", ["=", "type", "Class"], ["and", ["=", "certname", "leaky-hijacking.delivery.puppetlabs.net"], ["~", "title", "Puppet_enterprise"]], ["subquery", "nodes", ["and", ["null?", "deactivated", true], ["null?", "expired", true]]]], ["=", "node_state", "active"]]]]
-  alias: puppet_enterprise parameters for specific node
+  alias: CONS - puppet_enterprise parameters for specific node
 - path: "/pdb/query/v4"
   method: POST
   headers: {content-type: application/json}
   query: ["from", "resources", ["extract", ["title", "parameters"], ["and", ["and", ["=", "type", "Class"], ["and", ["=", "certname", "leaky-hijacking.delivery.puppetlabs.net"], ["~", "title", "Pe_repo"]], ["subquery", "nodes", ["and", ["null?", "deactivated", true], ["null?", "expired", true]]]], ["=", "node_state", "active"]]]]
-  alias: pe_repo parameters for specific node
+  alias: CONS - pe_repo parameters for specific node
