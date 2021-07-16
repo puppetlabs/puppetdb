@@ -12,6 +12,45 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 6.18.0
+
+Released July 20 2021
+
+### Bug fixes
+
+* The `to_string` function should now be allowed in
+  [facts](https://puppet.com/docs/puppetdb/latest/api/query/v4/facts.html)
+  and
+  [fact-contents](https://puppet.com/docs/puppetdb/latest/api/query/v4/fact-contents.html)
+  query fields.
+  ([PDB-5104](https://tickets.puppetlabs.com/browse/PDB-5104))
+
+* Queries that include a `limit`, `offset`, or `order_by`, in a
+  subquery that uses `from` like this:
+
+  ```
+  ["from", "nodes",
+   ["in", "certname",
+    ["from", "reports", ["extract", "certname"],
+     ["limit", 1]]]]
+  ```
+
+  should no longer crash with an error that looks like this:
+
+  > 'type' is not a queryable object for nodes...
+
+  ([PDB-5026](https://tickets.puppetlabs.com/browse/PDB-5026))
+
+* The `delete-reports` subcommand now restarts the puppetdb service
+  after deleting reports.
+  ([PDB-5142](https://tickets.puppetlabs.com/browse/PDB-5142))
+
+### Contributors
+
+Andrei Filipovici, Austin Blatt, Ethan J. Brown, Filipovici-Andre,i
+Heston Hoffman, Maggie Dreyer, Oana Tanasoiu, Rob Browning, and Sebastian
+Miclea
+
 ## PuppetDB 6.17.0
 
 Released June 24 2021.
