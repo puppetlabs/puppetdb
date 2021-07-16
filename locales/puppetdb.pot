@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 445eccabcd7f6d11c2e743f75c4699b8ed16e99e\n"
+"X-Git-Ref: f76500ada526634cef74295d3c77e2fa9611bdce\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1496,6 +1496,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/partitioning.clj
 msgid "Unhandled date type {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Provided horizon not a valid timestamp {0}"
 msgstr ""
 
 #. Don't localize the line numbers
