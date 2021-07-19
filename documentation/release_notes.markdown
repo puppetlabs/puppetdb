@@ -4,9 +4,12 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
-[configure_postgres]: ./configure.markdown#using-postgresql
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.markdown
-[puppet_apply]: ./connect_puppet_apply.markdown
+[configure-postgres]: configure.markdown#using-postgresql
+[drop-joins]: api/query/v4/query.markdown#experimental-query-optimization
+[facts]: api/query/v4/facts.markdown
+[fact-contents]: api/query/v4/fact-contents.markdown
+[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
+[puppet-apply]: connect_puppet_apply.markdown
 
 ---
 
@@ -18,11 +21,8 @@ Released July 20 2021
 
 ### Bug fixes
 
-* The `to_string` function should now be allowed in
-  [facts](https://puppet.com/docs/puppetdb/latest/api/query/v4/facts.html)
-  and
-  [fact-contents](https://puppet.com/docs/puppetdb/latest/api/query/v4/fact-contents.html)
-  query fields.
+* The `to_string` function should now be allowed in [facts][facts] and
+  [fact-contents][fact-contents] query fields.
   ([PDB-5104](https://tickets.puppetlabs.com/browse/PDB-5104))
 
 * Queries that include a `limit`, `offset`, or `order_by`, in a
@@ -47,9 +47,9 @@ Released July 20 2021
 
 ### Contributors
 
-Andrei Filipovici, Austin Blatt, Ethan J. Brown, Filipovici-Andre,i
-Heston Hoffman, Maggie Dreyer, Oana Tanasoiu, Rob Browning, and Sebastian
-Miclea
+Andrei Filipovici, Austin Blatt, Ethan J. Brown, Filipovici-Andrei,
+Heston Hoffman, Maggie Dreyer, Oana Tanasoiu, Rob Browning, and
+Sebastian Miclea
 
 ## PuppetDB 6.17.0
 
@@ -58,7 +58,7 @@ Released June 24 2021.
 This release contains a fix for
 [CVE-2021-27021](https://puppet.com/security/cve/cve-2021-27021/). As part of
 the mitigation of this CVE you should [create and configure a read only
-user][configure_postgres]. If you are using Puppet Enterprise, or you are
+user][configure-postgres]. If you are using Puppet Enterprise, or you are
 managing your postgres database using the Open Source module (version 7.9.0+)
 the read only user will be configured automatically.
 
@@ -563,7 +563,7 @@ Waggett, Robert Roland, Scot Kreienkamp, Vadym Chepkov, and Zak Kent
 ### Bug fixes
 
 - A change in the `puppetdb-termini` package for 6.5.0 broke SSL connections that
-  did not use Puppet's CA. This fix adds [the `verify_client_certificate` configuration option][puppet_apply].
+  did not use Puppet's CA. This fix adds [the `verify_client_certificate` configuration option][puppet-apply].
   By default, `verify_client_certificate` only allows SSL connections authenticated by the
   Puppet CA. When set to `false`, it allows the use of other SSL connections. [PDB-4487](https://tickets.puppetlabs.com/browse/PDB-4487)
 
