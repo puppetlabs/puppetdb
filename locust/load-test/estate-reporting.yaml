@@ -1,0 +1,118 @@
+---
+- path: "/pdb/query/v4/fact-paths"
+  method: GET
+  query:
+  limit:
+  offset:
+  alias: ESTATE - fact paths
+- path: "/pdb/query/v4/fact-paths"
+  method: GET
+  query:
+  limit: 1000
+  offset:
+  alias: ESTATE - fact paths with limit
+- path: "/pdb/query/v4/facts"
+  method: GET
+  query: ["extract", ["name","value"], ["and",["=", "certname", "host-999"],["=", "name", "pe_server_version"]]]
+  limit: 1
+  offset:
+  order_by: [{"field": "name", "order": "asc"}]
+  alias: ESTATE - pe server version
+- path: "/pdb/query/v4/facts"
+  method: GET
+  query: ["extract", ["name","value","certname"], ["=", "certname", "host-365"]]
+  limit: 1000
+  offset:
+  order_by: [{"field": "name", "order": "asc"}]
+  alias: ESTATE - all facts
+- path: "/pdb/query/v4/facts"
+  method: GET
+  query: ["extract", [["function", "count"]], ["and",["=", "certname", "host-25"],["=", "name", "pe_server_version"]]]
+  limit:
+  offset:
+  alias: ESTATE - all pe server versions
+- path: "/pdb/query/v4/facts"
+  method: GET
+  query: ["extract", [["function", "count"]], ["=", "certname", "host-815"]]
+  limit:
+  offset:
+  alias: ESTATE - facts count
+- path: "/pdb/query/v4/inventory"
+  method: GET
+  query: ["extract", [["function", "count"]], ["=", "certname", "host-119"]]
+  limit:
+  offset:
+  alias: ESTATE - inventory count
+- path: "/pdb/query/v4/inventory"
+  method: GET
+  query: ["extract", "facts", ["=", "certname", "host-114"]]
+  limit: 1000
+  offset:
+  order_by: [{"field": "certname", "order": "asc"}]
+  alias: ESTATE - inventory facts
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", [["function", "count"]], ["and",["~", ["fact", "operatingsystem"], "Cent.*"]]]
+  limit:
+  offset:
+  alias: ESTATE - nodes with specific operating system
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", [["function", "count"]] ]
+  limit:
+  offset:
+  alias: ESTATE - nodes count
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", ["latest_report_corrective_change","latest_report_status","certname","report_timestamp"], ["and",["~", ["fact", "operatingsystem"], "Cent.*"]]]
+  limit: 30
+  order_by: [{"field": "certname", "order": "asc"}]
+  offset:
+  alias: ESTATE - latest corrective change for specific system
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", ["latest_report_corrective_change","latest_report_status","certname","report_timestamp"]]
+  limit: 30
+  offset:
+  order_by: [{"field": "certname", "order": "asc"}]
+  alias: ESTATE - all latest corrective changes
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", [["function", "count"]], ["=", "certname", "host-666"]]
+  limit:
+  offset:
+  alias: ESTATE - all nodes with specific certname
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", ["certname","report_timestamp"], ["=", "certname", "host-877"]]
+  limit: 1000
+  offset:
+  order_by: [{"field": "certname", "order": "asc"}]
+  alias: ESTATE - certname and report timestamp limit 1000
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", ["latest_report_hash","latest_report_corrective_change","report_timestamp","latest_report_status","certname"], ["=", "certname", "host-365"]]
+  limit: 1000
+  offset:
+  order_by: [{"field": "certname", "order": "asc"}]
+  alias: ESTATE - latest corrective change for specific host
+- path: "/pdb/query/v4/nodes"
+  method: GET
+  query: ["extract", ["certname","report_timestamp"], ["=", "certname", "host-111"]]
+  limit: 1
+  offset:
+  order_by: [{"field": "certname", "order": "asc"}]
+  alias: ESTATE - certname and report timestamp limit 1
+- path: "/pdb/query/v4/reports"
+  method: GET
+  query: ["extract", [["function", "count"]], ["=", "certname", "host-123"]]
+  limit:
+  offset:
+  alias: ESTATE - report count for specific host
+- path: "/pdb/query/v4/reports"
+  method: GET
+  query: ["extract", ["hash","end_time","status","corrective_change","certname"], ["=", "certname", "host-42"]]
+  limit: 30
+  offset:
+  order_by: [{"field": "receive_time", "order": "desc"}]
+  alias: ESTATE - report attributes

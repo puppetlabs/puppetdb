@@ -1,38 +1,52 @@
 #!/usr/bin/env python3
-
 from locust import HttpUser, task, tag
 import yaml, json, os
 
-class PuppetDbLoadTest(HttpUser):
-    def response_printer(self, opts, response):
-        if response.status_code == 0:
-            print(response.error)
-            exit(1)
-        elif response.status_code != 200:
-            print(
+
+def get_name(opts):
+    if opts.get('alias'): return opts['alias']
+    if opts.get('query'): return str(opts['query'])
+    return opts['path']
+
+
+def response_printer(opts, response):
+    if response.status_code == 0:
+        print(response.error)
+        exit(1)
+    elif response.status_code != 200:
+        print(
             "Method: " + opts['method'],
-            "Query: " + str(opts.get('query')) ,
+            "Query: " + str(opts.get('query')),
             "Response status: " + str(response.status_code),
             "Response body: " + response.text,
-            end="\n-------------------------------------------\n", sep="\n" )
+            end="\n-------------------------------------------\n", sep="\n")
 
-    def get_name(self, opts):
-        if opts.get('alias'): return opts['alias']
-        if opts.get('query'): return str(opts['query'])
-        return opts['path']
 
+def create_get_url(params, opts):
+    url = opts['path']
+    added_first_param = False
+    for param_name, param_val in params.items():
+        if param_val == 'None' or param_val == 'null':
+            continue
+        if added_first_param:
+            url += f'&{param_name}=' + param_val
+        else:
+            url += f'?{param_name}=' + param_val
+            added_first_param = True
+    return url
+
+
+class PuppetDbLoadTest(HttpUser):
     def get_request(self, opts):
-        limit = opts.get('limit')
-        offset = opts.get('offset')
-        url = opts['path']
-        if opts.get('query'):
-            url += "?query=" + json.dumps(opts['query'])
-        if limit and opts.get('query'):
-            url += "&limit=" + str(limit)
-        if offset and opts.get('query'):
-            url += "&offset=" + str(offset)
-        with self.client.request(opts['method'], url, self.get_name(opts)) as response:
-            self.response_printer(opts, response)
+        params = {"limit": str(opts.get('limit')),
+                  "offset": str(opts.get('offset')),
+                  "order_by": json.dumps(opts.get('order_by')),
+                  "query": json.dumps(opts['query'])}
+
+        url = create_get_url(params, opts)
+
+        with self.client.request(opts['method'], url, get_name(opts)) as response:
+            response_printer(opts, response)
 
     def post_request(self, opts):
         query = {}
@@ -45,8 +59,9 @@ class PuppetDbLoadTest(HttpUser):
         if offset:
             query['offset'] = offset
         headers = opts.get('headers')
-        with self.client.request(opts['method'], opts['path'], self.get_name(opts), data=json.dumps(query), json=True, headers=headers) as response:
-            self.response_printer(opts, response)
+        with self.client.request(opts['method'], opts['path'], get_name(opts), data=json.dumps(query), json=True,
+                                 headers=headers) as response:
+            response_printer(opts, response)
 
     def run_task(self, requests_file):
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -73,8 +88,14 @@ class PuppetDbLoadTest(HttpUser):
     def run_cd4pe_queries(self):
         self.run_task('/cd4pe.yaml')
 
+    @tag('estate')
+    @task
+    def run_cd4pe_queries(self):
+        self.run_task('/estate-reporting.yaml')
+
     @tag('all')
     @task
     def run_all_queries(self):
         self.run_task('/console.yaml')
         self.run_task('/cd4pe.yaml')
+        self.run_task('/estate-reporting.yaml')
