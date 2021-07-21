@@ -244,12 +244,6 @@
   (hcore/raw
    (format "%s = ANY(?)" (first (hfmt/format column)))))
 
-(defn json-contains
-  [field array-in-path]
-  (if array-in-path
-    (hcore/raw (format "%s #> ? = ?" field))
-    (hcore/raw (format "%s @> ?" field))))
-
 (defn jsonb-path-binary-expression
   "Produce a predicate that compares against nested value with op and checks the
   existence of a (presumably) top-level value. The existence check is necessary
@@ -382,42 +376,3 @@
   (log/info (trs "Analyzing small tables"))
   (apply jdbc/do-commands-outside-txn
          (map #(str "analyze " %) small-tables)))
-
-(defn handle-quoted-path-segment
-  [v]
-  (loop [result []
-         [s & splits] v]
-    (let [s-len (count s)]
-      (if (and (str/ends-with? s "\"")
-               (not (= s-len 1))
-               (or (<= s-len 2) (not (= (nth s (- s-len 2)) \\))))
-        [(str/join "." (conj result s)) splits]
-        (recur (conj result s) splits)))))
-
-(defn dotted-query->path
-  [string]
-  (loop [[s & splits :as v] (str/split string #"\.")
-         result []]
-    (if (nil? s)
-      result
-      (let [s-len (count s)]
-        (if (and (str/starts-with? s "\"")
-                 (or (= s-len 1)
-                     (or (not (str/ends-with? s "\""))
-                         (and (str/ends-with? s "\"")
-                              (>= s-len 2)
-                              (= (nth s (- s-len 2)) \\)))))
-          (let [[x xs] (handle-quoted-path-segment v)]
-            (recur xs (conj result x)))
-          (recur splits (conj result s)))))))
-
-(defn expand-array-access-in-path
-  "Given a path like [\"a\" \"b[0]\" \"c\"], expand the [0] to get
-   [\"a\" \"b\" 0 \"c\"]"
-  [path]
-  (mapcat (fn [el]
-            (let [[[_ field index-str]] (re-seq #"^(.*)\[(\d+)\]$" el)]
-              (if index-str
-                [field (Integer/parseInt index-str)]
-                [el])))
-          path))
