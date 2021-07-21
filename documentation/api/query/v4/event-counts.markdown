@@ -11,9 +11,6 @@ canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 [curl]: ../curl.markdown
 [query]: query.markdown
 
-> **Experimental endpoint**: The event-counts endpoint is designated
-> as experimental. It may be altered or removed in a future release.
-
 Puppet agent nodes submit reports after their runs, and the Puppet Server forwards these to PuppetDB. Each report includes:
 
 * Data about the entire run
@@ -47,8 +44,7 @@ This query is forwarded to the [`events`][events] endpoint; additional informati
 is applied to the final event counts output. Supported operators are `=`, `>`, `<`, `>=`, and `<=`.
 Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
-* `distinct_resources`: optional. (**Experimental: it is possible that the behavior
-of this parameter may change in future releases.**) This parameter is passed along
+* `distinct_resources`: optional. This parameter is passed along
 to the `events` query. See the [`events` documentation][events] for more information.
 
 ### Query operators
