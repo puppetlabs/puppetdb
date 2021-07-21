@@ -11,6 +11,12 @@
   (is (= "foo bar\n"
          (tu/with-err-str (println-err "foo" "bar")))))
 
+(deftest test-print-err
+  (is (= "foo"
+         (tu/with-err-str (print-err "foo"))))
+  (is (= "foo bar"
+         (tu/with-err-str (print-err "foo" "bar")))))
+
 (deftest test-assoc-when
   (is (= {:a 1 :b 2}
          (assoc-when {:a 1 :b 2} :b 100)))

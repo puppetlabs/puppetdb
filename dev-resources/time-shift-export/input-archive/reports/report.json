@@ -17,6 +17,7 @@
     "message" : "Would have triggered 'refresh' from 2 events"
   }],
   "start_time" : "2021-05-13T11:12:00.000Z",
+  "certname" : "host-0",
   "producer_timestamp" : "2021-05-13T11:12:00.000Z",
   "end_time" : "2021-05-13T11:10:00.000Z",
   "resources" : [ {

@@ -1502,6 +1502,10 @@ msgstr ""
 msgid "Unhandled date type {0}"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Provided horizon not a valid timestamp {0}"
+msgstr ""
+
 #. Don't localize the line numbers
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Failed to insert resource for {0} (file: {1}, line: {2})."

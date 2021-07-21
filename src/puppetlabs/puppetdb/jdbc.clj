@@ -249,7 +249,7 @@
          (valid-jdbc-query? (:results-query %)))))
 
 (defn sql-array? [x]
-  (isa? (class x) java.sql.Array))
+  (instance? java.sql.Array x))
 
 (defn convert-any-sql-array [x convert]
   (if-not (sql-array? x)
