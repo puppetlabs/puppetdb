@@ -13,7 +13,7 @@ layout: default
 [requirements]: ./index.markdown#standard-install-rhel-centos-debian-and-ubuntu
 [install_module]: ./install_via_module.markdown
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
-[keystore_instructions]: ./postgres_ssl.markdown
+[postgres_ssl]: ./postgres_ssl.markdown
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.
@@ -66,7 +66,7 @@ seconds`.
 > Note: If Puppet doesn't have a valid certificate when PuppetDB is installed,
 > you will have to
 > [run the SSL config script and edit the config file][ssl_script], or
-> [manually configure PuppetDB's SSL credentials][keystore_instructions] before
+> [manually configure PuppetDB's SSL credentials][postgres_ssl] before
 > the Puppet Server will be able to connect to PuppetDB.
 
 ## Step 2: Enable the Puppet Platform package repository
@@ -82,7 +82,12 @@ Use Puppet to install PuppetDB:
 
 ## Step 4: Configure database
 
-- [Set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres].
+- [Set up a PostgreSQL server and configure PuppetDB to use
+- it][configure_postgres].
+  If your PostgreSQL node is on a separate server than PuppetDB, you should
+  [configure an SSL connection][postgres_ssl], otherwise your database
+  communication will happen in plaintext over the network. This can be made
+  much simpler by installing using the [PuppetDB module][module].
 
 ## Step 5: Start the PuppetDB service
 

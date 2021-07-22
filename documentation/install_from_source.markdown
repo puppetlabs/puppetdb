@@ -8,6 +8,7 @@ layout: default
 [configure_postgres]: ./configure.markdown#using-postgresql
 [configure_heap]: ./configure.markdown#configuring-the-java-heap-size
 [module]: ./install_via_module.markdown
+[postgres_ssl]: ./postgres_ssl.markdown
 [packages]: ./install_from_packages.markdown
 [running_tests]: ./CONTRIBUTING.md#running-the-tests
 
@@ -115,6 +116,11 @@ You may also need to [adjust the maximum heap size][configure_heap].
 You can change PuppetDB's database at any time while the service is shut down,
 but note that changing the database does not migrate PuppetDB's data, so the new
 database will be empty.
+
+  If your PostgreSQL node is on a separate server than PuppetDB, you should
+  [configure an SSL connection][postgres_ssl], otherwise your database
+  communication will happen in plaintext over the network. This can be made
+  much simpler by installing using the [PuppetDB module][module].
 
 ## Step 4: Start the PuppetDB service
 
