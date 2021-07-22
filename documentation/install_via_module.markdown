@@ -46,7 +46,11 @@ your servers. You have three main options for deploying PuppetDB:
 * If you want PuppetDB and PostgreSQL to each run on their own servers, assign
   the `puppetdb::server` class and the `puppetdb::database::postgresql` classes
   to different servers, and the `puppetdb::master::config` class to your Puppet
-  Server. Make sure to set the class parameters as necessary.
+  Server. Make sure to set the class parameters as necessary. You should also
+  then enable an SSL connection between your PostgreSQL and PuppetDB's servers,
+  see [the module documentation for how to configure SSL](https://forge.puppet.com/modules/puppetlabs/puppetdb#enable-ssl-connections).
+  This configuration will use the Puppet Agent certificates on both machines to
+  authenticate and encrypt the database communication.
 
 Note: By default, the module sets up the PuppetDB dashboard to be accessible
 only via `localhost`. If you'd like to allow access to the PuppetDB dashboard

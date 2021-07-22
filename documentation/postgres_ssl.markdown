@@ -19,7 +19,7 @@ Before beginning, take a look at PostgreSQL's [secure TCP/IP connections with SS
 
 *Note:* Our guide focuses on server-based SSL. Client certificate support is not documented at this time.
 
-### Using Puppet's certificates for SSL
+### Using Puppet Agent certificates for SSL
 
 If you don't have a signed Puppet certificate on your PostgreSQL server, see the [ssl documentaion](https://jdbc.postgresql.org/documentation/head/ssl-client.html) for
 alternate SSL connection options.
@@ -29,6 +29,8 @@ Using Puppet certificates to secure your PostgreSQL server has the following ben
 * Because you are using PuppetDB, we can presume that you are using Puppet on each server. This means you can reuse the local Puppet agent certificate for PostgreSQL.
 * Because your local Puppet agent's certificate must be signed for Puppet to work, you likely have an established workflow for getting these signed.
 * We also recommend this methodology for securing the HTTPS interface for PuppetDB.
+* You can remove the plaintext password from your PuppetDB config files if you
+    also [configure database authorization using agent certificates](#using-puppet-agent-certificates-for-database-authorization)
 
 To begin, configure your PostgreSQL server to use the host's Puppet server certificate and key. The location of these files can be found by using the following commands:
 
@@ -48,7 +50,55 @@ After this is complete, modify the database JDBC connection URL in your PuppetDB
     username = <USERNAME>
     password = <PASSWORD>
 
-Restart PuppetDB and monitor your logs for errors. Your connection should now be SSL.
+Restart PuppetDB and monitor your logs for errors. Your connection should now
+be SSL (but you will still be authorizing your database connection using a
+plaintext password).
+
+### Using Puppet Agent certificates for database authorization
+
+To use Puppet's signed certificates to authenticate PuppetDB's database
+connection (instead of using a password in the database config section), you
+need to follow the above instructions for setting up an SSL connection between
+PuppetDB and Postgres and then change the `pg_hba.conf` and `pg_ident.conf`
+settings to allow your PuppetDB service to access the `puppetdb` database using
+its certificate.  Also, your PostgreSQL server will need to be able to validate
+the certificate of your PuppetDB server, so copy the `ca.pem` (which can be
+found with `puppet config print localcacert` over to the directory of your
+`ssl_cert_file` and `ssl_key_file`, and set the `ssl_ca_file` in your
+`postgresql.conf`.
+
+In `pg_hba.conf` you need to add one `hostssl` entry for each database user
+configured. Starting in [PostgreSQL
+14](https://www.postgresql.org/docs/14/release-14.html) the `clientcert=1`
+option isn't supported and is instead replaced with `clientcert=verify-full`.
+The `verify-full` option is first available in PostgreSQL 12.
+
+```
+# Allow certificate mapped connections to puppetdb as puppetdb (ipv6)
+hostssl puppetdb     puppetdb     ::/0    cert    map=puppetdb-puppetdb-map clientcert=1
+
+# Allow certificate mapped connections to puppetdb as puppetdb_migrator (ipv6)
+hostssl puppetdb     puppetdb_migrator    ::/0    cert    map=puppetdb-puppetdb-migrator-map clientcert=1
+
+# Allow certificate mapped connections to puppetdb as puppetdb_read (ipv6)
+hostssl puppetdb     puppetdb_read        ::/0    cert    map=puppetdb-puppetdb-read-map clientcert=1
+```
+
+Then, in `pg_ident.conf` configure the certificate map from your certificate name to
+the map names used in `pg_hba.conf`
+
+```
+puppetdb-puppetdb-map HOSTNAME puppetdb
+puppetdb-puppetdb-migrator-map HOSTNAME puppetdb_migrator
+puppetdb-puppetdb-read-map HOSTNAME puppetdb_read
+```
+
+Finally, configure PuppetDB's `subname` to include its private key and
+certificate.
+
+```
+subname = //<HOST>:<PORT>/<DATABASE>?ssl=true&sslfactory=org.postgresql.ssl.LibPQFactory&sslmode=verify-full&sslrootcert=/etc/puppetlabs/puppetdb/ssl/ca.pem&sslkey=/tmp/private_key.pk8&sslcert=/etc/puppetlabs/puppetdb/ssl/public.pem
+```
 
 ### Setting up SSL with a publicly signed certificate on the PuppetDB server
 
