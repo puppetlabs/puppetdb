@@ -28,20 +28,11 @@ group :test do
   # Add test-unit for ruby 2.2+ support (has been removed from stdlib)
   gem 'test-unit'
 
-  # Pinning for Ruby 1.9.3 support
-  gem 'json_pure', '~> 1.8'
-  # Pinning for Ruby < 2.2.0 support
-  gem 'activesupport', '~> 4.2'
+  gem 'rspec'
 
-  # addressable 2.5 requires public_suffix, which requires ruby 2.
-  gem 'addressable', '< 2.5.0'
-
-  # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper
-  gem 'rspec', '~> 3.1'
-  gem 'puppetlabs_spec_helper', '0.10.3', :require => false
-
-  # docker-api 1.32.0 requires ruby 2.0.0
-  gem 'docker-api', '1.31.0'
+  # FIXME: going to version 1.0.0 breaks a lot of rspec tests. The changelog
+  # doesn't list any breaking changes, so we'll need to investigate more.
+  gem 'puppetlabs_spec_helper', '0.10.3'
 
   case puppet_ref
   when "latest"
