@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.pql.parser-test
-  (:require [clojure.test :refer :all]
-            [clojure.string :as str]
-            [instaparse.core :as insta]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.pql :refer [parse]]))
+  (:require
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [instaparse.core :as insta]
+   [puppetlabs.puppetdb.pql :refer [parse]]))
 
 ;; These tests are ordered the same as in the EBNF file, so one can
 ;; develop the expressions and tests side-by-side.
@@ -563,18 +563,18 @@
       ""))
 
   (testing "field"
-    (are [in] (= (parse in :start :field)
-                 (vec (concat [:field] (sutils/dotted-query->path in))))
-         "certname"
-         "value"
-         "field_underscore"
-         "facts.operatingsystem.κόσμε"
-         "facts.\"quoted field\".foo"
-         "facts.\"field.with.dot\".foo"
-         "facts.\"field-with-dash\".foo"
-         "trusted.authenticated"
-         "parameters.😁"
-         "latest_report?")
+    (doseq [[field expected]
+            [["certname" [:field "certname"]]
+             ["value" [:field "value"]]
+             ["field_underscore" [:field "field_underscore"]]
+             ["facts.operatingsystem.κόσμε" [:field "facts" "operatingsystem" "κόσμε"]]
+             ["facts.\"quoted field\".foo" [:field "facts" "\"quoted field\"" "foo"]]
+             ["facts.\"field.with.dot\".foo" [:field "facts" "\"field.with.dot\"" "foo"]]
+             ["facts.\"field-with-dash\".foo" [:field "facts" "\"field-with-dash\"" "foo"]]
+             ["trusted.authenticated" [:field "trusted" "authenticated"]]
+             ["parameters.😁" [:field "parameters" "😁"]]
+             ["latest_report?" [:field "latest_report?"]]]]
+      (is (= expected (parse field :start :field))))
 
     (are [in] (insta/failure? (insta/parse parse in :start :field))
       "'asdf'"
