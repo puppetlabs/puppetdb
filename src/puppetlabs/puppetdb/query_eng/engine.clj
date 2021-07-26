@@ -1806,7 +1806,7 @@
 
             [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
             ;; (= :inventory (get-in (meta node) [:query-context :entity]))
-            (when (string/includes? column "match(")
+            (if (string/includes? column "match(")
               (let [[head & path] (->> column
                                        utils/parse-matchfields
                                        su/dotted-query->path
@@ -1819,7 +1819,10 @@
                                     (map :path_array)
                                     (map (fn [path] (if (= (first path) "trusted") path (cons "facts" path))))
                                     (map #(string/join "." %)))]
-                (into ["or"] (map #(vector op % value) fact_paths))))
+                (into ["or"] (map #(vector op % value) fact_paths)))
+              (if (re-matches #"^trusted.*" column)
+                [op (str "facts." column) value]
+                [op column value]))
 
             [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
             (when (= :facts (get-in meta node [:query-context :entity]))
