@@ -190,6 +190,19 @@ Puppet::Reports.register_report(:puppetdb) do
   # @api private
   def resource_status_to_hash(resource_status)
     defaulted_corrective_change = defined?(resource_status.corrective_change) ? resource_status.corrective_change : nil
+    index_size = resource_event_index_size(resource_status)
+
+    if  index_size > 2500 && index_size <= 2704
+      Puppet.warning("resource_event on #{self.host} is very large. Values (resource timestamp + title + type) \
+are #{index_size} bytes and the hard limit is 2704. Caused by Resource type: \"#{resource_status.resource_type}\" \
+with title: \"#{resource_status.title.to_s}\" in #{resource_status.file}:#{resource_status.line}")
+    end
+
+    if index_size > 2704
+      Puppet.warning("resource_event on #{self.host} could not be saved. Values (resource timestamp + title + type) are larger \
+than index total size of 2704. Caused by Resource type: \"#{resource_status.resource_type}\" with title: \
+\"#{resource_status.title.to_s}\" in #{resource_status.file}:#{resource_status.line}")
+    end
     {
       "skipped"           => resource_status.skipped,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
@@ -201,6 +214,17 @@ Puppet::Reports.register_report(:puppetdb) do
       "corrective_change" => defaulted_corrective_change,
       "events"            => build_events_list(resource_status.events),
     }
+  end
+
+  # Get the size of the columns that will populate the resource_events_resource_timestamp_xxxxxz index.
+  # resource_events_resource_timestamp_xxxxxz index is comprised of 3 columns (resource timestamp, title and type)
+  # and it's maximum size is 2704 bytes. So the size of the 3 resource attributes combined, must not exceed 2704 bytes.
+  #
+  # @return Boolean
+  # @api private
+  def resource_event_index_size(resource_status)
+    # 8 - represents the timestamp which has the same size all the time
+    8 + resource_status.resource_type.bytesize + resource_status.title.to_s.bytesize
   end
 
   # Helper method for accessing the puppetdb configuration
