@@ -2177,3 +2177,20 @@
       (sql/execute! jdbc/*db* "set local lock_timeout = 300")
       (is (= 1000 (call-with-lock-timeout get-lock-timeout 1000))))
     (is (= orig (get-lock-timeout)))))
+
+(deftest-db test-notify-oversized-resources
+            (let [bad-resources [{:type "Class"
+                                  :title (str/join "" (repeat 2501 "a"))
+                                  :line 1337
+                                  :exported false
+                                  :file "badfile.txt"}
+                                 {:type "Class"
+                                  :title (str/join "" (repeat 2705 "a"))
+                                  :line 1337
+                                  :exported false
+                                  :file "badfile.txt"}]]
+
+              (binding [*out* *err*]
+                (println *out*)
+                ))
+            )

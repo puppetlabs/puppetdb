@@ -1409,6 +1409,30 @@
   (time/after? (org.joda.time.DateTime. timestamp)
                (.minus (now) resource-events-ttl)))
 
+(defn notify-oversized-resources
+  [resource certname]
+  (let [timestamp_size (count (str (:timestamp resource)))
+        title_size (count (:resource_title resource))
+        type_size (count (:resource_type resource))
+        total_size (+ timestamp_size title_size type_size)]
+    (when (<= 2500 total_size 2704)
+      (log/warn (trs "resource_events_resource_timestamp_xxxxxz size ({0}) is near the size limit of max 2704 on {1}.
+      Once size limit is reached, resources can not be inserted. Caused by resource type {2} in {3}:{4}"
+                     total_size
+                     certname
+                     (:resource_type resource)
+                     (:file resource)
+                     (:line resource))))
+
+    (when (> total_size 2704)
+      (log/error (trs "resource_events_resource_timestamp_xxxxxz limit of 2704 is reached on {0}. Resources cannot be inserted.
+      Caused by resource type {1} in {2}:{3}"
+                      certname
+                      (:resource_type resource)
+                      (:file resource)
+                      (:line resource))))
+  resource))
+
 (defn filter-expired-resources
    [resource-events-ttl resource-list]
    (if resource-events-ttl
@@ -1435,6 +1459,8 @@
                report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
+               (mapv #(notify-oversized-resources % certname) resources)
+
                (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
                              (query-to-vec report-hash)
                              seq)
