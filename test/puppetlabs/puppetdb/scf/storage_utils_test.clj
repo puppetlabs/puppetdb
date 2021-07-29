@@ -43,6 +43,37 @@
       (jdbc/do-commands "CREATE INDEX foobar ON catalog_resources(line)")
       (is (true? (index-exists? "foobar"))))))
 
+(deftest dotted-query-to-path
+  (testing "vanilla dotted path"
+    (is (= (dotted-query->path "facts.foo.bar")
+           ["facts" "foo" "bar"])))
+  (testing "dot inside quotes"
+    (is (= (dotted-query->path "facts.\"foo.bar\".baz")
+           ["facts" "\"foo.bar\"" "baz"]))
+    (is (= (dotted-query->path "facts.\"foo.baz.bar\".baz")
+           ["facts" "\"foo.baz.bar\"" "baz"]))
+    (is (= (dotted-query->path "facts.\"foo.bar\".\"baz.bar\"")
+           ["facts" "\"foo.bar\"" "\"baz.bar\""])))
+  (testing "consecutive dots"
+    (is (= (dotted-query->path "facts.\"foo..bar\"")
+           ["facts" "\"foo..bar\""])))
+  (testing "path with quote in middle"
+    (is (= (dotted-query->path "facts.foo\"bar.baz")
+           ["facts" "foo\"bar" "baz"])))
+  (testing "path containing escaped quote"
+    (is (= (dotted-query->path "\"fo\\\".o\"")
+           ["\"fo\\\".o\""])))
+  (testing "dotted path with quote"
+    (is (= (dotted-query->path "facts.\"foo.bar\"baz\".biz")
+           ["facts" "\"foo.bar\"baz\"" "biz"]))))
+
+(deftest expand-array-access-in-path-test
+  (are [in out] (= out (expand-array-access-in-path in))
+    ["a" "b[0]" "c"] ["a" "b" 0 "c"]
+    ["a" "b" "c"] ["a" "b" "c"]
+    ["a[0]"] ["a" 0]
+    ["a[0]foo"] ["a[0]foo"]))
+
 (deftest json-adjustments-for-pg
   (are [db-value src] (= db-value (-> src munge-jsonb-for-storage .getValue))
        "\"\\ufffd\"" "\u0000"
