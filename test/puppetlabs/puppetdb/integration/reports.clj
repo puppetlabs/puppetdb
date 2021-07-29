@@ -253,7 +253,7 @@
                   (filter #(= "notice" (:level %))
                           logs))))
 
-        (is (= 6 (count
+        (is (= 5 (count
                   (filter #(= "info" (:level %))
                           logs))))))))
 

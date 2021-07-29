@@ -35,7 +35,6 @@
               (is (= #{["puppetdb" "command" "replace_catalog"]
                        ["puppetdb" "command" "replace_facts"]
                        ["puppetdb" "command" "store_report"]
-                       ["puppetdb" "facts" "find"]
                        ["puppetdb" "query"]
                        ["puppetdb" "resource" "search"]}
                      (set (map :metric-id metrics)))))))))
