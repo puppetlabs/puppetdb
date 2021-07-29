@@ -17,6 +17,14 @@
                       (interpose "\\E\\\\E\\Q"))
                  ["\\E"])))
 
+(defn maybe-strip-escaped-quotes
+  [s]
+  (if (and (> (count s) 1)
+           (string/starts-with? s "\"")
+           (string/ends-with? s "\""))
+    (subs s 1 (dec (count s)))
+    s))
+
 (defn quoted
   [s]
   (str "'" s "'"))
