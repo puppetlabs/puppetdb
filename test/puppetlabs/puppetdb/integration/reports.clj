@@ -241,8 +241,8 @@
                                     :out
                                     trim-newline
                                     (re-matches #"^6.*"))
-                             6
-                             5)]
+                             5
+                             4)]
 
         (is (= #{{:name "total", :value 1, :category "events"}
                  {:name "changed", :value 1, :category "resources"}

@@ -53,10 +53,10 @@ nodes { certname ~ 'green' }
 
 ***
 
-### Querying for active nodes
+### Querying for inactive nodes
 
 ``` ruby
-nodes {deactivated is null and expired is null}
+nodes { node_state = "inactive" }
 ```
 
 *Output:*
@@ -68,7 +68,7 @@ nodes {deactivated is null and expired is null}
         "catalog_environment": "production",
         "catalog_timestamp": "2016-08-15T11:06:26.275Z",
         "certname": "foo.com",
-        "deactivated": null,
+        "deactivated": "2016-08-17T13:04:41.421Z",
         "expired": null,
         "facts_environment": "production",
         "facts_timestamp": "2016-08-15T11:06:26.140Z",
@@ -321,8 +321,7 @@ inventory[certname] { facts.mcollective.server.collectives.match("\d+") = "dc1" 
 Show active nodes that have the profile class `Profile::Remote_mgmt` applied to it.
 
 ``` ruby
-nodes { resources { type = "Class" and title = "Profile::Remote_mgmt" }
-        and expired is null and deactivated is null}
+nodes { resources { type = "Class" and title = "Profile::Remote_mgmt" } }
 ```
 
 *Output:*

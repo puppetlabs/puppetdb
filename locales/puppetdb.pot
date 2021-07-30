@@ -757,6 +757,10 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
+msgid "Parsing PQL took {0} ms: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
 msgid "PuppetDB queries must be made via GET/POST"
 msgstr ""
 

@@ -6,6 +6,7 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io]
             [clojure.core.match :as cm]
+            [clojure.tools.logging :as log]
             [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [clojure.set :as set]
@@ -304,13 +305,26 @@
                      others parsed))))
       parsed)))
 
+(defn time-and-parse-pql
+  "Time how long it takes to transform a PQL query to AST, if the time
+   is greater than 1s, a warning is logged. Returns the transformed
+   query."
+  [query]
+  (let [start (System/nanoTime)
+        result (pql/parse-pql-query query)
+        elapsed (/ (- (System/nanoTime) start) 1000000.0)
+        max-pql-limit 1000]
+    (when (> elapsed max-pql-limit)
+      (log/warn (trs "Parsing PQL took {0} ms: {1}" elapsed (pr-str query))))
+    result))
+
 (defn parse-json-or-pql-to-ast
   "Parse a query string either as JSON or PQL to transform it to AST"
   [query]
   (when query
     (if (re-find #"^\s*\[" query)
       (parse-json-query query)
-      (pql/parse-pql-query query))))
+      (time-and-parse-pql query))))
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"

@@ -366,4 +366,8 @@
             "time-shift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"
                                         " the period between the most recent one in the archive and the one "
                                         "you provide, or the current date."])}
-                               ["trampoline" "run" "-m" "puppetlabs.puppetdb.cli.time-shift-export"]})
+                               ["trampoline" "run" "-m" "puppetlabs.puppetdb.cli.time-shift-export"]
+            "pdb-dataset" ^{:doc (clojure.string/join "" ["Restores an empty database from a pg_dump resulted backup"
+                                  " file and shifts all timestamps with the period between the most recent one in"
+                                  " the databse and the one you provide, or the current date."])}
+                          ["trampoline" "run" "-m" "puppetlabs.puppetdb.cli.pdb-dataset"]})
