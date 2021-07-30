@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: db2eb3fdecc68ccc69f52a45ce2e5dd4a7bc0f16\n"
+"X-Git-Ref: 2dcfc23bd5073706df44a48d4560b635841e4658\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1136,10 +1136,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "{0} is not a valid function"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "Currently unable to match this path: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
