@@ -170,7 +170,12 @@
 
      ;; TODO figure out what behavior we want for queries with null w/o a dotted path
      ["null?" "facts" true]
-     #{})))
+     #{}
+
+     ["extract" [["function", "count"] "facts.domain"]
+      ["group_by" "facts.domain"]]
+     #{{:facts.domain "testing.com" :count 1}
+       {:facts.domain nil :count 1}})))
 
 (deftest-http-app inventory-queries
   [[version endpoint] inventory-endpoints
@@ -213,8 +218,8 @@
                     [["function" "count" "certname"]]
                       ["in" "facts.os.family" ["array" ["RedHat"]]]]
             {:keys [body status]} (query-response method endpoint query)]
-        (is (= status 500))
-        (is (= body "Value does not match schema: (not (map? nil))"))))
+        (is (= 500 status))
+        (is (= "Value does not match schema: (not (map? nil))" body))))
 
     (testing "inventory queries"
       (testing "well-formed queries"
@@ -224,7 +229,7 @@
                             (get-request endpoint (json/generate-string query))
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
-              (is (= status http/status-ok))
+              (is (= http/status-ok status))
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true)))))))))))
