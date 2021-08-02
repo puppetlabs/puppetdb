@@ -81,11 +81,13 @@
                   first)))
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [(tur/update-report-pe-fields test-report)
-               (tur/update-report-pe-fields plan-report)]
-              (filter-reports [:and
-                   [:= :certname example-certname]
-                   [:null? :type false]])))
+       (let [expected [(tur/update-report-pe-fields test-report)
+                       (tur/update-report-pe-fields plan-report)]
+             actual (filter-reports [:and
+                                     [:= :certname example-certname]
+                                     [:null? :type false]])]
+         (is (= (count expected) (count actual)))
+         (is (= (set expected) (set actual))))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
@@ -107,11 +109,13 @@
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [(tur/update-report-pe-fields test-report)
-               (tur/update-report-pe-fields plan-report)]
-              (filter-reports [:and
-                               [:= :certname example-certname]
-                               [:null? :type false]])))
+       (let [expected [(tur/update-report-pe-fields test-report)
+                       (tur/update-report-pe-fields plan-report)]
+             actual (filter-reports [:and
+                                     [:= :certname example-certname]
+                                     [:null? :type false]])]
+         (is (= (count expected) (count actual)))
+         (is (= (set expected) (set actual))))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 

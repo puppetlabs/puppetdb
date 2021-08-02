@@ -30,7 +30,6 @@
    [honeysql.types SqlCall SqlRaw]
    [org.postgresql.util PGobject]))
 
-
 ;; Queries must opt-in to the drop-joins optimization, and even then,
 ;; it's not yet necessarily safe if the query has top-level
 ;; aggregates.  Before opting in, we should feel confident that
@@ -2177,8 +2176,14 @@
   [query-rec column-or-fn-name]
   ;; Just split on dot for now (as a hack) - we'll use the strict
   ;; parser once it's available (after 6.18.0 and 7.5.0)."
-  (let [[root] (str/split column-or-fn-name #"\." 2)]
-    (or (get-in query-rec [:projections root :field])
+  (if (and (is-dotted-projection? column-or-fn-name)
+           (get-in query-rec [:projections
+                              (first (str/split column-or-fn-name #"\." 2))
+                              :field]))
+    ;; Turn facts.foo into a double quoted keyword so that the SQL identifier `:"facts.foo"`
+    ;; matches the extraction of (fs.volatile||fs.stable) AS "facts.foo" from the selection
+    (keyword (jdbc/double-quote column-or-fn-name))
+    (or (get-in query-rec [:projections column-or-fn-name :field])
         (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
           (keyword column-or-fn-name)
           (throw (IllegalArgumentException.
