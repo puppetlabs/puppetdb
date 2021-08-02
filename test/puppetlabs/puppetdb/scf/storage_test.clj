@@ -18,6 +18,7 @@
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :refer :all]
@@ -2178,19 +2179,18 @@
       (is (= 1000 (call-with-lock-timeout get-lock-timeout 1000))))
     (is (= orig (get-lock-timeout)))))
 
-(deftest-db test-notify-oversized-resources
-            (let [bad-resources [{:type "Class"
-                                  :title (str/join "" (repeat 2501 "a"))
-                                  :line 1337
-                                  :exported false
-                                  :file "badfile.txt"}
-                                 {:type "Class"
-                                  :title (str/join "" (repeat 2705 "a"))
-                                  :line 1337
-                                  :exported false
-                                  :file "badfile.txt"}]]
+(defn my-custom-method
+  [params]
+  (is (= "1234" params)))
 
-              (binding [*out* *err*]
-                (println *out*)
-                ))
-            )
+(deftest test-notify-oversized-resources
+  (let [warn-fn (fn [_]
+                  (my-custom-method "12345"))]
+    (with-redefs [log/warn warn-fn]
+      (let [bad-resource {:type           "Class"
+                          :resource_title (str/join "" (repeat 2501 "a"))
+                          :line           1337
+                          :exported       false
+                          :file           "badfile.txt"}]
+
+        (notify-oversized-resources bad-resource "my-certname")))))

@@ -1431,7 +1431,7 @@
                       (:resource_type resource)
                       (:file resource)
                       (:line resource))))
-  resource))
+    resource))
 
 (defn filter-expired-resources
    [resource-events-ttl resource-list]
