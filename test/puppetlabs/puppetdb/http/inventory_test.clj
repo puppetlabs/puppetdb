@@ -174,7 +174,7 @@
 
      ["extract" [["function", "count"] "facts.domain"]
       ["group_by" "facts.domain"]]
-     #{{:facts.domain "testing.com" :count 1}
+     #{{:facts.domain "testing.com" :count 2}
        {:facts.domain nil :count 1}})))
 
 (deftest-http-app inventory-queries
