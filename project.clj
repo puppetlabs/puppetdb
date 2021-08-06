@@ -1,6 +1,6 @@
 (def pdb-version "6.18.3-SNAPSHOT")
 
-(def clj-parent-version "4.6.28")
+(def clj-parent-version "4.6.29")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -34,7 +34,7 @@
       (let [ver (eval '(java.lang.Runtime/version))]
         {:feature (.feature ver) :interim (.interim ver)}))))
 
-(def i18n-version "0.8.0")
+(def i18n-version "0.9.2")
 
 (def pdb-repositories
   (if (true-in-env? "PUPPET_SUPPRESS_INTERNAL_LEIN_REPOS")
