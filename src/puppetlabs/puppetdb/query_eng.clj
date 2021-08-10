@@ -102,11 +102,15 @@
          :when (:queryable? projection-value)]
      (keyword projection-key))))
 
-(defn maybe-log-sql [logging-options gen-sql]
-  (if-let [log-id (:log-id logging-options)]
-    (let [sql-output (gen-sql)]
-      (log/infof "%s:%s:%s" "PDBQuery" log-id (:results-query sql-output))
-      sql-output)
+(defn maybe-log-sql [options context gen-sql]
+  (if-let [log-id (:log-id context)]
+    (let [{[query & params] :results-query :as sql} (gen-sql)]
+      (log/infof "PDBQuery:%s:%s"
+                 log-id (-> (sorted-map :origin (:origin options)
+                                        :sql query
+                                        :params (vec params))
+                            json/generate-string))
+      sql)
     (gen-sql)))
 
 (defn query->sql
@@ -114,7 +118,7 @@
    return nodes matching the `query`."
   ([query entity version options]
    (query->sql query entity version options {}))
-  ([query entity version options logging-options]
+  ([query entity version options context]
    {:pre  [((some-fn nil? sequential?) query)]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
@@ -122,7 +126,8 @@
                (jdbc/valid-jdbc-query? (:count-query %)))]}
 
    (maybe-log-sql
-    logging-options
+    options
+    context
     (fn []
       (cond
         (= :aggregate-event-counts entity)
@@ -214,8 +219,10 @@
          munge-fn (get-munge-fn entity version options url-prefix)]
 
      (when log-queries
-       ;; log the AST of the incoming query
-       (log/infof "%s:%s:%s" "PDBQuery" log-id query))
+       ;; Log origin and AST of incoming query
+       (log/infof "PDBQuery:%s:%s"
+                  log-id (-> (sorted-map :origin (:origin options) :ast query)
+                             json/generate-string)))
 
      (let [f #(let [{:keys [results-query]}
                     (query->sql remaining-query entity version
@@ -367,8 +374,11 @@
         (user-query->engine-query version query-map query-config warn-experimental)]
 
     (when log-queries
-      ;; log the AST of the incoming query
-      (log/infof "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
+      ;; Log origin and AST of incoming query
+      (let [{:keys [origin query]} query-map]
+        (log/infof "PDBQuery:%s:%s"
+                   log-id (-> (sorted-map :origin origin :ast query)
+                              json/generate-string))))
 
     (try
       (let [munge-fn (get-munge-fn entity version query-options url-prefix)
@@ -407,8 +417,11 @@
         (user-query->engine-query version query-map query-config warn-experimental)]
 
     (when log-queries
-      ;; log the AST of the incoming query
-      (log/infof "%s:%s:%s" "PDBQuery" log-id (:query query-map)))
+      ;; Log origin and AST of incoming query
+      (let [{:keys [origin query]} query-map]
+        (log/infof "PDBQuery:%s:%s"
+                   log-id (-> (sorted-map :origin origin :ast query)
+                              json/generate-string))))
 
     (try
       (jdbc/with-transacted-connection scf-read-db

@@ -54,25 +54,29 @@
     (with-test-db
       (replace-catalog catalog-1)
       (with-http-app* #(assoc % :log-queries true)
-        (doseq [[query ast-exp sql-exp]
+        (doseq [[query exp-ast exp-sql exp-origin]
                 ;; produce-streaming-body
-                [[["/v4" ["from" "nodes"]]
-                  "\"from\" \"nodes\""
-                  "latest_report_noop_pending"]
+                [[["/v4" ["from" "nodes"] {:origin "foo"}]
+                  "\"from\",\"nodes\""
+                  "latest_report_noop_pending"
+                  "foo"]
                  [["/v4" ["from" "facts"]]
-                  "\"from\" \"facts\""
-                  "(jsonb_each((stable||volatile)))"]
+                  "\"from\",\"facts\""
+                  "(jsonb_each((stable||volatile)))"
+                  nil]
                  ;; stream-query-result
-                 [["/v4/catalogs/myhost.localdomain" []]
-                  "\"from\" \"catalogs\""
-                  "row_to_json(edge_data)"]]]
+                 [["/v4/catalogs/myhost.localdomain" [] {:origin "bar"}]
+                  "\"from\",\"catalogs\""
+                  "row_to_json(edge_data)"
+                  "bar"]]]
           (with-logged-event-maps events
             (is (= 200 (:status (apply query-response :get query))))
 
             (let [events @events
-                  uuid (some->> events
-                                (some #(->> % :message (re-find #"^PDBQuery:([^:]+):")))
-                                second)
+                  ;; Returns [everything uuid query-info]
+                  parse-event-msg #(->> % :message (re-find #"^PDBQuery:([^:]+):(.*)"))
+                  parse-event-info #(-> % parse-event-msg (nth 2) json/parse-string)
+                  uuid (some->> events (some parse-event-msg) second)
                   qev-matching (fn [expected]
                                  (fn [{:keys [message] :as event}]
                                    (and (str/starts-with? message (str "PDBQuery:" uuid ":"))
@@ -80,13 +84,21 @@
 
               (is (uuid? (UUID/fromString uuid)))
 
-              (let [asts (filter (qev-matching ast-exp) events)]
-                (when-not (is (= 1 (count asts)))
-                  (println-err "Unexpected log:" events)))
+              (let [[ev & evs] (filter (qev-matching exp-ast) events)]
+                (is (not (seq evs)))
+                (when (seq evs)
+                  (println-err "Unexpected log:" events))
+                (let [{:strs [ast origin] :as info} (parse-event-info ev)]
+                  (is ast)
+                  (is (= exp-origin origin))))
 
-              (let [sqls (filter (qev-matching sql-exp) events)]
-                (when-not (is (= 1 (count sqls)))
-                  (println-err "Unexpected log:" events))))))))))
+              (let [[ev & evs] (filter (qev-matching exp-sql) events)]
+                (is (not (seq evs)))
+                (when (seq evs)
+                  (println-err "Unexpected log:" events))
+                (let [{:strs [sql origin] :as info} (parse-event-info ev)]
+                  (is sql)
+                  (is (= exp-origin origin)))))))))))
 
 (deftest no-queries-are-logged-when-log-queires-is-false
   (tk-log/with-logged-event-maps logs
@@ -119,11 +131,11 @@
 
                (testing "AST/SQL is logged for both queries above"
                  ;; match the AST/SQL logs for nodes query
-                 (is (logs-include? logs "\"from\" \"nodes\""))
+                 (is (logs-include? logs "\"from\",\"nodes\""))
                  (is (logs-include? logs "latest_report_noop_pending"))
 
                  ;; match the AST/SQL logs for facts query
-                 (is (logs-include? logs "\"from\" \"facts\""))
+                 (is (logs-include? logs "\"from\",\"facts\""))
                  (is (logs-include? logs "(jsonb_each((stable||volatile)))")))))))))))
 
 (deftest no-PuppetDBServer-tk-service-queries-are-logged-when-log-queries-is-false

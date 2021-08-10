@@ -46,6 +46,7 @@
    (s/optional-key :include_package_inventory) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
+   (s/optional-key :origin) (s/maybe s/Str)
    (s/optional-key :distinct_resources) (s/maybe s/Bool)
    (s/optional-key :distinct_start_time) s/Any
    (s/optional-key :distinct_end_time) s/Any
