@@ -102,16 +102,44 @@
          :when (:queryable? projection-value)]
      (keyword projection-key))))
 
-(defn maybe-log-sql [options context gen-sql]
-  (if-let [log-id (:log-id context)]
-    (let [{[query & params] :results-query :as sql} (gen-sql)]
-      (log/infof "PDBQuery:%s:%s"
-                 log-id (-> (sorted-map :origin (:origin options)
-                                        :sql query
-                                        :params (vec params))
-                            json/generate-string))
-      sql)
-    (gen-sql)))
+(defn- regular-query->sql
+  [query entity options]
+  (let [query-rec (cond
+                    ;; Move this so that we always look for
+                    ;; include_facts_expiration (PDB-4586).
+                    (and (:include_facts_expiration options)
+                         (= entity :nodes))
+                    (get-in @entity-fn-idx [:nodes-with-fact-expiration :rec])
+
+                    (and (:include_package_inventory options)
+                         (= entity :factsets))
+                    (get-in @entity-fn-idx [:factsets-with-packages :rec])
+
+                    :else
+                    (get-in @entity-fn-idx [entity :rec]))
+        columns (orderable-columns query-rec)]
+    (paging/validate-order-by! columns options)
+    (if (:add-agent-report-filter options)
+      (let [ast (try
+                  (dr/maybe-add-agent-report-filter-to-query query-rec query)
+                  (catch ExceptionInfo e
+                    (let [data (ex-data e)
+                          msg (.getMessage e)]
+                      (when (not= ::dr/unrecognized-ast-syntax (:kind data))
+                        (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
+                        (throw e))
+                      (log/error e msg)
+                      ::failed))
+                  (catch Exception e
+                    (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
+                    (throw e)))]
+        (if (= ast ::failed)
+          (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
+                          {:kind ::dr/unrecognized-ast-syntax
+                           :ast query
+                           :sql (eng/compile-user-query->sql query-rec query options)}))
+          (eng/compile-user-query->sql query-rec ast options)))
+      (eng/compile-user-query->sql query-rec query options))))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -124,58 +152,25 @@
            (jdbc/valid-jdbc-query? (:results-query %))
            (or (not (:include_total options))
                (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (let [result (cond
+                  (= :aggregate-event-counts entity)
+                  (aggregate-event-counts/query->sql version query options)
 
-   (maybe-log-sql
-    options
-    context
-    (fn []
-      (cond
-        (= :aggregate-event-counts entity)
-        (aggregate-event-counts/query->sql version query options)
+                  (= :event-counts entity)
+                  (event-counts/query->sql version query options)
 
-        (= :event-counts entity)
-        (event-counts/query->sql version query options)
+                  (and (= :events entity) (:distinct_resources options))
+                  (events/legacy-query->sql false version query options)
 
-        (and (= :events entity) (:distinct_resources options))
-        (events/legacy-query->sql false version query options)
-
-        :else
-        (let [query-rec (cond
-                          ;; Move this so that we always look for
-                          ;; include_facts_expiration (PDB-4586).
-                          (and (:include_facts_expiration options)
-                               (= entity :nodes))
-                          (get-in @entity-fn-idx [:nodes-with-fact-expiration :rec])
-
-                          (and (:include_package_inventory options)
-                               (= entity :factsets))
-                          (get-in @entity-fn-idx [:factsets-with-packages :rec])
-
-                          :else
-                          (get-in @entity-fn-idx [entity :rec]))
-              columns (orderable-columns query-rec)]
-          (paging/validate-order-by! columns options)
-          (if (:add-agent-report-filter options)
-            (let [ast (try
-                        (dr/maybe-add-agent-report-filter-to-query query-rec query)
-                        (catch ExceptionInfo e
-                          (let [data (ex-data e)
-                                msg (.getMessage e)]
-                            (when (not= ::dr/unrecognized-ast-syntax (:kind data))
-                              (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
-                              (throw e))
-                            (log/error e msg)
-                            ::failed))
-                        (catch Exception e
-                          (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
-                          (throw e)))]
-              (if (= ast ::failed)
-                (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
-                                {:kind ::dr/unrecognized-ast-syntax
-                                 :ast query
-                                 :sql (eng/compile-user-query->sql query-rec query options)}))
-                (eng/compile-user-query->sql query-rec ast options)))
-            (eng/compile-user-query->sql query-rec query options))))))))
+                  :else (regular-query->sql query entity options))]
+     (when-let [log-id (:log-id context)]
+       (let [{[sql & params] :results-query} result]
+         (log/infof "PDBQuery:%s:%s"
+                    log-id (-> (sorted-map :origin (:origin options)
+                                           :sql sql
+                                           :params (vec params))
+                               json/generate-string))))
+     result)))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
