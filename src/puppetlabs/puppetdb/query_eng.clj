@@ -208,9 +208,7 @@
     context :- query-context-schema
     row-fn]
    (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
-          :or {warn-experimental true
-               pretty-print false
-               log-queries false}} context
+          :or {warn-experimental true}} context
          log-id (when log-queries (str (java.util.UUID/randomUUID)))
          {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
          munge-fn (get-munge-fn entity version options url-prefix)]
@@ -362,9 +360,7 @@
 (defn preferred-produce-streaming-body
   [version query-map context]
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
-         :or {warn-experimental true
-              pretty-print false
-              log-queries false}} context
+         :or {warn-experimental true}} context
         log-id (when log-queries (str (java.util.UUID/randomUUID)))
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
@@ -404,9 +400,7 @@
 (defn- deprecated-produce-streaming-body
   [version query-map context]
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
-         :or {warn-experimental true
-              pretty-print false
-              log-queries false}} context
+         :or {warn-experimental true}} context
         log-id (when log-queries (str (java.util.UUID/randomUUID)))
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
