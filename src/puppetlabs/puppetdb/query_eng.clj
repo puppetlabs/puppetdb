@@ -187,7 +187,7 @@
   (->> (or (System/getenv "PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD") "yes")
        (re-matches #"yes|true|1") seq not))
 
-(def query-options-schema
+(def query-context-schema
   {:scf-read-db s/Any
    :url-prefix String
    :node-purge-ttl Period
@@ -205,7 +205,7 @@
   ([version :- s/Keyword
     query
     options
-    context :- query-options-schema
+    context :- query-context-schema
     row-fn]
    (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
           :or {warn-experimental true
@@ -360,13 +360,13 @@
      :stream stream}))
 
 (defn preferred-produce-streaming-body
-  [version query-map options]
+  [version query-map context]
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
          :or {warn-experimental true
               pretty-print false
-              log-queries false}} options
+              log-queries false}} context
         log-id (when log-queries (str (java.util.UUID/randomUUID)))
-        query-config (select-keys options [:node-purge-ttl :add-agent-report-filter])
+        query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
         (user-query->engine-query version query-map query-config warn-experimental)]
 
@@ -402,13 +402,13 @@
 (def munge-fn-hook identity)
 
 (defn- deprecated-produce-streaming-body
-  [version query-map options]
+  [version query-map context]
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
          :or {warn-experimental true
               pretty-print false
-              log-queries false}} options
+              log-queries false}} context
         log-id (when log-queries (str (java.util.UUID/randomUUID)))
-        query-config (select-keys options [:node-purge-ttl :add-agent-report-filter])
+        query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
         (user-query->engine-query version query-map query-config warn-experimental)]
 
@@ -471,10 +471,10 @@
    If the query can't be parsed, a 400 is returned."
   [version :- s/Keyword
    query-map
-   options :- query-options-schema]
+   context :- query-context-schema]
   (if use-preferred-streaming-method?
-    (preferred-produce-streaming-body version query-map options)
-    (deprecated-produce-streaming-body version query-map options)))
+    (preferred-produce-streaming-body version query-map context)
+    (deprecated-produce-streaming-body version query-map context)))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."
