@@ -145,7 +145,7 @@
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
   ([query entity version options]
-   (query->sql query entity version options {}))
+   (query->sql query entity version options nil))
   ([query entity version options context]
    {:pre  [((some-fn nil? sequential?) query)]
     :post [(map? %)
@@ -163,13 +163,14 @@
                   (events/legacy-query->sql false version query options)
 
                   :else (regular-query->sql query entity options))]
-     (when-let [log-id (:log-id context)]
+     (when (:log-queries context)
        (let [{[sql & params] :results-query} result]
          (log/infof "PDBQuery:%s:%s"
-                    log-id (-> (sorted-map :origin (:origin options)
-                                           :sql sql
-                                           :params (vec params))
-                               json/generate-string))))
+                    (:query-id context)
+                    (-> (sorted-map :origin (:origin options)
+                                    :sql sql
+                                    :params (vec params))
+                        json/generate-string))))
      result)))
 
 (defn get-munge-fn
@@ -194,7 +195,8 @@
    :add-agent-report-filter Boolean
    (s/optional-key :warn-experimental) Boolean
    (s/optional-key :pretty-print) (s/maybe Boolean)
-   (s/optional-key :log-queries) Boolean})
+   (s/optional-key :log-queries) Boolean
+   (s/optional-key :query-id) s/Str})
 
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, return a Ring response with the query
@@ -207,26 +209,30 @@
     options
     context :- query-context-schema
     row-fn]
-   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
-          :or {warn-experimental true}} context
-         log-id (when log-queries (str (java.util.UUID/randomUUID)))
-         {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
-         munge-fn (get-munge-fn entity version options url-prefix)]
+   ;; For now, generate the ids here; perhaps later, higher up
+   (assert (not (:query-id context)))
+   (let [query-id (str (java.util.UUID/randomUUID))
+         context (assoc context :query-id query-id)]
+     (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+            :or {warn-experimental true}} context
+           {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
+           munge-fn (get-munge-fn entity version options url-prefix)]
 
-     (when log-queries
-       ;; Log origin and AST of incoming query
-       (log/infof "PDBQuery:%s:%s"
-                  log-id (-> (sorted-map :origin (:origin options) :ast query)
-                             json/generate-string)))
+       (when log-queries
+         ;; Log origin and AST of incoming query
+         (log/infof "PDBQuery:%s:%s"
+                    query-id (-> (sorted-map :origin (:origin options) :ast query)
+                                 json/generate-string)))
 
-     (let [f #(let [{:keys [results-query]}
-                    (query->sql remaining-query entity version
-                                options {:log-id log-id})]
-                (jdbc/call-with-array-converted-query-rows results-query
-                                                           (comp row-fn munge-fn)))]
-       (if use-preferred-streaming-method?
-         (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))
-         (jdbc/with-transacted-connection scf-read-db (f)))))))
+       (let [f #(let [{:keys [results-query]}
+                      (query->sql remaining-query entity version
+                                  options
+                                  (select-keys context [:log-queries :query-id]))]
+                  (jdbc/call-with-array-converted-query-rows results-query
+                                                             (comp row-fn munge-fn)))]
+         (if use-preferred-streaming-method?
+           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))
+           (jdbc/with-transacted-connection scf-read-db (f))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -298,7 +304,8 @@
   if an exception happens before then.  An exception thrown by the
   future after that point will produce an exception from the next call
   to the InputStream read or close methods."
-  [db query entity version query-options log-id munge-fn pretty-print]
+  [db query entity version query-options munge-fn
+   {:keys [log-queries pretty-print query-id] :as context}]
   ;; Client disconnects present as generic IOExceptions from the
   ;; output writer (via stream-json), and we just log them at debug
   ;; level.  For now, after the first row, there's nothing we can do
@@ -323,8 +330,7 @@
                       (jdbc/with-db-connection db
                         (jdbc/with-db-transaction []
                           (let [{:keys [results-query count-query]}
-                                (query->sql query entity version query-options
-                                            {:log-id log-id})
+                                (query->sql query entity version query-options context)
                                 st (when count-query
                                      {:count (jdbc/get-result-count count-query)})
                                 stream-row (fn [row]
@@ -361,9 +367,9 @@
 
 (defn preferred-produce-streaming-body
   [version query-map context]
-  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print
+                log-queries query-id]
          :or {warn-experimental true}} context
-        log-id (when log-queries (str (java.util.UUID/randomUUID)))
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
         (user-query->engine-query version query-map query-config warn-experimental)]
@@ -372,31 +378,33 @@
       ;; Log origin and AST of incoming query
       (let [{:keys [origin query]} query-map]
         (log/infof "PDBQuery:%s:%s"
-                   log-id (-> (sorted-map :origin origin :ast query)
-                              json/generate-string))))
+                   query-id (-> (sorted-map :origin origin :ast query)
+                                json/generate-string))))
 
     (try
       (let [munge-fn (get-munge-fn entity version query-options url-prefix)
+            stream-ctx (select-keys context [:log-queries :pretty-print :query-id])
             {:keys [status stream]} (body-stream scf-read-db
                                                  (coerce-from-json remaining-query)
                                                  entity version query-options
-                                                 log-id munge-fn pretty-print)]
+                                                 munge-fn
+                                                 stream-ctx)]
         (let [{:keys [count error]} @status]
           (when error
             (throw error))
           (cond-> (http/json-response* stream)
             count (http/add-headers {:count count}))))
       (catch JsonParseException ex
-        (log/error ex (trs "Unparsable query: {0} {1} {2}" log-id query query-options))
+        (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))
         (http/error-response ex))
       (catch IllegalArgumentException ex ;; thrown by (at least) munge-fn
-        (log/error ex (trs "Invalid query: {0} {1} {2}" log-id query query-options))
+        (log/error ex (trs "Invalid query: {0} {1} {2}" query-id query query-options))
         (http/error-response ex))
       (catch PSQLException ex
         (when-not (= (.getSQLState ex) (jdbc/sql-state :invalid-regular-expression))
           (throw ex))
         (do
-          (log/debug ex (trs "Invalid query regex: {0} {1} {2}" log-id query query-options))
+          (log/debug ex (trs "Invalid query regex: {0} {1} {2}" query-id query query-options))
           (http/error-response ex))))))
 
 ;; for testing via with-redefs
@@ -404,9 +412,9 @@
 
 (defn- deprecated-produce-streaming-body
   [version query-map context]
-  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print
+                log-queries query-id]
          :or {warn-experimental true}} context
-        log-id (when log-queries (str (java.util.UUID/randomUUID)))
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
         (user-query->engine-query version query-map query-config warn-experimental)]
@@ -415,18 +423,17 @@
       ;; Log origin and AST of incoming query
       (let [{:keys [origin query]} query-map]
         (log/infof "PDBQuery:%s:%s"
-                   log-id (-> (sorted-map :origin origin :ast query)
-                              json/generate-string))))
+                   query-id (-> (sorted-map :origin origin :ast query)
+                                json/generate-string))))
 
     (try
       (jdbc/with-transacted-connection scf-read-db
         (let [munge-fn (get-munge-fn entity version query-options url-prefix)
-              {:keys [results-query count-query]} (-> remaining-query
-                                                      coerce-from-json
-                                                      (query->sql entity
-                                                                  version
-                                                                  query-options
-                                                                  {:log-id log-id}))
+              {:keys [results-query count-query]}
+              (-> remaining-query
+                  coerce-from-json
+                  (query->sql entity version query-options
+                              (select-keys context [:log-queries :query-id])))
               query-error (promise)
               resp (http/streamed-response
                     buffer
@@ -474,9 +481,12 @@
   [version :- s/Keyword
    query-map
    context :- query-context-schema]
-  (if use-preferred-streaming-method?
-    (preferred-produce-streaming-body version query-map context)
-    (deprecated-produce-streaming-body version query-map context)))
+  ;; For now, generate the ids here; perhaps later, higher up
+  (assert (not (:query-id context)))
+  (let [context (assoc context :query-id (str (java.util.UUID/randomUUID)))]
+    (if use-preferred-streaming-method?
+      (preferred-produce-streaming-body version query-map context)
+      (deprecated-produce-streaming-body version query-map context))))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."
