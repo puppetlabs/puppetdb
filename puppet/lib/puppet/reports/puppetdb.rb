@@ -21,7 +21,11 @@ Puppet::Reports.register_report(:puppetdb) do
     profile("report#process", [:puppetdb, :report, :process]) do
       current_time = Time.now
       submit_command(self.host, CommandStoreReport, 8, current_time.utc) do
-        report_to_hash(current_time)
+        begin
+          report_to_hash(current_time)
+        rescue OversizedIndexException => e
+          puts e.resource
+        end
       end
     end
 
@@ -183,6 +187,14 @@ Puppet::Reports.register_report(:puppetdb) do
     end
   end
 
+  class OversizedIndexException < StandardError
+    attr_reader :resource
+    def initialize(msg="Default message", resource="")
+      @resource = resource
+      super(msg)
+    end
+  end
+
   # Convert an instance of `Puppet::Resource::Status` to a hash
   # suitable for sending over the wire to PuppetDB
   #
@@ -199,6 +211,7 @@ with title: \"#{resource_status.title.to_s}\" in #{resource_status.file}:#{resou
     end
 
     if index_size > 2704
+      raise OversizedIndexException.new("error!", resource_status)
       Puppet.warning("resource_event on #{self.host} could not be saved. Values (resource timestamp + title + type) are larger \
 than index total size of 2704. Caused by Resource type: \"#{resource_status.resource_type}\" with title: \
 \"#{resource_status.title.to_s}\" in #{resource_status.file}:#{resource_status.line}")
