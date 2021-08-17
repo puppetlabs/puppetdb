@@ -417,7 +417,7 @@
                :subquery? false}))
 
 (def fact-paths-query
-  "Query for the resource-params query, mostly used as a subquery"
+  "Query for the fact-paths query, mostly used as a subquery"
   (map->Query {::which-query :fact-paths
                :can-drop-unused-joins? true
                :projections {"type" {:type :string
