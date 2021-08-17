@@ -1,9 +1,13 @@
 (ns puppetlabs.puppetdb.http.query-logging-test
   (:require
+   [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer :all]
+   [clojure.walk :refer [keywordize-keys]]
    [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.cli.services :as svcs]
+   [puppetlabs.puppetdb.testutils.catalogs :refer [replace-catalog]]
    [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
    [puppetlabs.puppetdb.testutils.http
     :refer [call-with-http-app query-response with-http-app*]]
@@ -41,17 +45,27 @@
 (defn prep-logs [logs]
   (->> @logs (map :message) keep-only-pdbquery-logs))
 
+(def catalog-1
+  (-> "puppetlabs/puppetdb/cli/export/tiny-catalog.json"
+      io/resource slurp json/parse-string keywordize-keys))
+
 (deftest queries-are-logged-when-log-queries-is-true
   (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
     (with-test-db
+      (replace-catalog catalog-1)
       (with-http-app* #(assoc % :log-queries true)
         (doseq [[query ast-exp sql-exp]
+                ;; produce-streaming-body
                 [[["/v4" ["from" "nodes"]]
                   "\"from\" \"nodes\""
                   "latest_report_noop_pending"]
                  [["/v4" ["from" "facts"]]
                   "\"from\" \"facts\""
-                  "(jsonb_each((stable||volatile)))"]]]
+                  "(jsonb_each((stable||volatile)))"]
+                 ;; stream-query-result
+                 [["/v4/catalogs/myhost.localdomain" []]
+                  "\"from\" \"catalogs\""
+                  "row_to_json(edge_data)"]]]
           (with-logged-event-maps events
             (is (= 200 (:status (apply query-response :get query))))
 
