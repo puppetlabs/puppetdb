@@ -6,11 +6,15 @@
    [puppetlabs.puppetdb.cli.services :as svcs]
    [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
    [puppetlabs.puppetdb.testutils.http
-    :refer [call-with-http-app query-response]]
+    :refer [call-with-http-app query-response with-http-app*]]
    [puppetlabs.puppetdb.testutils.services
     :refer [call-with-puppetdb-instance create-temp-config *server*]]
+   [puppetlabs.puppetdb.utils :refer [println-err]]
    [puppetlabs.trapperkeeper.app :refer [get-service]]
-   [puppetlabs.trapperkeeper.testutils.logging :as tk-log]))
+   [puppetlabs.trapperkeeper.testutils.logging :as tk-log
+    :refer [with-logged-event-maps]])
+  (:import
+   (java.util UUID)))
 
 (defn logs-include?
   "Returns true if only one instance of unique-msg is found in the log."
@@ -37,29 +41,38 @@
 (defn prep-logs [logs]
   (->> @logs (map :message) keep-only-pdbquery-logs))
 
-(deftest setting-log-queries-triggers-ast-sql-logging
-  (tk-log/with-logged-event-maps logs
-    (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
-      (with-test-db
-        (call-with-http-app
-         (fn []
-           ;; make a couple http queries to trigger a debug AST and SQL log message for each
-           (is (= 200 (:status (query-response :get "/v4" ["from" "nodes"]))))
-           (is (= 200 (:status (query-response :get "/v4" ["from" "facts"]))))
+(deftest queries-are-logged-when-log-queries-is-true
+  (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
+    (with-test-db
+      (with-http-app* #(assoc % :log-queries true)
+        (doseq [[query ast-exp sql-exp]
+                [[["/v4" ["from" "nodes"]]
+                  "\"from\" \"nodes\""
+                  "latest_report_noop_pending"]
+                 [["/v4" ["from" "facts"]]
+                  "\"from\" \"facts\""
+                  "(jsonb_each((stable||volatile)))"]]]
+          (with-logged-event-maps events
+            (is (= 200 (:status (apply query-response :get query))))
 
-           (let [logs (prep-logs logs)]
-             (testing "uuids match for the AST and SQL logged per query"
-               (is (= [2 2] (vals (count-logs-uuids logs)))))
+            (let [events @events
+                  uuid (some->> events
+                                (some #(->> % :message (re-find #"^PDBQuery:([^:]+):")))
+                                second)
+                  qev-matching (fn [expected]
+                                 (fn [{:keys [message] :as event}]
+                                   (and (str/starts-with? message (str "PDBQuery:" uuid ":"))
+                                        (str/includes? message expected))))]
 
-             (testing "AST/SQL is logged for both queries above"
-               ;; match the AST/SQL logs for nodes query
-               (is (logs-include? logs "\"from\" \"nodes\""))
-               (is (logs-include? logs "latest_report_noop_pending"))
+              (is (uuid? (UUID/fromString uuid)))
 
-               ;; match the AST/SQL logs for facts query
-               (is (logs-include? logs "\"from\" \"facts\""))
-               (is (logs-include? logs "(jsonb_each((stable||volatile)))")))))
-         #(assoc % :log-queries true))))))
+              (let [asts (filter (qev-matching ast-exp) events)]
+                (when-not (is (= 1 (count asts)))
+                  (println-err "Unexpected log:" events)))
+
+              (let [sqls (filter (qev-matching sql-exp) events)]
+                (when-not (is (= 1 (count sqls)))
+                  (println-err "Unexpected log:" events))))))))))
 
 (deftest no-queries-are-logged-when-log-queires-is-false
   (tk-log/with-logged-event-maps logs
