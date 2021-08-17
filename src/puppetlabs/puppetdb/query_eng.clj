@@ -22,7 +22,7 @@
             [puppetlabs.puppetdb.query-eng.default-reports :as dr]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils :refer [with-log-mdc]]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [ring.util.io :as rio]
@@ -212,27 +212,30 @@
    ;; For now, generate the ids here; perhaps later, higher up
    (assert (not (:query-id context)))
    (let [query-id (str (java.util.UUID/randomUUID))
-         context (assoc context :query-id query-id)]
-     (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
-            :or {warn-experimental true}} context
-           {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
-           munge-fn (get-munge-fn entity version options url-prefix)]
+         context (assoc context :query-id query-id)
+         origin (:origin options)]
+     (with-log-mdc ["pdb-query-id" query-id
+                    "pdb-query-origin" origin]
+       (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+              :or {warn-experimental true}} context
+             {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
+             munge-fn (get-munge-fn entity version options url-prefix)]
 
-       (when log-queries
-         ;; Log origin and AST of incoming query
-         (log/infof "PDBQuery:%s:%s"
-                    query-id (-> (sorted-map :origin (:origin options) :ast query)
-                                 json/generate-string)))
+         (when log-queries
+           ;; Log origin and AST of incoming query
+           (log/infof "PDBQuery:%s:%s"
+                      query-id (-> (sorted-map :origin origin :ast query)
+                                   json/generate-string)))
 
-       (let [f #(let [{:keys [results-query]}
-                      (query->sql remaining-query entity version
-                                  options
-                                  (select-keys context [:log-queries :query-id]))]
-                  (jdbc/call-with-array-converted-query-rows results-query
-                                                             (comp row-fn munge-fn)))]
-         (if use-preferred-streaming-method?
-           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))
-           (jdbc/with-transacted-connection scf-read-db (f))))))))
+         (let [f #(let [{:keys [results-query]}
+                        (query->sql remaining-query entity version
+                                    options
+                                    (select-keys context [:log-queries :query-id]))]
+                    (jdbc/call-with-array-converted-query-rows results-query
+                                                               (comp row-fn munge-fn)))]
+           (if use-preferred-streaming-method?
+             (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))
+             (jdbc/with-transacted-connection scf-read-db (f)))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -325,43 +328,45 @@
         stream (generated-stream
                 ;; Runs in a future
                 (fn [out]
-                  (with-open! [out (io/writer out :encoding "UTF-8")]
-                    (try
-                      (jdbc/with-db-connection db
-                        (jdbc/with-db-transaction []
-                          (let [{:keys [results-query count-query]}
-                                (query->sql query entity version query-options context)
-                                st (when count-query
-                                     {:count (jdbc/get-result-count count-query)})
-                                stream-row (fn [row]
-                                             (let [r (munge-fn row)]
-                                               (when-not (instance? PGobject r)
-                                                 (first r))
-                                               (when-not (realized? status)
-                                                 (deliver status st))
-                                               (try
-                                                 (http/stream-json r out pretty-print)
-                                                (catch IOException ex
-                                                   (log/debug ex (trs "Unable to stream response: {0}"
-                                                                      (.getMessage ex)))
-                                                   (throw quiet-exit)))))]
-                            (jdbc/call-with-array-converted-query-rows results-query
-                                                                       stream-row)
-                            (when-not (realized? status)
-                              (deliver status st)))))
-                      (catch Exception ex
-                        ;; If it's an exit, we've already handled it.
-                        (when-not (identical? quiet-exit ex)
+                  (with-log-mdc ["pdb-query-id" query-id
+                                 "pdb-query-origin" (:origin query-options)]
+                    (with-open! [out (io/writer out :encoding "UTF-8")]
+                      (try
+                        (jdbc/with-db-connection db
+                          (jdbc/with-db-transaction []
+                            (let [{:keys [results-query count-query]}
+                                  (query->sql query entity version query-options context)
+                                  st (when count-query
+                                       {:count (jdbc/get-result-count count-query)})
+                                  stream-row (fn [row]
+                                               (let [r (munge-fn row)]
+                                                 (when-not (instance? PGobject r)
+                                                   (first r))
+                                                 (when-not (realized? status)
+                                                   (deliver status st))
+                                                 (try
+                                                   (http/stream-json r out pretty-print)
+                                                   (catch IOException ex
+                                                     (log/debug ex (trs "Unable to stream response: {0}"
+                                                                        (.getMessage ex)))
+                                                     (throw quiet-exit)))))]
+                              (jdbc/call-with-array-converted-query-rows results-query
+                                                                         stream-row)
+                              (when-not (realized? status)
+                                (deliver status st)))))
+                        (catch Exception ex
+                          ;; If it's an exit, we've already handled it.
+                          (when-not (identical? quiet-exit ex)
+                            (if (realized? status)
+                              (throw ex)
+                              (deliver status {:error ex}))))
+                        (catch Throwable ex
                           (if (realized? status)
-                            (throw ex)
-                            (deliver status {:error ex}))))
-                      (catch Throwable ex
-                        (if (realized? status)
-                          (do
-                            (log/error ex (trs "Query streaming failed: {0} {1}"
-                                               query query-options))
-                            (throw ex))
-                          (deliver status {:error ex})))))))]
+                            (do
+                              (log/error ex (trs "Query streaming failed: {0} {1}"
+                                                 query query-options))
+                              (throw ex))
+                            (deliver status {:error ex}))))))))]
     {:status status
      :stream stream}))
 
@@ -417,11 +422,12 @@
          :or {warn-experimental true}} context
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
-        (user-query->engine-query version query-map query-config warn-experimental)]
+        (user-query->engine-query version query-map query-config warn-experimental)
+        origin (:origin query-map)]
 
     (when log-queries
       ;; Log origin and AST of incoming query
-      (let [{:keys [origin query]} query-map]
+      (let [query (:query query-map)]
         (log/infof "PDBQuery:%s:%s"
                    query-id (-> (sorted-map :origin origin :ast query)
                                 json/generate-string))))
@@ -437,19 +443,21 @@
               query-error (promise)
               resp (http/streamed-response
                     buffer
-                    (try (jdbc/with-transacted-connection scf-read-db
-                           (jdbc/call-with-array-converted-query-rows
-                            results-query
-                            (comp #(http/stream-json % buffer pretty-print)
-                                  #(do (when-not (instance? PGobject %)
-                                         (first %))
-                                       (deliver query-error nil) %)
-                                  (munge-fn-hook munge-fn))))
-                         ;; catch throwable to make sure any trouble is forwarded to the
-                         ;; query-error promise below. If something throws and is not passed
-                         ;; along the deref will block indefinitely.
-                         (catch Throwable e
-                           (deliver query-error e))))]
+                    (with-log-mdc ["pdb-query-id" query-id
+                                   "pdb-query-origin" origin]
+                      (try (jdbc/with-transacted-connection scf-read-db
+                             (jdbc/call-with-array-converted-query-rows
+                              results-query
+                              (comp #(http/stream-json % buffer pretty-print)
+                                    #(do (when-not (instance? PGobject %)
+                                           (first %))
+                                         (deliver query-error nil) %)
+                                    (munge-fn-hook munge-fn))))
+                           ;; catch throwable to make sure any trouble is forwarded to the
+                           ;; query-error promise below. If something throws and is not passed
+                           ;; along the deref will block indefinitely.
+                           (catch Throwable e
+                             (deliver query-error e)))))]
           (if @query-error
             (throw @query-error)
             (cond-> (http/json-response* resp)
@@ -483,10 +491,13 @@
    context :- query-context-schema]
   ;; For now, generate the ids here; perhaps later, higher up
   (assert (not (:query-id context)))
-  (let [context (assoc context :query-id (str (java.util.UUID/randomUUID)))]
-    (if use-preferred-streaming-method?
-      (preferred-produce-streaming-body version query-map context)
-      (deprecated-produce-streaming-body version query-map context))))
+  (let [qid (str (java.util.UUID/randomUUID))
+        context (assoc context :query-id qid)]
+    (with-log-mdc ["pdb-query-id" qid
+                   "pdb-query-origin" (:origin query-map)]
+      (if use-preferred-streaming-method?
+        (preferred-produce-streaming-body version query-map context)
+        (deprecated-produce-streaming-body version query-map context)))))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."
