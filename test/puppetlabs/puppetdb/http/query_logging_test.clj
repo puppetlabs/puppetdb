@@ -1,16 +1,16 @@
 (ns puppetlabs.puppetdb.http.query-logging-test
-  (:require  [clojure.test :refer :all]
-             [clojure.string :as str]
-             [puppetlabs.kitchensink.core :as kitchensink]
-             [puppetlabs.puppetdb.testutils.http :refer [query-response]]
-             [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
-             [puppetlabs.puppetdb.testutils.http :refer [call-with-http-app]]
-             [puppetlabs.puppetdb.testutils.services :refer [call-with-puppetdb-instance
-                                                             create-temp-config
-                                                             *server*]]
-             [puppetlabs.puppetdb.cli.services :as svcs]
-             [puppetlabs.trapperkeeper.app :refer [get-service]]
-             [puppetlabs.trapperkeeper.testutils.logging :as tk-log]))
+  (:require
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cli.services :as svcs]
+   [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
+   [puppetlabs.puppetdb.testutils.http
+    :refer [call-with-http-app query-response]]
+   [puppetlabs.puppetdb.testutils.services
+    :refer [call-with-puppetdb-instance create-temp-config *server*]]
+   [puppetlabs.trapperkeeper.app :refer [get-service]]
+   [puppetlabs.trapperkeeper.testutils.logging :as tk-log]))
 
 (defn logs-include?
   "Returns true if only one instance of unique-msg is found in the log."
