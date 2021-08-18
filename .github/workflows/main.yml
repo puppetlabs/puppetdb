@@ -57,7 +57,7 @@ jobs:
           path: |
             ci/local/jdk
             vendor/bundle/ruby
-            ~/.m2
+            ~/.m2/repository
             ~/Library/Caches/Homebrew
       - env:
           LEIN_PROFILES: ${{ matrix.lein-profile }}
