@@ -20,7 +20,6 @@ describe processor do
   }
 
   context "#process" do
-
     let(:http) { mock "http" }
     let(:nethttpok) { Net::HTTPOK.new('1.1', 200, '') }
     let(:responseok) { create_http_response("mock url", nethttpok) }
@@ -368,7 +367,57 @@ describe processor do
         end
 
       end
+    end
+  end
 
+  context '#resource_status_to_hash' do
+    before do
+      subject.host = 'localhost'
+    end
+    let(:resource) do
+      stub('resource',
+        { pathbuilder: ['foo', 'bar', 'baz'],
+          path: 'foo',
+          file: 'foo',
+          line: 1,
+          tags: [],
+          provider: 'foo',
+          skipped: false,
+          containment_path: '\\',
+          events: [],
+          time: DateTime.now,
+          type: 'File',
+          resource_type: 'File',
+          title: huge_title,
+          merge_into: nil })
+    end
+
+    context 'large resources' do
+      let(:huge_title) { (0...2501).map { ('a'..'z').to_a[rand(26)] }.join }
+      let (:status) do
+        Puppet::Resource::Status.new(resource)
+      end
+
+      it 'large resources will warn about the index size' do
+        Puppet.expects(:warning).with("resource_event on localhost is very large. Values (resource timestamp + title + type) \
+are 2513 bytes and the hard limit is 2704. Caused by Resource type: \"File\" with title: \"#{huge_title}\" in foo:1")
+        subject.add_resource_status(status)
+        subject.resource_status_to_hash(resource)
+      end
+    end
+
+    context "oversized resource" do
+      let(:huge_title) { (0...2704).map { ('a'..'z').to_a[rand(26)] }.join }
+      let (:status) do
+        Puppet::Resource::Status.new(resource)
+      end
+
+      it 'large resources will warn about the index size' do
+        Puppet.expects(:warning).with("resource_event on localhost could not be saved. Values (resource timestamp + title + type) \
+are larger than index total size of 2704. Caused by Resource type: \"File\" with title: \"#{huge_title}\" in foo:1")
+        subject.add_resource_status(status)
+        subject.resource_status_to_hash(resource)
+      end
     end
   end
 end

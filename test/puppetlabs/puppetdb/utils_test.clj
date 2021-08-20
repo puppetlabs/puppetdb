@@ -2,7 +2,9 @@
   (:require [puppetlabs.puppetdb.utils :refer :all]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :as tu]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk])
+  (:import
+   (org.apache.log4j MDC)))
 
 (deftest test-println-err
   (is (= "foo\n"
@@ -16,6 +18,32 @@
          (tu/with-err-str (print-err "foo"))))
   (is (= "foo bar"
          (tu/with-err-str (print-err "foo" "bar")))))
+
+(deftest with-log-mdc-behavior
+  (with-log-mdc ["foo" "bar"]
+    (is (= "bar" (MDC/get "foo"))))
+  (with-log-mdc ["foo" nil]
+    (is (= nil (MDC/get "foo"))))
+  (with-log-mdc ["foo" nil "bar" 1]
+    (is (= nil (MDC/get "foo")))
+    (is (= "1" (MDC/get "bar"))))
+  (with-log-mdc ["foo" 1 "bar" nil]
+    (is (= "1" (MDC/get "foo")))
+    (is (= nil (MDC/get "bar"))))
+  (with-log-mdc ["foo" "x" "bar" "y"]
+    (is (= "x" (MDC/get "foo")))
+    (is (= "y" (MDC/get "bar"))))
+  (with-log-mdc ["foo" "x" "bar" nil "baz" "z"]
+    (is (= "x" (MDC/get "foo")))
+    (is (= nil (MDC/get "bar")))
+    (is (= "z" (MDC/get "baz")))
+    (with-log-mdc ["foo" "x" "bar" "y" "baz" "z"]
+      (is (= "x" (MDC/get "foo")))
+      (is (= "y" (MDC/get "bar")))
+      (is (= "z" (MDC/get "baz"))))
+    (is (= "x" (MDC/get "foo")))
+    (is (= nil (MDC/get "bar")))
+    (is (= "z" (MDC/get "baz")))))
 
 (deftest test-assoc-when
   (is (= {:a 1 :b 2}

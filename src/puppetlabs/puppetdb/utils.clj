@@ -17,7 +17,8 @@
    [java.net MalformedURLException URISyntaxException URL]
    [java.nio ByteBuffer CharBuffer]
    [java.nio.charset Charset CoderResult StandardCharsets]
-   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)))
+   (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)
+   (org.apache.log4j MDC)))
 
 (defmacro with-captured-throw [& body]
   `(try [(do ~@body)] (catch Throwable ex# ex#)))
@@ -33,6 +34,36 @@
   (binding [*out* *err*]
     (apply print args)
     (flush)))
+
+(defmacro with-log-mdc
+  "Establishes the MDC contexts given by the alternating-kvs key value
+  pairs during the execution of the body, and ensures that the
+  original values (if any) are always restored before returning."
+  [alternating-kvs & body]
+  ;; For now, assume this isn't used in performance-critical code,
+  ;; i.e. within tight loops.
+  (when-not (even? (count alternating-kvs))
+    (throw (RuntimeException. "Odd number of MDC key value pairs")))
+  (when-not (every? string? (take-nth 2 alternating-kvs))
+    (throw (RuntimeException. "MDC keys are not all strings")))
+  (loop [[k v & alternating-kvs] alternating-kvs
+         expansion `(do ~@body)]
+    (if-not k
+      expansion
+      (recur alternating-kvs
+             ;; We know k is a string, so it's fine to repeat ~k
+             `(let [v# ~v]
+                (if (nil? v#)
+                  ~expansion
+                  (let [orig# (MDC/get ~k)]
+                    (try
+                      (MDC/put ~k v#)
+                      ~expansion
+                      (finally
+                        ;; After you put a nil value MDC/getContext crashes
+                        (if (nil? orig#)
+                          (MDC/remove ~k)
+                          (MDC/put ~k orig#)))))))))))
 
 (defn flush-and-exit
   "Attempts to flush *out* and *err*, reporting any failures to *err*,

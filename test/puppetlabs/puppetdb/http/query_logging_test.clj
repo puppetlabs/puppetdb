@@ -1,16 +1,29 @@
 (ns puppetlabs.puppetdb.http.query-logging-test
-  (:require  [clojure.test :refer :all]
-             [clojure.string :as str]
-             [puppetlabs.kitchensink.core :as kitchensink]
-             [puppetlabs.puppetdb.testutils.http :refer [query-response]]
-             [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
-             [puppetlabs.puppetdb.testutils.http :refer [call-with-http-app]]
-             [puppetlabs.puppetdb.testutils.services :refer [call-with-puppetdb-instance
-                                                             create-temp-config
-                                                             *server*]]
-             [puppetlabs.puppetdb.cli.services :as svcs]
-             [puppetlabs.trapperkeeper.app :refer [get-service]]
-             [puppetlabs.trapperkeeper.testutils.logging :as tk-log]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [clojure.walk :refer [keywordize-keys]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.cli.services :as svcs]
+   [puppetlabs.puppetdb.query-eng :as qeng]
+   [puppetlabs.puppetdb.testutils.catalogs :refer [replace-catalog]]
+   [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
+   [puppetlabs.puppetdb.testutils.http
+    :refer [call-with-http-app query-response with-http-app*]]
+   [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
+   [puppetlabs.puppetdb.testutils.services
+    :refer [call-with-puppetdb-instance create-temp-config *server*]]
+   [puppetlabs.puppetdb.time :as time]
+   [puppetlabs.puppetdb.utils :refer [println-err]]
+   [puppetlabs.trapperkeeper.app :refer [get-service]]
+   [puppetlabs.trapperkeeper.testutils.logging :as tk-log
+    :refer [with-log-suppressed-unless-notable
+            with-logged-event-maps
+            with-logging-to-atom]])
+  (:import
+   (java.util UUID)))
 
 (defn logs-include?
   "Returns true if only one instance of unique-msg is found in the log."
@@ -37,29 +50,60 @@
 (defn prep-logs [logs]
   (->> @logs (map :message) keep-only-pdbquery-logs))
 
-(deftest setting-log-queries-triggers-ast-sql-logging
-  (tk-log/with-logged-event-maps logs
-    (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
-      (with-test-db
-        (call-with-http-app
-         (fn []
-           ;; make a couple http queries to trigger a debug AST and SQL log message for each
-           (is (= 200 (:status (query-response :get "/v4" ["from" "nodes"]))))
-           (is (= 200 (:status (query-response :get "/v4" ["from" "facts"]))))
+(def catalog-1
+  (-> "puppetlabs/puppetdb/cli/export/tiny-catalog.json"
+      io/resource slurp json/parse-string keywordize-keys))
 
-           (let [logs (prep-logs logs)]
-             (testing "uuids match for the AST and SQL logged per query"
-               (is (= [2 2] (vals (count-logs-uuids logs)))))
+(deftest queries-are-logged-when-log-queries-is-true
+  (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
+    (with-test-db
+      (replace-catalog catalog-1)
+      (with-http-app* #(assoc % :log-queries true)
+        (doseq [[query exp-ast exp-sql exp-origin]
+                ;; produce-streaming-body
+                [[["/v4" ["from" "nodes"] {:origin "foo"}]
+                  "\"from\",\"nodes\""
+                  "latest_report_noop_pending"
+                  "foo"]
+                 [["/v4" ["from" "facts"]]
+                  "\"from\",\"facts\""
+                  "(jsonb_each((stable||volatile)))"
+                  nil]
+                 ;; stream-query-result
+                 [["/v4/catalogs/myhost.localdomain" [] {:origin "bar"}]
+                  "\"from\",\"catalogs\""
+                  "row_to_json(edge_data)"
+                  "bar"]]]
+          (with-logged-event-maps events
+            (is (= 200 (:status (apply query-response :get query))))
 
-             (testing "AST/SQL is logged for both queries above"
-               ;; match the AST/SQL logs for nodes query
-               (is (logs-include? logs "\"from\" \"nodes\""))
-               (is (logs-include? logs "latest_report_noop_pending"))
+            (let [events @events
+                  ;; Returns [everything uuid query-info]
+                  parse-event-msg #(->> % :message (re-find #"^PDBQuery:([^:]+):(.*)"))
+                  parse-event-info #(-> % parse-event-msg (nth 2) json/parse-string)
+                  uuid (some->> events (some parse-event-msg) second)
+                  qev-matching (fn [expected]
+                                 (fn [{:keys [message] :as event}]
+                                   (and (str/starts-with? message (str "PDBQuery:" uuid ":"))
+                                        (str/includes? message expected))))]
 
-               ;; match the AST/SQL logs for facts query
-               (is (logs-include? logs "\"from\" \"facts\""))
-               (is (logs-include? logs "(jsonb_each((stable||volatile)))")))))
-         #(assoc % :log-queries true))))))
+              (is (uuid? (UUID/fromString uuid)))
+
+              (let [[ev & evs] (filter (qev-matching exp-ast) events)]
+                (is (not (seq evs)))
+                (when (seq evs)
+                  (println-err "Unexpected log:" events))
+                (let [{:strs [ast origin] :as info} (parse-event-info ev)]
+                  (is ast)
+                  (is (= exp-origin origin))))
+
+              (let [[ev & evs] (filter (qev-matching exp-sql) events)]
+                (is (not (seq evs)))
+                (when (seq evs)
+                  (println-err "Unexpected log:" events))
+                (let [{:strs [sql origin] :as info} (parse-event-info ev)]
+                  (is sql)
+                  (is (= exp-origin origin)))))))))))
 
 (deftest no-queries-are-logged-when-log-queires-is-false
   (tk-log/with-logged-event-maps logs
@@ -92,11 +136,11 @@
 
                (testing "AST/SQL is logged for both queries above"
                  ;; match the AST/SQL logs for nodes query
-                 (is (logs-include? logs "\"from\" \"nodes\""))
+                 (is (logs-include? logs "\"from\",\"nodes\""))
                  (is (logs-include? logs "latest_report_noop_pending"))
 
                  ;; match the AST/SQL logs for facts query
-                 (is (logs-include? logs "\"from\" \"facts\""))
+                 (is (logs-include? logs "\"from\",\"facts\""))
                  (is (logs-include? logs "(jsonb_each((stable||volatile)))")))))))))))
 
 (deftest no-PuppetDBServer-tk-service-queries-are-logged-when-log-queries-is-false
@@ -113,3 +157,36 @@
              (svcs/query pdb-service :v4 ["from" "facts"] nil identity)
              (svcs/query pdb-service :v4 ["from" "nodes"] nil identity)
              (is (empty? (prep-logs logs))))))))))
+
+(deftest queries-have-expected-log-mdc
+  ;; For now, we assume that all log messages generated by the
+  ;; query-eng ns during this period will be from threads handling the
+  ;; query.
+  (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
+    (with-log-suppressed-unless-notable notable-pdb-event?
+      (with-test-db
+        (let [context {:scf-read-db *db*
+                       :url-prefix "/pdb"
+                       :log-queries true
+                       :add-agent-report-filter true
+                       :node-purge-ttl (time/parse-period "14d")}]
+          (replace-catalog catalog-1)
+          (let [events (atom [])]
+            (with-logging-to-atom "puppetlabs.puppetdb.query-eng" events
+              (qeng/stream-query-result :v4
+                                        ["from" "catalogs"]
+                                        {:origin "foo"}
+                                        context)
+              (doseq [event @events
+                      :let [mdc (.getMDCPropertyMap event)]]
+                (is (= "foo" (get mdc "pdb-query-origin")))
+                (is (uuid? (UUID/fromString (get mdc "pdb-query-id")))))))
+          (let [events (atom [])]
+            (with-logging-to-atom "puppetlabs.puppetdb.query-eng" events
+              (qeng/produce-streaming-body :v4
+                                           {:query ["from" "nodes"] :origin "foo"}
+                                           context)
+              (doseq [event @events
+                      :let [mdc (.getMDCPropertyMap event)]]
+                (is (= "foo" (get mdc "pdb-query-origin")))
+                (is (uuid? (UUID/fromString (get mdc "pdb-query-id"))))))))))))

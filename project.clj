@@ -1,6 +1,6 @@
 (def pdb-version "7.5.3-SNAPSHOT")
 
-(def clj-parent-version "4.6.28")
+(def clj-parent-version "4.6.29")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -34,7 +34,7 @@
       (let [ver (eval '(java.lang.Runtime/version))]
         {:feature (.feature ver) :interim (.interim ver)}))))
 
-(def i18n-version "0.8.0")
+(def i18n-version "0.9.2")
 
 (def pdb-repositories
   (if (true-in-env? "PUPPET_SUPPRESS_INTERNAL_LEIN_REPOS")
@@ -270,6 +270,7 @@
                                                       org.slf4j/jcl-over-slf4j
                                                       org.clojure/clojure
                                                       org.slf4j/slf4j-api]]]}]
+
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
                                     [org.bouncycastle/bc-fips]
@@ -346,6 +347,8 @@
                                        (fn [new prev]
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
+
+  :nvd {:suppression-file "dev-resources/suppression.xml"}
 
   :eastwood {:config-files ["eastwood.clj"]
              ;; local-shadows-var is too distruptive, particularly
