@@ -23,18 +23,27 @@
   (with-log-mdc ["foo" "bar"]
     (is (= "bar" (MDC/get "foo"))))
   (with-log-mdc ["foo" nil]
-    (is (= {} (MDC/getContext))))
+    (is (= nil (MDC/get "foo"))))
   (with-log-mdc ["foo" nil "bar" 1]
-    (is (= {"bar" "1"} (MDC/getContext))))
+    (is (= nil (MDC/get "foo")))
+    (is (= "1" (MDC/get "bar"))))
   (with-log-mdc ["foo" 1 "bar" nil]
-    (is (= {"foo" "1"} (MDC/getContext))))
+    (is (= "1" (MDC/get "foo")))
+    (is (= nil (MDC/get "bar"))))
   (with-log-mdc ["foo" "x" "bar" "y"]
-    (is (= {"foo" "x" "bar" "y"} (MDC/getContext))))
+    (is (= "x" (MDC/get "foo")))
+    (is (= "y" (MDC/get "bar"))))
   (with-log-mdc ["foo" "x" "bar" nil "baz" "z"]
-    (is (= {"foo" "x" "baz" "z"} (MDC/getContext)))
+    (is (= "x" (MDC/get "foo")))
+    (is (= nil (MDC/get "bar")))
+    (is (= "z" (MDC/get "baz")))
     (with-log-mdc ["foo" "x" "bar" "y" "baz" "z"]
-      (is (= {"foo" "x" "bar" "y" "baz" "z"} (MDC/getContext))))
-    (is (= {"foo" "x" "baz" "z"} (MDC/getContext)))))
+      (is (= "x" (MDC/get "foo")))
+      (is (= "y" (MDC/get "bar")))
+      (is (= "z" (MDC/get "baz"))))
+    (is (= "x" (MDC/get "foo")))
+    (is (= nil (MDC/get "bar")))
+    (is (= "z" (MDC/get "baz")))))
 
 (deftest test-assoc-when
   (is (= {:a 1 :b 2}
