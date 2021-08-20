@@ -293,29 +293,6 @@ nodes { report_timestamp <= "2016-08-03 00:00:00" }
 
 ***
 
-### Mcollective sub-collective filtering
-
-Show nodes that belong in the sub-collective `dc1`.
-
-``` ruby
-inventory[certname] { facts.mcollective.server.collectives.match("\d+") = "dc1" }
-```
-
-*Output:*
-
-``` json
-[
-    {
-        "certname": "greenserver.vm"
-    },
-    {
-        "certname": "yellowserver.vm"
-    }
-]
-```
-
-***
-
 ### Profile querying
 
 Show active nodes that have the profile class `Profile::Remote_mgmt` applied to it.

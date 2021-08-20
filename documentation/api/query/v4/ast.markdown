@@ -8,13 +8,16 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 
 [root]: ./index.markdown
 [catalogs]: ./catalogs.markdown
+[contact]: ../../../pdb_support_guide.markdown#contact-us
 [edges]: ./edges.markdown
 [environments]: ./environments.markdown
 [events]: ./events.markdown
 [facts]: ./facts.markdown
 [fact-contents]: ./fact-contents.markdown
 [fact-paths]: ./fact-paths.markdown
+[inventory]: ./inventory.markdown
 [nodes]: ./nodes.markdown
+[pg-regex]: https://www.postgresql.org/docs/11/functions-matching.html#FUNCTIONS-POSIX-REGEXP
 [producers]: ./producers.markdown
 [query]: query.markdown
 [reports]: ./reports.markdown
@@ -105,10 +108,9 @@ The following example would match if the `certname` field's actual value resembl
     ["~", "certname", "www\\d+\\.example\\.com"]
 
 > **Note:** Regular expression matching is performed by the database
-> backend, so the available
-> [regexp features](http://www.postgresql.org/docs/9.6/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
-> are determined by PostgreSQL. For best results, use the simplest
-> and most common features that can accomplish your task.
+> backend, so the available [regexp features](#pg-regex) are
+> determined by PostgreSQL. For best results, use the simplest and
+> most common features that can accomplish your task.
 
 ### `~>` (regexp array match)
 
@@ -260,8 +262,11 @@ way using `dot notation`. The rules for dot notation are:
 * Hash descendence is represented by a period-separated sequence of key names
 * Array indexing (`inventory` only) is represented with brackets (`[]`) on the
 end of a key.
-* Regular expression matching (`inventory` only) is represented with the
-  `match` keyword.
+* Regular expression matching ([`inventory`](#inventory) only) is
+  represented with the `match` operator, but note that [`match` in its
+  current form has been deprecated](#dotted-field-syntax), and is
+  likely to be removed or altered in a backward-incompatible way in a
+  future release.
 
 For example, given the inventory response
 
@@ -311,8 +316,6 @@ valid queries would include
 
 * `["~", "facts.processors.models[0]", "Intel.*"]`
 
-* `["=", "partitions.match(\"sda.*\").mount", "/home"]`
-
 ### Dotted Projections
 
 Dot notation is also supported for extracting a subtree of JSON fields.
@@ -331,6 +334,51 @@ To get a response with only the elements you've asked for
             "seconds" : 6733
         }
     }
+
+### Dotted field syntax
+
+A dotted field, which repseents a path into a JSON tree is made up of
+components separated by dots (`.`), for example `facts.kernel`. Any
+path component can be double-quoted, for example `facts."x.y".z`, in
+which case the name will include all of the characters after the first
+double-quote, and before the next double-quote that is itself not
+preceded by a backslash and is followed by either a dot, or the end of
+the field. So the previous example `facts."x.y".z` represents the
+three components, `facts`, `x.y`, and `z`. In AST queries, any
+double-quotes will have to be properly JSON escaped. So in an
+`extract` the path `x."y.z"` becomes `[extract "x.\"y.z\"", ...]`.
+
+There is currently no way to represent a field component that contains
+a dot and ends in a backslash. For example, a fact named `x.y\` must be
+quoted, given the dot, but as just mentioned, quoted fields cannot end
+in a backslash.
+
+> **Note:** the `match()` operator described here is deprecated and is
+> likely to be retired or altered in a backward-incompatible way in a
+> future release.
+
+In some cases (e.g. [inventory endpoint](#inventory)) dotted fields
+can also contain a `match()` component, for example
+`facts.partitions.match("sd.*")` The match pattern must be a
+[PostgreSQL regular expression](#pg-regex), and must begin with
+`match`, open paren, double quote, and it will end at the next double
+quote, close paren that is not preceded by a backslash and is followed
+by either a dot, or the end of the field.  The regex then, has
+essentially the same syntax as a double quoted field. And similarly,
+there is currently no way to specify a match regular expression that
+ends in a backslash.
+
+With the current implementation, the `match()` component's behavior is
+not well defined, likley to be surprising, and likely to change in the
+future, so we recommend avoiding it for now, but please do
+[contact us](#contact-us) if you are currently using it, or would like
+to use an operator with better semantics, so we can incorporate that
+information into future plans.
+
+As an example of the potentially surprising behavior, the appearance
+of any `match()` operator in a dotted field can cause the entire
+field, not just the `match()` segment, to be handled as a regular
+expression in an awkward manner.
 
 ## Context operators
 
