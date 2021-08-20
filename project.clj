@@ -270,6 +270,7 @@
                                                       org.slf4j/jcl-over-slf4j
                                                       org.clojure/clojure
                                                       org.slf4j/slf4j-api]]]}]
+
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
                                     [org.bouncycastle/bc-fips]
@@ -346,6 +347,8 @@
                                        (fn [new prev]
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
+
+  :nvd {:suppression-file "dev-resources/suppression.xml"}
 
   :eastwood {:config-files ["eastwood.clj"]
              ;; local-shadows-var is too distruptive, particularly
