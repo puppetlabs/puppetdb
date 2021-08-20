@@ -37,6 +37,12 @@ general info about queries, see [our guide to query structure.][query]
 * `ast_only`: optional. A boolean value. When true, the query response will be the supplied 
 `query` in AST, either exactly as supplied or translated from PQL. False by default.
 
+* `origin`: optional. A string describing the source of the query.  It
+can be anything, and will be reported in the log when PuppetDB is
+configured to log queries.  Note that Puppet intends to use origin
+names beginning with `puppet:` for its own queries, so it is
+recommended that other clients choose something else.
+
 ### Response format
 
 The response will be in `application/json`, and will contain a list of JSON
