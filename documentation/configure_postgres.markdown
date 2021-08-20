@@ -53,9 +53,10 @@ Particularly if you plan to run more than one PuppetDB instance
 connecting to the same database, we recommend you also
 [add and use a "migrator" user](#coordinating-database-migrations)
 
-You should install the RegExp-optimized index extension
-[`pg_trgm`][pg_trgm]. This may require installing the
-`postgresql-contrib` (or equivalent) package, depending on your
+Install the [`pg_trgm`][pg_trgm] extension. PuppetDB makes use of this
+extension to improve the performance of queries that use regular expression
+filters (e.g. `certname ~ "abc\d+.example.com"`). This may require installing
+the `postgresql-contrib` (or equivalent) package, depending on your
 distribution:
 
     $ sudo -u postgres sh
