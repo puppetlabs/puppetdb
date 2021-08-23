@@ -13,6 +13,17 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.5.2
+
+Released August 17 2021
+
+### Bug fixes
+
+* Fixes multiple bug when grouping by a dotted fact path. For example,
+  previously double quotes were required - now the must be omitted.
+  [PDB-5214](https://tickets.puppetlabs.com/browse/PDB-5214)
+  [PDB-4628](https://tickets.puppetlabs.com/browse/PDB-4628)
+
 ## PuppetDB 7.5.0
 
 Released July 20 2021
