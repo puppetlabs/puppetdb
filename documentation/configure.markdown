@@ -344,6 +344,18 @@ Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with
 the port on which PostgreSQL is listening. Replace `<DATABASE>` with
 the name of the database you've created for use with PuppetDB.
 
+With this arrangemnt, PuppetDB will use the specified database for all
+operations (storage and queries), but PuppetDB supports other
+arrangments.  It's possible to
+[specify a different read-only database](#[read-database]--settings)
+to among other things, handle queries, and provide responses for
+PuppetDB's [peer-to-peer synchronization process](#sync--settings).
+
+It's also possible to specify [multiple storage databases](#broadcasting-commands)
+to which PuppetDB will attempt delivery of incoming information on a
+best-effort basis.  Note that any given PuppetDB instance can have
+sync enabled or command broadcast, but not both.
+
 #### Using SSL With PostgreSQL
 
 It's possible to use SSL to protect connections to the database. There
@@ -421,6 +433,49 @@ Then specify `puppetdb_migrator` as the
 
 See the [migration coordination documentation][migration_coordination]
 for a more detailed explanation of the process.
+
+#### Broadcasting commands to multiple databases
+
+PuppetDB can be configured to attempt to send each command to multiple
+databases on a best-effort basis.  There are no guarantees that any
+given command will reach all of the databases, so the process is
+inherently "lossy".  At the moment PuppetDB will consider a command to
+be successfully processed as soon as it manages to send the command to
+at least one of the databases.  Note that currently, a server cannot
+be configured to broadcast and [sync](#sync--settings).
+
+To enable broadcast, create one `[database-NAME]` subsection for each
+database.  For example, to attempt to send commands to a primary and
+secondary database, you could add something like this to your
+configuration:
+
+    [database]
+    # When subsections are defined, unset values in any subsection will
+    # default to the values set here.
+    subname = //host1:5432/puppetdb
+    username = <USERNAME1>
+    password = <PASSWORD1>
+
+    [database-primary]
+    # Settings intentionally omitted.
+    # Unset values default to those in [database]
+
+    [database-secondary]
+    subname = //host2:5432/puppetdb
+    username = <USERNAME2>
+    password = <PASSWORD2>
+
+When subsections are defined, the `[database]` section provides
+defaults that will apply whenever a value is not specified in a
+subsection.  These defaults will also be used for the read database
+whenever an explict [`[read-database]`]](#[read-database]--settings)
+isn't provided.
+
+PuppetDB currently migrates multiple write databases one at a time.
+If you'd prefer more control over the process you can migrate
+databases individually by running `puppetdb upgrade -c
+just-one-db.ini` for each database and making sure that each command
+exits successfully (with non-zero status).
 
 ### `gc-interval`
 
@@ -626,24 +681,27 @@ suggesting appropriate action. If set to zero, this check is disabled.
 ## `[read-database]` settings
 
 The `[read-database]` section configures PuppetDB's _read-database_
-settings, useful when running a PostgreSQL [Hot
-Standby](http://wiki.postgresql.org/wiki/Hot_Standby) cluster.
-Currently, only configuring a PostgreSQL read-database is supported.  See
-the PostgreSQL documentation [here](http://wiki.postgresql.org/wiki/Hot_Standby)
-for details on configuring the cluster. The `[read-database]` portion
-of the configuration is in addition to the `[database]` settings. If
-`[read-database]` is specified, `[database]` must also be specified.
+settings, which can be useful if you have
+[set up a PostgreSQL Hot Standby](http://wiki.postgresql.org/wiki/Hot_Standby)
+cluster.
 
-To configure PuppetDB to use a read-only database from the cluster,
-add the following to the `[read-database]` section:
+Whenever a `[read-database]` is specified, a `[database]` must also be
+specified to provide a write database.  Whenever a `[read-database]`
+is not specified, the relevant read operations will be directed to the
+database specified in the `[database]` section, which must have all
+the required settings (i.e. any database subsections are irrelevant).
 
+To configure PuppetDB to use a read-only database from a hot standby
+cluster, add the following to the configuration:
+
+    [read-database]
     subname = //<HOST>:<PORT>/<DATABASE>
     username = <USERNAME>
     password = <PASSWORD>
 
-Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with
-the port on which PostgreSQL is listening. Replace `<DATABASE>` with
-the name of the database you've created for use with PuppetDB.
+Replace `<HOST>` with the DB server's hostname, `<PORT>` with the port
+on which PostgreSQL is listening, and `<DATABASE>` with the name of
+the database you've created for PuppetDB.
 
 ### Using SSL With PostgreSQL
 
