@@ -2286,6 +2286,14 @@
       (throw (IllegalArgumentException. (tru "{0} is not a valid function"
                                              (pr-str f)))))))
 
+(defn invalidate-extract
+  [query-rec expr]
+  (doseq [elem expr]
+    (if (nil? (user-node->plan-node query-rec elem))
+      (throw (IllegalArgumentException. (tru "{0} is not a valid expression for \"extract\""
+                                             (pr-str elem))))))
+  nil)
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -2485,6 +2493,9 @@
             (-> query-rec
                 (assoc :group-by (group-by-entries->fields query-rec clauses))
                 (create-extract-node column expr))
+
+            [["extract" column & expr]]
+            (invalidate-extract query-rec expr)
 
             :else nil))
 

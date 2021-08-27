@@ -457,6 +457,24 @@
                  body))
     (is (= 400 status))))
 
+(deftest-http-app invalid-extract
+  [[version endpoint] endpoints
+   method [:get :post]]
+
+  (let [{:keys [status body]} (query-response method endpoint ["extract" [["function" "count"] "certname"]
+                                                               ["null?" "type" false]
+                                                               ["groupy_by" "certname"]])]
+    (is (re-matches #".* is not a valid expression for \"extract\".*"
+                    body))
+    (is (= 400 status)))
+
+  (let [{:keys [status body]} (query-response method endpoint ["extract" [["function" "count"] "certname"]
+                                                               ["null?" "type" false]
+                                                               ["some_invalid_string"]])]
+    (is (re-matches #".* is not a valid expression for \"extract\".*"
+                    body))
+    (is (= 400 status))))
+
 (deftest-http-app query-by-status
   [[version endpoint] endpoints
    method [:get :post]]
