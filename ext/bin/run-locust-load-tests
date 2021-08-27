@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+usage() {
+    cat <<EOF
+
+Usage: $(basename "$0") [SHA]
+
+  Will run locus tests. There is a first run of 5 minutes due to the warm-up
+  period for JVM. Only the second run is the actual test run.
+  This script should be run from the puppetdb root dir.
+
+EOF
+}
+
+if [ "$1" = "--help" ]; then
+  usage
+  exit 0
+fi
+
+on-exit() {
+  kill_pdb
+  if [ $pdb_script_pid ]; then kill -9 $pdb_script_pid; fi
+}
+
+kill_pdb() {
+  pdb_pid=`lsof -t -i:8080 || true`
+  if [ $pdb_pid ]; then kill -9 $pdb_pid; fi
+}
+trap on-exit EXIT
+
+# If sha is not provided set the default to 6.x
+sha="6.x"
+if  [ $1 ]; then
+  echo "Using provided sha ${1}"
+  sha=$1
+else
+  echo "Using default sha ${sha}"
+fi
+
+results_dir="/home/andrei.filipovici/performance_results"
+current_time=$(date +%Y-%m-%dT%H:%M:%S%z)
+output_dir="${results_dir}/${sha}-${current_time}"
+
+# Create the output dir if it does not exist
+mkdir -p "${output_dir}"
+
+# pg_script needs to be available in PATH for pdb_script to use it
+export PATH=$PATH:/home/andrei.filipovici/pg_script
+
+echo "Getting latest revisions"
+git fetch --all
+git status
+git reset --hard origin/"$sha"
+
+echo "Killing off any other running instances of puppetdb"
+kill_pdb
+
+# Start the puppetdb server
+../pdb-script/pdb-script --name 100000 run >"$output_dir/pdb_log.txt" 2>&1 &
+pdb_script_pid=$!
+
+printf "Waiting for PDB startup (log: %q)\n" "$output_dir/pdb_log.txt" 2>&1
+while ! grep -Fq "Finished database garbage collection" "$output_dir/pdb_log.txt"; do
+    sleep 1
+    printf "."
+    if [ "$(grep -F "Error during service start!!!" "$output_dir/pdb_log.txt")" ]; then
+      echo "PDB failed during start-up." 1>&2
+      exit 2
+    fi
+done
+echo
+
+echo "Starting locust warm-up\n"
+# We use the same filename to have them overwritten by the test run.
+python3.6 ./locust/run-load-test -t 5m -u 20 --csv "$output_dir/locust" --html "$output_dir/locust.html" --only-summary -T all
+
+echo "Starting locust load tests\n"
+python3.6 ./locust/run-load-test -t 15m -u 20 --csv "$output_dir/locust" --html "$output_dir/locust.html" --only-summary -T all
+test_exit=$?
+
+if [ $test_exit -ne 0 ]; then
+  printf "Tests exited with error. Check logs: %q\n" "$output_dir/pdb_log.txt"
+fi
+
+printf "Tests ran successfully. Output files are: %q_*.csv\n" "$output_dir/locust"

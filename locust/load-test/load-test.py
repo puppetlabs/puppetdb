@@ -41,7 +41,7 @@ class PuppetDbLoadTest(HttpUser):
         params = {"limit": str(opts.get('limit')),
                   "offset": str(opts.get('offset')),
                   "order_by": json.dumps(opts.get('order_by')),
-                  "query": json.dumps(opts['query'])}
+                  "query": json.dumps(opts.get('query'))}
 
         url = create_get_url(params, opts)
 
