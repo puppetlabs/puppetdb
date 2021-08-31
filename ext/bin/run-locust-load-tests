@@ -72,11 +72,11 @@ while ! grep -Fq "Finished database garbage collection" "$output_dir/pdb_log.txt
 done
 echo
 
-echo "Starting locust warm-up\n"
+echo "Starting locust warm-up"
 # We use the same filename to have them overwritten by the test run.
 python3.6 ./locust/run-load-test -t 5m -u 20 --csv "$output_dir/locust" --html "$output_dir/locust.html" --only-summary -T all
 
-echo "Starting locust load tests\n"
+echo "Starting locust load tests"
 python3.6 ./locust/run-load-test -t 15m -u 20 --csv "$output_dir/locust" --html "$output_dir/locust.html" --only-summary -T all
 test_exit=$?
 
@@ -85,3 +85,11 @@ if [ $test_exit -ne 0 ]; then
 fi
 
 printf "Tests ran successfully. Output files are: %q_*.csv\n" "$output_dir/locust"
+
+printf "Starting aggregator script"
+python3.6 ./ext/bin/locust-load-tests-aggregator "$output_dir/locust_stats.csv"
+aggregator_exit=$?
+
+if [ $aggregator_exit -eq 0 ]; then
+  printf "Aggregated successfully. Output file: %q\n" "/home/andrei.filipovici/performance_results/locust_aggregated_report.csv"
+fi
