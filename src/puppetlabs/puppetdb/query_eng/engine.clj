@@ -2528,6 +2528,26 @@
               (if (empty? error-context) "" (str " " error-context))
               (formatter/comma-separated-keywords allowed-fields)))))
 
+(defn valid-operator?
+  [operator]
+  (or (contains? #{"from" "in" "extract" "subquery" "and"
+                   "or" "not" "function" "group_by" "null?"} operator)
+      (contains? binary-operators operator)
+      (contains? (ks/keyset user-name->query-rec-name) operator)))
+
+(defn validate-extract-filters
+  [expr]
+  (let [message (vec (filter seq (for [clause expr]
+                                   (let [operator (first clause)]
+                                     (if (vector? clause)
+                                       (if (contains? #{"or" "and"} operator)
+                                         (validate-extract-filters clause)
+                                         (if (not (valid-operator? operator))
+                                           (tru "{0} is not a valid expression for \"extract\"" (pr-str clause)))))))))]
+    (if (empty? message)
+      nil
+      (first message))))
+
 (defn annotate-with-context
   "Add `context` as meta on each `node` that is a vector. This associates the
   the query context assocated to each query clause with it's associated context"
@@ -2614,16 +2634,17 @@
 
             ; This validation is only for top-level extract operator
             ; For in-extract operator validation, please see annotate-with-context function
-            [["extract" field & _]]
+            [["extract" field & expr]]
             (let [query-context (:query-context (meta node))
                   extractable-fields (projectable-fields query-context)
                   extractable-json-fields (projectable-json-fields query-context)
-                  column-validation-message (validate-query-operation-fields
-                                              field
-                                              extractable-fields
-                                              extractable-json-fields
-                                              (:alias query-context)
-                                              "Can't extract" "")]
+                  column-validation-message (or (validate-query-operation-fields
+                                                  field
+                                                  extractable-fields
+                                                  extractable-json-fields
+                                                  (:alias query-context)
+                                                  "Can't extract" "")
+                                                (validate-extract-filters expr))]
               (when column-validation-message
                 {:node node
                  :state (conj state column-validation-message)}))
@@ -2655,13 +2676,6 @@
                  :state (conj state column-validation-message)}))
 
             :else nil))
-
-(defn valid-operator?
-  [operator]
-  (or (contains? #{"from" "in" "extract" "subquery" "and"
-                   "or" "not" "function" "group_by" "null?"} operator)
-      (contains? binary-operators operator)
-      (contains? (ks/keyset user-name->query-rec-name) operator)))
 
 (defn ops-to-lower
   "Lower cases operators (such as and/or)."
