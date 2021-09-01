@@ -188,7 +188,7 @@
                  [digest "1.4.3"]
                  [fast-zip-visit "1.0.2"]
                  [instaparse]
-                 [murphy "0.5.1"]
+                 [murphy "0.5.2"]
                  [clj-commons/fs]
                  [metrics-clojure]
                  [robert/hooke "1.3.0"]
