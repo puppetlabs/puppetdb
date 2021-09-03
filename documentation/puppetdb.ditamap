@@ -32,6 +32,7 @@
     <topichead navtitle="Configuration">
       <topicref href="configure.markdown" format="markdown"/>
       <topicref href="puppetdb_connection.markdown" format="markdown"/>
+      <topicref href="configure_postgres.markdown" format="markdown"/>
       <topicref href="postgres_ssl.markdown" format="markdown"/>
     </topichead>
 
