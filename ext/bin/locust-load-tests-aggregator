@@ -1,0 +1,121 @@
+#!/usr/bin/env python3.6
+
+import csv
+import os.path
+import sys
+
+class CsvReport:
+    def __init__(self, header, body, footer):
+        self.header = header
+        self.body = body
+        self.footer = footer
+
+
+    def merge(self, csv_report):
+        # Appends a new csv_report object to the current instance,
+        # grouping is done by the key for header, body and footer
+        # csv_report - CsvReport -
+        existing_run_count = 0
+
+        for name, value in self.body.items():
+            existing_run_count = len(value)
+            new_value = csv_report.body.get(name, [''])
+            self.body[name].append(new_value[0])
+
+            if new_value != ['']: del csv_report.body[name]
+
+        self.header['Name'].append(csv_report.header['Name'][0])
+
+        if len(csv_report.body) > 0:
+          csv_report.body = { name: prepend_runs(run_time, existing_run_count) for name, run_time in csv_report.body.items()}
+          self.body.update(csv_report.body)
+
+        self.footer['Aggregated'].append(csv_report.footer['Aggregated'][0])
+
+        return self
+
+    def to_list(self):
+        # Converts header, body and footer to a list of lists representing rows in a csv file
+        data = []
+        csv_parts = (self.header.items(), self.body.items(), self.footer.items())
+
+        for part in csv_parts:
+            for name, values in part:
+                data.append([name] + values)
+
+        return data
+
+
+def usage():
+    print("""
+This script aggregates the average response times for each request defined in Locust config files into
+one file /home/andrei.filipovici/performance_results/locust_aggregated_report.csv 
+
+Usage: ./ext/bin/locust-load-tests-aggregator /absolute/path/to/locust_stats.csv""")
+
+sys_args = sys.argv[1:]
+if sys_args == [] or sys_args[0] == '--help':
+    usage()
+    exit(0)
+
+new_report_path = sys_args[0]
+sha_timestamp = new_report_path.split('/')[-2:-1]
+aggregated_report_path = '/home/andrei.filipovici/performance_results/locust_aggregated_report.csv'
+
+
+def iterator_to_dict(iterator, key_index, filter = []):
+    # Transforms an iterable object into a dictionary
+    # iterator    - iterable object
+    # key_index - int   - will be set as key for the returned dictionary
+    # filter    - list  - list of indices that will be selected for the value of each key
+    result = {}
+    for row in iterator:
+        name = row.pop(key_index)
+        if filter:
+            row = list(row[i] for i in filter)
+        result[name] = row
+    return result
+
+
+def prepend_runs(runs, prepend_count, prepend_value=''):
+    # Adds empty columns at the beggining of each line in the csv
+    # runs          - list    - list of new columns to be added
+    # prepend_count - int     - the number of columns to be added
+    # prepend_value - string  - what value should be prepended to the beggining of the row
+    items = [prepend_value] * prepend_count
+    items.extend(runs)
+
+    return items
+
+
+def write_aggregated_report(data):
+    # Write the new aggregated report to the csv file
+    # data - list - Rows to be written
+    with open(aggregated_report_path, 'w+') as report_file:
+        report_writer = csv.writer(report_file, delimiter=',')
+        for row in data:
+            report_writer.writerow(row)
+
+
+new_aggregated_report = {}
+with open(new_report_path) as stats_file:
+    reader = csv.reader(stats_file, delimiter=',')
+    _h, *body, footer = reader
+    body = iterator_to_dict(body, 1, [4])
+    footer = iterator_to_dict([footer], 1, [4])
+    new_report = CsvReport({'Name': sha_timestamp}, body, footer)
+
+    if os.path.isfile(aggregated_report_path) and os.path.getsize(aggregated_report_path):
+        with open(aggregated_report_path) as aggregated_report_file:
+            agg_reader = csv.reader(aggregated_report_file, delimiter=',')
+            agg_header, *agg_body, agg_footer = agg_reader
+            agg_header = iterator_to_dict([agg_header], 0)
+            agg_body = iterator_to_dict(agg_body, 0)
+            agg_footer = iterator_to_dict([agg_footer], 0)
+
+            aggregated_report = CsvReport(agg_header, agg_body, agg_footer)
+            aggregated_report.merge(new_report)
+    else:
+        aggregated_report = new_report
+
+write_aggregated_report(aggregated_report.to_list())
