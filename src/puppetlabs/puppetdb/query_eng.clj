@@ -129,12 +129,13 @@
                         (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
                         (throw e))
                       (log/error e msg)
-                      ::failed))
+                      {:type ::failed, :message msg}))
                   (catch Exception e
                     (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
                     (throw e)))]
-        (if (= ast ::failed)
-          (throw (ex-info "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com"
+        (if (and (map? ast) (= (:type ast) ::failed))
+          (throw (ex-info (trs "AST validation failed, but was successfully converted to SQL. Please file a PuppetDB ticket at https://tickets.puppetlabs.com \n{0}"
+                               (:message ast))
                           {:kind ::dr/unrecognized-ast-syntax
                            :ast query
                            :sql (eng/compile-user-query->sql query-rec query options)}))

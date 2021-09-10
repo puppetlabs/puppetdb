@@ -828,7 +828,7 @@
              ;; This is abusing the existence of PDB-4734 to throw an error from a malformed AST query
              (let [{:keys [status body]} (query-response method endpoint query)]
                 (is (= status http/status-internal-error))
-                (is (re-matches #"AST validation failed, but was successfully converted to SQL.*" body)))))))
+                (is (re-matches #"(?s)AST validation failed, but was successfully converted to SQL.*Unrecognized ast clause.*" body)))))))
 
     (testing "agent report filter can be disabled"
        (with-test-db
