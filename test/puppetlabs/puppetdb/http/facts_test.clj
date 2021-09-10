@@ -1968,7 +1968,7 @@
   (testing "factsets with package inventory query should ignore deactivated nodes"
     (let [responses (json/parse-string (slurp (:body (query-response
                                                        method endpoint))))]
-      (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
+      (is (not-any? #(= "foo4" %) (map #(get % "certname") responses)))))
 
   (testing "factset queries should return appropriate results"
     (let [queries [["=" "certname" "foo1"]
