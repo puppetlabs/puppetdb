@@ -7,11 +7,25 @@ canonical: "/puppetdb/latest/release_notes.html"
 [configure-postgres]: ./configure.markdown#using-postgresql
 [drop-joins]: ./api/query/v4/query.markdown#experimental-query-optimization
 [facts]: ./api/query/v4/facts.markdown
+[api-index]: ./api/query/v4/index.markdown
 [fact-contents]: ./api/query/v4/fact-contents.markdown
 
 ---
 
 # PuppetDB: Release notes
+
+## PuppetDB 7.6.0
+
+Released September 16 2021
+
+### New features and improvements
+
+* TLSv1.3 is enabled by default, it will be preferred over TLSv1.2 when
+  possible. [PDB-5255](https://tickets.puppetlabs.com/browse/PDB-5255)
+* Adds a new [optional query field][api-index] `origin` that allows users
+  initiating a query to identify their query, which will assist with debugging
+  any query-related issues.
+  [PDB-5216](https://tickets.puppetlabs.com/browse/PDB-5216)
 
 ## PuppetDB 7.5.2
 
