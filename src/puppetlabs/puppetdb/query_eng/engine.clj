@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query-eng.parse :as parse]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.utils :as utils]
@@ -52,19 +53,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
-(defn validate-dotted-field
-  [dotted-field]
-  ;; Q: why isn't parameters in here (cf. :dotted-fields below)
-  (and (string? dotted-field) (re-find #"^(facts|trusted)\..+" dotted-field)))
-
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
-
-(defn is-dotted-projection?
-  [projection]
-  ;; If the projection has a dot it must be of the form fact.foo
-  (str/includes? projection "."))
 
 ; The use of 'column' here is a misnomer. This refers to the result of
 ; a query and the top level keys used should match up to query entities
@@ -1536,10 +1527,15 @@
 
   JsonContainsExpression
   (-plan->sql [{:keys [field column-data array-in-path]} options]
-    (su/json-contains (if (instance? SqlRaw (:field column-data))
-                        (-> column-data :field :s)
-                        field)
-                      array-in-path))
+    (let [f (if (instance? SqlRaw (:field column-data))
+              (-> column-data :field :s)
+              field)]
+      ;; This distinction is necessary (at least) because @> cannot
+      ;; traverse into arrays, but should be otherwise preferred
+      ;; because it can use an index.
+      (if array-in-path
+        (hcore/raw (format "%s #> ? = ?" f))
+        (hcore/raw (format "%s @> ?" f)))))
 
   FnBinaryExpression
   (-plan->sql [{:keys [value function args operator]} options]
@@ -1634,44 +1630,65 @@
       (instance? ArrayBinaryExpression node)
       (instance? ArrayRegexExpression node)))
 
-(defn path->nested-map
-  "Given path [a b c] and value d, produce {a {b {c d}}}"
-  [path value]
-  (reduce #(hash-map (formatter/maybe-strip-escaped-quotes %2) %1)
-          (rseq (conj (vec path) value))))
-
 (defn parse-dot-query
   "Transforms a dotted query into a JSON structure appropriate
    for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (map formatter/maybe-strip-escaped-quotes
-                             (su/dotted-query->path field))]
-    (if (some #(re-matches #"^\d+$" %) path)
-      ;; This path is taken for match() operators that match indexes,
-      ;; i.e.  facts.foo.match("\d+") because by this point they'll be
-      ;; plain integer path components.
-      {:node (assoc node :value ["?" "?"] :field column :array-in-path true)
-       ;; https://www.postgresql.org/docs/11/arrays.html#ARRAYS-INPUT
-       :state (reduce conj state [(doto (PGobject.)
-                                    (.setType "text[]")
-                                    (.setValue (str "{" (string/join "," (map #(string/replace % "'" "''") path)) "}")))
+  ;; node is JsonContainsExpression
+  (let [[column & path] (parse/parse-field field 0 {:indexes? false
+                                                    :matches? false})
+        ;; FIXME: this is a conflation - one fix might be to parse all
+        ;; fields *once* at the start of query processing, and then
+        ;; pass that representation all the way through.
+        ;;
+        ;; The handling of match() wrt fact_paths complicates that
+        ;; because right now we don't have any (efficient) way of
+        ;; knowing all the types of the path elements we retrieve from
+        ;; the path_array, i.e. for ["foo" "5" "bar"], is "5" a custom
+        ;; fact name, or an array lookup?  The situation could be
+        ;; different if we pushed the path lookups further down, and
+        ;; didn't insinuate them via AST.  At the moment, we preserve
+        ;; backward compatibility by just treating everything as a
+        ;; named field by setting indexes? and matches? above.
+        maybe-index? #(re-matches #"[0-9]+" (:name %))]
+    (if (some maybe-index? path)
+      ;; If this matches, then the path component might be an array
+      ;; access, e.g. via the database-generated paths created by
+      ;; maybe-add-match-function-filter like foo.5.bar, and so we
+      ;; have to be conservative and set array-in-path so that we'll
+      ;; eventually use the right json operators (e.g. #> instead of
+      ;; @>).
+      {:node (assoc node
+                    :value ["?" "?"]
+                    :field (:name column)
+                    :array-in-path true)
+       :state (reduce conj state [(jdbc/strs->db-array (map :name path))
                                   (su/munge-jsonb-for-storage value)])}
-      {:node (assoc node :value "?" :field column :array-in-path false)
-       :state (conj state (su/munge-jsonb-for-storage
-                           (path->nested-map path value)))})))
+      {:node (assoc node
+                    :value "?"
+                    :field (:name column)
+                    :array-in-path false)
+       :state (conj state
+                    (su/munge-jsonb-for-storage
+                     ;; Convert path [a b c] and value d to {a {b {c d}}}
+                     (reduce (fn [result name] (hash-map name result))
+                             (cons value (reverse (map :name path))))))})))
 
 (defn parse-dot-query-with-array-elements
   "Transforms a dotted query into a JSON structure appropriate
    for comparison in the database."
   [{:keys [field value] :as node} state]
-  (let [[column & path] (->> field
-                             su/dotted-query->path
-                             (map formatter/maybe-strip-escaped-quotes)
-                             su/expand-array-access-in-path)
-        qmarks (repeat (count path) "?")
+  ;; node is JsonbPathBinaryExpression
+  ;; Convert facts.foo[5] to ["facts" "foo" 5]
+  (let [[column & path] (mapcat #(case (:kind %)
+                                   ::parse/indexed-field-part [(:name %) (:index %)]
+                                   ::parse/named-field-part [(:name %)])
+                                (parse/parse-field field))
         parameters (concat path [(su/munge-jsonb-for-storage value)
                                  (first path)])]
-    {:node (assoc node :value qmarks :field column)
+    {:node (assoc node
+                  :value (repeat (count path) "?")
+                  :field column)
      :state (reduce conj state parameters)}))
 
 
@@ -1695,6 +1712,7 @@
     (parse-dot-query node state)
 
     (instance? JsonbPathBinaryExpression node)
+    ;; Q: this shouldn't accept match()es?
     (parse-dot-query-with-array-elements node state)
 
     (instance? FnBinaryExpression node)
@@ -1795,8 +1813,72 @@
        (map first)
        (some numeric-functions)))
 
-(def non-predicate-clause
-  #{"group_by" "limit" "offset"})
+(defn- db-path->ast-field [path]
+  (try
+    (parse/path-names->field-str path)
+    (catch ExceptionInfo ex
+      (when-not (= ::parse/unquotable-field-segment (:kind (ex-data ex)))
+        (throw ex))
+      (throw (Exception.
+              (tru "Currently unable to match this path: {0}"
+                   (pr-str (-> ex ex-data :data))))))))
+
+(defn maybe-add-match-function-filter [operator field value]
+  ;; FIXME: this currently treats *all* path segments as match()es
+  ;; when there's any match().  Perhaps change in the next X release,
+  ;; or next endpoint version.
+  (let [parts (parse/parse-field field)]
+    (if (some #(= ::parse/match-field-part (:kind %)) parts)
+      (let [[head & path] parts
+            path (if (= (:name head) "trusted")
+                   ;; Real location is facts.trusted...
+                   (cons head path)
+                   path)
+            ;; Q: factpath-regexp-to-regexp?
+            pg-rx (->> path
+                       (mapcat #(case (:kind %)
+                                  ::parse/indexed-field-part [(:name %) (:index %)]
+                                  ::parse/match-field-part [(:pattern %)]
+                                  ::parse/named-field-part [(:name %)]))
+                       (string/join "#~"))
+            ;; Right now, this code communicates the paths via AST
+            ;; dotted fields, which is insufficient because the
+            ;; current syntax can't represent all possible fact names
+            ;; (see db-path->ast-field).
+            ;;
+            ;; Eventually, and depending on what we decide about
+            ;; match(), we might want to either:
+            ;;   - move this down into the ->plan functions so we
+            ;;     don't have to round-trip through AST, or otherwise
+            ;;     allow us to carry the parsed field representation
+            ;;     rather than a reconsituted AST field string.
+            ;;   - rework AST's quoting syntax (in a new endpoint
+            ;;     version)
+            ;;   - just rely on the well specified syntax we already
+            ;;     have, and provide support paths as JSON vectors,
+            ;;     e.g. ["foo" "bar"], ["foo" ["nth" "bar" 5], "baz"],
+            ;;     ["foo" ["match" "\\d+"]], etc.
+            fact_paths (->> (jdbc/query-to-vec (str "SELECT path_array FROM fact_paths"
+                                                    "  WHERE (path ~ ? AND path IS NOT NULL)")
+                                               (doto (PGobject.)
+                                                 (.setType "text")
+                                                 (.setValue pg-rx)))
+                            (map :path_array)
+                            (map (fn [path]
+                                   (if (= (first path) "trusted")
+                                     path
+                                     (cons "facts" path))))
+                            ;; cf. parse-dot-query which relies on the
+                            ;; fact that any array indexing will match
+                            ;; \d+, i.e. foo.5.bar.
+                            (map db-path->ast-field))]
+        (case (count fact_paths)
+          0 ["or" "false"] ;; Could this just be false?
+          1 (vector operator (first fact_paths) value)
+          (into ["or"] (map #(vector operator % value) fact_paths))))
+      (if (= "trusted" (:name (first parts)))
+        [operator (str "facts." field) value]
+        [operator field value]))))
 
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
@@ -1804,25 +1886,16 @@
   [node]
   (cm/match [node]
 
-            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
+            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"})
+              ;; Q: why isn't "parameters" included in the guard set
+              ;; (cf. :dotted-fields below)?
+              (column :guard #(and (string? %)
+                                   (#{"facts" "trusted"} (-> (parse/parse-field %)
+                                                             first
+                                                             :name))))
+              value]]
             ;; (= :inventory (get-in (meta node) [:query-context :entity]))
-            (if (string/includes? column "match(")
-              (let [[head & path] (->> column
-                                       utils/parse-matchfields
-                                       su/dotted-query->path
-                                       (map formatter/maybe-strip-escaped-quotes))
-                    path (if (= head "trusted") (cons head path) path)
-                    fact_paths (->> (jdbc/query-to-vec "SELECT path_array FROM fact_paths WHERE (path ~ ? AND path IS NOT NULL)"
-                                                       (doto (PGobject.)
-                                                         (.setType "text")
-                                                         (.setValue (string/join "#~" (utils/split-indexing path)))))
-                                    (map :path_array)
-                                    (map (fn [path] (if (= (first path) "trusted") path (cons "facts" path))))
-                                    (map #(string/join "." %)))]
-                (into ["or"] (map #(vector op % value) fact_paths)))
-              (if (re-matches #"^trusted.*" column)
-                [op (str "facts." column) value]
-                [op column value]))
+            (maybe-add-match-function-filter op column value)
 
             [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
             (when (= :facts (get-in meta node [:query-context :entity]))
@@ -1991,7 +2064,9 @@
                      "Argument \"{0}\" is incompatible with numeric field \"{1}\"."
                      value (name field))))))
 
-              [[(:or ">" ">=" "<" "<=")  (field :guard #(not (str/includes? %  "."))) _]]
+              [[(:or ">" ">=" "<" "<=")
+                (field :guard #(= (count (parse/parse-field %)) 1))
+                _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
                               (contains? #{:numeric :timestamp :jsonb-scalar}
@@ -2052,47 +2127,48 @@
              (first expr)))
 
 (defn create-json-subtree-projection
-  [dotted-field projections]
-  (let [json-path (map formatter/maybe-strip-escaped-quotes (su/dotted-query->path dotted-field))
-        stringify-field (fn [{:keys [field field-type]}]
-                          (case field-type
-                            :keyword (name field)
-                            :raw (:s field)
-                            (throw (IllegalArgumentException.
-                                     (tru "Cannot determine field type for field ''{0}''" field)))))]
-  {:type :json
-   :queryable? false
-   :field (hcore/raw
-            (jdbc/create-json-path-extraction
-              ; Extract the original field as a string
-              (->> json-path
-                   first
-                   projections
-                   stringify-field)
-              (rest json-path)))
-   ;; json-path will be something like ("facts" "kernel" ...)
-   :join-deps (get-in projections [(first json-path) :join-deps])}))
+  [[top & path :as parsed-field] projections]
+  (let [stringify (fn [{:keys [field field-type]}]
+                    (case field-type
+                      :keyword (name field)
+                      :raw (:s field)
+                      (throw (IllegalArgumentException.
+                              (tru "Cannot determine field type for field ''{0}''" field)))))]
+    {:type :json
+     :queryable? false
+     :field (hcore/raw
+             (jdbc/create-json-path-extraction
+              ;; Extract the original field as a string
+              (-> top :name projections stringify)
+              (map #(case (:kind %)
+                      ::parse/named-field-part (:name %))
+                   path)))
+     ;; json-path will be something like ("facts" "kernel" ...)
+     :join-deps (get-in projections [(:name top) :join-deps])}))
 
 (defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
    `column-list`. Updating :projected-fields causes the select in the SQL query
    to be modified."
   [{:keys [projections] :as query-rec} column-list expr]
-  (let [names->fields (fn [names projections]
-                        (mapv #(if (is-dotted-projection? %)
-                                 (vector % (create-json-subtree-projection % projections))
-                                 (vector % (projections %)))
-                              names))]
+  (let [names->fields (fn [projections]
+                        (mapv (fn [field parsed]
+                                (vector field
+                                        (if (> (count parsed) 1) ;; dotted projection?
+                                          (create-json-subtree-projection parsed projections)
+                                          (projections field))))
+                              column-list
+                              (map parse/parse-field column-list)))]
     (if (or (nil? expr)
             (not (subquery-expression? expr)))
       (assoc query-rec
              :where (user-node->plan-node query-rec expr)
-             :projected-fields (names->fields column-list projections))
+             :projected-fields (names->fields projections))
       (let [[subname & subexpr] expr
             logobj (user-query->logical-obj subname)
             projections (:projections logobj)]
         (assoc logobj
-               :projected-fields (names->fields column-list projections)
+               :projected-fields (names->fields projections)
                :where (some->> (seq subexpr)
                                first
                                (user-node->plan-node logobj)))))))
@@ -2177,21 +2253,20 @@
    into its function name. Throws an IllegalArgumentException if there is an
    invalid field or function"
   [query-rec column-or-fn-name]
-  ;; Just split on dot for now (as a hack) - we'll use the strict
-  ;; parser once it's available (after 6.18.0 and 7.5.0)."
-  (if (and (is-dotted-projection? column-or-fn-name)
-           (get-in query-rec [:projections
-                              (first (str/split column-or-fn-name #"\." 2))
-                              :field]))
-    ;; Turn facts.foo into a double quoted keyword so that the SQL identifier `:"facts.foo"`
-    ;; matches the extraction of (fs.volatile||fs.stable) AS "facts.foo" from the selection
-    (keyword (jdbc/double-quote column-or-fn-name))
-    (or (get-in query-rec [:projections column-or-fn-name :field])
-        (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
-          (keyword column-or-fn-name)
-          (throw (IllegalArgumentException.
-                  (tru "{0} is niether a valid column name nor function name"
-                       (pr-str column-or-fn-name))))))))
+  (let [parsed (parse/parse-field column-or-fn-name)]
+    (if (and (> (count parsed) 1)
+             (get-in query-rec [:projections
+                                (:name (first parsed))
+                                :field]))
+      ;; Turn facts.foo into a double quoted keyword so that the SQL identifier `:"facts.foo"`
+      ;; matches the extraction of (fs.volatile||fs.stable) AS "facts.foo" from the selection
+      (keyword (jdbc/double-quote column-or-fn-name))
+      (or (get-in query-rec [:projections column-or-fn-name :field])
+          (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
+            (keyword column-or-fn-name)
+            (throw (IllegalArgumentException.
+                    (tru "{0} is niether a valid column name nor function name"
+                         (pr-str column-or-fn-name)))))))))
 
 (defn group-by-entries->fields
   "Convert a list of group by columns and functions to their true SQL field names."
@@ -2303,8 +2378,9 @@
                                         :value value}))
 
             [["=" column-name value]]
-            (let [colname (first (str/split column-name #"\."))
-                  cinfo (get-in query-rec [:projections colname])]
+            ;; FIXME: pass parsed representation down
+            (let [[top & path] (parse/parse-field column-name)
+                  cinfo (get-in query-rec [:projections (:name top)])]
               (case (:type cinfo)
                :timestamp
                (map->BinaryExpression {:operator :=
@@ -2321,7 +2397,7 @@
                                        :value (facts/factpath-to-string value)})
 
                :queryable-json
-               (if (string/includes? column-name "[")
+               (if (some #(= ::parse/indexed-field-part (:kind %)) path)
                  (map->JsonbPathBinaryExpression {:field column-name
                                                   :column-data cinfo
                                                   :value value
@@ -2379,8 +2455,9 @@
                                                                    (map str value))})))
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
-            (let [colname (first (str/split column-name #"\."))
-                  {:keys [type] :as cinfo} (get-in query-rec [:projections colname])]
+            ;; FIXME: pass parsed representation down
+            (let [[top & path] (parse/parse-field column-name)
+                  {:keys [type] :as cinfo} (get-in query-rec [:projections (:name top)])]
               (cond
                 (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
@@ -2410,22 +2487,34 @@
                        value op)))))
 
             [["null?" column-name value]]
-            (let [maybe-dotted-path (str/split column-name #"\.")
-                  cinfo (get-in query-rec [:projections (first maybe-dotted-path)])]
-
+            ;; For now, this assumes that foo[5] and match(...) are
+            ;; just custom fact names, and doesn't handle foo.5.bar as
+            ;; a foo array access, to maintain backward compatibility,
+            ;; i.e. create-json-path-extraction doesn't do anything
+            ;; but single quote the compoents for a pg json path
+            ;; lookup, e.g. json->'x'->'y'.  If we want null? to work
+            ;; on nested arrays, then we'll need to distinguish,
+            ;; i.e. foo.b'ar[5].baz should become
+            ;; foo->'b''ar'->5->'baz'.
+            ;; cf. https://www.postgresql.org/docs/11/functions-json.html
+            (let [[top & path] (parse/parse-field column-name 0
+                                                  {:indexes? false
+                                                   :matches? false})
+                  cinfo (get-in query-rec [:projections (:name top)])]
               (if (and (= :queryable-json (:type cinfo))
-                       (seq? (rest maybe-dotted-path)))
+                       (seq path))
                 (let [field (name (h/extract-sql (:field cinfo)))
-                      dotted-path (->> maybe-dotted-path rest (str/join "."))
-                      json-path (map formatter/maybe-strip-escaped-quotes (su/dotted-query->path dotted-path))
-                      path-extraction-field (jdbc/create-json-path-extraction field json-path)]
-                  (map->NullExpression {:column (assoc cinfo :field (hcore/raw path-extraction-field))
+                      json-path (->> (map :name path)
+                                     (jdbc/create-json-path-extraction field)
+                                     hcore/raw)]
+                  (map->NullExpression {:column (assoc cinfo :field json-path)
                                         :null? value}))
                 (map->NullExpression {:column cinfo :null? value})))
 
             [["~" column-name value]]
-            (let [colname (first (str/split column-name #"\."))
-                  cinfo (get-in query-rec [:projections colname])]
+            ;; FIXME: pass parsed representation down
+            (let [[top] (parse/parse-field column-name)
+                  cinfo (get-in query-rec [:projections (:name top)])]
               (case (:type cinfo)
                 :array
                 (map->ArrayRegexExpression {:column cinfo :value value})
@@ -2506,13 +2595,19 @@
 
 (declare push-down-context)
 
+(defn- valid-dotted-field?
+  [field allowed-json-extract?]
+  (let [[top & path] (parse/parse-field field)]
+    (and (seq path) (allowed-json-extract? (:name top)))))
+
 (defn unsupported-fields
   [field allowed-fields allowed-json-extracts]
-  (let [supported-calls (set (map #(vector "function" %) (keys pdb-fns->pg-fns)))]
-    (remove #(or (contains? (set allowed-fields) %)
-                 (contains? supported-calls (take 2 %))
-                 (and (is-dotted-projection? %)
-                      (contains? (set allowed-json-extracts) (first (str/split % #"\.")))))
+  (let [allowed-json-extract? (set allowed-json-extracts)
+        allowed-field? (set allowed-fields)
+        supported-call? (set (map #(vector "function" %) (keys pdb-fns->pg-fns)))]
+    (remove #(or (allowed-field? %)
+                 (supported-call? (take 2 %))
+                 (valid-dotted-field? % allowed-json-extract?))
             (ks/as-collection field))))
 
 (defn validate-query-operation-fields
@@ -2997,10 +3092,7 @@
                           (remove (comp :query-only? val))
                           keys)))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
-        basename #(let [path-or-field (su/dotted-query->path %)]
-                    (if (coll? path-or-field)
-                      (first path-or-field)
-                      path-or-field))
+        basename #(-> % parse/parse-field first :name)
         required-joins (map #(get-in proj-info [% :join-deps])
                             (map basename fields))]
     (when (some nil? required-joins)

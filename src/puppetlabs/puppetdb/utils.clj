@@ -316,24 +316,6 @@
       (apply assoc m new-kvs)
       m)))
 
-(defn parse-matchfields
-  [s]
-  (str/replace s #"match\((\".*\")\)" "$1"))
-
-(defn parse-indexing
-  [s]
-  (str/replace s #"\[(\d+)\]" ".$1"))
-
-(defn split-indexing
-  [path]
-  (flatten
-    (for [s path]
-      (if (re-find #"\[\d+\]$" s)
-        (-> s
-            (str/split #"(?=\[\d+\]$)")
-            (update 1 #(Integer/parseInt (subs % 1 (dec (count %))))))
-        s))))
-
 (defn regex-quote
   [s]
   (when (and (string? s) (re-find #"\\E" s))
