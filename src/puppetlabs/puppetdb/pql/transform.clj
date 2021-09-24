@@ -52,6 +52,10 @@
   [entity args]
   (vec (concat ["function" entity] args)))
 
+(defn transform-jsonb-typeof
+  [func-name field eq-operator type]
+  [eq-operator ["function" func-name field] type])
+
 (defn transform-condexpression
   [a b c]
   (case b
@@ -145,6 +149,7 @@
    :expr-and           transform-expr-and
    :expr-not           transform-expr-not
    :function           transform-function
+   :jsonbexpr          transform-jsonb-typeof
    :condexpression     transform-condexpression
    :condexpnull        transform-condexpnull
    :groupedarglist     transform-groupedlist
