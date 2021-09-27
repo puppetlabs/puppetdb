@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/api/query/v4/query.html"
 [curl]: ../curl.markdown
 [paging]: ./paging.markdown
 [entities]: ./entities.markdown
-[root]: ./index.markdown
+[root]: ./overview.markdown
 [pql]: ./pql.markdown
 
 ## Summary

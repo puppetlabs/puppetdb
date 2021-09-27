@@ -266,7 +266,7 @@ retries for common error scenarios.
 * Added a new `ast_only` parameter to the root query endpoint
   that translates a PQL query to an equivalent AST query. More
   information is available in the [root
-  endpoint](api/query/v4/index.markdown#url-parameters) docs.
+  endpoint](api/query/v4/overview.markdown#url-parameters) docs.
   ([PDB-2528](https://tickets.puppetlabs.com/browse/PDB-2528))
 
 * Added "quick retries" on command failures. This will retry commands
