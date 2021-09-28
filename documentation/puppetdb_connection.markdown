@@ -6,7 +6,7 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 
 # Configuring a Puppet/PuppetDB connection
 
-[puppetdb_root]: ./index.markdown
+[puppetdb_root]: ./overview.markdown
 [connect_to_puppetdb]: ./connect_puppet_server.markdown
 [confdir]: https://puppet.com/docs/puppet/latest/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_server.markdown#edit-puppetdb\.conf

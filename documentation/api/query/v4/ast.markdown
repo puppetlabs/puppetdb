@@ -6,7 +6,7 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 
 # AST query language
 
-[root]: ./index.markdown
+[root]: ./overview.markdown
 [catalogs]: ./catalogs.markdown
 [contact]: ../../../pdb_support_guide.markdown#contact-us
 [edges]: ./edges.markdown
