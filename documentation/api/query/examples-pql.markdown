@@ -243,7 +243,7 @@ report indicated a failure.
 
 ```
 inventory[certname, facts.os.family, facts.puppetversion] {
-  certname in nodes { latest_report_status = "failed" }
+  certname in nodes[certname] { latest_report_status = "failed" }
 }
 ```
 

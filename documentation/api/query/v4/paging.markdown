@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/query/v4/paging.html"
 ---
 # Query paging
 
-[api]: ../../index.markdown
+[api]: ../../overview.markdown
 [curl]: ../curl.markdown#using-curl-from-localhost-non-sslhttp
 [query]: query.markdown
 [ast]: ./ast.markdown#paging-operators-limit-offset-orderby

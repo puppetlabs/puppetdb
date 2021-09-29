@@ -457,6 +457,35 @@
                  body))
     (is (= 400 status))))
 
+(deftest-http-app invalid-extract
+  [[version endpoint] endpoints
+   method [:get :post]]
+   (let [bad-queries [["extract"
+                       [["function" "count"] "certname"]
+                       ["null?" "type" false]
+                       ["groupy_by" "certname"]]
+                      ["extract"
+                       [["function" "count"] "certname"]
+                       ["null?" "type" false]
+                       ["some_invalid_string"]]]
+         good-queries [["extract" ["hash" "certname" "transaction_uuid"]
+                        ["=" "certname" "foo.com"]]
+                       ["extract" "transaction_uuid"
+                        ["=" "certname" "foo.com"]]
+                       ["extract" [["function" "count"] "status"]
+                        ["=" "certname" "foo.com"]
+                        ["group_by" "status"]]]]
+  (doseq [bad-query bad-queries]
+    (testing (str "Ensure bad query fails: " (pr-str bad-query))
+      (let [{:keys [body status]} (query-response method endpoint bad-query)]
+        (is (re-matches #".* is not a valid expression for \"extract\".*" body))
+        (is (= 400 status)))))
+
+  (doseq [good-query good-queries]
+    (testing (str "Ensure good query succeeds: " (pr-str good-query))
+      (let [{:keys [_ status]} (query-response method endpoint good-query)]
+        (is (= 200 status)))))))
+
 (deftest-http-app query-by-status
   [[version endpoint] endpoints
    method [:get :post]]
@@ -828,7 +857,7 @@
              ;; This is abusing the existence of PDB-4734 to throw an error from a malformed AST query
              (let [{:keys [status body]} (query-response method endpoint query)]
                 (is (= status http/status-internal-error))
-                (is (re-matches #"AST validation failed, but was successfully converted to SQL.*" body)))))))
+                (is (re-matches #"(?s)AST validation failed, but was successfully converted to SQL.*Unrecognized ast clause.*" body)))))))
 
     (testing "agent report filter can be disabled"
        (with-test-db

@@ -11,7 +11,7 @@
     </topicmeta>
 
     <topichead navtitle="General information">
-      <topicref href="index.markdown" format="markdown"/>
+      <topicref href="overview.markdown" format="markdown"/>
       <topicref href="CONTRIBUTING.md" format="markdown"/>
       <topicref href="puppetdb-faq.markdown" format="markdown"/>
       <topicref href="release_notes.markdown" format="markdown"/>
@@ -58,7 +58,7 @@
     </topichead>
     
     <topichead navtitle="API">
-      <topicref href="api/index.markdown" format="markdown"/>
+      <topicref href="api/overview.markdown" format="markdown"/>
       <topicref href="api/query/tutorial.markdown" format="markdown"/>
       <topicref href="api/query/curl.markdown" format="markdown"/>
     </topichead>
@@ -69,7 +69,7 @@
       <topicref href="api/query/v4/entities.markdown" format="markdown"/>
       <topicref href="api/query/v4/ast.markdown" format="markdown"/>
       <topicref href="api/query/v4/paging.markdown" format="markdown"/>
-      <topicref href="api/query/v4/index.markdown" format="markdown"/>
+      <topicref href="api/query/v4/overview.markdown" format="markdown"/>
       <topicref href="api/query/v4/nodes.markdown" format="markdown"/>
       <topicref href="api/query/v4/environments.markdown" format="markdown"/>
       <topicref href="api/query/v4/producers.markdown" format="markdown"/>
@@ -114,7 +114,7 @@
     </topichead>
 
     <topichead navtitle="API">
-      <topicref href="api/index.markdown" format="markdown"/>
+      <topicref href="api/overview.markdown" format="markdown"/>
       <topicref href="api/query/tutorial.markdown" format="markdown"/>
       <topicref href="api/query/curl.markdown" format="markdown"/>
     </topichead>

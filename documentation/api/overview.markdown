@@ -1,7 +1,7 @@
 ---
 title: "API overview"
 layout: default
-canonical: "/puppetdb/latest/api/index.html"
+canonical: "/puppetdb/latest/api/overview.html"
 ---
 
 # API overview
@@ -44,7 +44,7 @@ The available query endpoints are documented in the pages linked below.
 
 This is the current stable API.
 
-* [Root Endpoint](./query/v4/index.markdown)
+* [Root Endpoint](./query/v4/overview.markdown)
 * [Entity Endpoints](./query/v4/entities.markdown)
 * [Metrics Endpoint](./metrics/v1/mbeans.markdown)
 * [Server Time Endpoint](./meta/v1/server-time.markdown)

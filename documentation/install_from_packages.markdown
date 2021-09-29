@@ -10,7 +10,7 @@ layout: default
 [configure_postgres]: ./configure.markdown#using-postgresql
 [configure_heap]: ./configure.markdown#configuring-the-java-heap-size
 [configure_jetty]: ./configure.markdown#jetty-http-settings
-[requirements]: ./index.markdown#standard-install-rhel-centos-debian-and-ubuntu
+[requirements]: ./overview.markdown#standard-install-rhel-centos-debian-and-ubuntu
 [install_module]: ./install_via_module.markdown
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
 [postgres_ssl]: ./postgres_ssl.markdown

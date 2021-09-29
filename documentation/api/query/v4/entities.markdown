@@ -21,7 +21,7 @@ canonical: "/puppetdb/latest/api/query/v4/entities.html"
 [query]: query.markdown
 [reports]: reports.markdown
 [resources]: resources.markdown
-[root]: index.markdown
+[root]: overview.markdown
 [from]: ast.markdown#context-operators
 [subquery]: ast.markdown#subquery-operators
 
