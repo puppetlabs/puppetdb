@@ -2252,19 +2252,20 @@
   [query-rec column-or-fn-name]
   ;; Just split on dot for now (as a hack) - we'll use the strict
   ;; parser once it's available (after 6.18.0 and 7.5.0)."
-  (if (and (is-dotted-projection? column-or-fn-name)
-           (get-in query-rec [:projections
-                              (first (str/split column-or-fn-name #"\." 2))
-                              :field]))
-    ;; Turn facts.foo into a double quoted keyword so that the SQL identifier `:"facts.foo"`
-    ;; matches the extraction of (fs.volatile||fs.stable) AS "facts.foo" from the selection
-    (keyword (jdbc/double-quote column-or-fn-name))
-    (or (get-in query-rec [:projections column-or-fn-name :field])
-        (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
-          (keyword column-or-fn-name)
-          (throw (IllegalArgumentException.
-                  (tru "{0} is niether a valid column name nor function name"
-                       (pr-str column-or-fn-name))))))))
+  (let [parsed (parse/parse-field column-or-fn-name)]
+    (if (and (> (count parsed) 1)
+             (get-in query-rec [:projections
+                                (:name (first parsed))
+                                :field]))
+      ;; Turn facts.foo into a double quoted keyword so that the SQL identifier `:"facts.foo"`
+      ;; matches the extraction of (fs.volatile||fs.stable) AS "facts.foo" from the selection
+      (keyword (jdbc/double-quote column-or-fn-name))
+      (or (get-in query-rec [:projections column-or-fn-name :field])
+          (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
+            (keyword column-or-fn-name)
+            (throw (IllegalArgumentException.
+                    (tru "{0} is niether a valid column name nor function name"
+                         (pr-str column-or-fn-name)))))))))
 
 (defn group-by-entries->fields
   "Convert a list of group by columns and functions to their true SQL field names."
