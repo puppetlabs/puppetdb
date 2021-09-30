@@ -180,12 +180,12 @@
 
 (deftest index-hit-for-trusted-facts-on-inventory
   (testing "facts.trusted.extensions and trusted.extensions should generate the same SQL"
-    (is (re-find #"WHERE \(fs.stable||fs.volatile\) @> ?"
+    (is (re-find #"WHERE \(fs.stable\|\|fs.volatile\) @> ?"
                  (->> ["extract" [] ["=" "facts.trusted.extensions.foo" "bar"]]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first)))
-    (is (re-find #"WHERE \(fs.stable||fs.volatile\) @> ?"
+    (is (re-find #"WHERE \(fs.stable\|\|fs.volatile\) @> ?"
                  (->> ["extract" [] ["=" "trusted.extensions.foo" "bar"]]
                       (compile-user-query->sql inventory-query)
                       :results-query
