@@ -1828,7 +1828,13 @@
   ;; when there's any match().  Perhaps change in the next X release,
   ;; or next endpoint version.
   (let [parts (parse/parse-field field)]
-    (when (some #(= ::parse/match-field-part (:kind %)) parts)
+    (if-not (some #(= ::parse/match-field-part (:kind %)) parts)
+      ;; dotted path without any match() parts, if querying trusted
+      ;; prepend "facts." so that it hits the merged jsonb index instead
+      ;; of needing to scan the table.
+      (if (= "trusted" (:name (first parts)))
+        [operator (str "facts." field) value]
+        [operator field value])
       (let [[head & path] parts
             path (if (= (:name head) "trusted")
                    ;; Real location is facts.trusted...
