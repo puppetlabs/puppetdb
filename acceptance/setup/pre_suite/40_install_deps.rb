@@ -8,7 +8,8 @@ unless (test_config[:skip_presuite_provisioning])
     when :fedora
       on master, "yum install -y ca-certificates"
     when :debian
-      on master, "apt-get install -y ca-certificates"
+      on master, "apt-get install -y ca-certificates libgnutls30"
+      on master, "apt-get update"
     end
   end
 
