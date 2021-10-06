@@ -293,6 +293,11 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian10-64-1'
   end
 
+  def is_el6()
+    return test_config[:os_families].has_key?('redhat6-64-1') ||
+           test_config[:os_families].has_key?('centos6-64-1')
+  end
+
   def is_el8()
     return test_config[:os_families].has_key?('redhat8-64-1') ||
            test_config[:os_families].has_key?('centos8-64-1')
