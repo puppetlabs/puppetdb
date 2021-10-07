@@ -14,6 +14,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.7.0
+
+### Bug fixes
+
+* If a query with an extract clause contains a misspelled option, the clause is completely ignored resulting in a misleading response body.
+  ``` 
+  ["from", "reports",
+    ["extract", [["function", "count", "certname"]],
+      ["null?", "type", false],
+      ["groupy_by", "certname"]]]
+  ```
+  will return all the reports because the extract cause will be ignored ( it contains groupy_by instead of group_by).
+  Instead of returning nil for a malformed extract clause (when converting the query to sql plan), try to identify the misspelled part and log an appropriate error message. ([PDB-4731](https://tickets.puppetlabs.com/browse/PDB-4731))
+
+
+* When querying for trusted facts on inventory endpoint with a query like:
+  ```
+  inventory[] { trusted.extensions.foo = "bar"}
+  ```
+  instead of `facts.trusted.extensions.foo`, the index wasn't hit. The change introduced by this ticket ensures that an index is hit if the query is made with just trusted.[fact]. ([PDB-4985](https://tickets.puppetlabs.com/browse/PDB-4985))
+
+### Contributors
+
+Austin Blatt, Oana Tanasoiu, Rob Browning, and Sebastian Miclea
+
 ## PuppetDB 7.6.0
 
 Released September 16 2021
