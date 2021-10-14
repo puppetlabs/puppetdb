@@ -1441,31 +1441,20 @@
   (jdbc/double-quote projection))
 
 ;; Skipped (only safe if incoming data is safe)
-(defn honeysql-from-query
-  "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity subquery?]}
-   {:keys [node-purge-ttl]}]
-  (let [fs (seq (map (comp hcore/raw :statement) call))
-        select (if (and fs
-                        (empty? projected-fields))
-                 (vec fs)
-                 (vec (concat (->> projections
-                                   (remove (comp :query-only? second))
-                                   (mapv (fn [[name {:keys [field]}]]
-                                           [field (quote-projections name)])))
-                              fs)))
-        new-selection (-> (cond-> selection (not subquery?) (wrap-with-node-state-cte node-purge-ttl))
-                          (assoc :select select)
-                          (cond-> group-by (assoc :group-by group-by)))]
-    new-selection))
-
-(pls/defn-validated sql-from-query :- String
-  "Convert a query to honeysql, then to sql"
-  [query options]
-  (-> query
-      (honeysql-from-query options)
-      (hcore/format :allow-dashed-names? true)
-      first))
+(defn sql-select-for-query
+  "Returns the honesql representation of the query's select,
+  i.e. {:select expr}."
+  [{:keys [projected-fields call selection projections] :as query}]
+  (let [calls (mapv (comp hcore/raw :statement) call)
+        non-call-projections (if (and (empty? calls) (empty? projected-fields))
+                               projections
+                               projected-fields)]
+    (assoc selection
+           :select (->> non-call-projections
+                        (remove (comp :query-only? second))
+                        (mapv (fn [[name {:keys [field]}]]
+                                [field (quote-projections name)]))
+                        (into calls)))))
 
 (defn fn-binary-expression->hsql
   "Produce a predicate that compares the result of a function against a
@@ -1488,19 +1477,17 @@
 
 (extend-protocol SQLGen
   Query
-  (-plan->sql [{:keys [projections projected-fields where] :as query} options]
+  (-plan->sql [{:keys [group-by projections projected-fields subquery? where] :as query}
+               {:keys [node-purge-ttl] :as options}]
     (s/validate [projection-schema] projected-fields)
     (let [has-where? (boolean where)
-          has-projections? (not (empty? projected-fields))
-          sql (-> query
-                  (cond-> has-where? (update :selection #(hsql/merge-where % (-plan->sql where options))))
-                  ;; Note that even if has-projections? is false, the
-                  ;; projections are still relevant.
-                  ;; i.e. projected-fields doesn't tell the
-                  ;; whole story.  It's only relevant if it's not
-                  ;; empty? and then it's decisive.
-                  (cond-> has-projections? (update :projections (constantly projected-fields)))
-                  (sql-from-query options))]
+          sql (cond-> query
+                has-where? (update :selection #(hsql/merge-where % (-plan->sql where options)))
+                true sql-select-for-query
+                (not subquery?) (wrap-with-node-state-cte node-purge-ttl)
+                group-by (assoc :group-by group-by)
+                true (hcore/format :allow-dashed-names? true)
+                true first)]
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))

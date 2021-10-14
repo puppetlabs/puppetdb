@@ -145,7 +145,7 @@
                     (compile-user-query->sql reports-query)
                     :results-query
                     first)))
-  (is (re-find #"SELECT .*certname AS \"certname\", count\(\*\) .* FROM reports"
+  (is (re-find #"SELECT count\(\*\) count, .*certname AS \"certname\" FROM reports"
                (->> ["extract" [["function" "count"] "certname"] ["group_by" "certname"]]
                     (compile-user-query->sql reports-query)
                     :results-query
