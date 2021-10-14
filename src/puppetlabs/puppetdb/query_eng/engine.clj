@@ -1493,19 +1493,14 @@
     (let [has-where? (boolean where)
           has-projections? (not (empty? projected-fields))
           sql (-> query
-                  (utils/update-cond has-where?
-                                     [:selection]
-                                     #(hsql/merge-where % (-plan->sql where options)))
+                  (cond-> has-where? (update :selection #(hsql/merge-where % (-plan->sql where options))))
                   ;; Note that even if has-projections? is false, the
                   ;; projections are still relevant.
                   ;; i.e. projected-fields doesn't tell the
                   ;; whole story.  It's only relevant if it's not
                   ;; empty? and then it's decisive.
-                  (utils/update-cond has-projections?
-                                     [:projections]
-                                     (constantly projected-fields))
+                  (cond-> has-projections? (update :projections (constantly projected-fields)))
                   (sql-from-query options))]
-
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
