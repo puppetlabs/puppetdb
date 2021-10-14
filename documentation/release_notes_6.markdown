@@ -10,10 +10,45 @@ canonical: "/puppetdb/latest/release_notes.html"
 [fact-contents]: ./api/query/v4/fact-contents.markdown
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.markdown
 [puppet-apply]: ./connect_puppet_apply.markdown
+[api-overview]: ./api/query/v4/overview.markdown
 
 ---
 
 # PuppetDB: Release notes
+
+
+## PuppetDB 6.19.0
+
+### New features and improvements
+
+* Adds a new [optional query field][api-overview] `origin` that allows users to attach an identifier to their query, which will assist with debugging any query-related issues. ([PDB-5216](https://tickets.puppetlabs.com/browse/PDB-5216))
+
+* Enabled TLS v1.3 by default, connections will choose 1.3 over 1.2 when supported by both sides. ([PDB-5255](https://tickets.puppetlabs.com/browse/PDB-5255))
+
+* On the resource_events_resource_*z partial has the multicolumn resource_events_resource_timestamp_xxxxxz index (timestamp, title and type) that is limited to 2712 bytes for postgres versions up to 11. Starting with postgres 12, the index size was reduced by 8 bytes. Having resource events that exceed this limit will cause PDB to fail to insert the row without too many info about what and where is the resource that caused the error. This PR adds extra logs with details to allow easier debugging. There are two messages printed, when the index is close to the limit (between 2500 and 2704) and when the limit is exceeded (over 2704). ([PDB-5135](https://tickets.puppetlabs.com/browse/PDB-5135))
+
+### Bug fixes
+
+* If a query with an extract clause contains a misspelled option, the clause is completely ignored resulting in a misleading response body.
+  ``` 
+  ["from", "reports",
+    ["extract", [["function", "count", "certname"]],
+      ["null?", "type", false],
+      ["groupy_by", "certname"]]]
+  ```
+  will return all the reports because the extract cause will be ignored ( it contains groupy_by instead of group_by).
+  Instead of returning nil for a malformed extract clause (when converting the query to sql plan), try to identify the misspelled part and log an appropriate error message. ([PDB-4731](https://tickets.puppetlabs.com/browse/PDB-4731))
+
+
+* When querying for trusted facts on inventory endpoint with a query like:
+  ```
+  inventory[] { trusted.extensions.foo = "bar"}
+  ```
+  instead of `facts.trusted.extensions.foo`, the index wasn't hit. The change introduced by this ticket ensures that an index is hit if the query is made with just `trusted.[fact]`. ([PDB-4985](https://tickets.puppetlabs.com/browse/PDB-4985))
+
+### Contributors
+
+Austin Blatt, Oana Tanasoiu, Rob Browning, and Sebastian Miclea
 
 ## PuppetDB 6.18.0
 

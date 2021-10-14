@@ -1,3 +1,8 @@
+[pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
+[postgres_ssl]: ./postgres_ssl.markdown
+[migration_coordination]: ./migration_coordination.markdown
+[module]: ./install_via_module.markdown
+
 # Using PostgreSQL
 
 Before using the PostgreSQL backend, you must set up a PostgreSQL server. Note
