@@ -33,7 +33,7 @@ canonical: "/puppetdb/latest/release_notes.html"
   ```
   inventory[] { trusted.extensions.foo = "bar"}
   ```
-  instead of `facts.trusted.extensions.foo`, the index wasn't hit. The change introduced by this ticket ensures that an index is hit if the query is made with just trusted.[fact]. ([PDB-4985](https://tickets.puppetlabs.com/browse/PDB-4985))
+  instead of `facts.trusted.extensions.foo`, the index wasn't hit. The change introduced by this ticket ensures that an index is hit if the query is made with just `trusted.[fact]`. ([PDB-4985](https://tickets.puppetlabs.com/browse/PDB-4985))
 
 ### Contributors
 
