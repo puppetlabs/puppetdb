@@ -87,7 +87,7 @@
                   :jsonb-scalar hcore/raw
                   :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
                   :string (su/jsonb-scalar-cast "text")}
-   :path {:path hcore/raw}
+   :encoded-path {:encoded-path hcore/raw}
    :json {:json hcore/raw}
    :boolean {:string (su/sql-cast "text")
              :boolean hcore/raw}
@@ -415,7 +415,7 @@
                                      :queryable? true
                                      :field :vt.type
                                      :join-deps #{:vt}}
-                             "path" {:type :path
+                             "path" {:type :encoded-path
                                      :queryable? true
                                      :field :path
                                      :join-deps #{:fp}}
@@ -504,7 +504,7 @@
                                             :queryable? true
                                             :field :env.environment
                                             :join-deps #{:env}}
-                             "path" {:type :path
+                             "path" {:type :encoded-path
                                      :queryable? true
                                      :field :fs.path
                                      :join-deps #{:fs}}
@@ -2060,7 +2060,7 @@
 
               [["~>" field _]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when-not (contains? #{:path} col-type)
+                (when-not (contains? #{:encoded-path} col-type)
                   (throw (IllegalArgumentException. (tru "Query operator ~> is not allowed on field {0}" field)))))
 
               ;;This validation check is added to fix a failing facts
@@ -2378,7 +2378,7 @@
                (map->ArrayBinaryExpression {:column cinfo
                                             :value value})
 
-               :path
+               :encoded-path
                (map->BinaryExpression {:operator :=
                                        :column cinfo
                                        :value (facts/factpath-to-string value)})
@@ -2423,7 +2423,7 @@
                                                                    java.lang.Integer
                                                                    (map int value))})
 
-                :path
+                :encoded-path
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "text"
                                                                    String
@@ -2522,7 +2522,7 @@
             [["~>" column-name value]]
             (let [cinfo (get-in query-rec [:projections column-name])]
               (case (:type cinfo)
-                :path
+                :encoded-path
                 (map->RegexExpression {:column cinfo
                                        :value (facts/factpath-regexp-to-regexp
                                                value)})))
