@@ -116,7 +116,12 @@ The following example would match if the `certname` field's actual value resembl
 
 **Works with:** paths.
 
-**Matches if:** the array matches using the regular expressions provided within in each element. Array indexes are coerced to strings.
+**Matches if:** each array element, which must be a PostgreSQL regular
+expression or an integer, matches each element of the path.  Integers
+only match array indexes, regular expressions that only contain
+integer digits like `"123"` do not match array indexes, and all other
+regular expressions, including something like `"[12]3", match both
+array indexes and map keys.
 
 The following example would match any network interface names starting with "eth":
 
@@ -125,6 +130,12 @@ The following example would match any network interface names starting with "eth
 If you want to match any index for an array path element, you can use regular expressions, as the element acts like a string:
 
     ["~>", "path", [<array_fact>, ".*"]]
+
+> Limitations: with the current implementation an anchored expression
+> like `"^sda.*"` may never match an array element.  Currently
+> those expressions will match for queries against the
+> [fact-contents][fact-contents endpoint], but for now, that should not be
+> considered reliable across PuppetDB upgrades.
 
 ### `null?` (is null)
 

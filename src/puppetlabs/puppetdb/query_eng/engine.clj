@@ -88,6 +88,7 @@
                   :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
                   :string (su/jsonb-scalar-cast "text")}
    :encoded-path {:encoded-path hcore/raw}
+   :path-array {:path-array hcore/raw}
    :json {:json hcore/raw}
    :boolean {:string (su/sql-cast "text")
              :boolean hcore/raw}
@@ -102,6 +103,9 @@
   [column from to]
   ((-> type-coercion-matrix from to) column))
 
+
+(def ast-path-schema [(s/cond-pre s/Str s/Int)])
+
 (def column-schema
   "Column information: [\"value\" {:type :string :field fv.value_string ...}]"
   {:type s/Keyword :field field-schema s/Any s/Any})
@@ -111,6 +115,23 @@
   [(s/one s/Str "name") (s/one column-schema "column")])
 
 (s/defrecord Query
+    ;; Optional fields:
+    ;;
+    ;;   depends - set of fields that this field depends on, i.e. if
+    ;;     this field is included in the query (e.g. via extract),
+    ;;     then the dependencies must be included in the projections
+    ;;     too.  cf. include-projection-dependencies.  Note that right
+    ;;     now, ["function" ...] calls are not examined with respect
+    ;;     to dependencies.
+    ;;
+    ;;   join-deps - must refer to the name if there's only a name, or
+    ;;     the alias when there is one, i.e. the dep for :factsets is
+    ;;     just :factsets, but for [:factsets :fs] is :fs.
+    ;;
+    ;;   queryable? - is a query allowed to refer to this field?
+    ;;
+    ;;   query-only? - is the field not a candidate for extraction?
+    ;;
     [projections :- {s/Str column-schema}
      selection
      ;; This should be just the top level "from" tables for the query.
@@ -149,6 +170,21 @@
 (s/defrecord ArrayBinaryExpression
     [column :- column-schema
      value])
+
+;; ["=" "path" ["filesystem" 5 "size"]]
+(s/defrecord PathArrayMatch
+    [column :- column-schema
+     path :- ast-path-schema])
+
+;; ["in" "path" [["filesystem" 5 "size"] ["filesystem" 9 "size"]]
+(s/defrecord PathArrayAnyMatch
+    [column :- column-schema
+     paths :- [ast-path-schema]])
+
+;; ["~>" "path" ["filesystem" 5 ".*-errors"]]
+(s/defrecord PathArrayRegexMatch
+    [column :- column-schema
+     path-rx :- ast-path-schema])
 
 (s/defrecord JsonContainsExpression
   [field :- s/Str
@@ -215,10 +251,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
-
-;; The :join-deps must refer to the name if there's only a name, or
-;; the alias when there is one, i.e. the dep for :factsets is just
-;; :factsets, but for [:factsets :fs] is :fs.
 
 (def inventory-query
   "Query for inventory"
@@ -492,52 +524,82 @@
                :entity :facts
                :subquery? false}))
 
+(def fact-contents-core
+  (str
+   "(select certname, flattened.*"
+   "   from factsets fs"
+   "   left join lateral ("
+   "     with recursive flattened_one (parent_path, parent_types, key, value, type) as ("
+   "       select"
+   "           array[]::text[],"
+   "           '',"
+   "           (jsonb_each(fs.stable||fs.volatile)).*,"
+   "           's'"
+   "       union all"
+   ;;        -- jsonb_each().* expands into key and value columns
+   "         select"
+   "             parent_path || flattened_one.key,"
+   "             parent_types || flattened_one.type,"
+   "             sub_paths.key, sub_paths.value, sub_paths.type"
+   "           from flattened_one"
+   "           inner join lateral ("
+   "             select"
+   "               (jsonb_each(value)).*,"
+   "               's' as type"
+   "             where jsonb_typeof(value) = 'object'"
+   "             union all"
+   "             select"
+   "                 generate_series::text as key,"
+   "                 value->generate_series as value,"
+   "                 'i' as type"
+   "               from generate_series(0, jsonb_array_length(value) - 1)"
+   "               where jsonb_typeof(value) = 'array'"
+   "           ) as sub_paths on true"
+   "     )"
+   "     select"
+   "         environment_id,"
+   "         parent_path || key as path,"
+   "         parent_types || type as types,"
+   "         coalesce(parent_path[1], key) as name,"
+   "         value"
+   "       from flattened_one where not jsonb_typeof(value) = any('{\"array\", \"object\"}')"
+   "   ) as flattened"
+   "   on true)"))
+
 (def fact-contents-query
   "Query for fact nodes"
   (map->Query {::which-query :fact-contents
                :can-drop-unused-joins? true
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :fs.certname
-                                         :join-deps #{:fs}}
+                                         :field :fc.certname
+                                         :join-deps #{:fc}}
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment
                                             :join-deps #{:env}}
-                             "path" {:type :encoded-path
+                             "path" {:type :path-array
                                      :queryable? true
-                                     :field :fs.path
-                                     :join-deps #{:fs}}
+                                     :field :fc.path
+                                     :signature :fc.types
+                                     :depends #{"path_types"}
+                                     :join-deps #{:fc}}
+                             "path_types" {:type :string
+                                           :queryable? false
+                                           :query-only? true
+                                           :field :fc.types
+                                           :join-deps #{:fc}}
                              "name" {:type :string
                                      :queryable? true
-                                     :field :fs.name
-                                     :join-deps #{:fs}}
+                                     :field :fc.name
+                                     :join-deps #{:fc}}
                              "value" {:type :jsonb-scalar
                                       :queryable? true
                                       :field :value
-                                      :join-deps #{:fs}}}
-               :selection {:from [[(hcore/raw
-                                    (str "(select certname,"
-                                         "        jsonb_extract_path(stable||volatile,"
-                                         "                           variadic path_array)"
-                                         "          as value,"
-                                         "        path,"
-                                         "        name,"
-                                         "        environment_id"
-                                         "   from factsets"
-                                         "     cross join (select distinct on (path)"
-                                         "                        path,"
-                                         "                        path_array,"
-                                         "                        name from fact_paths) distinct_paths"
-                                         "   where jsonb_extract_path(stable||volatile,"
-                                         "                            variadic path_array)"
-                                         "           is not null"
-                                         "         and jsonb_typeof(jsonb_extract_path(stable||volatile,"
-                                         "                                             variadic path_array))"
-                                         "               <> 'object')"))
-                                   :fs]]
+                                      :join-deps #{:fc}}}
+               :selection {:from [[(hcore/raw fact-contents-core) :fc]]
                            :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]}
+                                       [:= :fc.environment_id :env.id]]}
 
                :relationships (merge certname-relations
                                      {"facts" {:columns ["certname" "name"]}
@@ -1440,11 +1502,44 @@
                  (count projection) projection))))
   (jdbc/double-quote projection))
 
+(defn include-projection-dependencies
+  "Returns projections after adding any dependencies of its memebers,
+  i.e. any :depends listed in the query-rec proj-info for the
+  projection."
+  [proj-info projections]
+  ;; Traverse all the projections to add any the proj-info for missing
+  ;; :depends.  proj-info is the query req field info map.
+  (loop [result (vec projections)
+         already-projected? (->> projections (map first) set)
+         [[fname {:keys [depends] :as info} :as proj] & projections] projections]
+    (if-not proj
+      result
+      (let [[new-projections result]
+            ;; Traverse all the :depends and add [dep dep-info] to the
+            ;; result for any that are missing.
+            (loop [result result
+                   already-projected? already-projected?
+                   [dep & depends] depends]
+              (if-not dep
+                [already-projected? result]
+                (if (already-projected? dep)
+                  (recur result already-projected? depends)
+                  (recur (let [dep-info (proj-info dep)]
+                           (assert (= (:queryable? dep-info) false))
+                           (conj result [dep dep-info]))
+                         (conj already-projected? dep)
+                         depends))))]
+        ;; Fold the information from the inner loop into the result
+        (recur result
+               (set/union already-projected? new-projections)
+               projections)))))
+
 ;; Skipped (only safe if incoming data is safe)
 (defn sql-select-for-query
   "Returns the honesql representation of the query's select,
   i.e. {:select expr}."
   [{:keys [projected-fields call selection projections] :as query}]
+  ;; This is where we finally fully expand the projections.
   (let [calls (mapv (comp hcore/raw :statement) call)
         non-call-projections (if (and (empty? calls) (empty? projected-fields))
                                projections
@@ -1452,6 +1547,9 @@
     (assoc selection
            :select (->> non-call-projections
                         (remove (comp :query-only? second))
+                        ;; Currently this does not support deps for
+                        ;; projected functions i.e. :calls.
+                        (include-projection-dependencies projections)
                         (mapv (fn [[name {:keys [field]}]]
                                 [field (quote-projections name)]))
                         (into calls)))))
@@ -1566,6 +1664,20 @@
     (s/validate column-schema column)
     (su/sql-regexp-array-match (:field column)))
 
+  PathArrayMatch
+  (-plan->sql [{:keys [column path]} options]
+    (su/path-array-col-matches-ast-path (:field column) (:signature column) path))
+
+  PathArrayAnyMatch
+  (-plan->sql [{:keys [column paths]} options]
+    (su/path-array-col-matches-any-ast-path (:field column) (:signature column) paths))
+
+  PathArrayRegexMatch
+  (-plan->sql [{:keys [column path-rx]} options]
+    (s/validate column-schema column)
+    (s/validate ast-path-schema path-rx)
+    (su/path-array-col-matches-rx-vec (:field column) (:signature column) path-rx))
+
   NullExpression
   (-plan->sql [{:keys [column] :as expr} options]
     (s/validate column-schema column)
@@ -1606,6 +1718,8 @@
 (defn binary-expression?
   "True if the plan node is a binary expression"
   [node]
+  ;; Currently, this really just means "should we arrange for a single
+  ;; ? parameter corresponding with the :value?".  cf. extract-params.
   (or (instance? BinaryExpression node)
       (instance? RegexExpression node)
       (instance? InArrayExpression node)
@@ -2060,7 +2174,7 @@
 
               [["~>" field _]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when-not (contains? #{:encoded-path} col-type)
+                (when-not (contains? #{:encoded-path :path-array} col-type)
                   (throw (IllegalArgumentException. (tru "Query operator ~> is not allowed on field {0}" field)))))
 
               ;;This validation check is added to fix a failing facts
@@ -2383,6 +2497,9 @@
                                        :column cinfo
                                        :value (facts/factpath-to-string value)})
 
+               :path-array
+               (map->PathArrayMatch {:column cinfo :path value})
+
                :queryable-json
                (if (some #(= ::parse/indexed-field-part (:kind %)) path)
                  (map->JsonbPathBinaryExpression {:field column-name
@@ -2428,6 +2545,9 @@
                                          :value (su/array-to-param "text"
                                                                    String
                                                                    (map facts/factpath-to-string value))})
+
+                :path-array
+                (map->PathArrayAnyMatch {:column cinfo :paths value})
 
                 :jsonb-scalar
                 (map->InArrayExpression
@@ -2525,7 +2645,9 @@
                 :encoded-path
                 (map->RegexExpression {:column cinfo
                                        :value (facts/factpath-regexp-to-regexp
-                                               value)})))
+                                               value)})
+                :path-array
+                (map->PathArrayRegexMatch {:column cinfo :path-rx value})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})

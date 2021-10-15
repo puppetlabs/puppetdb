@@ -5,6 +5,7 @@
             [honeysql.core :as hcore]
             [honeysql.format :as hfmt]
             [clojure.string :as str]
+            [puppetlabs.i18n.core :refer [tru]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -25,6 +26,19 @@
   (.createArrayOf ^Connection (:connection (jdbc/db))
                   col-type
                   (into-array java-type values)))
+
+(defn ast-path->array-path
+  "Converts integers in path to strings so that the result is suitable
+  for a text[]."
+  [path]
+  (mapv #(cond
+           (string? %) %
+           (int? %) (str %)
+           :else
+           (throw (IllegalArgumentException.
+                   (tru "Path array element wasn't string or integer in {0}"
+                        (pr-str path)))))
+        path))
 
 (def pg-extension-map
   "Maps to the table definition in postgres, but only includes some of the
@@ -210,6 +224,110 @@
   [column]
   (hcore/raw
    (format "ARRAY[?::text] <@ %s" (name column))))
+
+(defn ast-path-type-sig
+  [path]
+  (->> path
+       (map #(cond
+               (string? %) \s
+               (int? %) \i
+               :else
+               (throw (IllegalArgumentException.
+                       (tru "Path array element wasn't string or integer in {0}"
+                            (pr-str path))))))
+       (apply str)))
+
+(defn ast-rx-path-type-pattern
+  [path]
+  (->> path
+       (map #(cond
+               ;; If the pattern is a string that represents an
+               ;; integer (e.g. "456") we require a string by setting
+               ;; the relevant signature component to "s".  If it's
+               ;; anything else (even something like "4[5]6" that will
+               ;; match an integer), we allow any type by placing the
+               ;; like operator's "_" (match any single char) syntax
+               ;; into the signature pattern.  This is all in support
+               ;; of the currently defined behavior of the ~> (regexp
+               ;; array match) operator.  (See ast.markdown for
+               ;; additional information.)
+               (string? %) (if (re-matches #"\d+" %) \s \_)
+               (int? %) \i
+               :else
+               (throw (IllegalArgumentException.
+                       (tru "Path array element wasn't string or integer in {0}"
+                            (pr-str path))))))
+       (apply str)))
+
+(defn path-array-col-matches-ast-path
+  [column sig-col path]
+  ;; (path = array['w', 'x', '0', '1', 'y'] and type = 'ssiss')
+  (let [column (name column)
+        paths (map ast-path->array-path path)
+        sig-col (name sig-col)
+        sig (-> path ast-path-type-sig jdbc/single-quote)]
+    (-> (str "("
+             column " = " (jdbc/str-vec->array-literal path)
+             " and "
+             sig-col " = " sig
+             ")")
+        hcore/raw)))
+
+(defn path-array-col-matches-any-ast-path
+  ;; ((path = array['w', 'x', '0', '1', 'y'] and type = 'ssiss')
+  ;;  or (path = array['a', 'b', 'c'] and type = 'sss')
+  ;;  or (path = array['w', '3', '11'] and type = 'sii'))
+  [column sig-col paths]
+  (let [column (name column)
+        arrays (map ast-path->array-path paths)
+        sigs (map ast-path-type-sig paths)
+        sig-col (name sig-col)]
+    (-> (str "("
+             (->> (map (fn [array sig]
+                         (str "("
+                              column " = " (jdbc/str-vec->array-literal array)
+                              " and "
+                              sig-col " = " (jdbc/single-quote sig)
+                              ")"))
+                       arrays sigs)
+                  (str/join " or "))
+             ")")
+        hcore/raw)))
+
+(defn path-array-col-matches-rx-vec
+  [column sig-col path-rx]
+  ;; Produces results like this:
+  ;; -- need case statement for guaranteed short-circuit...
+  ;; case when array_length(path) >= array_length(rx)
+  ;;   then type like 'sss_sis'
+  ;;        and path[3] ~ 'rx-3'
+  ;;        and path[2] ~ 'rx-2'
+  ;;        and path[1] ~ 'rx-1'
+  ;;   else false
+  ;; end
+  (let [column (name column)
+        sig-col (name sig-col)
+        sig (-> path-rx ast-rx-path-type-pattern jdbc/single-quote)
+        ast->db #(cond
+                   (string? %) %
+                   (int? %) (str %)
+                   :else
+                   (throw (IllegalArgumentException.
+                           (tru "Regex array element wasn't string or integer in {0}"
+                                (pr-str path-rx)))))
+        matches-target (fn [i rx]
+                         (format "\n       and %s[%d] ~ %s"
+                                 column
+                                 (inc i)
+                                 (-> rx ast->db jdbc/single-quote)))]
+    (hcore/raw
+     (str "(case when array_length(" column ", 1) = " (count path-rx) "\n"
+          "   then " sig-col " like " sig
+          (apply str
+                 (->> (map-indexed matches-target path-rx)
+                      reverse)) "\n"
+          "   else false\n"
+          " end)"))))
 
 (defn sql-regexp-match
   "Returns db code for performing a regexp match."

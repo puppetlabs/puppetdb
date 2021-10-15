@@ -2196,8 +2196,10 @@
               {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "PROD"}]))
       (is (= (into [] (response ["~>" "path" ["my_structured_fact"]]))
              []))
-      (is (= (into [] (response ["~>" "path" ["my_structured_fact" "^a"]]))
-             []))
+      (is (= #{{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+               {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+               {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "PROD"}}
+             (into #{} (response ["~>" "path" ["my_structured_fact" "^a"]]))))
       (is (= (into [] (response ["and" ["~>" "path" ["my_structured_fact" ".*"]] ["=" "certname" "foo1"]]))
              [{"certname" "foo1", "path" ["my_structured_fact" "a"], "name" "my_structured_fact", "value" 1, "environment" "DEV"}
               {"certname" "foo1", "path" ["my_structured_fact" "b"], "name" "my_structured_fact", "value" 3.14, "environment" "DEV"}
