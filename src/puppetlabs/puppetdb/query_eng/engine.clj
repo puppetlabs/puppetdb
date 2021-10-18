@@ -2588,10 +2588,7 @@
         projections (projectable-fields query-rec)]
     (if (instance? Query plan-node)
       plan-node
-      (-> query-rec
-          (assoc :where plan-node
-                 :paging-options paging-options
-                 :project-fields projections)))))
+      (assoc query-rec :where plan-node :paging-options paging-options))))
 
 (declare push-down-context)
 
