@@ -130,7 +130,7 @@
     ;;
     ;;   queryable? - is a query allowed to refer to this field?
     ;;
-    ;;   query-only? - is the field not a candidate for extraction?
+    ;;   unprojectable? - is the field not a candidate for extraction?
     ;;
     [projections :- {s/Str column-schema}
      selection
@@ -457,7 +457,7 @@
                                      :join-deps #{:fp}}
                              "depth" {:type :numeric
                                       :queryable? true
-                                      :query-only? true
+                                      :unprojectable? true
                                       :field :fp.depth
                                       :join-deps #{:fp}}}
                :selection {:from [[:fact_paths :fp]]
@@ -586,7 +586,7 @@
                                      :join-deps #{:fc}}
                              "path_types" {:type :string
                                            :queryable? false
-                                           :query-only? true
+                                           :unprojectable? true
                                            :field :fc.types
                                            :join-deps #{:fc}}
                              "name" {:type :string
@@ -621,11 +621,11 @@
                                                         (h/scast :logs_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field (hsql-hash-as-str :reports.hash)}
                              "type" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field :reports.report_type}}
                :selection {:from [:reports]}
 
@@ -645,11 +645,11 @@
                                                            (h/scast :reports.metrics_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field (hsql-hash-as-str :reports.hash)}
                              "type" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field :reports.report_type}}
                :selection {:from [:reports]}
 
@@ -767,7 +767,7 @@
 
       "latest_report?" {:type :string
                         :queryable? true
-                        :query-only? true
+                        :unprojectable? true
                         :join-deps #{}}
       "resource_events" {:type :json
                          :queryable? false
@@ -1056,7 +1056,7 @@
                                       :field :title}
                              "tag"   {:type :string
                                       :queryable? true
-                                      :query-only? true}
+                                      :unprojectable? true}
                              "tags" {:type :array
                                      :queryable? true
                                      :field :tags}
@@ -1166,10 +1166,10 @@
                                             :field :environments.environment}
                              "latest_report?" {:type :boolean
                                                :queryable? true
-                                               :query-only? true}
+                                               :unprojectable? true}
                              "report_id" {:type :numeric
                                           :queryable? false
-                                          :query-only? true
+                                          :unprojectable? true
                                           :field :events.report_id}
                              "name" {:type :string
                                      :queryable? true
@@ -1449,11 +1449,11 @@
 (defn projectable-fields
   "Returns a list of projectable fields from a query record.
 
-   Fields marked as :query-only? true are unable to be projected and thus are
+   Fields marked as :unprojectable? true are unable to be projected and thus are
    excluded."
   [{:keys [projections]}]
   (->> projections
-       (remove (comp :query-only? val))
+       (remove (comp :unprojectable? val))
        keys))
 
 (defn projectable-json-fields
@@ -1546,7 +1546,7 @@
                                projected-fields)]
     (assoc selection
            :select (->> non-call-projections
-                        (remove (comp :query-only? second))
+                        (remove (comp :unprojectable? second))
                         ;; Currently this does not support deps for
                         ;; projected functions i.e. :calls.
                         (include-projection-dependencies projections)
@@ -3209,7 +3209,7 @@
                           ;; i.e. wondering if we might have a
                           ;; conversion bug elsewhere...
                           (into {})
-                          (remove (comp :query-only? val))
+                          (remove (comp :unprojectable? val))
                           keys)))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
         basename #(-> % parse/parse-field first :name)
