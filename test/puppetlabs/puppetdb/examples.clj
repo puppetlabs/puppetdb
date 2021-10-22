@@ -118,22 +118,26 @@
      :title      "Settings"
      :parameters {}
      :tags       ["class" "settings"]
-     :type       "Class"}
+     :type       "Class"
+     :kind       "unknown"}
     {:exported   false
      :title      "main"
      :parameters {:name "main"}
      :tags       ["class"]
-     :type       "Class"}
+     :type       "Class"
+     :kind       "unknown"}
     {:exported   false
      :title      "main"
      :parameters {:name "main"}
      :tags       ["stage"]
-     :type       "Stage"}
+     :type       "Stage"
+     :kind       "unknown"}
     {:exported   false
      :title      "default"
      :parameters {}
      :tags       ["node" "default" "class"]
-     :type       "Node"}]
+     :type       "Node"
+     :kind       "unknown"}]
    :version          "1332533763"
    :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
    :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
@@ -167,6 +171,7 @@
                                    :exported false
                                    :file "/tmp/foo"
                                    :line 10
+                                   :kind "unknown"
                                    :tags ["file" "class" "foobar"]
                                    :parameters {:ensure "directory"
                                                 :group  "root"
@@ -182,6 +187,7 @@
                                    :exported false
                                    :file "/tmp/foo"
                                    :line 10
+                                   :kind "unknown"
                                    :tags ["file" "class" "foobar"]
                                    :parameters {:ensure "directory"
                                                 :group  "root"
@@ -195,6 +201,7 @@
                                    :exported false
                                    :file "/tmp/foo"
                                    :line 10
+                                   :kind "unknown"
                                    :tags ["file" "class" "foobar"]
                                    :parameters {:ensure "directory"
                                                 :group  "root"

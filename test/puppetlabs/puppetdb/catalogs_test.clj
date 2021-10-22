@@ -132,19 +132,21 @@
                               :parameters {:ensure "present"
                                            :user   "root"
                                            :group  "root"
-                                           :source "puppet:///foobar/foo/bar"}}]}]
+                                           :source "puppet:///foobar/foo/bar"}}]}
+        normalized-catalog {:resources {{:type "File" :title "/etc/foobar"}
+                                        {:type       "File"
+                                         :title      "/etc/foobar"
+                                         :exported   false
+                                         :line       1234
+                                         :file       "/tmp/foobar.pp"
+                                         :tags       #{"class" "foobar"}
+                                         :parameters {:ensure "present"
+                                                      :user   "root"
+                                                      :group  "root"
+                                                      :source "puppet:///foobar/foo/bar"}}}}]
     (is (= (-> catalog
                (transform-resources))
-           {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
-                                                             :title      "/etc/foobar"
-                                                             :exported   false
-                                                             :line       1234
-                                                             :file       "/tmp/foobar.pp"
-                                                             :tags       #{"class" "foobar"}
-                                                             :parameters {:ensure "present"
-                                                                          :user   "root"
-                                                                          :group  "root"
-                                                                          :source "puppet:///foobar/foo/bar"}}}}))
+           normalized-catalog))
 
     (let [resources (:resources catalog)
           new-resources (conj resources (first resources))
@@ -159,7 +161,15 @@
       ;; missing resources aren't allowed
       (is (thrown? AssertionError (transform-resources {})))
       ;; pre-created resource maps aren't allow
-      (is (thrown? AssertionError (transform-resources {:resources {}}))))))
+      (is (thrown? AssertionError (transform-resources {:resources {}}))))
+
+    (testing "kind attribute and other unrecognized keys are removed from resources"
+      (let [catalog (update catalog :resources (partial map
+                                                        #(assoc %
+                                                                :kind "unknown"
+                                                                :unknown-key "new resource attribute")))]
+        (is (= (transform-resources catalog)
+               normalized-catalog))))))
 
 (deftest test-v9-conversion
   (testing "v8->v9"
