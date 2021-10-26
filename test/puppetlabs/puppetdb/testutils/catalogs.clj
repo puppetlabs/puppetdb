@@ -44,7 +44,10 @@
       clojure.walk/stringify-keys
       (dissoc "hash")
       (update "producer_timestamp" to-string)
-      (update "resources" (fn [resources] (set (map #(update % "tags" set) resources))))
+      (update "resources" (fn [resources] (->> resources
+                                               (map #(update % "tags" set))
+                                               (map #(dissoc % "kind"))
+                                               set)))
       (update "edges" (fn [edges] (set (map #(update % "relationship" name) edges))))
       ;; In our terminus code, the version is sometimes being serialized as a JSON
       ;;  integer, rather than a string.  The correct data type is String.

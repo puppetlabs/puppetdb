@@ -88,6 +88,7 @@
   (:require [clojure.core.match :refer [match]]
             [clojure.set :as set]
             [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
@@ -276,13 +277,32 @@
 
 ;; ## Resource normalization
 
+;; the kind field was added to improve agent/server communication, so resources
+;; are expected to have it, but we do not store it. Other unrecognized keys will
+;; be added to it so that each unrecognized key is only logged once per startup.
+(def already-seen-unrecognized-keys (atom #{:kind}))
+
+(defn- strip-unknown-attributes
+  "Removes unknown attributes from a resource. This is essential for the forward compatibility
+  of PuppetDB when the puppet agent makes additions to its resource definition."
+  [{:keys [type title] :as resource} expected-keys already-seen-unrecognized-keys]
+  (let [unrecognized-keys (set/difference (set (keys resource))
+                                          expected-keys
+                                          @already-seen-unrecognized-keys)]
+    (when-let [ks (seq unrecognized-keys)]
+      (log/warn (trs "Ignoring unrecognized catalog resource key(s) {0}. Future warnings will be surpressed."
+                     ks type title))
+      (swap! already-seen-unrecognized-keys set/union unrecognized-keys))
+    (select-keys resource expected-keys)))
+
 (defn transform-resource*
-  "Normalizes the structure of a single `resource`. Right now this just means
-  setifying the tags."
-  [resource]
+  "Normalizes the structure of a single `resource`."
+  [resource expected-keys already-seen-unrecognized-keys]
   {:pre [(map? resource)]
    :post [(set? (:tags %))]}
-  (transform-tags resource))
+  (-> resource
+      transform-tags
+      (strip-unknown-attributes expected-keys already-seen-unrecognized-keys)))
 
 (defn transform-resources
   "Turns the list of resources into a mapping of
@@ -292,9 +312,13 @@
           (not (map? resources))]
    :post [(map? (:resources %))
           (= (count resources) (count (:resources %)))]}
-  (let [new-resources (into {} (for [{:keys [type title] :as resource} resources
+  (let [already-seen-unrecognized-keys already-seen-unrecognized-keys
+        expected-keys #{:type :title :exported :file :line :tags :aliases :parameters}
+        new-resources (into {} (for [{:keys [type title] :as resource} resources
                                      :let [resource-spec    {:type type :title title}
-                                           new-resource     (transform-resource* resource)]]
+                                           new-resource     (transform-resource* resource
+                                                                                 expected-keys
+                                                                                 already-seen-unrecognized-keys)]]
                                  [resource-spec new-resource]))]
     (assoc catalog :resources new-resources)))
 

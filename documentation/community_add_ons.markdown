@@ -13,6 +13,8 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 [exports]: http://forge.puppetlabs.com/zack/exports
 [exported]: https://puppet.com/docs/puppet/latest/lang_exported.html
 [cms-puppetdb-tools]: https://github.com/tskirvin/cms-puppetdb-tools
+[prometheus-exporter]: https://github.com/camptocamp/prometheus-puppetdb-exporter
+[vox-pupuli-prometheus]: https://github.com/voxpupuli/puppet-prometheus/blob/master/manifests/puppetdb_exporter.pp
 
 ## [Jason Hancock --- nagios-puppetdb][nagios]
 
@@ -45,3 +47,15 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 * `puppetdb-tooquiet` Lists hosts that have not checked in over the last two hours (configurable).
 
 There are also a variety of tools for querying specific system facts and providing useful reports, which are tied to the upstream environment fact list.
+
+## [Camptocamp --- prometheus-puppetdb-exporter][prometheus-exporter]
+
+[A custom Prometheus exporter for PuppetDB.][prometheus-exporter] This CLI tool
+starts a server that exposes PuppetDB metrics for
+[Prometheus](https://prometheus.io), an open-source systems monitoring and
+alerting toolkit. Written in Go, prometheus-puppetdb-exporter is available
+for download as a standalone Linux executable. Alternatively, the
+[Vox Pupuli Prometheus][vox-pupuli-prometheus] module can install
+prometheus-puppetdb-exporter via Puppet. For more information about custom
+Prometheus exporters, see the
+[Prometheus custom exporter docs](https://prometheus.io/docs/instrumenting/writing_exporters).
