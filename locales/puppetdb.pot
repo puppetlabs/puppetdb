@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: f28e0bfabc1b170e1379b4bb145e5fd627e4c372\n"
+"X-Git-Ref: 758418856e39ad924f60a48840d3616f914d7614\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -36,6 +36,12 @@ msgstr ""
 msgid ""
 "Unable to convert type ''{0}'' to an InputStream; expected String, File, or "
 "InputStream"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/catalogs.clj
+msgid ""
+"Ignoring unrecognized catalog resource key(s) {0}. Future warnings will be "
+"surpressed."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/catalogs.clj
