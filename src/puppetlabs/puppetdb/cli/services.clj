@@ -214,8 +214,9 @@
   {:pre [(map? db)
          (period? report-ttl)]}
   (let [rounded-events-ttl (some-> resource-events-ttl rounded-date)
+        rounded-report-ttl (rounded-date report-ttl)
         update-lock-status (partial update-db-lock-status db-lock-status)
-        del-opts (merge {:report-ttl (ago report-ttl)
+        del-opts (merge {:report-ttl rounded-report-ttl
                          :incremental? incremental?
                          :update-lock-status update-lock-status
                          :db db}

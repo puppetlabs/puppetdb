@@ -573,3 +573,33 @@
       (with-redefs [jdbc/pooled-datasource validation-fn]
         (testing "should use connection user"
           (init-write-dbs databases))))))
+
+(deftest correctly-sweep-reports
+  (with-test-db
+    (let [config (-> (create-temp-config)
+                     (assoc :database *db*)
+                     (assoc-in [:database :gc-interval] "0.01"))
+          store-report #(sync-command-post (svc-utils/pdb-cmd-url)
+                                           example-certname
+                                           "store report"
+                                           cmd-consts/latest-report-version
+                                           (change-report-time example-report %))
+          db-lock-status (svcs/database-lock-status)]
+      (call-with-puppetdb-instance
+       config
+       (fn []
+         (testing "A report from 24 hours ago won't be gc'ed with a report-ttl of 1d"
+           (store-report (-> 1 time/days time/ago time/to-string))
+           (svcs/sweep-reports! *db* {:incremental true
+                                      :report-ttl (time/parse-period "1d")
+                                      :resource-events-ttl (time/parse-period "1d")
+                                      :db-lock-status db-lock-status})
+           (is (= 1 (count (jdbc/query ["SELECT * FROM reports"]))))
+           (jdbc/do-commands "DELETE FROM reports"))
+         (testing "A report from 48 hours ago will be gc'ed with a report-ttl of 1d"
+           (store-report (-> 2 time/days time/ago time/to-string))
+           (svcs/sweep-reports! *db* {:incremental true
+                                      :report-ttl (time/parse-period "1d")
+                                      :resource-events-ttl (time/parse-period "1d")
+                                      :db-lock-status db-lock-status})
+           (is (empty? (jdbc/query ["SELECT * FROM reports"])))))))))
