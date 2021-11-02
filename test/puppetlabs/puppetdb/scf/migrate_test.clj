@@ -1514,3 +1514,153 @@
                               :same nil}]
                 :constraint-diff nil}
                (diff-schema-maps before-migration (schema-info-map *db*))))))))
+
+(deftest migration-80-adds-workspaces-tables
+  (testing "workspaces tables migration"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 79)
+      (let [before-migration (schema-info-map *db*)]
+        (apply-migration-for-testing! 80)
+        (is (= {:index-diff
+                [{:left-only nil,
+                  :right-only
+                  {:schema "public",
+                   :table "workspace_memberships",
+                   :index "workspace_memberships_pkey",
+                   :index_keys ["workspace_uuid" "certname"],
+                   :type "btree",
+                   :unique? true,
+                   :functional? false,
+                   :is_partial false,
+                   :primary? true,
+                   :user "pdb_test"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:schema "public",
+                   :table "workspaces",
+                   :index "workspaces_pkey",
+                   :index_keys ["uuid"],
+                   :type "btree",
+                   :unique? true,
+                   :functional? false,
+                   :is_partial false,
+                   :primary? true,
+                   :user "pdb_test"},
+                  :same nil}],
+                :table-diff
+                [{:left-only nil,
+                  :right-only
+                  {:numeric_scale nil,
+                   :column_default nil,
+                   :character_octet_length 1073741824,
+                   :datetime_precision nil,
+                   :nullable? "NO",
+                   :character_maximum_length nil,
+                   :numeric_precision nil,
+                   :numeric_precision_radix nil,
+                   :data_type "text",
+                   :column_name "certname",
+                   :table_name "workspace_memberships"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:numeric_scale nil,
+                   :column_default nil,
+                   :character_octet_length nil,
+                   :datetime_precision nil,
+                   :nullable? "NO",
+                   :character_maximum_length nil,
+                   :numeric_precision nil,
+                   :numeric_precision_radix nil,
+                   :data_type "uuid",
+                   :column_name "workspace_uuid",
+                   :table_name "workspace_memberships"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:numeric_scale nil,
+                   :column_default nil,
+                   :character_octet_length nil,
+                   :datetime_precision 6,
+                   :nullable? "NO",
+                   :character_maximum_length nil,
+                   :numeric_precision nil,
+                   :numeric_precision_radix nil,
+                   :data_type "timestamp with time zone",
+                   :column_name "updated",
+                   :table_name "workspaces"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:numeric_scale nil,
+                   :column_default nil,
+                   :character_octet_length nil,
+                   :datetime_precision nil,
+                   :nullable? "NO",
+                   :character_maximum_length nil,
+                   :numeric_precision nil,
+                   :numeric_precision_radix nil,
+                   :data_type "uuid",
+                   :column_name "uuid",
+                   :table_name "workspaces"},
+                  :same nil}],
+                :constraint-diff
+                [{:left-only nil,
+                  :right-only
+                  {:constraint_name "certname IS NOT NULL",
+                   :table_name "workspace_memberships",
+                   :constraint_type "CHECK",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:constraint_name "workspace_memberships_pkey",
+                   :table_name "workspace_memberships",
+                   :constraint_type "PRIMARY KEY",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:constraint_name "workspace_memberships_workspace_uuid_fkey",
+                   :table_name "workspace_memberships",
+                   :constraint_type "FOREIGN KEY",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:constraint_name "workspace_uuid IS NOT NULL",
+                   :table_name "workspace_memberships",
+                   :constraint_type "CHECK",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:constraint_name "updated IS NOT NULL",
+                   :table_name "workspaces",
+                   :constraint_type "CHECK",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:constraint_name "uuid IS NOT NULL",
+                   :table_name "workspaces",
+                   :constraint_type "CHECK",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}
+                 {:left-only nil,
+                  :right-only
+                  {:constraint_name "workspaces_pkey",
+                   :table_name "workspaces",
+                   :constraint_type "PRIMARY KEY",
+                   :initially_deferred "NO",
+                   :deferrable? "NO"},
+                  :same nil}]}
+               (diff-schema-maps before-migration (schema-info-map *db*))))))))

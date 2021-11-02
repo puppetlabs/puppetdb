@@ -2038,6 +2038,19 @@
   (jdbc/do-commands
    "ALTER TABLE certnames ADD COLUMN catalog_inputs_hash bytea"))
 
+(defn add-workspaces-tables
+  []
+  (jdbc/do-commands
+   ["CREATE TABLE workspaces ("
+    "  uuid UUID PRIMARY KEY,"
+    "  updated TIMESTAMP WITH TIME ZONE NOT NULL)"]
+
+   ["CREATE TABLE workspace_memberships ("
+    "  workspace_uuid UUID,"
+    "  certname TEXT NOT NULL,"
+    "  PRIMARY KEY (workspace_uuid, certname),"
+    "  FOREIGN KEY (workspace_uuid) REFERENCES workspaces(uuid) ON DELETE CASCADE)"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2100,7 +2113,8 @@
    76 add-report-partition-indexes-on-id
    77 add-catalog-inputs-pkey
    78 add-catalog-inputs-hash
-   79 add-report-partition-indexes-on-certname-end-time})
+   79 add-report-partition-indexes-on-certname-end-time
+   80 add-workspaces-tables})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
