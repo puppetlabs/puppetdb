@@ -16,6 +16,30 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 6.19.1
+
+Released November 9 2021
+
+### Security fixes
+
+This release is part of both a Puppet Platform and PE release that resolves
+CVEs, see [Puppet's CVE
+announcements](https://puppet.com/security/cve/security-vulnerability-announcements)
+for more information.
+
+### Upgrade cautions
+
+Puppet Agent 6.25.1
+([PUP-11209](https://tickets.puppetlabs.com/browse/PUP-11209)) introduced a new
+catalog resource field in order to resolve CVE-2021-27025. This field was not
+handled properly by older versions of PuppetDB and will result in catalogs not
+being stored in PuppetDB. Before upgrading _any_ agents in your installation to
+6.25.1, you _must_ first upgrade your PuppetDB(s) to this version.
+([PDB-5338](https://tickets.puppetlabs.com/browse/PDB-5338))
+
+### Contributors
+
+Austin Blatt, Rob Browning, Sebastian Miclea, and Stel Abrego
 
 ## PuppetDB 6.19.0
 
