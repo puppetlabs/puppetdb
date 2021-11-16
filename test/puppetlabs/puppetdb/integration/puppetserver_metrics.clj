@@ -37,7 +37,11 @@
                        ["puppetdb" "command" "store_report"]
                        ["puppetdb" "query"]
                        ["puppetdb" "resource" "search"]}
-                     (set (map :metric-id metrics)))))))))
+                     (disj (set (map :metric-id metrics))
+                           ;; ["puppetdb" "facts" "find"] will only be in the set when
+                           ;; puppetlabs.puppetdb.integration.masterless is run first and
+                           ;; the integration tests are running against puppet#main after 118756370f
+                           ["puppetdb" "facts" "find"]))))))))
 
     (testing "PuppetDB metrics are updated for compressed commands"
       ;; the terminus is configured to send gzipped commands without a
@@ -66,6 +70,8 @@
             metrics-resp (svc-utils/get-ssl new-fact-metrics-url)]
         (is (= 200 (:status metrics-resp)))
         ;; assert that the new-fact-time metric has been updated and no values are 0.0
+        ;; FIXME: OneMinutRate, FiveMinuteRate, FifteenMinuteRate will all be 0.0 unless
+        ;;        puppetlabs.puppetdb.integration.masterless is run first
         (is (->> metrics-resp
                  :body
                  :value
