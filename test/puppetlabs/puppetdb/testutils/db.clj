@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.testutils.db
   (:require [clojure.data]
             [clojure.java.jdbc :as sql]
+            [clojure.pprint :refer [pprint]]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.test]
@@ -531,3 +532,12 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
                         "\nRight Only:\n" (pprint-str right-only)
                         "\nSame:\n" (pprint-str same)))
                  diff-list)))
+
+(defn print-diff-schema-maps
+  "This function pretty prints the output from diff-schema-maps after changing
+  the internal sequences into vectors. This makes it easy to copy and paste
+  into a deftest that checks diff-schema-maps output"
+  [diff]
+  (pprint (reduce-kv (fn [m k v] (assoc m k (when (seq? v) (vec v))))
+                     {}
+                     diff)))
