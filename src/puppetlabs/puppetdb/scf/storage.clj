@@ -1711,6 +1711,9 @@
   a producer_timestamp newer than the given timestamp."
   [certname :- String
    timestamp :- pls/Timestamp]
+  ;; In order for this query to get the right answer using "order by producer_timestamp desc"
+  ;; The subqueries must not return any null producer_timestamps because
+  ;; null sorts as "higher" than real values.
   (when-let [newest (-> ["select producer_timestamp"
                          "  from (select producer_timestamp from catalogs"
                          "          where certname = ?"
@@ -1718,9 +1721,8 @@
                          "  union all (select producer_timestamp from factsets"
                          "               where certname = ?"
                          "               order by producer_timestamp desc limit 1)"
-                         "  union all (select producer_timestamp from reports"
-                         "               where certname = ?"
-                         "               order by producer_timestamp desc limit 1)"
+                         "  union all (select latest_report_timestamp AS producer_timestamp from certnames"
+                         "               where certname = ? and latest_report_timestamp is not null)"
                          "  order by producer_timestamp desc"
                          "  limit 1"]
                         (jdbc/do-prepared (repeat 3 certname))

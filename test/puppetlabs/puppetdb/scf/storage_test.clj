@@ -1503,6 +1503,31 @@
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
              [{:nrows 0}])))))
 
+(deftest-db have-newer-record-for-certname
+  (let [certname "foo.example.com"]
+    (testing "should not have newer record on empty db"
+      (is (not (have-newer-record-for-certname? certname (now)))))
+
+    (testing "should identify newer record with no reports"
+      ;; this tests that the function handles a null entry in certnames.latest_report_timestamp
+      (add-certname! certname)
+      (replace-catalog! (assoc (:basic catalogs)
+                               :certname certname
+                               :producer_timestamp (-> 1 days from-now)))
+      (is (have-newer-record-for-certname? certname (now))))
+
+    (testing "with all data populated"
+      (store-example-report! (assoc (:basic reports) :producer_timestamp (now)) (now))
+      (replace-facts! {:certname certname
+                       :values {}
+                       :environment "DEV"
+                       :producer_timestamp (now)
+                       :timestamp (now)
+                       :producer "foo"})
+
+      (is (have-newer-record-for-certname? certname (now)))
+      (is (not (have-newer-record-for-certname? certname (-> 2 days from-now)))))))
+
 (deftest-db node-deactivation
   (let [certname        "foo.example.com"
         query-certnames #(query-to-vec ["select certname, deactivated from certnames"])
