@@ -1504,9 +1504,11 @@
              [{:nrows 0}])))))
 
 (deftest-db have-newer-record-for-certname
-  (let [certname "foo.example.com"]
+  (let [certname "foo.example.com"
+        now-sql (to-timestamp (now))
+        two-days-from-now (-> 2 days from-now to-timestamp)]
     (testing "should not have newer record on empty db"
-      (is (not (have-newer-record-for-certname? certname (now)))))
+      (is (not (have-newer-record-for-certname? certname now-sql))))
 
     (testing "should identify newer record with no reports"
       ;; this tests that the function handles a null entry in certnames.latest_report_timestamp
@@ -1514,7 +1516,8 @@
       (replace-catalog! (assoc (:basic catalogs)
                                :certname certname
                                :producer_timestamp (-> 1 days from-now)))
-      (is (have-newer-record-for-certname? certname (now))))
+      (is (not (have-newer-record-for-certname? certname two-days-from-now)))
+      (is (have-newer-record-for-certname? certname now-sql)))
 
     (testing "with all data populated"
       (store-example-report! (assoc (:basic reports) :producer_timestamp (now)) (now))
@@ -1525,8 +1528,8 @@
                        :timestamp (now)
                        :producer "foo"})
 
-      (is (have-newer-record-for-certname? certname (now)))
-      (is (not (have-newer-record-for-certname? certname (-> 2 days from-now)))))))
+      (is (have-newer-record-for-certname? certname now-sql))
+      (is (not (have-newer-record-for-certname? certname two-days-from-now))))))
 
 (deftest-db node-deactivation
   (let [certname        "foo.example.com"
