@@ -88,65 +88,6 @@
           (s/optional-key :sum) s/Any
           (s/optional-key :to_string) s/Str}))
 
-(defn execute-paged-query*
-  "Helper function to executed paged queries.  Builds up the paged sql string,
-  executes the query, and returns map containing the `:result` key and an
-  optional `:count` key."
-  [fail-limit query {:keys [limit offset order_by include_total] :as paging-options}]
-  {:pre [(and (integer? fail-limit) (>= fail-limit 0))
-         (valid-jdbc-query? query)
-         ((some-fn nil? integer?) limit)
-         ((some-fn nil? integer?) offset)
-         ((some-fn nil? sequential?) order_by)
-         (every? order-by-expr? order_by)]
-   :post [(map? %)
-          (vector? (:result %))
-          ((some-fn nil? integer?) (:count %))]}
-  (let [[sql & params] (if (string? query) [query] query)
-        paged-sql      (paged-sql sql paging-options)
-        result         {:result
-                        (limited-query-to-vec
-                         fail-limit
-                         (apply vector paged-sql params))}]
-    ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
-    ;; which would allow us to get the results and the count via a
-    ;; single query (rather than two separate ones).  Need to do
-    ;; some benchmarking to see which is faster.
-    (if include_total
-      (assoc result :count
-             (get-result-count (apply vector (count-sql sql) params)))
-      result)))
-
-(defn execute-query*
-  "Helper function to executed non-paged queries.  Returns a map containing the
-  `:result` key."
-  [fail-limit query]
-  {:pre [(and (integer? fail-limit) (>= fail-limit 0))
-         (valid-jdbc-query? query)]
-   :post [(map? %)
-          (vector? (:result %))]}
-  {:result (limited-query-to-vec fail-limit query)})
-
-(defn execute-query
-  "Given a query and a map of paging options, adds the necessary SQL for
-  implementing the paging, executes the query, and returns a map containing
-  the results and metadata.
-
-  The return value will contain a key `:result`, whose value is a vector of
-  the query results.  If the paging options indicate that a 'total record
-  count' should be returned, then the map will also include a key `:count`,
-  whose value is an integer indicating the total number of results available."
-  ([query paging-options] (execute-query 0 query paging-options))
-  ([fail-limit query {:keys [limit offset order_by] :as paging-options}]
-     {:pre [((some-fn string? sequential?) query)]
-      :post [(map? %)
-             (vector? (:result %))
-             ((some-fn nil? integer?) (:count %))]}
-     (let [sql-and-params (if (string? query) [query] query)]
-       (if (requires-paging? paging-options)
-         (execute-paged-query* fail-limit sql-and-params paging-options)
-         (execute-query* fail-limit sql-and-params)))))
-
 (defn compile-term
   "Compile a single query term, using `ops` as the set of legal operators. This
   function basically just checks that the operator is known, and then
