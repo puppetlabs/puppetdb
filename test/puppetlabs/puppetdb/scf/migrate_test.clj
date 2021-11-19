@@ -1410,12 +1410,53 @@
         (is (= expected
                (first hashes)))))))
 
+(def migration-75-expected-diff
+  "Table partitions for reports are created for a range of dates automatically
+  in migration 74 so we must programmatically create the expected diff based on
+  the current date and the aforementioned range."
+  (let [generic-table-diff {:left-only nil,
+                            :right-only
+                            {:numeric_scale nil,
+                             :column_default "'agent'::text",
+                             :character_octet_length 1073741824,
+                             :datetime_precision nil,
+                             :nullable? "NO",
+                             :character_maximum_length nil,
+                             :numeric_precision nil,
+                             :numeric_precision_radix nil,
+                             :data_type "text",
+                             :column_name "report_type"},
+                            :same nil}
+        generic-constraint-diff {:left-only nil,
+                                 :right-only
+                                 {:constraint_name "report_type IS NOT NULL",
+                                  :constraint_type "CHECK",
+                                  :initially_deferred "NO",
+                                  :deferrable? "NO"},
+                                 :same nil}
+        table-names (->> (range -4 4)
+                         (map #(.plusDays (ZonedDateTime/now) %))
+                         (map part/date-suffix)
+                         ;; Postgres automatically lowercases trailing "Z"
+                         (map str/lower-case)
+                         (map #(str "reports_" %))
+                         ;; Add the main reports table to the front of the list
+                         (cons "reports"))]
+    {:index-diff nil
+     :table-diff
+     (map #(assoc-in generic-table-diff [:right-only :table_name] %)
+          table-names)
+     :constraint-diff
+     (map #(assoc-in generic-constraint-diff [:right-only :table_name] %)
+          table-names)}))
+
 (deftest migration-75-add-report-type-column-with-default
   (testing "reports should get default value of 'agent' for report_type"
     (jdbc/with-db-connection *db*
       (clear-db-for-testing!)
       (fast-forward-to-migration! 74)
-      (let [current-time (to-timestamp (now))]
+      (let [current-time (to-timestamp (now))
+            before-migration (schema-info-map *db*)]
         (jdbc/insert! :report_statuses {:status "testing1" :id 1})
         (jdbc/insert! :environments {:id 0 :environment "testing"})
         (jdbc/insert! :certnames {:certname "testing1"})
@@ -1437,7 +1478,9 @@
                        :logs (sutils/munge-json-for-storage [{:bar "baz"}])})
         (apply-migration-for-testing! 75)
         (is (= "agent" (-> (query-to-vec "select * from reports")
-                           first :report_type)))))))
+                           first :report_type)))
+        (is (= migration-75-expected-diff
+               (diff-schema-maps before-migration (schema-info-map *db*))))))))
 
 (deftest migration-76-adds-report-id-idx-when-not-added-by-migration-74
   (testing "All report paritions have idx_reports_id index when old version of 74 applied"
