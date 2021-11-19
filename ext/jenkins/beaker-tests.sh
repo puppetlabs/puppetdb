@@ -21,7 +21,6 @@ export PUPPETDB_USE_PROXIES=false
 export BEAKER_project=PuppetDB
 export BEAKER_department=sre-dept
 export BEAKER_PRESERVE_HOSTS=onfail
-export BEAKER_COLLECT_PERF_DATA=normal
 
 # Once the necessary PR (puppetlabs/ci-job-configs#2319) has been
 # merged, this logic can be removed.
