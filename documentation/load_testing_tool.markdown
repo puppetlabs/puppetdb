@@ -67,7 +67,7 @@ below.
 
 * On the primary server, modify `/etc/puppetlabs/puppetdb/conf.d/jetty.ini`.
 In the `[jetty]` section, set either:
-    * `host=0.0.0.0 # http access from all agents`
+    * `host=:: # http access from all agents`
     * `host=<agent ip address> # access from specific agent`
 
 * Install java on the agent
