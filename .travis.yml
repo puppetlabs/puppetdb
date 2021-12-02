@@ -6,7 +6,7 @@
 # appropriate.
 language: generic
 
-dist: xenial
+dist: bionic
 
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.
@@ -89,6 +89,11 @@ jobs:
     - stage: ❧ pdb tests
       name: core+ext jdk-11 pg-13
       env: PDB_TEST=core+ext/openjdk11/pg-13
+      script: *run-core-and-ext-tests
+
+    - stage: ❧ pdb tests
+      name: core+ext jdk-11 pg-14
+      env: PDB_TEST=core+ext/openjdk11/pg-14
       script: *run-core-and-ext-tests
 
     # Legacy testing, we do not promise support for jdk 8 or pg 9.6

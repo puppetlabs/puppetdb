@@ -2,6 +2,7 @@
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
+            [clojure.string :refer [starts-with?]]
             [puppetlabs.kitchensink.core :refer [keyset]]
             [puppetlabs.puppetdb.testutils :refer [paged-results] :as tu]
             [puppetlabs.puppetdb.testutils.http
@@ -108,7 +109,8 @@
       (let [certname (str "host-1" (char 0))
             {:keys [body status]} (query-response method endpoint ["=" "certname" certname])]
          (is (= 500 status))
-         (is (= "ERROR: invalid byte sequence for encoding \"UTF8\": 0x00" body))))
+         ;; pg-14 adds additional information onto the end
+         (is (starts-with? body "ERROR: invalid byte sequence for encoding \"UTF8\": 0x00"))))
 
     (testing "querying on latest report hash works"
       (let [cert-hashes (query-result method endpoint ["extract"
