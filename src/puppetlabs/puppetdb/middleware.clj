@@ -117,6 +117,14 @@
       (catch Exception e
         (log/error e)
         (http/error-response (cause-finder e)
+                             http/status-internal-error))
+     (catch AssertionError e
+        (log/error e)
+        (http/error-response (tru "An unexpected error occurred while processing the request")
+                             http/status-internal-error))
+     (catch Throwable e
+        (log/error e)
+        (http/error-response (tru "An unexpected error occurred")
                              http/status-internal-error)))))
 
 (defn verify-accepts-content-type
