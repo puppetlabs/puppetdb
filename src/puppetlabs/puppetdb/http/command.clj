@@ -34,23 +34,71 @@
 
 (def valid-commands-str (str/join ", " (sort (vals command-names))))
 
-(defn- validate-command-version
-  [handle]
-  (fn [{:keys [params] :as req}]
-    (let [{:strs [command version]} params
-          min-supported (min-supported-commands command)]
+(defn- wrap-with-request-params-validation
+  "Validates the request parameters in the :params request map. This middleware
+  should ingest the request after request normalization middleware."
+  [handler]
+  (fn validate-request-params
+    [{:keys [params] :as request}]
+    (let [{:strs [command version certname]} params
+          request-params (set (keys params))
+          ;; The checksum here is vestigial. It is no longer checked
+          valid-params #{"checksum" "secondsToWaitForCompletion" "certname"
+                         "command" "version" "producer-timestamp"}
+          required-params #{"certname" "version" "command"}
+          invalid-params (seq (set/difference request-params valid-params))
+          missing-params (seq (set/difference required-params request-params))
+          min-supported-version (min-supported-commands command)]
       (cond
-        (not min-supported)
-        (http/bad-request-response
-         (format "Supported commands are %s. Received '%s'."
-                 valid-commands-str command))
+       missing-params
+       (http/bad-request-response
+        (str/join " "
+                  [(tru "Command {0} for certname {1} is invalid."
+                        (pr-str command) (pr-str certname))
+                   (tru "Command is missing required parameters: {0}."
+                        (str/join ", " missing-params))]))
 
-        (< version min-supported)
-        (http/bad-request-response
-         (format "%s version %s is retired. The minimum supported version is %s."
-                 command version min-supported))
+       invalid-params
+       (http/bad-request-response
+        (str/join " "
+                  [(tru "Command {0} for certname {1} is invalid."
+                        (pr-str command) (pr-str certname))
+                   (tru "Command has invalid parameters: {0}."
+                        (str/join ", " invalid-params))]))
 
-        :else (handle req)))))
+       (or (not (string? certname)) (str/blank? certname))
+       (http/bad-request-response
+        (str/join " "
+                  [(tru "Command {0} for certname {1} is invalid."
+                        (pr-str command) (pr-str certname))
+                   (tru "Certname must be a non-empty string.")]))
+
+       ;; Verify command is valid by checking to see if it was found in the
+       ;; min-supported-command map
+       (nil? min-supported-version)
+       (http/bad-request-response
+        (str/join " "
+                  [(tru "Command {0} for certname {1} is invalid."
+                        (pr-str command) (pr-str certname))
+                   (tru "Command must be one of: {0}." valid-commands-str)]))
+
+       (not (int? version))
+       (http/bad-request-response
+        (str/join " "
+                  [(tru "Command {0} for certname {1} is invalid."
+                        (pr-str command) (pr-str certname))
+                   (tru "Version must be a valid integer.")]))
+
+       (< version min-supported-version)
+       (http/bad-request-response
+        (str/join " "
+                  [(tru "Command {0} for certname {1} is invalid."
+                        (pr-str command) (pr-str certname))
+                   (tru "Version {0} of command {1} is retired."
+                        version (pr-str command))
+                   (tru "The minimum supported version is {0}." min-supported-version)]))
+
+       :else (handler request)))))
 
 (defmacro with-chan
   "Bind chan-sym to init-chan in the scope of the body, calling async/close! in
@@ -118,65 +166,67 @@
                                        :timed_out false)
                                 http/status-ok)))))))
 
-(def new-request-schema
-  {:params {(s/required-key "command") s/Str
-            (s/required-key "version") s/Str
-            (s/required-key "certname") s/Str
-            (s/required-key "received") s/Str
-            (s/optional-key "secondsToWaitForCompletion") s/Str
-            (s/optional-key "checksum") s/Str
-            (s/optional-key "producer-timestamp") s/Str}
-   :body java.io.InputStream
-   s/Any s/Any})
-
-(defn-validated normalize-new-request
-  [{:keys [params body] :as req} :- new-request-schema]
-  (-> req
-      (update-in [:params "command"] normalize-command-name)
-      (update-in [:params "version"] #(Integer/parseInt %))))
-
-(def old-request-schema
-  (s/conditional
-   map?
-   (s/pred #(empty? (select-keys (:params %)
-                                 ["command" "version" "certname"])))))
-
-(defn-validated ^:private normalize-old-request
-  [{:keys [params body] :as req} :- old-request-schema]
-  (log/warn (trs "Unable to stream command posted without parameters (loading into RAM)"))
-  (if-not body
-    (http/error-response
-     (tru "Empty application/json POST body"))
-    (let [body (json/parse-strict (:body req))]
-      (if (empty? body)
-        (http/error-response
-         (tru "Empty application/json POST body"))
-        (do
-          (s/validate {(s/required-key "command") s/Str
-                       (s/required-key "version") s/Int
-                       (s/required-key "payload") {s/Any s/Any}}
-                      body)
-          (-> req
-              (assoc :body (json/generate-string (body "payload")))
-              (update :params merge
-                      (select-keys body ["command" "version"])
-                      (some->> (get-in body ["payload" "certname"])
-                               (hash-map "certname")))))))))
+(defn remove-nil-params
+  "Removes key-value pairs in the request :params map when value is nil"
+  [request]
+  (update request
+          :params
+          (fn [m] (apply dissoc m (for [[k v] m :when (nil? v)] k)))))
 
 (defn- wrap-with-request-normalization
-  "Converts request to the \"one true format\" if possible.  Ensures
-  that the request :params include \"command\", \"version\", and maybe
-  \"certname\" entries, and that the entries are in the correct
-  format, i.e. spaces instead of underscores in the command name,
-  integer instead of string for the version, etc.  Ensures that
-  the :body only contains the \"payload\", as either a string or
-  stream.  The :body will be a stream unless reading the body stream
-  is unavoidable (i.e. old-style, non-param POST)."
-  [handle]
-  (fn [{:keys [params] :as req}]
-    (handle (if (params "command")
-              (normalize-new-request req)
-              (normalize-old-request req)))))
+  "Converts request to the \"one true format\" if possible. The \"new\" format
+  is sending the command, version, and certname as query parameters and the
+  payload as the JSON body. The \"old\" format is sending the command, version,
+  and payload as top-level keys in the JSON body. This middleware transforms
+  the \"old\" format by taking the command, version, and certname from the JSON
+  body and inserting them into the :params map. It transforms the \"new\"
+  format by replacing underscores with spaces in the command name and by
+  attempting to parse the version value into an integer."
+  [handler]
+  (fn normalize-request [{:keys [params body] :as req}]
+    (if (params "command")
+      ;; Request has "command" param. This is the new format.
+      (let [try-parse-version #(try (Integer/valueOf %)
+                                 (catch NumberFormatException _ %))]
+        (-> req
+            (update-in [:params "command"] normalize-command-name)
+            (update-in [:params "version"] try-parse-version)
+            handler))
+      ;; Request does not have "command" param. This is the old format.
+      (do
+        (log/warn (trs "Unable to stream command posted without parameters (loading into RAM)"))
+        (let [{:strs [command version payload] :as decoded-body}
+              (try (json/parse-strict body)
+                (catch Exception _ {}))
+              has-required-keys? (and command version payload)
+              certname (get payload "certname")
+              new-params (-> decoded-body
+                             (dissoc "payload")
+                             (assoc "certname" certname))]
+          (cond
+           (not has-required-keys?)
+           (http/bad-request-response
+            (str/join " "
+                      [(tru "Command {0} for certname {1} is invalid."
+                            (pr-str command) (pr-str certname))
+                       (tru "Command was submitted without query parameters (old format).")
+                       (tru "The request body must be a JSON map with required keys: {0}."
+                            "command, version, payload")]))
+
+           (not (map? payload))
+           (http/bad-request-response
+            (str/join " "
+                      [(tru "Command {0} for certname {1} is invalid."
+                            (pr-str command) (pr-str certname))
+                       (tru "Command was submitted without query parameters (old format).")
+                       (tru "The payload value must be a JSON map.")]))
+
+           :else
+           (-> req
+               (assoc :body (json/generate-string payload))
+               (assoc :params new-params)
+               remove-nil-params
+               handler)))))))
 
 (defn- stream-with-max-check
   "Returns the body as an in-memory string or byte-array, reading it if
@@ -270,15 +320,13 @@
   (-> (routes enqueue-fn
               (when reject-large-commands? max-command-size))
       mid/make-pdb-handler
-      validate-command-version
+      add-received-param ;; must be (temporally) after wrap-with-request-params-validation
+      wrap-with-request-params-validation
       wrap-with-request-normalization
-      add-received-param ;; must be (temporally) after validate-query-params
-      ;; The checksum here is vestigial.  It is no longer checked
-      (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
-                                             "certname" "command" "version" "producer-timestamp"]})
       mid/verify-accepts-json
       (mid/verify-content-type ["application/json"])
       (mid/verify-content-encoding utils/supported-content-encodings)
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
-      (mid/wrap-with-globals get-shared-globals)))
+      (mid/wrap-with-globals get-shared-globals)
+      mid/wrap-with-exception-handling))
