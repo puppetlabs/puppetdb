@@ -14,6 +14,20 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.8.0
+
+Released December 13 2021
+
+### Bug fixes
+
+PuppetDB should no longer delete the last day of reports a day earlier
+than specified by `report-ttl` in some cases.
+([PDB-5351](https://tickets.puppetlabs.com/browse/PDB-5351))
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Stel Abrego
+
 ## PuppetDB 7.7.1
 
 Released November 9 2021
