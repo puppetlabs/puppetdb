@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9ffa50c442ec6952d158d1f0a70837251e731ee7\n"
+"X-Git-Ref: b711cad0f88b9562267a2219f8ef70896bee690c\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -727,11 +727,51 @@ msgid "No information is known about {0} {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/command.clj
+msgid "Command {0} for certname {1} is invalid."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "Command is missing required parameters: {0}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "Command has invalid parameters: {0}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "Certname must be a non-empty string."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "Command must be one of: {0}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "Version must be a valid integer."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "Version {0} of command {1} is retired."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "The minimum supported version is {0}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
 msgid "Unable to stream command posted without parameters (loading into RAM)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/command.clj
-msgid "Empty application/json POST body"
+msgid "Command was submitted without query parameters (old format)."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "The request body must be a JSON map with required keys: {0}."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/command.clj
+msgid "The payload value must be a JSON map."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/command.clj
@@ -1570,6 +1610,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "sweep of unused fact paths timed out"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage_utils.clj
+msgid "Path array element wasn't string or integer in {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage_utils.clj
+msgid "Regex array element wasn't string or integer in {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage_utils.clj
