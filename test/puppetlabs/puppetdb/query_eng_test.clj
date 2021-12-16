@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng-test
   (:require [cheshire.core :as json]
             [clojure.test :refer :all]
+            [honeysql.core :as hcore]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
@@ -46,16 +47,17 @@
 
 (deftest test-plan-cte
   (is (re-matches
-         #"WITH inactive_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL AND deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\) OR \(expired IS NOT NULL and expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\), not_active_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL OR expired IS NOT NULL\)\) SELECT table.foo AS \"foo\" FROM table WHERE \(1 = 1\)"
-         (plan->sql (map->Query {:projections {"foo" {:type :string
-                                           :queryable? true
-                                           :field :table.foo}}
-                      :alias "thefoo"
-                      :subquery? false
-                      :where (->BinaryExpression := 1 1)
-                      :selection {:from [:table]}
-                      :source-tables #{:table}})
-                    {:node-purge-ttl (parse-period "14d")}))))
+       #"WITH inactive_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL AND deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\) OR \(expired IS NOT NULL and expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\), not_active_nodes AS \(SELECT certname FROM certnames WHERE \(deactivated IS NOT NULL OR expired IS NOT NULL\)\) SELECT table.foo AS \"foo\" FROM table WHERE \(\? = \?\)"
+       (-> {:projections {"foo" {:type :string
+                                 :queryable? true
+                                 :field :table.foo}}
+            :alias "thefoo"
+            :subquery? false
+            :where (->BinaryExpression := 1 1)
+            :selection {:from [:table]}
+            :source-tables #{:table}}
+           map->Query
+           (plan->sql {:node-purge-ttl (parse-period "14d")})))))
 
 (deftest test-extract-params
 

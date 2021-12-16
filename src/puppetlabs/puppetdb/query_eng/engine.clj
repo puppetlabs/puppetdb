@@ -431,7 +431,7 @@
                :selection {:from [[:fact_paths :fp]]
                            :left-join [[:value_types :vt]
                                        [:= :fp.value_type_id :vt.id]]
-                           :where [:!= :fp.value_type_id 5]}
+                           :where [:!= :fp.value_type_id (hcore/inline 5)]}
 
                :relationships {;; Children - direct
                                "facts" {:columns ["name"]}
@@ -2210,8 +2210,8 @@
 (defn update-selection
   [query-rec offset limit order-by]
   (cond-> query-rec
-    offset (assoc-in [:selection :offset] offset)
-    limit (assoc-in [:selection :limit] limit)
+    offset (assoc-in [:selection :offset] (hcore/inline offset))
+    limit (assoc-in [:selection :limit] (hcore/inline limit))
     order-by (assoc-in [:selection :order-by] order-by)))
 
 (pls/defn-validated create-from-node
