@@ -118,19 +118,9 @@
                (is (http/json-utf8-ctype? (content-type response)))
                (is (uuid-in-response? response)))))))
 
-     (testing "should return status-bad-request when missing payload"
-       (tqueue/with-stockpile q
-         (let [[command-chan app] (create-handler q)
-               {:keys [status body headers]} (app (post-request* endpoint nil nil))]
-           (is (= status http/status-bad-request))
-           (is (= ["Content-Type"] (keys headers)))
-           (is (http/json-utf8-ctype? (headers "Content-Type")))
-           (is (= (:error (json/parse-string body true))
-                  "Supported commands are configure expiration, deactivate node, replace catalog, replace catalog inputs, replace facts, store report. Received 'null'.")))))
-
      (testing "should not do checksum verification if no checksum is provided"
        (tqueue/with-stockpile q
-         (let [[command-chan app] (create-handler q)
+         (let [[_ app] (create-handler q)
                payload (form-command "deactivate node"
                                      (get min-supported-commands "deactivate node")
                                      {})
@@ -139,51 +129,121 @@
                                              "certname" "foo.com"
                                              "command" "deactivate node"}
                                             payload))]
-           (assert-success! response))))
+           (assert-success! response)))))))
 
-     (testing "should 400 when the command is invalid"
-       (tqueue/with-stockpile q
-         (let [[command-chan app] (create-handler q)
-               invalid-command (form-command "foo" 100 {})
-               invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)
-               {:keys [status body headers]}
-               (app (post-request* endpoint
-                                   {"version" "1"
-                                    "certname" "foo.com"
-                                    "command" "foo"
-                                    "checksum" invalid-checksum}
-                                   invalid-command))]
-           (is (= status http/status-bad-request))
-           (is (= ["Content-Type"] (keys headers)))
-           (is (http/json-utf8-ctype? (headers "Content-Type")))
-           (is (= (:error (json/parse-string body true))
-                  (format "Supported commands are %s. Received 'foo'."
-                          valid-commands-str))))))
+(def endpoint-error-specs
+  [{:title "should 400 when missing payload"
+    :params {}
+    :body {}
+    :error-regex #"The request body must be a JSON map with required keys: command, version, payload"}
 
-     (testing "should 400 when version is retired"
-       (tqueue/with-stockpile q
-         (let [[command-chan app] (create-handler q)
-               min-supported-version (get min-supported-commands "replace facts")
-               misversioned-command (form-command "replace facts"
-                                                  (dec min-supported-version)
-                                                  {})
-               misversioned-checksum (kitchensink/utf8-string->sha1 misversioned-command)
-               {:keys [status body headers]}
-               (app (post-request* endpoint
-                                   {"checksum" misversioned-checksum
-                                    "version" (str (dec min-supported-version))
-                                    "certname" "foo.com"
-                                    "command" "replace facts"}
-                                   misversioned-command))]
+   {:title "should 400 when the command is invalid"
+    :params {"version" "1"
+             "certname" "foo.com"
+             "command" "print nodes"}
+    :body {}
+    :error-regex (re-pattern (str "Command must be one of: " valid-commands-str "."))}
 
-           (is (= status http/status-bad-request))
-           (is (= ["Content-Type"] (keys headers)))
-           (is (http/json-utf8-ctype? (headers "Content-Type")))
-           (is (= (:error (json/parse-string body true))
-                  (format (str "replace facts version %s is retired. "
-                               "The minimum supported version is %s.")
-                          (dec min-supported-version)
-                          min-supported-version)))))))))
+   {:title "should 400 when version is retired"
+    :params {"certname" "foo.com"
+             "command" "replace facts"
+             "version" (-> "replace facts" min-supported-commands dec str)}
+    :body {}
+    :error-regex (re-pattern (str "The minimum supported version is "
+                                  (min-supported-commands "replace facts")))}
+
+   {:title "should 400 with non-integer version (new format)"
+    :params {"version" "three"
+             "command" "deactivate node"
+             "certname" "foo.com"}
+    :body {"certname" "foo.com"}
+    :error-regex #"Version must be a valid integer"}
+
+   {:title "should 400 with non-integer version (old format)"
+    :params {}
+    :body {"version" "three",
+           "command" "deactivate node",
+           "payload" {"certname" "foo.com"}}
+    :error-regex #"Version must be a valid integer"}
+
+   {:title "should 400 with missing certname (new format)"
+    :params {"version" "3"
+             "command" "deactivate node"}
+    :body {"certname" "foo.com"}
+    :error-regex #"Command is missing required parameters: certname"}
+
+   {:title "should 400 with missing certname (old format)"
+    :params {}
+    :body {"version" 3,
+           "command" "deactivate node",
+           "payload" {}}
+    :error-regex #"Command is missing required parameters: certname"}
+
+   {:title "should 400 with empty certname (new format)"
+    :params {"version" "3"
+             "certname" ""
+             "command" "deactivate node"}
+    :body {"certname" "foo.com"}
+    :error-regex #"Certname must be a non-empty string"}
+
+   {:title "should 400 with empty certname (old format)"
+    :params {}
+    :body {"version" 2,
+           "command" "deactivate node",
+           "payload" {"certname" ""}}
+    :error-regex #"Certname must be a non-empty string"}
+
+   {:title "should 400 with unrecognized params (new format)"
+    :params {"version" "3"
+             "certname" "foo.com"
+             "command" "deactivate node"
+             "breakfast" "pancakes"}
+    :body {"certname" "foo.com"}
+    :error-regex #"Command has invalid parameters: breakfast"}
+
+   {:title "should 400 with unrecognized params (old format)"
+    :params {}
+    :body {"version" 2,
+           "command" "deactivate node",
+           "breakfast" "pancakes"
+           "payload" {"certname" "foo.com"}}
+    :error-regex #"Command has invalid parameters: breakfast"}
+
+   {:title "should 400 with invalid JSON body (old format)"
+    :params {}
+    :body "sfdf[fds[dsfsd{{{{sdf"
+    :error-regex #"The request body must be a JSON map with required keys: command, version, payload"}
+
+   {:title "should 400 with empty JSON body (old format)"
+    :params {}
+    :body {}
+    :error-regex #"The request body must be a JSON map with required keys: command, version, payload"}
+
+   {:title "should 400 with nil JSON body (old format)"
+    :params {}
+    :body nil
+    :error-regex #"The request body must be a JSON map with required keys: command, version, payload"}
+
+   {:title "should 400 with invalid payload (old format)"
+    :params {}
+    :body {"command" "deactivate node"
+           "version" 3
+           "payload" "bad payload"}
+    :error-regex #"The payload value must be a JSON map"}])
+
+(deftest command-endpoint-errors
+  (tqueue/with-stockpile q
+    (let [[_ app] (create-handler q)]
+      (doseq [{:keys [title params body error-regex]} endpoint-error-specs]
+        (testing title
+          (let [request-body (if (map? body) (json/generate-string body) body)
+                {:keys [status body headers]}
+                (app (post-request* "/v1" params request-body))
+                {:keys [error]} (json/parse-string body true)]
+            (is (= status http/status-bad-request))
+            (is (= ["Content-Type"] (keys headers)))
+            (is (http/json-utf8-ctype? (headers "Content-Type")))
+            (is (re-find error-regex error))))))))
 
 (deftest receipt-timestamping
   (dotestseq
@@ -210,53 +270,56 @@
            (is (< ms-before-test (time/to-long (:received cmdref))))))))))
 
 (deftest wrap-with-request-normalization-all-params
-  (let [normalize (#'tgt/wrap-with-request-normalization identity)]
+  (let [normalize (#'tgt/wrap-with-request-normalization identity)
+        before-params {"certname" "x" "command" "y_z" "version" "1"
+                       "received" (kitchensink/timestamp)}
+        before {:params before-params
+                :body (ByteArrayInputStream. (byte-array 0))}
+        after (normalize before)
+        after-params (:params after)]
     ;; Make sure that when all three params are present, the body is passed on.
-    (let [before-params {"certname" "x" "command" "y_z" "version" "1"
-                         "received" (kitchensink/timestamp)}
-          before {:params before-params
-                  :body (ByteArrayInputStream. (byte-array 0))}
-          after (normalize before)
-          after-params (:params after)]
-      ;; Accomodate the fact that command and version will be transformed.
-      (is (identical? (:body before) (:body after)))
-      (is (= (dissoc before :params) (dissoc after :params)))
-      (is (= (before-params "version") (str (after-params "version"))))
-      (is (= (str/replace (before-params "command") "_" " ")
-             (after-params "command")))
-      (is (= (dissoc before-params "version" "command")
-             (dissoc after-params "version" "command"))))))
+    ;; Accomodate the fact that command and version will be transformed.
+    (is (identical? (:body before) (:body after)))
+    (is (= (dissoc before :params) (dissoc after :params)))
+    (is (= (before-params "version") (str (after-params "version"))))
+    (is (= (str/replace (before-params "command") "_" " ")
+           (after-params "command")))
+    (is (= (dissoc before-params "version" "command")
+           (dissoc after-params "version" "command")))))
 
 (deftest wrap-with-request-normalization-no-params
-  (let [normalize (#'tgt/wrap-with-request-normalization identity)]
+  (let [normalize (#'tgt/wrap-with-request-normalization identity)
+        body-str (json/generate-string
+                   {"command" "x y"
+                    "version" 1
+                    "payload" {"certname" "z"}})
+        body-stream (ByteArrayInputStream. (.getBytes body-str "UTF-8"))
+        body-parsed (json/parse-string body-str)]
     ;; Check that when there are no parameters, they're extracted from the body
     ;; and returned in :params.
-    (let [body-str (json/generate-string
-                    {"command" "x y"
-                     "version" 1
-                     "payload" {"certname" "z"}})
-          body-stream  (ByteArrayInputStream. (.getBytes body-str "UTF-8"))
-          body-parsed (json/parse-string body-str)]
-      (doseq [body [body-str body-stream]]
-        (let [before {:params {} :body body}
-              after (normalize before)
-              after-params (:params after)]
-          (is (= (body-parsed "payload")
-                 (json/parse-string (:body after))))
-          (is (= {"command" "x y" "version" 1 "certname" "z"}
-                 (:params after))))))))
+    (doseq [body [body-str body-stream]]
+      (let [before {:params {} :body body}
+            after (normalize before)]
+        (is (= (body-parsed "payload")
+               (json/parse-string (:body after))))
+        (is (= {"command" "x y" "version" 1 "certname" "z"}
+               (:params after)))))))
 
-(deftest wrap-with-request-normalization-some-params
-  (let [normalize (#'tgt/wrap-with-request-normalization identity)]
+(deftest wrap-with-request-params-validation-missing-params
+  (let [validate (#'tgt/wrap-with-request-params-validation identity)]
     ;; Check for an error if some but not all params are present
-    (doseq [items (apply concat
-                         (map #(combinations ["command" "version" "certname"] %)
-                              [1 2]))]
-      (is (thrown-with-msg?
-           ExceptionInfo
-           #"Input to normalize-(old|new)-request does not match schema"
-           (normalize {:body ::ignored
-                       :params (into {} (for [k items] [k "1"]))}))))))
+    (doseq [bad-params (apply concat
+                         (map #(combinations [["command" "store report"]
+                                              ["version" 5]
+                                              ["certname" "foo.com"]]
+                                             %)
+                              [1 2]))
+            :let [bad-request {:body ::ignored
+                               :params (into {} bad-params)}
+                  {:keys [status body]} (validate bad-request)
+                  {:strs [error]} (json/parse-string body)]]
+      (is (= http/status-bad-request status))
+      (is (re-find #"missing required parameters" error)))))
 
 ;; Right now, this is the only unit test that tests the (eventually
 ;; streaming) command/version/certname params POST.  The acceptance

@@ -152,6 +152,8 @@ on_success: ci/bin/travis-on-success
 notifications:
   email: false
   slack:
+    on_success: change
+    on_failure: always
     template:
       - "<%{compare_url}|%{commit_subject}> | %{author}"
       - "%{repository_slug} %{branch} | <%{build_url}|#%{build_number}> %{result} in %{elapsed_time}"

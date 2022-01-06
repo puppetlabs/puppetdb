@@ -12,10 +12,6 @@
 
    This namespace when 'required' will also setup some common JSON encoders
    globally, so you can avoid doing this for each call."
-  (:import [com.fasterxml.jackson.core JsonGenerator]
-           [com.fasterxml.jackson.core.io CharacterEscapes SerializedString]
-           [org.postgresql.util PGobject]
-           [java.io ByteArrayInputStream Writer])
   (:require [cheshire.core :as core]
             [cheshire.factory :as factory]
             [cheshire.generate :as generate
@@ -24,7 +20,13 @@
             [cheshire.parse :as parse]
             [clojure.java.io :as io]
             [clojure.set :as set]
-            [puppetlabs.puppetdb.time :as time]))
+            [puppetlabs.puppetdb.time :as time])
+  (:import
+   [com.fasterxml.jackson.core JsonGenerator]
+   [com.fasterxml.jackson.core.io CharacterEscapes SerializedString]
+   [java.io ByteArrayInputStream Writer]
+   [org.postgresql.jdbc PgArray]
+   [org.postgresql.util PGobject]))
 
 (defrecord RawJsonString [data])
 
@@ -33,6 +35,12 @@
 (defn add-common-json-encoders!*
   "Non-memoize version of add-common-json-encoders!"
   []
+  (add-encoder
+   PgArray
+   (fn [^PgArray data ^JsonGenerator generator]
+     ;; If .getArray returns a copy, this approach could be expensive
+     ;; for large values.
+     (encode-seq (.getArray data) generator)))
   (add-encoder
     org.postgresql.util.PGobject
     (fn [^PGobject data ^JsonGenerator jsonGenerator]

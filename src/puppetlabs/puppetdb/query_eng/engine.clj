@@ -104,7 +104,8 @@
                   :jsonb-scalar hcore/raw
                   :boolean (comp (su/sql-cast "boolean") (su/sql-cast "text"))
                   :string (su/jsonb-scalar-cast "text")}
-   :path {:path hcore/raw}
+   :encoded-path {:encoded-path hcore/raw}
+   :path-array {:path-array hcore/raw}
    :json {:json hcore/raw}
    :boolean {:string (su/sql-cast "text")
              :boolean hcore/raw}
@@ -119,6 +120,9 @@
   [column from to]
   ((-> type-coercion-matrix from to) column))
 
+
+(def ast-path-schema [(s/cond-pre s/Str s/Int)])
+
 (def column-schema
   "Column information: [\"value\" {:type :string :field fv.value_string ...}]"
   {:type s/Keyword :field field-schema s/Any s/Any})
@@ -128,6 +132,23 @@
   [(s/one s/Str "name") (s/one column-schema "column")])
 
 (s/defrecord Query
+    ;; Optional fields:
+    ;;
+    ;;   depends - set of fields that this field depends on, i.e. if
+    ;;     this field is included in the query (e.g. via extract),
+    ;;     then the dependencies must be included in the projections
+    ;;     too.  cf. include-projection-dependencies.  Note that right
+    ;;     now, ["function" ...] calls are not examined with respect
+    ;;     to dependencies.
+    ;;
+    ;;   join-deps - must refer to the name if there's only a name, or
+    ;;     the alias when there is one, i.e. the dep for :factsets is
+    ;;     just :factsets, but for [:factsets :fs] is :fs.
+    ;;
+    ;;   queryable? - is a query allowed to refer to this field?
+    ;;
+    ;;   unprojectable? - is the field not a candidate for extraction?
+    ;;
     [projections :- {s/Str column-schema}
      selection
      ;; This should be just the top level "from" tables for the query.
@@ -166,6 +187,21 @@
 (s/defrecord ArrayBinaryExpression
     [column :- column-schema
      value])
+
+;; ["=" "path" ["filesystem" 5 "size"]]
+(s/defrecord PathArrayMatch
+    [column :- column-schema
+     path :- ast-path-schema])
+
+;; ["in" "path" [["filesystem" 5 "size"] ["filesystem" 9 "size"]]
+(s/defrecord PathArrayAnyMatch
+    [column :- column-schema
+     paths :- [ast-path-schema]])
+
+;; ["~>" "path" ["filesystem" 5 ".*-errors"]]
+(s/defrecord PathArrayRegexMatch
+    [column :- column-schema
+     path-rx :- ast-path-schema])
 
 (s/defrecord JsonContainsExpression
   [field :- s/Str
@@ -232,10 +268,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
-
-;; The :join-deps must refer to the name if there's only a name, or
-;; the alias when there is one, i.e. the dep for :factsets is just
-;; :factsets, but for [:factsets :fs] is :fs.
 
 (def inventory-query
   "Query for inventory"
@@ -432,7 +464,7 @@
                                      :queryable? true
                                      :field :vt.type
                                      :join-deps #{:vt}}
-                             "path" {:type :path
+                             "path" {:type :encoded-path
                                      :queryable? true
                                      :field :path
                                      :join-deps #{:fp}}
@@ -442,13 +474,13 @@
                                      :join-deps #{:fp}}
                              "depth" {:type :numeric
                                       :queryable? true
-                                      :query-only? true
+                                      :unprojectable? true
                                       :field :fp.depth
                                       :join-deps #{:fp}}}
                :selection {:from [[:fact_paths :fp]]
                            :left-join [[:value_types :vt]
                                        [:= :fp.value_type_id :vt.id]]
-                           :where [:!= :fp.value_type_id 5]}
+                           :where [:!= :fp.value_type_id (hcore/inline 5)]}
 
                :relationships {;; Children - direct
                                "facts" {:columns ["name"]}
@@ -509,52 +541,82 @@
                :entity :facts
                :subquery? false}))
 
+(def fact-contents-core
+  (str
+   "(select certname, flattened.*"
+   "   from factsets fs"
+   "   left join lateral ("
+   "     with recursive flattened_one (parent_path, parent_types, key, value, type) as ("
+   "       select"
+   "           array[]::text[],"
+   "           '',"
+   "           (jsonb_each(fs.stable||fs.volatile)).*,"
+   "           's'"
+   "       union all"
+   ;;        -- jsonb_each().* expands into key and value columns
+   "         select"
+   "             parent_path || flattened_one.key,"
+   "             parent_types || flattened_one.type,"
+   "             sub_paths.key, sub_paths.value, sub_paths.type"
+   "           from flattened_one"
+   "           inner join lateral ("
+   "             select"
+   "               (jsonb_each(value)).*,"
+   "               's' as type"
+   "             where jsonb_typeof(value) = 'object'"
+   "             union all"
+   "             select"
+   "                 generate_series::text as key,"
+   "                 value->generate_series as value,"
+   "                 'i' as type"
+   "               from generate_series(0, jsonb_array_length(value) - 1)"
+   "               where jsonb_typeof(value) = 'array'"
+   "           ) as sub_paths on true"
+   "     )"
+   "     select"
+   "         environment_id,"
+   "         parent_path || key as path,"
+   "         parent_types || type as types,"
+   "         coalesce(parent_path[1], key) as name,"
+   "         value"
+   "       from flattened_one where not jsonb_typeof(value) = any('{\"array\", \"object\"}')"
+   "   ) as flattened"
+   "   on true)"))
+
 (def fact-contents-query
   "Query for fact nodes"
   (map->Query {::which-query :fact-contents
                :can-drop-unused-joins? true
                :projections {"certname" {:type :string
                                          :queryable? true
-                                         :field :fs.certname
-                                         :join-deps #{:fs}}
+                                         :field :fc.certname
+                                         :join-deps #{:fc}}
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment
                                             :join-deps #{:env}}
-                             "path" {:type :path
+                             "path" {:type :path-array
                                      :queryable? true
-                                     :field :fs.path
-                                     :join-deps #{:fs}}
+                                     :field :fc.path
+                                     :signature :fc.types
+                                     :depends #{"path_types"}
+                                     :join-deps #{:fc}}
+                             "path_types" {:type :string
+                                           :queryable? false
+                                           :unprojectable? true
+                                           :field :fc.types
+                                           :join-deps #{:fc}}
                              "name" {:type :string
                                      :queryable? true
-                                     :field :fs.name
-                                     :join-deps #{:fs}}
+                                     :field :fc.name
+                                     :join-deps #{:fc}}
                              "value" {:type :jsonb-scalar
                                       :queryable? true
                                       :field :value
-                                      :join-deps #{:fs}}}
-               :selection {:from [[(hcore/raw
-                                    (str "(select certname,"
-                                         "        jsonb_extract_path(stable||volatile,"
-                                         "                           variadic path_array)"
-                                         "          as value,"
-                                         "        path,"
-                                         "        name,"
-                                         "        environment_id"
-                                         "   from factsets"
-                                         "     cross join (select distinct on (path)"
-                                         "                        path,"
-                                         "                        path_array,"
-                                         "                        name from fact_paths) distinct_paths"
-                                         "   where jsonb_extract_path(stable||volatile,"
-                                         "                            variadic path_array)"
-                                         "           is not null"
-                                         "         and jsonb_typeof(jsonb_extract_path(stable||volatile,"
-                                         "                                             variadic path_array))"
-                                         "               <> 'object')"))
-                                   :fs]]
+                                      :join-deps #{:fc}}}
+               :selection {:from [[(hcore/raw fact-contents-core) :fc]]
                            :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]}
+                                       [:= :fc.environment_id :env.id]]}
 
                :relationships (merge certname-relations
                                      {"facts" {:columns ["certname" "name"]}
@@ -576,11 +638,11 @@
                                                         (h/scast :logs_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field (hsql-hash-as-str :reports.hash)}
                              "type" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field :reports.report_type}}
                :selection {:from [:reports]}
 
@@ -600,11 +662,11 @@
                                                            (h/scast :reports.metrics_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field (hsql-hash-as-str :reports.hash)}
                              "type" {:type :string
                                      :queryable? true
-                                     :query-only? true
+                                     :unprojectable? true
                                      :field :reports.report_type}}
                :selection {:from [:reports]}
 
@@ -722,7 +784,7 @@
 
       "latest_report?" {:type :string
                         :queryable? true
-                        :query-only? true
+                        :unprojectable? true
                         :join-deps #{}}
       "resource_events" {:type :json
                          :queryable? false
@@ -1011,7 +1073,7 @@
                                       :field :title}
                              "tag"   {:type :string
                                       :queryable? true
-                                      :query-only? true}
+                                      :unprojectable? true}
                              "tags" {:type :array
                                      :queryable? true
                                      :field :tags}
@@ -1121,10 +1183,10 @@
                                             :field :environments.environment}
                              "latest_report?" {:type :boolean
                                                :queryable? true
-                                               :query-only? true}
+                                               :unprojectable? true}
                              "report_id" {:type :numeric
                                           :queryable? false
-                                          :query-only? true
+                                          :unprojectable? true
                                           :field :events.report_id}
                              "name" {:type :string
                                      :queryable? true
@@ -1404,11 +1466,11 @@
 (defn projectable-fields
   "Returns a list of projectable fields from a query record.
 
-   Fields marked as :query-only? true are unable to be projected and thus are
+   Fields marked as :unprojectable? true are unable to be projected and thus are
    excluded."
   [{:keys [projections]}]
   (->> projections
-       (remove (comp :query-only? val))
+       (remove (comp :unprojectable? val))
        keys))
 
 (defn projectable-json-fields
@@ -1457,32 +1519,57 @@
                  (count projection) projection))))
   (jdbc/double-quote projection))
 
-;; Skipped (only safe if incoming data is safe)
-(defn honeysql-from-query
-  "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity subquery?]}
-   {:keys [node-purge-ttl]}]
-  (let [fs (seq (map (comp hcore/raw :statement) call))
-        select (if (and fs
-                        (empty? projected-fields))
-                 (vec fs)
-                 (vec (concat (->> projections
-                                   (remove (comp :query-only? second))
-                                   (mapv (fn [[name {:keys [field]}]]
-                                           [field (quote-projections name)])))
-                              fs)))
-        new-selection (-> (cond-> selection (not subquery?) (wrap-with-node-state-cte node-purge-ttl))
-                          (assoc :select select)
-                          (cond-> group-by (assoc :group-by group-by)))]
-    new-selection))
+(defn include-projection-dependencies
+  "Returns projections after adding any dependencies of its memebers,
+  i.e. any :depends listed in the query-rec proj-info for the
+  projection."
+  [proj-info projections]
+  ;; Traverse all the projections to add any the proj-info for missing
+  ;; :depends.  proj-info is the query req field info map.
+  (loop [result (vec projections)
+         already-projected? (->> projections (map first) set)
+         [[fname {:keys [depends] :as info} :as proj] & projections] projections]
+    (if-not proj
+      result
+      (let [[new-projections result]
+            ;; Traverse all the :depends and add [dep dep-info] to the
+            ;; result for any that are missing.
+            (loop [result result
+                   already-projected? already-projected?
+                   [dep & depends] depends]
+              (if-not dep
+                [already-projected? result]
+                (if (already-projected? dep)
+                  (recur result already-projected? depends)
+                  (recur (let [dep-info (proj-info dep)]
+                           (assert (= (:queryable? dep-info) false))
+                           (conj result [dep dep-info]))
+                         (conj already-projected? dep)
+                         depends))))]
+        ;; Fold the information from the inner loop into the result
+        (recur result
+               (set/union already-projected? new-projections)
+               projections)))))
 
-(pls/defn-validated sql-from-query :- String
-  "Convert a query to honeysql, then to sql"
-  [query options]
-  (-> query
-      (honeysql-from-query options)
-      (hcore/format :allow-dashed-names? true)
-      first))
+;; Skipped (only safe if incoming data is safe)
+(defn sql-select-for-query
+  "Returns the honesql representation of the query's select,
+  i.e. {:select expr}."
+  [{:keys [projected-fields call selection projections] :as query}]
+  ;; This is where we finally fully expand the projections.
+  (let [calls (mapv (comp hcore/raw :statement) call)
+        non-call-projections (if (and (empty? calls) (empty? projected-fields))
+                               projections
+                               projected-fields)]
+    (assoc selection
+           :select (->> non-call-projections
+                        (remove (comp :unprojectable? second))
+                        ;; Currently this does not support deps for
+                        ;; projected functions i.e. :calls.
+                        (include-projection-dependencies projections)
+                        (mapv (fn [[name {:keys [field]}]]
+                                [field (quote-projections name)]))
+                        (into calls)))))
 
 (defn fn-binary-expression->hsql
   "Produce a predicate that compares the result of a function against a
@@ -1505,24 +1592,17 @@
 
 (extend-protocol SQLGen
   Query
-  (-plan->sql [{:keys [projections projected-fields where] :as query} options]
+  (-plan->sql [{:keys [group-by projections projected-fields subquery? where] :as query}
+               {:keys [node-purge-ttl] :as options}]
     (s/validate [projection-schema] projected-fields)
     (let [has-where? (boolean where)
-          has-projections? (not (empty? projected-fields))
-          sql (-> query
-                  (utils/update-cond has-where?
-                                     [:selection]
-                                     #(hsql/merge-where % (-plan->sql where options)))
-                  ;; Note that even if has-projections? is false, the
-                  ;; projections are still relevant.
-                  ;; i.e. projected-fields doesn't tell the
-                  ;; whole story.  It's only relevant if it's not
-                  ;; empty? and then it's decisive.
-                  (utils/update-cond has-projections?
-                                     [:projections]
-                                     (constantly projected-fields))
-                  (sql-from-query options))]
-
+          sql (cond-> query
+                has-where? (update :selection #(hsql/merge-where % (-plan->sql where options)))
+                true sql-select-for-query
+                (not subquery?) (wrap-with-node-state-cte node-purge-ttl)
+                group-by (assoc :group-by group-by)
+                true (hcore/format :allow-dashed-names? true)
+                true first)]
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
@@ -1601,6 +1681,20 @@
     (s/validate column-schema column)
     (su/sql-regexp-array-match (:field column)))
 
+  PathArrayMatch
+  (-plan->sql [{:keys [column path]} options]
+    (su/path-array-col-matches-ast-path (:field column) (:signature column) path))
+
+  PathArrayAnyMatch
+  (-plan->sql [{:keys [column paths]} options]
+    (su/path-array-col-matches-any-ast-path (:field column) (:signature column) paths))
+
+  PathArrayRegexMatch
+  (-plan->sql [{:keys [column path-rx]} options]
+    (s/validate column-schema column)
+    (s/validate ast-path-schema path-rx)
+    (su/path-array-col-matches-rx-vec (:field column) (:signature column) path-rx))
+
   NullExpression
   (-plan->sql [{:keys [column] :as expr} options]
     (s/validate column-schema column)
@@ -1641,6 +1735,8 @@
 (defn binary-expression?
   "True if the plan node is a binary expression"
   [node]
+  ;; Currently, this really just means "should we arrange for a single
+  ;; ? parameter corresponding with the :value?".  cf. extract-params.
   (or (instance? BinaryExpression node)
       (instance? RegexExpression node)
       (instance? InArrayExpression node)
@@ -2095,7 +2191,7 @@
 
               [["~>" field _]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when-not (contains? #{:path} col-type)
+                (when-not (contains? #{:encoded-path :path-array} col-type)
                   (throw (IllegalArgumentException. (tru "Query operator ~> is not allowed on field {0}" field)))))
 
               ;;This validation check is added to fix a failing facts
@@ -2227,8 +2323,8 @@
 (defn update-selection
   [query-rec offset limit order-by]
   (cond-> query-rec
-    offset (assoc-in [:selection :offset] offset)
-    limit (assoc-in [:selection :limit] limit)
+    offset (assoc-in [:selection :offset] (hcore/inline offset))
+    limit (assoc-in [:selection :limit] (hcore/inline limit))
     order-by (assoc-in [:selection :order-by] order-by)))
 
 (pls/defn-validated create-from-node
@@ -2413,10 +2509,13 @@
                (map->ArrayBinaryExpression {:column cinfo
                                             :value value})
 
-               :path
+               :encoded-path
                (map->BinaryExpression {:operator :=
                                        :column cinfo
                                        :value (facts/factpath-to-string value)})
+
+               :path-array
+               (map->PathArrayMatch {:column cinfo :path value})
 
                :queryable-json
                (if (some #(= ::parse/indexed-field-part (:kind %)) path)
@@ -2458,11 +2557,14 @@
                                                                    java.lang.Integer
                                                                    (map int value))})
 
-                :path
+                :encoded-path
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "text"
                                                                    String
                                                                    (map facts/factpath-to-string value))})
+
+                :path-array
+                (map->PathArrayAnyMatch {:column cinfo :paths value})
 
                 :jsonb-scalar
                 (map->InArrayExpression
@@ -2557,10 +2659,12 @@
             [["~>" column-name value]]
             (let [cinfo (get-in query-rec [:projections column-name])]
               (case (:type cinfo)
-                :path
+                :encoded-path
                 (map->RegexExpression {:column cinfo
                                        :value (facts/factpath-regexp-to-regexp
-                                               value)})))
+                                               value)})
+                :path-array
+                (map->PathArrayRegexMatch {:column cinfo :path-rx value})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
@@ -2610,10 +2714,7 @@
         projections (projectable-fields query-rec)]
     (if (instance? Query plan-node)
       plan-node
-      (-> query-rec
-          (assoc :where plan-node
-                 :paging-options paging-options
-                 :project-fields projections)))))
+      (assoc query-rec :where plan-node :paging-options paging-options))))
 
 (declare push-down-context)
 
@@ -3125,7 +3226,7 @@
                           ;; i.e. wondering if we might have a
                           ;; conversion bug elsewhere...
                           (into {})
-                          (remove (comp :query-only? val))
+                          (remove (comp :unprojectable? val))
                           keys)))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
         basename #(-> % parse/parse-field first :name)

@@ -160,18 +160,14 @@
   [m ks f]
   (reduce #(update-in %1 [%2] f) m ks))
 
-(defn update-cond
-  "Works like update, but only if pred is satisfied"
-  [m pred ks f & args]
-  (if pred
-    (apply update-in m ks f args)
-    m))
-
-(defn update-when
-  "Works like update, but only if ks is found in the map(s)"
-  [m ks f & args]
-  (let [val (get-in m ks ::not-found)]
-   (apply update-cond m (not= val ::not-found) ks f args)))
+(def ^{:doc "Acts as update-in if ks refers to a value, otherwise returns m."
+       :arglists '([m ks f & args])}
+  update-when
+  (let [nope (Object.)]
+    (fn [m ks f & args]
+      (if (identical? nope (get-in m ks nope))
+        m
+        (apply update-in m ks f args)))))
 
 (defn vector-maybe
   "Vectorize an argument if it's not already vector"

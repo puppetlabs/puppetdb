@@ -403,6 +403,12 @@
   (assert (string? s))
   (str \" (str/replace s "\\" "\\\\") \"))
 
+(defn str-vec->array-literal
+  "Returns a properly quoted sql values literal representing strvecs
+  as a row set of text[], e.g. [\"x\" ...] -> (array['x', ...])."
+  [strvec]
+  (str "(array[" (str/join ", " (map single-quote strvec)) "])"))
+
 (defn strs->db-array
   [strs]
   (assert (every? string? strs))
