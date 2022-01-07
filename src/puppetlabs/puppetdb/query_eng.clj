@@ -230,7 +230,8 @@
 
          (let [f #(let [{:keys [results-query]}
                         (query->sql remaining-query entity version
-                                    options
+                                    (merge options
+                                           (select-keys context [:node-purge-ttl :add-agent-report-filter]))
                                     (select-keys context [:log-queries :query-id]))]
                     (jdbc/call-with-array-converted-query-rows results-query
                                                                (comp row-fn munge-fn)))]
