@@ -1710,20 +1710,24 @@
   "Returns a truthy value indicating whether a record exists that has
   a producer_timestamp newer than the given timestamp."
   [certname :- String
-   timestamp :- pls/Timestamp]
-  (when-let [newest (-> ["select producer_timestamp"
-                         "  from (select producer_timestamp from catalogs"
-                         "          where certname = ?"
-                         "          order by producer_timestamp desc limit 1) cats"
-                         "  union all (select producer_timestamp from factsets"
-                         "               where certname = ?"
-                         "               order by producer_timestamp desc limit 1)"
-                         "  union all (select producer_timestamp from reports"
-                         "               where certname = ?"
-                         "               order by producer_timestamp desc limit 1)"
-                         "  order by producer_timestamp desc"
-                         "  limit 1"]
-                        (jdbc/do-prepared (repeat 3 certname))
+   timestamp :- Timestamp]
+  ;; In order for this query to get the right answer using "order by producer_timestamp desc"
+  ;; The subqueries must not return any null producer_timestamps because
+  ;; null sorts as "higher" than real values.
+  (when-let [newest (-> (str "select producer_timestamp"
+                             "  from (select producer_timestamp from catalogs"
+                             "          where certname = ?"
+                             "          order by producer_timestamp desc limit 1) cats"
+                             "  union all (select producer_timestamp from factsets"
+                             "               where certname = ?"
+                             "               order by producer_timestamp desc limit 1)"
+                             "  union all (select latest_report_timestamp AS producer_timestamp from certnames"
+                             "               where certname = ? and latest_report_timestamp is not null)"
+                             "  order by producer_timestamp desc"
+                             "  limit 1")
+                        (cons (repeat 3 certname))
+                        vec
+                        (jdbc/query-to-vec)
                         first
                         :producer_timestamp)]
     (.after newest timestamp)))
@@ -1750,13 +1754,13 @@
   ([certname :- String]
    (deactivate-node! certname (now)))
   ([certname :- String timestamp :- pls/Timestamp]
-   (if (have-newer-record-for-certname? certname timestamp)
-     (log/warn (trs "Not deactivating node {0} because local data is newer than {1}."
-                    certname timestamp))
-     (let [sql-timestamp (to-timestamp timestamp)]
+   (let [sql-timestamp (to-timestamp timestamp)]
+     (if (have-newer-record-for-certname? certname sql-timestamp)
+       (log/warn (trs "Not deactivating node {0} because local data is newer than {1}."
+                      certname timestamp))
        (jdbc/do-prepared "UPDATE certnames SET deactivated = ?
-                            WHERE certname=?
-                              AND (deactivated IS NULL OR deactivated < ?)"
+                         WHERE certname=?
+                         AND (deactivated IS NULL OR deactivated < ?)"
                          [sql-timestamp certname sql-timestamp])))))
 
 (pls/defn-validated expire-stale-nodes

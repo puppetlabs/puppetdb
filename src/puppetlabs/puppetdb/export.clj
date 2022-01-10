@@ -59,19 +59,24 @@
   (map #(export-datum->tar-item entity %) data))
 
 (def export-info
-  {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v9
+  {"catalogs" {:query ["from" "catalogs"]
+               :query->wire-fn catalogs/catalogs-query->wire-v9
                :anonymize-fn anon/anonymize-catalog
                :json-encoded-fields [:edges :resources]}
-   "reports" {:query->wire-fn reports/reports-query->wire-v8
+   "reports" {:query ["from" "reports" ["null?" "type" false]]
+              :query->wire-fn reports/reports-query->wire-v8
               :anonymize-fn anon/anonymize-report
               :json-encoded-fields [:metrics :logs :resource_events :resources]}
-   "factsets" {:query->wire-fn factsets/factsets-query->wire-v5
+   "factsets" {:query ["from" "factsets"]
+               :query->wire-fn factsets/factsets-query->wire-v5
                :anonymize-fn anon/anonymize-facts
                :json-encoded-fields [:facts]}
-   "nodes-with-fact-expiration" {:query->wire-fn nodes/nodes-query->configure-expiration-wire-v1
+   "nodes-with-fact-expiration" {:query ["from" "nodes-with-fact-expiration"]
+                                 :query->wire-fn nodes/nodes-query->configure-expiration-wire-v1
                                  :anonymize-fn anon/anonymize-configure-expiration
                                  :json-encoded-fields []}
-   "catalog-inputs" {:query->wire-fn identity
+   "catalog-inputs" {:query ["from" "catalog-inputs"]
+                     :query->wire-fn identity
                      :anonymize-fn anon/anonymize-catalog-inputs
                      :json-encoded-fields []}})
 
@@ -103,7 +108,7 @@
   [tar-writer query-fn anonymize-profile]
   (let [anon-config (get anon/anon-profiles anonymize-profile ::not-found)]
     (doseq [entity export-order
-            :let [{:keys [json-encoded-fields query->wire-fn anonymize-fn]} (get export-info entity)
+            :let [{:keys [query json-encoded-fields query->wire-fn anonymize-fn]} (get export-info entity)
                   query-callback-fn (fn [rows]
                                       (->> rows
                                            (map #(decode-json-children % json-encoded-fields))
@@ -111,7 +116,7 @@
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)
                                            (add-tar-entries tar-writer)))]]
-      (query-fn query-api-version ["from" entity] nil query-callback-fn))))
+      (query-fn query-api-version query nil query-callback-fn))))
 
 (defn export!
   ([outfile query-fn] (export! outfile query-fn nil))
