@@ -113,10 +113,8 @@
       <topicref href="api/metrics/v1/changes-from-puppetdb-v3.markdown" format="markdown"/>
     </topichead>
 
-    <topichead navtitle="API">
-      <topicref href="api/overview.markdown" format="markdown"/>
-      <topicref href="api/query/tutorial.markdown" format="markdown"/>
-      <topicref href="api/query/curl.markdown" format="markdown"/>
+    <topichead navtitle="Command API">
+      <topicref href="api/command/v1/commands.markdown" format="markdown"/>
     </topichead>
 
     <topichead navtitle="Wire formats">
