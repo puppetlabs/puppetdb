@@ -27,6 +27,7 @@
 
 # Bundler files
 /vendor
+/Gemfile.lock
 
 # Used by Puppet Labs packaging system
 /ext/packaging/
