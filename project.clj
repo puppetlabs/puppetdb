@@ -265,11 +265,7 @@
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
                               :plugins [[jonase/eastwood "0.3.14"
                                          :exclusions [org.clojure/clojure]]
-                                        [lein-nvd "1.4.1"
-                                         :exclusions [org.apache.commons/commons-lang3
-                                                      org.slf4j/jcl-over-slf4j
-                                                      org.clojure/clojure
-                                                      org.slf4j/slf4j-api]]]}]
+                                        ]}]
 
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
@@ -348,7 +344,6 @@
                                          (if (map? prev) [new prev] (conj prev new)))
                                        #(spit %1 (pr-str %2))]}
 
-  :nvd {:suppression-file "dev-resources/suppression.xml"}
 
   :eastwood {:config-files ["eastwood.clj"]
              ;; local-shadows-var is too distruptive, particularly
