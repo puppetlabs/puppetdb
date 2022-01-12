@@ -293,6 +293,10 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian10-64-1'
   end
 
+  def is_bullseye()
+    return test_config[:os_families].has_key? 'debian11-64-1'
+  end
+
   def is_el6()
     return test_config[:os_families].has_key?('redhat6-64-1') ||
            test_config[:os_families].has_key?('centos6-64-1')
@@ -319,9 +323,12 @@ module PuppetDBExtensions
     when :install, :upgrade_latest
       test_config[:platform_version]
     when :upgrade_oldest
+      # Debian 11 only has builds starting in the 7 series
+      if is_bullseye
+        :puppet7
       # Redhat8, Redhat7-fips, Debian 10, Ubuntu 20
       # only have builds starting somewhere in the 6 series.
-      if is_el8 || is_rhel7fips || is_buster || is_focal
+      elsif is_el8 || is_rhel7fips || is_buster || is_focal
         :puppet6
       else
         :puppet5
@@ -336,6 +343,8 @@ module PuppetDBExtensions
     # account for bionic/rhel8 not having build before certian versions
     if is_bionic
       '5.2.4'
+    elsif is_bullseye
+      '7.9.0'
     elsif is_el8
       '6.0.3'
     elsif is_rhel7fips
@@ -424,6 +433,8 @@ module PuppetDBExtensions
       "#{version}stretch"
     elsif host['platform'].include?('debian-10')
       "#{version}buster"
+    elsif host['platform'].include?('debian-11')
+      "#{version}bullseye"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
