@@ -120,7 +120,7 @@ The following example would match if the `certname` field's actual value resembl
 expression or an integer, matches each element of the path.  Integers
 only match array indexes, regular expressions that only contain
 integer digits like `"123"` do not match array indexes, and all other
-regular expressions, including something like `"[12]3", match both
+regular expressions, including something like `"[12]3"`, match both
 array indexes and map keys.
 
 The following example would match any network interface names starting with "eth":
