@@ -979,10 +979,6 @@
                              (cons read-database write-db-cfgs)
                              (cons read-db write-db-pools)
                              shutdown-for-ex)
-        (start-garbage-collection context job-pool
-                                  write-db-cfgs write-db-pools write-db-lock-statuses
-                                  shutdown-for-ex
-                                  initial-gc-finished?)
 
         (-> context
             (assoc :job-pool job-pool
