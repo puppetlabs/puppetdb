@@ -134,7 +134,7 @@ If you want to match any index for an array path element, you can use regular ex
 > Limitations: with the current implementation an anchored expression
 > like `"^sda.*"` may never match an array element.  Currently
 > those expressions will match for queries against the
-> [fact-contents][fact-contents endpoint], but for now, that should not be
+> [fact-contents][fact-contents], but for now, that should not be
 > considered reliable across PuppetDB upgrades.
 
 ### `null?` (is null)
