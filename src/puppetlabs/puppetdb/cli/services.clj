@@ -75,7 +75,7 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.time :refer [ago to-seconds to-millis parse-period
+            [puppetlabs.puppetdb.time :refer [before? now hours ago to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
@@ -856,8 +856,27 @@
                (log/info (trs "Schema checker interrupted")))))))
      0 schema-check-interval)))
 
-;; Test hook
-(defn invoke-periodic-gc [f] (f))
+(defn invoke-periodic-gc [db cfg request shutdown-for-ex
+                          clean-lock lock-status
+                          last-gc-run
+                          ;; "other" gc will only run if last-gc-run is before
+                          ;; fact-path-limit, both are timestamps
+                          fact-path-limit]
+  (with-nonfatal-exceptions-suppressed
+    (with-monitored-execution shutdown-for-ex
+      (try
+        ;; Only perform fact-path gc ("other") unless it is the first gc after startup,
+        ;; or it has been at least 24h since the previous
+        (let [request (if (or (nil? @last-gc-run)
+                              (before? @last-gc-run fact-path-limit))
+                        (do
+                          (reset! last-gc-run (now))
+                          request)
+                        (remove #{"other"} request))]
+          ;; Always prune partitions incrementally
+          (collect-garbage db clean-lock cfg lock-status request true))
+        (catch InterruptedException _
+          (log/info (trs "Garbage collector interrupted")))))))
 
 (defn start-garbage-collection
   [{:keys [clean-lock] :as _context}
@@ -867,17 +886,14 @@
     (doseq [[cfg db lock-status] dbs-with-gc-enabled]
       (let [interval (to-millis (:gc-interval cfg))
             request (db-config->clean-request cfg)
-            gc (fn []
-                 (with-nonfatal-exceptions-suppressed
-                   (with-monitored-execution shutdown-for-ex
-                     (try
-                       ;; Always prune partitions incrementally
-                       (collect-garbage db clean-lock cfg lock-status request true)
-                       (catch InterruptedException _
-                         (log/info (trs "Garbage collector interrupted")))))))]
+            last-gc-run (atom nil)]
         ;; Start GC job pool with initial and subsequent delay of :gc-interval
-        (schedule-with-fixed-delay job-pool #(invoke-periodic-gc gc)
+        (schedule-with-fixed-delay job-pool #(invoke-periodic-gc db cfg request
+                                                                 shutdown-for-ex
+                                                                 clean-lock lock-status
+                                                                 last-gc-run (-> 24 hours ago))
                                    interval interval)))))
+
 
 (defn database-lock-status []
   ;; These track the number of threads either waiting
