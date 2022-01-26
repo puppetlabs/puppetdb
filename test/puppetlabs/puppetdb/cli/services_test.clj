@@ -18,7 +18,7 @@
              :refer [*db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.cli
-             :refer [example-certname example-report get-factsets]]
+             :refer [example-certname example-report example-facts get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -43,7 +43,7 @@
                      with-pdb-with-no-gc]]
             [puppetlabs.trapperkeeper.app :as tkapp :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
-            [puppetlabs.puppetdb.testutils
+            [puppetlabs.puppetdb.testutils :as tu
              :refer [block-until-results default-timeout-ms temp-file change-report-time]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
@@ -390,9 +390,10 @@
                                            (change-report-time example-report %))
           before-gc (CyclicBarrier. 2)
           after-gc (CyclicBarrier. 2)
-          invoke-periodic (fn [f]
+          original-periodic-gc svcs/invoke-periodic-gc
+          invoke-periodic (fn [& args]
                             (.await before-gc)
-                            (let [result (f)]
+                            (let [result (apply original-periodic-gc args)]
                               (.await after-gc)
                               result))]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
@@ -442,8 +443,9 @@
                                            cmd-consts/latest-report-version
                                            (change-report-time example-report %))
           after-gc (CyclicBarrier. 2)
-          invoke-periodic (fn [f]
-                            (let [result (f)]
+          original-periodic-gc svcs/invoke-periodic-gc
+          invoke-periodic (fn [& args]
+                            (let [result (apply original-periodic-gc args)]
                               (.await after-gc)
                               result))
           event-expired? (fn [_ _] true)
@@ -511,6 +513,56 @@
                         (set (get-temporal-partitions "reports"))))
                  (is (= (->> event-parts (sort-by :table) (drop 1) set)
                         (set (get-temporal-partitions "resource_events")))))))))))))
+
+(deftest fact-path-gc-delay
+  (svc-utils/with-single-quiet-pdb-instance
+    (let [shutdown-mock (tu/call-counter)
+          invoke-gc (fn [last-gc-run]
+                      (invoke-periodic-gc *db*
+                                         {:node-ttl (time/parse-period "30d")
+                                          :node-purge-ttl (time/parse-period "14d")
+                                          :report-ttl (time/parse-period "14d")
+                                          :resource-events-ttl (time/parse-period "14d")}
+                                         ["expire_nodes" "purge_nodes" "purge_reports"
+                                          "purge_resource_events" "gc_packages" "other"]
+                                         shutdown-mock
+                                         (ReentrantLock.)
+                                         (atom nil)
+                                         (atom last-gc-run)
+                                         (-> 24 time/hours time/ago)))]
+      (sync-command-post (svc-utils/pdb-cmd-url)
+                         example-certname
+                         "replace facts"
+                         cmd-consts/latest-facts-version
+                         (assoc example-facts
+                                :producer_timestamp (-> 60 time/days time/ago)))
+
+      (is (< 0
+             (count (jdbc/with-transacted-connection *db*
+                      (jdbc/query ["select * from fact_paths"])))))
+
+      (jdbc/with-transacted-connection *db*
+        (scf-store/delete-certname! example-certname))
+
+      ;; invoke a gc where last-gc-run is less than 24 hours
+      (invoke-gc (-> 10 time/hours time/ago))
+
+
+      ;; the fact paths should not have been garbage collected
+      (is (< 0
+             (count (jdbc/with-transacted-connection *db*
+                      (jdbc/query ["select * from fact_paths"])))))
+
+      ;; invoke a gc where last-gc-run is greater than 24 hours
+      (invoke-gc (-> 25 time/hours time/ago))
+
+      ;; the fact paths should have been garbage collected
+      (is (= 0
+             (count (jdbc/with-transacted-connection *db*
+                      (jdbc/query ["select * from fact_paths"])))))
+
+      ;; sanity check that the gc runs were not failures
+      (is (= 0 (tu/times-called shutdown-mock))))))
 
 (deftest initialize-db
   (testing "when establishing migration database connections"
