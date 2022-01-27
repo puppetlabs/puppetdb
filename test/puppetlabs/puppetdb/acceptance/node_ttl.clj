@@ -23,7 +23,8 @@
          (-> (svc-utils/create-temp-config)
              (assoc :database *db*)
              (assoc-in [:database :node-ttl] "1s")
-             (assoc-in [:database :node-purge-ttl] "1s"))
+             (assoc-in [:database :node-purge-ttl] "1s")
+             (assoc-in [:database :gc-interval] "0.01"))
          (fn []
            (let [certname "foo.com"
                  catalog (-> (get-in wire-catalogs [8 :empty])

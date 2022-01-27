@@ -857,37 +857,27 @@
      0 schema-check-interval)))
 
 ;; Test hook
-(defn invoke-periodic-gc [f first?] (f first?))
+(defn invoke-periodic-gc [f] (f))
 
 (defn start-garbage-collection
-  [{:keys [clean-lock] :as context}
-   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex finished-initial-gc]
+  [{:keys [clean-lock] :as _context}
+   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
   (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
-                                    (map vector db-configs db-pools db-lock-statuses))
-        pending-initial-gcs (atom (count dbs-with-gc-enabled))]
-    (when (zero? @pending-initial-gcs)
-      (deliver finished-initial-gc true))
+                                    (map vector db-configs db-pools db-lock-statuses))]
     (doseq [[cfg db lock-status] dbs-with-gc-enabled]
       (let [interval (to-millis (:gc-interval cfg))
             request (db-config->clean-request cfg)
-            initial-gc? (atom true)
-            gc (fn [first?]
-                 (try
-                   (with-nonfatal-exceptions-suppressed
-                     (with-monitored-execution shutdown-for-ex
-                       (try
-                         (let [incremental? (not @first?)]
-                           (collect-garbage db clean-lock cfg lock-status request incremental?))
-                         (catch InterruptedException ex
-                           (log/info (trs "Garbage collector interrupted"))))))
-                   (finally
-                     (when @first?
-                       (reset! first? false)
-                       (swap! pending-initial-gcs dec)
-                       (when (zero? @pending-initial-gcs)
-                         (deliver finished-initial-gc true))))))]
-        (schedule-with-fixed-delay job-pool #(invoke-periodic-gc gc initial-gc?)
-                                   0 interval)))))
+            gc (fn []
+                 (with-nonfatal-exceptions-suppressed
+                   (with-monitored-execution shutdown-for-ex
+                     (try
+                       ;; Always prune partitions incrementally
+                       (collect-garbage db clean-lock cfg lock-status request true)
+                       (catch InterruptedException _
+                         (log/info (trs "Garbage collector interrupted")))))))]
+        ;; Start GC job pool with initial and subsequent delay of :gc-interval
+        (schedule-with-fixed-delay job-pool #(invoke-periodic-gc gc)
+                                   interval interval)))))
 
 (defn database-lock-status []
   ;; These track the number of threads either waiting
@@ -967,8 +957,7 @@
                    _ write-db-pools :error close-write-dbs
 
                    write-db-lock-statuses (repeatedly (count write-db-pools)
-                                                      database-lock-status)
-                   initial-gc-finished? (promise)]
+                                                      database-lock-status)]
 
         (init-metrics read-db write-db-pools)
 
@@ -981,8 +970,7 @@
                              shutdown-for-ex)
         (start-garbage-collection context job-pool
                                   write-db-cfgs write-db-pools write-db-lock-statuses
-                                  shutdown-for-ex
-                                  initial-gc-finished?)
+                                  shutdown-for-ex)
 
         (-> context
             (assoc :job-pool job-pool
@@ -993,7 +981,6 @@
                      :dlo dlo
                      :maybe-send-cmd-event! maybe-send-cmd-event!
                      :q q
-                     :initial-gc-finished? initial-gc-finished?
                      :scf-read-db read-db
                      :scf-write-dbs write-db-pools
                      :scf-write-db-cfgs write-db-cfgs

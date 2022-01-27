@@ -62,7 +62,7 @@ kill_pdb
 pdb_script_pid=$!
 
 printf "Waiting for PDB startup (log: %q)\n" "$output_dir/pdb_log.txt" 2>&1
-while ! grep -Fq "Finished database garbage collection" "$output_dir/pdb_log.txt"; do
+while ! grep -Fq "PuppetDB finished starting" "$output_dir/pdb_log.txt"; do
     sleep 1
     printf "."
     if [ "$(grep -F "Error during service start!!!" "$output_dir/pdb_log.txt")" ]; then

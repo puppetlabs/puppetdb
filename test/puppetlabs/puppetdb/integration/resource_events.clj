@@ -51,7 +51,7 @@
                  (let [hash-str (hash/resource-event-identity-pkey row)]
                    (jdbc/insert-multi! "resource_events"
                                        (list (assoc row :event_hash (sutils/munge-hash-for-storage hash-str)
-                                                        :timestamp new-timestamp))))))))))
+                                                    :timestamp new-timestamp))))))))))
 
       (testing "Verify we have resource events"
         (is (= 2 (count (int/pql-query pdb "events { timestamp > 0 }")))))
@@ -61,17 +61,20 @@
 
       (let [initial-gc-count (counters/value (:resource-events-purges @pdb-services/admin-metrics))]
         ;; this TTL will be rounded to 1 day at execution time
-        (with-open [pdb (int/run-puppetdb pg {:database {:resource-events-ttl "1h"}})]
+        (with-open [pdb (int/run-puppetdb pg {:database
+                                              {:resource-events-ttl "1h"
+                                               :gc-interval "0.01"}})]
           (let [start-time (System/currentTimeMillis)]
             (loop []
               (cond
                 (> (- (System/currentTimeMillis) start-time) tu/default-timeout-ms)
                 (throw (ex-info "Timeout waiting for pdb gc to happen" {}))
 
-                (> (read-gc-count-metric) initial-gc-count)
-                true ;; gc happened
+                ;; Let GC run several times in order to drop all expired partitions
+                (> (read-gc-count-metric) (+ 3 initial-gc-count))
+                true
 
-                :default
+                :else
                 (do
                   (Thread/sleep 250)
                   (recur)))))
