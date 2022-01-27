@@ -73,7 +73,7 @@ touch "$tmpdir/pdb-out" "$tmpdir/pdb-err"
 ./pdb services -c "$PDBBOX/conf.d" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
 
 # allow time for pdb to start before changing migration level
-while ! grep -F "Finished database garbage collection" "$tmpdir/pdb-out" > /dev/null
+while ! grep -F "PuppetDB finished starting" "$tmpdir/pdb-out" > /dev/null
 do
     echo 'Waiting for pdb to start...'
     cat "$tmpdir/pdb-out" "$tmpdir/pdb-err"

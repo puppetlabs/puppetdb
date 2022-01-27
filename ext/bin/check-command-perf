@@ -86,7 +86,7 @@ pdb_id=$!
 
 printf "Waiting for PDB startup (log: %q)\n" "$tmpdir/log.txt" 1>&2
 
-while ! grep -Fq "Finished database garbage collection" "$tmpdir/log.txt"; do
+while ! grep -Fq "PuppetDB finished starting" "$tmpdir/log.txt"; do
     sleep 1
     if [ "$(grep -F "Error during service start!!!" "$tmpdir/log.txt")" ]; then
       echo "PDB failed during start-up." 1>&2
