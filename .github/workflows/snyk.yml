@@ -17,7 +17,7 @@ jobs:
         fetch-depth: 1
         persist-credentials: false
     - id: scan
-      uses: puppetlabs/security-snyk-clojure-action@v1.1.0
+      uses: puppetlabs/security-snyk-clojure-action@v1.3.0
       with:
         snykToken: ${{ secrets.SNYK_PE_TOKEN }}
         # ignore rproxyKey since there are currently no private sources
