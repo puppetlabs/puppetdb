@@ -155,7 +155,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [[org.postgresql/postgresql]
+  :dependencies [[org.postgresql/postgresql "42.2.25"]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4"]
