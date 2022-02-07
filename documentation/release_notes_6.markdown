@@ -11,6 +11,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.markdown
 [puppet-apply]: ./connect_puppet_apply.markdown
 [api-overview]: ./api/query/v4/overview.markdown
+[known-issues]: ./known_issues.markdown
 
 ---
 
@@ -23,7 +24,7 @@ Released January 20 2022
 ### New features and improvements
 
 * Improved performance of the "deactivate node" command. ([PDB-5378](https://tickets.puppetlabs.com/browse/PDB-5378))
-* Improved performance of the fact-contents endpoint. Testing against a database of 10,000 mocked nodes, there was an observed 84% decrease in time taken to complete a difficult query. ([PDB-5259](https://tickets.puppetlabs.com/browse/PDB-5259)
+* Improved performance of the fact-contents endpoint. Testing against a database of 10,000 mocked nodes, there was an observed 84% decrease in time taken to complete a difficult query. This optimization has a [known issue][known-issues] with PostgreSQL JIT compilation. ([PDB-5259](https://tickets.puppetlabs.com/browse/PDB-5259))
 
 ### Bug Fixes
 

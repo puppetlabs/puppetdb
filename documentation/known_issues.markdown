@@ -10,6 +10,17 @@ canonical: "/puppetdb/latest/known_issues.html"
 
 PuppetDB's bugs and feature requests are managed in [Puppet's issue tracker][tracker]. Search this database if you're having problems and please report any new issues to us!
 
+## PuppetDB fact-contents queries take longer than usual
+
+PuppetDB 6.20.0 and 7.9.0 contain [a
+change](https://tickets.puppetlabs.com/browse/PDB-5259) to the fact-contents
+query intended to reduce the reads required by Postgres, and improve
+performance on larger datasets. The changes cause a performance regression when
+used with PostgreSQL JIT compilation enabled. If you have JIT enabled, either
+by setting it in PostgreSQL 11 or running the default settings on PostgreSQL
+12+, you should disable it by setting `jit = off` in your `postgresql.conf`.
+[PDB-5450](https://tickets.puppetlabs.com/browse/PDB-5450)
+
 ## PuppetDB returns an error from the status endpoint
 
 In PuppetDB 6.11.0, 6.11.1, and 6.11.2, when PuppetDB cannot connect to the
