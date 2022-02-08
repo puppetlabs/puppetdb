@@ -302,6 +302,7 @@
                                                ;; brings in its own version, and older versions of
                                                ;; lein depend on clojure 1.6.
                                                [org.clojure/clojure nil]
+                                               [org.postgresql/postgresql "42.2.25"]
 
                                                ;; This circular dependency is required because of a bug in
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
