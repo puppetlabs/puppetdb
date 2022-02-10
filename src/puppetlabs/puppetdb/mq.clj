@@ -2,8 +2,7 @@
   (:require
    [clojure.java.jmx :as jmx]
    [metrics.timers :refer [timer]]
-   [puppetlabs.puppetdb.metrics.core :as metrics]
-   [puppetlabs.puppetdb.schema :refer [defn-validated]]))
+   [puppetlabs.puppetdb.metrics.core :as metrics]))
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
@@ -11,7 +10,7 @@
                                                      (metrics/keyword->metric-name
                                                        [:global] :message-persistence-time))}))
 
-(defn-validated queue-size
+(defn queue-size
   "Returns the number of pending messages in the queue.
   Throws {:kind ::queue-not-found} when the queue doesn't exist."
   []

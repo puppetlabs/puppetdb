@@ -8,12 +8,16 @@
             [trptcolin.versioneer.core :as versioneer]
             [puppetlabs.i18n.core :refer [trs]]))
 
-(def status-details-schema {:maintenance_mode? s/Bool
-                            :queue_depth (s/maybe s/Int)
-                            :read_db_up? s/Bool
-                            :write_db_up? s/Bool
-                            :write_dbs_up? s/Bool
-                            :write_db {s/Str {:up? s/Bool}}})
+(def status-schema (assoc
+                    status-core/StatusCallbackResponse
+                    :status
+                    (s/maybe
+                     {:maintenance_mode? s/Bool
+                      :queue_depth (s/maybe s/Int)
+                      :read_db_up? s/Bool
+                      :write_db_up? s/Bool
+                      :write_dbs_up? s/Bool
+                      :write_db {s/Str {:up? s/Bool}}})))
 
 ;; This is vendored from the tk-status-service because version checking fails
 ;; semver validation on PDB snapshots. When we address this upstream we can put
@@ -29,42 +33,39 @@
                artifact-id))))
     version))
 
-(pls/defn-validated status-details :- status-details-schema
-  "Returns a map containing status information on the various parts of
-  a running PuppetDB system. This data can be interpreted to determine
-  whether the system is considered up"
-  [config :- {s/Any s/Any}
-   shared-globals-fn :- pls/Function
-   maint-mode-fn? :- pls/Function]
-  (let [{:keys [scf-write-dbs scf-write-db-names] :as globals} (shared-globals-fn)
-        db-up (map sutils/db-up? scf-write-dbs)
-        db-status (into {} (map (fn [name up?] [(str name) {:up? up?}])
-                                scf-write-db-names
-                                db-up))]
-    {:maintenance_mode? (maint-mode-fn?)
-     :queue_depth (utils/nil-on-failure (mq/queue-size))
-     :read_db_up? (sutils/db-up? (:scf-read-db globals))
-     :write_db_up? (boolean (some identity db-up))
-     :write_dbs_up? (every? identity db-up)
-     :write_db db-status}))
-
-(pls/defn-validated create-status-map :- status-core/StatusCallbackResponse
+(s/defn create-status-map :- status-schema
   "Returns a status map containing the state of the currently running
   system (starting/running/error etc)"
-  [{:keys [maintenance_mode? read_db_up? write_db_up?]
-    :as status-details} :- status-details-schema]
-  (let [state (cond
-                maintenance_mode? :starting
-                (and read_db_up? write_db_up?) :running
-                :else :error)]
-    {:state state
-     :status status-details}))
+  [level :- s/Keyword
+   shared-globals-fn :- pls/Function
+   get-maint-mode :- pls/Function
+   get-shutdown-reason :- pls/Function]
+  (if (= :critical level)
+    {:state (cond
+             (get-shutdown-reason) :stopping
+             (get-maint-mode) :starting
+             :else :running)
+     :status nil}
+    ;; If level is not :critical (:info or :debug)
+    (let [maint-mode? (get-maint-mode)
+          {:keys [scf-write-dbs scf-write-db-names scf-read-db]} (shared-globals-fn)
+          write-db-statuses (map sutils/db-up? scf-write-dbs)
+          read-db-up? (sutils/db-up? scf-read-db)
+          write-db-up? (boolean (some identity write-db-statuses))]
+      {:state (cond
+               (get-shutdown-reason) :stopping
+               maint-mode? :starting
+               (and read-db-up? write-db-up?) :running
+               :else :error)
+       :status {:maintenance_mode? maint-mode?
+                :queue_depth (utils/nil-on-failure (mq/queue-size))
+                ;; Is the read-db up?
+                :read_db_up? read-db-up?
+                ;; Is at least one write-db up?
+                :write_db_up? write-db-up?
+                ;; Are all write-db's up?
+                :write_dbs_up? (every? identity write-db-statuses)
+                ;; What is the individual status of each write-db?
+                :write_db (zipmap scf-write-db-names
+                                  (map #(hash-map :up? %) write-db-statuses))}})))
 
-(defn register-pdb-status
-  "Registers the PuppetDB instance in TK status using `register-fn`
-  with the associated `status-callback-fn`"
-  [register-fn status-callback-fn]
-  (register-fn "puppetdb-status"
-               (get-artifact-version "puppetlabs" "puppetdb")
-               1
-               status-callback-fn))
