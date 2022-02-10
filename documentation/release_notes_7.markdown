@@ -9,6 +9,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 [facts]: ./api/query/v4/facts.markdown
 [api-overview]: ./api/query/v4/overview.markdown
 [fact-contents]: ./api/query/v4/fact-contents.markdown
+[known-issues]: ./known_issues.markdown
 
 ---
 
@@ -22,7 +23,7 @@ Released January 20 2022
 
 * Added support for Debian 11. ([PDB-5390](https://tickets.puppetlabs.com/browse/PDB-5390))
 * Improved performance of the "deactivate node" command. ([PDB-5378](https://tickets.puppetlabs.com/browse/PDB-5378))
-* Improved performance of the fact-contents endpoint. Testing against a database of 10,000 mocked nodes, there was an observed 84% decrease in time taken to complete a difficult query. ([PDB-5259](https://tickets.puppetlabs.com/browse/PDB-5259)
+* Improved performance of the fact-contents endpoint. Testing against a database of 10,000 mocked nodes, there was an observed 84% decrease in time taken to complete a difficult query. This optimization has a [known issue][known-issues] with PostgreSQL JIT compilation. ([PDB-5259](https://tickets.puppetlabs.com/browse/PDB-5259))
 
 ### Bug Fixes
 
