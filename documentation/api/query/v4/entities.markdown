@@ -16,6 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/entities.html"
 [facts]: facts.markdown
 [fact-contents]: fact-contents.markdown
 [fact-paths]: fact-paths.markdown
+[inventory]: ./inventory.markdown
 [nodes]: ./nodes.markdown
 [producers]: producers.markdown
 [query]: query.markdown
@@ -50,6 +51,7 @@ Entity Name                                        | REST Endpoint
 [`fact_contents`][fact-contents]                   | [/pdb/query/v4/fact-contents][fact-contents]
 [`fact_names`][fact-names]                         | [/pdb/query/v4/fact-names][fact-names]
 [`fact_paths`][fact-paths]                         | [/pdb/query/v4/fact-paths][fact-paths]
+[`inventory`][inventory]                           | [/pdb/query/v4/inventory][inventory]
 [`nodes`][nodes]                                   | [/pdb/query/v4/nodes][nodes]
 [`producers`][producers]                           | [/pdb/query/v4/producers][producers]
 [`reports`][reports]                               | [/pdb/query/v4/reports][reports]
