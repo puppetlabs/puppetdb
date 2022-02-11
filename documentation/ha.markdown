@@ -3,14 +3,12 @@ title: "High Availability (HA)"
 layout: default
 ---
 
-# High Availability (HA)
-
 [configure]: ./configure.markdown
 [pe-configure]: https://puppet.com/docs/pe/latest/config_puppetdb.html
 [logging]: ./logging.markdown
 [metrics]: ./api/metrics/v1/mbeans.markdown
 
-## Configuring PuppetDB for High Availability
+# Configuring PuppetDB for High Availability
 
 In Puppet Enterprise 2016.5 and later, PuppetDB may be configured for high
 availability in order to withstand network partitions or system failure.
