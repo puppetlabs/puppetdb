@@ -7,7 +7,7 @@
             [clj-http.client :as client]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
-(deftest info-level-status
+(deftest normal-status
   (svc-utils/with-puppetdb-instance
     (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
                                           (assoc :prefix "/status/v1/services")
@@ -23,17 +23,6 @@
               :write_db {:default {:up? true}}
               :queue_depth 0}
              (:status pdb-status))))))
-
-(deftest critical-level-status
-  (svc-utils/with-puppetdb-instance
-    (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
-                                          (assoc :prefix "/status/v1/services?level=critical")
-                                          base-url->str-with-prefix
-                                          client/get)
-          pdb-status (:puppetdb-status (json/parse-string body true))]
-      (tu/assert-success! pdb-resp)
-      (is (= "running" (:state pdb-status)))
-      (is (= nil (:status pdb-status))))))
 
 (deftest maintenance-mode-status
   (with-redefs [puppetlabs.puppetdb.pdb-routing/maint-mode? (constantly true)]
