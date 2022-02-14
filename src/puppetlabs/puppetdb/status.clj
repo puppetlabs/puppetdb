@@ -8,12 +8,13 @@
             [trptcolin.versioneer.core :as versioneer]
             [puppetlabs.i18n.core :refer [trs]]))
 
-(def status-details-schema {:maintenance_mode? s/Bool
+(def status-details-schema (s/maybe
+                            {:maintenance_mode? s/Bool
                             :queue_depth (s/maybe s/Int)
                             :read_db_up? s/Bool
                             :write_db_up? s/Bool
                             :write_dbs_up? s/Bool
-                            :write_db {s/Str {:up? s/Bool}}})
+                            :write_db {s/Str {:up? s/Bool}}}))
 
 ;; This is vendored from the tk-status-service because version checking fails
 ;; semver validation on PDB snapshots. When we address this upstream we can put
@@ -33,20 +34,23 @@
   "Returns a map containing status information on the various parts of
   a running PuppetDB system. This data can be interpreted to determine
   whether the system is considered up"
-  [config :- {s/Any s/Any}
+  [level :- s/Keyword
+   config :- {s/Any s/Any}
    shared-globals-fn :- pls/Function
    maint-mode-fn? :- pls/Function]
-  (let [{:keys [scf-write-dbs scf-write-db-names] :as globals} (shared-globals-fn)
-        db-up (map sutils/db-up? scf-write-dbs)
-        db-status (into {} (map (fn [name up?] [(str name) {:up? up?}])
-                                scf-write-db-names
-                                db-up))]
-    {:maintenance_mode? (maint-mode-fn?)
-     :queue_depth (utils/nil-on-failure (mq/queue-size))
-     :read_db_up? (sutils/db-up? (:scf-read-db globals))
-     :write_db_up? (boolean (some identity db-up))
-     :write_dbs_up? (every? identity db-up)
-     :write_db db-status}))
+  ;; If level is :critical, skip database queries and return nil
+  (when (not= level :critical)
+    (let [{:keys [scf-write-dbs scf-write-db-names] :as globals} (shared-globals-fn)
+          db-up (map sutils/db-up? scf-write-dbs)
+          db-status (into {} (map (fn [name up?] [(str name) {:up? up?}])
+                                  scf-write-db-names
+                                  db-up))]
+      {:maintenance_mode? (maint-mode-fn?)
+       :queue_depth (utils/nil-on-failure (mq/queue-size))
+       :read_db_up? (sutils/db-up? (:scf-read-db globals))
+       :write_db_up? (boolean (some identity db-up))
+       :write_dbs_up? (every? identity db-up)
+       :write_db db-status})))
 
 (pls/defn-validated create-status-map :- status-core/StatusCallbackResponse
   "Returns a status map containing the state of the currently running
@@ -55,7 +59,7 @@
     :as status-details} :- status-details-schema]
   (let [state (cond
                 maintenance_mode? :starting
-                (and read_db_up? write_db_up?) :running
+                (or (not status-details) (and status-details read_db_up? write_db_up?)) :running
                 :else :error)]
     {:state state
      :status status-details}))
