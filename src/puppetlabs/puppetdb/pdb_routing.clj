@@ -113,7 +113,7 @@
 (defn init-pdb-routing
   [service context config context-root shared-globals
    set-url-prefix add-ring-handler maint-mode? enable-maint-mode
-   query enqueue-command clean delete-node register-status get-shutdown-reason]
+   query enqueue-command clean delete-node register-status]
   (let [query-prefix (str context-root "/query")
         augmented-globals #(-> (shared-globals)
                                (assoc :url-prefix query-prefix
@@ -136,12 +136,11 @@
          mid/wrap-with-puppetdb-middleware))
 
     (enable-maint-mode)
-    (register-status
-     "puppetdb-status"
-     (pdb-status/get-artifact-version "puppetlabs" "puppetdb")
-     1
-     (fn [level] (pdb-status/create-status-map
-                  level shared-globals maint-mode? get-shutdown-reason))))
+    (pdb-status/register-pdb-status
+     register-status
+     (fn [level]
+       (pdb-status/create-status-map
+        (pdb-status/status-details config shared-globals maint-mode?)))))
   context)
 
 (defn start-pdb-routing
@@ -170,7 +169,7 @@
                        maint-mode? enable-maint-mode
                        query enqueue-command
                        clean delete-node
-                       register-status get-shutdown-reason)))
+                       register-status)))
 
   (start
    [this context]

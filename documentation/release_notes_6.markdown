@@ -17,6 +17,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 6.20.2
+
+Released February 9 2022
+
+### Security fixes
+
+This releases contains a fix for [CVE-2022-21724](https://nvd.nist.gov/vuln/detail/CVE-2022-21724) ([PDB-5449](https://tickets.puppetlabs.com/browse/PDB-5449)), a pgjdbc exploit. In order to use this exploit, an attacker must have permission to create JDBC connections via JDBC URL's while the application is running. Since PuppetDB only creates JDBC connections internally from configuration upon startup, this CVE is of very low risk to our users. In order for a PuppetDB user to be successfully attacked, the malicious actor would have to first acquire at least the user privileges of the PuppetDB user. Due to the CVE's high severity rating, we believe it's appropriate to release a fix regardless.
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Stel Abrego
+
 ## PuppetDB 6.20.0
 
 Released January 20 2022
@@ -31,6 +43,9 @@ Released January 20 2022
 * Fixed a bug with HA sync (Puppet Enterprise only) regarding `/pdb/query/v4/<entity>/<certname>` style queries that caused replicas to falsely report that the sync transferred 0 nodes. ([PDB-5381](https://tickets.puppetlabs.com/browse/PDB-5381))
 * Fixed a bug that caused reports to be potentially garbage collected sooner than the configured `reports-ttl` due to a time rounding error. ([PDB-5351](https://tickets.puppetlabs.com/browse/PDB-5351))
 * Fixed error handling issues in the command endpoint. Previously, providing a certname that was an empty string or `null` would cause PuppetDB to crash and prevent prior restarts from exiting maintenance mode. Upon other errors such as missing required parameters, the command endpoint would return a status 500 HTML page or cryptic internal error data. This patch ensures the command endpoint will always return a standard `{ "error": <description> }` JSON response upon any ingestion error and ingestion errors at the command endpoint will not cause PuppetDB to crash. ([PDB-5282](https://tickets.puppetlabs.com/browse/PDB-5282))
+* Fixed an issue with queries that filter using arrays when the configuration
+  option `log-queries` is enabled.
+  ([PDB-5364](https://tickets.puppetlabs.com/browse/PDB-5364))
 
 ### Contributors
 
