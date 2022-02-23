@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
   (:require [clojure.set :as set]
+            [puppetlabs.puppetdb.config :as config]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage :as store]
@@ -1707,3 +1708,76 @@
                    :deferrable? "NO"},
                   :same nil}]}
                (diff-schema-maps before-migration (schema-info-map *db*))))))))
+
+(deftest migration-82-add-report-policy-columns
+  (when (config/experimental-features "policies")
+    (testing "report policies columns migration"
+      (jdbc/with-db-connection *db*
+        (clear-db-for-testing!)
+        (fast-forward-to-migration! 81)
+        (let [before-migration (schema-info-map *db*)
+              partitions (part/get-partition-names "reports")]
+          (apply-migration-for-testing! 82)
+          (->>
+           (for [part partitions]
+             [{:left-only nil,
+               :right-only
+               {:numeric_scale nil,
+                :column_default nil,
+                :character_octet_length nil,
+                :datetime_precision nil,
+                :nullable? "YES",
+                :character_maximum_length nil,
+                :numeric_precision nil,
+                :numeric_precision_radix nil,
+                :data_type "jsonb",
+                :column_name "desired_policies",
+                :table_name part},
+               :same nil}
+              {:left-only nil,
+               :right-only
+               {:numeric_scale nil,
+                :column_default nil,
+                :character_octet_length 1073741824,
+                :datetime_precision nil,
+                :nullable? "YES",
+                :character_maximum_length nil,
+                :numeric_precision nil,
+                :numeric_precision_radix nil,
+                :data_type "text",
+                :column_name "project_version",
+                :table_name part},
+               :same nil}])
+           (apply concat)
+           (concat
+            [{:left-only nil,
+              :right-only
+              {:numeric_scale nil,
+               :column_default nil,
+               :character_octet_length nil,
+               :datetime_precision nil,
+               :nullable? "YES",
+               :character_maximum_length nil,
+               :numeric_precision nil,
+               :numeric_precision_radix nil,
+               :data_type "jsonb",
+               :column_name "desired_policies",
+               :table_name "reports"},
+              :same nil}
+             {:left-only nil,
+              :right-only
+              {:numeric_scale nil,
+               :column_default nil,
+               :character_octet_length 1073741824,
+               :datetime_precision nil,
+               :nullable? "YES",
+               :character_maximum_length nil,
+               :numeric_precision nil,
+               :numeric_precision_radix nil,
+               :data_type "text",
+               :column_name "project_version",
+               :table_name "reports"},
+              :same nil}])
+           (assoc {:index-diff nil :constraint-diff nil} :table-diff)
+           (= (diff-schema-maps before-migration (schema-info-map *db*)))
+           is))))))

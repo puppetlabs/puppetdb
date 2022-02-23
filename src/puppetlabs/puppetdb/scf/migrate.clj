@@ -2072,6 +2072,13 @@
    "create index idx_desired_policies_changed on desired_policies using btree (changed)"
    "create index idx_desired_policies_policies on desired_policies using gin(policies jsonb_path_ops)"))
 
+(defn add-report-policy-columns
+  []
+  (jdbc/do-commands
+   ["ALTER TABLE reports"
+    "  ADD project_version TEXT,"
+    "  ADD desired_policies JSONB"]))
+
 (def migration-spec
   (->> [{:id 00 :fn require-schema-migrations-table}
         {:id 28 :fn init-through-2-3-8}
@@ -2136,7 +2143,9 @@
         {:id 79 :fn add-report-partition-indexes-on-certname-end-time}
         {:id 80 :fn add-workspaces-tables}
         (when (conf/experimental-features "policies")
-          {:id 81 :fn add-desired-policies :strict-order? true})]
+          {:id 81 :fn add-desired-policies :strict-order? true})
+        (when (conf/experimental-features "policies")
+          {:id 82 :fn add-report-policy-columns :strict-order? true})]
        ;; Make sure that if you change the structure of reports or
        ;; resource events, you also update the delete-reports cli
        ;; command.
