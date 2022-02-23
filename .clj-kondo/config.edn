@@ -1,0 +1,1 @@
+{:lint-as {puppetlabs.puppetdb.schema/defn-validated schema.core/defn}}
