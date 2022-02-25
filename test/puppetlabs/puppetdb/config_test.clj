@@ -14,6 +14,16 @@
    [java.security KeyStore]
    [java.util.regex Pattern]))
 
+(deftest experimental-feature-parsing
+  (is (= #{} (conf/parse-experimental-features "")))
+  (is (= #{"policies"} (conf/parse-experimental-features "policies")))
+  (is (= #{"policies"} (conf/parse-experimental-features " policies")))
+  (is (= #{"policies"} (conf/parse-experimental-features "policies ")))
+  (is (= #{"policies"} (conf/parse-experimental-features " policies ")))
+  (is (= #{"policies"} (conf/parse-experimental-features "foo policies")))
+  (is (= #{"policies"} (conf/parse-experimental-features "all")))
+  (is (= #{"policies"} (conf/parse-experimental-features "all policies"))))
+
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
     (testing "should convert disable-update-checking value to boolean, if it is specified"
