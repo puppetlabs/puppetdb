@@ -28,6 +28,21 @@
 (defn throw-cli-error [msg]
   (throw (ex-info msg {:type ::cli-error :message msg})))
 
+(def ^:private valid-experimental-feature? #{"policies"})
+
+(defn parse-experimental-features [s]
+  (letfn [(recognized? [x]
+            (or (valid-experimental-feature? x)
+                ;; Logging not available yet?
+                (binding [*out* *err*]
+                  (println (trs "Ignoring invalid PDB_EXPERIMENTAL_FEATURE {0}" x))
+                  false)))]
+    (set (when s
+           (filter recognized? (str/split s #"[\t ]+"))))))
+
+(def experimental-features
+  (parse-experimental-features (System/getenv "PDB_EXPERIMENTAL_FEATURES")))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
