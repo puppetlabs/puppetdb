@@ -648,9 +648,14 @@
        ;; level to fail (because the pending transaction already
        ;; includes that select).
        (.setIsolateInternalQueries true))
-     (some->> (when expected-schema
-                (block-on-schema-mismatch expected-schema))
-              (.setConnectionInitSql config))
+     (->> [(when read-only? "set transaction read write;")
+           "update pg_settings set setting = false"
+           "  where name = 'jit';"
+           (when read-only? "set transaction read only;")
+           (when expected-schema
+             (block-on-schema-mismatch expected-schema))]
+          (str/join " ")
+          (.setConnectionInitSql config))
      (when rewrite-batched-inserts
        (.setProperty (.getDataSourceProperties config) "reWriteBatchedInserts" rewrite-batched-inserts))
      (some->> pool-name (.setPoolName config))
