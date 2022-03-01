@@ -5,6 +5,7 @@ layout: default
 
 # Examples
 
+[pg-regex]: https://www.postgresql.org/docs/11/functions-matching.html#FUNCTIONS-POSIX-REGEXP
 [tutorial]: ./tutorial-pql.markdown
 [reference]: ./v4/pql.markdown
 
@@ -25,6 +26,12 @@ Query nodes with `green` in their name.
 
 ``` ruby
 nodes { certname ~ 'green' }
+```
+
+or [regexp features][pg-regex]
+
+``` ruby
+nodes { certname ~ '(?i)green' }
 ```
 
 *Output:*
