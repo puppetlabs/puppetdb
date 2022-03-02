@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
   (:require [clojure.set :as set]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage :as store]
@@ -39,10 +40,12 @@
 
 (defn fast-forward-to-migration!
   [migration-number]
-  (doseq [[i migration] (sort migrations)
-          :while (<= i migration-number)]
-    (migration)
-    (record-migration! i)))
+  (let [applied? (set (applied-migrations))]
+    (doseq [[i migration] migrations
+            :while (<= i migration-number)
+            :when (not (applied? i))]
+      (migration)
+      (record-migration! i))))
 
 (deftest migration
   (testing "pending migrations"
@@ -1707,3 +1710,144 @@
                    :deferrable? "NO"},
                   :same nil}]}
                (diff-schema-maps before-migration (schema-info-map *db*))))))))
+
+(deftest migration-81-behavior
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 80)
+    (let [before-migration (schema-info-map *db*)
+          expected (if-not (conf/experimental-features "policies")
+                     {:index-diff nil :table-diff nil :constraint-diff nil}
+                     {:index-diff
+                      [{:left-only nil,
+                        :right-only
+                        {:schema "public",
+                         :table "desired_policies",
+                         :index "desired_policies_pkey",
+                         :index_keys ["certname"],
+                         :type "btree",
+                         :unique? true,
+                         :functional? false,
+                         :is_partial false,
+                         :primary? true,
+                         :user "pdb_test"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:schema "public",
+                         :table "desired_policies",
+                         :index "idx_desired_policies_changed",
+                         :index_keys ["changed"],
+                         :type "btree",
+                         :unique? false,
+                         :functional? false,
+                         :is_partial false,
+                         :primary? false,
+                         :user "pdb_test"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:schema "public",
+                         :table "desired_policies",
+                         :index "idx_desired_policies_policies",
+                         :index_keys ["policies"],
+                         :type "gin",
+                         :unique? false,
+                         :functional? false,
+                         :is_partial false,
+                         :primary? false,
+                         :user "pdb_test"},
+                        :same nil}],
+                      :table-diff
+                      [{:left-only nil,
+                        :right-only
+                        {:numeric_scale nil,
+                         :column_default nil,
+                         :character_octet_length 1073741824,
+                         :datetime_precision nil,
+                         :nullable? "NO",
+                         :character_maximum_length nil,
+                         :numeric_precision nil,
+                         :numeric_precision_radix nil,
+                         :data_type "text",
+                         :column_name "certname",
+                         :table_name "desired_policies"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:numeric_scale nil,
+                         :column_default nil,
+                         :character_octet_length nil,
+                         :datetime_precision 6,
+                         :nullable? "NO",
+                         :character_maximum_length nil,
+                         :numeric_precision nil,
+                         :numeric_precision_radix nil,
+                         :data_type "timestamp with time zone",
+                         :column_name "changed",
+                         :table_name "desired_policies"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:numeric_scale nil,
+                         :column_default nil,
+                         :character_octet_length nil,
+                         :datetime_precision nil,
+                         :nullable? "YES",
+                         :character_maximum_length nil,
+                         :numeric_precision nil,
+                         :numeric_precision_radix nil,
+                         :data_type "jsonb",
+                         :column_name "policies",
+                         :table_name "desired_policies"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:numeric_scale nil,
+                         :column_default nil,
+                         :character_octet_length 1073741824,
+                         :datetime_precision nil,
+                         :nullable? "YES",
+                         :character_maximum_length nil,
+                         :numeric_precision nil,
+                         :numeric_precision_radix nil,
+                         :data_type "text",
+                         :column_name "version",
+                         :table_name "desired_policies"},
+                        :same nil}],
+                      :constraint-diff
+                      [{:left-only nil,
+                        :right-only
+                        {:constraint_name "certname IS NOT NULL",
+                         :table_name "desired_policies",
+                         :constraint_type "CHECK",
+                         :initially_deferred "NO",
+                         :deferrable? "NO"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:constraint_name "changed IS NOT NULL",
+                         :table_name "desired_policies",
+                         :constraint_type "CHECK",
+                         :initially_deferred "NO",
+                         :deferrable? "NO"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:constraint_name "desired_policies_certname_fkey",
+                         :table_name "desired_policies",
+                         :constraint_type "FOREIGN KEY",
+                         :initially_deferred "NO",
+                         :deferrable? "NO"},
+                        :same nil}
+                       {:left-only nil,
+                        :right-only
+                        {:constraint_name "desired_policies_pkey",
+                         :table_name "desired_policies",
+                         :constraint_type "PRIMARY KEY",
+                         :initially_deferred "NO",
+                         :deferrable? "NO"},
+                        :same nil}]})]
+      (fast-forward-to-migration! 81)
+      (is (= expected
+             (diff-schema-maps before-migration (schema-info-map *db*)))))))
