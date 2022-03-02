@@ -30,6 +30,14 @@
    can reasonably and safely be applied *after* the bugfix migration, because
    that is what will happen for upgrading users.
 
+  A migration can be marked as not reorderable via
+  setting :strict-order? to true.  Then, any attempt to run that
+  migration after higher numbered migrations have been applied will
+  fail.  This is currently used to accommodate experimental feature
+  work, providing a clear indication that such a feature has been
+  enabled when the database is in an unexpected state.  To fix that,
+  the database must be recreated from scratch.
+
    In short, here are some guidelines re: applying schema changes to multiple
    branches:
 
@@ -2051,73 +2059,88 @@
     "  PRIMARY KEY (workspace_uuid, certname),"
     "  FOREIGN KEY (workspace_uuid) REFERENCES workspaces(uuid) ON DELETE CASCADE)"]))
 
+(def migration-spec
+  (->> [{:id 00 :fn require-schema-migrations-table}
+        {:id 28 :fn init-through-2-3-8}
+        {:id 29 :fn version-2yz-to-300-migration}
+        {:id 30 :fn add-expired-to-certnames}
+        {:id 31 :fn coalesce-fact-values}
+        {:id 32 :fn add-producer-timestamp-to-reports}
+        {:id 33 :fn add-certname-id-to-certnames}
+        {:id 34 :fn add-certname-id-to-resource-events}
+        ;; This dummy migration ensures that even databases that were up to
+        ;; date when the analyze-tables code was added will still analyze
+        ;; their existing databases.
+        {:id 35 :fn (fn [] true)}
+        {:id 36 :fn rename-environments-name-to-environment}
+        {:id 37 :fn add-jsonb-columns-for-metrics-and-logs}
+        {:id 38 :fn add-code-id-to-catalogs}
+        {:id 39 :fn add-expression-indexes-for-bytea-queries}
+        {:id 40 :fn fix-bytea-expression-indexes-to-use-encode}
+        {:id 41 :fn factset-hash-field-not-nullable}
+        {:id 42 :fn add-support-for-historical-catalogs}
+        {:id 43 :fn add-indexes-for-reports-summary-query}
+        {:id 44 :fn add-catalog-uuid-to-reports-and-catalogs}
+        {:id 45 :fn index-certnames-latest-report-id}
+        {:id 46 :fn drop-certnames-latest-id-index}
+        {:id 47 :fn add-producer-to-reports-catalogs-and-factsets}
+        {:id 48 :fn add-noop-pending-to-reports}
+        {:id 49 :fn add-corrective-change-columns}
+        {:id 50 :fn remove-historical-catalogs}
+        {:id 51 :fn fact-values-value-to-jsonb}
+        {:id 52 :fn resource-params-cache-parameters-to-jsonb}
+        {:id 53 :fn add-corrective-change-index}
+        {:id 54 :fn drop-resource-events-resource-type-idx}
+        {:id 55 :fn index-certnames-unique-latest-report-id}
+        {:id 56 :fn merge-fact-values-into-facts}
+        {:id 57 :fn add-package-tables}
+        {:id 58 :fn add-gin-index-on-resource-params-cache}
+        {:id 59 :fn improve-facts-factset-id-index}
+        {:id 60 :fn fix-missing-edges-fk-constraint}
+        {:id 61 :fn add-latest-report-timestamp-to-certnames}
+        {:id 62 :fn reports-partial-indices}
+        {:id 63 :fn add-job-id}
+        {:id 64 :fn rededuplicate-facts}
+        {:id 65 :fn varchar-columns-to-text}
+        {:id 66 :fn jsonb-facts}
+        ;; migration 69 replaces migration 67 - we do not need to apply both
+        ;; 67 exposed an agent bug where we would get duplicate resource events
+        ;; from a failed exec call. The updated migration adds additional columns
+        ;; to the hash to avoid these sorts of collisions
+        {:id 67 :fn (fn [])}
+        {:id 68 :fn support-fact-expiration-configuration}
+        ;; replaced by reporting-partitioned-tables
+        {:id 69 :fn migration-69-stub}
+        {:id 70 :fn migrate-md5-to-sha1-hashes}
+        {:id 71 :fn autovacuum-vacuum-scale-factor-factsets-catalogs-certnames}
+        {:id 72 :fn add-support-for-catalog-inputs}
+        {:id 73 :fn resource-events-partitioning}
+        {:id 74 :fn reports-partitioning}
+        {:id 75 :fn add-report-type-to-reports}
+        {:id 76 :fn add-report-partition-indexes-on-id}
+        {:id 77 :fn add-catalog-inputs-pkey}
+        {:id 78 :fn add-catalog-inputs-hash}
+        {:id 79 :fn add-report-partition-indexes-on-certname-end-time}
+        {:id 80 :fn add-workspaces-tables}]
+       ;; Make sure that if you change the structure of reports or
+       ;; resource events, you also update the delete-reports cli
+       ;; command.
+       (remove nil?)
+       (map (juxt :id identity))
+       (into {})))
+
+(def ^:private strictly-ordered-migrations
+  (into #{} (keep #(when (:strict-order? %) (:id %))
+                  (vals migration-spec))))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
-  {00 require-schema-migrations-table
-   28 init-through-2-3-8
-   29 version-2yz-to-300-migration
-   30 add-expired-to-certnames
-   31 coalesce-fact-values
-   32 add-producer-timestamp-to-reports
-   33 add-certname-id-to-certnames
-   34 add-certname-id-to-resource-events
-   ;; This dummy migration ensures that even databases that were up to
-   ;; date when the analyze-tables code was added will still analyze
-   ;; their existing databases.
-   35 (fn [] true)
-   36 rename-environments-name-to-environment
-   37 add-jsonb-columns-for-metrics-and-logs
-   38 add-code-id-to-catalogs
-   39 add-expression-indexes-for-bytea-queries
-   40 fix-bytea-expression-indexes-to-use-encode
-   41 factset-hash-field-not-nullable
-   42 add-support-for-historical-catalogs
-   43 add-indexes-for-reports-summary-query
-   44 add-catalog-uuid-to-reports-and-catalogs
-   45 index-certnames-latest-report-id
-   46 drop-certnames-latest-id-index
-   47 add-producer-to-reports-catalogs-and-factsets
-   48 add-noop-pending-to-reports
-   49 add-corrective-change-columns
-   50 remove-historical-catalogs
-   51 fact-values-value-to-jsonb
-   52 resource-params-cache-parameters-to-jsonb
-   53 add-corrective-change-index
-   54 drop-resource-events-resource-type-idx
-   55 index-certnames-unique-latest-report-id
-   56 merge-fact-values-into-facts
-   57 add-package-tables
-   58 add-gin-index-on-resource-params-cache
-   59 improve-facts-factset-id-index
-   60 fix-missing-edges-fk-constraint
-   61 add-latest-report-timestamp-to-certnames
-   62 reports-partial-indices
-   63 add-job-id
-   64 rededuplicate-facts
-   65 varchar-columns-to-text
-   66 jsonb-facts
-   ;; migration 69 replaces migration 67 - we do not need to apply both
-   ;; 67 exposed an agent bug where we would get duplicate resource events
-   ;; from a failed exec call. The updated migration adds additional columns
-   ;; to the hash to avoid these sorts of collisions
-   67 (fn [])
-   68 support-fact-expiration-configuration
-   ;; replaced by reporting-partitioned-tables
-   69 migration-69-stub
-   70 migrate-md5-to-sha1-hashes
-   71 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames
-   72 add-support-for-catalog-inputs
-   73 resource-events-partitioning
-   74 reports-partitioning
-   75 add-report-type-to-reports
-   76 add-report-partition-indexes-on-id
-   77 add-catalog-inputs-pkey
-   78 add-catalog-inputs-hash
-   79 add-report-partition-indexes-on-certname-end-time
-   80 add-workspaces-tables})
-   ;; Make sure that if you change the structure of reports
-   ;; or resource events, you also update the delete-reports
-   ;; cli command.
+  ;; This might be better named migrators or something, but this is a
+  ;; very old structure, and we've preserved it to avoid having to
+  ;; rework all its dependents.
+  (reduce-kv (fn [result _ {:keys [id fn]}] (assoc result id fn))
+             {}
+             migration-spec))
 
 (defn desired-schema-version
   "The newest migration this PuppetDB instance knows about.  Anything
@@ -2153,14 +2176,15 @@
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
-  []
-  {:post [(map? %)
-          (sorted? %)
-          (apply <= 0 (keys %))
-          (<= (count %) (count migrations))]}
-  (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
-    (into (sorted-map)
-          (select-keys migrations pending))))
+  ([] (pending-migrations (applied-migrations)))
+  ([applied]
+   {:post [(map? %)
+           (sorted? %)
+           (apply <= 0 (keys %))
+           (<= (count %) (count migrations))]}
+   (let [pending (difference (kitchensink/keyset migrations) applied)]
+     (into (sorted-map)
+           (select-keys migrations pending)))))
 
 (defn unrecognized-migrations
   "Returns a set of migrations, likely created by a future version of
@@ -2174,7 +2198,16 @@
   []
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
-        known-migrations (apply sorted-set (keys migrations))]
+        known-migrations (apply sorted-set (keys migrations))
+        latest-pending-strict (->> applied-migration-versions
+                                   pending-migrations
+                                   (filter strictly-ordered-migrations)
+                                   last)]
+
+    (when (and latest-pending-strict (< latest-pending-strict latest-applied-migration))
+      (throw (IllegalStateException.
+              (trs "Strictly ordered database migration {0} is older than the current migration {1}."
+                   latest-pending-strict latest-applied-migration))))
 
     (when (and latest-applied-migration
                (< latest-applied-migration (first (remove zero? known-migrations))))
