@@ -33,10 +33,11 @@
 
 (defn apply-migration-for-testing!
   [i & args]
-  (let [migration (migrations i)
-        result (apply migration args)]
-    (record-migration! i)
-    result))
+  (if-let [migration-fn (migrations i)]
+    (let [result (apply migration-fn args)]
+      (record-migration! i)
+      result)
+    (throw (ex-info (str "Migration " i " was not found") {:migration i}))))
 
 (defn fast-forward-to-migration!
   [migration-number]
