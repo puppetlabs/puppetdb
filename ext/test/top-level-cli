@@ -41,8 +41,13 @@ rc=0
 cat "$tmpdir/out" "$tmpdir/err"
 test "$rc" -eq 0
 grep -F 'Available subcommands:' "$tmpdir/out"
-grep -E 'Display version information' "$tmpdir/out"
-test $(wc -c < "$tmpdir/err") -eq $expected_help_warnings
+grep -F 'Display version information' "$tmpdir/out"
+
+if ! test $(wc -c < "$tmpdir/err") -eq "$expected_help_warnings"; then
+    echo 'ERROR: Unpected1 help warnings:' 1>&2
+    cat "$tmpdir/err"
+    false
+fi
 
 rc=0
 ./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
