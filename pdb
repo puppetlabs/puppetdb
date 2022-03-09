@@ -2,9 +2,34 @@
 
 set -e
 
+dep_ver()
+{
+    # Example:
+    #  [org.bouncycastle/bcpkix-jdk15on "1.70"]
+    local artifact="$1" deps="$2"
+    artifact_rx="${artifact//./\\.}"' "([0-9.]+)"'
+    [[ $deps =~ $artifact_rx ]]
+    echo "${BASH_REMATCH[1]}"
+}
+
 jar="${PDB_JAR:-target/puppetdb.jar}"
-bcprov="${BCPROV_JAR:-$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/1.68/bcprov-jdk15on-1.68.jar}"
-bcpkix="${BCPKIX_JAR:-$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/1.68/bcpkix-jdk15on-1.68.jar}"
+deps=''
+
+if test "$BCPROV_JAR"; then
+    bcprov="$BCPROV_JAR"
+else
+    test "$deps" || deps=$(lein deps :tree)
+    bcprov_ver=$(dep_ver org.bouncycastle/bcpkix-jdk15on "$deps")
+    bcprov="$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/$bcprov_ver/bcprov-jdk15on-$bcprov_ver.jar"
+fi
+
+if test "$BCPKIX_JAR"; then
+    bcpkix="$BCPKIX_JAR"
+else
+    test "$deps" || deps=$(lein deps :tree)
+    bcpkix_ver=$(dep_ver org.bouncycastle/bcpkix-jdk15on "$deps")
+    bcpkix="$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/$bcpkix_ver/bcpkix-jdk15on-$bcpkix_ver.jar"
+fi
 
 if ! test -e "$jar"; then
     printf 'Unable to find the puppetdb jar %q; have you run "lein uberjar"?\n' \
@@ -23,6 +48,5 @@ if ! test -e "$bcpkix"; then
            "$bcpkix" 1>&2
     exit 2
 fi
-
 
 exec java -cp "$jar:$bcprov:$bcpkix" clojure.main -m puppetlabs.puppetdb.core "$@"
