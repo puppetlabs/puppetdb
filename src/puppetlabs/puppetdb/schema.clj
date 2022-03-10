@@ -142,7 +142,8 @@
     org.joda.time.Seconds (comp time/seconds coerce-to-int)
     Boolean (comp #(Boolean/valueOf %) str)
     Long long
-    clojure.lang.PersistentVector blocklist->vector}))
+    clojure.lang.PersistentVector blocklist->vector
+    java.lang.String str}))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"
