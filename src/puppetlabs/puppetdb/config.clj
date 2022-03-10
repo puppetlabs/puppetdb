@@ -65,9 +65,9 @@
      :connection-username String
      :user String
      :username String
-     :password String
+     :password (s/pred #(or (str %) (int? %)))
      :migrator-username String
-     :migrator-password String
+     :migrator-password (s/pred #(or (str %) (int? %)))
      :syntax_pgs String
      :read-only? (pls/defaulted-maybe String "false")
      :partition-conn-min (pls/defaulted-maybe s/Int 1)

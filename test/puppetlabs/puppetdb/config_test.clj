@@ -295,7 +295,13 @@
                                   :connection-migrator-username "connection-migration-user-value")
           ssl-connection {:database {:classname   "something"
                                   :subname     "stuff?ssl=true"
-                                  :username    "someone"}}]
+                                  :username    "someone"}}
+          numeric-passwords {:database {:classname "something"
+                                        :username "someone"
+                                        :subname "stuff"
+                                        :password 12345
+                                        :migrator-username "admin"
+                                        :migrator-password 12345}}]
 
       (testing "migrator-username"
         (let [config (configure-dbs no-migrator)]
@@ -334,7 +340,12 @@
       (testing "ssl-connection-with-password"
         (let [config (configure-dbs (assoc-in ssl-connection [:database :password] "password"))]
           (is (= "password" (get-in config [:database :migrator-password])))
-          (is (= "password" (get-in config [:read-database :migrator-password]))))))))
+          (is (= "password" (get-in config [:read-database :migrator-password])))))
+
+      (testing "numeric passwords"
+        (let [config (configure-dbs numeric-passwords)]
+          (is (= "12345" (get-in config [:database :password])))
+          (is (= "12345" (get-in config [:database :migrator-password]))))))))
 
 (deftest database-user-preferred-to-username-on-mismatch
   (let [config (configure-dbs {:database {:classname "something"
