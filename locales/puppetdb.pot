@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: b711cad0f88b9562267a2219f8ef70896bee690c\n"
+"X-Git-Ref: 9842144cfe8739a8859eb95c09031d475a6b8cc0\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -905,6 +905,14 @@ msgid ""
 "The client certificate name {0} doesn't appear in the certificate allowlist. "
 "Is your master''s (or other PuppetDB client''s) certname listed in "
 "PuppetDB''s certificate-allowlist file?"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid "An unexpected error occurred while processing the request"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid "An unexpected error occurred"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
