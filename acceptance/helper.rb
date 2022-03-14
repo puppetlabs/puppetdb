@@ -865,19 +865,19 @@ EOS
       if options[:type] == 'aio' then
         if nightly && puppet_platform == :puppet6
           ## puppet6 repos
-          on host, "curl -O http://nightlies.puppet.com/apt/puppet6-nightly-release-$(lsb_release -sc).deb"
+          on host, "curl -O https://nightlies.puppet.com/apt/puppet6-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet6-nightly-release-$(lsb_release -sc).deb"
 
         elsif nightly && puppet_platform == :puppet5
-          on host, "curl -O http://nightlies.puppet.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
+          on host, "curl -O https://nightlies.puppet.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
         else
-          on host, "curl -O http://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
+          on host, "curl -O https://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet6-release-$(lsb_release -sc).deb"
         end
       else
-        on host, "curl -O http://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
+        on host, "curl -O https://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
         on host, "dpkg -i puppet6-release-$(lsb_release -sc).deb"
       end
       on host, "apt-get update"
@@ -891,16 +891,16 @@ EOS
 
         if nightly && puppet_platform == :puppet6
           ## puppet6 repos
-          on host, "curl -O http://nightlies.puppet.com/yum/puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O https://nightlies.puppet.com/yum/puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         elsif nightly && puppet_platform == :puppet5
           ## puppet6 repos
-          on host, "curl -O http://nightlies.puppet.com/yum/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O https://nightlies.puppet.com/yum/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         else
-          on host, "curl -O http://yum.puppet.com/puppet6-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O https://yum.puppet.com/puppet6-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet6-release-#{variant}-#{version}.noarch.rpm"
         end
       else
@@ -909,8 +909,8 @@ EOS
         create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
   [puppetlabs-dependencies]
   name=Puppet Labs Dependencies - $basearch
-  baseurl=http://yum.puppetlabs.com/el/$releasever/dependencies/$basearch
-  gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+  baseurl=https://yum.puppetlabs.com/el/$releasever/dependencies/$basearch
+  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
   enabled=1
   gpgcheck=1
         REPO
@@ -918,8 +918,8 @@ EOS
         create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
   [puppetlabs-products]
   name=Puppet Labs Products - $basearch
-  baseurl=http://yum.puppetlabs.com/el/$releasever/products/$basearch
-  gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+  baseurl=https://yum.puppetlabs.com/el/$releasever/products/$basearch
+  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
   enabled=1
   gpgcheck=1
         REPO
@@ -927,7 +927,7 @@ EOS
         create_remote_file host, '/etc/yum.repos.d/epel.repo', <<-REPO
   [epel]
   name=Extra Packages for Enterprise Linux $releasever - $basearch
-  baseurl=http://download.fedoraproject.org/pub/epel/$releasever/$basearch
+  baseurl=https://download.fedoraproject.org/pub/epel/$releasever/$basearch
   mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=epel-$releasever&arch=$basearch
   failovermethod=priority
   enabled=1
@@ -938,8 +938,8 @@ EOS
       create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
   [puppetlabs-dependencies]
   name=Puppet Labs Dependencies - $basearch
-  baseurl=http://yum.puppetlabs.com/fedora/f$releasever/dependencies/$basearch
-  gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+  baseurl=https://yum.puppetlabs.com/fedora/f$releasever/dependencies/$basearch
+  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
   enabled=1
   gpgcheck=1
       REPO
@@ -947,8 +947,8 @@ EOS
       create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
   [puppetlabs-products]
   name=Puppet Labs Products - $basearch
-  baseurl=http://yum.puppetlabs.com/fedora/f$releasever/products/$basearch
-  gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+  baseurl=https://yum.puppetlabs.com/fedora/f$releasever/products/$basearch
+  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
   enabled=1
   gpgcheck=1
       REPO
