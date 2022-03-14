@@ -884,7 +884,7 @@ EOS
           on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
         elsif nightly && puppet_platform == :puppet7
-          on host, "curl -O http://nightlies.puppet.com/apt/puppet7-nightly-release-$(lsb_release -sc).deb"
+          on host, "curl -O https://nightlies.puppet.com/apt/puppet7-nightly-release-$(lsb_release -sc).deb"
           on host, "dpkg -i puppet7-nightly-release-$(lsb_release -sc).deb"
 
         else
@@ -915,7 +915,7 @@ EOS
           on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         elsif nightly && puppet_platform == :puppet7
-          on host, "curl -O http://nightlies.puppet.com/yum/puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
+          on host, "curl -O https://nightlies.puppet.com/yum/puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
           on host, "rpm -i puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
 
         else
