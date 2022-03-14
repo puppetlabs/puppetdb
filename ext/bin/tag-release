@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+#
+# Env vars
+# PDB_PATH=~/wrk/pdb/<branch>
+# PE_PDB_PATH=~/wrk/ext/<branch>
+# PDB_GIT_REMOTE=upstream
+# PDBEXT_GIT_REMOTE=upstream
+#
+# Usage:
+#    tag-release branch release_version
+#    tag-release 6.x    6.19.1
+#
+# for a private release
+# PDB_GIT_REMOTE=upstream-private ./tag-release 6.x 6.19.1
+set -euo pipefail
+
+update_version_var () {
+   local file="$1"
+   local varname="$2"
+   local new_version="$3"
+
+   SED_ADDRESS="(def $varname"
+   SED_REGEX="\".*\""
+   SED_REPLACEMENT="\"$new_version\""
+   SED_COMMAND="s|$SED_REGEX|$SED_REPLACEMENT|"
+
+   sed -i -e "/$SED_ADDRESS/ $SED_COMMAND" $file
+}
+
+# This is an automated safety check that the script should
+# run before creating a new commit. It verifies that the local
+# branch doesn't have any additional commits that the remote does not.
+# Otherwise, the additional commits might get pushed to the remote in
+# the process of tagging. There still might be un-committed changes in any files
+# that it is editting, so commits should be staged locally, then the commit
+# should be displayed for the user, and prompt for confirmation before
+# pushing to any remotes.
+ensure_local_git_updated () {
+  local remote="$1"
+  git checkout "$branch"
+  git fetch "$remote"
+  git rebase "$remote/$branch"
+  local remote_ref="$(git rev-parse $remote/$branch)"
+  local local_ref="$(git rev-parse HEAD)"
+  if test "$remote_ref" != "$local_ref"; then
+    echo "Local ref $local_ref at $(pwd) did not match remote ref $remote_ref for branch $branch" >&2
+    exit 2
+  fi
+}
+
+usage() {
+  cat <<-USAGE
+Usage: $(basename $0) <git-branch> <release-version>
+
+Enivironment Variables (and their defaults)
+
+  PDB_PATH=$HOME/wrk/pdb/<git-branch>
+  PE_PDB_PATH=$HOME/wrk/ext/<git-branch>
+  PDB_GIT_REMOTE=upstream
+  PDBEXT_GIT_REMOTE=upstream
+
+Examples
+
+  Releasing 6.19.1 off of puppetdb branch 6.x
+    $(basename $0) 6.x 6.19.1
+
+  Releasing 7.7.1 off of puppetdb branch 6.x
+    $(basename $0) main 7.7.1
+
+  For a release using puppetdb-private
+     PDB_GIT_REMOTE=upstream-private $(basename $0) 6.x 6.19.1
+USAGE
+}
+
+misuse() {
+  usage 1>&2
+  exit 2
+}
+
+expected_args=2
+if [[ $# -ne $expected_args ]]; then
+  echo "Wrong number of arguments $#, expected $expected_args" >&2
+  misuse
+fi
+
+branch="$1"
+version="$2"
+pdb_repo="${PDB_PATH:-$HOME/wrk/pdb/$branch}"
+ext_repo="${PDBEXT_PATH:-$HOME/wrk/ext/$branch}"
+pdb_remote="${PDB_GIT_REMOTE:-upstream}"
+ext_remote="${PDBEXT_GIT_REMOTE:-upstream}"
+
+increment_last_digit() {
+  local new_version=""
+  while [ $# -ne 1 ]; do
+    new_version="$new_version$1."
+    shift
+  done
+  new_version="$new_version$(($1 + 1))"
+
+  echo "$new_version"
+}
+
+# version_bump is intended to increment the release version for post-release
+# development. Given a version of numbers separated by dots (no -SNAPSHOT allowed),
+# creates a new version with the right-most digit incremented by one
+# and appends a `-SNAPSHOT` to the version.
+version_bump() {
+  local ifs="$IFS"
+  IFS="."
+  local snapshot_version="$(increment_last_digit $1)-SNAPSHOT"
+  IFS="$ifs"
+
+  echo "$snapshot_version"
+}
+
+next_version="$(version_bump $version)"
+
+# The script changes its working directory in order to perform its git
+# operations. This saves the current working directory and ensures that
+# it is restored for the user when the script finishes.
+cur_dir="$(pwd)"
+on_exit () {
+  cd "$cur_dir"
+}
+trap on_exit EXIT
+
+# Tag puppetdb repo
+
+cd "$pdb_repo"
+ensure_local_git_updated "$pdb_remote"
+update_version_var project.clj pdb-version "$version"
+git add project.clj
+git commit --message "(maint) Update version to $version for release"
+git tag --annotate --message "$version" "$version"
+
+# Display information to help user confirm/deny pushing the puppetdb tag
+git log --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' --graph HEAD^^^..
+git show "$version"
+
+read -p "Do you want to push the tag and commit to $pdb_remote/$branch [y/N]: " confirm
+if [[ "$confirm" = y* ]] ; then
+  echo "Pushing commit..."
+  git push "$pdb_remote" "$branch"
+  echo "Pushing tag..."
+  git push "$pdb_remote" "$version"
+else
+  echo "Skipping pushing tag and commit"
+fi
+
+ensure_local_git_updated "$pdb_remote"
+update_version_var project.clj pdb-version "$next_version"
+git add project.clj
+git commit --message "(maint) Update version to $next_version"
+
+cd "$ext_repo"
+ensure_local_git_updated "$ext_remote"
+update_version_var project.clj pdb-version "$version"
+update_version_var project.clj pe-pdb-version "$version"
+printf "$version\n" > version
+git add project.clj version
+git commit --message "(maint) Update version to $version for release"
+git tag --annotate --message "$version" "$version"
+
+# Display information to help user confirm/deny pushing the pe-puppetdb-extensions tag
+git log --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' --graph HEAD^^^..
+git show "$version"
+
+read -p "Do you want to push the tag and commit to $ext_remote/$branch [y/N]: " confirm
+if [[ "$confirm" = y* ]] ; then
+  echo "Pushing commit..."
+  git push "$ext_remote" "$branch"
+  echo "Pushing tag..."
+  git push "$ext_remote" "$version"
+else
+  echo "Skipping pushing tag and commit"
+fi
+
+ensure_local_git_updated "$ext_remote"
+update_version_var project.clj pdb-version "$next_version"
+update_version_var project.clj pe-pdb-version "$next_version"
+printf "$next_version\n" > version
+git add project.clj version
+git commit --message "(maint) Update version to $next_version"

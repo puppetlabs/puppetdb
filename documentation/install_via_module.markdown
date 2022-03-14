@@ -3,6 +3,8 @@ title: "Installing PuppetDB via Puppet module"
 layout: default
 ---
 
+[package_repos]: https://puppet.com/docs/puppet/6/install_puppet.html#enable_the_puppet_platform_repository
+
 # Installing PuppetDB via Puppet module
 
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
@@ -24,8 +26,8 @@ and the PuppetDB-termini for your Puppet Server) using
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet Platform package repository](https://puppet.com/docs/puppet/latest/puppet_platform.html)
-  on your PuppetDB server and Puppet Server.
+* [Enable the Puppet Platform package repository][package_repos] on
+  your PuppetDB server and Puppet Server.
 * If you don't use the Puppet Platform repository, make the PuppetDB and
   PuppetDB-terminus packages available via your alternate installation strategy.
   For the module install to succeed a command like `yum install puppetdb`, or the

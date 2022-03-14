@@ -916,7 +916,7 @@
   (let [{:keys [database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
         ;; Assume that the exception has already been reported.
-        shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
+        shutdown-for-ex (exceptional-shutdown-requestor request-shutdown [] 2)
         write-dbs-config (conf/write-databases config)
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
@@ -1037,7 +1037,7 @@
                                   request-shutdown
                                   (get-in config [:global :upgrade-and-exit?]))]
       (when upgrade?
-        (request-shutdown {::tk/exit {:status 0}}))
+        (request-shutdown {::tk/exit {:status 0 :messages []}}))
       (reset! (:shutdown-request context) nil)
       context)
     (catch ExceptionInfo ex

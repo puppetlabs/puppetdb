@@ -909,7 +909,7 @@
     (with-final [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
                  {:keys [response-chan response-pub]} context
                  ;; Assume that the exception has already been reported.
-                 shutdown-for-ex (exceptional-shutdown-requestor request-shutdown nil 2)
+                 shutdown-for-ex (exceptional-shutdown-requestor request-shutdown [] 2)
                  cmd-concurrency (conf/mq-thread-count config)
 
                  command-pool (create-command-handler-threadpool cmd-concurrency)
