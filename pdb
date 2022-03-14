@@ -1,28 +1,65 @@
 #!/usr/bin/env bash
 
-set -e
+set -eo pipefail
+
+dep-ver()
+{
+    # Example:
+    #  [org.bouncycastle/bcpkix-jdk15on "1.70"]
+    local artifact="$1" deps="$2"
+    artifact_rx="${artifact//./\\.}"' "([0-9.]+)"'
+    [[ $deps =~ $artifact_rx ]]
+    echo "${BASH_REMATCH[1]}"
+}
+
+cache_checked=''
+
+ensure-cache()
+{
+    if test ! -e ./pdb.bcprov -o ./project.clj -nt ./pdb.bcprov \
+            -o ! -e ./pdb.bcpkix -o ./project.clj -nt ./pdb.bcpkix; then
+        if test "$cache_checked"; then
+            echo 'error: pdb.* or project.clj changed during execution' 1>&2
+            exit 2
+        fi
+        local deps=$(lein deps :tree)
+        dep-ver org.bouncycastle/bcpkix-jdk15on "$deps" > ./pdb.bcpkix
+        dep-ver org.bouncycastle/bcprov-jdk15on "$deps" > ./pdb.bcprov
+    fi
+    cache_checked=true
+}
+
+require-file()
+{
+    local file="$1" fix="$2"
+    if ! test -e "$file"; then
+    printf 'Unable to find %q; have you run %q?\n' "$file" "$fix" 1>&2
+    exit 2
+    fi
+}
 
 jar="${PDB_JAR:-target/puppetdb.jar}"
-bcprov="${BCPROV_JAR:-$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/1.68/bcprov-jdk15on-1.68.jar}"
-bcpkix="${BCPKIX_JAR:-$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/1.68/bcpkix-jdk15on-1.68.jar}"
+bcprov=''
+bcpkix=''
 
-if ! test -e "$jar"; then
-    printf 'Unable to find the puppetdb jar %q; have you run "lein uberjar"?\n' \
-           "$jar" 1>&2
-    exit 2
+if test "$BCPROV_JAR"; then
+    bcprov="$BCPROV_JAR"
+else
+    ensure-cache
+    bcprov_ver=$(<./pdb.bcprov)
+    bcprov="$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/$bcprov_ver/bcprov-jdk15on-$bcprov_ver.jar"
 fi
 
-if ! test -e "$bcprov"; then
-    printf 'Unable to find the bouncy castle provider jar %q; have you run "lein deps"?\n' \
-           "$bcprov" 1>&2
-    exit 2
+if test "$BCPKIX_JAR"; then
+    bcpkix="$BCPKIX_JAR"
+else
+    ensure-cache
+    bcpkix_ver=$(<./pdb.bcpkix)
+    bcpkix="$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/$bcpkix_ver/bcpkix-jdk15on-$bcpkix_ver.jar"
 fi
 
-if ! test -e "$bcpkix"; then
-    printf 'Unable to find the bouncy castle provider jar %q; have you run "lein deps"?\n' \
-           "$bcpkix" 1>&2
-    exit 2
-fi
-
+require-file "$jar" "lein uberjar"
+require-file "$bcprov" "lein deps"
+require-file "$bcpkix" "lein deps"
 
 exec java -cp "$jar:$bcprov:$bcpkix" clojure.main -m puppetlabs.puppetdb.core "$@"

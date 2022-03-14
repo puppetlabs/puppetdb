@@ -65,6 +65,8 @@ checkouts
 
 /.eastwood
 /.nrepl-port
+/pdb.bcpkix
+/pdb.bcprov
 
 # locust output files and python cache
 *.csv
