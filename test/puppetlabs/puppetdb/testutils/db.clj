@@ -5,7 +5,6 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.test]
-            [environ.core :refer [env]]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.cli.services :refer [validate-read-only-user]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -22,10 +21,10 @@
   (re-matches #"[a-zA-Z][a-zA-Z0-9_]*" id))
 
 (def test-env
-  (let [user (env :pdb-test-db-user "pdb_test")
-        migrator (env :pdb-test-db-migrator "pdb_test_migrator")
-        admin (env :pdb-test-db-admin "pdb_test_admin")
-        read-only (env :pdb-test-db-read "pdb_test_read")]
+  (let [user (or (System/getenv "PDB_TEST_DB_USER") "pdb_test")
+        migrator (or (System/getenv "PDB_TEST_DB_MIGRATOR") "pdb_test_migrator")
+        admin (or (System/getenv "PDB_TEST_DB_ADMIN") "pdb_test_admin")
+        read-only (or (System/getenv "PDB_TEST_DB_READ") "pdb_test_read")]
     ;; Since we're going to use these in raw SQL later (i.e. not via ?).
     (doseq [[who name] [[:user user] [:migrator migrator] [:admin admin]]]
       (when-not (valid-sql-id? name)
@@ -33,16 +32,16 @@
           (println (format "Invalid test %s name %s" who (pr-str name)))
           (flush))
         (flush-and-exit err-exit-status)))
-    {:host (env :pdb-test-db-host "127.0.0.1")
-     :port (env :pdb-test-db-port 5432)
+    {:host (or (System/getenv "PDB_TEST_DB_HOST") "127.0.0.1")
+     :port (or (System/getenv "PDB_TEST_DB_PORT") "5432")
      :user {:name user
-            :password (env :pdb-test-db-user-password "pdb_test")}
+            :password (or (System/getenv "PDB_TEST_DB_USER_PASSWORD") "pdb_test")}
      :read {:name read-only
-            :password (env :pdb-test-db-read-password "pdb_test_read")}
+            :password (or (System/getenv "PDB_TEST_DB_READ_PASSWORD") "pdb_test_read")}
      :migrator {:name migrator
-                :password (env :pdb-test-db-migrator-password "pdb_test_migrator")}
+                :password (or (System/getenv "PDB_TEST_DB_MIGRATOR_PASSWORD") "pdb_test_migrator")}
      :admin {:name admin
-             :password (env :pdb-test-db-admin-password "pdb_test_admin")}}))
+             :password (or (System/getenv "PDB_TEST_DB_ADMIN_PASSWORD") "pdb_test_admin")}}))
 
 (def sample-db-config
   {:classname "org.postgresql.Driver"
@@ -140,7 +139,7 @@
    (doseq [function-name (sutils/sql-current-connection-function-names)]
           (drop-function! function-name))))
 
-(def ^:private pdb-test-id (env :pdb-test-id))
+(def ^:private pdb-test-id (System/getenv "PDB_TEST_ID"))
 
 (def ^:private template-name
   (if pdb-test-id
@@ -261,7 +260,8 @@
        (format "drop database if exists %s" db-name)))))
 
 (def preserve-test-db-on-failure
-  (boolean (re-matches #"yes|true|1" (env :pdb-test-keep-db-on-fail ""))))
+  (boolean (re-matches #"yes|true|1"
+                       (or (System/getenv "PDB_TEST_KEEP_DB_ON_FAIL") ""))))
 
 (defn call-with-db-info-on-failure-or-drop
   "Calls (f), and then if there are no clojure.tests failures or

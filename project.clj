@@ -1,6 +1,6 @@
 (def pdb-version "7.9.3-SNAPSHOT")
 
-(def clj-parent-version "4.9.6")
+(def clj-parent-version "4.9.7")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -77,7 +77,6 @@
      [org.clojure/test.check "0.9.0"]
      [com.gfredericks/test.chuck "0.2.7"
       :exclusions [com.andrewmcveigh/cljs-time]]
-     [environ "1.0.2"]
      [riddley "0.1.12"]
      [io.forward/yaml "1.0.5"]
 

@@ -20,56 +20,99 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [expirev1]: ../../wire_format/configure_expiration_format_v1.markdown
 [inputsv1]: ../../wire_format/catalog_inputs_format_v1.markdown
 
-Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
-which have the following JSON wire format:
+Commands are used to change PuppetDB's model of a population. Commands are
+specified using these values:
 
-    {"command": "...",
-     "version": 123,
-     "payload": <json object>}
+`command` is a string identifying the name of the command.
 
-`command` is a string identifying the command.
-
-`version` is a JSON integer describing what version of the given
+`version` is an integer describing what version of the given
 command you're attempting to invoke. The version of the command
 also indicates the version of the wire format to use for the command.
 
-`payload` must be a valid JSON object of any sort. It's up to an
-individual handler function to determine how to interpret that object.
+`payload` is a valid JSON object of any sort. Each command requires it's own
+type of `payload`. This is referred to as the command's *wire format*.
 
-The entire command **must** be encoded as UTF-8.
+`certname` is a string identifying the name of the node for which the command
+should be applied to.
+
+`checksum` (optional) is a SHA-1 hash of the payload which will be used for
+content verification with the server. This value is not required.
+
+The PuppetDB termini for Puppet Servers use this command API to update facts,
+catalogs, and reports for nodes, and will always include the checksum.
 
 ## Command submission
+
+The entire command **must** be encoded as UTF-8.
 
 Commands must be submitted via HTTP to the `/pdb/cmd/v1` endpoint via one of
 two mechanisms:
 
-* Payload and parameters: This method entails POSTing the certname, command name,
-command version, and optionally the checksum as parameters, with the POST body
-containing the given command's wire format. This mechanism allows PuppetDB to
-provide better validation and feedback at time of POSTing without inspecting the
-command payload itself, and should be preferred over the alternative due to
-lower memory consumption.
+1. Query parameters alongside `payload` JSON body:
 
-> *Note*: every command that requires an accurate certname *must*
-> include (duplicate) the certname in the wire format (the payload).
+This method entails POSTing the command name, version, certname and optionally
+the checksum as query parameters, with the POST body containing the given
+command's payload according to its wire format. Providing this information via
+query parameters allows PuppetDB to provide better validation and feedback at
+time of POSTing without having to parse the JSON body. This is the preferred
+method of command submission.
 
-* Payload only (deprecated): This method entails POSTing a single JSON body
-containing the certname, command name, and command version along side a
-`payload` key valued with the given command's wire format. The checksum is
-optionally provided as a parameter.
+> **Note**: every command must provide the certname both as a query parameter and
+> as a JSON value in the payload.
 
-In either case, the checksum should contain a SHA-1 hash of the payload which
-will be used for content verification with the server. When a command is
-successfully submitted, the submitter will receive the following:
+> **Note**: when providing a command name as a query parameter, any spaces in the
+> command name must be replaced with underscores.
+
+```
+Request:
+POST http://localhost:8080/pdb/cmd/v1?command=<command>&version=<version>&certname=<certname>&checksum=<checksum>
+
+JSON Body:
+<payload>
+```
+
+2. All-encompassing JSON body (DEPRECATED):
+
+This method entails POSTing a single JSON body containing all the command
+information. The JSON body contains the command name, command version,
+certname, and payload. The checksum can optionally be provided as another
+top-level key.
+
+```
+Request:
+POST http://localhost:8080/pdb/cmd/v1
+
+JSON Body:
+{"command": <command>,
+ "version": <version>,
+ "certname": <certname>,
+ "checksum": <checksum>,
+ "payload": <payload>}
+```
+
+## Response
+
+When a command is successfully submitted, the submitter will receive the
+following:
 
 * A response code of 200.
 * A content-type of `application/json`.
-* A response body in the form of a JSON object, containing a single key, 'uuid', whose
-  value is a UUID corresponding to the submitted command. This can be used, for example, by
-  clients to correlate submitted commands with server-side logs.
+* A response body in the form of a JSON object, containing a single key,
+  `"uuid"`, whose value is a UUID corresponding to the submitted command. This
+  can be used, for example, by clients to correlate submitted commands with
+  server-side logs.
 
-The PuppetDB termini for Puppet Servers use this command API to update facts,
-catalogs, and reports for nodes, and will always include the checksum.
+> **Note**: a successful response only means that the command has been been
+> successfully queued. The command may still fail once PuppetDB tries to
+> execute it sometime in the future. Check the PuppetDB logs if you suspect a
+> command is failing.
+
+When a command submission fails, the submitter will receive the following:
+
+* A response code of 400.
+* A content-type of `application/json`.
+* A response body in the form of a JSON object, containing a single key,
+  `"error"`, whose value is a string describing the issue with the command.
 
 ### Blocking command submission
 

@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals absolute-path]]
-            [environ.core :refer [env]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
