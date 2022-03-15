@@ -11,12 +11,13 @@ if (test_config[:install_mode] == :upgrade_oldest) \
         uninstall_package(database, "puppet5-nightly-release")
 
         # init the puppet6 repos to allow it to find the puppet6 collection
-        initialize_repo_on_host(database, test_config[:os_families][database.name], test_config[:nightly])
+        unless is_bullseye
+          initialize_repo_on_host(database, test_config[:os_families][database.name], test_config[:nightly])
+          # install puppet 6 directly to prepare for upgrade
+          install_puppet_agent_on(database, {:puppet_collection => "puppet6"})
+        end
 
-        # install puppet 6 directly to prepare for upgrade
-        install_puppet_agent_on(database, {:puppet_collection => "puppet6"})
         on(database, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
-
         if get_os_family(database) == :debian
           database.install_package('puppetserver', '-o Dpkg::Options::="--force-confnew"')
         else
