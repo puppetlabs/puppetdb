@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.pql
-  (:import com.fasterxml.jackson.core.JsonParseException)
   (:require [clojure.java.io]
             [clojure.string :refer [join]]
             [instaparse.core :as insta]
             [instaparse.failure :as failure]
             [instaparse.print :as print]
             [puppetlabs.i18n.core :refer [tru]]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.pql.transform :as transform]
             [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]]))
 
