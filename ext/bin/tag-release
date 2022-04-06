@@ -43,7 +43,7 @@ ensure_local_git_updated () {
   fi
   git fetch "$remote"
   git checkout "$branch"
-  git rebase "$remote/$branch"
+  git merge --ff-only "$remote/$branch"
   local local_ref remote_ref
   local_ref="$(git rev-parse HEAD)"
   remote_ref="$(git rev-parse $remote/$branch)"
