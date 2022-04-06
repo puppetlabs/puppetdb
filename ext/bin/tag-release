@@ -157,8 +157,7 @@ cd "$ext_repo"
 ensure_local_git_updated "$ext_remote"
 update_version_var project.clj pdb-version "$version"
 update_version_var project.clj pe-pdb-version "$version"
-printf "$version\n" > version
-git add project.clj version
+git add project.clj
 git commit --message "(maint) Update version to $version for release"
 git tag --annotate --message "$version" "$version"
 
@@ -179,6 +178,5 @@ fi
 ensure_local_git_updated "$ext_remote"
 update_version_var project.clj pdb-version "$next_version"
 update_version_var project.clj pe-pdb-version "$next_version"
-printf "$next_version\n" > version
-git add project.clj version
+git add project.clj
 git commit --message "(maint) Update version to $next_version"
