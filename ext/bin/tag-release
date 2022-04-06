@@ -37,6 +37,10 @@ update_version_var () {
 # pushing to any remotes.
 ensure_local_git_updated () {
   local remote="$1"
+  if ! git diff-index --quiet HEAD; then
+      echo "Uncommitted changes; won't proceed"
+      exit 2
+  fi
   git fetch "$remote"
   git checkout "$branch"
   git rebase "$remote/$branch"
