@@ -91,29 +91,21 @@ ext_repo="${PDB_EXT_PATH:-$HOME/wrk/ext/$branch}"
 pdb_remote="${PDB_GIT_REMOTE:-upstream}"
 ext_remote="${PDB_EXT_GIT_REMOTE:-upstream}"
 
-increment_last_digit() {
-  local new_version=""
-  while [ $# -ne 1 ]; do
-    new_version="$new_version$1."
-    shift
-  done
-  new_version="$new_version$(($1 + 1))"
-
-  echo "$new_version"
-}
-
 # version_bump is intended to increment the release version for post-release
 # development. Given a version of numbers separated by dots (no -SNAPSHOT allowed),
 # creates a new version with the right-most digit incremented by one
 # and appends a `-SNAPSHOT` to the version.
 version_bump() {
-  local ifs="$IFS"
-  IFS="."
-  local snapshot_version
-  snapshot_version="$(increment_last_digit $1)-SNAPSHOT"
-  IFS="$ifs"
-
-  echo "$snapshot_version"
+    local ver="$1"
+    local last_component last_component_len incremented
+    if ! echo "$ver" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
+        printf 'Version %q is not of the form a.b.c...' "$ver"
+        exit 2
+    fi
+    last_component="${ver##*.}"
+    last_component_len=${#last_component}
+    incremented=$(("$last_component" + 1))
+    echo "${ver:0:-${last_component_len}}$incremented"
 }
 
 update-repo()
