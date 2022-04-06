@@ -40,8 +40,9 @@ ensure_local_git_updated () {
   git checkout "$branch"
   git fetch "$remote"
   git rebase "$remote/$branch"
-  local remote_ref="$(git rev-parse $remote/$branch)"
-  local local_ref="$(git rev-parse HEAD)"
+  local local_ref remote_ref
+  local_ref="$(git rev-parse HEAD)"
+  remote_ref="$(git rev-parse $remote/$branch)"
   if test "$remote_ref" != "$local_ref"; then
     echo "Local ref $local_ref at $(pwd) did not match remote ref $remote_ref for branch $branch" >&2
     exit 2
@@ -108,7 +109,8 @@ increment_last_digit() {
 version_bump() {
   local ifs="$IFS"
   IFS="."
-  local snapshot_version="$(increment_last_digit $1)-SNAPSHOT"
+  local snapshot_version
+  snapshot_version="$(increment_last_digit $1)-SNAPSHOT"
   IFS="$ifs"
 
   echo "$snapshot_version"
