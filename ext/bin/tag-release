@@ -2,9 +2,9 @@
 #
 # Env vars
 # PDB_PATH=~/wrk/pdb/<branch>
-# PE_PDB_PATH=~/wrk/ext/<branch>
+# PDB_EXT_PATH=~/wrk/ext/<branch>
 # PDB_GIT_REMOTE=upstream
-# PDBEXT_GIT_REMOTE=upstream
+# PDB_EXT_GIT_REMOTE=upstream
 #
 # Usage:
 #    tag-release branch release_version
@@ -55,9 +55,9 @@ Usage: $(basename $0) <git-branch> <release-version>
 Enivironment Variables (and their defaults)
 
   PDB_PATH=$HOME/wrk/pdb/<git-branch>
-  PE_PDB_PATH=$HOME/wrk/ext/<git-branch>
+  PDB_EXT_PATH=$HOME/wrk/ext/<git-branch>
   PDB_GIT_REMOTE=upstream
-  PDBEXT_GIT_REMOTE=upstream
+  PDB_EXT_GIT_REMOTE=upstream
 
 Examples
 
@@ -86,9 +86,9 @@ fi
 branch="$1"
 version="$2"
 pdb_repo="${PDB_PATH:-$HOME/wrk/pdb/$branch}"
-ext_repo="${PDBEXT_PATH:-$HOME/wrk/ext/$branch}"
+ext_repo="${PDB_EXT_PATH:-$HOME/wrk/ext/$branch}"
 pdb_remote="${PDB_GIT_REMOTE:-upstream}"
-ext_remote="${PDBEXT_GIT_REMOTE:-upstream}"
+ext_remote="${PDB_EXT_GIT_REMOTE:-upstream}"
 
 increment_last_digit() {
   local new_version=""
