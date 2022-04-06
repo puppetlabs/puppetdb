@@ -21,28 +21,29 @@ Released March 22 2022
 
 ### Improvements
 
-PuppetDB will no longer run a garbage collection on startup.  This may
-substantially reduce the time required before PuppetDB begins
-accepting commands and queries.
-([PDB-5422](https://tickets.puppetlabs.com/browse/PDB-5422))
+* PuppetDB will no longer run a garbage collection on startup.  This
+  may substantially reduce the time required before PuppetDB begins
+  accepting commands and queries.
+  ([PDB-5422](https://tickets.puppetlabs.com/browse/PDB-5422))
 
-The fact path GC now runs no more than once every 24 hours by default.
-This should be much less expensive in most cases, in exchange for a
-potentially slower response to the disappearance of individual fact
-paths. ([PDB-5423](https://tickets.puppetlabs.com/browse/PDB-PDB-5423))
+* The fact path GC now runs no more than once every 24 hours by
+  default.  This should be much less expensive in most cases, in
+  exchange for a potentially slower response to the disappearance of
+  individual fact
+  paths. ([PDB-5423](https://tickets.puppetlabs.com/browse/PDB-5423))
 
-PuppetDB will no longer process incoming commands during the initial
-sync.  This may allow the sync to finish more quickly, decreasing
-startup time (Puppet Enterprise only).
-([PDB-5386](https://tickets.puppetlabs.com/browse/PDB-5386))
+* PuppetDB will no longer process incoming commands during the initial
+  sync.  This may allow the sync to finish more quickly, decreasing
+  startup time (Puppet Enterprise only).
+  ([PDB-5386](https://tickets.puppetlabs.com/browse/PDB-5386))
 
 ### Bug fixes
 
-PostgreSQL introduced a query JIT in version 11, and enabled it by
-default in 12.  At the moment, it causes some queries to be
-dramatically more expensive, and PuppetDB was affected, so it now
-disables the JIT for all of its
-queries. ([PDB-5452](https://tickets.puppetlabs.com/browse/PDB-5452))
+* PostgreSQL introduced a query JIT in version 11, and enabled it by
+  default in 12.  At the moment, it causes some queries to be
+  dramatically more expensive, and PuppetDB was affected, so it now
+  disables the JIT for all of its
+  queries. ([PDB-5452](https://tickets.puppetlabs.com/browse/PDB-5452))
 
 ### Contributors
 
