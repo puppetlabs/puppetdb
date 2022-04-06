@@ -114,15 +114,6 @@ version_bump() {
   echo "$snapshot_version"
 }
 
-# The script changes its working directory in order to perform its git
-# operations. This saves the current working directory and ensures that
-# it is restored for the user when the script finishes.
-cur_dir="$(pwd)"
-on_exit () {
-  cd "$cur_dir"
-}
-trap on_exit EXIT
-
 update-repo()
 (
     local repo="$1" remote="$2" branch="$3" version="$4"
