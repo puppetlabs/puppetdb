@@ -15,6 +15,26 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.10.1
+
+Released April 12 2022
+
+### New features and improvements
+
+* PuppetDB should require much less time and memory when parsing some
+  PQL queries, , for example queries including many or clauses like
+  `nodes {x or y or ...}`.  Previously 5000 clauses could not be
+  parsed with an 8GB heap, and much smaller queries still required
+  exorbitant amounts of memory and CPU time.
+  ([PDB-5260](https://tickets.puppetlabs.com/browse/PDB-5260))
+
+* Ubuntu 20.04, RedHat 8 (FIPS), and SUSE Linux Enterprise 15 are now
+  supported.
+
+### Contributors
+
+Austin Blatt and Rob Browning
+
 ## PuppetDB 7.10.0
 
 Released March 22 2022
