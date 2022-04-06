@@ -17,6 +17,50 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 6.21.0
+
+Released April 12 2022
+
+### New features and improvements
+
+* PuppetDB will no longer run a garbage collection on startup.  This
+  may substantially reduce the time required before PuppetDB begins
+  accepting commands and queries.
+  ([PDB-5422](https://tickets.puppetlabs.com/browse/PDB-5422))
+
+* PuppetDB should require much less time and memory when parsing some
+  PQL queries, , for example queries including many or clauses like
+  `nodes {x or y or ...}`.  Previously 5000 clauses could not be
+  parsed with an 8GB heap, and much smaller queries still required
+  exorbitant amounts of memory and CPU time.
+  ([PDB-5260](https://tickets.puppetlabs.com/browse/PDB-5260))
+
+* The fact path GC now runs no more than once every 24 hours by
+  default.  This should be much less expensive in most cases, in
+  exchange for a potentially slower response to the disappearance of
+  individual fact
+  paths. ([PDB-5423](https://tickets.puppetlabs.com/browse/PDB-5423))
+
+* PuppetDB will no longer process incoming commands during the initial
+  sync.  This may allow the sync to finish more quickly, decreasing
+  startup time (Puppet Enterprise only).
+  ([PDB-5386](https://tickets.puppetlabs.com/browse/PDB-5386))
+
+* Ubuntu 20.04, RedHat 8 (FIPS), and SUSE Linux Enterprise 15 are now
+  supported.
+
+### Bug fixes
+
+* PostgreSQL introduced a query JIT in version 11, and enabled it by
+  default in 12.  At the moment, it causes some queries to be
+  dramatically more expensive, and PuppetDB was affected, so it now
+  disables the JIT for all of its
+  queries. ([PDB-5452](https://tickets.puppetlabs.com/browse/PDB-5452))
+
+### Contributors
+
+Austin Blatt, Rob Browning, and Stel Abrego
+
 ## PuppetDB 6.20.2
 
 Released February 9 2022
