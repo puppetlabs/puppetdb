@@ -127,7 +127,9 @@ update-repo()
     git tag --annotate --message "$version" "$version"
 
     # Display information to help user confirm/deny pushing the puppetdb tag
-    git log --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' --graph HEAD^^^..
+    git log --graph \
+        --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' \
+        "$remote/$branch"^..
     git show "$version"
 
     read -p "Do you want to push the tag and commit to $remote/$branch [y/N]: " confirm
