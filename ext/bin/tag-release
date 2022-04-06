@@ -37,8 +37,8 @@ update_version_var () {
 # pushing to any remotes.
 ensure_local_git_updated () {
   local remote="$1"
-  git checkout "$branch"
   git fetch "$remote"
+  git checkout "$branch"
   git rebase "$remote/$branch"
   local local_ref remote_ref
   local_ref="$(git rev-parse HEAD)"
