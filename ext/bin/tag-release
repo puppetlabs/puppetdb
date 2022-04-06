@@ -114,8 +114,6 @@ version_bump() {
   echo "$snapshot_version"
 }
 
-next_version="$(version_bump $version)"
-
 # The script changes its working directory in order to perform its git
 # operations. This saves the current working directory and ensures that
 # it is restored for the user when the script finishes.
@@ -125,58 +123,43 @@ on_exit () {
 }
 trap on_exit EXIT
 
-# Tag puppetdb repo
+update-repo()
+(
+    local repo="$1" remote="$2" branch="$3" version="$4"
+    update_vars=( "${@:5}" )
 
-cd "$pdb_repo"
-ensure_local_git_updated "$pdb_remote"
-update_version_var project.clj pdb-version "$version"
-git add project.clj
-git commit --message "(maint) Update version to $version for release"
-git tag --annotate --message "$version" "$version"
+    cd "$repo"
+    ensure_local_git_updated "$remote"
+    for var in "${update_vars[@]}"; do
+        update_version_var project.clj "$var" "$version"
+    done
+    git add project.clj
+    git commit --message "(maint) Update version to $version for release"
+    git tag --annotate --message "$version" "$version"
 
-# Display information to help user confirm/deny pushing the puppetdb tag
-git log --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' --graph HEAD^^^..
-git show "$version"
+    # Display information to help user confirm/deny pushing the puppetdb tag
+    git log --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' --graph HEAD^^^..
+    git show "$version"
 
-read -p "Do you want to push the tag and commit to $pdb_remote/$branch [y/N]: " confirm
-if [[ "$confirm" = y* ]] ; then
-  echo "Pushing commit..."
-  git push "$pdb_remote" "$branch"
-  echo "Pushing tag..."
-  git push "$pdb_remote" "$version"
-else
-  echo "Skipping pushing tag and commit"
-fi
+    read -p "Do you want to push the tag and commit to $remote/$branch [y/N]: " confirm
+    if [[ "$confirm" = y* ]] ; then
+        echo "Pushing commit..."
+        git push "$remote" "$branch"
+        echo "Pushing tag..."
+        git push "$remote" "$version"
+    else
+        echo "Skipping pushing tag and commit"
+    fi
 
-ensure_local_git_updated "$pdb_remote"
-update_version_var project.clj pdb-version "$next_version"
-git add project.clj
-git commit --message "(maint) Update version to $next_version"
+    local next_version
+    next_version="$(version_bump "$version")"-SNAPSHOT
+    ensure_local_git_updated "$remote"
+    for var in "${update_vars[@]}"; do
+        update_version_var project.clj "$var" "$next_version"
+    done
+    git add project.clj
+    git commit --message "(maint) Update version to $next_version"
+)
 
-cd "$ext_repo"
-ensure_local_git_updated "$ext_remote"
-update_version_var project.clj pdb-version "$version"
-update_version_var project.clj pe-pdb-version "$version"
-git add project.clj
-git commit --message "(maint) Update version to $version for release"
-git tag --annotate --message "$version" "$version"
-
-# Display information to help user confirm/deny pushing the pe-puppetdb-extensions tag
-git log --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' --graph HEAD^^^..
-git show "$version"
-
-read -p "Do you want to push the tag and commit to $ext_remote/$branch [y/N]: " confirm
-if [[ "$confirm" = y* ]] ; then
-  echo "Pushing commit..."
-  git push "$ext_remote" "$branch"
-  echo "Pushing tag..."
-  git push "$ext_remote" "$version"
-else
-  echo "Skipping pushing tag and commit"
-fi
-
-ensure_local_git_updated "$ext_remote"
-update_version_var project.clj pdb-version "$next_version"
-update_version_var project.clj pe-pdb-version "$next_version"
-git add project.clj
-git commit --message "(maint) Update version to $next_version"
+update-repo "$pdb_repo" "$pdb_remote" "$branch" "$version" pdb-version
+update-repo "$ext_repo" "$ext_remote" "$branch" "$version" pdb-version pe-pdb-version
