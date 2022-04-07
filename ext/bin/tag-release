@@ -126,6 +126,14 @@ update-repo()
     git commit --message "(maint) Update version to $version for release"
     git tag --annotate --message "$version" "$version"
 
+    local next_version
+    next_version="$(version_bump "$version")"-SNAPSHOT
+    for var in "${update_vars[@]}"; do
+        update_version_var project.clj "$var" "$next_version"
+    done
+    git add project.clj
+    git commit --message "(maint) Update version to $next_version"
+
     # Display information to help user confirm/deny pushing the puppetdb tag
     git log --graph \
         --pretty=format:'%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(cyan)%cr%C(reset) %s %C(green)%d%C(reset)' \
@@ -146,15 +154,6 @@ update-repo()
     else
         echo "Skipping pushing tag and commit"
     fi
-
-    local next_version
-    next_version="$(version_bump "$version")"-SNAPSHOT
-    ensure_local_git_updated "$remote"
-    for var in "${update_vars[@]}"; do
-        update_version_var project.clj "$var" "$next_version"
-    done
-    git add project.clj
-    git commit --message "(maint) Update version to $next_version"
 )
 
 update-repo "$pdb_repo" "$pdb_remote" "$branch" "$version" pdb-version
