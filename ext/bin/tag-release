@@ -132,6 +132,11 @@ update-repo()
         "$remote/$branch"^..
     git show "$version"
 
+    echo   '----------------------------------------'
+    echo   "Proposed commands:"
+    printf "  git push %q %q\n" "$remote" "$branch"
+    printf "  git push %q %q\n" "$remote" "$version"
+    echo   '----------------------------------------'
     read -p "Do you want to push the tag and commit to $remote/$branch [y/N]: " confirm
     if [[ "$confirm" = y* ]] ; then
         echo "Pushing commit..."
