@@ -24,7 +24,7 @@ update_version_var () {
    SED_REPLACEMENT="\"$new_version\""
    SED_COMMAND="s|$SED_REGEX|$SED_REPLACEMENT|"
 
-   sed -i -e "/$SED_ADDRESS/ $SED_COMMAND" $file
+   sed -i -e "/$SED_ADDRESS/ $SED_COMMAND" "$file"
 }
 
 # This is an automated safety check that the script should
