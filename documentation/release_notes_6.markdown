@@ -46,8 +46,8 @@ Released April 12 2022
   startup time (Puppet Enterprise only).
   ([PDB-5386](https://tickets.puppetlabs.com/browse/PDB-5386))
 
-* Ubuntu 20.04, RedHat 8 (FIPS), and SUSE Linux Enterprise 15 are now
-  supported.
+* Ubuntu 20.04, RedHat 8 (FIPS) (Puppet Enterprise only), and SUSE
+  Linux Enterprise 15 are now supported.
 
 ### Bug fixes
 
