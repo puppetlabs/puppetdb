@@ -28,8 +28,8 @@ Released April 12 2022
   exorbitant amounts of memory and CPU time.
   ([PDB-5260](https://tickets.puppetlabs.com/browse/PDB-5260))
 
-* Ubuntu 20.04, RedHat 8 (FIPS), and SUSE Linux Enterprise 15 are now
-  supported.
+* Ubuntu 20.04, RedHat 8 (FIPS) (Puppet Enterprise only), and SUSE
+  Linux Enterprise 15 are now supported.
 
 ### Contributors
 
