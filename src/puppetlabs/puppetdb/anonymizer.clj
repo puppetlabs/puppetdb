@@ -2,7 +2,13 @@
   (:require [clojure.string :as str]
             [puppetlabs.kitchensink.core :refer [regexp? uuid string-contains?]]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.random :refer :all]
+            [puppetlabs.puppetdb.random
+             :refer [random-bool
+                     random-node-name
+                     random-pp-path
+                     random-string
+                     random-string-alpha
+                     random-type-name]]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s])
