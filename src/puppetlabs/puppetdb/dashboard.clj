@@ -5,11 +5,9 @@
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [ring.util.response :as rr]
             [puppetlabs.comidi :as cmdi]
-            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.trapperkeeper.services.metrics.metrics-utils :refer [get-mbean]]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.middleware :as middleware]
-            [puppetlabs.i18n.core :refer [tru]]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]))
 
@@ -164,7 +162,7 @@
                :id (meter-id m)))))
 
 (defn build-app [meter-defs-fn]
-  (middleware/make-pdb-handler
+  (mid/make-pdb-handler
    (cmdi/routes
     (cmdi/context "/data"
                   (cmdi/GET "" []

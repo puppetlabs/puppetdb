@@ -1,17 +1,19 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
-            [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [metrics.counters :as counters]
             [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants
-             :refer [latest-catalog-version latest-facts-version
+             :refer [command-names
+                     latest-catalog-version
+                     latest-facts-version
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
-            [puppetlabs.trapperkeeper.app :as tkapp]
+            [puppetlabs.trapperkeeper.app :as tkapp
+             :refer [get-service app-context]]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -23,44 +25,37 @@
                                                           v7-report
                                                           v8-report]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :as tu :refer [*db* with-test-db]]
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [atom-logger logs-matching with-log-output]]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :as cmd :refer :all]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
              :refer [args-supplied call-counter default-timeout-ms dotestseq
                      temp-dir times-called]]
 
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
-            [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.test]
             [puppetlabs.puppetdb.utils.string-formatter :refer [dash->underscore-keys]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [await-scheduler-shutdown
+             :refer [await-ref-state
+                     await-scheduler-shutdown
                      schedule
                      scheduler
                      request-scheduler-shutdown]]
-            [puppetlabs.puppetdb.time :as tfmt]
             [puppetlabs.puppetdb.time :as time
              :refer [ago days from-sql-date now seconds to-date-time to-string
                      to-timestamp]]
-            [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
-            [clojure.string :as str]
-            [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.nio :refer [get-path]]
-            [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue
              :refer [catalog->command-req
                      catalog-inputs->command-req
@@ -70,11 +65,8 @@
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.threadpool :as pool]
-            [puppetlabs.puppetdb.utils :refer [await-ref-state]])
+            [puppetlabs.puppetdb.threadpool :as pool])
   (:import
    (clojure.lang ExceptionInfo)
    (java.nio.file Files)
@@ -524,7 +516,7 @@
                                      :catalog_version "foo"
                                      :certname certname
                                      :timestamp tomorrow
-                                     :producer_timestamp (to-timestamp (t/plus (now) (days 1)))})
+                                     :producer_timestamp (to-timestamp (time/plus (now) (days 1)))})
             (handle-message (queue/store-command q (make-cmd-req)))
             (is (= [{:certname certname :catalog "ab"}]
                    (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
@@ -640,11 +632,11 @@
       (is (empty? (fs/list-dir (:path dlo))))
       ;;v4 does not include a producer_timestmap, the backend
       ;;should use the time the command was received instead
-      (is (t/before? recent-time
-                     (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
-                         first
-                         :producer_timestamp
-                         to-date-time))))))
+      (is (time/before? recent-time
+                        (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
+                            first
+                            :producer_timestamp
+                            to-date-time))))))
 
 (defn update-resource
   "Updated the resource in `catalog` with the given `type` and `title`.
@@ -1189,7 +1181,7 @@
               {:certname certname :name "b" :value "2" :environment "DEV"}
               {:certname certname :name "c" :value "3" :environment "DEV"}]))
 
-      (is (every? (comp #(t/before? before-test-starts-time %)
+      (is (every? (comp #(time/before? before-test-starts-time %)
                         to-date-time
                         :producer_timestamp)
                   (query-to-vec
@@ -1434,7 +1426,7 @@
 
             (handle-message (queue/store-command q (catalog->command-req 6 new-wire-catalog)))
 
-            (is (= ::handled-first-message (deref fut tu/default-timeout-ms nil)))
+            (is (= ::handled-first-message (deref fut default-timeout-ms nil)))
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
@@ -1490,8 +1482,8 @@
                 (do
                   ;; Since we can't control the producer_timestamp.
                   (is (= certname (:certname row)))
-                  (is (t/after? (from-sql-date (:deactivated row))
-                                (from-sql-date yesterday))))
+                  (is (time/after? (from-sql-date (:deactivated row))
+                                   (from-sql-date yesterday))))
                 (is (= {:certname certname :deactivated yesterday} row)))
               (is (= 0 (task-count delay-pool)))
               (is (empty? (fs/list-dir (:path dlo))))
@@ -1591,9 +1583,9 @@
 
       ;; No producer_timestamp is included in v4, message received
       ;; time (now) is used intead
-      (is (t/before? recent-time
-                     (-> "select producer_timestamp from reports"
-                         query-to-vec first :producer_timestamp to-date-time)))
+      (is (time/before? recent-time
+                        (-> "select producer_timestamp from reports"
+                            query-to-vec first :producer_timestamp to-date-time)))
       (is (= 0 (task-count delay-pool)))
       (is (empty? (fs/list-dir (:path dlo)))))))
 
@@ -1611,12 +1603,12 @@
 
       ;; No producer_timestamp is included in v4, message received
       ;; time (now) is used intead
-      (is (t/before? recent-time
-                     (-> "select producer_timestamp from reports"
-                         query-to-vec
-                         first
-                         :producer_timestamp
-                         to-date-time)))
+      (is (time/before? recent-time
+                        (-> "select producer_timestamp from reports"
+                            query-to-vec
+                            first
+                            :producer_timestamp
+                            to-date-time)))
 
       ;;Status is not supported in v3, should be nil
       (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
@@ -1665,7 +1657,7 @@
           ;; grab reponse maps from commands above, timeout if not received
           (let [[val _] (async/alts!! [(async/into
                                         #{} (async/take 2 response-watch-ch))
-                                       (async/timeout tu/default-timeout-ms)])]
+                                       (async/timeout default-timeout-ms)])]
             (when-not val
               (throw (Exception. "timed out waiting for response-chan")))
 
@@ -1840,9 +1832,9 @@
 
            (.release semaphore)
 
-           (is (not= ::timed-out (deref cmd-1 tu/default-timeout-ms ::timed-out)))
-           (is (not= ::timed-out (deref cmd-2 tu/default-timeout-ms ::timed-out)))
-           (is (not= ::timed-out (deref cmd-3 tu/default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-1 default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-2 default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-3 default-timeout-ms ::timed-out)))
 
            ;; There's currently a lot of layering in the messaging
            ;; stack. The callback mechanism that delivers the promise
@@ -2051,7 +2043,7 @@
                (deliver continue-processing? true)
                (let [[val _] (async/alts!! [(async/into
                                              #{} (async/take 2 response-watch-ch))
-                                            (async/timeout tu/default-timeout-ms)])]
+                                            (async/timeout default-timeout-ms)])]
                  (when-not val
                    (throw (Exception. "timed out waiting for response-chan")))
                  (is (= 2 (count val)))

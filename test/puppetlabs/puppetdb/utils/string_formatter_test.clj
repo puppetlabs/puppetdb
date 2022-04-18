@@ -5,7 +5,6 @@
             [puppetlabs.puppetdb.utils.string-formatter :refer :all]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [puppetlabs.i18n.core :refer [tru]]
             [clojure.test.check.clojure-test :as cct]))
 
 (deftest re-quote-behavior

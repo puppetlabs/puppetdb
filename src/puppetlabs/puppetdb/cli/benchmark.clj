@@ -36,8 +36,7 @@
    `update` message with the current wall-clock. Each agent decides
    independently whether or not to submit a catalog during that clock
    tick."
-  (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.catalog.utils :as catutils]
+  (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.logging :as logutils]
@@ -48,12 +47,10 @@
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
-            [clojure.core.match :as cm]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.nio :refer [get-path]])

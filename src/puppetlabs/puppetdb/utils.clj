@@ -7,7 +7,6 @@
             [schema.core :as s]
             [clojure.data :as data]
             [puppetlabs.puppetdb.schema :as pls]
-            [clojure.set :as set]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.cheshire :as json]

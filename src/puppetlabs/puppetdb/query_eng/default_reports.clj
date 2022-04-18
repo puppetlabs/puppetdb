@@ -1,8 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng.default-reports
   (:require
    [clojure.core.match :as cm]
-   [clojure.set :as set]
-   [clojure.string :as str]
    [puppetlabs.i18n.core :refer [tru trs]]
    [puppetlabs.puppetdb.query-eng.engine :as eng :refer [user-name->query-rec-name]])
   (:import

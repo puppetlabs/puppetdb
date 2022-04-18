@@ -16,7 +16,6 @@
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
-            [puppetlabs.trapperkeeper.core :as tk]
             [yaml.core :as yaml]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])

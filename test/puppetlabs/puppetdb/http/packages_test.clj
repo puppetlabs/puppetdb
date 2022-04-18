@@ -3,7 +3,6 @@
              [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
              [cheshire.core :as json]
              [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
-             [puppetlabs.puppetdb.http :as http]
              [flatland.ordered.map :as omap]
              [puppetlabs.puppetdb.jdbc :as jdbc]
              [puppetlabs.puppetdb.testutils.db :refer [*db*]]

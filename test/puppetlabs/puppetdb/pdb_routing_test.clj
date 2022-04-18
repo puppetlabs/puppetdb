@@ -2,14 +2,9 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.time :as time :refer [to-string]]
-            [puppetlabs.puppetdb.client :as pdb-client]
+            [puppetlabs.puppetdb.time :as time :refer [now to-string]]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
-            [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.cli.services :as clisvc]
             [puppetlabs.puppetdb.pdb-routing :refer :all]
-            [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.http.client.sync :as http]))
 

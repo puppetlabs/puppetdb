@@ -3,8 +3,6 @@
             [puppetlabs.puppetdb.config :refer :all :as conf]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.time :as time]
-            [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
-            [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
             [clojure.string :as str]
             [me.raynes.fs :as fs]

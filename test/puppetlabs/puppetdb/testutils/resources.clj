@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.resources
-  (:require [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
+  (:require [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage
              :refer [add-facts! ensure-environment]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils

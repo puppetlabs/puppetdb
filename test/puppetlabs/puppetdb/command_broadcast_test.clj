@@ -10,9 +10,7 @@
                                               example-certname]]
    [puppetlabs.puppetdb.command.constants :as cmd-consts]
    [puppetlabs.puppetdb.testutils.services :as svc-utils]
-   [puppetlabs.puppetdb.utils.metrics :as mutils]
-   [puppetlabs.puppetdb.command :as cmd]
-   [clojure.string :as str])
+   [puppetlabs.puppetdb.command :as cmd])
   (:import (java.sql SQLException)))
 
 (def commands

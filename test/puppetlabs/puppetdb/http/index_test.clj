@@ -2,7 +2,6 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples :as examples]
             [puppetlabs.puppetdb.pql :as pql]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [dotestseq]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db without-db-var]]

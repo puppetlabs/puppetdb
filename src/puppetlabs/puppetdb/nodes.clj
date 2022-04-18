@@ -4,11 +4,8 @@
    Functions that handle conversion of nodes from wire format to
    internal PuppetDB format, including validation."
   (:require
-   [schema.core :as s]
-   [clojure.set :as set]
    [puppetlabs.puppetdb.schema :as pls]
-   [puppetlabs.puppetdb.utils :as utils]
-   [com.rpl.specter :as sp]))
+   [schema.core :as s]))
 
 ;; SCHEMA
 

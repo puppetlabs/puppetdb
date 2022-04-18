@@ -1,17 +1,11 @@
 (ns puppetlabs.puppetdb.http.reports-test
-  (:require [clojure.string :as str]
-            [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.puppetdb.query-eng :as qe]
+  (:require [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.test :refer :all]
             [flatland.ordered.map :as omap]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils
              :refer [assert-success! get-request paged-results dotestseq]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]

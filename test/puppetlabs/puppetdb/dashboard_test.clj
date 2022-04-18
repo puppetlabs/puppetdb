@@ -4,7 +4,6 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clojure.java.io :refer [file]]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]

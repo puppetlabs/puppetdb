@@ -1,11 +1,10 @@
 (ns puppetlabs.puppetdb.scf.partitioning
   "Handles all work related to database table partitioning"
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]])
-
+  (:require
+   [clojure.string :as str]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [schema.core :as s])
   (:import (java.time LocalDateTime LocalDate ZoneId ZonedDateTime Instant)
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))

@@ -60,12 +60,9 @@
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
             [puppetlabs.puppetdb.nodes :as nodes]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [puppetlabs.puppetdb.time :as fmt-time]
-            [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time
              :refer [now in-millis interval to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils
@@ -86,8 +83,6 @@
              :refer [defservice service-context]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.time :as time]
-            [clojure.set :as set]
             [clojure.core.async :as async]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc! dec! counter]]
@@ -278,7 +273,7 @@
              (maybe-send-cmd-event! cmdref ::ingested)
              (log/debug (trs "[{0}-{1}] ''{2}'' command enqueued for {3}"
                              id
-                             (tcoerce/to-long received)
+                             (time/to-long received)
                              command
                              certname))))
     (finally
@@ -290,7 +285,7 @@
 (defn log-command-processed-messsage [id received-time start-time command-kw certname & [opts]]
   ;; manually stringify these to avoid locale-specific formatting
   (let [id (str id)
-        received-time (str (tcoerce/to-long received-time))
+        received-time (str (time/to-long received-time))
         duration (str (in-millis (interval start-time (now))))
         command-name (command-names command-kw)
         puppet-version (:puppet-version opts)
@@ -736,14 +731,14 @@
                (log/info (trs "Revival of delayed message interrupted")))))))
      command-delay-ms)))
 
-(def ^:private iso-formatter (fmt-time/formatters :date-time))
+(def ^:private iso-formatter (time/formatters :date-time))
 
 (defn process-message
   [{:keys [certname command version received delete? id] :as cmdref}
    q command-chan dlo delay-pool broadcast-pool write-dbs response-chan stats
    options-config maybe-send-cmd-event! shutdown-for-ex]
   (when received
-    (let [q-time (-> (fmt-time/parse iso-formatter received)
+    (let [q-time (-> (time/parse iso-formatter received)
                      (time/interval (now))
                      time/in-seconds)]
       (create-metrics-for-command! command version)

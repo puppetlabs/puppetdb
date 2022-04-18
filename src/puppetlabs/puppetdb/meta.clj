@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.meta
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.puppetdb.time :refer [now]]

@@ -2,23 +2,18 @@
   (:require [clojure.set :as set]
             [puppetlabs.puppetdb.command.constants :refer [command-names
                                                            normalize-command-name]]
-            [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension
-                                               supported-content-encodings]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [content-encoding->file-extension
+                     supported-content-encodings]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.comidi :as cmdi]
-            [ring.util.request :as request]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.utils :as utils])
+            [puppetlabs.i18n.core :refer [trs tru]])
   (:import
    (clojure.lang ExceptionInfo)
    (java.net HttpURLConnection)

@@ -3,11 +3,9 @@
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.command :refer [command-app]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as str]
-            [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.time :as time]
@@ -15,7 +13,6 @@
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-log-output with-test-logging]]
             [ring.mock.request :as mock]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals absolute-path]]
             [clojure.test :refer :all]

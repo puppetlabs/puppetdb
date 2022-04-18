@@ -38,11 +38,8 @@
      data may linger in the database. We periodically sweep the
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
-  (:require [clojure.java.io :as io]
-            [clojure.set :as set]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [compojure.core :as compojure]
             [metrics.counters :as counters :refer [counter inc!]]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
@@ -50,20 +47,16 @@
             [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.tk-util :refer [run-tk-cli-cmd]]
             [puppetlabs.puppetdb.cli.util :refer [exit err-exit-status]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.metrics.core :as metrics
              :refer [metrics-registries]]
             [puppetlabs.puppetdb.utils.metrics :as mutils]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]

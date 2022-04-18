@@ -1,16 +1,8 @@
 (ns puppetlabs.puppetdb.factsets
-  (:require [clojure.edn :as clj-edn]
-            [clojure.set :as set]
-            [clojure.string :as str]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.scf.hash :as hash]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]))
+  (:require
+   [clojure.set :as set]
+   [puppetlabs.puppetdb.schema :as pls]
+   [schema.core :as s]))
 
 ;; SCHEMA
 

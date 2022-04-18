@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.event-counts
-  (:require [cheshire.core :as json]
-            [puppetlabs.puppetdb.testutils :refer [get-request assert-success!]]))
+  (:require
+   [cheshire.core :as json]))
 
 (defn- json-encode-counts-filter
   "Given the `params` to an event-counts query, convert the counts-filter

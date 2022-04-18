@@ -91,7 +91,6 @@
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.kitchensink.core :as kitchensink]

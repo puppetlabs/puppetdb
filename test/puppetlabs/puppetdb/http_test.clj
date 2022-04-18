@@ -2,9 +2,15 @@
   (:require [cheshire.core :as json]
             [puppetlabs.trapperkeeper.testutils.webserver :refer [with-test-webserver]]
             [ring.mock.request :as mock]
-            [puppetlabs.puppetdb.http :refer :all]
+            [puppetlabs.puppetdb.http
+             :refer [acceptable-content-type
+                     default-body
+                     json-response
+                     leading-uris
+                     must-accept-type
+                     stream-json
+                     uri-segments]]
             [clojure.test :refer :all]
-            [cheshire.core :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils])
   (:import
    (java.io StringWriter)
@@ -135,10 +141,10 @@
   (testing "empty seq should return []"
     (let [w (StringWriter.)]
       (stream-json [] w true)
-      (is (empty? (parse-string (str w))))))
+      (is (empty? (json/parse-string (str w))))))
 
   (testing "should jsonify all items in the seq"
     (let [w    (StringWriter.)
           test [nil 1 "a" [1 2] {"foo" 123}]]
       (stream-json test w true)
-      (is (= (parse-string (str w)) test)))))
+      (is (= (json/parse-string (str w)) test)))))

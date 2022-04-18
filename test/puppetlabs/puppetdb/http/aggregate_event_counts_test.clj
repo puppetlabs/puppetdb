@@ -1,10 +1,7 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts-test
-  (:require [puppetlabs.puppetdb.http :as http]
-            [cheshire.core :as json]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [assert-success! ]]
             [puppetlabs.puppetdb.testutils.http
              :refer [are-error-response-headers
                      deftest-http-app

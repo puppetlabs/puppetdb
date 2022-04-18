@@ -1,14 +1,10 @@
 (ns puppetlabs.puppetdb.client
-  (:require [puppetlabs.puppetdb.http :as http]
-            [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.reports :as reports]
+  (:require [clojure.tools.logging :as log]
             [clj-http.client :as http-client]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s])
   (:import
    (java.net HttpURLConnection)))

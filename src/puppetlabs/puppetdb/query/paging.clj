@@ -6,7 +6,6 @@
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.string :as string]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :as kitchensink :refer [keyset
                                                                  seq-contains?
                                                                  order-by-expr?

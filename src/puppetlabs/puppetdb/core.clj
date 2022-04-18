@@ -3,8 +3,7 @@
   (:require
    [clojure.string :as str]
    [puppetlabs.puppetdb.cli.util
-    :refer [err-exit-status exit java-version jdk-support-status run-cli-cmd]]
-   [puppetlabs.i18n.core :refer [trs]]))
+    :refer [err-exit-status exit java-version jdk-support-status run-cli-cmd]]))
 
 (def usage-lines
   ["Available subcommands:"

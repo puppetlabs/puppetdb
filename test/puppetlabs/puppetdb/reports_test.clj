@@ -6,7 +6,6 @@
                                                           v6-report
                                                           v7-report]]
             [puppetlabs.puppetdb.reports :refer :all]
-            [schema.core :as s]
             [com.rpl.specter :as sp]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.time :refer [now]]

@@ -5,8 +5,7 @@
    `puppetlabs.puppetdb.query`, basically by munging the results into the
    right format and picking out the desired columns."
   (:import [org.postgresql.util PGobject])
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query :as query]
+  (:require [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.spec.core :as spec]

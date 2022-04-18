@@ -6,8 +6,6 @@
    [puppetlabs.puppetdb.testutils.db
     :refer [*db* schema-info-map diff-schema-maps]]
    [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
-   [puppetlabs.puppetdb.testutils.catalogs :refer [munge-catalog]]
-   [puppetlabs.puppetdb.testutils.facts :refer [munge-facts]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [with-puppetdb-instance]]))
 
 ; This MUST match the SQL run by resources/ext/cli/delete-reports.erb

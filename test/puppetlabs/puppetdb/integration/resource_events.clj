@@ -1,10 +1,6 @@
 (ns puppetlabs.puppetdb.integration.resource-events
   (:require [clojure.test :refer :all]
-            [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clj-time.core :refer [now]]
-            [clj-time.core :refer [now days plus]]
             [metrics.counters :as counters]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]

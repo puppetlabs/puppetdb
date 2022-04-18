@@ -11,7 +11,6 @@
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
             [puppetlabs.puppetdb.command.constants :as cconst]
-            [puppetlabs.puppetdb.time :as tcoerce]
             [puppetlabs.puppetdb.time :as time
              :refer [now days parse-wire-datetime seconds]]))
 
@@ -43,7 +42,7 @@
 
 (deftest test-metadata-serializer
   (let [recvd (now)
-        recvd-long (tcoerce/to-long recvd)
+        recvd-long (time/to-long recvd)
         cmd "replace facts"
         cmd-abbrev (puppetdb-command->metadata-command cmd)
         cmd-ver 4
@@ -129,7 +128,7 @@
     (let [buff (sorted-command-buffer 4)
           c (async/chan buff)
           start (now)
-          received-time (tcoerce/to-string start)
+          received-time (time/to-string start)
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
                                       :certname "foo.com"
@@ -175,11 +174,11 @@
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (now))})
+                                      :received (time/to-string (now))})
           foo-cmd-2 (map->CommandRef {:id 2
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (now))})]
+                                      :received (time/to-string (now))})]
       (is (= 0 (count buff)))
 
       (is (async/offer! c foo-cmd-1))
@@ -190,7 +189,7 @@
 
   (testing "multiple older catalogs all get marked as deleted"
     (let [start (now)
-          received-time (tcoerce/to-string start)
+          received-time (time/to-string start)
           c (async/chan (sorted-command-buffer 3))
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
@@ -221,7 +220,7 @@
 
   (testing "catalogs should be marked as deleted based on producer-ts, regardless of stockpile id"
     (let [start (now)
-          received-time (tcoerce/to-string start)
+          received-time (time/to-string start)
           c (async/chan (sorted-command-buffer 3))
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
@@ -255,11 +254,11 @@
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "store report"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (now))})
+                                      :received (time/to-string (now))})
           foo-cmd-2 (map->CommandRef {:id 2
                                       :command "store report"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (now))})]
+                                      :received (time/to-string (now))})]
       (are [cmd] (async/offer! c cmd)
         foo-cmd-1
         foo-cmd-2)
@@ -269,7 +268,7 @@
 
   (testing "catalogs without a producer-ts should never be bashed"
     (let [start (now)
-          received-time (tcoerce/to-string start)
+          received-time (time/to-string start)
           c (async/chan (sorted-command-buffer 3))
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
@@ -300,7 +299,7 @@
 
   (testing "catalogs without a producer-ts should remain, but with a timestamp are fair game"
     (let [start (now)
-          received-time (tcoerce/to-string start)
+          received-time (time/to-string start)
           c (async/chan (sorted-command-buffer 3))
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
@@ -406,7 +405,7 @@
 
 (deftest test-producer-serialization
   (let [received-time (now)
-        received-time-long (tcoerce/to-long received-time)]
+        received-time-long (time/to-long received-time)]
     (is (= (str received-time-long "-5000")
            (encode-command-time received-time
                                 (time/minus received-time (seconds 5)))))

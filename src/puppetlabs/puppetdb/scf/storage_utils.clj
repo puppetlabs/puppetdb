@@ -5,16 +5,12 @@
             [honeysql.core :as hcore]
             [honeysql.format :as hfmt]
             [clojure.string :as str]
-            [puppetlabs.i18n.core :refer [tru]]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]]
-            [clojure.string :as string])
+            [schema.core :as s])
   (:import [java.sql Connection]
            [java.util UUID]
            [org.postgresql.util PGobject]))
@@ -373,14 +369,14 @@
           path (apply str
                       (str/join "->" (butlast path-elts))
                       (when-let [x (last path-elts)] ["->>" x]))]
-      (hcore/raw (string/join \space
-                              [(str "(" path ")") (name op) "(?#>>'{}')"
-                               "and" column "??" "?"])))
+      (hcore/raw (str/join \space
+                           [(str "(" path ")") (name op) "(?#>>'{}')"
+                            "and" column "??" "?"])))
     (let [delimited-qmarks (str/join "->" qmarks)]
-      (hcore/raw (string/join \space
-                              [(str "(" column "->" delimited-qmarks ")")
-                               (name op) "?"
-                               "and" column "??" "?"])))))
+      (hcore/raw (str/join \space
+                           [(str "(" column "->" delimited-qmarks ")")
+                            (name op) "?"
+                            "and" column "??" "?"])))))
 
 (defn jsonb-scalar-cast
   [typ]
@@ -426,7 +422,7 @@
 
 (defn parse-db-hash
   [^PGobject db-hash]
-  (clojure.string/replace (.getValue db-hash) "\\x" ""))
+  (str/replace (.getValue db-hash) "\\x" ""))
 
 (defn parse-db-uuid
   [^UUID db-uuid]

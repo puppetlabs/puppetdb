@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.http.event-counts-test
-  (:require [puppetlabs.puppetdb.http :as http]
-            [clojure.java.io :refer [resource]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
+  (:require [clojure.java.io :refer [resource]]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]

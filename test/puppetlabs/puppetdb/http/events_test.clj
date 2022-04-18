@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.events-test
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.testutils.events :refer [expected-resource-events]]

@@ -1,10 +1,9 @@
 (ns puppetlabs.puppetdb.query.summary-stats
-  (:require [clojure.string :as str]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.meta.version :as v]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.http :as http]))
+  (:require
+   [puppetlabs.kitchensink.core :as ks]
+   [puppetlabs.puppetdb.http :as http]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.meta.version :as v]))
 
 (def metadata-queries
   {:table_usage

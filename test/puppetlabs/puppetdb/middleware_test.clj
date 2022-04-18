@@ -1,14 +1,10 @@
 (ns puppetlabs.puppetdb.middleware-test
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.kitchensink.core :as kitchensink :refer [keyset]]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
-            [cheshire.core :as json]
             [puppetlabs.puppetdb.middleware :refer :all]
-            [puppetlabs.kitchensink.core :refer [keyset]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
-            [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])
   (:import
    (java.net HttpURLConnection)))

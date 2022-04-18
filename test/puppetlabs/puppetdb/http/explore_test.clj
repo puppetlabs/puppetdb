@@ -5,7 +5,6 @@
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]
-            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.time :refer [now]]))

@@ -15,8 +15,6 @@
             [puppetlabs.puppetdb.constants :as constants]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.stockpile.queue :as stock]
-            [metrics.timers :refer [timer time!]]
-            [metrics.counters :refer [inc!]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]
@@ -27,10 +25,9 @@
                                                utf8-truncate]]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter :refer [re-quote]]
             [schema.core :as s]
-            [puppetlabs.puppetdb.time :as tcoerce]
-            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
+            [puppetlabs.puppetdb.time :as time
+             :refer [now parse-wire-datetime]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -99,9 +96,9 @@
   followed by a + or - and the difference between `received-ts` and
   `producer-ts` as a long."
   [received-ts producer-ts]
-  (let [received-time (tcoerce/to-long received-ts)]
+  (let [received-time (time/to-long received-ts)]
     (if-let [producer-offset (and producer-ts
-                                  (- (tcoerce/to-long producer-ts)
+                                  (- (time/to-long producer-ts)
                                      received-time))]
       (str received-time
            (when-not (neg? producer-offset) \+)
@@ -199,11 +196,11 @@
                certid (if-not cert-hash certname (str certname cert-hash))]
            (and certname
                 {:received (-> received-time-long
-                               tcoerce/from-long
+                               time/from-long
                                kitchensink/timestamp)
                  :producer-ts (some-> producer-offset
                                       (+ received-time-long)
-                                      tcoerce/from-long)
+                                      time/from-long)
                  :version (Long/parseLong version)
                  :command (get md-cmd->pdb-cmd md-command "unknown")
                  :certname certid

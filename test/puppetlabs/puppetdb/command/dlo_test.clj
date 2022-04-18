@@ -1,11 +1,9 @@
 (ns puppetlabs.puppetdb.command.dlo-test
   (:require
    [clojure.java.io :as io]
-   [clojure.string :as str]
    [clojure.test :refer :all]
    [metrics.counters :as counters :refer [counter]]
    [puppetlabs.kitchensink.core :refer [timestamp]]
-   [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.command.dlo :as dlo]
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
    [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]

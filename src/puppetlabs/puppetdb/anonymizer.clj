@@ -10,8 +10,7 @@
                      random-string-alpha
                      random-type-name]]
             [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s])
+            [puppetlabs.puppetdb.schema :as pls])
   (:import [org.apache.commons.lang3 StringUtils]))
 
 ;; Validation functions, for use within pre/post conditions

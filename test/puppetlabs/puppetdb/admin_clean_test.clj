@@ -4,13 +4,11 @@
             [clojure.test :refer :all]
             [metrics.counters :as counters]
             [metrics.gauges :as gauges]
-            [metrics.timers :as timers]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -27,8 +25,7 @@
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.metrics :refer [number-recorded]]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.trapperkeeper.services :refer [service-context]])
+            [puppetlabs.trapperkeeper.app :refer [get-service]])
   (:import
    (java.net HttpURLConnection)
    (java.util.concurrent CyclicBarrier TimeUnit)))

@@ -2,11 +2,9 @@
   (:require [puppetlabs.puppetdb.scf.migrate :refer :all]
             [clojure.test :refer :all]
             [clojure.set :refer :all]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]]
             [puppetlabs.puppetdb.testutils.db :as tdb
              :refer [*db* clear-db-for-testing!
-                     schema-info-map diff-schema-maps]]
+                     schema-info-map diff-schema-maps with-test-db]]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning]
             [puppetlabs.puppetdb.scf.migrate-test :refer [apply-migration-for-testing! fast-forward-to-migration!]]
             [clojure.string :as str])

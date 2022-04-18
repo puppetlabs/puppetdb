@@ -26,7 +26,6 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [com.rpl.specter :as sp]
             [clojure.java.jdbc :as sql]
-            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.data :as data]

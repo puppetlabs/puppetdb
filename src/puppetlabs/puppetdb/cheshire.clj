@@ -16,10 +16,8 @@
             [cheshire.factory :as factory]
             [cheshire.generate :as generate
              :refer [add-encoder encode-map encode-seq]]
-            [cheshire.generate :as generate]
             [cheshire.parse :as parse]
             [clojure.java.io :as io]
-            [clojure.set :as set]
             [puppetlabs.puppetdb.time :as time])
   (:import
    [com.fasterxml.jackson.core JsonGenerator]

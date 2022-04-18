@@ -52,22 +52,17 @@
 
    _TODO: consider using multimethods for migration funcs_"
   (:require [clojure.java.jdbc :as sql]
+            [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.utils :refer [flush-and-exit]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [clojure.set :refer :all]
             [puppetlabs.puppetdb.time :refer [in-millis interval now to-timestamp]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.structured-logging.core :refer [maplog]]
-            [clojure.set :as set]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.scf.storage :as scf]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning
              :refer [get-temporal-partitions]])
   (:import
@@ -1104,7 +1099,7 @@
 
 (defn migrate-through-app
   [table1 table2 column-list munge-fn]
-  (let [columns (string/join "," column-list)]
+  (let [columns (str/join "," column-list)]
     (jdbc/call-with-array-converted-query-rows
      [(format "select %s from %s" columns (name table1))]
      #(->> %
@@ -2142,7 +2137,7 @@
           (sorted? %)
           (apply <= 0 (keys %))
           (<= (count %) (count migrations))]}
-  (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
+  (let [pending (set/difference (kitchensink/keyset migrations) (applied-migrations))]
     (into (sorted-map)
           (select-keys migrations pending))))
 

@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.catalog-input-contents-test
   (:require
    [clojure.test :refer :all]
-   [puppetlabs.puppetdb.http :as http]
    [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds
                                                          validate-response-and-get-body
                                                          cmds->expected-inputs

@@ -4,9 +4,7 @@
             [puppetlabs.puppetdb.catalogs :refer :all]
             [puppetlabs.puppetdb.examples :refer :all]
             [clojure.test :refer :all]
-            [clojure.set :as set]
-            [puppetlabs.puppetdb.time :refer [now]]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn catalog-before-and-after
   "Test that a wire format catalog is equal, post-processing, to the

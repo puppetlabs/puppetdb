@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.scf.storage-utils-test
   (:require [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage-utils :refer :all]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]

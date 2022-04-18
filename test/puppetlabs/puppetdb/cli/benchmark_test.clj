@@ -1,13 +1,11 @@
 (ns puppetlabs.puppetdb.cli.benchmark-test
-  (:require [clojure.java.shell :refer [sh]]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.cli.benchmark :as benchmark]
+            [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
-            [puppetlabs.puppetdb.archive :as archive]
-            [puppetlabs.puppetdb.client :as client]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
@@ -15,8 +13,7 @@
                                                        example-report example-facts
                                                        example-certname]]
             [puppetlabs.puppetdb.utils :as utils :refer [with-captured-throw]]
-            [puppetlabs.kitchensink.core :as ks]
-            [clojure.core.async :refer [<!! timeout close!]])
+            [puppetlabs.kitchensink.core :as ks])
   (:import
    [clojure.lang ExceptionInfo]
    [java.nio.file Files]))

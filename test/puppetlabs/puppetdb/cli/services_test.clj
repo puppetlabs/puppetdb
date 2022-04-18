@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.cli.services-test
   (:require [clojure.set :refer [subset?]]
             [puppetlabs.http.client.sync :as pl-http]
-            [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
@@ -13,7 +12,6 @@
                      with-logged-event-maps
                      with-log-level]]
             [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
-            [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]
@@ -45,10 +43,8 @@
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.testutils :as tu
              :refer [block-until-results default-timeout-ms temp-file change-report-time]]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.scf.storage :as storage])
+            [clojure.string :as str])
   (:import [clojure.lang ExceptionInfo]
            (java.util.concurrent CyclicBarrier TimeUnit)
            [java.util.concurrent.locks ReentrantLock]))
@@ -451,7 +447,7 @@
           event-expired? (fn [_ _] true)
           log (atom [])]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic
-                    storage/resource-event-expired? event-expired?]
+                    scf-store/resource-event-expired? event-expired?]
         (call-with-puppetdb-instance
          config
          (fn []

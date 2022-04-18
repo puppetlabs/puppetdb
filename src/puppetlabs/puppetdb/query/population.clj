@@ -3,9 +3,7 @@
 
    Contains queries and metrics that apply across an entire population."
   (:require [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
             [clojure.core.memoize :as mem]
-            [puppetlabs.kitchensink.core :refer [quotient]]
             [metrics.gauges :refer [gauge-fn]]
             [clojure.java.jdbc :as sql]))
 

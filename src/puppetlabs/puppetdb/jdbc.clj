@@ -1,10 +1,9 @@
 (ns puppetlabs.puppetdb.jdbc
   "Database utilities"
   (:require [clojure.java.jdbc :as sql]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.time :as pl-time]
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -60,7 +59,7 @@
   via (clojure.string/join command)."
   [& commands]
   (sql/db-do-commands *db* true
-                      (mapv #(if (coll? %) (string/join %) %)
+                      (mapv #(if (coll? %) (str/join %) %)
                             commands)))
 
 (defn do-prepared
@@ -70,7 +69,7 @@
   [sql & params]
   (sql/db-do-prepared *db* true
                       (apply vector
-                             (if (coll? sql) (string/join sql) sql)
+                             (if (coll? sql) (str/join sql) sql)
                              params)
                       {:multi? true}))
 
@@ -450,7 +449,7 @@
          (every? kitchensink/order-by-expr? order_by)]}
   (str sql
        (when-let [order-by (seq (map order-by-term->sql order_by))]
-         (str " ORDER BY " (string/join ", " order-by)))
+         (str " ORDER BY " (str/join ", " order-by)))
        (when limit (str " LIMIT " limit))
        (when offset (str " OFFSET " offset))))
 

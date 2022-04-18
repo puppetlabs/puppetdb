@@ -11,18 +11,14 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [ring.middleware.params :refer [wrap-params]]
-            [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [update!]]
-            [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.puppetdb.utils :as utils]
             [bidi.bidi :as bidi]
             [bidi.ring :as bring]
             [bidi.schema :as bidi-schema]
-            [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.constants :as constants]
@@ -405,11 +401,11 @@
                                          (get route-params route-param-key))}
                             HttpURLConnection/HTTP_NOT_FOUND)))))
 
-(pls/defn-validated url-decode :- s/Str
+(defn-validated url-decode :- s/Str
   [x :- s/Str]
   (java.net.URLDecoder/decode x "utf-8"))
 
-(pls/defn-validated make-pdb-handler :- handler-schema
+(defn-validated make-pdb-handler :- handler-schema
   "Similar to `bidi.ring/make-handler` but does not merge route-params
   into the regular parameter map. Currently route-params causes
   validation errors with merged in with parameters. Parameter names

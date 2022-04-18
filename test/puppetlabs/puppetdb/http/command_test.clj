@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.command-test
   (:require [clojure.core.async :as async]
             [clojure.math.combinatorics :refer [combinations]]
-            [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http.command :as tgt
@@ -15,15 +14,8 @@
                      dotestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [internal-request]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.stockpile.queue :as stock]
-            [puppetlabs.puppetdb.testutils.nio :as nio]
-            [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
-            [clojure.core.async :as async]
-            [puppetlabs.puppetdb.middleware
-             :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]

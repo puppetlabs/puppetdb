@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.paging-test
-  (:require [puppetlabs.puppetdb.http :as http]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request]]
             [puppetlabs.puppetdb.testutils.http

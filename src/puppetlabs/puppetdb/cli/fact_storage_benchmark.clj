@@ -4,8 +4,7 @@
             [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.core.async :as async]
-            [clojure.set :as set]))
+            [clojure.core.async :as async]))
 
 
 (defn sleep-until-queue-empty [base-url]

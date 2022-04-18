@@ -4,15 +4,12 @@
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.cli.services :as cli-svc]
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
-   [puppetlabs.puppetdb.lint :refer [ignore-value]]
    [puppetlabs.puppetdb.test-protocols :refer [called?]]
    [puppetlabs.puppetdb.testutils :as tu]
    [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-   [puppetlabs.puppetdb.testutils.http :as tuhttp]
    [puppetlabs.puppetdb.testutils.services :as svc-utils
     :refer [*server* with-pdb-with-no-gc]]
    [puppetlabs.puppetdb.time :as tc :refer [now parse-wire-datetime]]
-   [puppetlabs.puppetdb.utils :as utils]
    [puppetlabs.trapperkeeper.app :refer [get-service]]))
 
 (deftest test-node-ttl

@@ -1,21 +1,18 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
-            [clojure.set :as set]
+            [clojure.set :as set :refer [map-invert]]
             [clojure.string :as str]
             [puppetlabs.i18n.core :refer [tru trs]]
-            [clojure.set :refer [map-invert]]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng.parse :as parse]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
@@ -23,8 +20,6 @@
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [clojure.string :as string]
             [clojure.walk :as walk])
   (:import
    (clojure.lang ExceptionInfo)
@@ -1942,7 +1937,7 @@
                                   ::parse/indexed-field-part [(:name %) (:index %)]
                                   ::parse/match-field-part [(:pattern %)]
                                   ::parse/named-field-part [(:name %)]))
-                       (string/join "#~"))
+                       (str/join "#~"))
             ;; Right now, this code communicates the paths via AST
             ;; dotted fields, which is insufficient because the
             ;; current syntax can't represent all possible fact names

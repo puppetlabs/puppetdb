@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.nodes-test
   (:require [cheshire.core :as json]
-            [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [clojure.string :refer [starts-with?]]
             [puppetlabs.kitchensink.core :refer [keyset]]

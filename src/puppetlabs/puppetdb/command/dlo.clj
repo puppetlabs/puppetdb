@@ -1,11 +1,9 @@
 (ns puppetlabs.puppetdb.command.dlo
   (:require
-   [clojure.java.io :as io]
    [clojure.string :as str]
    [digest]
    [metrics.counters :as counters]
    [puppetlabs.i18n.core :refer [trs]]
-   [puppetlabs.kitchensink.core :refer [timestamp]]
    [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
    [puppetlabs.puppetdb.queue :as q]
    [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]

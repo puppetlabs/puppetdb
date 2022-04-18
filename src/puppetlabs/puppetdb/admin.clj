@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.admin
-  (:require [compojure.core :as compojure]
-            [puppetlabs.i18n.core :as i18n]
+  (:require [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.export :as export]
@@ -9,7 +8,6 @@
             [ring.middleware.multipart-params :as mp]
             [puppetlabs.puppetdb.query.summary-stats :as ss]
             [puppetlabs.puppetdb.time :refer [now]]
-            [ring.util.io :as rio]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.middleware :as mid]
             [bidi.schema :as bidi-schema]

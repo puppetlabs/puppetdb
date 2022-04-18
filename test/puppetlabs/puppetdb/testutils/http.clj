@@ -3,14 +3,11 @@
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :refer [*db* *read-db* with-test-db]]
-            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clojure.tools.logging :as log])
+            [puppetlabs.puppetdb.cheshire :as json])
   (:import
    (java.io ByteArrayInputStream)
    (java.net HttpURLConnection)))

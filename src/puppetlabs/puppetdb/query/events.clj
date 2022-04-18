@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.query.events
   "SQL/query-related functions for events"
   (:require [clojure.string :as string]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
@@ -9,8 +8,7 @@
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [schema.core :as s]))
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
 ;; MUNGE
 

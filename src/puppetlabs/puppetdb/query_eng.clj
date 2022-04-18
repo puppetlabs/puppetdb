@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:require [clojure.core.match :as cm]
-            [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [murphy :refer [try! with-open!]]
             [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as http]
