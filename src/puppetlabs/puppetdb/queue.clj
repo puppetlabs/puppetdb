@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.queue
   (:import (clojure.lang ExceptionInfo)
            [java.nio.charset StandardCharsets]
-           [java.io InputStreamReader BufferedReader InputStream Closeable]
+           [java.io InputStreamReader BufferedReader InputStream]
            [java.util TreeMap HashMap]
            [java.nio.file Files LinkOption]
            [java.nio.file.attribute FileAttribute]

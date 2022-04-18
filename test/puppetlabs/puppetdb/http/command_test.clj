@@ -28,10 +28,10 @@
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [puppetlabs.puppetdb.time :as time])
-  (:import [clojure.lang ExceptionInfo]
-           [java.io ByteArrayInputStream ByteArrayOutputStream]
-           [java.util.concurrent Semaphore]
-           (java.util.zip GZIPOutputStream)))
+  (:import
+   (java.io ByteArrayInputStream ByteArrayOutputStream)
+   (java.util.concurrent Semaphore)
+   (java.util.zip GZIPOutputStream)))
 
 (def endpoints [[:v1 "/v1"]])
 

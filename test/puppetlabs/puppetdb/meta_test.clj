@@ -1,5 +1,4 @@
 (ns puppetlabs.puppetdb.meta-test
-  (:import (java.util.concurrent TimeUnit))
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils

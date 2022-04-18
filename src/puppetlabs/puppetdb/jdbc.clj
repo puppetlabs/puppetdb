@@ -13,7 +13,6 @@
   (:import
    (com.zaxxer.hikari HikariDataSource HikariConfig)
    (java.sql Connection SQLException SQLTransientConnectionException)
-   (java.util.concurrent TimeUnit)
    (org.postgresql.util PGobject)))
 
 (def ^:dynamic *db* nil)

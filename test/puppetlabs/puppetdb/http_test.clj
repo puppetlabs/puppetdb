@@ -1,12 +1,13 @@
 (ns puppetlabs.puppetdb.http-test
-  (:import [java.io InputStream StringWriter])
   (:require [cheshire.core :as json]
             [puppetlabs.trapperkeeper.testutils.webserver :refer [with-test-webserver]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.http :refer :all]
             [clojure.test :refer :all]
             [cheshire.core :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
+            [puppetlabs.puppetdb.testutils.services :as svc-utils])
+  (:import
+   (java.io StringWriter)))
 
 (deftest conneg
   (testing "content negotiation"

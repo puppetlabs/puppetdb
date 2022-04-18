@@ -21,7 +21,6 @@
             [puppetlabs.puppetdb.utils :as utils])
   (:import
    (clojure.lang ExceptionInfo)
-   (org.apache.commons.io IOUtils)
    (org.apache.commons.fileupload.util LimitedInputStream)))
 
 (def min-supported-commands

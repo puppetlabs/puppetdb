@@ -21,8 +21,7 @@
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]])
   (:import
    (clojure.lang ExceptionInfo)
-   (java.security KeyStore)
-   (java.util.regex PatternSyntaxException Pattern)
+   (java.util.regex PatternSyntaxException)
    (org.joda.time Minutes Days Period)))
 
 (defn throw-cli-error [msg]

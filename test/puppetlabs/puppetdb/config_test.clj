@@ -10,9 +10,8 @@
             [me.raynes.fs :as fs]
             [slingshot.test])
   (:import
-   [clojure.lang ExceptionInfo]
-   [java.security KeyStore]
-   [java.util.regex Pattern]))
+   (clojure.lang ExceptionInfo)
+   (java.util.regex Pattern)))
 
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"

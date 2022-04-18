@@ -70,11 +70,9 @@
             [puppetlabs.puppetdb.scf.storage :as scf]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning
              :refer [get-temporal-partitions]])
-  (:import [org.postgresql.util PGobject]
-           [java.time LocalDate ZonedDateTime ZoneId OffsetDateTime]
-           (java.sql Timestamp)
-           (java.time.temporal ChronoUnit)
-           (java.time.format DateTimeFormatter)))
+  (:import
+   (java.time ZonedDateTime)
+   (org.postgresql.util PGobject)))
 
 (defn init-through-2-3-8
   []

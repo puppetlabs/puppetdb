@@ -23,7 +23,6 @@
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [puppetlabs.puppetdb.queue :as queue])
   (:import
-   (java.io ByteArrayInputStream)
    (java.util.concurrent Semaphore)))
 
 (defn env-true? [name]

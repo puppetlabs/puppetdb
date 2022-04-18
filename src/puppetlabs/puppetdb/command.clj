@@ -102,8 +102,7 @@
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
    (java.sql SQLException)
-   (java.util.concurrent RejectedExecutionException Semaphore)
-   (org.joda.time DateTime)))
+   (java.util.concurrent RejectedExecutionException Semaphore)))
 
 ;; ## Performance counters
 

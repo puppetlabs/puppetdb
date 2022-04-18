@@ -59,7 +59,6 @@
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
    [clojure.core.async.impl.protocols Buffer]
-   [java.io ByteArrayInputStream]
    [java.nio.file.attribute FileAttribute]
    [java.nio.file Files OpenOption]
    [java.util ArrayDeque]))

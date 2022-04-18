@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.nio
   (:import
-   [java.nio.file CopyOption Path Files OpenOption Paths StandardCopyOption]))
+   [java.nio.file CopyOption Path OpenOption Paths StandardCopyOption]))
 
 (def copt-atomic StandardCopyOption/ATOMIC_MOVE)
 (def copt-replace StandardCopyOption/REPLACE_EXISTING)

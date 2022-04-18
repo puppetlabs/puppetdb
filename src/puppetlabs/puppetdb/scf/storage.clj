@@ -53,9 +53,7 @@
            [org.postgresql.util PGobject]
            [org.joda.time Period]
            [java.sql SQLException Timestamp]
-           (java.time Instant LocalDate LocalDateTime Year ZoneId ZonedDateTime)
-           (java.time.temporal ChronoUnit)
-           (java.time.format DateTimeFormatter)))
+           (java.time ZoneId ZonedDateTime)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas

@@ -1,5 +1,4 @@
 (ns puppetlabs.puppetdb.middleware-test
-  (:import [java.io ByteArrayInputStream])
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]

@@ -15,9 +15,7 @@
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.testutils.queue :refer [catalog->command-req]]
    [puppetlabs.puppetdb.time :as coerce-time]
-   [puppetlabs.stockpile.queue :as stock])
-  (:import
-   [java.nio.file Files]))
+   [puppetlabs.stockpile.queue :as stock]))
 
 (defn reg-counter-val [registry suffix]
   (let [mname (str "puppetlabs.puppetdb.dlo." suffix)]
