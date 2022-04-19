@@ -2,13 +2,17 @@
   (:require [puppetlabs.puppetdb.query :as query]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map
                                                            with-corrective-change]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
-            [puppetlabs.puppetdb.testutils.events :refer :all]
+            [puppetlabs.puppetdb.testutils.events
+             :refer [expected-resource-events
+                     query-resource-events
+                     raw-expected-resource-events
+                     timestamps->str]]
             [puppetlabs.puppetdb.testutils :refer [dotestseq select-values']]
             [puppetlabs.puppetdb.time
              :refer [ago days now to-long to-string to-timestamp]]))

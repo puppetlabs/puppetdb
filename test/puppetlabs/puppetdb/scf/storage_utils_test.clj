@@ -1,9 +1,13 @@
 (ns puppetlabs.puppetdb.scf.storage-utils-test
-  (:require [cheshire.core :as json]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.scf.storage-utils :refer :all]
-            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]))
+  (:require
+   [cheshire.core :as json]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.scf.storage-utils
+    :refer [db-serialize index-exists?
+            munge-jsonb-for-storage
+            pg-extension?]]
+   [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
+   [puppetlabs.puppetdb.jdbc :as jdbc]))
 
 (deftest serialization
   (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]

@@ -1,12 +1,23 @@
 (ns puppetlabs.puppetdb.config-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.config :refer :all :as conf]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.time :as time]
-            [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
-            [clojure.string :as str]
-            [me.raynes.fs :as fs]
-            [slingshot.test])
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.config :as conf
+    :refer [configure-command-processing
+            configure-dbs
+            configure-puppetdb
+            convert-blocklist-config
+            default-max-command-size
+            forbid-duplicate-write-db-subnames
+            half-the-cores*
+            normalize-product-name
+            validate-vardir
+            warn-retirements]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.time :as time]
+   [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
+   [clojure.string :as str]
+   [me.raynes.fs :as fs]
+   [slingshot.test])
   (:import
    (clojure.lang ExceptionInfo)
    (java.util.regex Pattern)))

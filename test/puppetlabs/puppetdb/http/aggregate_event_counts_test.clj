@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.http
              :refer [are-error-response-headers
                      deftest-http-app

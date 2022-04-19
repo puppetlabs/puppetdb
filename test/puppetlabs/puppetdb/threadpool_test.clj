@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.threadpool-test
   (:require [clojure.core.async :as async]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.threadpool :refer :all]
+            [puppetlabs.puppetdb.threadpool
+             :refer [dochan gated-threadpool shutdown]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.utils :refer [await-ref-state
                                                noisy-future]]

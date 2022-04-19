@@ -1,10 +1,21 @@
 (ns puppetlabs.puppetdb.catalogs-test
   (:import [clojure.lang ExceptionInfo])
-  (:require [schema.core :as s]
-            [puppetlabs.puppetdb.catalogs :refer :all]
-            [puppetlabs.puppetdb.examples :refer :all]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.time :refer [now]]))
+  (:require
+   [schema.core :as s]
+   [puppetlabs.puppetdb.catalogs
+    :refer [catalog-v6-wireformat-schema
+            catalog-v7-wireformat-schema
+            catalog-v8-wireformat-schema
+            catalog-wireformat-schema
+            parse-catalog
+            resource-spec-to-map
+            transform-resources
+            validate
+            validate-edges
+            validate-resources]]
+   [puppetlabs.puppetdb.examples :refer [catalogs wire-catalogs]]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn catalog-before-and-after
   "Test that a wire format catalog is equal, post-processing, to the

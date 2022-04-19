@@ -6,7 +6,7 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn get-versioned-response

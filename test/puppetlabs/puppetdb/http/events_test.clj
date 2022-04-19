@@ -19,7 +19,7 @@
                      query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.time
              :refer [ago now seconds to-long to-string to-timestamp]])
   (:import

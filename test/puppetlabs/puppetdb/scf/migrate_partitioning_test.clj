@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.scf.migrate-partitioning-test
-  (:require [puppetlabs.puppetdb.scf.migrate :refer :all]
-            [clojure.test :refer :all]
-            [clojure.set :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.db :as tdb
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps with-test-db]]

@@ -1,35 +1,73 @@
 (ns puppetlabs.puppetdb.scf.storage-test
-  (:require [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [clojure.walk :as walk]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db
-             :refer [*db* clear-db-for-testing! init-db with-test-db]]
-            [metrics.histograms :refer [sample histogram]]
-            [metrics.counters :as counters]
-            [schema.core :as s]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.examples :refer [catalogs]]
-            [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.testutils.reports :refer :all]
-            [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.testutils.nodes :refer :all]
-            [puppetlabs.puppetdb.random :as random]
-            [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
-            [puppetlabs.puppetdb.scf.storage :refer :all]
-            [clojure.test :refer :all]
-            [clojure.math.combinatorics :refer [combinations subsets]]
-            [metrics.timers :refer [time! timer]]
-            [puppetlabs.puppetdb.jdbc :as jdbc
-             :refer [call-with-query-rows query-to-vec]]
-            [puppetlabs.puppetdb.time :as time
-             :refer [ago before? days from-now now to-string to-timestamp]])
+  (:require
+   [clojure.java.jdbc :as sql]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.reports :as report]
+   [puppetlabs.puppetdb.scf.hash :as shash]
+   [puppetlabs.puppetdb.facts :as facts]
+   [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
+   [clojure.walk :as walk]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.testutils :as tu]
+   [puppetlabs.puppetdb.testutils.db
+    :refer [*db* clear-db-for-testing! init-db with-test-db]]
+   [metrics.histograms :refer [sample histogram]]
+   [metrics.counters :as counters]
+   [schema.core :as s]
+   [clojure.string :as str]
+   [puppetlabs.puppetdb.examples :refer [catalogs]]
+   [puppetlabs.puppetdb.examples.reports :refer [reports]]
+   [puppetlabs.puppetdb.testutils.reports
+    :refer [is-latest-report? store-example-report!]]
+   [puppetlabs.puppetdb.testutils.events :refer [query-resource-events]]
+   [puppetlabs.puppetdb.testutils.nodes :refer [node-for-certname]]
+   [puppetlabs.puppetdb.random :as random]
+   [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
+   [puppetlabs.puppetdb.scf.storage
+    :refer [activate-node!
+            add-certname!
+            add-facts!
+            basic-diff
+            call-with-lock-timeout
+            catalog-edges-map
+            catalog-schema
+            certname-factset-metadata
+            deactivate-node!
+            delete-certname!
+            delete-reports-older-than!
+            delete-unassociated-packages!
+            delete-unused-fact-paths
+            diff-resources-metadata
+            ensure-environment
+            ensure-producer
+            environment-id
+            expire-stale-nodes
+            have-newer-record-for-certname?
+            insert-packages
+            maybe-activate-node!
+            merge-resource-hash
+            normalize-report
+            purge-deactivated-and-expired-nodes!
+            realize-paths
+            replace-catalog!
+            replace-catalog-inputs!
+            replace-edges!
+            replace-facts!
+            resources-exist?
+            set-certname-facts-expiration
+            status-id
+            storage-metrics
+            storage-metrics-registry
+            timestamp-of-newest-record
+            update-facts!]]
+   [clojure.test :refer :all]
+   [clojure.math.combinatorics :refer [combinations subsets]]
+   [metrics.timers :refer [time! timer]]
+   [puppetlabs.puppetdb.jdbc :as jdbc
+    :refer [call-with-query-rows query-to-vec]]
+   [puppetlabs.puppetdb.time :as time
+    :refer [ago before? days from-now now to-string to-timestamp]])
   (:import
    (java.sql SQLException)))
 

@@ -1,8 +1,9 @@
 (ns puppetlabs.puppetdb.dashboard-test
-  (:require [puppetlabs.puppetdb.dashboard :refer :all]
+  (:require [puppetlabs.puppetdb.dashboard
+             :refer [build-app dashboard-routes default-meter-defs]]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
+            [ring.mock.request :refer [request]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]

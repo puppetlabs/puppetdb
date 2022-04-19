@@ -19,7 +19,7 @@
             GzipCompressorOutputStream
             GzipCompressorInputStream])
   (:require
-   [clojure.java.io :refer :all]
+   [clojure.java.io :refer [reader writer]]
    [puppetlabs.i18n.core :refer [tru]]
    [puppetlabs.puppetdb.time :refer [now to-java-date]]))
 

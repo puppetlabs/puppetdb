@@ -11,7 +11,14 @@
                      logs-matching
                      with-logged-event-maps
                      with-log-level]]
-            [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
+            [puppetlabs.puppetdb.cli.services :as svcs
+             :refer [collect-garbage
+                     db-config->clean-request
+                     init-with-db
+                     init-write-dbs
+                     invoke-periodic-gc
+                     maybe-check-for-updates
+                     query]]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]

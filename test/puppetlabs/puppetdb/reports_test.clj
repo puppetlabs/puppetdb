@@ -1,15 +1,21 @@
 (ns puppetlabs.puppetdb.reports-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer [reports
-                                                          v4-report
-                                                          v5-report
-                                                          v6-report
-                                                          v7-report]]
-            [puppetlabs.puppetdb.reports :refer :all]
-            [com.rpl.specter :as sp]
-            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
-            [puppetlabs.puppetdb.time :refer [now]]
-            [schema.core :as s]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.examples.reports
+    :refer [reports v4-report v5-report v6-report v7-report]]
+   [puppetlabs.puppetdb.reports
+    :refer [report-query->wire-v8
+            report-v3-wireformat-schema
+            report-wireformat-schema
+            wire-v3->wire-v8
+            wire-v4->wire-v8
+            wire-v5->wire-v8
+            wire-v6->wire-v8
+            wire-v7->wire-v8]]
+   [com.rpl.specter :as sp]
+   [puppetlabs.puppetdb.utils.string-formatter :as formatter]
+   [puppetlabs.puppetdb.time :refer [now]]
+   [schema.core :as s]))
 
 (let [report (-> (:basic reports)
                  report-query->wire-v8)]

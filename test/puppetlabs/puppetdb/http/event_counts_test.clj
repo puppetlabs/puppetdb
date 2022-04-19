@@ -3,7 +3,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.testutils.http
              :refer [are-error-response-headers

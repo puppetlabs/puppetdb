@@ -1,18 +1,31 @@
 (ns puppetlabs.puppetdb.queue-test
-  (:require [clojure.string :as str]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.queue :refer :all]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.constants :as constants]
-            [puppetlabs.puppetdb.nio :refer [get-path]]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [clojure.core.async :as async]
-            [puppetlabs.puppetdb.testutils.nio :as nio]
-            [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
-            [puppetlabs.puppetdb.command.constants :as cconst]
-            [puppetlabs.puppetdb.time :as time
-             :refer [now days parse-wire-datetime seconds]]))
+  (:require
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.queue
+    :refer [cmdref->cmd
+            create-command-req
+            create-or-open-stockpile
+            encode-command-time
+            map->CommandRef
+            max-metadata-utf8-bytes
+            parse-metadata
+            puppetdb-command->metadata-command
+            sanitize-certname
+            serialize-metadata
+            sorted-command-buffer
+            store-command]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.constants :as constants]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
+   [puppetlabs.puppetdb.testutils.queue :as tqueue]
+   [puppetlabs.puppetdb.testutils :as tu]
+   [clojure.core.async :as async]
+   [puppetlabs.puppetdb.testutils.nio :as nio]
+   [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
+   [puppetlabs.puppetdb.command.constants :as cconst]
+   [puppetlabs.puppetdb.time :as time
+    :refer [now days parse-wire-datetime seconds]]))
 
 (defn catalog->command-req [version {:keys [certname name] :as catalog}]
   (create-command-req "replace catalog"

@@ -4,7 +4,8 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.time :as time :refer [now to-string]]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
-            [puppetlabs.puppetdb.pdb-routing :refer :all]
+            [puppetlabs.puppetdb.pdb-routing
+             :refer [disable-maint-mode enable-maint-mode]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.http.client.sync :as http]))
 

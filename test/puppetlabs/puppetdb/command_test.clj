@@ -30,14 +30,30 @@
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [atom-logger logs-matching with-log-output]]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
-            [puppetlabs.puppetdb.command :as cmd :refer :all]
+            [puppetlabs.puppetdb.command :as cmd
+             :refer [call-with-quick-retry
+                     cmd-metric
+                     command-delay-ms
+                     delay-pool-size
+                     enqueue-command
+                     fatality
+                     global-metric
+                     maximum-allowable-retries
+                     message-handler
+                     pause-execution
+                     quick-retry-count
+                     response-mult
+                     resume-execution
+                     stats
+                     upon-error-throw-fatality]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.testutils
              :refer [args-supplied call-counter default-timeout-ms dotestseq
                      temp-dir times-called]]
 
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples
+             :refer [catalog-inputs wire-catalog-inputs wire-catalogs]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
             [clojure.test :refer :all]

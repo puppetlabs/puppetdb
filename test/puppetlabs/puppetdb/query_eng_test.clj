@@ -1,15 +1,37 @@
 (ns puppetlabs.puppetdb.query-eng-test
-  (:require [cheshire.core :as json]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.query-eng.engine :refer :all]
-            [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
-            [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
-            [puppetlabs.puppetdb.time :as time :refer [now parse-period]]
-            [puppetlabs.puppetdb.scf.storage-utils :as su])
+  (:require
+   [cheshire.core :as json]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.scf.storage :as scf-store]
+   [puppetlabs.puppetdb.query-eng.engine
+    :refer [->AndExpression
+            ->ArrayBinaryExpression
+            ->BinaryExpression
+            ->NotExpression
+            ->NullExpression
+            ->OrExpression
+            ->RegexExpression
+            certname-relations
+            compile-query
+            compile-user-query->sql
+            expand-user-query
+            extract-all-params
+            fact-contents-query
+            facts-query
+            inventory-query
+            map->Query
+            nodes-query
+            plan->sql
+            push-down-context
+            reports-query
+            resources-query]]
+   [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
+   [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+   [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
+   [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+   [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
+   [puppetlabs.puppetdb.time :as time :refer [now parse-period]]
+   [puppetlabs.puppetdb.scf.storage-utils :as su])
   (:import
    (java.net HttpURLConnection)))
 

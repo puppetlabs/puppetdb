@@ -1,7 +1,34 @@
 (ns puppetlabs.puppetdb.anonymizer-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.anonymizer :refer :all]
-            [puppetlabs.kitchensink.core :as ks]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.anonymizer :as anon
+    :refer [anonymize-aliases
+            anonymize-catalog
+            anonymize-catalog-inputs-input
+            anonymize-catalog-inputs-inputs
+            anonymize-catalog-resource
+            anonymize-catalog-resources
+            anonymize-edge
+            anonymize-edges
+            anonymize-event
+            anonymize-fact-values
+            anonymize-leaf
+            anonymize-leaf-memoize
+            anonymize-leaf-value
+            anonymize-lowercase-type
+            anonymize-parameter
+            anonymize-parameters
+            anonymize-reference
+            anonymize-references
+            anonymize-report-resource
+            anonymize-tags
+            capitalize-resource-type
+            matcher-match?
+            pattern->regexp
+            pattern-string?
+            rule-match?
+            rules-match]]
+   [puppetlabs.kitchensink.core :as ks]))
 
 (def anon-true {"context" {} "anonymize" true})
 (def anon-false {"context" {} "anonymize" false})

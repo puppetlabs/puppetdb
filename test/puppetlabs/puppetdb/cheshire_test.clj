@@ -1,9 +1,18 @@
 (ns puppetlabs.puppetdb.cheshire-test
-  (:require [cheshire.factory :refer [*json-factory*]]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cheshire :refer :all]
-            [puppetlabs.puppetdb.time :as time])
+  (:require
+   [cheshire.factory :refer [*json-factory*]]
+   [puppetlabs.puppetdb.testutils :as tu]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.cheshire
+    :refer [generate-pretty-stream
+            generate-pretty-string
+            generate-stream
+            generate-string
+            null-replacing-json-factory
+            parse-stream
+            parse-string
+            spit-json]]
+   [puppetlabs.puppetdb.time :as time])
   (:import [java.io StringWriter StringReader]
            [java.sql Timestamp]
            [org.joda.time DateTime]))

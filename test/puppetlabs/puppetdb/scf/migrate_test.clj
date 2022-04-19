@@ -1,7 +1,15 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
   (:require [clojure.set :as set]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.migrate :as migrate :refer :all]
+            [puppetlabs.puppetdb.scf.migrate :as migrate
+             :refer [applied-migrations
+                     create-indexes
+                     desired-schema-version
+                     initialize-schema
+                     migrations
+                     pending-migrations
+                     record-migration!
+                     require-valid-schema]]
             [puppetlabs.puppetdb.scf.storage :as store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [db-serialize]]

@@ -2,7 +2,17 @@
   (:require [puppetlabs.kitchensink.core :as kitchensink :refer [keyset]]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
-            [puppetlabs.puppetdb.middleware :refer :all]
+            [puppetlabs.puppetdb.middleware
+             :refer [build-allowlist-authorizer
+                     cause-finder
+                     fail-when-payload-too-large
+                     merge-param-specs
+                     validate-query-params
+                     verify-content-encoding
+                     verify-content-type
+                     wrap-cert-authn
+                     wrap-with-certificate-cn
+                     wrap-with-metrics] ]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])

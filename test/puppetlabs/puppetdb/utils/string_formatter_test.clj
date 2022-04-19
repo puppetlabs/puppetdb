@@ -2,7 +2,11 @@
   (:require [clojure.test :refer :all]
             [clojure.string :as string]
             [clojure.math.combinatorics :refer [selections]]
-            [puppetlabs.puppetdb.utils.string-formatter :refer :all]
+            [puppetlabs.puppetdb.utils.string-formatter
+             :refer [dash->underscore-keys
+                     pprint-json-parse-exception
+                     re-quote
+                     underscore->dash-keys]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :as cct]))
