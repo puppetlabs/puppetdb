@@ -14,8 +14,8 @@
     (let [storage       (atom {})
           normalize-uri identity]
       (doseq [status (range 200 210)]
-        (let [handler (fn [req] (-> (rr/response nil)
-                                    (rr/status status)))
+        (let [handler (fn [_req] (-> (rr/response nil)
+                                     (rr/status status)))
               app (wrap-with-metrics handler storage normalize-uri)]
           (app {:uri "/foo/bar/baz"})))
 
@@ -33,8 +33,8 @@
     (let [storage       (atom {})
           ;; Normalize urls based on reversing the url
           normalize-uri #(apply str (reverse %))
-          handler       (fn [req] (-> (rr/response nil)
-                                      (rr/status HttpURLConnection/HTTP_OK)))
+          handler       (fn [_req] (-> (rr/response nil)
+                                       (rr/status HttpURLConnection/HTTP_OK)))
           app           (wrap-with-metrics handler storage normalize-uri)]
 
       (app {:uri "/foo"})
@@ -62,8 +62,8 @@
     ;; Setup an app that only lets through odd numbers
     (let [wl (.getAbsolutePath (temp-file "allowlist-log-reject"))
           _ (spit wl "foobar")
-          handler     (fn [req] (-> (rr/response nil)
-                                    (rr/status HttpURLConnection/HTTP_OK)))
+          handler     (fn [_req] (-> (rr/response nil)
+                                     (rr/status HttpURLConnection/HTTP_OK)))
 
           message     "The client certificate name"
           app (wrap-cert-authn handler wl)]
@@ -100,7 +100,7 @@
 
 (deftest validating-query-params
   (let [test-string "original test string"
-        app-fn      (fn [req] test-string)
+        app-fn      (fn [_req] test-string)
         wrapped-fn  (validate-query-params app-fn
                                            {:required ["foo" "bar"] :optional ["baz" "bam"]})]
     (testing "should do nothing if the params are valid"

@@ -32,7 +32,7 @@
      (app request))))
 
 (deftest test-latest-version
-  (dotestseq [[version endpoint] endpoints]
+  (dotestseq [[_version endpoint] endpoints]
     (with-redefs [version/update-info
                   (constantly
                    {"newer" true
@@ -85,7 +85,7 @@
             (is (nil? (log-levels-emitted :info)))))))))
 
 (deftest update-server-http-errors-not-logged-as-info
-  (dotestseq [[version endpoint] endpoints]
+  (dotestseq [[_version endpoint] endpoints]
     (testing "doesn't log update server HTTP errors at INFO"
       (with-test-db
         (with-log-output logz
@@ -97,7 +97,7 @@
             (is (nil? (log-levels-emitted :info)))))))))
 
 (deftest server-time-response
-  (dotestseq [[version endpoint] endpoints]
+  (dotestseq [[_version endpoint] endpoints]
     (let [test-time (-> 1 seconds ago)
           response (-> (get-request (str endpoint "/server-time"))
                        with-meta-app)]

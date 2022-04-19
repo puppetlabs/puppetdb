@@ -329,7 +329,7 @@
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
-  [{:keys [params] :as req}
+  [{:keys [params]}
    parse-fn]
   (-> params
       (update-when ["query"] parse-fn)

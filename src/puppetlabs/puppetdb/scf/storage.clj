@@ -452,9 +452,7 @@
 (s/defn catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [edges
-           resources
-           version
+   {:keys [version
            code_id
            job_id
            transaction_uuid
@@ -616,7 +614,7 @@
         (insert-records*
          :catalog_resources
          (map (fn [resource-ref]
-                (let [{:keys [type title exported parameters tags file line]
+                (let [{:keys [type title exported tags file line]
                        :as resource}
                       (get refs-to-resources resource-ref)]
                   (reset! last-record resource)
@@ -673,7 +671,7 @@
 (defn merge-resource-hash
   "Assoc each hash from `refs-to-hashes` as :resource on `refs-to-resources`"
   [refs-to-hashes refs-to-resources]
-  (reduce-kv (fn [acc k v]
+  (reduce-kv (fn [acc k _]
                (assoc-in acc [k :resource] (get refs-to-hashes k)))
              refs-to-resources refs-to-resources))
 
@@ -859,7 +857,8 @@
    received-timestamp :- pls/Timestamp]
   (inc! (get-storage-metric :updated-catalog))
   (time! (get-storage-metric :add-new-catalog)
-         (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+         (do
+           (add-catalog-metadata! hash catalog received-timestamp)
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (s/defn replace-catalog!
@@ -1213,8 +1212,7 @@
   [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
    :- facts-schema]
   (jdbc/with-db-transaction []
-    (let [{:keys [package_hash certname_id factset_id
-                  ^bytes stable_hash volatile_fact_names]}
+    (let [{:keys [package_hash certname_id factset_id ^bytes stable_hash]}
           (certname-factset-metadata certname)
 
           ;; split facts into stable and volatile maps. Everything that was
@@ -1552,7 +1550,7 @@
             (while (not @gc-finished?)
               (maybe-log-query-cancellation (bulldoze-blocking-qs gc-pid))
               (Thread/sleep 1000)))
-          (catch InterruptedException ex
+          (catch InterruptedException _
             true))))))
 
 (def gc-query-bulldozer-timeout-ms
@@ -1809,13 +1807,9 @@
 
 (s/defn add-report!
   "Add a report and all of the associated events to the database."
-  ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
-   received-timestamp :- pls/Timestamp
-   db conn-status]
+  ([report received-timestamp db conn-status]
    (add-report! report received-timestamp db conn-status true))
-  ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
-    received-timestamp :- pls/Timestamp
-    db conn-status update-latest-report?]
+  ([report received-timestamp db conn-status update-latest-report?]
    (add-report! report received-timestamp db conn-status update-latest-report? {}))
   ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp

@@ -133,7 +133,7 @@
           orig-exec-cmds cmd/exec-command]
 
       ;; break exec-command for all db2 submissions
-      (with-redefs [cmd/exec-command (fn [{:keys [command version] :as cmd} db conn-status start {}]
+      (with-redefs [cmd/exec-command (fn [cmd db conn-status start {}]
                                        (when (= db2 db)
                                          (throw (SQLException. "BOOM")))
                                        (orig-exec-cmds cmd db conn-status start {}))]
@@ -170,7 +170,7 @@
           expected-dlo-count (inc (* 2 (count (keys commands))))]
 
       ;; break exec-command for all submissions to all pgs
-      (with-redefs [cmd/exec-command (fn [& args] (throw (SQLException. "BOOM")))
+      (with-redefs [cmd/exec-command (fn [& _] (throw (SQLException. "BOOM")))
                     ;; don't allow retries to speed cmd ending up in dlo
                     cmd/maximum-allowable-retries 0]
 

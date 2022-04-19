@@ -785,7 +785,7 @@
          (assoc updated-row :value))))
 
 (defn update-value-json
-  [{:keys [id value] :as arg}]
+  [{:keys [id value]}]
   (jdbc/update! :fact_values
                 {:value_json (json/generate-string value)}
                 ["id=?" id]))

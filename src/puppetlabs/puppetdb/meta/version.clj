@@ -43,4 +43,4 @@
   [update-server db]
   (try
     @(version-check/check-for-update (pdb-version-check-values db) update-server)
-    (catch Exception e)))
+    (catch Exception _)))

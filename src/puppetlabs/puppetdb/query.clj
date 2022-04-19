@@ -146,7 +146,7 @@
   "Compile a NOT operator, applied to `term`. This term simply negates the
   value of `term`. Basically this function just serves as error checking for
   `negate-term*`."
-  [version ops & terms]
+  [_version ops & terms]
   {:post [(string? (:where %))]}
   (when-not (= (count terms) 1)
     (throw (IllegalArgumentException.
@@ -282,10 +282,10 @@
   "This function takes a query type (:resource, :fact, :node) and a query
    API version number, and returns a set of strings which are the names the
    fields that are legal to query"
-  (fn [query-type query-api-version] query-type))
+  (fn [query-type _query-api-version] query-type))
 
 (defmethod queryable-fields :resource
-  [_ query-api-version]
+  [_ _query-api-version]
   (keyset resource-columns))
 
 (defmethod queryable-fields :fact
@@ -450,7 +450,7 @@
   "Compile an '~' predicate for a resource query, which does regexp matching.
   This is done by leveraging the correct database-specific regexp syntax to
   return only rows where the supplied `path` match the given `pattern`."
-  [version & [path value :as args]]
+  [version path value]
   {:post [(map? %)
           (:where %)]}
   (match [path]

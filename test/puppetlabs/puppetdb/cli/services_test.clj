@@ -52,7 +52,7 @@
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
                              :update-server "update-server!"}}
-        shutdown-for-ex (fn [ex]
+        shutdown-for-ex (fn [_ex]
                           (binding [*out* *err*]
                             (println "Ignoring shutdown exception during services tests.")))]
 
@@ -101,8 +101,7 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-single-quiet-pdb-instance
-    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)]
       (enqueue-command dispatcher
                        "replace facts"
                        4
@@ -148,8 +147,7 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)]
       (enqueue-command dispatcher
                        "replace facts"
                        4
@@ -239,7 +237,7 @@
         start-ex (atom nil)
         orig-start svcs/start-puppetdb
         start (fn [& args]
-                (let [[context config svc get-endpts request-shutdown upgrade?] args]
+                (let [[_ _ svc _ _ _] args]
                   (reset! service svc)
                   (try
                     (let [result (apply orig-start args)]
@@ -271,7 +269,7 @@
       (let [opts (-> @service service-context :shutdown-request deref :opts)
             exit (:puppetlabs.trapperkeeper.core/exit opts)]
         (is (= err-exit-status (:status exit)))
-        (is (some (fn [[msg out]] (err-msg? msg))
+        (is (some (fn [[msg _out]] (err-msg? msg))
                   (:messages exit)))))))
 
 (deftest unsupported-database-settings-trigger-shutdown
@@ -286,7 +284,7 @@
                               settings))
         orig-start svcs/start-puppetdb
         start (fn [& args]
-                (let [[context config svc get-endpts request-shutdown] args]
+                (let [[_ _ svc _ _] args]
                   (reset! service svc)
                   (try
                     (let [result (apply orig-start args)]
@@ -316,7 +314,7 @@
       (let [opts (-> @service service-context :shutdown-request deref :opts)
             exit (:puppetlabs.trapperkeeper.core/exit opts)]
         (is (= err-exit-status (:status exit)))
-        (is (some (fn [[msg out]] (err-msg? msg))
+        (is (some (fn [[msg _out]] (err-msg? msg))
                   (:messages exit)))))))
 
 (defn purgeable-nodes [node-purge-ttl]
@@ -362,14 +360,14 @@
       (with-pdb-with-no-gc
         (let [pdb (get-service *server* :PuppetDBServer)
               pool (-> pdb service-context :job-pool)
-              blocker (schedule pool #(do
-                                        (deliver ready-to-go? true)
-                                        (while (not (try
-                                                      @requested-shutdown?
-                                                      (catch InterruptedException ex
-                                                        false)))
-                                          (ignore-value true)))
-                                0)]
+              _blocker (schedule pool #(do
+                                         (deliver ready-to-go? true)
+                                         (while (not (try
+                                                       @requested-shutdown?
+                                                       (catch InterruptedException _
+                                                         false)))
+                                           (ignore-value true)))
+                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)
           (is (= true @requested-shutdown?)))))))
@@ -444,8 +442,7 @@
                             (let [result (apply original-periodic-gc args)]
                               (.await after-gc)
                               result))
-          event-expired? (fn [_ _] true)
-          log (atom [])]
+          event-expired? (fn [_ _] true)]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic
                     scf-store/resource-event-expired? event-expired?]
         (call-with-puppetdb-instance
@@ -566,7 +563,7 @@
           mig-pass     "migrator-password-value"
           user         "user-value"
           pass         "password-value"
-          validation-fn (fn [config metrics-registry]
+          validation-fn (fn [config _metrics-registry]
                           (is (= con-mig-user (:connection-migrator-username config)))
                           (is (= con-mig-user (:user config)))
                           (is (= mig-pass (:migrator-password config)))
@@ -587,7 +584,7 @@
   (testing "when establishing write database connections"
     (let [connection-username "conn-user-value"
           databases {"default-database" , {:connection-username connection-username}}
-          validation-fn (fn [options metrics-registry]
+          validation-fn (fn [options _metrics-registry]
                           (is (= connection-username (:user options))))]
       (with-redefs [jdbc/pooled-datasource validation-fn]
         (testing "should use connection user"

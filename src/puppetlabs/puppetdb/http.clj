@@ -16,7 +16,7 @@
   default body is based on a direct mapping between HTTP code (for instance:
   406) and a descriptive message for that status (for instance: Not
   Acceptable), as given in RFC 2616 section 10."
-  (fn [request response] (:status response)))
+  (fn [_request response] (:status response)))
 
 (defmethod default-body HttpURLConnection/HTTP_BAD_METHOD
   [{:keys [request-method uri query-string]} _response]
@@ -25,7 +25,7 @@
     (format "The %s method is not allowed for %s" method location)))
 
 (defmethod default-body :default
-  [request {:keys [status] :as response}]
+  [_request {:keys [status] :as _response}]
   {:pre [status
          (>= status 100)
          (<= status 599)]}
@@ -40,7 +40,7 @@
   {:pre [(string? candidate)]}
   (if-not (string? header)
     true
-    (let [[prefix suffix] (.split candidate "/")
+    (let [[prefix _] (.split candidate "/")
           superwildcard   "*/*"
           wildcard        (str prefix "/*")
           types           (->> (s/split header #",")

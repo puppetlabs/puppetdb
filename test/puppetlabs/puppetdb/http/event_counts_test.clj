@@ -29,7 +29,7 @@
 ;; Tests without corrective changes support
 
 (deftest-http-app query-event-counts
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (without-corrective-change
@@ -267,7 +267,7 @@
         (is (= expected results)))))))
 
 (deftest-http-app query-distinct-event-counts
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (without-corrective-change
@@ -463,7 +463,7 @@
               :subject {:type "Notify" :title "hi"}}}))))
 
 (deftest-http-app query-with-environment
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (without-corrective-change
@@ -617,7 +617,7 @@
 ;; Tests with corrective changes support
 
 (deftest-http-app query-event-counts-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (with-corrective-change
@@ -871,7 +871,7 @@
         (is (= expected results)))))))
 
 (deftest-http-app query-distinct-event-counts-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (with-corrective-change
@@ -1120,7 +1120,7 @@
               :subject_type "resource"}}))))
 
 (deftest-http-app query-with-environment-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (with-corrective-change

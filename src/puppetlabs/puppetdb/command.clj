@@ -259,7 +259,7 @@
   [q
    command-chan
    ^Semaphore write-semaphore
-   {:keys [command certname command-stream compression] :as command-req} :- queue/command-req-schema
+   {:keys [command certname command-stream] :as command-req} :- queue/command-req-schema
    maybe-send-cmd-event!]
   (try
     (inc! (get @metrics :concurrent-depth))
@@ -314,7 +314,7 @@
   (scf-storage/replace-catalog! catalog received))
 
 (defn exec-replace-catalog
-  [{:keys [version id received payload]} start-time db conn-status]
+  [{:keys [id received payload]} start-time db conn-status]
   (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/retry-with-monitored-connection
      db conn-status {:isolation :repeatable-read
@@ -369,7 +369,7 @@
   (scf-storage/replace-facts! payload))
 
 (defn exec-replace-facts
-  [{:keys [payload id received] :as command} start-time db conn-status]
+  [{:keys [payload id received] :as _command} start-time db conn-status]
   (let [{:keys [certname producer_timestamp]} payload]
     (jdbc/retry-with-monitored-connection
      db conn-status {:isolation :repeatable-read
@@ -425,7 +425,7 @@
       (update-in [:payload :producer_timestamp] #(or % (now)))))
 
 (defn exec-store-report [options-config {:keys [payload id received]} start-time db conn-status]
-  (let [{:keys [certname puppet_version producer_timestamp] :as report} payload]
+  (let [{:keys [certname puppet_version] :as report} payload]
     ;; Unlike the other storage functions, add-report! manages its own
     ;; transaction, so that it can dynamically create table partitions
     (scf-storage/add-report! report received db conn-status true options-config)
@@ -466,7 +466,7 @@
     "configure expiration" (prep-configure-expiration cmd)
     "replace catalog inputs" (prep-replace-catalog-inputs cmd)))
 
-(defn supported-command? [{:keys [command version] :as cmd}]
+(defn supported-command? [{:keys [command version] :as _cmd}]
   (some-> (supported-command-versions command) (get version)))
 
 (defn exec-command
@@ -603,7 +603,7 @@
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
   [cmd {:keys [command version certname id received] :as cmdref}
-   q response-chan stats options-config maybe-send-cmd-event!]
+   q response-chan stats _options-config maybe-send-cmd-event!]
   (swap! stats update :executed-commands inc)
   ((:callback cmd) {:command cmd :result nil})
   (async/>!! response-chan (make-cmd-processed-message cmd nil))
@@ -615,7 +615,7 @@
   (update-counter! :invalidated command version dec!))
 
 (defn broadcast-cmd
-  [{:keys [certname command version id callback] :as cmd}
+  [{:keys [certname command id callback] :as cmd}
    write-dbs pool response-chan stats shutdown-for-ex options-config]
   (let [n-dbs (count write-dbs)
         statuses (repeatedly n-dbs #(atom nil))
@@ -639,7 +639,7 @@
                            ex)))]
     ;; Kick us loose when we have either one success or nothing but failures.
     (add-watch results results
-               (fn [k _ prev new]
+               (fn [_ _ _ new]
                  (when (or (= n-dbs (count new))
                            (some not-exception? new))
                    (deliver finished true))))
@@ -727,7 +727,7 @@
            (try
              (enqueue-delayed-message command-chan narrowed-entry)
              (update-counter! :awaiting-retry command version dec!)
-             (catch InterruptedException ex
+             (catch InterruptedException _
                (log/info (trs "Revival of delayed message interrupted")))))))
      command-delay-ms)))
 
@@ -901,7 +901,7 @@
           (get-in config [:global :upgrade-and-exit?]))
     context
     (with-final [{:keys [command-chan scf-write-dbs q maybe-send-cmd-event!]} globals
-                 {:keys [response-chan response-pub]} context
+                 {:keys [response-chan]} context
                  ;; Assume that the exception has already been reported.
                  shutdown-for-ex (exceptional-shutdown-requestor request-shutdown [] 2)
                  cmd-concurrency (conf/mq-thread-count config)
@@ -940,7 +940,7 @@
                        (trs "Expected no more than {0} broadcast threads found {1} (please report)"
                             normal found))
                       (reset! next (time/plus (now) (time/minutes 10)))))
-                  (catch InterruptedException ex
+                  (catch InterruptedException _
                     (log/info (trs "Command broadcast pool check interrupted")))))))
          0 (* 60 1000)))
       ;; The rejection below should only occur if new work is
@@ -958,7 +958,7 @@
                           (when-not (= :puppetlabs.puppetdb.threadpool/rejected
                                        (:kind (ex-data ex)))
                             (throw ex)))
-                        (catch InterruptedException ex
+                        (catch InterruptedException _
                           nil)))
             shovel-thread (doto (Thread. shovel)
                             (.setName "PuppetDB command shovel")
@@ -974,7 +974,7 @@
 (defn stop-command-service
   [{:keys [consumer-threadpool broadcast-threadpool command-chan
            response-chan response-chan-for-pub response-mult response-pub
-           delay-pool command-shovel blocked?]
+           delay-pool command-shovel _blocked?]
     :as context}
    request-shutdown]
   ;; Must also handle a nil context.
@@ -1027,18 +1027,18 @@
    [:ShutdownService get-shutdown-reason request-shutdown]]
 
   (init
-   [this context]
+   [_ context]
    (call-unless-shutting-down
     "command service init" (get-shutdown-reason) context
     #(init-command-service context (get-config) request-shutdown)))
 
   (start
-   [this context]
+   [_ context]
    (call-unless-shutting-down
     "command service start"  (get-shutdown-reason) context
     #(start-command-service context (get-config) (shared-globals) request-shutdown)))
 
-  (stop [this context] (stop-command-service context request-shutdown))
+  (stop [_ context] (stop-command-service context request-shutdown))
 
   (stats
    [this]
@@ -1059,7 +1059,6 @@
    (throw-if-shutdown-pending (get-shutdown-reason))
    (let [context (service-context this)
          _ (throw-unless-ready context)
-         config (get-config)
          globals (shared-globals)
          q (:q globals)
          command-chan (:command-chan globals)

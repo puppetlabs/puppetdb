@@ -13,7 +13,7 @@
 (def endpoints [[:v4 "/v4/catalog-input-contents"]])
 
 (deftest-http-app catalog-input-contents-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [input-cmds (sample-input-cmds)
         all-expected (cmds->expected-inputs (vals input-cmds))

@@ -453,7 +453,7 @@
               (-> config
                   conf/update-server
                   (version/check-for-updates! read-db))
-              (catch InterruptedException ex
+              (catch InterruptedException _
                 (log/info (trs "Update checker interrupted"))))))
        0 checkin-interval-millis))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
@@ -693,7 +693,7 @@
           (finally
             (try
               (.removeShutdownHook runtime on-shutdown)
-              (catch IllegalStateException ex
+              (catch IllegalStateException _
                 ;; Ignore, because we're already shutting down.
                 nil))))))))
 
@@ -738,7 +738,7 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-version db service request-shutdown]
+  [desired-version db _service request-shutdown]
   {:pre [(integer? desired-version)]}
   (let [schema-version (-> (jdbc/with-transacted-connection db
                              (jdbc/query "select max(version) from schema_migrations"))
@@ -826,8 +826,8 @@
     (Long/parseLong mb)))
 
 (defn start-schema-checks
-  [context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
-  (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
+  [_context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
+  (doseq [[{:keys [schema-check-interval]} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (schedule-with-fixed-delay
      job-pool
@@ -845,7 +845,7 @@
                                 #(long-array (* 1024 128))))) ;; ~1mb
              (check-schema-version (desired-schema-version)
                                    db service request-shutdown)
-             (catch InterruptedException ex
+             (catch InterruptedException _
                (log/info (trs "Schema checker interrupted")))))))
      0 schema-check-interval)))
 
@@ -900,7 +900,7 @@
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
   ;; Note: the unsupported-database-triggers-shutdown test relies on
   ;; the documented exception behavior and argument order.
-  [context config service get-registered-endpoints request-shutdown
+  [context config service _get-registered-endpoints request-shutdown
    upgrade-and-exit?]
 
   (when-let [v (version/version)]
@@ -1065,7 +1065,7 @@
   ;; Changes to the argument order above will require changes to the
   ;; unsupported-database-triggers-shutdown test.
   (fn shutdown [opts]
-    (let [{{:keys [status messages] :as exit-opts} ::tk/exit} opts]
+    (let [{{:keys [status messages] :as _exit-opts} ::tk/exit} opts]
       (assert (integer? status))
       (assert (every? string? (map first messages)))
       (some-> (:shutdown-request (service-context service))
@@ -1118,7 +1118,7 @@
    [:ShutdownService get-shutdown-reason request-shutdown]]
 
   (init
-   [this context]
+   [_ context]
    (call-unless-shutting-down
     "PuppetDB service init" (get-shutdown-reason) context
     #(init-puppetdb context)))
@@ -1134,7 +1134,7 @@
                                    get-registered-endpoints
                                    (shutdown-requestor request-shutdown this)))))
 
-  (stop [this context] (stop-puppetdb context request-shutdown))
+  (stop [_ context] (stop-puppetdb context request-shutdown))
 
   (set-url-prefix
    [this url-prefix]
@@ -1212,10 +1212,10 @@
 
 (defn cli
   "Runs the services command as directed by the command line args and
-  returns an appropriate exit status."
+  returns an appropriate exit status.  When the :upgrade-and-exit? opt
+  is true, upgrades the database and returns."
   ([args] (cli args nil))
-  ([args {:keys [upgrade-and-exit?] :as opts}]
-   (run-tk-cli-cmd #(provide-services args opts))))
+  ([args opts] (run-tk-cli-cmd #(provide-services args opts))))
 
 (defn -main [& args]
   (exit (provide-services args)))

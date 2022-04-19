@@ -259,7 +259,6 @@
   [column sig-col path]
   ;; (path = array['w', 'x', '0', '1', 'y'] and type = 'ssiss')
   (let [column (name column)
-        paths (map ast-path->array-path path)
         sig-col (name sig-col)
         sig (-> path ast-path-type-sig jdbc/single-quote)]
     (-> (str "("
@@ -417,7 +416,7 @@
 
 (defn vacuum-analyze
   [db]
-  (sql/with-db-connection [conn db]
+  (sql/with-db-connection [_conn db]
     (sql/execute! db ["vacuum analyze"] {:transaction? false})))
 
 (defn parse-db-hash

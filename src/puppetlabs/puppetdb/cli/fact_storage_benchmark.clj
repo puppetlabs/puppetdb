@@ -47,7 +47,7 @@
                                5
                                facts))))))
 
-(defn parallel-submit-facts [pdb-hostname {:keys [num-threads num-nodes] :as opts}]
+(defn parallel-submit-facts [pdb-hostname {:keys [num-threads _num-nodes] :as opts}]
   (let [opts-for-thread (update opts :num-nodes #(Math/floor (/ % num-threads)))
         threads (->> (range num-threads)
                      (map (fn [thread-num]

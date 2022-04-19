@@ -350,7 +350,7 @@
 
        (let [maybe-send-cmd-event! (constantly true)
              cmd-event-ch (async/chan 10)
-             [q load-messages] (create-or-open-stockpile temp-path maybe-send-cmd-event! cmd-event-ch)
+             [_q load-messages] (create-or-open-stockpile temp-path maybe-send-cmd-event! cmd-event-ch)
              command-chan (async/chan 4)
              cc (tu/call-counter)]
 

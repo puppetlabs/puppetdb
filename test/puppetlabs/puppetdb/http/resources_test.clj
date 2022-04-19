@@ -40,10 +40,10 @@ to the result of the form supplied to this method."
       set))
 
 (deftest-http-app resource-endpoint-tests
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [foo1 bar1 foo2 bar2] :as expected} (store-example-resources)]
+  (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (query-response method endpoint)
             body     (json/parse-string (slurp (get response :body "null")) true)]
@@ -160,7 +160,7 @@ to the result of the form supplied to this method."
         (is-response-equal (query-response method endpoint query) result)))))
 
 (deftest-http-app query-with-explain-printing
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
     (testing "should support explain and not munge rows when quering in resources endpoint"
       (let [results (json/parse-string
@@ -170,9 +170,9 @@ to the result of the form supplied to this method."
         (is (= true (contains? (first results) "query plan"))))))
 
 (deftest-http-app environments-resource-endpoint
-  [[version endpoint] endpoints
+  [[version _endpoint] endpoints
    method [:get :post]]
-  (let [{:keys [foo1 bar1 foo2 bar2] :as results} (store-example-resources)
+  (let [{:keys [foo1 bar1]} (store-example-resources)
         dev-endpoint (str "/" (name version) "/environments/DEV/resources")
         prod-endpoint (str "/" (name version) "/environments/PROD/resources")]
 
@@ -209,10 +209,10 @@ to the result of the form supplied to this method."
         (is-response-equal (query-response method prod-endpoint query) result)))))
 
 (deftest-http-app query-sourcefile-sourceline
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [bar2] :as results} (store-example-resources)]
+  (let [{:keys [bar2]} (store-example-resources)]
 
     (testing "sourcefile and source is not supported"
       (let [query ["=" "sourceline" 22]
@@ -249,7 +249,7 @@ to the result of the form supplied to this method."
         (is-response-equal (query-response method endpoint query) result)))))
 
 (deftest-http-app resource-query-paging
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (testing "supports paging via include_total"
     (let [expected (store-example-resources)]
@@ -274,9 +274,9 @@ to the result of the form supplied to this method."
                    (set results)))))))))
 
 (deftest-http-app resource-query-result-ordering
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
-  (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "ordering results with order_by"
       (let [params {:order_by (vector-param method [{"field" "certname" "order" "DESC"}
                                                     {"field" "resource" "order" "DESC"}])}
@@ -286,7 +286,7 @@ to the result of the form supplied to this method."
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
 (deftest-http-app query-environments
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "querying by equality and regexp should be allowed"
@@ -303,10 +303,10 @@ to the result of the form supplied to this method."
            ["not" ["=" "environment" "null"]]))))
 
 (deftest-http-app query-with-projection
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+  (let [{:keys [foo1 foo2]} (store-example-resources)]
     (testing "querying by equality and regexp should be allowed"
       (are [query expected] (is-response-equal
                               (query-response method endpoint query) expected)
@@ -327,7 +327,7 @@ to the result of the form supplied to this method."
              {:certname "two.local" :parameters.ensure "file"}}))))
 
 (deftest-http-app paging-results
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
 
@@ -361,7 +361,7 @@ to the result of the form supplied to this method."
             (is (= actual expected))))))))
 
 (deftest-http-app query-null-environments
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources false)]
@@ -383,12 +383,12 @@ to the result of the form supplied to this method."
                       #"Can't extract unknown 'resources' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))

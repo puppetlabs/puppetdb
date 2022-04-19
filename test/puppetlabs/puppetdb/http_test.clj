@@ -128,7 +128,7 @@
 
 (deftest utf-8-json-responses
   (testing "JSON responses should be encoded as utf-8"
-    (let [app  (fn [req] (json-response "N�rnberg"))]
+    (let [app  (fn [_req] (json-response "N�rnberg"))]
       (with-test-webserver app port
         (let [resp (svc-utils/get-unparsed (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))

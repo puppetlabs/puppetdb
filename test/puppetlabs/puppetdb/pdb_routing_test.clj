@@ -11,13 +11,13 @@
 (defn submit-facts [base-url certname facts]
   (svc-utils/sync-command-post base-url certname "replace facts" 4 facts))
 
-(defn query-fact-names [{:keys [host port]}]
+(defn query-fact-names [_]
   (svc-utils/get (svc-utils/query-url-str "/fact-names")))
 
-(defn export [{:keys [host port]}]
+(defn export [_]
   (svc-utils/get (svc-utils/admin-url-str "/archive")))
 
-(defn query-server-time [{:keys [host port]}]
+(defn query-server-time [_]
   (svc-utils/get (svc-utils/meta-url-str "/server-time")))
 
 (defn construct-metrics-url []

@@ -288,8 +288,7 @@
 
 
 (deftest-http-app query-recs-are-swappable
-  [version [:v4]
-   endpoint ["/v4/fact-names"]
+  [endpoint ["/v4/fact-names"]
    :let [facts1 {"domain" "testing.com"
                   "hostname" "foo1"
                   "kernel" "Linux"
@@ -362,8 +361,7 @@
         (is (= result expected-result))))))
 
 (deftest-http-app fact-expiration-queries
-  [version [:v4]
-   endpoint ["/v4/nodes"]]
+  [endpoint ["/v4/nodes"]]
 
   (with-transacted-connection *db*
     (scf-store/add-certname! "foo1")

@@ -308,7 +308,6 @@
     (with-test-db
       (let [basic             (store-example-report! (:basic reports) (now))
             basic2            (store-example-report! (:basic2 reports) (now))
-            report-hash       (:hash basic)
             actual* (comp set timestamps->str (partial query-resource-events version))
             expected* (fn [events-map event-ids report]
                         (expected-resource-events (kitchensink/select-values events-map event-ids) report))
@@ -344,12 +343,10 @@
 (deftest latest-report-resource-event-queries
   (with-test-db
     (let [basic1        (store-example-report! (:basic reports) (now))
-          report-hash1  (:hash basic1)
           events1       (get-in reports [:basic :resource_events :data])
           events1-map   (enumerated-resource-events-map events1)
 
           basic2        (store-example-report! (:basic2 reports) (now))
-          report2-hash  (:hash basic2)
           events2       (get-in reports [:basic2 :resource_events :data])
           events2-map   (enumerated-resource-events-map events2)
           version :v4]
@@ -395,7 +392,6 @@
   (with-test-db
     (let [basic1        (store-example-report! (:basic reports) (now))
           basic3        (store-example-report! (:basic3 reports) (now))
-          report-hash3  (:hash basic3)
           events1       (get-in reports [:basic :resource_events :data])
           events3       (get-in reports [:basic3 :resource_events :data])]
       (let [version :v4]

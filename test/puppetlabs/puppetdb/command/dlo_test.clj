@@ -28,7 +28,7 @@
   (with-open [stream (stock/stream q entry)]
     (slurp stream)))
 
-(defn store-catalog [q dlo]
+(defn store-catalog [q _dlo]
   (->> (get-in wire-catalogs [9 :basic])
        (catalog->command-req 9)
        (store-command q)))
@@ -69,7 +69,6 @@
      (let [q (stock/create (.resolve tmpdir "q"))
            reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
            dlo (dlo/initialize (.resolve tmpdir "dlo") reg)
-           cmd (get-in wire-catalogs [9 :basic])
            cmdref (store-catalog q dlo)
            content (entry->str q (cmdref->entry cmdref))
            cmd-size (count content)

@@ -270,7 +270,7 @@
                 #"Can't extract unknown 'facts' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-projections
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
@@ -289,7 +289,7 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftest-http-app pg-invalid-regexps
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
@@ -542,7 +542,7 @@
                                  :url-prefix "/pdb")))))
 
 (deftest-http-app fact-queries
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (let [facts1 {"domain" "testing.com"
@@ -645,7 +645,7 @@
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (deftest-http-app fact-subqueries
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (scf-store/add-certname! "foo")
@@ -685,13 +685,13 @@
     (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
       (testing (str "query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
-              {:keys [status body headers] :as result} (*app* request)]
+              {:keys [status body headers]} (*app* request)]
           (is (= body msg))
           (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers))))))
 
 (deftest-http-app two-database-fact-query-config
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (call-with-test-dbs
@@ -775,7 +775,7 @@
     :include_total include_total}))
 
 (deftest-http-app fact-query-paging
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (let [facts1 {"domain" "testing.com"
@@ -859,7 +859,7 @@
    (:results (raw-query-endpoint endpoint query paging-options))))
 
 (deftest-http-app paging-results
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (let [f1 {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
@@ -1005,7 +1005,7 @@
                                            version))))))))
 
 (deftest-http-app facts-environment-paging
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]
    :when (not= endpoint v4-facts-environment)]
 
@@ -1070,7 +1070,7 @@
                                          version)))))))
 
 (deftest-http-app fact-environment-queries
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]
    :when (not #(re-find #"environment" endpoint))]
 
@@ -1524,7 +1524,7 @@
                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}]))))))
 
 (deftest-http-app factset-subqueries
-  [[version endpoint] factsets-endpoints
+  [[_version endpoint] factsets-endpoints
    method [:get :post]]
 
   (populate-for-structured-tests reference-time)
@@ -1607,7 +1607,7 @@
     #{{:certname "foo1"}}))
 
 (deftest-http-app factset-single-response
-  [[version endpoint] factsets-endpoints
+  [[_version endpoint] factsets-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
 
@@ -1847,8 +1847,7 @@
                            query)))))))))
 
 (deftest-http-app structured-fact-queries-part-2
-  [[version endpoint] facts-endpoints
-   method [:get :post]]
+  [method [:get :post]]
   (let [facts1 {"my_structured_fact" {"a" 1
                                       "b" 3.14
                                       "c" ["a" "b" "c"]
@@ -1931,7 +1930,7 @@
 
 ;; FACT-CONTENTS TESTS
 (deftest-http-app fact-contents-result-munging
-  [[version endpoint] fact-contents-endpoints
+  [[_version endpoint] fact-contents-endpoints
    method [:get :post]]
   (let [facts1 {"\"foo" "bar"
                 "baz" {"1" "foo"}
@@ -2136,7 +2135,7 @@
                     "hash" "39ad058afe565c797e925a862394d1bf457cf592"}]))))))
 
 (deftest-http-app fact-contents-queries
-  [[version endpoint] fact-contents-endpoints
+  [[_version endpoint] fact-contents-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
 
@@ -2259,7 +2258,7 @@
                        {"certname" "foo3" "value" "testing.com"}]))))))
 
 (deftest-http-app to-string-function-with-mask
-  [[version endpoint] [[:v4 v4-facts-endpoint]
+  [[_version endpoint] [[:v4 v4-facts-endpoint]
                        [:v4 "/v4/fact-contents"]]
    method [:get :post]]
    (populate-for-structured-tests reference-time)
@@ -2274,7 +2273,7 @@
 (def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
 
   (let [{:keys [status body]} (query-response method endpoint)]

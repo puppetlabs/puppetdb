@@ -12,7 +12,6 @@
                      assert-success!
                      test-command-app
                      dotestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [internal-request]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.stockpile.queue :as stock]
@@ -44,7 +43,7 @@
                                "accept" "application/json"} body)))
 
 (defn form-command
-  [command version payload]
+  [_command _version payload]
   (json/generate-string payload))
 
 (defn create-handler [q]
@@ -54,7 +53,7 @@
 
 (deftest command-endpoint
   (dotestseq
-   [[version endpoint] endpoints]
+   [[_version endpoint] endpoints]
 
    (testing "Commands submitted via REST"
      (testing "should work when well-formed"
@@ -240,7 +239,7 @@
 
 (deftest receipt-timestamping
   (dotestseq
-   [[version endpoint] endpoints]
+   [[_version endpoint] endpoints]
 
    (tqueue/with-stockpile q
      (let [ms-before-test (System/currentTimeMillis)
@@ -319,13 +318,12 @@
 ;; tests test it via the altered terminus.
 (deftest almost-streaming-post
   (dotestseq
-    [[version endpoint] endpoints]
+    [[_version endpoint] endpoints]
     (tqueue/with-stockpile q
       (let [replace-ver (get min-supported-commands "replace facts")
             payload (form-command "replace facts" replace-ver {})
             checksum (kitchensink/utf8-string->sha1 payload)
-            req (internal-request {"payload" payload "checksum" checksum})
-            [command-chan app] (create-handler q)
+            [_ app] (create-handler q)
             response (app
                       (post-request* endpoint
                                      {"command" "replace_facts"

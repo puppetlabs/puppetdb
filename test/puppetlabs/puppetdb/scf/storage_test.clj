@@ -1206,8 +1206,7 @@
 
 (deftest-db add-resource-to-existing-catalog
   (let [{certname :certname :as catalog} (:basic catalogs)
-        old-date (-> 2 days ago)
-        yesterday (-> 1 days ago)]
+        old-date (-> 2 days ago)]
     (add-certname! certname)
     (replace-catalog! catalog old-date)
 
@@ -1866,14 +1865,12 @@
 
   (deftest-db report-storage-without-resources
     (testing "should store reports"
-      (let [env-id (ensure-environment "DEV")]
-
-        (store-example-report! (assoc-in report [:resource_events :data] []) timestamp)
-
-        (is (= (query-to-vec ["SELECT certname FROM reports"])
-               [{:certname (:certname report)}]))
-        (is (= (query-to-vec ["SELECT COUNT(1) as num_resource_events FROM resource_events"])
-               [{:num_resource_events 0}])))))
+      (ensure-environment "DEV")
+      (store-example-report! (assoc-in report [:resource_events :data] []) timestamp)
+      (is (= (query-to-vec ["SELECT certname FROM reports"])
+             [{:certname (:certname report)}]))
+      (is (= (query-to-vec ["SELECT COUNT(1) as num_resource_events FROM resource_events"])
+             [{:num_resource_events 0}]))))
 
   (deftest-db report-storage-with-existing-environment
     (testing "should store reports"

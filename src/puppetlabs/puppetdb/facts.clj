@@ -84,7 +84,7 @@
   (when (maybe-num-string? s)
     (try
       (Long/valueOf s)
-      (catch Exception e
+      (catch Exception _
         nil))))
 
 (def escape-quoted-num

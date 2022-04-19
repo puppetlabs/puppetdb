@@ -51,7 +51,7 @@
              (resource-identity-hash {}))))
 
     (testing "shouldn't change for identical input"
-      (doseq [i (range 10)
+      (doseq [_i (range 10)
               :let [r (random/random-kw-resource)]]
         (is (= (resource-identity-hash r)
                (resource-identity-hash r)))))

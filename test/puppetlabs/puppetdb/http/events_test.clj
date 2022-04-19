@@ -35,7 +35,7 @@
     (if (string? body)
       (json/parse-string body true)
       (json/parse-string (slurp body) true))
-    (catch Throwable e
+    (catch Throwable _
       body)))
 
 (defn strip-count-fields
@@ -66,7 +66,7 @@
   (map #(kitchensink/maptrans {[:old_value :new_value] stringify-keys} %) events))
 
 (deftest-http-app query-by-report
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic-report (:basic reports)
@@ -203,7 +203,7 @@
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
 (deftest-http-app query-distinct-resources
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic             (store-example-report! (:basic reports) (now))
@@ -296,7 +296,7 @@
         (is (= expected response))))))
 
 (deftest-http-app query-by-puppet-report-timestamp
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (store-example-report! (:basic reports) (now))
@@ -334,7 +334,7 @@
         (is (= expected response))))))
 
 (deftest-http-app query-by-report-receive-timestamp
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [test-start-time (-> 1 seconds ago)
@@ -355,7 +355,7 @@
         (is (= expected response))))))
 
 (deftest-http-app query-by-corrective_change
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic (store-example-report! (:basic reports) (now))
         basic-events (get-in reports [:basic :resource_events :data])
@@ -455,7 +455,7 @@
        :message nil}})))
 
 (deftest-http-app valid-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [catalog (:basic catalogs)
@@ -498,7 +498,7 @@
                  #"Can't match on unknown 'events' fields 'nothing' and 'nothing2' for 'in'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method  [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
@@ -525,7 +525,7 @@
                    #"Can't extract unknown 'events' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method  [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
@@ -546,7 +546,7 @@
                  #".*invalid regular expression: brackets.*not balanced")))
 
 (deftest-http-app pg-invalid-regexps
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method  [:get :post]]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]

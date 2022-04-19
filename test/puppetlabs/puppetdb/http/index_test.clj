@@ -21,7 +21,7 @@
 (def endpoints [[:v4 "/v4"]])
 
 (deftest-http-app index-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [catalog (:basic examples/catalogs)
         facts   {"kernel"          "Linux"
@@ -365,7 +365,7 @@
       (scf-store/add-certname! "foo.local")
       (scf-store/add-facts! facts)
       (with-http-app
-        (dotestseq [[version endpoint] endpoints
+        (dotestseq [[_version endpoint] endpoints
                     method [:get :post]]
           (let [query (partial query-result method endpoint)]
             (testing "that \"in\" fields can be duplicated"
@@ -456,7 +456,7 @@
         (scf-store/add-facts! facts)
         (scf-store/replace-catalog! resources (now))
         (with-http-app
-          (dotestseq [[version endpoint] endpoints
+          (dotestseq [[_version endpoint] endpoints
                       method [:get :post]]
             (testing "that joins from resource title to fact value work"
               (is (= #{(-> resource

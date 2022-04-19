@@ -265,7 +265,7 @@
                                           Double/parseDouble
                                           (* 1000))
             submit-params (select-keys params ["certname" "command" "version" "producer-timestamp"])
-            submit-params (if-let [v (submit-params "version")]
+            submit-params (if (submit-params "version")
                             (update submit-params "version" str)
                             submit-params)
             compression (content-encoding->file-extension

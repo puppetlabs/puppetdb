@@ -86,7 +86,7 @@
 
 (defn collect-metadata
   [get-shared-globals]
-  (let [{:keys [scf-read-db] :as db} (get-shared-globals)]
+  (let [{:keys [scf-read-db] :as _db} (get-shared-globals)]
     (jdbc/with-transacted-connection scf-read-db
       (-> (ks/mapvals jdbc/query-to-vec metadata-queries)
           (assoc :version (v/version))

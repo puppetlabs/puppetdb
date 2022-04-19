@@ -48,7 +48,7 @@
 (defn- parse-cmd-filename
   [filename]
   (let [id-meta-split-rx #"([0-9]+)-(.*)"]
-    (when-let [[_ id qmeta] (re-matches id-meta-split-rx filename)]
+    (when-let [[_ _id qmeta] (re-matches id-meta-split-rx filename)]
       (parse-metadata qmeta))))
 
 (defn- metrics-for-dir
@@ -127,11 +127,11 @@
     (let [dest (.resolve dir (entry-cmd-err-filename id metadata))
           moved? (try
                    (Files/move tmp dest (copts [copt-atomic]))
-                   (catch FileAlreadyExistsException ex
+                   (catch FileAlreadyExistsException _
                      true)
-                   (catch UnsupportedOperationException ex
+                   (catch UnsupportedOperationException _
                      false)
-                   (catch AtomicMoveNotSupportedException ex
+                   (catch AtomicMoveNotSupportedException _
                      false))]
       (when-not moved?
         (Files/move tmp dest (copts [copt-replace])))
@@ -146,7 +146,7 @@
   [path registry]
   (try
     (Files/createDirectory path (make-array FileAttribute 0))
-    (catch FileAlreadyExistsException ex
+    (catch FileAlreadyExistsException _
       (when-not (Files/isDirectory path (make-array LinkOption 0))
         (throw (Exception. (trs "DLO path {0} is not a directory" path))))))
   {:path path

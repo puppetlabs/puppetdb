@@ -14,7 +14,7 @@
 (def endpoints [[:v4 "/v4/environments"]])
 
 (deftest-http-app test-all-environments
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (testing "without environments"
@@ -33,17 +33,16 @@
 
     (without-db-var
      (fn []
-       (let [res (query-response method endpoint)]
-         (is (= #{{:name "foo"}
-                  {:name "bar"}
-                  {:name "baz"}}
-                (set @(future (-> (query-response method endpoint)
-                                  :body
-                                  slurp
-                                  (json/parse-string true)))))))))))
+       (is (= #{{:name "foo"}
+                {:name "bar"}
+                {:name "baz"}}
+              (set @(future (-> (query-response method endpoint)
+                                :body
+                                slurp
+                                (json/parse-string true))))))))))
 
 (deftest-http-app test-query-environment
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (testing "without environments"
@@ -62,130 +61,130 @@
                   (json/parse-string true))))))))
 
 (deftest-http-app environment-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [web1 web2 db puppet]} (tu-nodes/store-example-nodes)]
-    (doseq [env ["foo" "bar" "baz"]]
-      (storage/ensure-environment env))
+  (tu-nodes/store-example-nodes)
+  (doseq [env ["foo" "bar" "baz"]]
+    (storage/ensure-environment env))
 
-    (are [query expected] (= expected
-                             (query-result method endpoint query))
+  (are [query expected] (= expected
+                           (query-result method endpoint query))
 
-         ["=" "name" "foo"]
-         #{{:name "foo"}}
+    ["=" "name" "foo"]
+    #{{:name "foo"}}
 
-         ["~" "name" "f.*"]
-         #{{:name "foo"}}
+    ["~" "name" "f.*"]
+    #{{:name "foo"}}
 
-         ["not" ["=" "name" "foo"]]
-         #{{:name "DEV"}
-           {:name "bar"}
-           {:name "baz"}}
+    ["not" ["=" "name" "foo"]]
+    #{{:name "DEV"}
+      {:name "bar"}
+      {:name "baz"}}
 
          ;;;;;;;;;;;;
-         ;; Basic facts subquery examples
+    ;; Basic facts subquery examples
          ;;;;;;;;;;;;
 
-         ;; In syntax: select_facts
-         ["in" "name"
-          ["extract" "environment"
-           ["select_facts"
-            ["and"
-             ["=" "name" "operatingsystem"]
-             ["=" "value" "Debian"]]]]]
-         #{{:name "DEV"}}
+    ;; In syntax: select_facts
+    ["in" "name"
+     ["extract" "environment"
+      ["select_facts"
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]]]
+    #{{:name "DEV"}}
 
-         ;; In syntax: from
-         ["in" "name"
-          ["from" "facts"
-           ["extract" "environment"
-            ["and"
-             ["=" "name" "operatingsystem"]
-             ["=" "value" "Debian"]]]]]
-         #{{:name "DEV"}}
+    ;; In syntax: from
+    ["in" "name"
+     ["from" "facts"
+      ["extract" "environment"
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]]]
+    #{{:name "DEV"}}
 
-         ;; Implicit subquery syntax
-         ["subquery" "facts"
-          ["and"
-           ["=" "name" "operatingsystem"]
-           ["=" "value" "Debian"]]]
-         #{{:name "DEV"}}
+    ;; Implicit subquery syntax
+    ["subquery" "facts"
+     ["and"
+      ["=" "name" "operatingsystem"]
+      ["=" "value" "Debian"]]]
+    #{{:name "DEV"}}
 
          ;;;;;;;;;;;;;
-         ;; Not-wrapped subquery syntax
+    ;; Not-wrapped subquery syntax
          ;;;;;;;;;;;;;
 
-         ;; In syntax: select_facts
-         ["not"
-          ["in" "name"
-           ["extract" "environment"
-            ["select_facts"
-             ["and"
-              ["=" "name" "operatingsystem"]
-              ["=" "value" "Debian"]]]]]]
-         #{{:name "foo"}
-           {:name "bar"}
-           {:name "baz"}}
+    ;; In syntax: select_facts
+    ["not"
+     ["in" "name"
+      ["extract" "environment"
+       ["select_facts"
+        ["and"
+         ["=" "name" "operatingsystem"]
+         ["=" "value" "Debian"]]]]]]
+    #{{:name "foo"}
+      {:name "bar"}
+      {:name "baz"}}
 
-         ;; In syntax: from
-         ["not"
-          ["in" "name"
-           ["from" "facts"
-            ["extract" "environment"
-             ["and"
-              ["=" "name" "operatingsystem"]
-              ["=" "value" "Debian"]]]]]]
-         #{{:name "foo"}
-           {:name "bar"}
-           {:name "baz"}}
+    ;; In syntax: from
+    ["not"
+     ["in" "name"
+      ["from" "facts"
+       ["extract" "environment"
+        ["and"
+         ["=" "name" "operatingsystem"]
+         ["=" "value" "Debian"]]]]]]
+    #{{:name "foo"}
+      {:name "bar"}
+      {:name "baz"}}
 
-         ;; Implict subquery syntax
-         ["not"
-          ["subquery" "facts"
-          ["and"
-           ["=" "name" "operatingsystem"]
-           ["=" "value" "Debian"]]]]
-         #{{:name "foo"}
-          {:name "bar"}
-          {:name "baz"}}
+    ;; Implict subquery syntax
+    ["not"
+     ["subquery" "facts"
+      ["and"
+       ["=" "name" "operatingsystem"]
+       ["=" "value" "Debian"]]]]
+    #{{:name "foo"}
+      {:name "bar"}
+      {:name "baz"}}
 
          ;;;;;;;;
-         ;; Complex subquery example
+    ;; Complex subquery example
          ;;;;;;;;
 
-         ;; In syntax: select_<entity>
-         ["in" "name"
-          ["extract" "environment"
-           ["select_facts"
-            ["and"
-             ["=" "name" "hostname"]
-             ["in" "value"
-              ["extract" "title"
-               ["select_resources"
-                ["=" "type" "Class"]]]]]]]]
-         #{{:name "DEV"}}
+    ;; In syntax: select_<entity>
+    ["in" "name"
+     ["extract" "environment"
+      ["select_facts"
+       ["and"
+        ["=" "name" "hostname"]
+        ["in" "value"
+         ["extract" "title"
+          ["select_resources"
+           ["=" "type" "Class"]]]]]]]]
+    #{{:name "DEV"}}
 
-         ;; In syntax: from
-         ["in" "name"
-          ["from" "facts"
-           ["extract" "environment"
-            ["and"
-             ["=" "name" "hostname"]
-             ["in" "value"
-              ["from" "resources"
-               ["extract" "title"
-                ["=" "type" "Class"]]]]]]]]
-         #{{:name "DEV"}}
+    ;; In syntax: from
+    ["in" "name"
+     ["from" "facts"
+      ["extract" "environment"
+       ["and"
+        ["=" "name" "hostname"]
+        ["in" "value"
+         ["from" "resources"
+          ["extract" "title"
+           ["=" "type" "Class"]]]]]]]]
+    #{{:name "DEV"}}
 
 
-         ;; Note: fact/resource comparison isn't a natural
-         ;; join, so there is no implicit syntax here.
-         ))
+    ;; Note: fact/resource comparison isn't a natural
+    ;; join, so there is no implicit syntax here.
+    )
 
   (testing "failed comparison"
     (are [query]
-          (let [{:keys [status body]} (query-response method endpoint query)]
+          (let [{:keys [_status body]} (query-response method endpoint query)]
             (re-find
              #"Query operators >,>=,<,<= are not allowed on field name" body))
 
@@ -200,7 +199,7 @@
                           [:v4 "/v4/environments/foo/resources"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
 
   (testing "environment-exists? function"

@@ -20,7 +20,7 @@
 ;; Tests without corrective changes support
 
 (deftest-http-app query-aggregate-event-counts
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:post :get]]
 
   (without-corrective-change
@@ -78,7 +78,7 @@
         (is (= expected (first response)))))))
 
 (deftest-http-app query-distinct-event-counts
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [current-time (now)
@@ -165,7 +165,7 @@
            ["and" ["=" "latest_report?" true] ["=" "certname" "foo.local"]]))))
 
 (deftest-http-app query-with-environment
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (without-corrective-change
     (store-example-report! (:basic reports) (now))
@@ -252,7 +252,7 @@
 ;; Tests with corrective changes support
 
 (deftest-http-app query-aggregate-event-counts-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:post :get]]
 
   (with-corrective-change
@@ -297,7 +297,7 @@
         (is (= expected (first response)))))))
 
 (deftest-http-app query-distinct-event-counts-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [current-time (now)
@@ -374,7 +374,7 @@
            ["and" ["=" "latest_report?" true] ["=" "certname" "foo.local"]]))))
 
 (deftest-http-app query-with-environment-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (with-corrective-change
     (store-example-report! (:basic reports) (now))

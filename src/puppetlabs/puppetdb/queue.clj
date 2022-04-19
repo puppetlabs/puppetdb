@@ -283,7 +283,7 @@
         stream (try
                  (stock/stream q entry)
                  (catch ExceptionInfo ex
-                   (let [{:keys [kind entry source] :as data} (ex-data ex)]
+                   (let [{:keys [kind entry]} (ex-data ex)]
                      (when-not (= kind ::stock/no-such-entry)
                        (throw ex))
                      ;; Do we want the entry, path or both in the log?
@@ -331,12 +331,12 @@
              (Files/delete stream-data)
              (log/warn (trs "Cleaned up orphaned command temp file: {0}"
                             (pr-str (str stream-data))))
-             (catch Exception ex
+             (catch Exception _
                (log/warn (trs "Unable to clean up orphaned command temp file: {0}"
                               (pr-str (str stream-data)))))))
 
          ::path-cleanup-failure-after-error
-         (let [{:keys [path exception]} data]
+         (let [{:keys [path]} data]
            ;; stockpile/store failed with the exception described by
            ;; the :cause, and then, on the way out, the attempt to remove the temporary
            ;; file described by path failed with the given exception.
@@ -375,10 +375,10 @@
                               ^clojure.lang.IFn delete-update-fn
                               ^clojure.lang.IFn ignore-update-fn]
   async-protos/Buffer
-  (full? [this]
+  (full? [_]
     (>= (.size fifo-queue) max-entries))
 
-  (remove! [this]
+  (remove! [_]
     (let [^CommandRef cmdref (val (.pollFirstEntry fifo-queue))
           command-type (:command cmdref)]
       (when (or (= command-type "replace catalog")
@@ -426,9 +426,9 @@
         (.put fifo-queue (:id cmdref) cmdref)))
     this)
 
-  (close-buf! [this])
+  (close-buf! [_])
   clojure.lang.Counted
-  (count [this]
+  (count [_]
     (.size fifo-queue)))
 
 (defn sorted-command-buffer

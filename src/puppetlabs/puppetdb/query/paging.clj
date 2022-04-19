@@ -93,14 +93,12 @@
   that satisfy `order-by-expr?`"
   [order_by]
   {:post [(every? order-by-expr? %)]}
-  (when-let [bad-order-by (some
-                           (fn [x] (when-not (contains? x :field) x))
-                           order_by)]
+  (when-let [bad-order-by (some #(when-not (contains? % :field) %) order_by)]
     (throw (IllegalArgumentException.
-            (tru "Illegal value ''{0}'' in :order_by; missing required key 'field'."))))
-  (when-let [bad-order-by (some
-                           (fn [x] (when-not (valid-order-str? (:order x)) x))
-                           order_by)]
+            (tru "Illegal value ''{0}'' in :order_by; missing required key 'field'."
+                 bad-order-by))))
+  (when-let [bad-order-by (some (fn [x] (when-not (valid-order-str? (:order x)) x))
+                                order_by)]
     (throw (IllegalArgumentException.
             (tru "Illegal value ''{0}'' in :order_by; ''order'' must be either ''asc'' or ''desc''"
                  bad-order-by))))
@@ -248,7 +246,7 @@
     (not include_total))))
 
 (defn dealias-order-by
-  [{:keys [projections] :as query-rec} paging-options]
+  [{:keys [projections] :as _query-rec} paging-options]
   (let [alias-map (->> projections
                        (kitchensink/mapvals (comp h/extract-sql :field))
                        (kitchensink/mapkeys keyword))

@@ -66,7 +66,7 @@
   [file]
   (try
     (json/parse-string (slurp file))
-    (catch Exception e
+    (catch Exception _
       (println-err (trs "Error parsing {0}; skipping" file)))))
 
 (defn load-sample-data
@@ -187,7 +187,7 @@
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
   randomly mutate other data depending on rand-percentage. "
-  [{:keys [host catalog report factset] :as state} rand-percentage current-time run-interval]
+  [{:keys [_host catalog report factset] :as state} rand-percentage current-time run-interval]
   (let [stamp (jitter current-time (time/in-seconds run-interval))
         uuid (kitchensink/uuid)]
     (assoc state
@@ -359,21 +359,21 @@
 
 (deftype TempFileBuffer [storage-dir q]
   Buffer
-  (full? [this] false)
-  (remove! [this]
+  (full? [_] false)
+  (remove! [_]
     (let [path (.poll q)
           result (nippy/thaw (Files/readAllBytes path))]
       (Files/delete path)
       result))
 
-  (add!* [this item]
+  (add!* [_ item]
     (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
                                      (into-array FileAttribute []))]
       (ignore-value
        (Files/write path (nippy/freeze item) (into-array OpenOption [])))
       (.add q path)))
 
-  (close-buf! [this]
+  (close-buf! [_]
     (.clear q)
     (println-err (trs "Cleaning up temp files from {0}"
                       (pr-str (str storage-dir))))
@@ -387,7 +387,7 @@
     nil)
 
   clojure.lang.Counted
-  (count [this] (.size q)))
+  (count [_] (.size q)))
 
 (defn message-buffer
   [temp-dir expected-size]
@@ -507,9 +507,9 @@
         rate-monitor-ch (chan)
 
         ;; processes
-        rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
-                                                     run-interval
-                                                     commands-per-puppet-run)
+        _rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
+                                                      run-interval
+                                                      commands-per-puppet-run)
         command-sender-finished-ch (start-command-sender base-url
                                                          (if nummsgs
                                                            (async/take (* numhosts nummsgs)

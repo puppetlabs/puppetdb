@@ -99,7 +99,7 @@
   value sequences, return a vector of the SQL needed for the insert
   followed by the list of column value sequences. The entities
   function specifies how column names are transformed."
-  [table columns values {:keys [on-conflict] :as opts}]
+  [table columns values {:keys [on-conflict]}]
   (let [nc (count columns)
         vcs (map count values)]
     (if (not (and (or (zero? nc) (= nc (first vcs))) (apply = vcs)))
@@ -121,7 +121,7 @@
   "Given a table and a map representing a row, return a vector of the
   SQL needed for the insert followed by the list of column values. The
   entities function specifies how column names are transformed."
-  [table row entities {:keys [on-conflict] :as opts}]
+  [table row entities {:keys [on-conflict]}]
   (let [ks (keys row)]
     (into [(str "INSERT INTO " (name table) " ( "
                 (str/join ", " (map (fn [col] (name col)) ks))
@@ -141,7 +141,7 @@
                                                (when (map? db) db)
                                                opts)
         sql-params (insert-multi-row table cols values opts)]
-    (if-let [con (sql/db-find-connection db)]
+    (if (sql/db-find-connection db)
       (sql/db-do-prepared db transaction? sql-params {:multi? true})
       (with-open [con (sql/get-connection db)]
         (sql/db-do-prepared (sql/add-connection db con) transaction?
@@ -166,9 +166,10 @@
     (multi-insert-helper db stmts opts)))
 
 (defn- insert-rows!
-  "Given a database connection, a table name, a sequence of rows, and
-  an options map, insert the rows into the database."
-  [db table rows {:keys [on-conflict] :as opts}]
+  "Given a database connection, a table name, a sequence of rows, and an
+  options map, insert the rows into the database.  Options include
+  on-conflict."
+  [db table rows opts]
   (let [{:keys [entities identifiers qualifier transaction?]}
         (merge {:entities identity :identifiers str/lower-case :transaction? true}
                (when (map? db) db)
@@ -179,7 +180,7 @@
                                     "insert / insert-multi! called with a non-map row")))
                           (insert-single-row-on-conflict table row entities opts))
                         rows)]
-    (if-let [con (sql/db-find-connection db)]
+    (if (sql/db-find-connection db)
       (insert-helper db transaction? sql-params
                      {:identifiers identifiers :qualifier qualifier})
       (with-open [con (sql/get-connection db)]
@@ -268,9 +269,7 @@
   true, the result rows will be vectors, not maps, and the first
   result row will be a vector of column names."
   ([query f] (call-with-query-rows query {} f))
-  ([[sql & params]
-    {:keys [as-arrays? identifiers qualifier read-columns fetch-size] :as opts}
-    f]
+  ([[sql & params] {:keys [fetch-size] :as opts} f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doseq [[i param] (map vector (range) params)]
@@ -299,9 +298,7 @@
   call-with-query-rows, and apply any necessary conversions directly
   to each row.  (Most columns cannot be arrays.)"
   ([query f] (call-with-array-converted-query-rows query {} f))
-  ([[sql & params]
-    {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
-    f]
+  ([[sql & params] {:keys [as-arrays?] :as opts} f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doseq [[i param] (map vector (range) params)]
@@ -628,7 +625,7 @@
             maximum-pool-size
             expected-schema
             rewrite-batched-inserts]
-     :as db-spec}
+     :as _db-spec}
     metrics-registry]
    (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
          conn-max-age-ms (some-> conn-lifetime pl-time/to-millis)

@@ -13,12 +13,12 @@
 
 (defrecord DefaultedMaybe [schema default]
   s/Schema
-  (s/spec [this]
+  (s/spec [_]
         (schema.spec.variant/variant-spec
          schema.spec.core/+no-precondition+
          [{:guard nil? :schema (s/eq nil)}
           {:schema schema}]))
-  (s/explain [this] (list 'defaulted-maybe (s/explain schema))))
+  (s/explain [_] (list 'defaulted-maybe (s/explain schema))))
 
 (defmacro defn-validated
   [fn-name & forms]

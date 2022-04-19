@@ -71,7 +71,7 @@
         (if (> (- (System/currentTimeMillis) @last-fail-time) backoff-ms)
           (apply f args)
           nil)
-        (catch Exception e
+        (catch Exception _
           (reset! last-fail-time (System/currentTimeMillis))
           nil)))))
 

@@ -180,7 +180,7 @@
        {:facts.domain nil :count 1}})))
 
 (deftest-http-app inventory-queries
-  [[version endpoint] inventory-endpoints
+  [[_version endpoint] inventory-endpoints
    method [:get :post]]
 
   (let [facts1 (:facts inventory1)

@@ -78,7 +78,7 @@
           (clear-db-for-testing!)
           ;; We are using migration 19 here because it is isolated enough to be able
           ;; to execute on its own. This might need to be changed in the future.
-          (doseq [m (filter (fn [[i migration]] (not= i 36)) (pending-migrations))]
+          (doseq [m (filter (fn [[i _migration]] (not= i 36)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
           (is (= (keys (pending-migrations)) '(36)))
           (initialize-schema)
@@ -286,12 +286,10 @@
 
 (deftest migration-in-different-schema
   (jdbc/with-db-connection *db*
-    (let [db-config {:database *db*}
-          test-db-name (tdb/subname->validated-db-name (:subname *db*))]
+    (let [test-db-name (tdb/subname->validated-db-name (:subname *db*))]
       (clear-db-for-testing!)
       (jdbc/with-db-connection (tdb/db-admin-config)
-        (let [db (tdb/subname->validated-db-name (:subname *db*))
-              user (get-in tdb/test-env [:user :name])]
+        (let [db (tdb/subname->validated-db-name (:subname *db*))]
           (assert (tdb/valid-sql-id? db))
           (jdbc/do-commands
             (format "grant create on database %s to %s"
@@ -1301,7 +1299,8 @@
 (deftest migration-74-changes-hash-of-reports
   (let [current-time (to-timestamp (now))
         old-hash-fn (fn [{:keys [certname puppet_version report_format configuration_version
-                                 start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
+                                 start_time end_time producer_timestamp resource_events transaction_uuid]
+                          :as _report}]
                       (shash/generic-identity-hash
                         {:certname certname
                          :puppet_version puppet_version

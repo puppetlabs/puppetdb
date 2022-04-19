@@ -20,7 +20,7 @@
                  (spec/precondition this
                                     #(re-matches pattern (name %))
                                     #(list 're-matches pattern %))))
-  (explain [this] '(re-matches pattern)))
+  (explain [_] '(re-matches pattern)))
 
 (defn optional-matching-keyword
   "A regex pattern to check the keyword for."

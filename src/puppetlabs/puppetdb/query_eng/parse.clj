@@ -55,7 +55,7 @@
 (defn- index-or-name
   "Returns an ::indexed-field-part segment if s is of the form name[digits],
   otherwise a ::named-field-part segment."
-  [s indexes?]
+  [s _indexes?]
   (if-let [[_ n i] (re-matches #"(?s:(.+)\[(\d+)\])" s)]
     ;; Must be Integer, not Long to avoid pg errors like this:
     ;; "ERROR: operator does not exist: jsonb -> bigint"
@@ -67,8 +67,7 @@
   first, and conjoins a map describing each one onto the result."
   [^String s offset
    {:keys [indexes? matches?]
-    :or {indexes? true matches? true}
-    :as opts}
+    :or {indexes? true matches? true}}
    result]
   (let [field-m (re-matcher field-rx s)
         match-m (re-matcher match-rx s)

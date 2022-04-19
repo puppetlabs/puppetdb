@@ -53,10 +53,10 @@
    date-column :- s/Str
    date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime Instant java.sql.Timestamp)
    constraint-fn :- (s/fn-schema
-                     (s/fn :- [s/Str] [iso-year-week :- s/Str]))
+                     (s/fn :- [s/Str] [_iso-year-week :- s/Str]))
    index-fn :- (s/fn-schema
-                (s/fn :- [s/Str] [full-table-name :- s/Str
-                                  iso-year-week :- s/Str]))]
+                (s/fn :- [s/Str] [_full-table-name :- s/Str
+                                  _iso-year-week :- s/Str]))]
   (let [date (to-zoned-date-time date)                      ;; guarantee a ZonedDateTime, so our suffix ends in Z
         start-of-day (-> date
                          (.truncatedTo (ChronoUnit/DAYS)))  ;; this is a ZonedDateTime

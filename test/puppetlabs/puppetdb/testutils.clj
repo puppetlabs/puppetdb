@@ -30,7 +30,7 @@
            (not (#{"no" "false"} x))
            (try
              (not (zero? (Integer/valueOf x)))
-             (catch NumberFormatException ex
+             (catch NumberFormatException _
                true))))))
 
 (def test-rich-data? (env-true? "PDB_TEST_RICH_DATA"))
@@ -111,7 +111,7 @@
 (defn assert-success!
   "Given a Ring response, verify that the status
   code is 200 OK.  If not, print the body and fail."
-  [{:keys [status body] :as resp}]
+  [{:keys [status body] :as _resp}]
   (when-not (= HttpURLConnection/HTTP_OK status)
     (println "ERROR RESPONSE BODY:\n" body)
     (is (= HttpURLConnection/HTTP_OK status))))
@@ -171,7 +171,7 @@
   to clojure data structures."
    ([paged-test-params]
     (paged-results* :get paged-test-params))
-   ([method {:keys [app-fn path query params limit total include_total offset] :as paged-test-params}]
+   ([method {:keys [app-fn path query params limit include_total offset] :as paged-test-params}]
     {:pre [(= #{} (difference
                    (keyset paged-test-params)
                    #{:app-fn :path :query :params :limit :total :include_total :offset}))]}
@@ -196,7 +196,7 @@
   drives the pages and the assertions of the result."
   ([paged-test-params]
    (paged-results :get paged-test-params))
-  ([method {:keys [app-fn path query params limit total include_total] :as paged-test-params}]
+  ([method {:keys [limit total include_total] :as paged-test-params}]
    {:pre [(= #{} (difference
                   (keyset paged-test-params)
                   #{:app-fn :path :query :pretty :params :limit :total :include_total}))]}
@@ -205,7 +205,7 @@
                   (let [req-params (assoc paged-test-params
                                           :offset (* limit n))
                         resp (paged-results* method req-params)
-                        {:keys [status body headers]} resp]
+                        {:keys [body headers]} resp]
                     (assert-success! resp)
                     (is (>= limit (count body)))
                     (if include_total
@@ -284,7 +284,7 @@
     (if (string? body)
       (json/parse-string body true)
       (json/parse-string (slurp body) true))
-    (catch Throwable e
+    (catch Throwable _
       body)))
 
 (defn strip-hash

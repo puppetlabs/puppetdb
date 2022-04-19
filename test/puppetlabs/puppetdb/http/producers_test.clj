@@ -14,7 +14,7 @@
 (def endpoints [[:v4 "/v4/producers"]])
 
 (deftest-http-app test-all-producers
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (testing "without producers"
@@ -33,17 +33,16 @@
 
     (without-db-var
      (fn []
-       (let [res (query-response method endpoint)]
-         (is (= #{{:name "foo"}
-                  {:name "bar"}
-                  {:name "baz"}}
-                (set @(future (-> (query-response method endpoint)
-                                  :body
-                                  slurp
-                                  (json/parse-string true)))))))))))
+       (is (= #{{:name "foo"}
+                {:name "bar"}
+                {:name "baz"}}
+              (set @(future (-> (query-response method endpoint)
+                                :body
+                                slurp
+                                (json/parse-string true))))))))))
 
 (deftest-http-app test-query-producer
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (testing "without producers"
@@ -62,90 +61,90 @@
                   (json/parse-string true))))))))
 
 (deftest-http-app producer-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [web1 web2 db puppet]} (tu-nodes/store-example-nodes)]
-    (are [query expected] (= expected
-                             (query-result method endpoint query))
+  (tu-nodes/store-example-nodes)
+  (are [query expected] (= expected
+                           (query-result method endpoint query))
 
-         ["=" "name" "foo.com"]
-         #{{:name "foo.com"}}
+    ["=" "name" "foo.com"]
+    #{{:name "foo.com"}}
 
-         ["~" "name" "f.*"]
-         #{{:name "foo.com"}}
+    ["~" "name" "f.*"]
+    #{{:name "foo.com"}}
 
-         ["not" ["=" "name" "foo.com"]]
-         #{{:name "bar.com"}
-           {:name "mom.com"}}
+    ["not" ["=" "name" "foo.com"]]
+    #{{:name "bar.com"}
+      {:name "mom.com"}}
 
          ;;;;;;;;;;;;
-         ;; Basic reports subquery examples
+    ;; Basic reports subquery examples
          ;;;;;;;;;;;;
 
-         ;; In syntax: select_reports
-         ["in" "name"
-          ["extract" "producer"
-           ["select_reports"
-            ["and"
-             ["=" "certname" "web1.example.com"]
-             ["=" "environment" "DEV"]]]]]
-         #{{:name "bar.com"}}
+    ;; In syntax: select_reports
+    ["in" "name"
+     ["extract" "producer"
+      ["select_reports"
+       ["and"
+        ["=" "certname" "web1.example.com"]
+        ["=" "environment" "DEV"]]]]]
+    #{{:name "bar.com"}}
 
-         ;; In syntax: from
-         ["in" "name"
-          ["from" "reports"
-           ["extract" "producer"
-            ["and"
-             ["=" "certname" "web1.example.com"]
-             ["=" "environment" "DEV"]]]]]
-         #{{:name "bar.com"}}
+    ;; In syntax: from
+    ["in" "name"
+     ["from" "reports"
+      ["extract" "producer"
+       ["and"
+        ["=" "certname" "web1.example.com"]
+        ["=" "environment" "DEV"]]]]]
+    #{{:name "bar.com"}}
 
-         ;; Implicit subquery syntax
-         ["subquery" "reports"
-          ["and"
-           ["=" "certname" "web1.example.com"]
-           ["=" "environment" "DEV"]]]
-         #{{:name "bar.com"}}
+    ;; Implicit subquery syntax
+    ["subquery" "reports"
+     ["and"
+      ["=" "certname" "web1.example.com"]
+      ["=" "environment" "DEV"]]]
+    #{{:name "bar.com"}}
 
          ;;;;;;;;;;;;;
-         ;; Not-wrapped subquery syntax
+    ;; Not-wrapped subquery syntax
          ;;;;;;;;;;;;;
 
-         ;; In syntax: select_reports
-         ["not"
-          ["in" "name"
-           ["extract" "producer"
-            ["select_factsets"
-             ["and"
-              ["=" "certname" "web1.example.com"]
-              ["=" "environment" "DEV"]]]]]]
-         #{{:name "bar.com"}
-           {:name "mom.com"}}
+    ;; In syntax: select_reports
+    ["not"
+     ["in" "name"
+      ["extract" "producer"
+       ["select_factsets"
+        ["and"
+         ["=" "certname" "web1.example.com"]
+         ["=" "environment" "DEV"]]]]]]
+    #{{:name "bar.com"}
+      {:name "mom.com"}}
 
-         ;; In syntax: from
-         ["not"
-          ["in" "name"
-           ["from" "factsets"
-            ["extract" "producer"
-             ["and"
-              ["=" "certname" "web1.example.com"]
-              ["=" "environment" "DEV"]]]]]]
-         #{{:name "bar.com"}
-           {:name "mom.com"}}
+    ;; In syntax: from
+    ["not"
+     ["in" "name"
+      ["from" "factsets"
+       ["extract" "producer"
+        ["and"
+         ["=" "certname" "web1.example.com"]
+         ["=" "environment" "DEV"]]]]]]
+    #{{:name "bar.com"}
+      {:name "mom.com"}}
 
-         ;; Implict subquery syntax
-         ["not"
-          ["subquery" "factsets"
-          ["and"
-           ["=" "certname" "web1.example.com"]
-           ["=" "environment" "DEV"]]]]
-         #{{:name "bar.com"}
-           {:name "mom.com"}}))
+    ;; Implict subquery syntax
+    ["not"
+     ["subquery" "factsets"
+      ["and"
+       ["=" "certname" "web1.example.com"]
+       ["=" "environment" "DEV"]]]]
+    #{{:name "bar.com"}
+      {:name "mom.com"}})
 
   (testing "failed comparison"
     (are [query]
-          (let [{:keys [status body]} (query-response method endpoint query)]
+          (let [{:keys [_ body]} (query-response method endpoint query)]
             (re-find
              #"Query operators >,>=,<,<= are not allowed on field name" body))
 
@@ -159,7 +158,7 @@
                           [:v4 "/v4/producers/foo.com/reports"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
 
   (testing "producer-exists? function"

@@ -146,7 +146,7 @@
   a catalog's attributes. For example, two otherwise identical
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
-  [{:keys [certname resources edges] :as catalog}]
+  [{:keys [certname resources edges] :as _catalog}]
   {:post [(string? %)]}
   ;; deepak: This could probably be coded more compactly by just
   ;; dissociating the keys we don't want involved in the computation,
@@ -164,7 +164,7 @@
   property, values, status, timestamp, etc.)
   "
   [{:keys [resource_type resource_title property timestamp status old_value
-           new_value message file line] :as resource_event}]
+           new_value message file line] :as _resource_event}]
   (generic-identity-string
    {:resource_type resource_type
     :resource_title resource_title
@@ -184,7 +184,7 @@
   whether or not two reports contain the same things (certname,
   configuration version, timestamps, events)."
   [{:keys [certname puppet_version report_format configuration_version
-           start_time end_time producer_timestamp transaction_uuid] :as report}]
+           start_time end_time producer_timestamp transaction_uuid] :as _report}]
   (generic-identity-hash
    {:certname certname
     :puppet_version puppet_version
@@ -200,7 +200,7 @@
 
   This is similar to resource-event-identity-string but it also includes the report id."
   [{:keys [report_id resource_type resource_title property timestamp
-           status old_value new_value message file line name] :as event}]
+           status old_value new_value message file line name] :as _event}]
   (assert report_id "report_id must not be nil")
   (generic-identity-hash
    {:report_id report_id

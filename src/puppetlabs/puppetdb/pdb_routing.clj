@@ -23,7 +23,7 @@
   (resource-request req "public"))
 
 (defn maint-mode-handler [maint-mode-fn]
-  (fn [req]
+  (fn [_req]
     (when (maint-mode-fn)
       {:status 503
        :body (tru "PuppetDB is currently down. Try again later.")})))
@@ -78,7 +78,7 @@
   [[:ShutdownService get-shutdown-reason]]
 
   (init
-   [this context]
+   [_ context]
    ;; Do this even if we're shutting down.
    (assoc context ::maint-mode? (atom true)))
 
@@ -135,7 +135,7 @@
     (enable-maint-mode)
     (pdb-status/register-pdb-status
      register-status
-     (fn [level]
+     (fn [_level]
        (pdb-status/create-status-map
         (pdb-status/status-details config shared-globals maint-mode?)))))
   context)
@@ -169,12 +169,12 @@
                        register-status)))
 
   (start
-   [this context]
+   [_ context]
    (call-unless-shutting-down
     "PuppetDB routing service start" (get-shutdown-reason) context
     #(start-pdb-routing context (get-config) disable-maint-mode)))
 
   (stop
-   [this context]
+   [_ context]
    (enable-maint-mode)
    context))

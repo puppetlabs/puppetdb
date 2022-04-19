@@ -19,7 +19,7 @@
    [java.nio.file Files]))
 
 (defn mock-submit-record-fn [submitted-records entity]
-  (fn [base-url certname version payload-string]
+  (fn [base-url _certname version payload-string]
     (swap! submitted-records conj
            {:entity entity
             :base-url base-url
@@ -85,7 +85,7 @@
      (let [enough-records (* 3 42)
            finished (promise)
            watch-key (Object.)
-           watcher (fn [k ref old new]
+           watcher (fn [_k _ref _old new]
                      (when (>= (count new) enough-records)
                        (deliver finished true)))]
        (add-watch submitted watch-key watcher)

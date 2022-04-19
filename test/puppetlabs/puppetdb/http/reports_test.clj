@@ -29,7 +29,7 @@
 (def endpoints [[:v4 "/v4/reports"]])
 
 (deftest-http-app query-by-parameters
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic         (:basic reports)
@@ -53,7 +53,7 @@
                  (munge-reports-for-comparison [basic]))))))))
 
 (deftest-http-app query-with-projection
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic         (:basic reports)
@@ -176,7 +176,7 @@
              #{(select-keys basic [:hash :certname :transaction_uuid])})))))
 
 (deftest-http-app query-with-type-any
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
     method [:get :post]]
 
   (doseq [queries [["extract" [] ["=" "type" "any"]]
@@ -203,7 +203,7 @@
                ["agent" "plan"]))))))
 
 (deftest-http-app month-from-producer-timestamp
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
     method [:get :post]]
 
     (store-example-report! (:basic reports) (now))
@@ -215,10 +215,9 @@
            #{{:to_string "january  "}}))))
 
 (deftest-http-app query-report-with-malformed-json
-  [version [:v4]]
-  (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
-        basic (assoc (:basic reports) :hash report-hash)
-        {:keys [status body]} (query-response :get "/v4/reports" "[\"=\"")]
+  [_version [:v4]]
+  (store-example-report! (:basic reports) (now))
+  (let [{:keys [status body]} (query-response :get "/v4/reports" "[\"=\"")]
     (testing "malformed json queries don't return status 500 responses"
       (is (= 400 status))
       (is (= (str "Json parse error at line 1, column 5:\n\n"
@@ -228,7 +227,7 @@
                   "(start marker at [Source: (StringReader); line: 1, column: 1])") body)))))
 
 (deftest-http-app query-report-data
-  [[version field] [[:v4 :logs] [:v4 :metrics]]
+  [[_version field] [[:v4 :logs] [:v4 :metrics]]
    method [:get :post]]
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
         basic (assoc (:basic reports) :hash report-hash)
@@ -239,7 +238,7 @@
              (-> basic field :data set))))))
 
 (deftest-http-app query-report-data-with-pretty-printing
-  [[version field] [[:v4 :logs] [:v4 :metrics]]
+  [[_version field] [[:v4 :logs] [:v4 :metrics]]
    method [:get :post]]
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
         basic (assoc (:basic reports)
@@ -254,7 +253,7 @@
              (-> basic field :data set))))))
 
 (deftest-http-app query-with-pretty-printing
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic1 (:basic reports)]
     (store-example-report! basic1 (now))
@@ -264,7 +263,7 @@
         (is (not (empty? results)))))))
 
 (deftest-http-app query-with-paging
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic1 (:basic reports)
         _ (store-example-report! basic1 (now))
@@ -289,7 +288,7 @@
                  (munge-reports-for-comparison results))))))))
 
 (deftest-http-app reports-json-vs-jsonb
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
   method [:get :post]]
 
   (let [munge (fn [d] (set (map #(update-in % [:resource_events :data] set) d)))
@@ -343,7 +342,7 @@
       (assoc-in [:basic4 :configuration_version] "yyy")))
 
 (deftest-http-app paging-results
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [{report1 :basic
@@ -440,7 +439,7 @@
                    (munge-reports-for-comparison actual)))))))))
 
 (deftest-http-app invalid-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [{:keys [status body]} (query-response method endpoint ["<" "environment" 0])]
@@ -454,7 +453,7 @@
     (is (= 400 status))))
 
 (deftest-http-app invalid-extract
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
    (let [bad-queries [["extract"
                        [["function" "count"] "certname"]
@@ -483,7 +482,7 @@
         (is (= 200 status)))))))
 
 (deftest-http-app query-by-status
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -518,8 +517,7 @@
                failed-reports))))))
 
 (deftest-http-app query-by-certname-with-environment
-  [[version endpoint] endpoints
-   method [:get :post]]
+  [method [:get :post]]
 
   (let [basic (:basic reports)]
     (store-example-report! basic (now))
@@ -543,7 +541,7 @@
             true))))))
 
 (deftest-http-app query-by-puppet-version
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -570,7 +568,7 @@
     (is (= v30x (munge-reports-for-comparison [basic basic3])))))
 
 (deftest-http-app query-by-report-format
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -601,7 +599,7 @@
     (is (= v6-format (munge-reports-for-comparison [basic2 basic3])))))
 
 (deftest-http-app query-by-configuration-version
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -623,7 +621,7 @@
            (munge-reports-for-comparison [basic basic2])))))
 
 (deftest-http-app query-for-corrective_change
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic (:basic reports)
         _ (store-example-report! basic (now))
@@ -636,7 +634,7 @@
       (is (nil? (get basic-result :corrective_change "oops"))))))
 
 (deftest-http-app query-by-start-and-end-time
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -673,7 +671,7 @@
   (tfmt/unparse (tfmt/formatters :date-time) (to-date-time ts)))
 
 (deftest-http-app query-by-receive-time
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -686,7 +684,7 @@
     (is (= basic-result (munge-reports-for-comparison [basic])))))
 
 (deftest-http-app query-by-transaction-uuid
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -707,7 +705,7 @@
     (is (= all-results (munge-reports-for-comparison [basic basic2])))))
 
 (deftest-http-app latest-report-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic (:basic reports)
         _ (store-example-report! basic (now))
@@ -738,7 +736,7 @@
       (is (= latest4 (munge-reports-for-comparison [basic2 basic4]))))))
 
 (deftest-http-app query-by-hash
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (:basic reports)
@@ -752,7 +750,7 @@
     (is (= basic-result (munge-reports-for-comparison [basic])))))
 
 (deftest-http-app report-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (store-example-report! (:basic reports) (now))
@@ -799,12 +797,12 @@
     #"Can't extract unknown 'reports' fields 'nothing' and 'nothing2'.*Acceptable fields are.*"))
 
 (deftest-http-app invalid-projections
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (doseq [[query msg] invalid-projection-queries]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
@@ -819,12 +817,12 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftest-http-app pg-invalid-regexps
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
@@ -834,7 +832,7 @@
                           [:v4 "/v4/reports/foo/logs"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
   (let [{:keys [status body headers]} (query-response method endpoint)]
     (is (= HttpURLConnection/HTTP_NOT_FOUND status))
@@ -848,7 +846,7 @@
        (with-test-db
          (with-http-app
            (store-example-report! (:basic my-reports) (now))
-           (dotestseq [[version endpoint] endpoints
+           (dotestseq [[_version endpoint] endpoints
                       method [:get :post]]
              ;; This is abusing the existence of PDB-4734 to throw an error from a malformed AST query
              (let [{:keys [status body]} (query-response method endpoint query)]
@@ -860,7 +858,7 @@
          (with-http-app* (fn [globals] (assoc globals :add-agent-report-filter false))
            (store-example-report! (:basic my-reports) (now))
            (dotestseq
-             [[version endpoint] endpoints
+             [[_version endpoint] endpoints
               method [:get :post]]
              (is (= #{{:certname "foo.local"}} (query-result method endpoint query)))))))))
 

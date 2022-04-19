@@ -304,7 +304,7 @@
       (let [length-in-bytes (or (when-let [length (get-in req [:headers "x-uncompressed-length"])]
                                   (try
                                     (Long/parseLong length)
-                                    (catch NumberFormatException e
+                                    (catch NumberFormatException _
                                       (log/warn (trs "The X-Uncompressed-Length value {0} cannot be converted to a long."
                                                      length)))))
                                 (request/content-length req))]
@@ -351,7 +351,7 @@
   (fn [{{:strs [x-pdb-sync-ver]} :headers :as req}]
     (let [maybe-sync-ver (try
                            (some-> x-pdb-sync-ver Integer/parseInt)
-                           (catch NumberFormatException e
+                           (catch NumberFormatException _
                              {:error true :input x-pdb-sync-ver}))]
       (cond
         (nil? maybe-sync-ver) (app req)
@@ -386,9 +386,9 @@
   "Middleware that checks the parent exists before serving the rest of the
    application. This ensures we always return 404's on child paths when the
    parent data is empty."
-  [app version parent route-param-key]
+  [app _version parent route-param-key]
   (fn [{:keys [globals route-params] :as req}]
-    (let [{:keys [scf-read-db url-prefix]} globals]
+    (let [{:keys [scf-read-db]} globals]
       ;; There is a race condition here, in particular we open up 1 transaction
       ;; for the parent test, but the rest of the query results are done via the
       ;; streaming query. This can't be solved until we work out a way to

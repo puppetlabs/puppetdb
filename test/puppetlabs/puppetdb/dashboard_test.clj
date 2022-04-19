@@ -18,7 +18,7 @@
       (is (= "/pdb/dashboard/index.html" (get headers "Location")))))
   (testing "dashboard data request works"
     (let [handler (build-app default-meter-defs)
-          {:keys [status headers body]} (handler (request :get "/data"))
+          {:keys [status body]} (handler (request :get "/data"))
           body (json/parse-string body true)]
       (is (= status 200))
       (is (seq? body))

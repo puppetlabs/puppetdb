@@ -215,7 +215,7 @@
          origin (:origin options)]
      (with-log-mdc ["pdb-query-id" query-id
                     "pdb-query-origin" origin]
-       (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+       (let [{:keys [scf-read-db url-prefix warn-experimental log-queries]
               :or {warn-experimental true}} context
              {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
              munge-fn (get-munge-fn entity version options url-prefix)]
@@ -250,8 +250,9 @@
     :else obj))
 
 (defn user-query->engine-query
-  ([version query-map options] (user-query->engine-query version query-map options false))
-  ([version query-map options warn-experimental]
+  ([version query-map options]
+   (user-query->engine-query version query-map options false))
+  ([_version query-map options warn-experimental]
    (let [query (:query query-map)
          {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
                                                           version query warn-experimental)
@@ -308,7 +309,7 @@
   future after that point will produce an exception from the next call
   to the InputStream read or close methods."
   [db query entity version query-options munge-fn
-   {:keys [log-queries pretty-print query-id] :as context}]
+   {:keys [pretty-print query-id] :as context}]
   ;; Client disconnects present as generic IOExceptions from the
   ;; output writer (via stream-json), and we just log them at debug
   ;; level.  For now, after the first row, there's nothing we can do
@@ -372,8 +373,7 @@
 
 (defn preferred-produce-streaming-body
   [version query-map context]
-  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print
-                log-queries query-id]
+  (let [{:keys [scf-read-db url-prefix warn-experimental log-queries query-id]
          :or {warn-experimental true}} context
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
