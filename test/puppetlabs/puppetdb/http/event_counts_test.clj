@@ -16,7 +16,9 @@
             [puppetlabs.puppetdb.testutils.reports :refer [with-corrective-change
                                                            without-corrective-change
                                                            store-example-report!]]
-            [puppetlabs.puppetdb.time :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/event-counts"]])
 
@@ -44,7 +46,7 @@
             (query-response method endpoint
                             ["=" "certname" "foo.local"]
                             {:summarize_by "illegal-summarize-by"})]
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)
         (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
                      body))))
@@ -68,7 +70,7 @@
                nil
                {:summarize_by "certname"
                 :order_by "invalid"})]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (re-find #"Illegal value 'invalid' for :order_by" body))))
 
@@ -93,7 +95,7 @@
                ["=" "certname" "foo.local"]
                {:summarize_by "certname"
                 :count_by "illegal-count-by"})]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
                        body))))

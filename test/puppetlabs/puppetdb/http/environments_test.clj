@@ -8,7 +8,9 @@
             [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
                                                         query-response
                                                         query-result]]
-            [puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
+            [puppetlabs.puppetdb.testutils.nodes :as tu-nodes])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/environments"]])
 
@@ -211,6 +213,6 @@
     (is (= false (eng/object-exists? :environment "ussr"))))
 
   (let [{:keys [status body]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about environment foo"}
            (json/parse-string body true)))))

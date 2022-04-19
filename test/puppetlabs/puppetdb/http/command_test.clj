@@ -30,6 +30,7 @@
             [puppetlabs.puppetdb.time :as time])
   (:import
    (java.io ByteArrayInputStream ByteArrayOutputStream)
+   (java.net HttpURLConnection)
    (java.util.concurrent Semaphore)
    (java.util.zip GZIPOutputStream)))
 
@@ -240,7 +241,7 @@
                 {:keys [status body headers]}
                 (app (post-request* "/v1" params request-body))
                 {:keys [error]} (json/parse-string body true)]
-            (is (= status http/status-bad-request))
+            (is (= status HttpURLConnection/HTTP_BAD_REQUEST))
             (is (= ["Content-Type"] (keys headers)))
             (is (http/json-utf8-ctype? (headers "Content-Type")))
             (is (re-find error-regex error))))))))
@@ -318,7 +319,7 @@
                                :params (into {} bad-params)}
                   {:keys [status body]} (validate bad-request)
                   {:strs [error]} (json/parse-string body)]]
-      (is (= http/status-bad-request status))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
       (is (re-find #"missing required parameters" error)))))
 
 ;; Right now, this is the only unit test that tests the (eventually
@@ -374,7 +375,7 @@
         ;; via timeout in the "success" case.
         (testing "when disabled, allows larger size"
           (testing "(without timeout),"
-            (is (= http/status-ok
+            (is (= HttpURLConnection/HTTP_OK
                    (:status (no-max-app req)))))
 
           (let [test-cmdref (async/<!! command-chan)]
@@ -391,7 +392,7 @@
           (testing "(with timeout),"
             (testing "when disabled, allows larger size"
               (let [response (no-max-app wait-req)]
-                (is (= http/status-unavailable (:status response)))
+                (is (= HttpURLConnection/HTTP_UNAVAILABLE (:status response)))
                 (is (= true
                        (get (json/parse-string (:body response)) "timed_out")))))))
 
@@ -400,10 +401,10 @@
                                  ["(with timeout)," wait-req]]]
           (testing case-name
             (testing "when enabled, rejects excessive string requests"
-              (is (= http/status-entity-too-large
+              (is (= HttpURLConnection/HTTP_ENTITY_TOO_LARGE
                      (:status (max-10-app req)))))
             (testing "when enabled, rejects excessive stream requests"
-              (is (= http/status-entity-too-large
+              (is (= HttpURLConnection/HTTP_ENTITY_TOO_LARGE
                      (:status (max-10-app
                                (assoc req :body
                                       (ByteArrayInputStream.

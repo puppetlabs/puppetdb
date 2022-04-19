@@ -26,7 +26,9 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.constants :as constants]
-            [puppetlabs.puppetdb.command.constants :as const]))
+            [puppetlabs.puppetdb.command.constants :as const])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -54,7 +56,7 @@
         (when ssl-client-cn
           (log/warn (trs "{0} rejected by certificate allowlist {1}" ssl-client-cn allowlist)))
         (http/denied-response (tru "The client certificate name {0} doesn't appear in the certificate allowlist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-allowlist file?" ssl-client-cn)
-                         http/status-forbidden)))))
+                              HttpURLConnection/HTTP_FORBIDDEN)))))
 
 (defn wrap-cert-authn
   [app cert-allowlist]
@@ -117,15 +119,15 @@
       (catch Exception e
         (log/error e)
         (http/error-response (cause-finder e)
-                             http/status-internal-error))
+                             HttpURLConnection/HTTP_INTERNAL_ERROR))
      (catch AssertionError e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred while processing the request")
-                             http/status-internal-error))
+                             HttpURLConnection/HTTP_INTERNAL_ERROR))
      (catch Throwable e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred")
-                             http/status-internal-error)))))
+                             HttpURLConnection/HTTP_INTERNAL_ERROR)))))
 
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
@@ -140,7 +142,7 @@
          (headers "accept"))
       (app req)
       (http/error-response (tru "must accept {0}" content-type)
-                           http/status-not-acceptable))))
+                           HttpURLConnection/HTTP_NOT_ACCEPTABLE))))
 
 (defn verify-content-encoding
   "Verification for the specified list of content-encodings."
@@ -155,7 +157,7 @@
         (app req)
         (http/error-response (tru "content encoding {0} not supported"
                                   content-encoding)
-                             http/status-unsupported-type)))))
+                             HttpURLConnection/HTTP_UNSUPPORTED_TYPE)))))
 
 (defn verify-content-type
   "Verification for the specified list of content-types."
@@ -170,7 +172,7 @@
         (if (or (nil? mediatype) (some #{mediatype} content-types))
           (app req)
           (http/error-response (tru "content type {0} not supported" mediatype)
-                               http/status-unsupported-type)))
+                               HttpURLConnection/HTTP_UNSUPPORTED_TYPE)))
       (app req))))
 
 (def params-schema {(s/optional-key :optional) [s/Str]
@@ -334,7 +336,7 @@
             (consume-and-close (:body req) length-in-bytes)
             (http/error-response
              (tru "Command rejected due to size exceeding max-command-size")
-             http/status-entity-too-large))
+             HttpURLConnection/HTTP_ENTITY_TOO_LARGE))
           (app req)))
       (app req))))
 
@@ -398,7 +400,10 @@
       (if (jdbc/with-transacted-connection scf-read-db
             (qe/object-exists? parent (get route-params route-param-key)))
         (app req)
-        (http/json-response {:error (tru "No information is known about {0} {1}" (name parent) (get route-params route-param-key))} http/status-not-found)))))
+        (http/json-response {:error (tru "No information is known about {0} {1}"
+                                         (name parent)
+                                         (get route-params route-param-key))}
+                            HttpURLConnection/HTTP_NOT_FOUND)))))
 
 (pls/defn-validated url-decode :- s/Str
   [x :- s/Str]

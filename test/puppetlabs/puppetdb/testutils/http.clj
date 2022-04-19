@@ -12,7 +12,8 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [clojure.tools.logging :as log])
   (:import
-   [java.io ByteArrayInputStream]))
+   (java.io ByteArrayInputStream)
+   (java.net HttpURLConnection)))
 
 (defmacro are-error-response-headers [headers]
   ;; A macro so the "is" line numbers will be right
@@ -60,7 +61,7 @@
    (let [handlers (or optional-handlers [identity])
          handle-fn (apply comp (vec handlers))
          response (query-response method endpoint query params)]
-     (is (= http/status-ok (:status response)))
+     (is (= HttpURLConnection/HTTP_OK (:status response)))
      (handle-fn (convert-response response)))))
 
 (defn query-result

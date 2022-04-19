@@ -9,7 +9,9 @@
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]))
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (deftest wrapping-metrics
   (testing "Should create per-status metrics"
@@ -36,7 +38,7 @@
           ;; Normalize urls based on reversing the url
           normalize-uri #(apply str (reverse %))
           handler       (fn [req] (-> (rr/response nil)
-                                      (rr/status http/status-ok)))
+                                      (rr/status HttpURLConnection/HTTP_OK)))
           app           (wrap-with-metrics handler storage normalize-uri)]
 
       (app {:uri "/foo"})
@@ -65,16 +67,18 @@
     (let [wl (.getAbsolutePath (temp-file "allowlist-log-reject"))
           _ (spit wl "foobar")
           handler     (fn [req] (-> (rr/response nil)
-                                    (rr/status http/status-ok)))
+                                    (rr/status HttpURLConnection/HTTP_OK)))
 
           message     "The client certificate name"
           app (wrap-cert-authn handler wl)]
       ;; Even numbers should trigger an unauthorized response
-      (is (= http/status-forbidden (:status (app (create-authorizing-request "baz")))))
+      (is (= HttpURLConnection/HTTP_FORBIDDEN
+             (:status (app (create-authorizing-request "baz")))))
       ;; The failure reason should be shown to the user
       (is (.contains (:body (app (create-authorizing-request "baz"))) message))
       ;; Odd numbers should get through fine
-      (is (= http/status-ok (:status (app (create-authorizing-request "foobar"))))))))
+      (is (= HttpURLConnection/HTTP_OK
+             (:status (app (create-authorizing-request "foobar"))))))))
 
 (deftest wrapping-cert-cn-extraction
   (with-redefs [kitchensink/cn-for-cert :cn]
@@ -107,12 +111,12 @@
       (is (= test-string (wrapped-fn {:params {"foo" 1 "bar" 2 "bam" 3}}))))
     (testing "should return an error response if a required parameter is missing"
       (is (= (wrapped-fn {:params {"foo" 1}})
-             {:status http/status-bad-request
+             {:status HttpURLConnection/HTTP_BAD_REQUEST
               :headers {"Content-Type" http/error-response-content-type}
               :body "Missing required query parameter 'bar'"})))
     (testing "should return an error response if unknown parameters are present"
       (is (= (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})
-             {:status http/status-bad-request
+             {:status HttpURLConnection/HTTP_BAD_REQUEST
               :headers {"Content-Type" http/error-response-content-type}
               :body "Unsupported query parameter 'wazzup'"})))))
 

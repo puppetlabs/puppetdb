@@ -11,7 +11,9 @@
                                                         query-response
                                                         query-result
                                                         vector-param]]
-            [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
+            [puppetlabs.puppetdb.testutils.catalogs :as testcat])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
 
@@ -240,5 +242,5 @@
    method [:get :post]]
 
   (let [{:keys [status body]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about catalog foo"} (json/parse-string body true)))))

@@ -30,7 +30,8 @@
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]])
   (:import
-   [java.util.concurrent CyclicBarrier TimeUnit]))
+   (java.net HttpURLConnection)
+   (java.util.concurrent CyclicBarrier TimeUnit)))
 
 (defn await-a-while [x]
   (.await x default-timeout-ms TimeUnit/MILLISECONDS))
@@ -50,8 +51,8 @@
 
 (defn- checked-admin-post [path form]
   (let [result (post-admin path form)]
-    (is (= http/status-ok (:status result)))
-    (when-not (= http/status-ok (:status result))
+    (is (= HttpURLConnection/HTTP_OK (:status result)))
+    (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (binding [*out* *err*]
         (pprint result)
         (println "Response body:")
@@ -65,14 +66,14 @@
 
 (deftest admin-clean-basic
   (with-pdb-with-no-gc
-    (is (= http/status-ok (:status (post-clean []))))
-    (is (= http/status-ok (:status (post-clean ["expire_nodes"]))))
-    (is (= http/status-ok (:status (post-clean ["purge_nodes"]))))
-    (is (= http/status-ok (:status (post-clean ["purge_reports"]))))
-    (is (= http/status-ok (:status (post-clean ["purge_resource_events"]))))
-    (is (= http/status-ok (:status (post-clean ["gc_packages"]))))
-    (is (= http/status-ok (:status (post-clean ["other"]))))
-    (is (= http/status-bad-request (:status (post-clean ["?"]))))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean []))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["expire_nodes"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["purge_nodes"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["purge_reports"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["purge_resource_events"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["gc_packages"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["other"]))))
+    (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status (post-clean ["?"]))))))
 
 (deftest admin-clean-competition
   (with-pdb-with-no-gc
@@ -89,7 +90,7 @@
         (utils/noisy-future (checked-admin-post "cmd" (clean-cmd [])))
         (try
           (await-a-while in-clean)
-          (is (= http/status-conflict (:status (post-clean []))))
+          (is (= HttpURLConnection/HTTP_CONFLICT (:status (post-clean []))))
           (finally
             (await-a-while test-finished)
             (is (not= ::timed-out
@@ -256,29 +257,29 @@
     (assert-node-data 1 "node-1")
     (assert-node-data 1 "node-2")
     (assert-node-count 2)
-    (is (= http/status-ok (:status (post-delete "node-1"))))
-    (is (= http/status-ok (:status (post-delete "node-2"))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-delete "node-1"))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-delete "node-2"))))
     (assert-node-data 0 "node-1")
     (assert-node-data 0 "node-2")
     (assert-node-count 0)))
 
 (deftest delete-command-basic
   (with-pdb-with-no-gc
-    (is (= http/status-bad-request
+    (is (= HttpURLConnection/HTTP_BAD_REQUEST
            (:status (post-admin "cmd"
                                 {:command "bad-cmd-name"
                                  :version 1
                                  :payload {:certname "node-1"}}))))
-    (is (= http/status-bad-request
+    (is (= HttpURLConnection/HTTP_BAD_REQUEST
            (:status (post-admin "cmd"
                                 {:command "delete"
                                  :version 5
                                  :payload {:certname "bad-version"}}))))
-    (is (= http/status-bad-request
+    (is (= HttpURLConnection/HTTP_BAD_REQUEST
            (:status (post-admin "cmd"
                                 {:command "delete"
                                  :version 1
                                  :payload "invalid-payload"}))))
     (let [{:keys [status body]} (post-delete "node-1")]
-      (is (= http/status-ok status))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= {:deleted "node-1"} (-> body slurp (json/parse-string true)))))))

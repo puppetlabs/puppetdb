@@ -22,7 +22,9 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.time
-             :refer [ago now seconds to-long to-string to-timestamp]]))
+             :refer [ago now seconds to-long to-string to-timestamp]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
@@ -49,7 +51,7 @@
          actual-result# (parse-result (:body response#))]
      (is (= (count ~expected-results) (count actual-result#)))
      (is (= ~expected-results (set actual-result#)))
-     (is (= http/status-ok status#))))
+     (is (= HttpURLConnection/HTTP_OK status#))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -189,7 +191,7 @@
               {:keys [status body]} (query-response
                                       method endpoint [">" "timestamp" 0]
                                       {:order_by (vector-param method [{:field "resource_title"}])})]
-          (is (= http/status-ok status))
+          (is (= HttpURLConnection/HTTP_OK status))
           (is (= expected (set (munge-event-values (json/parse-string (slurp body) true)))))))
 
       (testing "should reject dashes"
@@ -197,7 +199,7 @@
                                         {:order_by (vector-param method
                                                                 [{:field "resource-title"}])})
               body (get response :body "null")]
-          (is (= http/status-bad-request (:status response)))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
           (are-error-response-headers (:headers response))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
@@ -215,7 +217,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_resources true})
             body (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -223,7 +225,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                      {:distinct_resources true :distinct_start_time 0})
             body (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -231,7 +233,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                      {:distinct_resources true :distinct_end_time 0})
             body (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -240,7 +242,7 @@
       (let [response  (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_start_time 0 :distinct_end_time 0})
             body      (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -506,7 +508,7 @@
             (query-response
              method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def versioned-invalid-queries
@@ -532,7 +534,7 @@
       (let [{:keys [status body headers]}
             (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
@@ -553,5 +555,5 @@
       (let [{:keys [status body headers]}
             (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))

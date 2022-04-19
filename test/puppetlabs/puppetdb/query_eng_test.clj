@@ -12,7 +12,9 @@
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
-            [puppetlabs.puppetdb.time :refer [now parse-period]]))
+            [puppetlabs.puppetdb.time :refer [now parse-period]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (deftest test-plan-sql
   (let [col1 {:type :string :field :foo}
@@ -338,7 +340,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (*app* request)
             result (vec (parse-result body))]
-        (is (= status http/status-ok))
+        (is (= HttpURLConnection/HTTP_OK status))
         (is (= result expected-result))))
 
     (testing "query rec is modifiable"
@@ -351,7 +353,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (*app* request)
             result (vec (parse-result body))]
-        (is (= status http/status-ok))
+        (is (= HttpURLConnection/HTTP_OK status))
         (is (= result (map #(hash-map :name % :depth 0) expected-result)))))
 
     (reset! entity-fn-idx initial-idx)
@@ -359,7 +361,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (*app* request)
             result (vec (parse-result body))]
-        (is (= status http/status-ok))
+        (is (= HttpURLConnection/HTTP_OK status))
         (is (= result expected-result))))))
 
 (deftest-http-app fact-expiration-queries
@@ -381,7 +383,7 @@
           {:keys [status body]} (*app* request)
           result (vec (parse-result body))]
 
-      (is (= status http/status-ok))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= 1 (count result)))
       (let [node (first result)]
         (is (= false (:expires_facts node)))
@@ -395,7 +397,7 @@
           {:keys [status body]} (*app* request)
           result (vec (parse-result body))]
 
-      (is (= status http/status-ok))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= 2 (count result)))
       (let [nodes (sort-by :certname result)]
         (is (= true (:expires_facts (first nodes))))
@@ -413,7 +415,7 @@
                                {:include_facts_expiration true})
           {:keys [status body]} (*app* request)
           result (parse-result body)]
-      (is (= status http/status-ok))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= "foo1" (:certname result)))
       (is (= false (:expires_facts result)))
       (is (-> result :expires_facts_updated time/parse-wire-datetime

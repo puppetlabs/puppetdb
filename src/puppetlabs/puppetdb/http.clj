@@ -1,48 +1,15 @@
 (ns puppetlabs.puppetdb.http
-  (:import [org.apache.http.impl EnglishReasonPhraseCatalog]
-           [java.io IOException Writer])
   (:require [puppetlabs.i18n.core :refer [tru trs]]
             [ring.util.response :as rr]
             [ring.util.io :as rio]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
-            [clojure.reflect :as r]
-            [clojure.string :as s]))
-
-;; ## HTTP Status codes
-;;
-;; This section creates a series of variables representing legal HTTP
-;; status codes. e.g. `status-ok` == 200, `status-bad-request` == 400,
-;; etc.
-
-(def http-constants
-  (->> java.net.HttpURLConnection
-       r/reflect
-       :members
-       (map :name)
-       (map str)
-       (filter #(.startsWith % "HTTP_"))))
-
-(defn http-constant->sym
-  "Convert the name a constant from the java.net.HttpURLConnection class into a
-  symbol that we will use to define a Clojure constant."
-  [name]
-  (-> name
-      (s/split #"HTTP_")
-      second
-      ((partial str "status-"))
-      (.replace "_" "-")
-      (.toLowerCase)
-      symbol))
-
-;; Define constants for all of the HTTP status codes defined in the
-;; java class
-(doseq [name http-constants]
-  (let [key (http-constant->sym name)
-        val (-> (.getField java.net.HttpURLConnection name)
-                (.get nil))]
-    (intern *ns* key val)))
+            [clojure.string :as s])
+  (:import
+   (java.io IOException Writer)
+   (java.net HttpURLConnection)
+   (org.apache.http.impl EnglishReasonPhraseCatalog)))
 
 (defmulti default-body
   "Provides a response body based on the status code of the resopnse.  The
@@ -51,8 +18,8 @@
   Acceptable), as given in RFC 2616 section 10."
   (fn [request response] (:status response)))
 
-(defmethod default-body status-bad-method
-  [{:keys [request-method uri query-string]} response]
+(defmethod default-body HttpURLConnection/HTTP_BAD_METHOD
+  [{:keys [request-method uri query-string]} _response]
   (let [method (s/upper-case (name request-method))
         location (if query-string (format "%s?%s" uri query-string) uri)]
     (format "The %s method is not allowed for %s" method location)))
@@ -106,7 +73,7 @@
   alredy be JSON-ified. To auto-serialize body to JSON, look at
   `json-response`."
   ([body]
-     (json-response* body status-ok))
+     (json-response* body HttpURLConnection/HTTP_OK))
   ([body code]
      (-> body
          rr/response
@@ -127,7 +94,7 @@
       (rr/content-type "application/octet-stream")
       (rr/charset "utf-8")
       (rr/header "Content-Disposition" (str "attachment; filename=" filename))
-      (rr/status status-ok)))
+      (rr/status HttpURLConnection/HTTP_OK)))
 
 (defn streamed-tar-response
   [producer filename]
@@ -139,7 +106,7 @@
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
   ([body]
-     (json-response body status-ok))
+     (json-response body HttpURLConnection/HTTP_OK))
   ([body code]
      (-> body
          json/generate-pretty-string
@@ -147,11 +114,11 @@
 
 (defn error-response
   "Returns a Ring response object with the status code specified by `code`.
-   If `error` is a Throwable, its message is used as the body of the response.
-   Otherwise, `error` itself is used.  If unspecified, `code` will default to
-   `status-bad-request`."
+   If `error` is a Throwable, its message is used as the body of the
+  response.  Otherwise, `error` itself is used.  If unspecified,
+  `code` will default to `HttpURLConnection/HTTP_BAD_REQUEST`."
   ([error]
-     (error-response error status-bad-request))
+     (error-response error HttpURLConnection/HTTP_BAD_REQUEST))
   ([error code]
    (log/debug error (trs "Caught HTTP processing exception"))
    (-> (if (instance? Throwable error)
@@ -175,7 +142,7 @@
     (if (acceptable-content-type content-type (headers "accept"))
       (f req)
       (error-response (tru "must accept {0}" content-type)
-                      status-not-acceptable))))
+                      HttpURLConnection/HTTP_NOT_ACCEPTABLE))))
 
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments
@@ -297,12 +264,13 @@
 (defn status-not-found-response
   "Produces a json response for when an entity (catalog/nodes/environment/...) is not found."
   [type id]
-  (json-response {:error (tru "No information is known about {0} {1}" type id)} status-not-found))
+  (json-response {:error (tru "No information is known about {0} {1}" type id)}
+                 HttpURLConnection/HTTP_NOT_FOUND))
 
 (defn bad-request-response
   "Produce a json 400 response with an :error key holding message."
   [message]
-  (json-response {:error message} status-bad-request))
+  (json-response {:error message} HttpURLConnection/HTTP_BAD_REQUEST))
 
 (defn deprecated-app
   "Add an X-Deprecation warning for deprecated endpoints"

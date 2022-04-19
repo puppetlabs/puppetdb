@@ -8,7 +8,9 @@
              [puppetlabs.puppetdb.jdbc :as jdbc]
              [puppetlabs.puppetdb.testutils.db :refer [*db*]]
              [puppetlabs.puppetdb.time :refer [days ago]]
-             [puppetlabs.puppetdb.scf.storage :as scf-store]))
+             [puppetlabs.puppetdb.scf.storage :as scf-store])
+  (:import
+   (java.net HttpURLConnection)))
 
 (defn is-query-result [endpoint query expected-results]
   (let [encoded-query (if (string? query) query (json/generate-string query))
@@ -18,7 +20,7 @@
     (is (= (count expected-results) (count actual-result)))
     (is (coll? actual-result))
     (is (= expected-results (set actual-result)))
-    (is (= http/status-ok status))))
+    (is (= HttpURLConnection/HTTP_OK status))))
 
 (defn package-map [certname package-name version provider]
   {:certname certname

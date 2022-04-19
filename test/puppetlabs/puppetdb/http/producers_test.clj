@@ -8,7 +8,9 @@
             [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
                                                         query-response
                                                         query-result]]
-            [puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
+            [puppetlabs.puppetdb.testutils.nodes :as tu-nodes])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/producers"]])
 
@@ -170,6 +172,6 @@
     (is (= true (eng/object-exists? :producer "mom.com"))))
 
   (let [{:keys [status body]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= status HttpURLConnection/HTTP_NOT_FOUND))
     (is (= {:error "No information is known about producer foo.com"}
            (json/parse-string body true)))))

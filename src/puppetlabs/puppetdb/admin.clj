@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s])
   (:import
-   (clojure.lang ExceptionInfo)))
+   (clojure.lang ExceptionInfo)
+   (java.net HttpURLConnection)))
 
 (def clean-command-schema
   {:command (s/eq "clean")
@@ -50,7 +51,7 @@
        {:kind "conflict"
         :msg (i18n/tru "Another cleanup is already in progress")
         :details nil}
-       http/status-conflict))))
+       HttpURLConnection/HTTP_CONFLICT))))
 
 (def delete-command-schema
   {:command (s/eq "delete")

@@ -23,6 +23,7 @@
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [puppetlabs.puppetdb.queue :as queue])
   (:import
+   (java.net HttpURLConnection)
    (java.util.concurrent Semaphore)))
 
 (defn env-true? [name]
@@ -114,9 +115,9 @@
   "Given a Ring response, verify that the status
   code is 200 OK.  If not, print the body and fail."
   [{:keys [status body] :as resp}]
-  (when-not (= http/status-ok status)
+  (when-not (= HttpURLConnection/HTTP_OK status)
     (println "ERROR RESPONSE BODY:\n" body)
-    (is (= http/status-ok status))))
+    (is (= HttpURLConnection/HTTP_OK status))))
 
 (defn get-request
   "Return a GET request against path, suitable as an argument to a ring

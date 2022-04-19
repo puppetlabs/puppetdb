@@ -36,7 +36,9 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp parse-period] :as t]))
+            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp parse-period] :as t])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
@@ -56,7 +58,7 @@
         actual-result (parse-result body)]
     (is (= (count expected-results) (count actual-result)))
     (is (= expected-results (set actual-result)))
-    (is (= http/status-ok status))))
+    (is (= HttpURLConnection/HTTP_OK status))))
 
 (defn compare-structured-response
   "compare maps that may have been stringified differently."
@@ -274,7 +276,7 @@
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
@@ -294,7 +296,7 @@
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def common-well-formed-tests
@@ -623,7 +625,7 @@
                             (get-request endpoint (json/generate-string query))
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
-              (is (= http/status-ok status))
+              (is (= HttpURLConnection/HTTP_OK status))
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true))))))))
@@ -631,14 +633,14 @@
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
               {:keys [status body headers]} (*app* request)]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
         (let [request (get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
               {:keys [status body headers]} (*app* request)]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
@@ -685,7 +687,7 @@
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body headers] :as result} (*app* request)]
           (is (= body msg))
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers))))))
 
 (deftest-http-app two-database-fact-query-config
@@ -738,15 +740,15 @@
                   (do
                     (is (= {:error "No information is known about environment DEV"}
                            (json/parse-string body true)))
-                    (is (= status http/status-not-found)))
+                    (is (= HttpURLConnection/HTTP_NOT_FOUND status)))
                   (do
                     (is (empty? (json/parse-stream (io/reader body) true)))
-                    (is (= status http/status-ok))))))
+                    (is (= HttpURLConnection/HTTP_OK status))))))
 
             (testing "config with only a single database returns results"
               (let [request (get-request endpoint)
                     {:keys [status body headers]} (one-db-app request)]
-                (is (= status http/status-ok))
+                (is (= HttpURLConnection/HTTP_OK status))
                 (is (http/json-utf8-ctype? (headers "Content-Type")))
                 (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
                         {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
@@ -1125,7 +1127,7 @@
                       [not ["~" environment DE.*]]]]
         (let [{:keys [status headers body]} (*app* (get-request endpoint query))
               results (json/parse-string (slurp body) true)]
-          (is (= status http/status-ok))
+          (is (= HttpURLConnection/HTTP_OK status))
           (is (http/json-utf8-ctype? (headers "Content-Type")))
           (is (= 9 (count results)))
           (is (every? #(= (:environment %) "PROD") results))
@@ -2276,7 +2278,7 @@
    method [:get :post]]
 
   (let [{:keys [status body]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about factset foo"} (json/parse-string body true)))))
 
 (deftest-http-app no-certname-entity-test

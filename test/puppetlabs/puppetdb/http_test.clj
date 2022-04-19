@@ -7,7 +7,8 @@
             [cheshire.core :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils])
   (:import
-   (java.io StringWriter)))
+   (java.io StringWriter)
+   (java.net HttpURLConnection)))
 
 (deftest conneg
   (testing "content negotiation"
@@ -110,12 +111,12 @@
 
   (testing "provides a helpful message for 405 Method Not Allowed errors"
     (let [request (mock/request :post "/some/test/route")
-          response {:status status-bad-method}
+          response {:status HttpURLConnection/HTTP_BAD_METHOD}
           message "The POST method is not allowed for /some/test/route"]
       (is (= (default-body request response) message)))
 
     (let [request (mock/request :post "/some/test/route?foo=bar")
-          response {:status status-bad-method}
+          response {:status HttpURLConnection/HTTP_BAD_METHOD}
           message "The POST method is not allowed for /some/test/route?foo=bar"]
       (is (= (default-body request response) message)))))
 

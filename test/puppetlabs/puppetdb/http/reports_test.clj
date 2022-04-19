@@ -28,7 +28,9 @@
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-reports-for-comparison]]
             [puppetlabs.puppetdb.time :as tfmt
-             :refer [ago days now to-date-time to-string]]))
+             :refer [ago days now to-date-time to-string]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/reports"]])
 
@@ -810,7 +812,7 @@
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
@@ -830,7 +832,7 @@
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def no-parent-endpoints [[:v4 "/v4/reports/foo/events"]
@@ -841,7 +843,7 @@
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
   (let [{:keys [status body headers]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= ["Content-Type"] (keys headers)))
     (is (http/json-utf8-ctype? (headers "Content-Type")))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
@@ -856,8 +858,8 @@
                       method [:get :post]]
              ;; This is abusing the existence of PDB-4734 to throw an error from a malformed AST query
              (let [{:keys [status body]} (query-response method endpoint query)]
-                (is (= status http/status-internal-error))
-                (is (re-matches #"(?s)AST validation failed, but was successfully converted to SQL.*Unrecognized ast clause.*" body)))))))
+               (is (= status HttpURLConnection/HTTP_INTERNAL_ERROR))
+               (is (re-matches #"(?s)AST validation failed, but was successfully converted to SQL.*Unrecognized ast clause.*" body)))))))
 
     (testing "agent report filter can be disabled"
        (with-test-db

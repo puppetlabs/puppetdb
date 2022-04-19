@@ -17,7 +17,9 @@
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook
                                                    use-preferred-streaming-method?]]
-            [flatland.ordered.map :as omap]))
+            [flatland.ordered.map :as omap])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/nodes"]])
 
@@ -55,7 +57,7 @@
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
 
-    (is (= status http/status-ok))))
+    (is (= HttpURLConnection/HTTP_OK status))))
 
 (deftest-http-app node-queries
   [[version endpoint] endpoints
@@ -431,7 +433,7 @@
                          (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [{:keys [status body headers]} (query-response method endpoint query)]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (re-find msg body)))))))
 
@@ -620,7 +622,7 @@
   (testing (str "query: " query " should fail with msg: " msg)
     (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
       (is (re-find msg body))
-      (is (= status http/status-bad-request))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
       (are-error-response-headers headers))))
 
 (def pg-versioned-invalid-regexps
@@ -639,7 +641,7 @@
   (testing (str "query: " query " should fail with msg: " msg)
     (let [{:keys [status body] :as result} (query-response method endpoint query)]
       (is (re-find msg body))
-      (is (= status http/status-bad-request)))))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST status)))))
 
 (def no-parent-endpoints [[:v4 "/v4/nodes/foo/facts"]
                           [:v4 "/v4/nodes/foo/resources"]])
@@ -648,7 +650,7 @@
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
   (let [{:keys [status body] :as result} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about node foo"} (json/parse-string body true)))))
 
 (deftest-http-app invalid-content-type
@@ -666,7 +668,7 @@
           (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
               (assoc-in [:headers "content-type"] "application/json")
               *app*)]
-      (is (= http/status-ok status))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= [{:certname "puppet.example.com"}] (convert-response response))))))
 
 (deftest-http-app error-in-query-streaming-is-communicated-to-caller

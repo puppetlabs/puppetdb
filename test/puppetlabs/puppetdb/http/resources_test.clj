@@ -13,7 +13,9 @@
                      query-response
                      ordered-query-result
                      vector-param]]
-            [flatland.ordered.map :as omap]))
+            [flatland.ordered.map :as omap])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def v4-endpoint "/v4/resources")
 (def v4-environments-endpoint "/v4/environments/DEV/resources")
@@ -24,7 +26,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= http/status-ok (:status response)))
+  (is (= HttpURLConnection/HTTP_OK (:status response)))
   (is (http/json-utf8-ctype? (tu/content-type response)))
   (is (= body (if (:body response)
                 (set (json/parse-string (slurp (:body response)) true))
@@ -112,14 +114,14 @@ to the result of the form supplied to this method."
                                 ["and"
                                  ["=" "name" "operatingsystem"]
                                  ["=" "value" "Debian"]]]]]])]
-        (is (= status http/status-ok))
+        (is (= status HttpURLConnection/HTTP_OK))
         (is (= (set (json/parse-string (slurp body) true)) #{foo1})))
 
       (testing "using the value of a fact as the title of a resource"
         (let [{:keys [body status]} (query-response method endpoint
                                                     ["in" "title" ["extract" "value" ["select_facts"
                                                                                       ["=" "name" "message"]]]])]
-          (is (= status http/status-ok))
+          (is (= status HttpURLConnection/HTTP_OK))
           (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2})))))
 
     (testing "resource subqueries are supported"
@@ -131,13 +133,13 @@ to the result of the form supplied to this method."
                                                   ["=" "exported" false]
                                                   ["in" "title" ["extract" "title" ["select_resources"
                                                                                     ["=" "exported" true]]]]]])]
-        (is (= status http/status-ok))
+        (is (= status HttpURLConnection/HTTP_OK))
         (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2}))))
 
     (testing "error handling"
       (let [response (query-response method endpoint ["="])
             body     (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= (:status response) HttpURLConnection/HTTP_BAD_REQUEST))
         (are-error-response-headers (:headers response))
         (is (re-find #"= requires exactly two arguments" body))))
 
@@ -216,17 +218,17 @@ to the result of the form supplied to this method."
     (testing "sourcefile and source is not supported"
       (let [query ["=" "sourceline" 22]
             response (query-response method endpoint query)]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"'sourceline' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["~" "sourcefile" "foo"]
             response (query-response method endpoint query)]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (query-response method endpoint query)]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response)))))
 
@@ -281,7 +283,7 @@ to the result of the form supplied to this method."
                                                     {"field" "resource" "order" "DESC"}])}
             response (query-response method endpoint nil params)
             actual   (json/parse-string (slurp (get response :body "null")) true)]
-        (is (= http/status-ok (:status response)))
+        (is (= HttpURLConnection/HTTP_OK (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
 (deftest-http-app query-environments
@@ -389,5 +391,5 @@ to the result of the form supplied to this method."
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
