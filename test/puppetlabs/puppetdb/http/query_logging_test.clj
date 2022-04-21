@@ -55,6 +55,21 @@
       io/resource slurp json/parse-string keywordize-keys))
 
 (deftest queries-are-logged-when-log-queries-is-true
+  (tk-log/with-logged-event-maps logs
+    (tk-log/with-log-level "puppetlabs.puppetdb.http.query" :debug
+      (with-test-db
+        (call-with-http-app
+         (fn []
+           (is (= 200 (:status (query-response :get "/v4" ["from" "nodes"]))))
+           (is (= 200 (:status (query-response :get "/v4" "nodes {}"))))
+           (is (= 200 (:status (query-response :post "/v4" "nodes {}"))))
+           ;; This query should not generate a parsing log message
+           (is (= 200 (:status (query-response :post "/v4" ["from" "nodes"]))))
+           (let [prepped-logs (prep-logs logs)]
+             (is (= 3 (count prepped-logs)))
+             ;; Ensure a uuid is included in log string
+             (is (every? #(re-find #"^Parsing PDBQuery:[a-zA-Z0-9\-]{36}:" %) prepped-logs))))
+         #(assoc % :log-queries true)))))
   (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
     (with-test-db
       (replace-catalog catalog-1)
@@ -105,7 +120,18 @@
                   (is sql)
                   (is (= exp-origin origin)))))))))))
 
-(deftest no-queries-are-logged-when-log-queires-is-false
+(deftest no-queries-are-logged-when-log-queries-is-false
+  (tk-log/with-logged-event-maps logs
+    (tk-log/with-log-level "puppetlabs.puppetdb.http.query" :debug
+      (with-test-db
+        (call-with-http-app
+         (fn []
+           (is (= 200 (:status (query-response :get "/v4" ["from" "nodes"]))))
+           (is (= 200 (:status (query-response :get "/v4" "nodes {}"))))
+           (is (= 200 (:status (query-response :post "/v4" ["from" "nodes"]))))
+           (is (= 200 (:status (query-response :post "/v4" "nodes {}"))))
+           (is (empty? (prep-logs logs))))
+         #(assoc % :log-queries false)))))
   (tk-log/with-logged-event-maps logs
     (tk-log/with-log-level "puppetlabs.puppetdb.query-eng" :debug
       (with-test-db
@@ -185,6 +211,7 @@
             (with-logging-to-atom "puppetlabs.puppetdb.query-eng" events
               (qeng/produce-streaming-body :v4
                                            {:query ["from" "nodes"] :origin "foo"}
+                                           (str (java.util.UUID/randomUUID))
                                            context)
               (doseq [event @events
                       :let [mdc (.getMDCPropertyMap event)]]

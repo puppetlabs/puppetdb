@@ -57,7 +57,7 @@
   [version entity]
   (fn [{:keys [globals route-params]}]
     (let [query ["from" entity ["=" "hash" (:hash route-params)]]]
-      (produce-streaming-body version {:query query}
+      (produce-streaming-body version {:query query} (str (java.util.UUID/randomUUID))
                               (http-q/narrow-globals globals)))))
 
 (defn route-param [param-name]
@@ -355,6 +355,7 @@
                   (produce-streaming-body
                    version
                    (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                   (str (java.util.UUID/randomUUID))
                    (http-q/narrow-globals globals))))
               (http-q/restrict-query-to-entity "fact_names")))))
 
