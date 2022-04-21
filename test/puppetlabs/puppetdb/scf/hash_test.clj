@@ -16,7 +16,7 @@
             resource-identity-hash]]
    [puppetlabs.puppetdb.scf.storage :refer [normalize-report]]
    [puppetlabs.puppetdb.random :as random]
-   [clojure.math.combinatorics :refer (combinations subsets)]
+   [clojure.math.combinatorics :refer [combinations]]
    [puppetlabs.puppetdb.examples :refer [catalogs]]
    [puppetlabs.puppetdb.catalog.utils :as catutils]
    [puppetlabs.puppetdb.examples.reports :refer [reports]]

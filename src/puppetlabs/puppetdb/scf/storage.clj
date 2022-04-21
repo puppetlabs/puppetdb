@@ -41,7 +41,8 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before? after?]]
+            [puppetlabs.puppetdb.time :as time
+             :refer [ago now to-timestamp from-sql-date before?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]

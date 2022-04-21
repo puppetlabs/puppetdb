@@ -3,7 +3,7 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :as tu :refer [get-request paged-results]]
+            [puppetlabs.puppetdb.testutils :as tu :refer [paged-results]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*

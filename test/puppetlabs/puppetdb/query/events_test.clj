@@ -14,8 +14,7 @@
                      raw-expected-resource-events
                      timestamps->str]]
             [puppetlabs.puppetdb.testutils :refer [dotestseq select-values']]
-            [puppetlabs.puppetdb.time
-             :refer [ago days now to-long to-string to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [now to-timestamp]]))
 
 (def distinct-resource-events (comp set timestamps->str query-resource-events))
 

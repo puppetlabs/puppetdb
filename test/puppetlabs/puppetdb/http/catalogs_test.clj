@@ -4,7 +4,7 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.catalogs :as catalogs]
-            [puppetlabs.puppetdb.testutils :refer [get-request strip-hash]]
+            [puppetlabs.puppetdb.testutils :refer [strip-hash]]
             [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
                                                         query-response
                                                         query-result

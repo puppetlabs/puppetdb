@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.db :as tdb
              :refer [*db* clear-db-for-testing!
-                     schema-info-map diff-schema-maps with-test-db]]
+                     schema-info-map diff-schema-maps]]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning]
             [puppetlabs.puppetdb.scf.migrate-test :refer [apply-migration-for-testing! fast-forward-to-migration!]]
             [clojure.string :as str])

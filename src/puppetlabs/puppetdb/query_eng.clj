@@ -3,7 +3,7 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
-            [murphy :refer [try! with-open!]]
+            [murphy :refer [with-open!]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]

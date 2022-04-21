@@ -11,10 +11,10 @@
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.trapperkeeper.testutils.logging
-             :refer [with-log-output with-test-logging]]
+             :refer [with-test-logging]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals absolute-path]]
+            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]

@@ -7,8 +7,7 @@
    [puppetlabs.puppetdb.test-protocols :refer [called?]]
    [puppetlabs.puppetdb.testutils :as tu]
    [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-   [puppetlabs.puppetdb.testutils.services :as svc-utils
-    :refer [*server* with-pdb-with-no-gc]]
+   [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*server*]]
    [puppetlabs.puppetdb.time :as tc :refer [now parse-wire-datetime]]
    [puppetlabs.trapperkeeper.app :refer [get-service]]))
 

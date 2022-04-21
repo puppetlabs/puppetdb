@@ -2,7 +2,7 @@
   (:require [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.puppetdb.time :refer [now]]
-            [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.core.async :as async]))
 

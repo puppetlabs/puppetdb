@@ -62,12 +62,11 @@
             timestamp-of-newest-record
             update-facts!]]
    [clojure.test :refer :all]
-   [clojure.math.combinatorics :refer [combinations subsets]]
-   [metrics.timers :refer [time! timer]]
+   [clojure.math.combinatorics :refer [subsets]]
    [puppetlabs.puppetdb.jdbc :as jdbc
     :refer [call-with-query-rows query-to-vec]]
    [puppetlabs.puppetdb.time :as time
-    :refer [ago before? days from-now now to-string to-timestamp]])
+    :refer [ago days from-now now to-string to-timestamp]])
   (:import
    (java.sql SQLException)))
 

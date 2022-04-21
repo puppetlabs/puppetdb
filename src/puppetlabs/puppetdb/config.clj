@@ -18,7 +18,7 @@
              :refer [call-unless-shutting-down throw-if-shutdown-pending]]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.trapperkeeper.core :as tk]
-            [puppetlabs.trapperkeeper.services :refer [service-id service-context]])
+            [puppetlabs.trapperkeeper.services :refer [service-context]])
   (:import
    (clojure.lang ExceptionInfo)
    (java.util.regex PatternSyntaxException)

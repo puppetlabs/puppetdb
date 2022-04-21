@@ -3,8 +3,7 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names
                                                            normalize-command-name]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [content-encoding->file-extension
-                     supported-content-encodings]]
+             :refer [content-encoding->file-extension]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.http :as http]

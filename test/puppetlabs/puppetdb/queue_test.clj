@@ -25,7 +25,7 @@
    [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
    [puppetlabs.puppetdb.command.constants :as cconst]
    [puppetlabs.puppetdb.time :as time
-    :refer [now days parse-wire-datetime seconds]]))
+    :refer [now parse-wire-datetime seconds]]))
 
 (defn catalog->command-req [version {:keys [certname name] :as catalog}]
   (create-command-req "replace catalog"

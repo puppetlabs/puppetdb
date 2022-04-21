@@ -6,8 +6,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
-                                                      package-tuple-hash]]))
+            [puppetlabs.puppetdb.package-util :refer [package-tuple]]))
 
 ;; SCHEMA
 

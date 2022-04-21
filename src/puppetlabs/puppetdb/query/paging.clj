@@ -6,14 +6,12 @@
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.string :as string]
-            [puppetlabs.kitchensink.core :as kitchensink :refer [keyset
-                                                                 seq-contains?
-                                                                 order-by-expr?
-                                                                 parse-int]]
+            [puppetlabs.kitchensink.core :as kitchensink
+             :refer [seq-contains? order-by-expr? parse-int]]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs tru]]))
+            [puppetlabs.i18n.core :refer [tru]]))
 
 (def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")

@@ -14,8 +14,9 @@
                      wrap-with-certificate-cn
                      wrap-with-metrics] ]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])
+            [puppetlabs.puppetdb.testutils :refer [temp-file]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [with-log-output logs-matching]])
   (:import
    (java.net HttpURLConnection)))
 

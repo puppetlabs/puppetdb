@@ -12,7 +12,7 @@
                                                         deftest-http-app]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    assert-success!]]
-            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp]])
+            [puppetlabs.puppetdb.time :refer [now to-string]])
   (:import
    (java.net HttpURLConnection)))
 

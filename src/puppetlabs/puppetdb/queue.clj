@@ -7,9 +7,9 @@
            [java.nio.file.attribute FileAttribute]
            [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
   (:require [clojure.set :as set]
-            [clojure.string :as str :refer [re-quote-replacement]]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
@@ -23,7 +23,7 @@
                                                content-encodings->file-extensions
                                                match-any-of utf8-length
                                                utf8-truncate]]
-            [puppetlabs.puppetdb.utils.string-formatter :as formatter :refer [re-quote]]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :as time

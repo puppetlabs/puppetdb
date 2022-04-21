@@ -64,7 +64,7 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.time :as time
-             :refer [now in-millis interval to-timestamp]]
+             :refer [now in-millis interval]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
                      call-unless-shutting-down

@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng.default-reports
   (:require
    [clojure.core.match :as cm]
-   [puppetlabs.i18n.core :refer [tru trs]]
+   [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.puppetdb.query-eng.engine :as eng :refer [user-name->query-rec-name]])
   (:import
     (clojure.lang ExceptionInfo)))

@@ -6,8 +6,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.testutils
-             :refer [assert-success! get-request paged-results dotestseq]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results dotestseq]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
@@ -22,7 +21,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-reports-for-comparison]]
             [puppetlabs.puppetdb.time :as tfmt
-             :refer [ago days now to-date-time to-string]])
+             :refer [ago days now to-date-time]])
   (:import
    (java.net HttpURLConnection)))
 

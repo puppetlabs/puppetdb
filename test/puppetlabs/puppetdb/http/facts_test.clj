@@ -20,8 +20,6 @@
                      call-with-test-dbs
                      clear-db-for-testing!
                      init-db
-                     defaulted-read-db-config
-                     defaulted-write-db-config
                      with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*

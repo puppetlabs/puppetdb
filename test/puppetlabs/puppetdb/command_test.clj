@@ -6,14 +6,12 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants
              :refer [command-names
-                     latest-catalog-version
                      latest-facts-version
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
-            [puppetlabs.trapperkeeper.app :as tkapp
-             :refer [get-service app-context]]
+            [puppetlabs.trapperkeeper.app :as tkapp :refer [get-service]]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -27,8 +25,7 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.testutils.db :as tu :refer [*db* with-test-db]]
             [schema.core :as s]
-            [puppetlabs.trapperkeeper.testutils.logging
-             :refer [atom-logger logs-matching with-log-output]]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :as cmd
              :refer [call-with-quick-retry
@@ -53,7 +50,7 @@
 
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples
-             :refer [catalog-inputs wire-catalog-inputs wire-catalogs]]
+             :refer [wire-catalog-inputs wire-catalogs]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
             [clojure.test :refer :all]

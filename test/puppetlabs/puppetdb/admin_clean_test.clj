@@ -13,10 +13,7 @@
             [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
-            [puppetlabs.puppetdb.testutils.db
-             :refer [*db*
-                     clear-db-for-testing!
-                     with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :refer [clear-db-for-testing!]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
             [puppetlabs.puppetdb.testutils.cli

@@ -14,7 +14,7 @@
                                                     verify-sync-version]]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.http.handlers :as handlers]
-            [puppetlabs.i18n.core :refer [trs tru]]))
+            [puppetlabs.i18n.core :refer [tru]]))
 
 (defn- refuse-retired-api
   [version]

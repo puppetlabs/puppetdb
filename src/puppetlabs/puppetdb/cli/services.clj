@@ -68,8 +68,15 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.time :refer [before? now hours ago to-seconds to-millis parse-period
-                                              format-period period?]]
+            [puppetlabs.puppetdb.time
+             :refer [before?
+                     now
+                     hours
+                     ago
+                     to-seconds
+                     to-millis
+                     format-period
+                     period?]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
                      call-unless-shutting-down
@@ -81,7 +88,7 @@
                      schedule-with-fixed-delay
                      scheduler]]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
-            [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
+            [puppetlabs.trapperkeeper.services :refer [service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
             [clojure.core.async :as async]

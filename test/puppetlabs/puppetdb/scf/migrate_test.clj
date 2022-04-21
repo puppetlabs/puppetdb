@@ -11,8 +11,7 @@
                      record-migration!
                      require-valid-schema]]
             [puppetlabs.puppetdb.scf.storage :as store]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils
-             :refer [db-serialize]]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :as utils]
             [cheshire.core :as json]
             [clojure.test :refer :all]
@@ -21,7 +20,7 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [now to-timestamp]]
             [puppetlabs.puppetdb.scf.partitioning :as part]
             [clojure.string :as str])
   (:import (java.time ZoneId ZonedDateTime)
