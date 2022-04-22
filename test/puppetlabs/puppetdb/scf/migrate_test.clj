@@ -169,12 +169,10 @@
                  [{:hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
                   {:hash "0000" :environment "testing1" :certname "testing2" :status "testing1" :uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"}])))
 
-        (let [[id1 id2] (map :id
-                              (query-to-vec "SELECT id from reports order by certname"))]
-
-          (let [latest-ids (map :latest_report_id
-                                (query-to-vec "select latest_report_id from certnames order by certname"))]
-            (is (= [id1 id2] latest-ids))))))))
+        (let [[id1 id2] (map :id (query-to-vec "SELECT id from reports order by certname"))]
+          (is (= [id1 id2]
+                 (map :latest_report_id
+                      (query-to-vec "select latest_report_id from certnames order by certname")))))))))
 
 (deftest migration-37
   (testing "should contain same reports before and after migration"
@@ -252,12 +250,10 @@
                  (map (comp #(update % :metrics sutils/parse-db-json)
                             #(update % :logs sutils/parse-db-json)) response))))
 
-        (let [[id1 id2] (map :id
-                              (query-to-vec "SELECT id from reports order by certname"))]
-
-          (let [latest-ids (map :latest_report_id
-                                (query-to-vec "select latest_report_id from certnames order by certname"))]
-            (is (= [id1 id2] latest-ids))))))))
+        (let [[id1 id2] (map :id (query-to-vec "SELECT id from reports order by certname"))]
+          (is (= [id1 id2]
+                 (map :latest_report_id
+                      (query-to-vec "select latest_report_id from certnames order by certname")))))))))
 
 (deftest migration-29-producer-timestamp-not-null
   (jdbc/with-db-connection *db*

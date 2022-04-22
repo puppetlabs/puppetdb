@@ -1481,25 +1481,25 @@
                                                (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
                                                                        (sutils/munge-hash-for-storage))))
                            ;; group by the hash, and choose the oldest (aka first) of any duplicates.
-                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
-                       (let [last-record (atom nil)
-                             set-last-record! #(reset! last-record %)]
-                         (try
-                           (->> resource_events
-                                (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                                (map adjust-event)
-                                (map add-event-hash)
-                                ;; ON CONFLICT does *not* work properly in partitions, see:
-                                ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-                                ;; section 5.10.6
-                                remove-dupes
-                                (filter-expired-resources resource-events-ttl)
-                                (map set-last-record!)
-                                insert!
-                                dorun)
-                           (catch SQLException ex
-                             (let [{:keys [file line]} @last-record]
-                               (handle-resource-insert-sqlexception ex certname file line)))))))
+                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))
+                           last-record (atom nil)
+                           set-last-record! #(reset! last-record %)]
+                       (try
+                         (->> resource_events
+                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                              (map adjust-event)
+                              (map add-event-hash)
+                              ;; ON CONFLICT does *not* work properly in partitions, see:
+                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+                              ;; section 5.10.6
+                              remove-dupes
+                              (filter-expired-resources resource-events-ttl)
+                              (map set-last-record!)
+                              insert!
+                              dorun)
+                         (catch SQLException ex
+                           (let [{:keys [file line]} @last-record]
+                             (handle-resource-insert-sqlexception ex certname file line))))))
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
@@ -1589,22 +1589,22 @@
 
 (defn call-with-lock-timeout [f timeout-ms]
   (let [set-timeout #(->> (format "set local lock_timeout = %d" %)
-                          (sql/execute! jdbc/*db*))]
-    ;; FIXME: possibly too crude...
-    (let [orig (-> "select setting from pg_settings where name = 'lock_timeout'"
-                   query-to-vec first :setting Long/parseLong)]
-      (set-timeout timeout-ms)
-      (let [result (f)]
-        ;; FIXME: For now we assume that when there's an exception,
-        ;; the transaction's about to end, and that'll restore the
-        ;; original value.  We don't use finally because we noticed
-        ;; some trouble there, presumably during an exception that had
-        ;; made restore operation invalid, and we didn't have time to
-        ;; investigate.  Depending on what the issue was, we might be
-        ;; able to put the set-timeout in a murphy finally block
-        ;; (i.e. to chain the two exceptions).
-        (set-timeout orig)
-        result))))
+                          (sql/execute! jdbc/*db*))
+        ;; FIXME: possibly too crude...
+        orig (-> "select setting from pg_settings where name = 'lock_timeout'"
+                 query-to-vec first :setting Long/parseLong)]
+    (set-timeout timeout-ms)
+    (let [result (f)]
+      ;; FIXME: For now we assume that when there's an exception,
+      ;; the transaction's about to end, and that'll restore the
+      ;; original value.  We don't use finally because we noticed
+      ;; some trouble there, presumably during an exception that had
+      ;; made restore operation invalid, and we didn't have time to
+      ;; investigate.  Depending on what the issue was, we might be
+      ;; able to put the set-timeout in a murphy finally block
+      ;; (i.e. to chain the two exceptions).
+      (set-timeout orig)
+      result)))
 
 (defn prune-daily-partitions
   "Deletes obsolete day-oriented partitions older than the date.

@@ -74,14 +74,14 @@
   [dir from-classpath?]
   (let [target-files (if from-classpath?
                        (->> dir io/resource io/file file-seq (remove #(.isDirectory %)))
-                       (-> dir (fs/file "*.json") fs/glob))]
-    (let [data (->> target-files
-                    (map try-load-file)
-                    (filterv (complement nil?)))]
-      (if (seq data)
-        data
-        (println-err
-         (trs "Supplied directory {0} contains no usable data!" dir))))))
+                       (-> dir (fs/file "*.json") fs/glob))
+        data (->> target-files
+                  (map try-load-file)
+                  (filterv (complement nil?)))]
+    (if (seq data)
+      data
+      (println-err
+       (trs "Supplied directory {0} contains no usable data!" dir)))))
 
 (def producers (vec (repeatedly 4 #(random-string 10))))
 

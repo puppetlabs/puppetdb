@@ -393,12 +393,12 @@
                                                  (coerce-from-json remaining-query)
                                                  entity version query-options
                                                  munge-fn
-                                                 stream-ctx)]
-        (let [{:keys [count error]} @status]
-          (when error
-            (throw error))
-          (cond-> (http/json-response* stream)
-            count (http/add-headers {:count count}))))
+                                                 stream-ctx)
+            {:keys [count error]} @status]
+        (when error
+          (throw error))
+        (cond-> (http/json-response* stream)
+          count (http/add-headers {:count count})))
       (catch JsonParseException ex
         (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))
         (http/error-response ex))

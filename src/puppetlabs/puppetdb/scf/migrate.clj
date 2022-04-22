@@ -2199,12 +2199,12 @@
                     (map (fn [[version migration]]
                            (log/info (trs "Applying database migration version {0}"
                                           version))
-                           (let [t0 (now)]
-                             (let [result (migration)]
-                               (record-migration! version)
-                               (log/info (trs "Applied database migration version {0} in {1} ms"
-                                              version (in-millis (interval t0 (now)))))
-                               result))))
+                           (let [t0 (now)
+                                 result (migration)]
+                             (record-migration! version)
+                             (log/info (trs "Applied database migration version {0} in {1} ms"
+                                            version (in-millis (interval t0 (now)))))
+                             result)))
                     (filter map?)
                     (map ::vacuum-analyze)
                     (apply set/union))]

@@ -426,12 +426,12 @@
   "Syncronously post a command to PDB by blocking until the message is consumed
    off the queue."
   [base-url certname cmd version payload]
-  (let [timeout-seconds 20]
-    (let [response (pdb-client/submit-command-via-http!
-                     base-url certname cmd version payload timeout-seconds)]
-      (if (>= (:status response) 400)
-        (throw (ex-info "Command processing failed" {:response response}))
-        response))))
+  (let [timeout-seconds 20
+        response (pdb-client/submit-command-via-http!
+                  base-url certname cmd version payload timeout-seconds)]
+    (if (>= (:status response) 400)
+      (throw (ex-info "Command processing failed" {:response response}))
+      response)))
 
 (defn wait-for-server-processing
   "Returns a truthy value indicating whether the wait was
