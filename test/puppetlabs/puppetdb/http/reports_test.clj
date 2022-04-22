@@ -259,7 +259,7 @@
 
     (testing "should support pretty printing in reports"
       (let [results (query-result method endpoint nil {:pretty true})]
-        (is (not (empty? results)))))))
+        (is (seq results))))))
 
 (deftest-http-app query-with-paging
   [[_version endpoint] endpoints

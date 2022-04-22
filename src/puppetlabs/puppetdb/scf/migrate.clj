@@ -2336,14 +2336,14 @@
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
-  true if and only if any migrations were run.  Assumes the database status,
-  version, etc. has already been validated."
+  true if and only if migrations were run.  Assumes the database
+  status, version, etc. have already been validated."
   ([] (initialize-schema nil nil))
   ([non-migrator-name db-name]
    (try
      (let [tables (update-schema non-migrator-name db-name)]
        (analyze-tables tables)
-       (not (empty? tables)))
+       (some? (seq tables)))
      (catch java.sql.SQLException e
        (log/error e (trs "Caught SQLException during migration"))
        (loop [ex (.getNextException e)]

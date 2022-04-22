@@ -166,7 +166,7 @@ to the result of the form supplied to this method."
       (let [results (json/parse-string
                     (slurp (:body (query-response method endpoint nil
                                                   {:explain "analyze"}))))]
-        (is (not (empty? results)))
+        (is (seq results))
         (is (= true (contains? (first results) "query plan"))))))
 
 (deftest-http-app environments-resource-endpoint

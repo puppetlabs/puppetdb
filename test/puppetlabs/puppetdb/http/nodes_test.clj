@@ -456,7 +456,7 @@
   (testing "should support pretty printing in reports"
     (let [results (slurp (:body (query-response method endpoint nil {:pretty true})))
           normal-results (slurp (:body (query-response method endpoint nil {:pretty false})))]
-      (is (not (empty? (json/parse-string results))))
+      (is (seq (json/parse-string results)))
       (is (> (count (clojure.string/split-lines results))
              (count (clojure.string/split-lines normal-results)))))))
 
@@ -465,7 +465,7 @@
    method [:get :post]]
     (testing "should support explain when quering in reports"
       (let [results (slurp (:body (query-response method endpoint nil {:explain "analyze"})))]
-        (is (not (empty? (json/parse-string results))))
+        (is (seq (json/parse-string results)))
         (is (= true (contains? (first (json/parse-string results)) "query plan"))))))
 
 (deftest-http-app aggregate-functions-on-nodes

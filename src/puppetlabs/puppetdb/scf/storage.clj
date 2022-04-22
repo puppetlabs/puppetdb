@@ -231,11 +231,12 @@
 ;;; Certname querying/deleting
 
 (defn certname-exists?
-  "Returns a boolean indicating whether or not the given certname exists in the db"
+  "Returns a boolean indicating whether or not the given
+  certname exists in the db"
   [certname]
   {:pre [certname]}
-  (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
-                            certname]))))
+  (some? (seq (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
+                           certname]))))
 
 (pls/defn-validated add-certname!
   "Add the given host to the db"
