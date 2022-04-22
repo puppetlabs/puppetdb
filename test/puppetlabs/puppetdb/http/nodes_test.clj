@@ -419,17 +419,15 @@
       [web1]))
 
   (testing "subqueries: invalid"
-    (doseq [[query msg] {
-                         ;; Ensure the v2 version of sourcefile/sourceline returns
-                         ;; a proper error.
-                         ["in" "certname"
-                          ["extract" "certname"
-                           ["select_resources"
-                            ["and"
-                             ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
-                             ["=" "sourceline" 1]]]]]
-
-                         (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
+    ;; Ensure the v2 version of sourcefile/sourceline returns
+    ;; a proper error.
+    (let [query ["in" "certname"
+                 ["extract" "certname"
+                  ["select_resources"
+                   ["and"
+                    ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
+                    ["=" "sourceline" 1]]]]]
+          msg #"'sourcefile' is not a queryable object"]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [{:keys [status body headers]} (query-response method endpoint query)]
           (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
