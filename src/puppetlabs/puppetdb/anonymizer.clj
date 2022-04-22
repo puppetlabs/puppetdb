@@ -131,8 +131,9 @@
    (float? value) (rand (max value 1))
    (boolean? value) (random-bool)
    (map? value) (zipmap (map #(random-string (max 10 (count (name %)))) (keys value))
-                        (vals (utils/update-vals value (keys value)
-                                                 anonymize-leaf-value)))
+                        (vals (reduce-kv (fn [m k v] (assoc m k (anonymize-leaf-value v)))
+                                         {}
+                                         value)))
    (nil? value) nil
    :else (random-string 30)))
 

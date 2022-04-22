@@ -152,13 +152,6 @@
   (and (>= 0 (compare \0 c))
        (>= 0 (compare c \9))))
 
-(defn update-vals
-  "This function is like update-in, except the vector argument contains top-level
-  keys rather than nested.  Applies function f to values corresponding to keys
-  ks in map m."
-  [m ks f]
-  (reduce #(update-in %1 [%2] f) m ks))
-
 (def ^{:doc "Acts as update-in if ks refers to a value, otherwise returns m."
        :arglists '([m ks f & args])}
   update-when
