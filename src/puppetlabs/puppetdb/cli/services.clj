@@ -87,6 +87,7 @@
                      request-scheduler-shutdown
                      schedule-with-fixed-delay
                      scheduler]]
+            [puppetlabs.trapperkeeper.config]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [robert.hooke :as rh]

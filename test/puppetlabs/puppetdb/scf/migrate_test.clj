@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
-  (:require [clojure.set :as set]
+  (:require [clojure.pprint]
+            [clojure.set :as set]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.migrate :as migrate
              :refer [applied-migrations

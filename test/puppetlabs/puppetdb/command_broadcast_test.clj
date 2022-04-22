@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.command-broadcast-test
   (:require
+   [clojure.java.io]
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.integration.fixtures :as int]
    [puppetlabs.puppetdb.jdbc :as jdbc]

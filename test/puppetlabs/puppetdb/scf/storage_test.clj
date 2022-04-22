@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.storage-test
   (:require
    [clojure.java.jdbc :as sql]
+   [metrics.timers]
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.reports :as report]
    [puppetlabs.puppetdb.scf.hash :as shash]

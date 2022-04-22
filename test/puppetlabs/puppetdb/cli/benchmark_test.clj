@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.cli.benchmark-test
-  (:require [clojure.string :as str]
+  (:require [clojure.pprint]
+            [clojure.string :as str]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.cli.benchmark :as benchmark]

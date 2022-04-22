@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.query.events-test
-  (:require [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [clojure.set]
             [clojure.test :refer :all]
+            [puppetlabs.puppetdb.query :as query]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map
