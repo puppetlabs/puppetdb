@@ -20,6 +20,7 @@
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [puppetlabs.puppetdb.queue :as queue])
   (:import
+   (clojure.lang ExceptionInfo)
    (java.net HttpURLConnection)
    (java.util.concurrent Semaphore)))
 
@@ -459,3 +460,10 @@
                                               (mapv #(assoc % :timestamp timestamp)
                                                     events))))))
                  resources))))))
+
+(defmacro with-caught-ex-info
+  [& body]
+  `(try
+     ~@body
+     (catch ExceptionInfo ex#
+       ex#)))

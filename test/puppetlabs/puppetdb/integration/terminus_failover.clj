@@ -1,8 +1,9 @@
 (ns puppetlabs.puppetdb.integration.terminus-failover
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.trapperkeeper.app :as tk-app]
-            [slingshot.test]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.integration.fixtures :as int]
+   [puppetlabs.puppetdb.testutils :refer [with-caught-ex-info]]
+   [puppetlabs.trapperkeeper.app :as tk-app]))
 
 (deftest ^:integration db-fallback
   (with-open [pg1 (int/setup-postgres)
@@ -34,10 +35,12 @@
     (tk-app/stop (-> pdb int/server-info :app))
 
     (testing "Agent run should fail for manifest which collects resources"
-      (is (thrown+? (and (= (:kind %) ::int/bundle-exec-failure)
-                         (re-find #"Could not retrieve resources from the PuppetDB"
-                                  (get-in % [:result :err])))
-            (int/run-puppet ps pdb "Notify <<| |>>"))))
+      (let [ex (with-caught-ex-info
+                 (int/run-puppet ps pdb "Notify <<| |>>"))
+            data (ex-data ex)]
+        (is (= ::int/bundle-exec-failure (:kind data)))
+        (is (re-find #"Could not retrieve resources from the PuppetDB"
+                     (get-in data [:result :err])))))
 
     (testing "Agent run should succeed for manifest which exports resources"
       (int/run-puppet ps pdb "@@notify { 'exported notify': }"))))

@@ -55,7 +55,6 @@
              :refer [*server* with-pdb-with-no-gc]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.test]
             [puppetlabs.puppetdb.utils.string-formatter :refer [dash->underscore-keys]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-ref-state
