@@ -2737,10 +2737,10 @@
   [expr]
   (let [message (vec (filter seq (for [clause expr]
                                    (let [operator (first clause)]
-                                     (if (vector? clause)
+                                     (when (vector? clause)
                                        (if (contains? #{"or" "and"} operator)
                                          (validate-extract-filters clause)
-                                         (if (not (valid-operator? operator))
+                                         (when-not (valid-operator? operator)
                                            (tru "{0} is not a valid expression for \"extract\"" (pr-str clause)))))))))]
     (if (empty? message)
       nil

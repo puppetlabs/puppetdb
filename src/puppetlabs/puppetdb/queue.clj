@@ -138,7 +138,7 @@
      (let [certname (or certname "unknown-host")
            received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
-           extension (str "json" (if (not-empty compression)
+           extension (str "json" (when (not-empty compression)
                                    (str "." compression)))
            cert->meta #(format "%s_%s_%d_%s.%s"
                                received+producer-time short-command version %

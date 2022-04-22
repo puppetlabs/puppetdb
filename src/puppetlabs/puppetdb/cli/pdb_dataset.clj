@@ -31,7 +31,7 @@
   [time-string]
 
   (let [parsed-time (to-timestamp time-string)]
-    (if-not parsed-time
+    (when-not parsed-time
       (utils/throw-sink-cli-error "Error: time shift date must be in UTC format!"))
     parsed-time))
 
@@ -59,8 +59,7 @@
   [args]
   (let [pdbbox-path (System/getenv "PDBBOX")
         ini-file (str pdbbox-path "/conf.d/pdb.ini")]
-    (if (or (nil? pdbbox-path)
-            (empty? pdbbox-path))
+    (when (empty? pdbbox-path)
       (utils/throw-sink-cli-error "Error: PDBBOX env variable not set!"))
     (assoc args :config (:database (kitchensink/ini-to-map ini-file)))))
 
@@ -128,14 +127,14 @@
   (let [dumpfile_path (:dumpfile args)]
     (println-err "Restoring database from backup")
     (shell/sh "pg_restore" "--role=postgres" "-U" "puppetdb" "--no-owner" "--no-acl" "-d" "puppetdb" dumpfile_path)
-    (if (database-empty?)
+    (when (database-empty?)
       (utils/throw-sink-cli-error "Error: Restore failed!"))
     args))
 
 (defn ensure-database-empty
   [_]
-  (if (not (database-empty?))
-      (utils/throw-sink-cli-error "Error: puppetdb database already exists and it isn't empty!")))
+  (when-not (database-empty?)
+    (utils/throw-sink-cli-error "Error: puppetdb database already exists and it isn't empty!")))
 
 (defn update-simple-tables
   [table time-diff]
