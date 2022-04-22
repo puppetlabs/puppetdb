@@ -72,8 +72,8 @@
     (when out-ex
       (try
         (binding [*out* *err*]
-          (println "stdout flush on exit failed: " out-ex)
-          (catch Exception _ nil)))))
+          (println "stdout flush on exit failed: " out-ex))
+        (catch Exception _ nil))))
   (try
     (binding [*out* *err*] (flush))
     (catch Exception _ nil))
