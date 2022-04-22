@@ -202,7 +202,7 @@
 
 
 ;; Alias (apply io/writer ...) to avoid reflection
-(defn ^Writer writer [f options]
+(defn writer ^Writer [f options]
   (apply io/writer f options))
 
 (defn spit-json
