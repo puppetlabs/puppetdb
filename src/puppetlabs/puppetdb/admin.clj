@@ -64,10 +64,9 @@
       (http/bad-request-response (i18n/tru "Invalid command {0}: {1}"
                                            (pr-str body)
                                            (pr-str (:error invalid-info))))
-      (do
-        (let [certname (-> cmd :payload :certname)]
-          (delete-node certname)
-          (http/json-response {:deleted certname}))))))
+      (let [certname (-> cmd :payload :certname)]
+        (delete-node certname)
+        (http/json-response {:deleted certname})))))
 
 (defn- handle-cmd-req [req clean delete-node]
   (let [body (slurp (:body req))

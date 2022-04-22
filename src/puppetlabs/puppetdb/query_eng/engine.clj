@@ -2074,10 +2074,9 @@
                   (when-not (or columns (and local-columns foreign-columns))
                     (throw (IllegalArgumentException.
                              (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
-                  (do
-                    ["in" (or local-columns columns)
-                     ["extract" (or foreign-columns columns)
-                      [(str "select_" sub-entity) expr]]]))
+                  ["in" (or local-columns columns)
+                   ["extract" (or foreign-columns columns)
+                    [(str "select_" sub-entity) expr]]])
                 (throw (IllegalArgumentException. (tru "No implicit relationship for entity ''{0}''" sub-entity)))))
 
             [["=" "latest_report?" value]]
@@ -3197,14 +3196,13 @@
                    ;; If we wanted to generalize this to apply to the
                    ;; plan recursively, i.e. subqueries, could
                    ;; convert-to-plan be relevant?
-                   (do
-                     (->> (:projected-fields plan)
-                          ;; Is this not supposed to be a map already?
-                          ;; i.e. wondering if we might have a
-                          ;; conversion bug elsewhere...
-                          (into {})
-                          (remove (comp :unprojectable? val))
-                          keys)))
+                   (->> (:projected-fields plan)
+                        ;; Is this not supposed to be a map already?
+                        ;; i.e. wondering if we might have a
+                        ;; conversion bug elsewhere...
+                        (into {})
+                        (remove (comp :unprojectable? val))
+                        keys))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
         basename #(-> % parse/parse-field first :name)
         required-joins (map #(get-in proj-info [% :join-deps])

@@ -35,17 +35,16 @@
      :values (into {} facts)}))
 
 (defn submit-facts-for-prefix [pdb-hostname prefix {:keys [num-generations num-nodes] :as opts}]
-  (do
-    (doseq [generation-num (range num-generations)]
-      (binding [*out* *err*]
-        (println "Submitting facts with prefix" prefix "for generation" generation-num "..."))
-      (doseq [certname (map (partial str "group-" prefix "-host-")
-                            (range num-nodes))]
-        (let [facts (gen-facts certname generation-num opts)]
-          (client/submit-facts (utils/pdb-cmd-base-url pdb-hostname 8080 :v1)
-                               certname
-                               5
-                               facts))))))
+  (doseq [generation-num (range num-generations)]
+    (binding [*out* *err*]
+      (println "Submitting facts with prefix" prefix "for generation" generation-num "..."))
+    (doseq [certname (map (partial str "group-" prefix "-host-")
+                          (range num-nodes))]
+      (let [facts (gen-facts certname generation-num opts)]
+        (client/submit-facts (utils/pdb-cmd-base-url pdb-hostname 8080 :v1)
+                             certname
+                             5
+                             facts)))))
 
 (defn parallel-submit-facts [pdb-hostname {:keys [num-threads _num-nodes] :as opts}]
   (let [opts-for-thread (update opts :num-nodes #(Math/floor (/ % num-threads)))
