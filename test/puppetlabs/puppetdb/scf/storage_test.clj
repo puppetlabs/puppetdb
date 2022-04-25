@@ -185,27 +185,6 @@
                    :producer producer})
       (is (= facts (factset-map "some_certname"))))))
 
-(comment
-  (def certname "some_certname")
-  (def facts {"domain" "mydomain.com"
-              "fqdn" "myhost.mydomain.com"
-              "hostname" "myhost"
-              "kernel" "Linux"
-              "operatingsystem" "Debian"})
-
-  (def new-facts {"domain" "mynewdomain.com"
-                  "fqdn" "myhost.mynewdomain.com"
-                  "hostname" "myhost"
-                  "kernel" "Linux"
-                  "uptime_seconds" 3600})
-
-  (def producer "bar.com")
-
-  (alter-var-root #'*db*
-                  (constantly jdbc/*db*))
-
-  )
-
 (defn delete-certname-facts!
   [certname]
   (jdbc/do-prepared "delete from factsets where certname = ?" [certname]))
