@@ -20,7 +20,7 @@
 ;; cleanly accessible from here.  Perhaps we can revisit this once we've
 ;; refactored and cleaned up the configuration stuff a bit.
 
-(defn show-version []
+(defn show-version [_args]
   (doseq [[key val] {"version" (version)
                      "target_schema_version" (desired-schema-version)}]
     (println (format "%s=%s" key val))))
@@ -29,7 +29,7 @@
   "Runs the version command as directed by the command line args and
   returns an appropriate exit status.."
   [args]
-  (run-cli-cmd #(do (show-version) 0)))
+  (run-cli-cmd #(do (show-version args) 0)))
 
 (defn -main [& args]
   (exit (cli args)))
