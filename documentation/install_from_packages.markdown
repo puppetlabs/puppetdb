@@ -82,8 +82,7 @@ Use Puppet to install PuppetDB:
 
 ## Step 4: Configure database
 
-- [Set up a PostgreSQL server and configure PuppetDB to use
-- it][configure_postgres].
+- [Set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres].
   If your PostgreSQL node is on a separate server than PuppetDB, you should
   [configure an SSL connection][postgres_ssl], otherwise your database
   communication will happen in plaintext over the network. This can be made
