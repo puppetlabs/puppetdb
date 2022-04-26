@@ -26,6 +26,7 @@ describe Puppet::Util::Puppetdb::Http do
   before :each do
       Puppet::Util::Puppetdb.stubs(:config).returns config
       described_class.reset_query_failover()
+      described_class.class_variable_set(:@@submit_only_url_timeouts, {})
   end
 
   let(:config) do
@@ -167,7 +168,7 @@ describe Puppet::Util::Puppetdb::Http do
          response.reason.should == 'OK'
        end
 
-       it "doesn't sends queries to hosts in submit_only_server_urls" do
+       it "doesn't send queries to hosts in submit_only_server_urls" do
          Puppet::HTTP::Client.expects(:new).returns(http1)
 
          http1.expects(:get).with do |uri, opts|
@@ -385,6 +386,83 @@ describe Puppet::Util::Puppetdb::Http do
 
           response.code.should == 200
           response.reason.should == 'OK'
+        end
+
+        context "tracking timeouts for `submit_only` urls" do
+          it "tracks timeouts for `submit_only` urls" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::HTTP::Client.expects(:new).returns(http1)
+
+            http1.expects(:post).with do |uri, opts|
+              "/foo/baz" == uri.path
+            end.times(3).returns responseok
+            http1.expects(:post).with do |uri, opts|
+              "/bar/baz" == uri.path
+            end.times(3).returns responseok
+            http1.expects(:post).with.with do |uri, opts|
+              "/qux/baz" == uri.path
+            end.twice.raises Timeout::Error
+
+            # First request with timing out submit_only URL
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            expect(described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url]).to be(true)
+            # Url has not been removed yet, even though it has timed out once
+            expect(config.submit_only_server_urls).to eq([submit_only_url])
+
+            response.code.should == 200
+            response.reason.should == 'OK'
+
+            # Second request with timing out submit_only URL
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            expect(described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url]).to be(false)
+            # Timed out twice, so now the URL is removed so we don't keep trying it
+            expect(config.submit_only_server_urls).to eq([])
+
+            response.code.should == 200
+            response.reason.should == 'OK'
+
+            # Third request with `submit_only` url removed
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            response.code.should == 200
+            response.reason.should == 'OK'
+          end
+
+          it "does not track timeouts for non-submit_only urls" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::HTTP::Client.expects(:new).returns(http1)
+
+            http1.expects(:post).with do |uri, opts|
+              "/foo/baz" == uri.path
+            end.returns responseok
+            http1.expects(:post).with do |uri, opts|
+              "/bar/baz" == uri.path
+            end.raises Timeout::Error
+            http1.expects(:post).with.with do |uri, opts|
+              "/qux/baz" == uri.path
+            end.returns responseok
+
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            expect(described_class.class_variable_get(:@@submit_only_url_timeouts).empty?).to be(true)
+
+            response.code.should == 200
+            response.reason.should == 'OK'
+          end
         end
       end
 

@@ -12,6 +12,8 @@ module Puppet::Util::Puppetdb
 
     @@last_good_query_server_url_index = Atom.new(0)
 
+    @@submit_only_url_timeouts = {}
+
     # Concat two server_url snippets, taking into account a trailing/leading slash to
     # ensure a correct server_url is constructed
     #
@@ -41,6 +43,7 @@ module Puppet::Util::Puppetdb
       rescue Timeout::Error => e
         Puppet.warning("Request to #{server_url.host} on #{server_url.port} at route #{route} timed out " \
           "after #{config.server_url_timeout} seconds. #{SERVER_URL_FAIL_MSG}")
+        check_for_repeated_timeout(config, server_url)
         return e
 
       rescue Puppet::HTTP::HTTPError, Puppet::SSL::SSLError => e
@@ -79,6 +82,26 @@ module Puppet::Util::Puppetdb
       end
 
       nil
+    end
+
+    # Check if we have previously seen a timeout for this URL.
+    # If so, remove it from the list of URLs to broadcast to.
+    # Note we only remove `submit_only` URLs (used for extensions
+    # like HDP). If a URL succeeds after timing out once, its state
+    # is set back to "good" elsewhere, so we only remove the URL if
+    # it has timed out twice in a row (which likely indicates a host
+    # that is down, rather than a transient).
+    def self.check_for_repeated_timeout(config, server_url)
+      if config.submit_only_server_urls.include?(server_url)
+        if @@submit_only_url_timeouts[server_url]
+          # This timed out the last time we tried it too,
+          # so remove it so we don't keep timing out
+          config.submit_only_server_urls.delete(server_url)
+          @@submit_only_url_timeouts[server_url] = false
+        else
+          @@submit_only_url_timeouts[server_url] = true
+        end
+      end
     end
 
     # Check an http reponse from puppetdb; log a useful message if it looks like
@@ -138,7 +161,14 @@ module Puppet::Util::Puppetdb
 
           response = Timeout.timeout(config.server_url_timeout) do
             begin
-              http_callback.call(http, URI(route), ssl_context)
+              response = http_callback.call(http, URI(route), ssl_context)
+
+              if config.submit_only_server_urls.include?(server_url)
+                # Clear any previously registered timeout for this URL
+                @@submit_only_url_timeouts[server_url] = false
+              end
+
+              response
             rescue Puppet::HTTP::ResponseError => e
               e.response
             end
