@@ -77,11 +77,11 @@
 
       (testing "shouldn't log HTTP errors hitting update server at INFO"
         (with-log-output logz
-          (let [response (-> (get-request (str endpoint "/version/latest"))
-                             (with-meta-app
-                               {:update-server "http://known.invalid.domain"}
-                               {:scf-read-db *db*}))
-                log-levels-emitted (set (map second @logz))]
+          (-> (get-request (str endpoint "/version/latest"))
+              (with-meta-app
+                {:update-server "http://known.invalid.domain"}
+                {:scf-read-db *db*}))
+          (let [log-levels-emitted (set (map second @logz))]
             (is (nil? (log-levels-emitted :info)))))))))
 
 (deftest update-server-http-errors-not-logged-as-info
@@ -89,11 +89,11 @@
     (testing "doesn't log update server HTTP errors at INFO"
       (with-test-db
         (with-log-output logz
-          (let [response (-> (get-request (str endpoint "/version/latest"))
-                             (with-meta-app
-                               {:update-server "http://known.invalid.domain"}
-                               {:scf-read-db *db*}))
-                log-levels-emitted (set (map second @logz))]
+          (-> (get-request (str endpoint "/version/latest"))
+              (with-meta-app
+                {:update-server "http://known.invalid.domain"}
+                {:scf-read-db *db*}))
+          (let [log-levels-emitted (set (map second @logz))]
             (is (nil? (log-levels-emitted :info)))))))))
 
 (deftest server-time-response
