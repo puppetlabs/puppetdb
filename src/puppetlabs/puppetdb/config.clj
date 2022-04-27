@@ -486,14 +486,15 @@
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
-  [{:keys [puppetdb] :as config :or {puppetdb {}}}]
-  (-> config
+  [config]
+  (-> (merge {:puppetdb {}} config)
       convert-certificate-whitelist-to-allowlist
       (configure-section :puppetdb puppetdb-config-in puppetdb-config-out)))
 
 (defn configure-developer
-  [{:keys [developer] :as config :or {developer {}}}]
-  (configure-section config :developer developer-config-in developer-config-out))
+  [config]
+  (configure-section (merge {:developer {}} config)
+                     :developer developer-config-in developer-config-out))
 
 (def retired-cmd-proc-keys
   [:store-usage :max-frame-size :temp-usage :memory-usage])
