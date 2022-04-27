@@ -2156,12 +2156,10 @@
   (is (= [] (query-to-vec "select * from catalog_inputs")))
   (let [stamp-1 (to-timestamp (now))
         stamp-2 (to-timestamp (time/plus (now) (time/seconds 1)))
-        id (-> "select id from certnames where certname = 'foo'"
-               query-to-vec first :id)]
-    (add-certname! "foo")
+        id (-> (add-certname! "foo") first :id)]
     (replace-catalog! (assoc catalog :producer_timestamp stamp-1 :certname "foo"))
     (is (= [] (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp nil :catalog_inputs_uuid nil}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp nil :catalog_inputs_uuid nil}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
 
     (replace-catalog-inputs! "foo"
@@ -2170,7 +2168,7 @@
                              stamp-1)
     (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::globals::version"}]
            (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-1 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp stamp-1 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
 
     ;; Changes for newer time, removes old inputs, supports multiple inputs
@@ -2182,7 +2180,7 @@
     (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}
             {:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}]
            (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
 
     ;; No effect if time is <=
@@ -2193,7 +2191,7 @@
     (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}
             {:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}]
            (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))))
 
 (defn get-lock-timeout []
