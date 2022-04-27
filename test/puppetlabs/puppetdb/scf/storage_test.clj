@@ -482,25 +482,20 @@
                     #{}))
 
         (testing "multiple types for path and all types change"
-          (let [expected #{{:path "a" :value_type_id (type-id :int)}
-                           {:path "a" :value_type_id (type-id :obj)}
-                           {:path "a#~0" :value_type_id (type-id :int)}
-                           {:path "a#~foo" :value_type_id (type-id :str)}
-                           {:path "a" :value_type_id (type-id :str)}}]
-            (check-gc [["c-x" {"a" 1}]
-                       ["c-y" {"a" [0]}]
-                       ["c-x" {"a" {"foo" "bar"}}]
-                       ["c-y" {"a" "two"}]]
-                      #{{:path "a" :value_type_id (type-id :int)}
-                        {:path "a" :value_type_id (type-id :obj)}
-                        {:path "a#~0" :value_type_id (type-id :int)}
-                        {:path "a#~foo" :value_type_id (type-id :str)}
-                        {:path "a" :value_type_id (type-id :str)}}
-                      ;; Q: Why didn't "a" :int stick around?
-                      #{{:path "a" :value_type_id (type-id :int)}
-                        {:path "a" :value_type_id (type-id :obj)}
-                        {:path "a#~foo" :value_type_id (type-id :str)}
-                        {:path "a" :value_type_id (type-id :str)}})))
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"a" [0]}]
+                     ["c-x" {"a" {"foo" "bar"}}]
+                     ["c-y" {"a" "two"}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~0" :value_type_id (type-id :int)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}
+                      {:path "a" :value_type_id (type-id :str)}}
+                    ;; Q: Why didn't "a" :int stick around?
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}
+                      {:path "a" :value_type_id (type-id :str)}}))
 
         (testing "everything to nothing"
           (check-gc [["c-x" {"a" 1}]
