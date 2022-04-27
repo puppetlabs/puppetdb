@@ -296,14 +296,16 @@
 (pls/defn-validated post-ssl
   "Executes a mutually authenticated POST HTTP request against
   `url-str`. Uses the above `post` function"
-  [url-str :- String
-   body
-   & [opts]]
-  (post url-str
-        body
-        {:ssl-ca-cert default-ca-cert
-         :ssl-cert default-cert
-         :ssl-key  default-ssl-key}))
+  ([url-str body] (post-ssl url-str body nil))
+  ([url-str :- String
+    body
+    opts]
+   (post url-str
+         body
+         (merge {:ssl-ca-cert default-ca-cert
+                 :ssl-cert default-cert
+                 :ssl-key  default-ssl-key}
+                opts))))
 
 (pls/defn-validated post-ssl-or-throw
   "Same as `post-ssl` except will throw if an error status is returned."
