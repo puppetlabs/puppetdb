@@ -181,18 +181,15 @@
   returned, with an explanation of the invalid parameters."
   [app param-specs :- params-schema]
   (fn [{:keys [params] :as req}]
-    (kitchensink/cond-let [p]
-                          (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (tru "Missing required query parameter ''{0}''" p))
-
-                          (let [diff (set/difference (kitchensink/keyset params)
-                                                     (set (:required param-specs))
-                                                     (set (:optional param-specs)))]
-                            (seq diff))
-                          (http/error-response (tru "Unsupported query parameter ''{0}''" (first p)))
-
-                          :else
-                          (app req))))
+    (if-let [excluded (kitchensink/excludes-some params (:required param-specs))]
+      (http/error-response (tru "Missing required query parameter ''{0}''"
+                                excluded))
+      (if-let [invalid (seq (set/difference (kitchensink/keyset params)
+                                            (set (:required param-specs))
+                                            (set (:optional param-specs))))]
+        (http/error-response (tru "Unsupported query parameter ''{0}''"
+                                  (first invalid)))
+        (app req)))))
 
 (defn merge-param-specs
   [& specs]
