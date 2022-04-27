@@ -233,16 +233,6 @@
                     (string/join "', '" (map name columns)))))))
   paging-options)
 
-(defn requires-paging?
-  "Given a paging-options map, return true if the query requires paging and
-  false if it does not."
-  [{:keys [limit offset order_by include_total] :as paging-options}]
-  (not
-   (and
-    (every? nil? [limit offset])
-    ((some-fn nil? (every-pred coll? empty?)) order_by)
-    (not include_total))))
-
 (defn dealias-order-by
   [{:keys [projections] :as _query-rec} paging-options]
   (let [alias-map (->> projections
