@@ -46,7 +46,8 @@ to the result of the form supplied to this method."
   (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (query-response method endpoint)
-            body     (json/parse-string (slurp (get response :body "null")) true)]
+            result (query-result response)]
+        (is (= (set [foo1 bar1 foo2 bar2]) result))
         (is (= 200 (:status response)))))
 
     (testing "query with filter"
@@ -172,14 +173,16 @@ to the result of the form supplied to this method."
 (deftest-http-app environments-resource-endpoint
   [[version _endpoint] endpoints
    method [:get :post]]
-  (let [{:keys [foo1 bar1]} (store-example-resources)
+  (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)
         dev-endpoint (str "/" (name version) "/environments/DEV/resources")
         prod-endpoint (str "/" (name version) "/environments/PROD/resources")]
 
-    (doseq [endpoint [dev-endpoint prod-endpoint]]
+    (doseq [[endpoint expected] [[dev-endpoint [foo1 foo2]]
+                                 [prod-endpoint [bar1 bar2]]]]
       (testing (str "query without filter should not fail for endpoint " endpoint)
         (let [response (query-response method endpoint)
-              body     (get response :body "null")]
+              result (query-result response)]
+          (is (= (set expected) (set result)))
           (is (= 200 (:status response))))))
 
     (testing "DEV query with filter"
