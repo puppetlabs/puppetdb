@@ -929,8 +929,7 @@
          delay-pool
          (let [normal (normal-broadcast-pool-size cmd-concurrency scf-write-dbs)
                limit (normal-broadcast-pool-size (inc cmd-concurrency) scf-write-dbs)
-               next (atom (now))
-               suppress (time/minutes 10)]
+               next (atom (now))]
            #(with-nonfatal-exceptions-suppressed
               (with-monitored-execution shutdown-for-ex
                 (try
