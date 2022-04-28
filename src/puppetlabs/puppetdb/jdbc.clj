@@ -648,10 +648,7 @@
        ;; level to fail (because the pending transaction already
        ;; includes that select).
        (.setIsolateInternalQueries true))
-     (->> [(when read-only? "set transaction read write;")
-           "update pg_settings set setting = false"
-           "  where name = 'jit';"
-           (when read-only? "set transaction read only;")
+     (->> ["set session jit = off;"
            (when expected-schema
              (block-on-schema-mismatch expected-schema))]
           (str/join " ")
