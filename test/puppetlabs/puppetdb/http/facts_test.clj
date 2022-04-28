@@ -25,6 +25,7 @@
              :refer [*app*
                      are-error-response-headers
                      deftest-http-app
+                     is-query-result
                      query-response
                      query-result
                      vector-param]]
@@ -48,15 +49,6 @@
 (def fact-contents-endpoints [[:v4 "/v4/fact-contents"]])
 
 (def reference-time "2014-10-28T20:26:21.727Z")
-
-(defn is-query-result
-  [endpoint query expected-results]
-  (let [request (get-request endpoint (json/generate-string query))
-        {:keys [status body]} (*app* request)
-        actual-result (parse-result body)]
-    (is (= (count expected-results) (count actual-result)))
-    (is (= expected-results (set actual-result)))
-    (is (= HttpURLConnection/HTTP_OK status))))
 
 (def common-subquery-tests
   (omap/ordered-map
@@ -674,7 +666,7 @@
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")
-      (is-query-result endpoint query (set results))))
+      (is-query-result method endpoint query (set results))))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
@@ -726,8 +718,9 @@
                                      :producer "bar1"}))
 
             (testing "queries only use the read database"
-              (let [request (get-request endpoint)
-                    {:keys [status body headers]} (two-db-app request)]
+              (let [{:keys [status body headers]}
+                    (binding [*app* two-db-app]
+                      (query-response method endpoint))]
                 (is (http/json-utf8-ctype? (headers "Content-Type")))
                 ;; Environments endpoint will return a proper JSON
                 ;; error with a 404, as opposed to an empty array.
@@ -741,8 +734,9 @@
                     (is (= HttpURLConnection/HTTP_OK status))))))
 
             (testing "config with only a single database returns results"
-              (let [request (get-request endpoint)
-                    {:keys [status body headers]} (one-db-app request)]
+              (let [{:keys [status body headers]}
+                    (binding [*app* one-db-app]
+                      (query-response method endpoint))]
                 (is (= HttpURLConnection/HTTP_OK status))
                 (is (http/json-utf8-ctype? (headers "Content-Type")))
                 (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
@@ -755,19 +749,19 @@
                                                          true)))))))))))))
 
 (defn test-paged-results
-  [endpoint query limit total include_total]
-  (paged-results
-   {:app-fn  *app*
-    :path    endpoint
-    :query   query
-    :limit   limit
-    :total   total
-    :params {:order_by (json/generate-string
-                        [{:field :certname
-                          :order :desc}
-                         {:field :name
-                          :order :desc}])}
-    :include_total include_total}))
+  [method endpoint query limit total include_total]
+  (paged-results method
+                 {:app-fn  *app*
+                  :path    endpoint
+                  :query   query
+                  :limit   limit
+                  :total   total
+                  :params {:order_by (vector-param method
+                                                   [{:field :certname
+                                                     :order :desc}
+                                                    {:field :name
+                                                     :order :desc}])}
+                  :include_total include_total}))
 
 (deftest-http-app fact-query-paging
   [[_version endpoint] facts-endpoints
@@ -804,7 +798,7 @@
       (doseq [[label counts?] [["without" false]
                                ["with" true]]]
         (testing (str "should support paging through facts " label " counts")
-          (let [results (test-paged-results endpoint
+          (let [results (test-paged-results method endpoint
                                             ["=" "certname" "foo1"]
                                             2 (count facts1) counts?)]
             (is (= (count facts1) (count results)))
@@ -1109,7 +1103,7 @@
                       [not [= environment DEV]]
                       ["~" environment PR.*]
                       [not ["~" environment DE.*]]]]
-        (let [{:keys [status headers body]} (*app* (get-request endpoint query))
+        (let [{:keys [status headers body]} (query-response method endpoint query)
               results (json/parse-string (slurp body) true)]
           (is (= HttpURLConnection/HTTP_OK status))
           (is (http/json-utf8-ctype? (headers "Content-Type")))
@@ -2266,7 +2260,7 @@
 
 (deftest-http-app no-certname-entity-test
   []
-  (is-query-result "/v4" ["from" "fact_paths"] #{}))
+  (is-query-result :get "/v4" ["from" "fact_paths"] #{}))
 
 (deftest developer-pretty-print
   (let [facts-body (fn [pretty?]

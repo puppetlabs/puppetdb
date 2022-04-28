@@ -265,22 +265,22 @@
   [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic1 (:basic reports)
-        _ (store-example-report! basic1 (now))
-        basic2 (:basic2 reports)
-        _ (store-example-report! basic2 (now))]
-
+        basic2 (:basic2 reports)]
+    (store-example-report! basic1 (now))
+    (store-example-report! basic2 (now))
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
       (testing (str "should support paging through reports " label " counts")
         (let [results (paged-results
+                       method
                        {:app-fn *app*
                         :path endpoint
                         :query ["=" "certname" (:certname basic1)]
                         :limit 1
                         :total 2
-                        :params {:order_by (json/generate-string
-                                            [{:field :transaction_uuid
-                                              :order :desc}])}
+                        :params {:order_by (vector-param method
+                                                         [{:field "transaction_uuid"
+                                                           :order "desc"}])}
                         :include_total count?})]
           (is (= 2 (count results)))
           (is (= (munge-reports-for-comparison [basic1 basic2])

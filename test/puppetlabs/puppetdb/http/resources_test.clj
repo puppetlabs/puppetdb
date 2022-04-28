@@ -260,17 +260,18 @@ to the result of the form supplied to this method."
                               ["with" true]]]
         (testing (str "should support paging through nodes " label " counts")
           (let [results (paged-results
+                         method
                          {:app-fn  *app*
                           :path    endpoint
                           :limit   2
                           :total   (count expected)
-                          :params {:order_by (json/generate-string
-                                              [{:field :certname
-                                                :order :desc}
-                                               {:field :type
-                                                :order :desc}
-                                               {:field :title
-                                                :order :desc}])}
+                          :params {:order_by (->> [{:field :certname
+                                                    :order :desc}
+                                                   {:field :type
+                                                    :order :desc}
+                                                   {:field :title
+                                                    :order :desc}]
+                                                  (vector-param method))}
                           :include_total  count?})]
             (is (= (count results) (count expected)))
             (is (= (set (vals expected))

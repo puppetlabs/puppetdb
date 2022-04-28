@@ -6,14 +6,14 @@
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [clojure.set :as clj-set]
-            [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   paged-results]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
                      are-error-response-headers
                      deftest-http-app
+                     is-query-result
                      query-response
                      vector-param
                      query-result]]
@@ -27,29 +27,9 @@
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
 
-(defn parse-result
-  "Stringify (if needed) then parse the response"
-  [body]
-  (try
-    (if (string? body)
-      (json/parse-string body true)
-      (json/parse-string (slurp body) true))
-    (catch Throwable _
-      body)))
-
 (defn strip-count-fields
   [responses]
   (map #(dissoc % :count) responses))
-
-(defmacro is-query-result
-  [endpoint query expected-results]
-  `(let [request# (get-request ~endpoint (json/generate-string ~query))
-         response# (*app* request#)
-         status# (:status response#)
-         actual-result# (parse-result (:body response#))]
-     (is (= (count ~expected-results) (count actual-result#)))
-     (is (= ~expected-results (set actual-result#)))
-     (is (= HttpURLConnection/HTTP_OK status#))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -473,7 +453,7 @@
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")
-      (is-query-result endpoint query results))))
+      (is-query-result method endpoint query results))))
 
 (def versioned-invalid-subqueries
   (omap/ordered-map

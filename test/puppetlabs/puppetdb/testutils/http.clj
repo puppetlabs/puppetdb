@@ -33,6 +33,17 @@
   ([method endpoint query params]
    (*app* (tu/query-request method endpoint query {:params params}))))
 
+(defmacro is-query-result
+  [method endpoint query expected-results]
+  `(let [response# (query-response ~method ~endpoint ~query)
+         status# (:status response#)
+         actual-result# (tu/parse-result (:body response#))
+         expected-results# ~expected-results]
+     (is (= (count expected-results#) (count actual-result#)))
+     (is (coll? actual-result#))
+     (is (= expected-results# (set actual-result#)))
+     (is (= HttpURLConnection/HTTP_OK status#))))
+
 (defn slurp-unless-string
   [response-body]
   (if (string? response-body)
