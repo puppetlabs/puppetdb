@@ -649,7 +649,7 @@
        ;; includes that select).
        (.setIsolateInternalQueries true))
      (->> ["DO $$ BEGIN"
-           "IF (SELECT CAST(setting AS FLOAT) FROM pg_settings WHERE name = 'server_version') > 11 THEN"
+           "IF CAST((SELECT setting FROM pg_settings WHERE name = 'server_version_num') AS INTEGER) >= 110000 THEN"
            "SET SESSION jit = off;"
            "END IF;"
            "END $$;"
