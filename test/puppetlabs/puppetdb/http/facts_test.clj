@@ -399,8 +399,10 @@
     {:certname "foo5", :environment "DEV", :name "hostname", :value "foo5"}]))
 
 
-(defn versioned-well-formed-tests
-  [version]
+(defn well-formed-tests
+  []
+  ;; The reason for the "common" split is historical.  These
+  ;; non-common tests used to vary based on the endpoint version.
   (merge common-well-formed-tests
          (omap/ordered-map
           nil
@@ -612,7 +614,7 @@
 
     (testing "fact queries"
       (testing "well-formed queries"
-        (doseq [[query result] (versioned-well-formed-tests version)]
+        (doseq [[query result] (well-formed-tests)]
           (testing (format "Query %s" query)
             (let [request (if query
                             (get-request endpoint (json/generate-string query))
