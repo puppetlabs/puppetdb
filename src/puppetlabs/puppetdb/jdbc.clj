@@ -648,7 +648,11 @@
        ;; level to fail (because the pending transaction already
        ;; includes that select).
        (.setIsolateInternalQueries true))
-     (->> ["set session jit = off;"
+     (->> ["DO $$ BEGIN"
+           "IF (SELECT CAST(setting AS FLOAT) FROM pg_settings WHERE name = 'server_version') > 11 THEN"
+           "SET SESSION jit = off;"
+           "END IF;"
+           "END $$;"
            (when expected-schema
              (block-on-schema-mismatch expected-schema))]
           (str/join " ")
