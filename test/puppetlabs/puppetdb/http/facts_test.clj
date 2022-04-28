@@ -58,11 +58,6 @@
     (is (= expected-results (set actual-result)))
     (is (= HttpURLConnection/HTTP_OK status))))
 
-(defn compare-structured-response
-  "compare maps that may have been stringified differently."
-  [response expected version]
-  (is (= response expected)))
-
 (def common-subquery-tests
   (omap/ordered-map
    ["and"
@@ -930,9 +925,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version)))))
+              (is (= (map unkeywordize-values actual) expected))))))
 
       (testing "works on value"
         (doseq [[order expected] [["ASC" [f1 f3]]
@@ -943,9 +936,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version)))))
+              (is (= (map unkeywordize-values actual) expected))))))
 
       (testing "unextracted field with alias"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
@@ -956,10 +947,8 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response
-                (map (comp :environment unkeywordize-values) actual)
-                (map :environment expected)
-                version)))))
+              (is (= (map (comp :environment unkeywordize-values) actual)
+                     (map :environment expected)))))))
 
       (testing "multiple fields"
         (doseq [[[name-order certname-order] expected] [[["DESC" "ASC"]  [f2 f4 f5 f1 f3]]
@@ -973,9 +962,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version))))))
+              (is (= (map unkeywordize-values actual) expected)))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4 f5]]
@@ -998,9 +985,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version))))))))
+              (is (= (map unkeywordize-values actual) expected)))))))))
 
 (deftest-http-app facts-environment-paging
   [[_version endpoint] facts-endpoints
@@ -1063,9 +1048,8 @@
                                        {:order_by
                                                  (vector-param method [{"field" "environment" "order" env-order}
                                                                       {"field" "name" "order" name-order}])})]
-            (compare-structured-response (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
-                                         expected
-                                         version)))))))
+            (is (= (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
+                   expected))))))))
 
 (deftest-http-app fact-environment-queries
   [[_version endpoint] facts-endpoints
