@@ -1094,8 +1094,7 @@
         just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
         existing-package-hashes (find-package-hashes just-hashes)
         ;; a map of package hash to id in the packages table
-        full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
-        new-package-ids (vals full-hashes-map)]
+        full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)]
 
     (jdbc/update! :certnames
                   {:package_hash (sutils/munge-hash-for-storage new-packageset-hash)}
