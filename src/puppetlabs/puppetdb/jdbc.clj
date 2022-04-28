@@ -97,8 +97,7 @@
 (defn- insert-multi-row
   "Given a table and a list of columns, followed by a list of column
   value sequences, return a vector of the SQL needed for the insert
-  followed by the list of column value sequences. The entities
-  function specifies how column names are transformed."
+  followed by the list of column value sequences."
   [table columns values {:keys [on-conflict]}]
   (let [nc (count columns)
         vcs (map count values)]
@@ -119,9 +118,8 @@
 
 (defn- insert-single-row-on-conflict
   "Given a table and a map representing a row, return a vector of the
-  SQL needed for the insert followed by the list of column values. The
-  entities function specifies how column names are transformed."
-  [table row entities {:keys [on-conflict]}]
+  SQL needed for the insert followed by the list of column values."
+  [table row {:keys [on-conflict]}]
   (let [ks (keys row)]
     (into [(str "INSERT INTO " (name table) " ( "
                 (str/join ", " (map (fn [col] (name col)) ks))
@@ -137,9 +135,9 @@
   names, a sequence of vectors of column values, one per row, and an
   options map, insert the rows into the database."
   [db table cols values opts]
-  (let [{:keys [entities transaction?]} (merge {:entities identity :transaction? true}
-                                               (when (map? db) db)
-                                               opts)
+  (let [{:keys [transaction?]} (merge {:transaction? true}
+                                      (when (map? db) db)
+                                      opts)
         sql-params (insert-multi-row table cols values opts)]
     (if (sql/db-find-connection db)
       (sql/db-do-prepared db transaction? sql-params {:multi? true})
@@ -170,15 +168,15 @@
   options map, insert the rows into the database.  Options include
   on-conflict."
   [db table rows opts]
-  (let [{:keys [entities identifiers qualifier transaction?]}
-        (merge {:entities identity :identifiers str/lower-case :transaction? true}
+  (let [{:keys [identifiers qualifier transaction?]}
+        (merge {:identifiers str/lower-case :transaction? true}
                (when (map? db) db)
                opts)
         sql-params (map (fn [row]
                           (when-not (map? row)
                             (throw (IllegalArgumentException.
                                     "insert / insert-multi! called with a non-map row")))
-                          (insert-single-row-on-conflict table row entities opts))
+                          (insert-single-row-on-conflict table row opts))
                         rows)]
     (if (sql/db-find-connection db)
       (insert-helper db transaction? sql-params
