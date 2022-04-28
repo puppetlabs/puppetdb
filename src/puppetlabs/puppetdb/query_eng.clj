@@ -217,7 +217,7 @@
                     "pdb-query-origin" origin]
        (let [{:keys [scf-read-db url-prefix warn-experimental log-queries]
               :or {warn-experimental true}} context
-             {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
+             {:keys [remaining-query entity]} (eng/parse-query-context query warn-experimental)
              munge-fn (get-munge-fn entity version options url-prefix)]
 
          (when log-queries
@@ -254,8 +254,10 @@
    (user-query->engine-query version query-map options false))
   ([_version query-map options warn-experimental]
    (let [query (:query query-map)
-         {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
-                                                          version query warn-experimental)
+
+         {:keys [remaining-query entity paging-clauses]}
+         (eng/parse-query-context query warn-experimental)
+
          paging-options (some-> paging-clauses
                                 (rename-keys {:order-by :order_by})
                                 (update :order_by paging/munge-query-ordering)

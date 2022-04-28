@@ -2995,7 +2995,7 @@
 (defn parse-query-context
   "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
    a map."
-  [version query warn]
+  [query warn]
   (cm/match
     query
     ["from" (entity-str :guard #(string? %)) & remaining-query]
