@@ -12,6 +12,11 @@ module Puppet::Util::Puppetdb
 
     @@last_good_query_server_url_index = Atom.new(0)
 
+    # Tracks when timeouts occur when making requests against the `submit_only_server_urls`.
+    # If one of these times out repeatedly, we remove it from the list so we stop trying to
+    # submit data to it.
+    @@submit_only_url_timeouts = {}
+
     # Concat two server_url snippets, taking into account a trailing/leading slash to
     # ensure a correct server_url is constructed
     #
@@ -41,6 +46,8 @@ module Puppet::Util::Puppetdb
       rescue Timeout::Error => e
         Puppet.warning("Request to #{server_url.host} on #{server_url.port} at route #{route} timed out " \
           "after #{config.server_url_timeout} seconds. #{SERVER_URL_FAIL_MSG}")
+
+        check_for_repeated_timeout(config, server_url)
         return e
 
       rescue SocketError, OpenSSL::SSL::SSLError, SystemCallError, Net::ProtocolError, IOError, Net::HTTPNotFound => e
@@ -79,6 +86,26 @@ module Puppet::Util::Puppetdb
       end
 
       nil
+    end
+
+    # Check if we have previously seen a timeout for this URL.
+    # If so, remove it from the list of URLs to broadcast to.
+    # Note we only remove `submit_only` URLs (used for extensions
+    # like HDP). If a URL succeeds after timing out once, its state
+    # is set back to "good" elsewhere, so we only remove the URL if
+    # it has timed out twice in a row (which likely indicates a host
+    # that is down, rather than a transient).
+    def self.check_for_repeated_timeout(config, server_url)
+      if config.submit_only_server_urls.include?(server_url)
+        if @@submit_only_url_timeouts[server_url]
+          # This timed out the last time we tried it too,
+          # so remove it so we don't keep timing out
+          config.submit_only_server_urls.delete(server_url)
+          @@submit_only_url_timeouts[server_url] = false
+        else
+          @@submit_only_url_timeouts[server_url] = true
+        end
+      end
     end
 
     # Check an http reponse from puppetdb; log a useful message if it looks like
@@ -141,7 +168,14 @@ module Puppet::Util::Puppetdb
           end
 
           response = Timeout.timeout(config.server_url_timeout) do
-            http_callback.call(http, route)
+            response = http_callback.call(http, route)
+
+            if config.submit_only_server_urls.include?(server_url)
+              # Clear any previously registered timeout for this URL
+              @@submit_only_url_timeouts[server_url] = false
+            end
+
+            response
           end
         }
 
@@ -181,7 +215,14 @@ module Puppet::Util::Puppetdb
           end
 
           response = Timeout.timeout(config.server_url_timeout) do
-            http_callback.call(http, route)
+            response = http_callback.call(http, route)
+
+            if config.submit_only_server_urls.include?(server_url)
+              # Clear any previously registered timeout for this URL
+              @@submit_only_url_timeouts[server_url] = false
+            end
+
+            response
           end
         }
 

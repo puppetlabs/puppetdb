@@ -26,6 +26,7 @@ describe Puppet::Util::Puppetdb::Http do
   before :each do
       Puppet::Util::Puppetdb.stubs(:config).returns config
       described_class.reset_query_failover()
+      described_class.class_variable_set(:@@submit_only_url_timeouts, {})
   end
 
   let(:config) do
@@ -144,7 +145,7 @@ describe Puppet::Util::Puppetdb::Http do
          response.message.should == 'OK'
        end
 
-       it "doesn't sends queries to hosts in submit_only_server_urls" do
+       it "doesn't send queries to hosts in submit_only_server_urls" do
          config.stubs(:submit_only_server_urls).returns [URI("https://server3:8282/qux")]
 
          Puppet::Network::HttpPool.expects(http_expects).with("server1", 8080, anything).returns(http1)
@@ -332,6 +333,112 @@ describe Puppet::Util::Puppetdb::Http do
           response.code.should == 200
           response.message.should == 'OK'
         end
+
+        context "tracking timeouts for `submit_only` urls" do
+          it "tracks timeouts for `submit_only` urls" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::Network::HttpPool.expects(http_expects).times(3).with("server1", 8080, anything).returns(http1)
+            Puppet::Network::HttpPool.expects(http_expects).times(3).with("server2", 8181, anything).returns(http2)
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server3", 8282, anything).returns(http3)
+
+            http1.expects(:post).with("/foo/baz", {}).times(3).returns Net::HTTPOK.new('1.1', 200, 'OK')
+            http2.expects(:post).with("/bar/baz", {}).times(3).returns Net::HTTPOK.new('1.1', 200, 'OK')
+            # By the third request, this url will no longer bit hit
+            http3.expects(:post).with("/qux/baz", {}).twice.raises Timeout::Error
+
+
+            # First request with timing out submit_only url
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == true
+            # Url has not been removed yet, even though it has timed out once
+            config.submit_only_server_urls.should == [submit_only_url]
+            response.code.should == 200
+            response.message.should == 'OK'
+
+            # Second request with timing out submit_only url
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == false
+            # Timed out twice, so now the URL is removed so we don't keep trying it
+            config.submit_only_server_urls.should == []
+            response.code.should == 200
+            response.message.should == 'OK'
+
+            # Third request with `submit_only` url removed
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            response.code.should == 200
+            response.message.should == 'OK'
+          end
+
+          it "does not remove the url if it only times out once" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server1", 8080, anything).returns(http1)
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server2", 8181, anything).returns(http2)
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server3", 8282, anything).returns(http3)
+
+            http1.expects(:post).with("/foo/baz", {}).twice.returns Net::HTTPOK.new('1.1', 200, 'OK')
+            http2.expects(:post).with("/bar/baz", {}).twice.returns Net::HTTPOK.new('1.1', 200, 'OK')
+            http3.expects(:post).with("/qux/baz", {}).twice.raises(Timeout::Error).then.returns(Net::HTTPOK.new('1.1', 200, 'OK'))
+
+            # First request with timing out submit_only url
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == true
+            # Url has not been removed yet, even though it has timed out once
+            config.submit_only_server_urls.should == [submit_only_url]
+            response.code.should == 200
+            response.message.should == 'OK'
+
+            # Second request with succeeding submit_only url
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == false
+            # Did not time out again, so we do not remove the url
+            config.submit_only_server_urls.should == [submit_only_url]
+            response.code.should == 200
+            response.message.should == 'OK'
+          end
+
+          it "does not track timeouts for non-submit_only urls" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::Network::HttpPool.expects(http_expects).with("server1", 8080, anything).returns(http1)
+            Puppet::Network::HttpPool.expects(http_expects).with("server2", 8181, anything).returns(http2)
+            Puppet::Network::HttpPool.expects(http_expects).with("server3", 8282, anything).returns(http3)
+
+            http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
+            http2.expects(:post).with("/bar/baz", {}).raises Timeout::Error
+            http3.expects(:post).with("/qux/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
+
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            # We set the submit_only url entry to false (one entry), and do nothing for the regular URL
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == false
+            described_class.class_variable_get(:@@submit_only_url_timeouts).count.should == 1
+
+            response.code.should == 200
+            response.message.should == 'OK'
+          end
+        end
       end
 
       describe "when command_broadcast is false" do
@@ -400,6 +507,115 @@ describe Puppet::Util::Puppetdb::Http do
 
           response.code.should == 200
           response.message.should == 'OK'
+        end
+
+        context "tracking timeouts for `submit_only` urls" do
+          it "tracks timeouts for `submit_only` urls" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::Network::HttpPool.expects(http_expects).times(3).with("server1", 8080, anything).returns(http1)
+            Puppet::Network::HttpPool.expects(http_expects).times(3).with("server2", 8181, anything).returns(http2)
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server3", 8282, anything).returns(http3)
+
+            http1.expects(:post).with("/foo/baz", {}).times(3).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
+            http2.expects(:post).with("/bar/baz", {}).times(3).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
+            # By the third request, this url will no longer be hit
+            http3.expects(:post).with("/qux/baz", {}).twice.raises Timeout::Error
+
+
+            # First request with timing out submit_only url
+            # All requests fail here, so the action will raise
+            expect {
+              described_class.action("/baz", :command) do |http_instance, path|
+                http_instance.post(path, {})
+              end
+            }.to raise_error(Puppet::Error)
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == true
+            # Url has not been removed yet, even though it has timed out once
+            config.submit_only_server_urls.should == [submit_only_url]
+
+            # Second request with timing out submit_only url
+            # All requests fail here, so the action will raise
+            expect {
+              described_class.action("/baz", :command) do |http_instance, path|
+                http_instance.post(path, {})
+              end
+            }.to raise_error(Puppet::Error)
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == false
+            # Timed out twice, so now the URL is removed so we don't keep trying it
+            config.submit_only_server_urls.should == []
+
+            # Third request with `submit_only` url removed
+            # All requests fail here, so the action will raise
+            expect {
+              described_class.action("/baz", :command) do |http_instance, path|
+                http_instance.post(path, {})
+              end
+            }.to raise_error(Puppet::Error)
+          end
+
+          it "does not remove the url if it only times out once" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server1", 8080, anything).returns(http1)
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server2", 8181, anything).returns(http2)
+            Puppet::Network::HttpPool.expects(http_expects).twice.with("server3", 8282, anything).returns(http3)
+
+            http1.expects(:post).with("/foo/baz", {}).twice.returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
+            http2.expects(:post).with("/bar/baz", {}).twice.returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
+            http3.expects(:post).with("/qux/baz", {}).twice.raises(Timeout::Error).then.returns(Net::HTTPOK.new('1.1', 200, 'OK'))
+
+            # First request with timing out submit_only url
+            # All requests fail here, so the action will raise
+            expect {
+              described_class.action("/baz", :command) do |http_instance, path|
+                http_instance.post(path, {})
+              end
+            }.to raise_error(Puppet::Error)
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == true
+            # Url has not been removed yet, even though it has timed out once
+            config.submit_only_server_urls.should == [submit_only_url]
+
+            # Second request with succeeding submit_only url
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == false
+            # Did not time out again, so we do not remove the url
+            config.submit_only_server_urls.should == [submit_only_url]
+            response.code.should == 200
+            response.message.should == 'OK'
+          end
+
+          it "does not track timeouts for non-submit_only urls" do
+            submit_only_url = URI("https://server3:8282/qux")
+            config.stubs(:submit_only_server_urls).returns [submit_only_url]
+
+            Puppet::Network::HttpPool.expects(http_expects).with("server1", 8080, anything).returns(http1)
+            Puppet::Network::HttpPool.expects(http_expects).with("server2", 8181, anything).returns(http2)
+            Puppet::Network::HttpPool.expects(http_expects).with("server3", 8282, anything).returns(http3)
+
+            http1.expects(:post).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
+            http2.expects(:post).with("/bar/baz", {}).raises Timeout::Error
+            http3.expects(:post).with("/qux/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
+
+            response = described_class.action("/baz", :command) do |http_instance, path|
+              http_instance.post(path, {})
+            end
+
+            # We set the submit_only url entry to false (one entry), and do nothing for the regular URL
+            described_class.class_variable_get(:@@submit_only_url_timeouts)[submit_only_url].should == false
+            described_class.class_variable_get(:@@submit_only_url_timeouts).count.should == 1
+
+            response.code.should == 200
+            response.message.should == 'OK'
+          end
         end
       end
 
