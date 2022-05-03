@@ -263,22 +263,29 @@
                 (is (= #{"domain" "fqdn"}
                        (set (keys (volatile-facts certname))))))
 
-              #_(testing "should update existing keys"
+              (testing "should update existing keys"
                 (is (= 1 (count @updates)))
-                (is (some #{{:timestamp (to-timestamp reference-time)
-                             :environment_id 1
-                             :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
-                             :producer_timestamp (to-timestamp reference-time)
-                             :producer_id 1}}
-                          ;; Again we grab the pertinent non-id bits
-                          (map (fn [itm]
-                                 (-> (second itm)
-                                     (update-in [:hash] sutils/parse-db-hash)))
-                               @updates)))
-                (is (some (fn [update-call]
-                            (and (= :factsets (first update-call))
-                                 (:timestamp (second update-call))))
-                          @updates))))))
+                (let [bytes->hex (fn [bytes]
+                                   (->> bytes
+                                       (map #(format "%02x" (bit-and 0xff %)))
+                                       (apply str)))
+                      expected-ts (to-timestamp reference-time)
+                      [[_ m _params]] @updates]
+                  (is (= {:timestamp expected-ts
+                          :producer_timestamp expected-ts
+                          :environment_id 1
+                          :producer_id 1
+                          :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
+                          :paths_hash "2b34e4a4e24b4fca5fc154d2700fc2a430c6a1a1"
+                          :stable_hash "33c9461b3b37541edec996529c3f6aba3c2ea0e4"
+                          :stable {:hostname "myhost" :kernel "Linux" :uptime_seconds 3600}
+                          :volatile {:domain "mynewdomain.com" :fqdn "myhost.mynewdomain.com"}}
+                         (-> m
+                             (update :hash sutils/parse-db-hash)
+                             (update :paths_hash bytes->hex)
+                             (update :stable_hash bytes->hex)
+                             (update :stable sutils/parse-db-json)
+                             (update :volatile sutils/parse-db-json)))))))))
 
         (testing "replacing all new facts"
           (delete-certname-facts! certname)
