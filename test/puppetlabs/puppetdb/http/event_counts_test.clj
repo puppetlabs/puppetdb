@@ -4,6 +4,7 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.testutils.http
              :refer [are-error-response-headers
@@ -256,15 +257,19 @@
                         :successes             1
                         :noops                 0
                         :skips                 0}]
-            results (ordered-query-result
-                      method
-                      endpoint
-                      [">" "timestamp" 0]
-                      {:summarize_by "resource"
-                       :order_by (vector-param method [{"field" "resource_title"}])
-                       :include_total true})]
-        (is (= (count expected) (count results)))
-        (is (= expected results)))))))
+            {:keys [headers body] :as res}
+            (query-response method
+                            endpoint
+                            [">" "timestamp" 0]
+                            {:summarize_by "resource"
+                             :order_by (vector-param method [{"field" "resource_title"}])
+                             :include_total count?})
+            _ (tu/assert-success! res)
+            body (tu/parse-result body)]
+        (when count?
+          (is (= "3" (get headers "X-Records"))))
+        (is (= (count expected) (count body)))
+        (is (= expected body)))))))
 
 (deftest-http-app query-distinct-event-counts
   [[_version endpoint] endpoints
@@ -860,15 +865,19 @@
                         :intentional_noops     0
                         :corrective_noops      0
                         :skips                 0}]
-            results (ordered-query-result
-                      method
-                      endpoint
-                      [">" "timestamp" 0]
-                      {:summarize_by "resource"
-                       :order_by (vector-param method [{"field" "resource_title"}])
-                       :include_total true})]
-        (is (= (count expected) (count results)))
-        (is (= expected results)))))))
+            {:keys [headers body] :as res}
+            (query-response method
+                            endpoint
+                            [">" "timestamp" 0]
+                            {:summarize_by "resource"
+                             :order_by (vector-param method [{"field" "resource_title"}])
+                             :include_total count?})
+            _ (tu/assert-success! res)
+            body (tu/parse-result body)]
+        (when count?
+          (is (= "3" (get headers "X-Records"))))
+        (is (= (count expected) (count body)))
+        (is (= expected body)))))))
 
 (deftest-http-app query-distinct-event-counts-with-corrective-changes
   [[_version endpoint] endpoints
