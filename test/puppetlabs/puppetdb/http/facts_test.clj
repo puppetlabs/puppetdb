@@ -1050,7 +1050,7 @@
 (deftest-http-app fact-environment-queries
   [[_version endpoint] facts-endpoints
    method [:get :post]
-   :when (not #(re-find #"environment" endpoint))]
+   :when (not (re-find #"environment" endpoint))]
 
   (testing (str "endpoint " endpoint)
     (let [facts1 {"domain" "testing.com"
@@ -1082,22 +1082,26 @@
                                :values facts1
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (now)
+                               :producer "foo.com"})
         (scf-store/add-facts! {:certname "foo2"
                                :values facts2
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (now)
+                               :producer "foo.com"})
         (scf-store/add-facts! {:certname "foo3"
                                :values facts3
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (now)
+                               :producer "foo.com"})
         (scf-store/add-facts! {:certname "foo4"
                                :values facts4
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp (now)}))
+                               :producer_timestamp (now)
+                               :producer "foo.com"}))
 
       (doseq [query '[[= environment PROD]
                       [not [= environment DEV]]
