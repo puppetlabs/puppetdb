@@ -528,17 +528,19 @@
               (is (= (mapv :certname result) expected))))))
 
       (testing "multiple fields"
-        (let [ordered-names  ["db.example.com" "puppet.example.com"
-                              "web1.example.com" "web2.example.com"]]
+        ;; ordered-names is in increasing timestamp order
+        (let [ordered-names ["web1.example.com" "web2.example.com"
+                             "puppet.example.com" "db.example.com"]]
           (doseq [[[timestamp-order name-order] expected]
                   [[["asc" "desc"] ordered-names]
-                   [["asc" "asc"] ordered-names]]]
-            (ordered-query-result method endpoint nil
-                                  {:order_by (vector-param method
-                                                           [{"field" "facts_timestamp"
-                                                             "order" timestamp-order}
-                                                            {"field" "certname"
-                                                             "order" name-order}])}))))
+                   [["asc" "asc"] ordered-names]]
+                  :let [order {:order_by (vector-param method
+                                                       [{"field" "facts_timestamp"
+                                                         "order" timestamp-order}
+                                                        {"field" "certname"
+                                                         "order" name-order}])}
+                        res (ordered-query-result method endpoint nil order)]]
+            (is (= expected (map :certname res))))))
 
       (testing "offset"
         (let [ordered-names ["db.example.com" "puppet.example.com" "web1.example.com" "web2.example.com"]
