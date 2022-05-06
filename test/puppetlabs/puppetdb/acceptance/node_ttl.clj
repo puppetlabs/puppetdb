@@ -135,8 +135,8 @@
                     (facts)))
              (cli-svc/clean pdb ["purge_nodes"])
              (is (= [{"certname" "foo" "expired" nil}] (nodes)))
-             (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
-                (facts)))
+             (is (= [{"certname" "foo", "facts" [{"name" "x", "value" 1}]}]
+                    (facts))))
 
            (testing "changing expiration from false to true allows expire/purge"
              (set-expire "foo" (now) true)
@@ -150,7 +150,7 @@
                     (facts)))
              (cli-svc/clean pdb ["purge_nodes"])
              (is (= [] (nodes)))
-             (= [] (facts)))
+             (is (= [] (facts))))
 
            (testing "nodes with unexpirable facts deactivate properly"
              (set-expire "foo" (now) false)
