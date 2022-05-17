@@ -1873,9 +1873,6 @@
   (-> (get user-name->query-rec-name subquery)
       (assoc :subquery? true)))
 
-(def binary-operators
-  #{"=" ">" "<" ">=" "<=" "~"})
-
 (defn strip-function-calls
   [column-or-columns]
   (let [{functions true
@@ -2109,11 +2106,14 @@
 
             :else nil))
 
-(def binary-operator-checker
+(def simple-binary-operators
+  #{"=" ">" "<" ">=" "<=" "~" "~>"})
+
+(def simple-binary-operator-checker
   "A function that will return nil if the query snippet successfully validates, otherwise
   will return a data structure with error information"
   (s/checker [(s/one
-               (apply s/enum binary-operators)
+               (apply s/enum simple-binary-operators)
                :operator)
               (s/one (s/cond-pre s/Str
                                  [(s/one s/Str :nested-field)
@@ -2195,10 +2195,12 @@
               (when (not= 1 (count clauses))
                 (throw (IllegalArgumentException. (tru "''not'' takes exactly one argument, but {0} were supplied" (count clauses)))))
 
-              [[op & _]]
-              (when (and (contains? binary-operators op)
-                         (binary-operator-checker node))
-                (throw (IllegalArgumentException. (tru "{0} requires exactly two arguments" op))))
+              [[op & clauses]]
+              (when (simple-binary-operators op)
+                (when (not= 2 (count clauses))
+                  (throw (IllegalArgumentException. (tru "{0} requires exactly two arguments" op))))
+                (when (simple-binary-operator-checker node)
+                  (throw (IllegalArgumentException. (tru "Invalid {0} clause" op)))))
 
               :else nil)))
 
@@ -2729,21 +2731,20 @@
   [operator]
   (or (contains? #{"from" "in" "extract" "subquery" "and"
                    "or" "not" "function" "group_by" "null?"} operator)
-      (contains? binary-operators operator)
+      (contains? simple-binary-operators operator)
       (contains? (ks/keyset user-name->query-rec-name) operator)))
 
 (defn validate-extract-filters
+  "Validates the operators inside an extract clause. Short-circuits once an
+  invalid operator is found"
   [expr]
-  (let [message (vec (filter seq (for [clause expr]
-                                   (let [operator (first clause)]
-                                     (when (vector? clause)
-                                       (if (contains? #{"or" "and"} operator)
-                                         (validate-extract-filters clause)
-                                         (when-not (valid-operator? operator)
-                                           (tru "{0} is not a valid expression for \"extract\"" (pr-str clause)))))))))]
-    (if (empty? message)
-      nil
-      (first message))))
+  (some (fn check-extract-clause [[operator :as clause]]
+          (when (vector? clause)
+            (if (#{"or" "and"} operator)
+              (validate-extract-filters clause)
+              (when-not (valid-operator? operator)
+                (tru "{0} is not a valid expression for \"extract\"" (pr-str clause))))))
+        expr))
 
 (defn annotate-with-context
   "Add `context` as meta on each `node` that is a vector. This associates the
