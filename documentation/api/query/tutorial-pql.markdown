@@ -250,12 +250,12 @@ returned by default. Using the projection syntax however, you can limit what
 fields are returned.
 
 For example, if you want to only respond with the `certname`, `type`, and
-`title` of each resource where `Class[apache]` is defined, you can do the
+`title` of each resource where `Class[Apache]` is defined, you can do the
 folllowing:
 
     resources[certname, type, title] {
       type = "Class" and
-      title = "apache"
+      title = "Apache"
     }
 
 For more information regarding projection, consult the
@@ -378,7 +378,7 @@ resource query:
 
     resources {
       type = "Class" and
-      title = "apache"
+      title = "Apache"
     }
 
 This will find all the `Class[Apache]` resources, which each knows the certname
@@ -401,7 +401,7 @@ We can, with this fact query:
 
     facts {
       name = "ipaddress" and
-      certname in resources[certname] { type = "Class" and title = "apache" }
+      certname in resources[certname] { type = "Class" and title = "Apache" }
     }
 
 This may appear a little daunting, so we'll look at it piece by piece.
@@ -470,11 +470,11 @@ the query itself. You can mix and match subquery filters also like so:
 
     nodes {
       facts { name = "operatingsystem" and value = "Debian" } and
-      resources { type = "Class" and title = "apache" }
+      resources { type = "Class" and title = "Apache" }
     }
 
 This query will query all `nodes` that are Debian and have the class
-`Class[apache]` defined.
+`Class[Apache]` defined.
 
 For more information regarding implicit subqueries, consult the
 [reference guide][implicit].
