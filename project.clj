@@ -1,6 +1,6 @@
 (def pdb-version "7.11.0-SNAPSHOT")
 
-(def clj-parent-version "4.9.8")
+(def clj-parent-version "5.0.0")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -161,8 +161,10 @@
                  [org.clojure/core.memoize]
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
+                 [org.clojure/tools.namespace]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/tools.logging]
+                 [org.clojure/tools.nrepl]
 
                  ;; Puppet specific
                  [puppetlabs/comidi]
@@ -171,7 +173,6 @@
                  [puppetlabs/kitchensink]
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/structured-logging]
-                 [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
                  [puppetlabs/trapperkeeper-metrics]
@@ -211,9 +212,6 @@
                  [commons-io]
                  [compojure]
                  [ring/ring-core]
-
-                 ;; conflict resolution
-                 [org.clojure/tools.nrepl "0.2.13"]
 
                  ;; fixing a illegal reflective access
                  [org.tcrawley/dynapath "1.0.0"]]
