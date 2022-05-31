@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.utils
+  (:refer-clojure :exclude [update-vals])
   (:require [clojure.string :as str]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.kitchensink.core :as kitchensink]
