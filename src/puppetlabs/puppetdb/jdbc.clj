@@ -648,10 +648,11 @@
        ;; level to fail (because the pending transaction already
        ;; includes that select).
        (.setIsolateInternalQueries true))
-     (->> [(when read-only? "set transaction read write;")
-           "update pg_settings set setting = false"
-           "  where name = 'jit';"
-           (when read-only? "set transaction read only;")
+     (->> ["DO $$ BEGIN"
+           "IF CAST((SELECT setting FROM pg_settings WHERE name = 'server_version_num') AS INTEGER) >= 110000 THEN"
+           "SET SESSION jit = off;"
+           "END IF;"
+           "END $$;"
            (when expected-schema
              (block-on-schema-mismatch expected-schema))]
           (str/join " ")

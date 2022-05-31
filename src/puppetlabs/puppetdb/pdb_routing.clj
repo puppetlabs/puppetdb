@@ -140,7 +140,7 @@
      register-status
      (fn [level]
        (pdb-status/create-status-map
-        (pdb-status/status-details level config shared-globals maint-mode?)))))
+        (pdb-status/status-details config shared-globals maint-mode?)))))
   context)
 
 (defn start-pdb-routing
