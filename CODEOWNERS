@@ -1,2 +1,2 @@
-* @puppetlabs/puppetdb
-/docker/ @puppetlabs/pupperware
+* @puppetlabs/dumpling
+/docker/ @puppetlabs/dumpling
