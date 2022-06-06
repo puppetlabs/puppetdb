@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9842144cfe8739a8859eb95c09031d475a6b8cc0\n"
+"X-Git-Ref: 847d6af597567f2280d269abea032e7121cdd7b9\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1248,6 +1248,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "{0} requires exactly two arguments"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "Invalid {0} clause"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
