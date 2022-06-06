@@ -1,8 +1,14 @@
 (ns puppetlabs.puppetdb.facts-test
-  (:require [puppetlabs.puppetdb.facts :refer :all]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [schema.core :as s]))
+  (:require
+   [puppetlabs.puppetdb.facts
+    :refer [factpath-to-string
+            facts-schema
+            normalize-facts
+            str->num
+            string-to-factpath
+            unencode-path-segment]]
+   [clojure.test :refer :all]
+   [schema.core :as s]))
 
 (deftest test-str->num
   (are [n s] (= n (str->num s))

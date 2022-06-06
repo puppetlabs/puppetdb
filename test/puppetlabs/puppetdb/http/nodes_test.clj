@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.nodes-test
   (:require [cheshire.core :as json]
-            [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [clojure.string :refer [starts-with?]]
             [puppetlabs.kitchensink.core :refer [keyset]]
@@ -17,7 +16,9 @@
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook
                                                    use-preferred-streaming-method?]]
-            [flatland.ordered.map :as omap]))
+            [flatland.ordered.map :as omap])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/nodes"]])
 
@@ -38,7 +39,7 @@
                  (slurp body))
         result (try
                  (json/parse-string body true)
-                 (catch com.fasterxml.jackson.core.JsonParseException e
+                 (catch com.fasterxml.jackson.core.JsonParseException _
                    body))]
 
     (is (= (count expected)
@@ -55,10 +56,10 @@
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
 
-    (is (= status http/status-ok))))
+    (is (= HttpURLConnection/HTTP_OK status))))
 
 (deftest-http-app node-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [status-for-node' #(status-for-node method endpoint %)
@@ -159,7 +160,7 @@
       (is-query-result' ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
 
 (deftest-http-app test-string-coercion-fail
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (store-example-nodes)
   (let [{:keys [body status]} (query-response method endpoint ["<" ["fact" "uptime_seconds"] "12000"])]
@@ -167,7 +168,7 @@
     (is (re-find #"not allowed on value '12000'" body))))
 
 (deftest-http-app node-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
@@ -418,25 +419,23 @@
       [web1]))
 
   (testing "subqueries: invalid"
-    (doseq [[query msg] {
-                         ;; Ensure the v2 version of sourcefile/sourceline returns
-                         ;; a proper error.
-                         ["in" "certname"
-                          ["extract" "certname"
-                           ["select_resources"
-                            ["and"
-                             ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
-                             ["=" "sourceline" 1]]]]]
-
-                         (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
+    ;; Ensure the v2 version of sourcefile/sourceline returns
+    ;; a proper error.
+    (let [query ["in" "certname"
+                 ["extract" "certname"
+                  ["select_resources"
+                   ["and"
+                    ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
+                    ["=" "sourceline" 1]]]]]
+          msg #"'sourcefile' is not a queryable object"]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [{:keys [status body headers]} (query-response method endpoint query)]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (re-find msg body)))))))
 
 (deftest-http-app query-with-from
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (testing "should change context to reports"
@@ -449,44 +448,44 @@
       (is (= expected (sort (mapv :certname result)))))))
 
 (deftest-http-app query-with-pretty-printing
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
-  (let [expected (store-example-nodes)]
-    (testing "should support pretty printing in reports"
-      (let [results (slurp (:body (query-response method endpoint nil {:pretty true})))
-            normal-results (slurp (:body (query-response method endpoint nil {:pretty false})))]
-        (is (not (empty? (json/parse-string results))))
-        (is (> (count (clojure.string/split-lines results))
-               (count (clojure.string/split-lines normal-results))))))))
+  (store-example-nodes)
+  (testing "should support pretty printing in reports"
+    (let [results (slurp (:body (query-response method endpoint nil {:pretty true})))
+          normal-results (slurp (:body (query-response method endpoint nil {:pretty false})))]
+      (is (seq (json/parse-string results)))
+      (is (> (count (clojure.string/split-lines results))
+             (count (clojure.string/split-lines normal-results)))))))
 
 (deftest-http-app query-with-explain-printing
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
     (testing "should support explain when quering in reports"
       (let [results (slurp (:body (query-response method endpoint nil {:explain "analyze"})))]
-        (is (not (empty? (json/parse-string results))))
+        (is (seq (json/parse-string results)))
         (is (= true (contains? (first (json/parse-string results)) "query plan"))))))
 
 (deftest-http-app aggregate-functions-on-nodes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [expected (store-example-nodes)]
+  (store-example-nodes)
 
-    (testing "ambiguous function column args"
-      (is (= (query-result method endpoint ["extract" [["function" "count" "certname"]]])
-             #{{:count 4}})))
+  (testing "ambiguous function column args"
+    (is (= (query-result method endpoint ["extract" [["function" "count" "certname"]]])
+           #{{:count 4}})))
 
-    (testing "ambiguous group by column args"
-      (is (= (query-result method endpoint ["extract" [["function" "count"] "certname"]
-                                            ["group_by" "certname"]])
-             #{{:certname "web2.example.com" :count 1}
-               {:certname "web1.example.com" :count 1}
-               {:certname "db.example.com" :count 1}
-               {:certname "puppet.example.com" :count 1}})))))
+  (testing "ambiguous group by column args"
+    (is (= (query-result method endpoint ["extract" [["function" "count"] "certname"]
+                                          ["group_by" "certname"]])
+           #{{:certname "web2.example.com" :count 1}
+             {:certname "web1.example.com" :count 1}
+             {:certname "db.example.com" :count 1}
+             {:certname "puppet.example.com" :count 1}}))))
 
 (deftest-http-app paging-results
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [expected (store-example-nodes)]
@@ -498,7 +497,7 @@
 
     (testing "order by"
       (testing "rejects invalid fields"
-        (let [{:keys [body status]} (query-response
+        (let [{:keys [body _status]} (query-response
                                       method endpoint nil
                                       {:order_by
                                        (vector-param method
@@ -524,22 +523,24 @@
                                     ["desc" ordered-names]]]
             (let [result (ordered-query-result method endpoint nil
                                                {:order_by (vector-param method
-                                                            [{"field" "facts_timestamp"
-                                                              "order" order}])})]
+                                                                        [{"field" "facts_timestamp"
+                                                                          "order" order}])})]
               (is (= (mapv :certname result) expected))))))
 
       (testing "multiple fields"
-        (let [ordered-names  ["db.example.com" "puppet.example.com"
-                              "web1.example.com" "web2.example.com"]]
+        ;; ordered-names is in increasing timestamp order
+        (let [ordered-names ["web1.example.com" "web2.example.com"
+                             "puppet.example.com" "db.example.com"]]
           (doseq [[[timestamp-order name-order] expected]
                   [[["asc" "desc"] ordered-names]
-                   [["asc" "asc"] ordered-names]]]
-            (ordered-query-result method endpoint nil
-                                  {:order_by (vector-param method
-                                                           [{"field" "facts_timestamp"
-                                                             "order" timestamp-order}
-                                                            {"field" "certname"
-                                                             "order" name-order}])}))))
+                   [["asc" "asc"] ordered-names]]
+                  :let [order {:order_by (vector-param method
+                                                       [{"field" "facts_timestamp"
+                                                         "order" timestamp-order}
+                                                        {"field" "certname"
+                                                         "order" name-order}])}
+                        res (ordered-query-result method endpoint nil order)]]
+            (is (= expected (map :certname res))))))
 
       (testing "offset"
         (let [ordered-names ["db.example.com" "puppet.example.com" "web1.example.com" "web2.example.com"]
@@ -554,9 +555,9 @@
                                            ["desc" 3 (drop 3 reversed-names)]]]
             (let [result (ordered-query-result method endpoint nil
                                                {:order_by (vector-param
-                                                            method
-                                                            [{"field" "certname"
-                                                              "order" order}])
+                                                           method
+                                                           [{"field" "certname"
+                                                             "order" order}])
                                                 :offset offset})]
               (is (= (mapv :certname result) expected)))))))
 
@@ -564,20 +565,20 @@
                             ["with" true]]]
       (testing (str endpoint " should support paging through nodes " label " counts")
         (let [results (paged-results method
-                       {:app-fn  *app*
-                        :path    endpoint
-                        :limit   1
-                        :total   (count expected)
-                        :include_total  count?
-                        :params {:order_by
-                                 (vector-param method [{:field "certname"
-                                                        :order "asc"}])}})]
+                                     {:app-fn  *app*
+                                      :path    endpoint
+                                      :limit   1
+                                      :total   (count expected)
+                                      :include_total  count?
+                                      :params {:order_by
+                                               (vector-param method [{:field "certname"
+                                                                      :order "asc"}])}})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                  (set (map :certname results)))))))))
 
 (deftest-http-app node-timestamp-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)
@@ -614,13 +615,13 @@
      #"Can't extract unknown 'nodes' fields 'nothing' and 'nothing2'.*Acceptable fields are.*"))
 
 (deftest-http-app invalid-projections
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]
    [query msg] invalid-projection-queries]
   (testing (str "query: " query " should fail with msg: " msg)
-    (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
+    (let [{:keys [status body headers]} (query-response method endpoint query)]
       (is (re-find msg body))
-      (is (= status http/status-bad-request))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
       (are-error-response-headers headers))))
 
 (def pg-versioned-invalid-regexps
@@ -633,29 +634,29 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftest-http-app pg-invalid-regexps
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]
    [query msg] (get pg-versioned-invalid-regexps endpoint)]
   (testing (str "query: " query " should fail with msg: " msg)
-    (let [{:keys [status body] :as result} (query-response method endpoint query)]
+    (let [{:keys [status body]} (query-response method endpoint query)]
       (is (re-find msg body))
-      (is (= status http/status-bad-request)))))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST status)))))
 
 (def no-parent-endpoints [[:v4 "/v4/nodes/foo/facts"]
                           [:v4 "/v4/nodes/foo/resources"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
-  (let [{:keys [status body] :as result} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+  (let [{:keys [status body]} (query-response method endpoint)]
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about node foo"} (json/parse-string body true)))))
 
 (deftest-http-app invalid-content-type
-  [[version endpoint] endpoints]
+  [[_version endpoint] endpoints]
   (store-example-nodes)
   (testing "content type other than application/json should give error"
-    (let [{:keys [status body] :as response}
+    (let [{:keys [status body]}
           (-> (tu/query-request :post endpoint ["extract" "certname"])
               (assoc-in [:headers "content-type"] "application/x-www-form-urlencoded")
               *app*)]
@@ -666,11 +667,11 @@
           (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
               (assoc-in [:headers "content-type"] "application/json")
               *app*)]
-      (is (= http/status-ok status))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= [{:certname "puppet.example.com"}] (convert-response response))))))
 
 (deftest-http-app error-in-query-streaming-is-communicated-to-caller
-  [[version endpoint] endpoints]
+  [[_version endpoint] endpoints]
   (store-example-nodes)
   (with-redefs [munge-fn-hook (fn [_] (throw (Exception. "BOOM!")))
                 ;; make sure this test always hits the deprecated-produce-streaming-body func

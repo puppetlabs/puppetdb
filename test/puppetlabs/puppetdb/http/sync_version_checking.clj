@@ -9,7 +9,7 @@
 (def endpoints [[:v4 "/v4"]])
 
 (deftest-http-app sync-version-checking-headers
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [req-with-sync-ver (fn [ver]
                             (*app*

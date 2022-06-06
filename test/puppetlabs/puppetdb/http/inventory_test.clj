@@ -12,7 +12,9 @@
                                                         deftest-http-app]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    assert-success!]]
-            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [now to-string]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def inventory-endpoints [[:v4 "/v4/inventory"]])
 
@@ -178,7 +180,7 @@
        {:facts.domain nil :count 1}})))
 
 (deftest-http-app inventory-queries
-  [[version endpoint] inventory-endpoints
+  [[_version endpoint] inventory-endpoints
    method [:get :post]]
 
   (let [facts1 (:facts inventory1)
@@ -229,7 +231,7 @@
                             (get-request endpoint (json/generate-string query))
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
-              (is (= http/status-ok status))
+              (is (= HttpURLConnection/HTTP_OK status))
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true)))))))))))

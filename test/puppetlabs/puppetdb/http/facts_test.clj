@@ -5,7 +5,7 @@
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -20,13 +20,12 @@
                      call-with-test-dbs
                      clear-db-for-testing!
                      init-db
-                     defaulted-read-db-config
-                     defaulted-write-db-config
                      with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
                      are-error-response-headers
                      deftest-http-app
+                     is-query-result
                      query-response
                      query-result
                      vector-param]]
@@ -36,7 +35,9 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp parse-period] :as t]))
+            [puppetlabs.puppetdb.time :refer [now to-string to-timestamp parse-period] :as t])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
@@ -48,20 +49,6 @@
 (def fact-contents-endpoints [[:v4 "/v4/fact-contents"]])
 
 (def reference-time "2014-10-28T20:26:21.727Z")
-
-(defn is-query-result
-  [endpoint query expected-results]
-  (let [request (get-request endpoint (json/generate-string query))
-        {:keys [status body]} (*app* request)
-        actual-result (parse-result body)]
-    (is (= (count expected-results) (count actual-result)))
-    (is (= expected-results (set actual-result)))
-    (is (= http/status-ok status))))
-
-(defn compare-structured-response
-  "compare maps that may have been stringified differently."
-  [response expected version]
-  (is (= response expected)))
 
 (def common-subquery-tests
   (omap/ordered-map
@@ -268,13 +255,13 @@
                 #"Can't extract unknown 'facts' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-projections
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
@@ -287,14 +274,14 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftest-http-app pg-invalid-regexps
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def common-well-formed-tests
@@ -404,8 +391,10 @@
     {:certname "foo5", :environment "DEV", :name "hostname", :value "foo5"}]))
 
 
-(defn versioned-well-formed-tests
-  [version]
+(defn well-formed-tests
+  []
+  ;; The reason for the "common" split is historical.  These
+  ;; non-common tests used to vary based on the endpoint version.
   (merge common-well-formed-tests
          (omap/ordered-map
           nil
@@ -540,7 +529,7 @@
                                  :url-prefix "/pdb")))))
 
 (deftest-http-app fact-queries
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (let [facts1 {"domain" "testing.com"
@@ -617,13 +606,13 @@
 
     (testing "fact queries"
       (testing "well-formed queries"
-        (doseq [[query result] (versioned-well-formed-tests version)]
+        (doseq [[query result] (well-formed-tests)]
           (testing (format "Query %s" query)
             (let [request (if query
                             (get-request endpoint (json/generate-string query))
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
-              (is (= http/status-ok status))
+              (is (= HttpURLConnection/HTTP_OK status))
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true))))))))
@@ -631,19 +620,19 @@
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
               {:keys [status body headers]} (*app* request)]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
         (let [request (get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
               {:keys [status body headers]} (*app* request)]
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers)
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (deftest-http-app fact-subqueries
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (scf-store/add-certname! "foo")
@@ -677,19 +666,19 @@
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")
-      (is-query-result endpoint query (set results))))
+      (is-query-result method endpoint query (set results))))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
       (testing (str "query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
-              {:keys [status body headers] :as result} (*app* request)]
+              {:keys [status body headers]} (*app* request)]
           (is (= body msg))
-          (is (= status http/status-bad-request))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
           (are-error-response-headers headers))))))
 
 (deftest-http-app two-database-fact-query-config
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (call-with-test-dbs
@@ -729,8 +718,9 @@
                                      :producer "bar1"}))
 
             (testing "queries only use the read database"
-              (let [request (get-request endpoint)
-                    {:keys [status body headers]} (two-db-app request)]
+              (let [{:keys [status body headers]}
+                    (binding [*app* two-db-app]
+                      (query-response method endpoint))]
                 (is (http/json-utf8-ctype? (headers "Content-Type")))
                 ;; Environments endpoint will return a proper JSON
                 ;; error with a 404, as opposed to an empty array.
@@ -738,15 +728,16 @@
                   (do
                     (is (= {:error "No information is known about environment DEV"}
                            (json/parse-string body true)))
-                    (is (= status http/status-not-found)))
+                    (is (= HttpURLConnection/HTTP_NOT_FOUND status)))
                   (do
                     (is (empty? (json/parse-stream (io/reader body) true)))
-                    (is (= status http/status-ok))))))
+                    (is (= HttpURLConnection/HTTP_OK status))))))
 
             (testing "config with only a single database returns results"
-              (let [request (get-request endpoint)
-                    {:keys [status body headers]} (one-db-app request)]
-                (is (= status http/status-ok))
+              (let [{:keys [status body headers]}
+                    (binding [*app* one-db-app]
+                      (query-response method endpoint))]
+                (is (= HttpURLConnection/HTTP_OK status))
                 (is (http/json-utf8-ctype? (headers "Content-Type")))
                 (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
                         {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
@@ -758,22 +749,22 @@
                                                          true)))))))))))))
 
 (defn test-paged-results
-  [endpoint query limit total include_total]
-  (paged-results
-   {:app-fn  *app*
-    :path    endpoint
-    :query   query
-    :limit   limit
-    :total   total
-    :params {:order_by (json/generate-string
-                        [{:field :certname
-                          :order :desc}
-                         {:field :name
-                          :order :desc}])}
-    :include_total include_total}))
+  [method endpoint query limit total include_total]
+  (paged-results method
+                 {:app-fn  *app*
+                  :path    endpoint
+                  :query   query
+                  :limit   limit
+                  :total   total
+                  :params {:order_by (vector-param method
+                                                   [{:field :certname
+                                                     :order :desc}
+                                                    {:field :name
+                                                     :order :desc}])}
+                  :include_total include_total}))
 
 (deftest-http-app fact-query-paging
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (let [facts1 {"domain" "testing.com"
@@ -807,7 +798,7 @@
       (doseq [[label counts?] [["without" false]
                                ["with" true]]]
         (testing (str "should support paging through facts " label " counts")
-          (let [results (test-paged-results endpoint
+          (let [results (test-paged-results method endpoint
                                             ["=" "certname" "foo1"]
                                             2 (count facts1) counts?)]
             (is (= (count facts1) (count results)))
@@ -857,7 +848,7 @@
    (:results (raw-query-endpoint endpoint query paging-options))))
 
 (deftest-http-app paging-results
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]]
 
   (let [f1 {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
@@ -930,9 +921,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version)))))
+              (is (= (map unkeywordize-values actual) expected))))))
 
       (testing "works on value"
         (doseq [[order expected] [["ASC" [f1 f3]]
@@ -943,9 +932,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version)))))
+              (is (= (map unkeywordize-values actual) expected))))))
 
       (testing "unextracted field with alias"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
@@ -956,10 +943,8 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response
-                (map (comp :environment unkeywordize-values) actual)
-                (map :environment expected)
-                version)))))
+              (is (= (map (comp :environment unkeywordize-values) actual)
+                     (map :environment expected)))))))
 
       (testing "multiple fields"
         (doseq [[[name-order certname-order] expected] [[["DESC" "ASC"]  [f2 f4 f5 f1 f3]]
@@ -973,9 +958,7 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version))))))
+              (is (= (map unkeywordize-values actual) expected)))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4 f5]]
@@ -998,12 +981,10 @@
                               :body
                               slurp)
                   actual (json/parse-string actual true)]
-              (compare-structured-response (map unkeywordize-values actual)
-                                           expected
-                                           version))))))))
+              (is (= (map unkeywordize-values actual) expected)))))))))
 
 (deftest-http-app facts-environment-paging
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]
    :when (not= endpoint v4-facts-environment)]
 
@@ -1063,14 +1044,13 @@
                                        {:order_by
                                                  (vector-param method [{"field" "environment" "order" env-order}
                                                                       {"field" "name" "order" name-order}])})]
-            (compare-structured-response (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
-                                         expected
-                                         version)))))))
+            (is (= (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
+                   expected))))))))
 
 (deftest-http-app fact-environment-queries
-  [[version endpoint] facts-endpoints
+  [[_version endpoint] facts-endpoints
    method [:get :post]
-   :when (not #(re-find #"environment" endpoint))]
+   :when (not (re-find #"environment" endpoint))]
 
   (testing (str "endpoint " endpoint)
     (let [facts1 {"domain" "testing.com"
@@ -1102,30 +1082,34 @@
                                :values facts1
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (now)
+                               :producer "foo.com"})
         (scf-store/add-facts! {:certname "foo2"
                                :values facts2
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (now)
+                               :producer "foo.com"})
         (scf-store/add-facts! {:certname "foo3"
                                :values facts3
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp (now)})
+                               :producer_timestamp (now)
+                               :producer "foo.com"})
         (scf-store/add-facts! {:certname "foo4"
                                :values facts4
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp (now)}))
+                               :producer_timestamp (now)
+                               :producer "foo.com"}))
 
       (doseq [query '[[= environment PROD]
                       [not [= environment DEV]]
                       ["~" environment PR.*]
                       [not ["~" environment DE.*]]]]
-        (let [{:keys [status headers body]} (*app* (get-request endpoint query))
+        (let [{:keys [status headers body]} (query-response method endpoint query)
               results (json/parse-string (slurp body) true)]
-          (is (= status http/status-ok))
+          (is (= HttpURLConnection/HTTP_OK status))
           (is (http/json-utf8-ctype? (headers "Content-Type")))
           (is (= 9 (count results)))
           (is (every? #(= (:environment %) "PROD") results))
@@ -1522,7 +1506,7 @@
                    "hash" "39ad058afe565c797e925a862394d1bf457cf592"}]))))))
 
 (deftest-http-app factset-subqueries
-  [[version endpoint] factsets-endpoints
+  [[_version endpoint] factsets-endpoints
    method [:get :post]]
 
   (populate-for-structured-tests reference-time)
@@ -1605,7 +1589,7 @@
     #{{:certname "foo1"}}))
 
 (deftest-http-app factset-single-response
-  [[version endpoint] factsets-endpoints
+  [[_version endpoint] factsets-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
 
@@ -1845,8 +1829,7 @@
                            query)))))))))
 
 (deftest-http-app structured-fact-queries-part-2
-  [[version endpoint] facts-endpoints
-   method [:get :post]]
+  [method [:get :post]]
   (let [facts1 {"my_structured_fact" {"a" 1
                                       "b" 3.14
                                       "c" ["a" "b" "c"]
@@ -1929,7 +1912,7 @@
 
 ;; FACT-CONTENTS TESTS
 (deftest-http-app fact-contents-result-munging
-  [[version endpoint] fact-contents-endpoints
+  [[_version endpoint] fact-contents-endpoints
    method [:get :post]]
   (let [facts1 {"\"foo" "bar"
                 "baz" {"1" "foo"}
@@ -2134,7 +2117,7 @@
                     "hash" "39ad058afe565c797e925a862394d1bf457cf592"}]))))))
 
 (deftest-http-app fact-contents-queries
-  [[version endpoint] fact-contents-endpoints
+  [[_version endpoint] fact-contents-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
 
@@ -2257,7 +2240,7 @@
                        {"certname" "foo3" "value" "testing.com"}]))))))
 
 (deftest-http-app to-string-function-with-mask
-  [[version endpoint] [[:v4 v4-facts-endpoint]
+  [[_version endpoint] [[:v4 v4-facts-endpoint]
                        [:v4 "/v4/fact-contents"]]
    method [:get :post]]
    (populate-for-structured-tests reference-time)
@@ -2272,16 +2255,16 @@
 (def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
 
   (let [{:keys [status body]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about factset foo"} (json/parse-string body true)))))
 
 (deftest-http-app no-certname-entity-test
   []
-  (is-query-result "/v4" ["from" "fact_paths"] #{}))
+  (is-query-result :get "/v4" ["from" "fact_paths"] #{}))
 
 (deftest developer-pretty-print
   (let [facts-body (fn [pretty?]

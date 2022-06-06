@@ -99,7 +99,7 @@
   (post-order-visit zipper
                     nil
                     (map (fn [f]
-                           (fn [node state]
+                           (fn [node _state]
                              (when-let [new-node (f node)]
                                {:node new-node})))
                          visitors)))

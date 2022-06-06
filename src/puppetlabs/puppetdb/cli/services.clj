@@ -38,11 +38,8 @@
      data may linger in the database. We periodically sweep the
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
-  (:require [clojure.java.io :as io]
-            [clojure.set :as set]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [compojure.core :as compojure]
             [metrics.counters :as counters :refer [counter inc!]]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
@@ -50,20 +47,16 @@
             [murphy :refer [try! with-final]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.tk-util :refer [run-tk-cli-cmd]]
             [puppetlabs.puppetdb.cli.util :refer [exit err-exit-status]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.metrics.core :as metrics
              :refer [metrics-registries]]
             [puppetlabs.puppetdb.utils.metrics :as mutils]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
@@ -75,8 +68,15 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.time :refer [before? now hours ago to-seconds to-millis parse-period
-                                              format-period period?]]
+            [puppetlabs.puppetdb.time
+             :refer [before?
+                     now
+                     hours
+                     ago
+                     to-seconds
+                     to-millis
+                     format-period
+                     period?]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
                      call-unless-shutting-down
@@ -87,8 +87,9 @@
                      request-scheduler-shutdown
                      schedule-with-fixed-delay
                      scheduler]]
+            [puppetlabs.trapperkeeper.config]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
-            [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
+            [puppetlabs.trapperkeeper.services :refer [service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
             [clojure.core.async :as async]
@@ -460,7 +461,7 @@
               (-> config
                   conf/update-server
                   (version/check-for-updates! read-db))
-              (catch InterruptedException ex
+              (catch InterruptedException _
                 (log/info (trs "Update checker interrupted"))))))
        0 checkin-interval-millis))
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
@@ -700,7 +701,7 @@
           (finally
             (try
               (.removeShutdownHook runtime on-shutdown)
-              (catch IllegalStateException ex
+              (catch IllegalStateException _
                 ;; Ignore, because we're already shutting down.
                 nil))))))))
 
@@ -745,7 +746,7 @@
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
 (defn check-schema-version
-  [desired-version db service request-shutdown]
+  [desired-version db _service request-shutdown]
   {:pre [(integer? desired-version)]}
   (let [schema-version (-> (jdbc/with-transacted-connection db
                              (jdbc/query "select max(version) from schema_migrations"))
@@ -833,8 +834,8 @@
     (Long/parseLong mb)))
 
 (defn start-schema-checks
-  [context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
-  (doseq [[{:keys [schema-check-interval] :as cfg} db] (map vector db-configs db-pools)
+  [_context service job-pool request-shutdown db-configs db-pools shutdown-for-ex]
+  (doseq [[{:keys [schema-check-interval]} db] (map vector db-configs db-pools)
           :when (pos? schema-check-interval)]
     (schedule-with-fixed-delay
      job-pool
@@ -852,7 +853,7 @@
                                 #(long-array (* 1024 128))))) ;; ~1mb
              (check-schema-version (desired-schema-version)
                                    db service request-shutdown)
-             (catch InterruptedException ex
+             (catch InterruptedException _
                (log/info (trs "Schema checker interrupted")))))))
      0 schema-check-interval)))
 
@@ -907,7 +908,7 @@
   incorrectly, throws {:kind ::invalid-database-configuration :failed-validation failed-map}"
   ;; Note: the unsupported-database-triggers-shutdown test relies on
   ;; the documented exception behavior and argument order.
-  [context config service get-registered-endpoints request-shutdown
+  [context config service _get-registered-endpoints request-shutdown
    upgrade-and-exit?]
 
   (when-let [v (version/version)]
@@ -1072,7 +1073,7 @@
   ;; Changes to the argument order above will require changes to the
   ;; unsupported-database-triggers-shutdown test.
   (fn shutdown [opts]
-    (let [{{:keys [status messages] :as exit-opts} ::tk/exit} opts]
+    (let [{{:keys [status messages] :as _exit-opts} ::tk/exit} opts]
       (assert (integer? status))
       (assert (every? string? (map first messages)))
       (some-> (:shutdown-request (service-context service))
@@ -1125,7 +1126,7 @@
    [:ShutdownService get-shutdown-reason request-shutdown]]
 
   (init
-   [this context]
+   [_ context]
    (call-unless-shutting-down
     "PuppetDB service init" (get-shutdown-reason) context
     #(init-puppetdb context)))
@@ -1141,7 +1142,7 @@
                                    get-registered-endpoints
                                    (shutdown-requestor request-shutdown this)))))
 
-  (stop [this context] (stop-puppetdb context request-shutdown))
+  (stop [_ context] (stop-puppetdb context request-shutdown))
 
   (set-url-prefix
    [this url-prefix]
@@ -1219,10 +1220,10 @@
 
 (defn cli
   "Runs the services command as directed by the command line args and
-  returns an appropriate exit status."
+  returns an appropriate exit status.  When the :upgrade-and-exit? opt
+  is true, upgrades the database and returns."
   ([args] (cli args nil))
-  ([args {:keys [upgrade-and-exit?] :as opts}]
-   (run-tk-cli-cmd #(provide-services args opts))))
+  ([args opts] (run-tk-cli-cmd #(provide-services args opts))))
 
 (defn -main [& args]
   (exit (provide-services args)))

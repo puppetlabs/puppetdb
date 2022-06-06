@@ -1,11 +1,21 @@
 (ns puppetlabs.puppetdb.catalog.utils-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.catalog.utils :refer :all]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.java.io :as io]
-            [puppetlabs.puppetdb.examples :as ex]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.set :as set]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.catalog.utils
+    :refer [add-random-edge-to-catalog
+            add-random-edge-to-wire-catalog
+            add-random-resource-to-catalog
+            add-random-resource-to-wire-catalog
+            convert-internal-catalog-fn
+            mod-resource-in-catalog
+            mod-resource-in-wire-catalog
+            swap-edge-targets-in-catalog
+            swap-edge-targets-in-wire-catalog]]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [clojure.java.io :as io]
+   [puppetlabs.puppetdb.examples :as ex]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [clojure.set :as set]))
 
 (defn convert-tags
   "Tags from JSON parse as a list, change that to a set for

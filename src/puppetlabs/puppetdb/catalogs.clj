@@ -91,7 +91,6 @@
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -405,7 +404,7 @@
 (defmulti parse-catalog
   "Parse a wire-format `catalog` object or string of the specified `version`,
   returning a PuppetDB-suitable representation."
-  (fn [catalog version received-time]
+  (fn [catalog version _received-time]
     (match [catalog version]
            [(_ :guard string?) _]
            String
@@ -430,42 +429,42 @@
   (parse-catalog (json/parse-string catalog true) version received-time))
 
 (defmethod parse-catalog 4
-  [catalog version received-time]
+  [catalog _version received-time]
   {:pre [(map? catalog)]
    :post [(map? %)]}
   (parse-catalog (wire-v4->wire-v9 catalog received-time)
                  9 nil))
 
 (defmethod parse-catalog 5
-  [catalog version _]
+  [catalog _version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
   (parse-catalog (wire-v5->wire-v9 catalog)
                  9 nil))
 
 (defmethod parse-catalog 6
-  [catalog version _]
+  [catalog _version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
   (parse-catalog (wire-v6->wire-v9 catalog)
                 9 nil))
 
 (defmethod parse-catalog 7
-  [catalog version _]
+  [catalog _version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
   (parse-catalog (wire-v7->wire-v9 catalog)
                  9 nil))
 
 (defmethod parse-catalog 8
-  [catalog version _]
+  [catalog _version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
   (parse-catalog (wire-v8->wire-v9 catalog)
                  9 nil))
 
 (defmethod parse-catalog 9
-  [catalog version _]
+  [catalog _version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
   (->> catalog
@@ -475,7 +474,7 @@
        validate))
 
 (defmethod parse-catalog :default
-  [catalog version _]
+  [_catalog version _]
   (throw (IllegalArgumentException.
           (trs "Unknown catalog version ''{0}''" version))))
 

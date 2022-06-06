@@ -1,15 +1,13 @@
 (ns puppetlabs.puppetdb.client
-  (:require [puppetlabs.puppetdb.http :as http]
-            [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.reports :as reports]
+  (:require [clojure.tools.logging :as log]
             [clj-http.client :as http-client]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import
+   (java.net HttpURLConnection)))
 
 (defn get-metric [base-url metric-name]
   (let [url (str (utils/base-url->str base-url)
@@ -67,7 +65,7 @@
                  (command-names :replace-catalog)
                  command-version
                  catalog-payload)]
-    (when-not (= http/status-ok (:status result))
+    (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))
 
 (defn-validated submit-report
@@ -83,7 +81,7 @@
                  (command-names :store-report)
                  command-version
                  report-payload)]
-    (when-not (= http/status-ok (:status result))
+    (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))
 
 (defn-validated submit-facts
@@ -99,5 +97,5 @@
                   (command-names :replace-facts)
                   facts-version
                   fact-payload)]
-    (when-not (= http/status-ok (:status result))
+    (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))

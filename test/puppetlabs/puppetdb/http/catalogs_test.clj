@@ -4,14 +4,14 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.catalogs :as catalogs]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.testutils :refer [get-request strip-hash]]
+            [puppetlabs.puppetdb.testutils :refer [strip-hash]]
             [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
                                                         query-response
                                                         query-result
                                                         vector-param]]
-            [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
+            [puppetlabs.puppetdb.testutils.catalogs :as testcat])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
 
@@ -74,13 +74,13 @@
 ;; TESTS
 
 (deftest-http-app catalog-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (testcat/replace-catalog catalog1)
   (testcat/replace-catalog catalog2)
   (testing "catalog endpoint is queryable"
     (doseq [q (keys queries)]
-      (let [{:keys [status body]} (query-response method endpoint q)
+      (let [{:keys [body]} (query-response method endpoint q)
             response-body (strip-hash (json/parse-string (slurp body) true))
             expected (get queries q)]
         (is (= (count expected) (count response-body)))
@@ -131,11 +131,10 @@
   (testing "paging options"
     (doseq [p (keys paging-options)]
       (testing (format "checking ordering %s" p)
-        (let [{:keys [status body]} (query-response
-                                      method endpoint nil
-                                      {:order_by (vector-param method p)})
-            response-body (strip-hash (json/parse-stream (reader body) true))
-            expected (get paging-options p)]
+        (let [{:keys [body]} (query-response method endpoint nil
+                                             {:order_by (vector-param method p)})
+              response-body (strip-hash (json/parse-stream (reader body) true))
+              expected (get paging-options p)]
         (is (= (map :certname expected) (map :certname response-body)))))))
 
   (testing "endpoint is still responsive to old-style node queries"
@@ -144,7 +143,7 @@
       (is (= "myhost.localdomain" (:certname response-body))))))
 
 (deftest-http-app catalog-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (testcat/replace-catalog catalog1)
@@ -236,9 +235,9 @@
                           [:v4 "/v4/catalogs/foo/resources"]])
 
 (deftest-http-app unknown-parent-handling
-  [[version endpoint] no-parent-endpoints
+  [[_version endpoint] no-parent-endpoints
    method [:get :post]]
 
   (let [{:keys [status body]} (query-response method endpoint)]
-    (is (= status http/status-not-found))
+    (is (= HttpURLConnection/HTTP_NOT_FOUND status))
     (is (= {:error "No information is known about catalog foo"} (json/parse-string body true)))))

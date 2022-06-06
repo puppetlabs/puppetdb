@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.status-test
   (:require [clojure.test :refer :all]
+            [puppetlabs.puppetdb.pdb-routing]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]

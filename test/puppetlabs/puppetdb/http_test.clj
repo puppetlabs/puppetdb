@@ -1,12 +1,20 @@
 (ns puppetlabs.puppetdb.http-test
-  (:import [java.io InputStream StringWriter])
   (:require [cheshire.core :as json]
             [puppetlabs.trapperkeeper.testutils.webserver :refer [with-test-webserver]]
             [ring.mock.request :as mock]
-            [puppetlabs.puppetdb.http :refer :all]
+            [puppetlabs.puppetdb.http
+             :refer [acceptable-content-type
+                     default-body
+                     json-response
+                     leading-uris
+                     must-accept-type
+                     stream-json
+                     uri-segments]]
             [clojure.test :refer :all]
-            [cheshire.core :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
+            [puppetlabs.puppetdb.testutils.services :as svc-utils])
+  (:import
+   (java.io StringWriter)
+   (java.net HttpURLConnection)))
 
 (deftest conneg
   (testing "content negotiation"
@@ -109,18 +117,18 @@
 
   (testing "provides a helpful message for 405 Method Not Allowed errors"
     (let [request (mock/request :post "/some/test/route")
-          response {:status status-bad-method}
+          response {:status HttpURLConnection/HTTP_BAD_METHOD}
           message "The POST method is not allowed for /some/test/route"]
       (is (= (default-body request response) message)))
 
     (let [request (mock/request :post "/some/test/route?foo=bar")
-          response {:status status-bad-method}
+          response {:status HttpURLConnection/HTTP_BAD_METHOD}
           message "The POST method is not allowed for /some/test/route?foo=bar"]
       (is (= (default-body request response) message)))))
 
 (deftest utf-8-json-responses
   (testing "JSON responses should be encoded as utf-8"
-    (let [app  (fn [req] (json-response "N�rnberg"))]
+    (let [app  (fn [_req] (json-response "N�rnberg"))]
       (with-test-webserver app port
         (let [resp (svc-utils/get-unparsed (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
@@ -133,10 +141,10 @@
   (testing "empty seq should return []"
     (let [w (StringWriter.)]
       (stream-json [] w true)
-      (is (empty? (parse-string (str w))))))
+      (is (empty? (json/parse-string (str w))))))
 
   (testing "should jsonify all items in the seq"
     (let [w    (StringWriter.)
           test [nil 1 "a" [1 2] {"foo" 123}]]
       (stream-json test w true)
-      (is (= (parse-string (str w)) test)))))
+      (is (= (json/parse-string (str w)) test)))))

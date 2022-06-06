@@ -1,10 +1,7 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts-test
-  (:require [puppetlabs.puppetdb.http :as http]
-            [cheshire.core :as json]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [assert-success! ]]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.http
              :refer [are-error-response-headers
                      deftest-http-app
@@ -14,14 +11,16 @@
             [puppetlabs.puppetdb.testutils.reports :refer [with-corrective-change
                                                            without-corrective-change
                                                            store-example-report!]]
-            [puppetlabs.puppetdb.time :as coerce :refer [now]]))
+            [puppetlabs.puppetdb.time :as coerce :refer [now]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/aggregate-event-counts"]])
 
 ;; Tests without corrective changes support
 
 (deftest-http-app query-aggregate-event-counts
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:post :get]]
 
   (without-corrective-change
@@ -32,7 +31,7 @@
             (query-response method endpoint
                             ["=" "certname" "foo.local"]
                             {:summarize_by "illegal-summarize-by"})]
-        (is (= status http/status-bad-request))
+        (is (= status HttpURLConnection/HTTP_BAD_REQUEST))
         (are-error-response-headers headers)
         (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
 
@@ -42,7 +41,7 @@
                             ["=" "certname" "foo.local"]
                             {:summarize_by "certname"
                              :count_by "illegal-count-by"})]
-        (is (= status http/status-bad-request))
+        (is (= status HttpURLConnection/HTTP_BAD_REQUEST))
         (are-error-response-headers headers)
         (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
@@ -79,7 +78,7 @@
         (is (= expected (first response)))))))
 
 (deftest-http-app query-distinct-event-counts
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [current-time (now)
@@ -166,7 +165,7 @@
            ["and" ["=" "latest_report?" true] ["=" "certname" "foo.local"]]))))
 
 (deftest-http-app query-with-environment
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (without-corrective-change
     (store-example-report! (:basic reports) (now))
@@ -253,7 +252,7 @@
 ;; Tests with corrective changes support
 
 (deftest-http-app query-aggregate-event-counts-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:post :get]]
 
   (with-corrective-change
@@ -298,7 +297,7 @@
         (is (= expected (first response)))))))
 
 (deftest-http-app query-distinct-event-counts-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [current-time (now)
@@ -375,7 +374,7 @@
            ["and" ["=" "latest_report?" true] ["=" "certname" "foo.local"]]))))
 
 (deftest-http-app query-with-environment-with-corrective-changes
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (with-corrective-change
     (store-example-report! (:basic reports) (now))

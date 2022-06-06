@@ -37,14 +37,13 @@
 (defn run-cli-cmd [f]
   (let [jdk (java-version)]
     (if-let [{:keys [warn error]} (jdk-unsupported-msg jdk)]
-      (do
-        (if error
-          (do
-            (binding [*out* *err*] (println (trs "error:") error))
-            err-exit-status)
-          (do
-            (binding [*out* *err*] (println (trs "warn:") warn))
-            (f))))
+      (if error
+        (do
+          (binding [*out* *err*] (println (trs "error:") error))
+          err-exit-status)
+        (do
+          (binding [*out* *err*] (println (trs "warn:") warn))
+          (f)))
       (f))))
 
 (defn exit [status]

@@ -6,8 +6,7 @@
                      insert-entries
                      defaulted-read-db-config
                      defaulted-write-db-config
-                     call-with-antonym-test-database
-                     with-db-info-on-failure-or-drop]]))
+                     call-with-antonym-test-database]]))
 
 (defmacro deftest-antonyms [name & body]
   `(deftest ~name

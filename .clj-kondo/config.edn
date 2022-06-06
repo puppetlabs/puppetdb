@@ -1,0 +1,33 @@
+
+{:hooks
+ {:analyze-call
+  {clojure.test.check.clojure-test/defspec hooks/defspec
+   murphy/with-final hooks/with-final
+   puppetlabs.puppetdb.command-test/with-message-handler hooks/one-binding-then-body
+   puppetlabs.puppetdb.http.explore-test/check-json-response hooks/check-json-response
+   puppetlabs.puppetdb.http/streamed-response hooks/one-binding-then-body
+   puppetlabs.puppetdb.jdbc-test/deftest-antonyms hooks/deftest-antonyms
+   puppetlabs.puppetdb.testutils.http/deftest-http-app hooks/deftest-http-app
+   puppetlabs.puppetdb.testutils.queue/with-stockpile hooks/one-binding-then-body
+   puppetlabs.puppetdb.testutils/with-coordinated-fn hooks/with-coordinated-fn
+   puppetlabs.trapperkeeper.core/defservice hooks/defservice
+   puppetlabs.trapperkeeper.core/service hooks/service
+   puppetlabs.trapperkeeper.services/defservice hooks/defservice
+   puppetlabs.trapperkeeper.testutils.logging/with-log-output hooks/one-binding-then-body
+   puppetlabs.trapperkeeper.testutils.logging/with-logged-event-maps hooks/one-binding-then-body
+   puppetlabs.trapperkeeper.testutils.webserver/with-test-webserver hooks/with-test-webserver}}
+ :lint-as
+ {puppetlabs.puppetdb.schema/defn-validated schema.core/defn
+  puppetlabs.puppetdb.testutils/dotestseq clojure.core/doseq
+  puppetlabs.puppetdb.testutils/with-wrapped-fn-args clojure.core/let
+  puppetlabs.puppetdb.scf.storage-test/deftest-db clojure.test/deftest}
+ :linters
+ {:deprecated-var
+  {:exclude
+   {puppetlabs.puppetdb.http/streamed-response {:namespaces [".*"]}
+    puppetlabs.puppetdb.jdbc/call-with-array-converted-query-rows {:namespaces [".*"]}}}
+  :refer-all {:exclude [clojure.test]}
+  :unresolved-symbol
+  {:exclude
+   [(puppetlabs.comidi/GET)
+    (puppetlabs.comidi/POST)]}}}

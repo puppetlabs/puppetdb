@@ -19,21 +19,21 @@
             GzipCompressorOutputStream
             GzipCompressorInputStream])
   (:require
-   [clojure.java.io :refer :all]
+   [clojure.java.io :refer [reader writer]]
    [puppetlabs.i18n.core :refer [tru]]
    [puppetlabs.puppetdb.time :refer [now to-java-date]]))
 
 ;; A simple type for writing tar/gz streams
 (defrecord TarGzWriter [^Closeable tar-stream ^Closeable tar-writer ^Closeable gzip-stream]
   Closeable
-  (close [this]
+  (close [_]
     (.close tar-stream)
     (.close gzip-stream)))
 
 ;; A simple type for reading tar/gz streams
 (defrecord TarGzReader [^Closeable gzip-stream ^Closeable tar-stream ^Closeable tar-reader tar-entry]
   Closeable
-  (close [this]
+  (close [_]
     (.close tar-stream)
     (.close gzip-stream)))
 

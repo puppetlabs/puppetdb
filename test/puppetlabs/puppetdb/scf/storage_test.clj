@@ -1,38 +1,73 @@
 (ns puppetlabs.puppetdb.scf.storage-test
-  (:require [clojure.java.jdbc :as sql]
-            [clojure.set :as set]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.scf.migrate :as migrate]
-            [clojure.walk :as walk]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db
-             :refer [*db* clear-db-for-testing! init-db with-test-db]]
-            [metrics.histograms :refer [sample histogram]]
-            [metrics.counters :as counters]
-            [schema.core :as s]
-            [puppetlabs.trapperkeeper.testutils.logging :as pllog]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.examples :refer [catalogs]]
-            [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.testutils.reports :refer :all]
-            [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.testutils.nodes :refer :all]
-            [puppetlabs.puppetdb.random :as random]
-            [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
-            [puppetlabs.puppetdb.scf.storage :refer :all]
-            [clojure.test :refer :all]
-            [clojure.math.combinatorics :refer [combinations subsets]]
-            [metrics.timers :refer [time! timer]]
-            [puppetlabs.puppetdb.jdbc :as jdbc
-             :refer [call-with-query-rows query-to-vec]]
-            [puppetlabs.puppetdb.time :as time
-             :refer [ago before? days from-now now to-string to-timestamp]])
+  (:require
+   [clojure.java.jdbc :as sql]
+   [metrics.timers]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.reports :as report]
+   [puppetlabs.puppetdb.scf.hash :as shash]
+   [puppetlabs.puppetdb.facts :as facts]
+   [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
+   [clojure.walk :as walk]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.testutils :as tu]
+   [puppetlabs.puppetdb.testutils.db
+    :refer [*db* clear-db-for-testing! init-db with-test-db]]
+   [metrics.histograms :refer [sample histogram]]
+   [metrics.counters :as counters]
+   [schema.core :as s]
+   [clojure.string :as str]
+   [puppetlabs.puppetdb.examples :refer [catalogs]]
+   [puppetlabs.puppetdb.examples.reports :refer [reports]]
+   [puppetlabs.puppetdb.testutils.reports
+    :refer [is-latest-report? store-example-report!]]
+   [puppetlabs.puppetdb.testutils.events :refer [query-resource-events]]
+   [puppetlabs.puppetdb.testutils.nodes :refer [node-for-certname]]
+   [puppetlabs.puppetdb.random :as random]
+   [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
+   [puppetlabs.puppetdb.scf.storage
+    :refer [activate-node!
+            add-certname!
+            add-facts!
+            basic-diff
+            call-with-lock-timeout
+            catalog-edges-map
+            catalog-schema
+            certname-factset-metadata
+            deactivate-node!
+            delete-certname!
+            delete-reports-older-than!
+            delete-unassociated-packages!
+            delete-unused-fact-paths
+            diff-resources-metadata
+            ensure-environment
+            ensure-producer
+            environment-id
+            expire-stale-nodes
+            have-newer-record-for-certname?
+            insert-packages
+            maybe-activate-node!
+            merge-resource-hash
+            normalize-report
+            purge-deactivated-and-expired-nodes!
+            realize-paths
+            replace-catalog!
+            replace-catalog-inputs!
+            replace-edges!
+            replace-facts!
+            resources-exist?
+            set-certname-facts-expiration
+            status-id
+            storage-metrics
+            storage-metrics-registry
+            timestamp-of-newest-record
+            update-facts!]]
+   [clojure.test :refer :all]
+   [clojure.math.combinatorics :refer [subsets]]
+   [puppetlabs.puppetdb.jdbc :as jdbc
+    :refer [call-with-query-rows query-to-vec]]
+   [puppetlabs.puppetdb.time :as time
+    :refer [ago days from-now now to-string to-timestamp]])
   (:import
    (java.sql SQLException)))
 
@@ -150,27 +185,6 @@
                    :producer producer})
       (is (= facts (factset-map "some_certname"))))))
 
-(comment
-  (def certname "some_certname")
-  (def facts {"domain" "mydomain.com"
-              "fqdn" "myhost.mydomain.com"
-              "hostname" "myhost"
-              "kernel" "Linux"
-              "operatingsystem" "Debian"})
-
-  (def new-facts {"domain" "mynewdomain.com"
-                  "fqdn" "myhost.mynewdomain.com"
-                  "hostname" "myhost"
-                  "kernel" "Linux"
-                  "uptime_seconds" 3600})
-
-  (def producer "bar.com")
-
-  (alter-var-root #'*db*
-                  (constantly jdbc/*db*))
-
-  )
-
 (defn delete-certname-facts!
   [certname]
   (jdbc/do-prepared "delete from factsets where certname = ?" [certname]))
@@ -249,22 +263,29 @@
                 (is (= #{"domain" "fqdn"}
                        (set (keys (volatile-facts certname))))))
 
-              #_(testing "should update existing keys"
+              (testing "should update existing keys"
                 (is (= 1 (count @updates)))
-                (is (some #{{:timestamp (to-timestamp reference-time)
-                             :environment_id 1
-                             :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
-                             :producer_timestamp (to-timestamp reference-time)
-                             :producer_id 1}}
-                          ;; Again we grab the pertinent non-id bits
-                          (map (fn [itm]
-                                 (-> (second itm)
-                                     (update-in [:hash] sutils/parse-db-hash)))
-                               @updates)))
-                (is (some (fn [update-call]
-                            (and (= :factsets (first update-call))
-                                 (:timestamp (second update-call))))
-                          @updates))))))
+                (let [bytes->hex (fn [bytes]
+                                   (->> bytes
+                                       (map #(format "%02x" (bit-and 0xff %)))
+                                       (apply str)))
+                      expected-ts (to-timestamp reference-time)
+                      [[_ m _params]] @updates]
+                  (is (= {:timestamp expected-ts
+                          :producer_timestamp expected-ts
+                          :environment_id 1
+                          :producer_id 1
+                          :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
+                          :paths_hash "2b34e4a4e24b4fca5fc154d2700fc2a430c6a1a1"
+                          :stable_hash "33c9461b3b37541edec996529c3f6aba3c2ea0e4"
+                          :stable {:hostname "myhost" :kernel "Linux" :uptime_seconds 3600}
+                          :volatile {:domain "mynewdomain.com" :fqdn "myhost.mynewdomain.com"}}
+                         (-> m
+                             (update :hash sutils/parse-db-hash)
+                             (update :paths_hash bytes->hex)
+                             (update :stable_hash bytes->hex)
+                             (update :stable sutils/parse-db-json)
+                             (update :volatile sutils/parse-db-json)))))))))
 
         (testing "replacing all new facts"
           (delete-certname-facts! certname)
@@ -468,25 +489,20 @@
                     #{}))
 
         (testing "multiple types for path and all types change"
-          (let [expected #{{:path "a" :value_type_id (type-id :int)}
-                           {:path "a" :value_type_id (type-id :obj)}
-                           {:path "a#~0" :value_type_id (type-id :int)}
-                           {:path "a#~foo" :value_type_id (type-id :str)}
-                           {:path "a" :value_type_id (type-id :str)}}]
-            (check-gc [["c-x" {"a" 1}]
-                       ["c-y" {"a" [0]}]
-                       ["c-x" {"a" {"foo" "bar"}}]
-                       ["c-y" {"a" "two"}]]
-                      #{{:path "a" :value_type_id (type-id :int)}
-                        {:path "a" :value_type_id (type-id :obj)}
-                        {:path "a#~0" :value_type_id (type-id :int)}
-                        {:path "a#~foo" :value_type_id (type-id :str)}
-                        {:path "a" :value_type_id (type-id :str)}}
-                      ;; Q: Why didn't "a" :int stick around?
-                      #{{:path "a" :value_type_id (type-id :int)}
-                        {:path "a" :value_type_id (type-id :obj)}
-                        {:path "a#~foo" :value_type_id (type-id :str)}
-                        {:path "a" :value_type_id (type-id :str)}})))
+          (check-gc [["c-x" {"a" 1}]
+                     ["c-y" {"a" [0]}]
+                     ["c-x" {"a" {"foo" "bar"}}]
+                     ["c-y" {"a" "two"}]]
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~0" :value_type_id (type-id :int)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}
+                      {:path "a" :value_type_id (type-id :str)}}
+                    ;; Q: Why didn't "a" :int stick around?
+                    #{{:path "a" :value_type_id (type-id :int)}
+                      {:path "a" :value_type_id (type-id :obj)}
+                      {:path "a#~foo" :value_type_id (type-id :str)}
+                      {:path "a" :value_type_id (type-id :str)}}))
 
         (testing "everything to nothing"
           (check-gc [["c-x" {"a" 1}]
@@ -1209,8 +1225,7 @@
 
 (deftest-db add-resource-to-existing-catalog
   (let [{certname :certname :as catalog} (:basic catalogs)
-        old-date (-> 2 days ago)
-        yesterday (-> 1 days ago)]
+        old-date (-> 2 days ago)]
     (add-certname! certname)
     (replace-catalog! catalog old-date)
 
@@ -1869,14 +1884,12 @@
 
   (deftest-db report-storage-without-resources
     (testing "should store reports"
-      (let [env-id (ensure-environment "DEV")]
-
-        (store-example-report! (assoc-in report [:resource_events :data] []) timestamp)
-
-        (is (= (query-to-vec ["SELECT certname FROM reports"])
-               [{:certname (:certname report)}]))
-        (is (= (query-to-vec ["SELECT COUNT(1) as num_resource_events FROM resource_events"])
-               [{:num_resource_events 0}])))))
+      (ensure-environment "DEV")
+      (store-example-report! (assoc-in report [:resource_events :data] []) timestamp)
+      (is (= (query-to-vec ["SELECT certname FROM reports"])
+             [{:certname (:certname report)}]))
+      (is (= (query-to-vec ["SELECT COUNT(1) as num_resource_events FROM resource_events"])
+             [{:num_resource_events 0}]))))
 
   (deftest-db report-storage-with-existing-environment
     (testing "should store reports"
@@ -2150,12 +2163,10 @@
   (is (= [] (query-to-vec "select * from catalog_inputs")))
   (let [stamp-1 (to-timestamp (now))
         stamp-2 (to-timestamp (time/plus (now) (time/seconds 1)))
-        id (-> "select id from certnames where certname = 'foo'"
-               query-to-vec first :id)]
-    (add-certname! "foo")
+        id (-> (add-certname! "foo") first :id)]
     (replace-catalog! (assoc catalog :producer_timestamp stamp-1 :certname "foo"))
     (is (= [] (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp nil :catalog_inputs_uuid nil}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp nil :catalog_inputs_uuid nil}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
 
     (replace-catalog-inputs! "foo"
@@ -2164,7 +2175,7 @@
                              stamp-1)
     (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::globals::version"}]
            (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-1 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp stamp-1 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
 
     ;; Changes for newer time, removes old inputs, supports multiple inputs
@@ -2176,7 +2187,7 @@
     (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}
             {:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}]
            (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))
 
     ;; No effect if time is <=
@@ -2187,7 +2198,7 @@
     (is (= [{:certname_id 1 :type "hiera" :name "puppetdb::disable_cleartext"}
             {:certname_id 1 :type "hiera" :name "puppetdb::disable_ssl"}]
            (query-to-vec "select * from catalog_inputs")))
-    (is (= [{:id 1 :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
+    (is (= [{:id id :certname "foo" :catalog_inputs_timestamp stamp-2 :catalog_inputs_uuid (:catalog_uuid catalog)}]
            (query-to-vec "select certname, id, catalog_inputs_timestamp, catalog_inputs_uuid::text from certnames")))))
 
 (defn get-lock-timeout []

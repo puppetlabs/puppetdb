@@ -10,7 +10,6 @@
    [puppetlabs.puppetdb.testutils.db :as tdb
     :refer [*db*
             clear-db-for-testing!
-            test-env
             with-test-db
             with-unconnected-test-db]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils

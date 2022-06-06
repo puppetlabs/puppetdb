@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.integration.sensitive-params
   (:require
    [clojure.java.shell :refer [sh]]
-   [clojure.java.io :refer [writer]]
    [clojure.pprint :refer [pprint]]
    [clojure.string :as str]
    [clojure.test :refer :all]

@@ -2,12 +2,9 @@
   (:require
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.jdbc :as jdbc]
-   [puppetlabs.puppetdb.utils :refer [update-vals]]
    [puppetlabs.puppetdb.testutils.db
     :refer [*db* schema-info-map diff-schema-maps]]
    [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
-   [puppetlabs.puppetdb.testutils.catalogs :refer [munge-catalog]]
-   [puppetlabs.puppetdb.testutils.facts :refer [munge-facts]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [with-puppetdb-instance]]))
 
 ; This MUST match the SQL run by resources/ext/cli/delete-reports.erb
@@ -77,13 +74,16 @@
           (is (= factsets
                  (get-all-factsets)))
 
-          (let [nil-report-keys
-                (partial map
-                         #(update-vals
-                            %
-                            [:latest_report_hash :report_environment :latest_report_corrective_change
-                             :latest_report_noop :latest_report_noop_pending :report_timestamp
-                             :latest_report_job_id :latest_report_status :cached_catalog_status]
-                            (constantly nil)))]
-            (is (= (set (nil-report-keys nodes))
+          (let [nil-entries (interleave [:latest_report_hash
+                                         :report_environment
+                                         :latest_report_corrective_change
+                                         :latest_report_noop
+                                         :latest_report_noop_pending
+                                         :report_timestamp
+                                         :latest_report_job_id
+                                         :latest_report_status
+                                         :cached_catalog_status]
+                                        (repeat nil))
+                clear-report-keys #(apply assoc % nil-entries)]
+            (is (= (set (map clear-report-keys nodes))
                    (set (get-all-nodes))))))))))

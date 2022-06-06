@@ -1,9 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng.default-reports
   (:require
    [clojure.core.match :as cm]
-   [clojure.set :as set]
-   [clojure.string :as str]
-   [puppetlabs.i18n.core :refer [tru trs]]
+   [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.puppetdb.query-eng.engine :as eng :refer [user-name->query-rec-name]])
   (:import
     (clojure.lang ExceptionInfo)))
@@ -29,23 +27,23 @@
    [nil] false
    [[]] false
    [::elide] false
-   [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] (= field "type")
-   [[(op :guard #{"and" "or"}) & exprs]] (boolean (some mentions-report-type? exprs))
+   [[(_op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field _value]] (= field "type")
+   [[(_op :guard #{"and" "or"}) & exprs]] (boolean (some mentions-report-type? exprs))
    [["not" expr]] (mentions-report-type? expr)
-   [["null?" field bool]] (= field "type")
-   [["in" field ["array" & values]]] (= field "type")
+   [["null?" field _bool]] (= field "type")
+   [["in" field ["array" & _values]]] (= field "type")
 
    ;; New-style explicit subquery
-   [["in" fields ["from" entity ["extract" sub-fields expr] & page-order-opts]]]
+   [["in" _fields ["from" _entity ["extract" _sub-fields _expr] & _page-order-opts]]]
    false
 
    ;; Old-style select_foo subquery.  Suppose we could take this as an
    ;; opportunity to just rewrite it new-style and recurse, which
    ;; might allow simplifications in the later plan passes.
-   [["in" fields ["extract" sub-fields [select-entity expr & page-order-opts]]]]
+   [["in" _fields ["extract" _sub-fields [_select-entity _expr & _page-order-opts]]]]
    false
 
-   [["subquery" entity expr]] false
+   [["subquery" _entity _expr]] false
 
    :else (throw
           (ex-info "Unrecognized ast clause."
@@ -93,8 +91,8 @@
    [nil] ast
    [[]] ast
    [::elide] ast
-   [[(op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) field value]] ast
-   [["null?" field bool]] ast
+   [[(_op :guard #{"=" ">" "<" "<=" ">=" "~" "~>"}) _field _value]] ast
+   [["null?" _field _bool]] ast
 
    [[(op :guard #{"and" "or"})  & exprs]]
    (let [exprs (mapv maybe-add-agent-report-filter-to-subqueries exprs)]
@@ -104,7 +102,7 @@
    (let [expr (maybe-add-agent-report-filter-to-subqueries expr)]
      `["not" ~expr])
 
-   [["in" field ["array" & values]]] ast
+   [["in" _field ["array" & _values]]] ast
 
    ;; New-style explicit subquery
    [["in" fields

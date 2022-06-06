@@ -33,7 +33,7 @@
   "Returns a map containing status information on the various parts of
   a running PuppetDB system. This data can be interpreted to determine
   whether the system is considered up"
-  [config :- {s/Any s/Any}
+  [_config :- {s/Any s/Any}
    shared-globals-fn :- pls/Function
    maint-mode-fn? :- pls/Function]
   (let [{:keys [scf-write-dbs scf-write-db-names] :as globals} (shared-globals-fn)

@@ -1,23 +1,19 @@
 (ns puppetlabs.puppetdb.command.dlo-test
   (:require
    [clojure.java.io :as io]
-   [clojure.string :as str]
    [clojure.test :refer :all]
-   [metrics.counters :as counters :refer [counter]]
+   [metrics.counters :as counters]
    [puppetlabs.kitchensink.core :refer [timestamp]]
-   [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.command.dlo :as dlo]
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
    [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
    [puppetlabs.puppetdb.nio :refer [get-path]]
-   [puppetlabs.puppetdb.queue :refer [cmdref->entry cons-attempt store-command create-command-req]]
+   [puppetlabs.puppetdb.queue :refer [cmdref->entry cons-attempt store-command]]
    [puppetlabs.puppetdb.testutils :refer [ordered-matches?]]
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.testutils.queue :refer [catalog->command-req]]
    [puppetlabs.puppetdb.time :as coerce-time]
-   [puppetlabs.stockpile.queue :as stock])
-  (:import
-   [java.nio.file Files]))
+   [puppetlabs.stockpile.queue :as stock]))
 
 (defn reg-counter-val [registry suffix]
   (let [mname (str "puppetlabs.puppetdb.dlo." suffix)]
@@ -32,7 +28,7 @@
   (with-open [stream (stock/stream q entry)]
     (slurp stream)))
 
-(defn store-catalog [q dlo]
+(defn store-catalog [q _dlo]
   (->> (get-in wire-catalogs [9 :basic])
        (catalog->command-req 9)
        (store-command q)))
@@ -73,7 +69,6 @@
      (let [q (stock/create (.resolve tmpdir "q"))
            reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
            dlo (dlo/initialize (.resolve tmpdir "dlo") reg)
-           cmd (get-in wire-catalogs [9 :basic])
            cmdref (store-catalog q dlo)
            content (entry->str q (cmdref->entry cmdref))
            cmd-size (count content)

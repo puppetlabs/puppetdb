@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.integration.reports
   (:require [clojure.test :refer :all]
-            [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [metrics.counters :as counters]

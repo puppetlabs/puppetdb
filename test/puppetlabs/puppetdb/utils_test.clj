@@ -1,8 +1,18 @@
 (ns puppetlabs.puppetdb.utils-test
-  (:require [puppetlabs.puppetdb.utils :refer :all]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [clojure.walk :as walk])
+  (:require
+   [clojure.test :refer :all]
+   [clojure.walk :as walk]
+   [puppetlabs.puppetdb.testutils :as tu]
+   [puppetlabs.puppetdb.utils
+    :refer [assoc-when
+            describe-bad-base-url
+            match-any-of
+            print-err
+            println-err
+            regex-quote
+            stringify-keys
+            utf8-truncate
+            with-log-mdc]])
   (:import
    (org.apache.log4j MDC)))
 

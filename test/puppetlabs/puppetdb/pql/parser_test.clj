@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.pql.parser-test
   (:require
-   [clojure.string :as str]
    [clojure.test :refer :all]
    [instaparse.core :as insta]
    [puppetlabs.puppetdb.pql :refer [parse]]))

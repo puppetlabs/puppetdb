@@ -3,27 +3,25 @@
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.command :refer [command-app]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as str]
-            [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.trapperkeeper.testutils.logging
-             :refer [with-log-output with-test-logging]]
+             :refer [with-test-logging]]
             [ring.mock.request :as mock]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals absolute-path]]
+            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [puppetlabs.puppetdb.queue :as queue])
   (:import
-   (java.io ByteArrayInputStream)
+   (clojure.lang ExceptionInfo)
+   (java.net HttpURLConnection)
    (java.util.concurrent Semaphore)))
 
 (defn env-true? [name]
@@ -33,7 +31,7 @@
            (not (#{"no" "false"} x))
            (try
              (not (zero? (Integer/valueOf x)))
-             (catch NumberFormatException ex
+             (catch NumberFormatException _
                true))))))
 
 (def test-rich-data? (env-true? "PDB_TEST_RICH_DATA"))
@@ -114,10 +112,10 @@
 (defn assert-success!
   "Given a Ring response, verify that the status
   code is 200 OK.  If not, print the body and fail."
-  [{:keys [status body] :as resp}]
-  (when-not (= http/status-ok status)
+  [{:keys [status body] :as _resp}]
+  (when-not (= HttpURLConnection/HTTP_OK status)
     (println "ERROR RESPONSE BODY:\n" body)
-    (is (= http/status-ok status))))
+    (is (= HttpURLConnection/HTTP_OK status))))
 
 (defn get-request
   "Return a GET request against path, suitable as an argument to a ring
@@ -174,7 +172,7 @@
   to clojure data structures."
    ([paged-test-params]
     (paged-results* :get paged-test-params))
-   ([method {:keys [app-fn path query params limit total include_total offset] :as paged-test-params}]
+   ([method {:keys [app-fn path query params limit include_total offset] :as paged-test-params}]
     {:pre [(= #{} (difference
                    (keyset paged-test-params)
                    #{:app-fn :path :query :params :limit :total :include_total :offset}))]}
@@ -199,7 +197,7 @@
   drives the pages and the assertions of the result."
   ([paged-test-params]
    (paged-results :get paged-test-params))
-  ([method {:keys [app-fn path query params limit total include_total] :as paged-test-params}]
+  ([method {:keys [limit total include_total] :as paged-test-params}]
    {:pre [(= #{} (difference
                   (keyset paged-test-params)
                   #{:app-fn :path :query :pretty :params :limit :total :include_total}))]}
@@ -208,7 +206,7 @@
                   (let [req-params (assoc paged-test-params
                                           :offset (* limit n))
                         resp (paged-results* method req-params)
-                        {:keys [status body headers]} resp]
+                        {:keys [body headers]} resp]
                     (assert-success! resp)
                     (is (>= limit (count body)))
                     (if include_total
@@ -287,7 +285,7 @@
     (if (string? body)
       (json/parse-string body true)
       (json/parse-string (slurp body) true))
-    (catch Throwable e
+    (catch Throwable _
       body)))
 
 (defn strip-hash
@@ -462,3 +460,10 @@
                                               (mapv #(assoc % :timestamp timestamp)
                                                     events))))))
                  resources))))))
+
+(defmacro with-caught-ex-info
+  [& body]
+  `(try
+     ~@body
+     (catch ExceptionInfo ex#
+       ex#)))

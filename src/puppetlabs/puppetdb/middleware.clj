@@ -2,7 +2,7 @@
   "Ring middleware"
   (:require [puppetlabs.i18n.core :as i18n :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
@@ -11,22 +11,20 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [ring.middleware.params :refer [wrap-params]]
-            [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
             [puppetlabs.puppetdb.metrics.core :as metrics]
-            [metrics.timers :refer [timer time!]]
+            [metrics.timers :refer [timer]]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [update!]]
-            [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.puppetdb.utils :as utils]
             [bidi.bidi :as bidi]
             [bidi.ring :as bring]
             [bidi.schema :as bidi-schema]
-            [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.constants :as constants]
-            [puppetlabs.puppetdb.command.constants :as const]))
+            [puppetlabs.puppetdb.command.constants :as const])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -54,7 +52,7 @@
         (when ssl-client-cn
           (log/warn (trs "{0} rejected by certificate allowlist {1}" ssl-client-cn allowlist)))
         (http/denied-response (tru "The client certificate name {0} doesn't appear in the certificate allowlist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-allowlist file?" ssl-client-cn)
-                         http/status-forbidden)))))
+                              HttpURLConnection/HTTP_FORBIDDEN)))))
 
 (defn wrap-cert-authn
   [app cert-allowlist]
@@ -117,15 +115,15 @@
       (catch Exception e
         (log/error e)
         (http/error-response (cause-finder e)
-                             http/status-internal-error))
+                             HttpURLConnection/HTTP_INTERNAL_ERROR))
      (catch AssertionError e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred while processing the request")
-                             http/status-internal-error))
+                             HttpURLConnection/HTTP_INTERNAL_ERROR))
      (catch Throwable e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred")
-                             http/status-internal-error)))))
+                             HttpURLConnection/HTTP_INTERNAL_ERROR)))))
 
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
@@ -140,7 +138,7 @@
          (headers "accept"))
       (app req)
       (http/error-response (tru "must accept {0}" content-type)
-                           http/status-not-acceptable))))
+                           HttpURLConnection/HTTP_NOT_ACCEPTABLE))))
 
 (defn verify-content-encoding
   "Verification for the specified list of content-encodings."
@@ -155,7 +153,7 @@
         (app req)
         (http/error-response (tru "content encoding {0} not supported"
                                   content-encoding)
-                             http/status-unsupported-type)))))
+                             HttpURLConnection/HTTP_UNSUPPORTED_TYPE)))))
 
 (defn verify-content-type
   "Verification for the specified list of content-types."
@@ -170,7 +168,7 @@
         (if (or (nil? mediatype) (some #{mediatype} content-types))
           (app req)
           (http/error-response (tru "content type {0} not supported" mediatype)
-                               http/status-unsupported-type)))
+                               HttpURLConnection/HTTP_UNSUPPORTED_TYPE)))
       (app req))))
 
 (def params-schema {(s/optional-key :optional) [s/Str]
@@ -183,18 +181,15 @@
   returned, with an explanation of the invalid parameters."
   [app param-specs :- params-schema]
   (fn [{:keys [params] :as req}]
-    (kitchensink/cond-let [p]
-                          (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (tru "Missing required query parameter ''{0}''" p))
-
-                          (let [diff (set/difference (kitchensink/keyset params)
-                                                     (set (:required param-specs))
-                                                     (set (:optional param-specs)))]
-                            (seq diff))
-                          (http/error-response (tru "Unsupported query parameter ''{0}''" (first p)))
-
-                          :else
-                          (app req))))
+    (if-let [excluded (kitchensink/excludes-some params (:required param-specs))]
+      (http/error-response (tru "Missing required query parameter ''{0}''"
+                                excluded))
+      (if-let [invalid (seq (set/difference (kitchensink/keyset params)
+                                            (set (:required param-specs))
+                                            (set (:optional param-specs))))]
+        (http/error-response (tru "Unsupported query parameter ''{0}''"
+                                  (first invalid)))
+        (app req)))))
 
 (defn merge-param-specs
   [& specs]
@@ -306,7 +301,7 @@
       (let [length-in-bytes (or (when-let [length (get-in req [:headers "x-uncompressed-length"])]
                                   (try
                                     (Long/parseLong length)
-                                    (catch NumberFormatException e
+                                    (catch NumberFormatException _
                                       (log/warn (trs "The X-Uncompressed-Length value {0} cannot be converted to a long."
                                                      length)))))
                                 (request/content-length req))]
@@ -334,7 +329,7 @@
             (consume-and-close (:body req) length-in-bytes)
             (http/error-response
              (tru "Command rejected due to size exceeding max-command-size")
-             http/status-entity-too-large))
+             HttpURLConnection/HTTP_ENTITY_TOO_LARGE))
           (app req)))
       (app req))))
 
@@ -353,7 +348,7 @@
   (fn [{{:strs [x-pdb-sync-ver]} :headers :as req}]
     (let [maybe-sync-ver (try
                            (some-> x-pdb-sync-ver Integer/parseInt)
-                           (catch NumberFormatException e
+                           (catch NumberFormatException _
                              {:error true :input x-pdb-sync-ver}))]
       (cond
         (nil? maybe-sync-ver) (app req)
@@ -388,9 +383,9 @@
   "Middleware that checks the parent exists before serving the rest of the
    application. This ensures we always return 404's on child paths when the
    parent data is empty."
-  [app version parent route-param-key]
+  [app _version parent route-param-key]
   (fn [{:keys [globals route-params] :as req}]
-    (let [{:keys [scf-read-db url-prefix]} globals]
+    (let [{:keys [scf-read-db]} globals]
       ;; There is a race condition here, in particular we open up 1 transaction
       ;; for the parent test, but the rest of the query results are done via the
       ;; streaming query. This can't be solved until we work out a way to
@@ -398,13 +393,16 @@
       (if (jdbc/with-transacted-connection scf-read-db
             (qe/object-exists? parent (get route-params route-param-key)))
         (app req)
-        (http/json-response {:error (tru "No information is known about {0} {1}" (name parent) (get route-params route-param-key))} http/status-not-found)))))
+        (http/json-response {:error (tru "No information is known about {0} {1}"
+                                         (name parent)
+                                         (get route-params route-param-key))}
+                            HttpURLConnection/HTTP_NOT_FOUND)))))
 
-(pls/defn-validated url-decode :- s/Str
+(defn-validated url-decode :- s/Str
   [x :- s/Str]
   (java.net.URLDecoder/decode x "utf-8"))
 
-(pls/defn-validated make-pdb-handler :- handler-schema
+(defn-validated make-pdb-handler :- handler-schema
   "Similar to `bidi.ring/make-handler` but does not merge route-params
   into the regular parameter map. Currently route-params causes
   validation errors with merged in with parameters. Parameter names

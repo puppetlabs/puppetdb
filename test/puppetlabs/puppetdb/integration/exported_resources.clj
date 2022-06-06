@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.integration.exported-resources
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.integration.fixtures :as int]
-            [slingshot.test]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.integration.fixtures :as int]
+   [puppetlabs.puppetdb.testutils :refer [with-caught-ex-info]]))
 
 (deftest ^:integration basic-collection
   (with-open [pg (int/setup-postgres)
@@ -32,10 +33,13 @@
           (int/run-puppet-as agent ps pdb "@@notify { 'DUPE NOTIFY': }")))
 
       (testing "Run puppet on collector and expect failure"
-        (is (thrown+? (and (= (:kind %) ::int/bundle-exec-failure)
-                           (re-find #"duplicate resource was found while collecting exported resources"
-                                    (get-in % [:result :err])))
-                      (int/run-puppet-as "collector" ps pdb "Notify <<| title == 'DUPE NOTIFY' |>>")))))))
+        (let [ex (with-caught-ex-info
+                   (int/run-puppet-as "collector" ps pdb
+                                      "Notify <<| title == 'DUPE NOTIFY' |>>"))
+              data (ex-data ex)]
+          (is (= ::int/bundle-exec-failure (:kind data)))
+          (is (re-find #"duplicate resource was found while collecting exported resources"
+                       (get-in data [:result :err]))))))))
 
 (deftest ^:integration deactivated-nodes
   (with-open [pg (int/setup-postgres)

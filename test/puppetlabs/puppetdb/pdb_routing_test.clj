@@ -2,27 +2,23 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.time :as time :refer [to-string]]
-            [puppetlabs.puppetdb.client :as pdb-client]
+            [puppetlabs.puppetdb.time :as time :refer [now to-string]]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
-            [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.cli.services :as clisvc]
-            [puppetlabs.puppetdb.pdb-routing :refer :all]
-            [puppetlabs.puppetdb.time :refer [now]]
+            [puppetlabs.puppetdb.pdb-routing
+             :refer [disable-maint-mode enable-maint-mode]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.http.client.sync :as http]))
 
 (defn submit-facts [base-url certname facts]
   (svc-utils/sync-command-post base-url certname "replace facts" 4 facts))
 
-(defn query-fact-names [{:keys [host port]}]
+(defn query-fact-names [_]
   (svc-utils/get (svc-utils/query-url-str "/fact-names")))
 
-(defn export [{:keys [host port]}]
+(defn export [_]
   (svc-utils/get (svc-utils/admin-url-str "/archive")))
 
-(defn query-server-time [{:keys [host port]}]
+(defn query-server-time [_]
   (svc-utils/get (svc-utils/meta-url-str "/server-time")))
 
 (defn construct-metrics-url []

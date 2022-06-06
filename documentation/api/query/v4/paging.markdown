@@ -50,7 +50,7 @@ This parameter lets you request a count of how many records would have been retu
 
 The value should be a Boolean, and defaults to `false`. If `true`, the HTTP response will contain a header `X-Records`, whose value is an integer indicating the total number of results available.
 
-**Note:** Setting this flag to `true` will introduce a minor performance hit on the query.
+**Note:** Setting this flag to `true` can decrease performance.
 
 #### Example:
 

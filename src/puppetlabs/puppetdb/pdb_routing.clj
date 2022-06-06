@@ -2,12 +2,10 @@
   (:require [puppetlabs.trapperkeeper.core :as tk]
             [compojure.core :as compojure]
             [compojure.route :as route]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.utils :refer [call-unless-shutting-down]]
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [ring.util.response :as rr]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.admin :as admin]
@@ -16,7 +14,6 @@
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.status :as pdb-status]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.dashboard :as dashboard]))
@@ -26,7 +23,7 @@
   (resource-request req "public"))
 
 (defn maint-mode-handler [maint-mode-fn]
-  (fn [req]
+  (fn [_req]
     (when (maint-mode-fn)
       {:status 503
        :body (tru "PuppetDB is currently down. Try again later.")})))
@@ -81,7 +78,7 @@
   [[:ShutdownService get-shutdown-reason]]
 
   (init
-   [this context]
+   [_ context]
    ;; Do this even if we're shutting down.
    (assoc context ::maint-mode? (atom true)))
 
@@ -138,7 +135,7 @@
     (enable-maint-mode)
     (pdb-status/register-pdb-status
      register-status
-     (fn [level]
+     (fn [_level]
        (pdb-status/create-status-map
         (pdb-status/status-details config shared-globals maint-mode?)))))
   context)
@@ -172,12 +169,12 @@
                        register-status)))
 
   (start
-   [this context]
+   [_ context]
    (call-unless-shutting-down
     "PuppetDB routing service start" (get-shutdown-reason) context
     #(start-pdb-routing context (get-config) disable-maint-mode)))
 
   (stop
-   [this context]
+   [_ context]
    (enable-maint-mode)
    context))

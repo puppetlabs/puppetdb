@@ -1,25 +1,27 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
-  (:require [clojure.set :as set]
-            [puppetlabs.puppetdb.scf.hash :as hash]
-            [puppetlabs.puppetdb.scf.migrate :as migrate]
-            [puppetlabs.puppetdb.scf.storage :as store]
+  (:require [clojure.pprint]
+            [clojure.set :as set]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils
-             :refer [db-serialize]]
+            [puppetlabs.puppetdb.scf.migrate :as migrate
+             :refer [applied-migrations
+                     create-indexes
+                     desired-schema-version
+                     initialize-schema
+                     migrations
+                     pending-migrations
+                     record-migration!
+                     require-valid-schema]]
+            [puppetlabs.puppetdb.scf.storage :as store]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :as utils]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.scf.migrate :refer :all]
             [clojure.test :refer :all]
-            [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.testutils.db :as tdb
              :refer [*db* clear-db-for-testing!
-                     schema-info-map diff-schema-maps]]
-            [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+                     schema-info-map diff-schema-maps with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.time :refer [ago days now to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [now to-timestamp]]
             [puppetlabs.puppetdb.scf.partitioning :as part]
             [clojure.string :as str])
   (:import (java.time ZoneId ZonedDateTime)
@@ -64,8 +66,8 @@
           (doseq [m applied]
             (apply-migration-for-testing! m))
           (is (= (set (keys (pending-migrations)))
-                 (difference (set (keys migrations))
-                             (set applied))))))))
+                 (set/difference (set (keys migrations))
+                                 (set applied))))))))
 
   (testing "applying the migrations"
     (let [expected-migrations (apply sorted-set (keys migrations))]
@@ -84,7 +86,7 @@
           (clear-db-for-testing!)
           ;; We are using migration 19 here because it is isolated enough to be able
           ;; to execute on its own. This might need to be changed in the future.
-          (doseq [m (filter (fn [[i migration]] (not= i 36)) (pending-migrations))]
+          (doseq [m (filter (fn [[i _migration]] (not= i 36)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
           (is (= (keys (pending-migrations)) '(36)))
           (initialize-schema)
@@ -168,12 +170,10 @@
                  [{:hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
                   {:hash "0000" :environment "testing1" :certname "testing2" :status "testing1" :uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"}])))
 
-        (let [[id1 id2] (map :id
-                              (query-to-vec "SELECT id from reports order by certname"))]
-
-          (let [latest-ids (map :latest_report_id
-                                (query-to-vec "select latest_report_id from certnames order by certname"))]
-            (is (= [id1 id2] latest-ids))))))))
+        (let [[id1 id2] (map :id (query-to-vec "SELECT id from reports order by certname"))]
+          (is (= [id1 id2]
+                 (map :latest_report_id
+                      (query-to-vec "select latest_report_id from certnames order by certname")))))))))
 
 (deftest migration-37
   (testing "should contain same reports before and after migration"
@@ -251,12 +251,10 @@
                  (map (comp #(update % :metrics sutils/parse-db-json)
                             #(update % :logs sutils/parse-db-json)) response))))
 
-        (let [[id1 id2] (map :id
-                              (query-to-vec "SELECT id from reports order by certname"))]
-
-          (let [latest-ids (map :latest_report_id
-                                (query-to-vec "select latest_report_id from certnames order by certname"))]
-            (is (= [id1 id2] latest-ids))))))))
+        (let [[id1 id2] (map :id (query-to-vec "SELECT id from reports order by certname"))]
+          (is (= [id1 id2]
+                 (map :latest_report_id
+                      (query-to-vec "select latest_report_id from certnames order by certname")))))))))
 
 (deftest migration-29-producer-timestamp-not-null
   (jdbc/with-db-connection *db*
@@ -292,12 +290,10 @@
 
 (deftest migration-in-different-schema
   (jdbc/with-db-connection *db*
-    (let [db-config {:database *db*}
-          test-db-name (tdb/subname->validated-db-name (:subname *db*))]
+    (let [test-db-name (tdb/subname->validated-db-name (:subname *db*))]
       (clear-db-for-testing!)
       (jdbc/with-db-connection (tdb/db-admin-config)
-        (let [db (tdb/subname->validated-db-name (:subname *db*))
-              user (get-in tdb/test-env [:user :name])]
+        (let [db (tdb/subname->validated-db-name (:subname *db*))]
           (assert (tdb/valid-sql-id? db))
           (jdbc/do-commands
             (format "grant create on database %s to %s"
@@ -1307,8 +1303,9 @@
 (deftest migration-74-changes-hash-of-reports
   (let [current-time (to-timestamp (now))
         old-hash-fn (fn [{:keys [certname puppet_version report_format configuration_version
-                                 start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
-                      (hash/generic-identity-hash
+                                 start_time end_time producer_timestamp resource_events transaction_uuid]
+                          :as _report}]
+                      (shash/generic-identity-hash
                         {:certname certname
                          :puppet_version puppet_version
                          :report_format report_format
@@ -1316,7 +1313,8 @@
                          :start_time start_time
                          :end_time end_time
                          :producer_timestamp producer_timestamp
-                         :resource_events (sort (map hash/resource-event-identity-string resource_events))
+                         :resource_events (sort (map shash/resource-event-identity-string
+                                                     resource_events))
                          :transaction_uuid transaction_uuid}))
 
         report {:transaction_uuid (sutils/munge-uuid-for-storage
@@ -1389,14 +1387,14 @@
         (jdbc/insert-multi!
           :resource_events
           [(assoc event :event_hash (sutils/munge-hash-for-storage
-                                      (hash/resource-event-identity-pkey event)))]))
+                                     (shash/resource-event-identity-pkey event)))]))
 
       (apply-migration-for-testing! 74)
 
       (let [hashes (map :hash
                         (query-to-vec "SELECT encode(hash, 'hex') AS hash from reports"))
 
-            expected (hash/report-identity-hash
+            expected (shash/report-identity-hash
                        {:transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
                         :configuration_version "thisisacoolconfigversion"
                         :certname "a.com"

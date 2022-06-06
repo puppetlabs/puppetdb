@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.pql-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.pql :refer :all]))
+            [puppetlabs.puppetdb.pql :as pql]))
 
 (deftest test-pql->ast
-  (are [pql ast] (= (first (pql->ast pql))
+  (are [pql ast] (= (first (pql/pql->ast pql))
                     ast)
 
     ;; Some basic comparisons

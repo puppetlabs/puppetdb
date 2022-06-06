@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.export
-  (:require [clojure.string :as str]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.walk]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.scf.hash :as hash]
@@ -13,13 +12,10 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.nodes :as nodes]
-            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.utils :as utils]
-            [clj-time.format :as time-fmt]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]
             [puppetlabs.i18n.core :refer [trs]]))
 
 (def export-metadata-file-name "export-metadata.json")

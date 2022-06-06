@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:require [clojure.core.match :as cm]
-            [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
-            [murphy :refer [try! with-open!]]
+            [murphy :refer [with-open!]]
             [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as http]
@@ -217,9 +215,9 @@
          origin (:origin options)]
      (with-log-mdc ["pdb-query-id" query-id
                     "pdb-query-origin" origin]
-       (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print log-queries]
+       (let [{:keys [scf-read-db url-prefix warn-experimental log-queries]
               :or {warn-experimental true}} context
-             {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
+             {:keys [remaining-query entity]} (eng/parse-query-context query warn-experimental)
              munge-fn (get-munge-fn entity version options url-prefix)]
 
          (when log-queries
@@ -252,11 +250,14 @@
     :else obj))
 
 (defn user-query->engine-query
-  ([version query-map options] (user-query->engine-query version query-map options false))
-  ([version query-map options warn-experimental]
+  ([version query-map options]
+   (user-query->engine-query version query-map options false))
+  ([_version query-map options warn-experimental]
    (let [query (:query query-map)
-         {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
-                                                          version query warn-experimental)
+
+         {:keys [remaining-query entity paging-clauses]}
+         (eng/parse-query-context query warn-experimental)
+
          paging-options (some-> paging-clauses
                                 (rename-keys {:order-by :order_by})
                                 (update :order_by paging/munge-query-ordering)
@@ -310,7 +311,7 @@
   future after that point will produce an exception from the next call
   to the InputStream read or close methods."
   [db query entity version query-options munge-fn
-   {:keys [log-queries pretty-print query-id] :as context}]
+   {:keys [pretty-print query-id] :as context}]
   ;; Client disconnects present as generic IOExceptions from the
   ;; output writer (via stream-json), and we just log them at debug
   ;; level.  For now, after the first row, there's nothing we can do
@@ -374,8 +375,7 @@
 
 (defn preferred-produce-streaming-body
   [version query-map context]
-  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print
-                log-queries query-id]
+  (let [{:keys [scf-read-db url-prefix warn-experimental log-queries query-id]
          :or {warn-experimental true}} context
         query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
         {:keys [query remaining-query entity query-options]}
@@ -395,12 +395,12 @@
                                                  (coerce-from-json remaining-query)
                                                  entity version query-options
                                                  munge-fn
-                                                 stream-ctx)]
-        (let [{:keys [count error]} @status]
-          (when error
-            (throw error))
-          (cond-> (http/json-response* stream)
-            count (http/add-headers {:count count}))))
+                                                 stream-ctx)
+            {:keys [count error]} @status]
+        (when error
+          (throw error))
+        (cond-> (http/json-response* stream)
+          count (http/add-headers {:count count})))
       (catch JsonParseException ex
         (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))
         (http/error-response ex))

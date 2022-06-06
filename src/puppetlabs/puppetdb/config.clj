@@ -18,11 +18,10 @@
              :refer [call-unless-shutting-down throw-if-shutdown-pending]]
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.trapperkeeper.core :as tk]
-            [puppetlabs.trapperkeeper.services :refer [service-id service-context]])
+            [puppetlabs.trapperkeeper.services :refer [service-context]])
   (:import
    (clojure.lang ExceptionInfo)
-   (java.security KeyStore)
-   (java.util.regex PatternSyntaxException Pattern)
+   (java.util.regex PatternSyntaxException)
    (org.joda.time Minutes Days Period)))
 
 (defn throw-cli-error [msg]
@@ -340,12 +339,12 @@
   value for a database with the same subname."
   [config]
   (let [dbs (into (select-keys config [:database :read-database])
-                  (filter (fn [[sec cfg]]
+                  (filter (fn [[sec _cfg]]
                             (str/starts-with? (name sec) "database-"))
                           config))
-        cfgs-for-subname (group-by (fn [[sec cfg]] (:subname cfg)) dbs)]
-    (doseq [[subname sec-and-cfgs] cfgs-for-subname
-            :when (> (count (set (map (fn [[sec cfg]] (:node-purge-ttl cfg))
+        cfgs-for-subname (group-by (fn [[_sec cfg]] (:subname cfg)) dbs)]
+    (doseq [[_subname sec-and-cfgs] cfgs-for-subname
+            :when (> (count (set (map (fn [[_sec cfg]] (:node-purge-ttl cfg))
                                       sec-and-cfgs)))
                      1)]
       ;; Q: Should this be a cli-error instead?
@@ -372,11 +371,11 @@
     x
     (or (try
           (Long/parseLong x)
-          (catch NumberFormatException ex
+          (catch NumberFormatException _
             false))
         (try
           (Double/parseDouble x)
-          (catch NumberFormatException ex
+          (catch NumberFormatException _
             false))
         (throw-cli-error
          (trs "gc-interval must be a number: {0}" x)))))
@@ -464,7 +463,7 @@
         ;; Each database-* section becomes complete configuration.
         ;; Merge defaults first, so that operations like
         ;; prefer-db-user-on-username-mismatch will work correctly.
-        (utils/update-matching-keys db-section? (fn [k v] (merge defaults v)))
+        (utils/update-matching-keys db-section? (fn [_k v] (merge defaults v)))
         (update :database #(fix-up-db-settings :database %1))
         (utils/update-matching-keys db-section? fix-up-db-settings)
         configure-read-db
@@ -487,14 +486,15 @@
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
-  [{:keys [puppetdb] :as config :or {puppetdb {}}}]
-  (-> config
+  [config]
+  (-> (merge {:puppetdb {}} config)
       convert-certificate-whitelist-to-allowlist
       (configure-section :puppetdb puppetdb-config-in puppetdb-config-out)))
 
 (defn configure-developer
-  [{:keys [developer] :as config :or {developer {}}}]
-  (configure-section config :developer developer-config-in developer-config-out))
+  [config]
+  (configure-section (merge {:developer {}} config)
+                     :developer developer-config-in developer-config-out))
 
 (def retired-cmd-proc-keys
   [:store-usage :max-frame-size :temp-usage :memory-usage])
@@ -713,7 +713,7 @@
     ;; For now, redirect ::cli-errors to shutdown requests here to
     ;; make it easy to migrate our validators out of the hooke.
     (catch ExceptionInfo ex
-      (let [{:keys [type message] :as data} (ex-data ex)
+      (let [{:keys [type message]} (ex-data ex)
             stop (fn [msg]
                    (log/error msg)
                    (request-shutdown {::tk/exit {:status 2 :messages [[msg *err*]]}})
@@ -733,7 +733,7 @@
     [:ShutdownService get-shutdown-reason request-shutdown]]
 
    (init
-    [this context]
+    [_ context]
     ;; This wrapper is just for consistency, for now the config
     ;; service is the root of the dependency tree...
     (call-unless-shutting-down

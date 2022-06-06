@@ -52,29 +52,22 @@
 
    _TODO: consider using multimethods for migration funcs_"
   (:require [clojure.java.jdbc :as sql]
+            [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.utils :refer [flush-and-exit]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [clojure.set :refer :all]
             [puppetlabs.puppetdb.time :refer [in-millis interval now to-timestamp]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.structured-logging.core :refer [maplog]]
-            [clojure.set :as set]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.scf.storage :as scf]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning
              :refer [get-temporal-partitions]])
-  (:import [org.postgresql.util PGobject]
-           [java.time LocalDate ZonedDateTime ZoneId OffsetDateTime]
-           (java.sql Timestamp)
-           (java.time.temporal ChronoUnit)
-           (java.time.format DateTimeFormatter)))
+  (:import
+   (java.time ZonedDateTime)
+   (org.postgresql.util PGobject)))
 
 (defn init-through-2-3-8
   []
@@ -792,7 +785,7 @@
          (assoc updated-row :value))))
 
 (defn update-value-json
-  [{:keys [id value] :as arg}]
+  [{:keys [id value]}]
   (jdbc/update! :fact_values
                 {:value_json (json/generate-string value)}
                 ["id=?" id]))
@@ -1106,7 +1099,7 @@
 
 (defn migrate-through-app
   [table1 table2 column-list munge-fn]
-  (let [columns (string/join "," column-list)]
+  (let [columns (str/join "," column-list)]
     (jdbc/call-with-array-converted-query-rows
      [(format "select %s from %s" columns (name table1))]
      #(->> %
@@ -2144,7 +2137,7 @@
           (sorted? %)
           (apply <= 0 (keys %))
           (<= (count %) (count migrations))]}
-  (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
+  (let [pending (set/difference (kitchensink/keyset migrations) (applied-migrations))]
     (into (sorted-map)
           (select-keys migrations pending))))
 
@@ -2206,12 +2199,12 @@
                     (map (fn [[version migration]]
                            (log/info (trs "Applying database migration version {0}"
                                           version))
-                           (let [t0 (now)]
-                             (let [result (migration)]
-                               (record-migration! version)
-                               (log/info (trs "Applied database migration version {0} in {1} ms"
-                                              version (in-millis (interval t0 (now)))))
-                               result))))
+                           (let [t0 (now)
+                                 result (migration)]
+                             (record-migration! version)
+                             (log/info (trs "Applied database migration version {0} in {1} ms"
+                                            version (in-millis (interval t0 (now)))))
+                             result)))
                     (filter map?)
                     (map ::vacuum-analyze)
                     (apply set/union))]
@@ -2343,14 +2336,14 @@
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
-  true if and only if any migrations were run.  Assumes the database status,
-  version, etc. has already been validated."
+  true if and only if migrations were run.  Assumes the database
+  status, version, etc. have already been validated."
   ([] (initialize-schema nil nil))
   ([non-migrator-name db-name]
    (try
      (let [tables (update-schema non-migrator-name db-name)]
        (analyze-tables tables)
-       (not (empty? tables)))
+       (some? (seq tables)))
      (catch java.sql.SQLException e
        (log/error e (trs "Caught SQLException during migration"))
        (loop [ex (.getNextException e)]

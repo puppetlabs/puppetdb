@@ -1,18 +1,39 @@
 (ns puppetlabs.puppetdb.query-eng-test
-  (:require [cheshire.core :as json]
-            [clojure.test :refer :all]
-            [honeysql.core :as hcore]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.query-eng.engine :refer :all]
-            [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
-            [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
-            [puppetlabs.puppetdb.time :as time]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.scf.storage-utils :as su]
-            [puppetlabs.puppetdb.time :refer [now parse-period]]))
+  (:require
+   [cheshire.core :as json]
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.scf.storage :as scf-store]
+   [puppetlabs.puppetdb.query-eng.engine
+    :refer [->AndExpression
+            ->ArrayBinaryExpression
+            ->BinaryExpression
+            ->NotExpression
+            ->NullExpression
+            ->OrExpression
+            ->RegexExpression
+            certname-relations
+            compile-query
+            compile-user-query->sql
+            expand-user-query
+            extract-all-params
+            fact-contents-query
+            facts-query
+            inventory-query
+            map->Query
+            nodes-query
+            plan->sql
+            push-down-context
+            reports-query
+            resources-query]]
+   [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
+   [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+   [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
+   [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+   [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
+   [puppetlabs.puppetdb.time :as time :refer [now parse-period]]
+   [puppetlabs.puppetdb.scf.storage-utils :as su])
+  (:import
+   (java.net HttpURLConnection)))
 
 (deftest test-plan-sql
   (let [col1 {:type :string :field :foo}
@@ -289,8 +310,7 @@
 
 
 (deftest-http-app query-recs-are-swappable
-  [version [:v4]
-   endpoint ["/v4/fact-names"]
+  [endpoint ["/v4/fact-names"]
    :let [facts1 {"domain" "testing.com"
                   "hostname" "foo1"
                   "kernel" "Linux"
@@ -338,7 +358,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (*app* request)
             result (vec (parse-result body))]
-        (is (= status http/status-ok))
+        (is (= HttpURLConnection/HTTP_OK status))
         (is (= result expected-result))))
 
     (testing "query rec is modifiable"
@@ -351,7 +371,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (*app* request)
             result (vec (parse-result body))]
-        (is (= status http/status-ok))
+        (is (= HttpURLConnection/HTTP_OK status))
         (is (= result (map #(hash-map :name % :depth 0) expected-result)))))
 
     (reset! entity-fn-idx initial-idx)
@@ -359,12 +379,11 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (*app* request)
             result (vec (parse-result body))]
-        (is (= status http/status-ok))
+        (is (= HttpURLConnection/HTTP_OK status))
         (is (= result expected-result))))))
 
 (deftest-http-app fact-expiration-queries
-  [version [:v4]
-   endpoint ["/v4/nodes"]]
+  [endpoint ["/v4/nodes"]]
 
   (with-transacted-connection *db*
     (scf-store/add-certname! "foo1")
@@ -381,7 +400,7 @@
           {:keys [status body]} (*app* request)
           result (vec (parse-result body))]
 
-      (is (= status http/status-ok))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= 1 (count result)))
       (let [node (first result)]
         (is (= false (:expires_facts node)))
@@ -395,7 +414,7 @@
           {:keys [status body]} (*app* request)
           result (vec (parse-result body))]
 
-      (is (= status http/status-ok))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= 2 (count result)))
       (let [nodes (sort-by :certname result)]
         (is (= true (:expires_facts (first nodes))))
@@ -413,7 +432,7 @@
                                {:include_facts_expiration true})
           {:keys [status body]} (*app* request)
           result (parse-result body)]
-      (is (= status http/status-ok))
+      (is (= HttpURLConnection/HTTP_OK status))
       (is (= "foo1" (:certname result)))
       (is (= false (:expires_facts result)))
       (is (-> result :expires_facts_updated time/parse-wire-datetime
