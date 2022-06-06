@@ -83,7 +83,7 @@
                   parse-event-info #(-> % parse-event-msg (nth 2) json/parse-string)
                   uuid (some->> events (some parse-event-msg) second)
                   qev-matching (fn [expected]
-                                 (fn [{:keys [message] :as event}]
+                                 (fn [{:keys [message] :as _event}]
                                    (and (str/starts-with? message (str "PDBQuery:" uuid ":"))
                                         (str/includes? message expected))))]
 
@@ -93,7 +93,7 @@
                 (is (not (seq evs)))
                 (when (seq evs)
                   (println-err "Unexpected log:" events))
-                (let [{:strs [ast origin] :as info} (parse-event-info ev)]
+                (let [{:strs [ast origin]} (parse-event-info ev)]
                   (is ast)
                   (is (= exp-origin origin))))
 
@@ -101,7 +101,7 @@
                 (is (not (seq evs)))
                 (when (seq evs)
                   (println-err "Unexpected log:" events))
-                (let [{:strs [sql origin] :as info} (parse-event-info ev)]
+                (let [{:strs [sql origin]} (parse-event-info ev)]
                   (is sql)
                   (is (= exp-origin origin)))))))))))
 

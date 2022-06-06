@@ -5,8 +5,7 @@
   (:import
    (java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
                          RejectedExecutionException ExecutorService)
-   (org.apache.commons.lang3.concurrent BasicThreadFactory
-                                        BasicThreadFactory$Builder)))
+   (org.apache.commons.lang3.concurrent BasicThreadFactory$Builder)))
 
 (def logging-exception-handler
   "Exception handler that ensures any uncaught exception that occurs

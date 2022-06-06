@@ -16,5 +16,5 @@
   []
   (try
     (jmx/read "puppetlabs.puppetdb.mq:name=global.depth" :Count)
-    (catch javax.management.InstanceNotFoundException ex
+    (catch javax.management.InstanceNotFoundException _
       (throw (ex-info "" {:kind ::queue-not-found})))))

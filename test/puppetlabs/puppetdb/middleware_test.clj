@@ -1,24 +1,32 @@
 (ns puppetlabs.puppetdb.middleware-test
-  (:import [java.io ByteArrayInputStream])
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.kitchensink.core :as kitchensink :refer [keyset]]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
-            [cheshire.core :as json]
-            [puppetlabs.puppetdb.middleware :refer :all]
-            [puppetlabs.kitchensink.core :refer [keyset]]
+            [puppetlabs.puppetdb.middleware
+             :refer [build-allowlist-authorizer
+                     cause-finder
+                     fail-when-payload-too-large
+                     merge-param-specs
+                     validate-query-params
+                     verify-content-encoding
+                     verify-content-type
+                     wrap-cert-authn
+                     wrap-with-certificate-cn
+                     wrap-with-metrics] ]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
-            [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]))
+            [puppetlabs.puppetdb.testutils :refer [temp-file]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [with-log-output logs-matching]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (deftest wrapping-metrics
   (testing "Should create per-status metrics"
     (let [storage       (atom {})
           normalize-uri identity]
       (doseq [status (range 200 210)]
-        (let [handler (fn [req] (-> (rr/response nil)
-                                    (rr/status status)))
+        (let [handler (fn [_req] (-> (rr/response nil)
+                                     (rr/status status)))
               app (wrap-with-metrics handler storage normalize-uri)]
           (app {:uri "/foo/bar/baz"})))
 
@@ -36,8 +44,8 @@
     (let [storage       (atom {})
           ;; Normalize urls based on reversing the url
           normalize-uri #(apply str (reverse %))
-          handler       (fn [req] (-> (rr/response nil)
-                                      (rr/status http/status-ok)))
+          handler       (fn [_req] (-> (rr/response nil)
+                                       (rr/status HttpURLConnection/HTTP_OK)))
           app           (wrap-with-metrics handler storage normalize-uri)]
 
       (app {:uri "/foo"})
@@ -65,17 +73,19 @@
     ;; Setup an app that only lets through odd numbers
     (let [wl (.getAbsolutePath (temp-file "allowlist-log-reject"))
           _ (spit wl "foobar")
-          handler     (fn [req] (-> (rr/response nil)
-                                    (rr/status http/status-ok)))
+          handler     (fn [_req] (-> (rr/response nil)
+                                     (rr/status HttpURLConnection/HTTP_OK)))
 
           message     "The client certificate name"
           app (wrap-cert-authn handler wl)]
       ;; Even numbers should trigger an unauthorized response
-      (is (= http/status-forbidden (:status (app (create-authorizing-request "baz")))))
+      (is (= HttpURLConnection/HTTP_FORBIDDEN
+             (:status (app (create-authorizing-request "baz")))))
       ;; The failure reason should be shown to the user
       (is (.contains (:body (app (create-authorizing-request "baz"))) message))
       ;; Odd numbers should get through fine
-      (is (= http/status-ok (:status (app (create-authorizing-request "foobar"))))))))
+      (is (= HttpURLConnection/HTTP_OK
+             (:status (app (create-authorizing-request "foobar"))))))))
 
 (deftest wrapping-cert-cn-extraction
   (with-redefs [kitchensink/cn-for-cert :cn]
@@ -101,19 +111,19 @@
 
 (deftest validating-query-params
   (let [test-string "original test string"
-        app-fn      (fn [req] test-string)
+        app-fn      (fn [_req] test-string)
         wrapped-fn  (validate-query-params app-fn
                                            {:required ["foo" "bar"] :optional ["baz" "bam"]})]
     (testing "should do nothing if the params are valid"
       (is (= test-string (wrapped-fn {:params {"foo" 1 "bar" 2 "bam" 3}}))))
     (testing "should return an error response if a required parameter is missing"
       (is (= (wrapped-fn {:params {"foo" 1}})
-             {:status http/status-bad-request
+             {:status HttpURLConnection/HTTP_BAD_REQUEST
               :headers {"Content-Type" http/error-response-content-type}
               :body "Missing required query parameter 'bar'"})))
     (testing "should return an error response if unknown parameters are present"
       (is (= (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})
-             {:status http/status-bad-request
+             {:status HttpURLConnection/HTTP_BAD_REQUEST
               :headers {"Content-Type" http/error-response-content-type}
               :body "Unsupported query parameter 'wazzup'"})))))
 

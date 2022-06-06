@@ -1,11 +1,6 @@
 (ns puppetlabs.puppetdb.http.catalog-inputs-test
   (:require
-   [cheshire.core :as json]
    [clojure.test :refer :all]
-   [puppetlabs.puppetdb.command :refer [process-command!]]
-   [puppetlabs.puppetdb.command.constants :refer [command-names]]
-   [puppetlabs.puppetdb.time :as time]
-   [puppetlabs.puppetdb.http :as http]
    [puppetlabs.puppetdb.testutils.catalog-inputs :refer [sample-input-cmds
                                                          validate-response-and-get-body
                                                          stringify-timestamp
@@ -18,7 +13,7 @@
 (def endpoints [[:v4 "/v4/catalog-inputs"]])
 
 (deftest-http-app catalog-inputs-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [input-cmds (sample-input-cmds)
         all-expected (stringify-timestamp (vals input-cmds))

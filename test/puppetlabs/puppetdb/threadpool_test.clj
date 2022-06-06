@@ -1,13 +1,13 @@
 (ns puppetlabs.puppetdb.threadpool-test
   (:require [clojure.core.async :as async]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.threadpool :refer :all]
+            [puppetlabs.puppetdb.threadpool
+             :refer [dochan gated-threadpool shutdown]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.utils :refer [await-ref-state
                                                noisy-future]]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger
-                                                                with-logging-to-atom
-                                                                with-log-suppressed-unless-notable]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [with-logging-to-atom with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [clojure.string :as str]
             [puppetlabs.puppetdb.testutils.log :as tlog])

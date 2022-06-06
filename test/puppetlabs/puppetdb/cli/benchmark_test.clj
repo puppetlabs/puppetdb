@@ -1,13 +1,12 @@
 (ns puppetlabs.puppetdb.cli.benchmark-test
-  (:require [clojure.java.shell :refer [sh]]
+  (:require [clojure.pprint]
             [clojure.string :as str]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.cli.benchmark :as benchmark]
+            [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
-            [puppetlabs.puppetdb.archive :as archive]
-            [puppetlabs.puppetdb.client :as client]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
@@ -15,14 +14,13 @@
                                                        example-report example-facts
                                                        example-certname]]
             [puppetlabs.puppetdb.utils :as utils :refer [with-captured-throw]]
-            [puppetlabs.kitchensink.core :as ks]
-            [clojure.core.async :refer [<!! timeout close!]])
+            [puppetlabs.kitchensink.core :as ks])
   (:import
    [clojure.lang ExceptionInfo]
    [java.nio.file Files]))
 
 (defn mock-submit-record-fn [submitted-records entity]
-  (fn [base-url certname version payload-string]
+  (fn [base-url _certname version payload-string]
     (swap! submitted-records conj
            {:entity entity
             :base-url base-url
@@ -88,7 +86,7 @@
      (let [enough-records (* 3 42)
            finished (promise)
            watch-key (Object.)
-           watcher (fn [k ref old new]
+           watcher (fn [_k _ref _old new]
                      (when (>= (count new) enough-records)
                        (deliver finished true)))]
        (add-watch submitted watch-key watcher)

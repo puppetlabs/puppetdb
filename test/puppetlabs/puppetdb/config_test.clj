@@ -1,18 +1,26 @@
 (ns puppetlabs.puppetdb.config-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.config :refer :all :as conf]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.time :as time]
-            [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
-            [clojure.string :as str]
-            [me.raynes.fs :as fs]
-            [slingshot.test])
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.config :as conf
+    :refer [configure-command-processing
+            configure-dbs
+            configure-puppetdb
+            convert-blocklist-config
+            default-max-command-size
+            forbid-duplicate-write-db-subnames
+            half-the-cores*
+            normalize-product-name
+            validate-vardir
+            warn-retirements]]
+   [puppetlabs.puppetdb.testutils :refer [with-caught-ex-info]]
+   [puppetlabs.puppetdb.time :as time]
+   [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
+   [clojure.string :as str]
+   [me.raynes.fs :as fs])
   (:import
-   [clojure.lang ExceptionInfo]
-   [java.security KeyStore]
-   [java.util.regex Pattern]))
+   (clojure.lang ExceptionInfo)
+   (java.util.regex Pattern)))
 
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
@@ -114,12 +122,14 @@
                   convert-blocklist-config
                   (get-in [:database :facts-blocklist]))))
 
-  (is (thrown+-with-msg? [:type ::conf/cli-error]
-                         #".*Unclosed character class near index 4\.*"
-                         (-> {:subname "bar"
-                              :facts-blocklist-type "regex"
-                              :facts-blocklist ["^foo[" "(bar.*"]}
-                             convert-blocklist-config))))
+  (let [ex (with-caught-ex-info
+             (-> {:subname "bar"
+                  :facts-blocklist-type "regex"
+                  :facts-blocklist ["^foo[" "(bar.*"]}
+                 convert-blocklist-config))]
+    (is (= ::conf/cli-error (:type (ex-data ex))))
+    (is (re-find #"Unclosed character class near index 4\n"
+                 (.getMessage ex)))))
 
 (deftest blocklist-conversion-is-no-op-when-type-literal
   ;; with blocklist-type set to literal all blocklist entries kept as literal strings
@@ -209,9 +219,10 @@
            :database-secondary {:subname "z"}}))))
 
 (deftest database-subname-required
-  (is (thrown+-with-msg?
-       [:type ::conf/cli-error] #"No subname set"
-       (configure-dbs {:database {:user "x" :password "?"}}))))
+  (let [ex (with-caught-ex-info
+             (configure-dbs {:database {:user "x" :password "?"}}))]
+    (is (= ::conf/cli-error (:type (ex-data ex))))
+    (is (re-find #"No subname set" (.getMessage ex)))))
 
 (deftest duplicate-write-db-subnames-forbidden
   (let [config (-> {:database {:user "x" :password "?" :subname "stuff"}}
@@ -224,25 +235,27 @@
     (is (= config (forbid-duplicate-write-db-subnames config))))
   (let [config {:database {:user "x" :password "?" :subname "stuff"}
                 :database-x {:subname "stuff"}
-                :database-y {:subname "stuff"}}]
-    (is (thrown+-with-msg?
-         [:type ::conf/cli-error] #"^Cannot have duplicate write"
-         (configure-dbs config)))))
+                :database-y {:subname "stuff"}}
+        ex (with-caught-ex-info (configure-dbs config))]
+    (is (= ::conf/cli-error (:type (ex-data ex))))
+    (is (re-find #"^Cannot have duplicate write" (.getMessage ex)))))
 
 (deftest resource-events-and-reports-ttl-disorder
   (let [cfg {:database {:user "x" :password "?" :subname "stuff"}}]
-    (is (thrown+-with-msg?
-         [:type ::conf/cli-error]
-         #".*The \"database\" resource-events-ttl must not be longer than report-ttl.*"
-         (configure-dbs
-          (assoc-in cfg [:database :resource-events-ttl] "15d"))))
-    (is (thrown+-with-msg?
-         [:type ::conf/cli-error]
-         #".*The \"database\" resource-events-ttl must not be longer than report-ttl.*"
-         (configure-dbs
-          (-> cfg
-              (assoc-in [:database :report-ttl] "3d")
-              (assoc-in [:database :resource-events-ttl] "5d")))))))
+    (let [ex (with-caught-ex-info
+               (configure-dbs
+                (assoc-in cfg [:database :resource-events-ttl] "15d")))]
+      (is (= ::conf/cli-error (:type (ex-data ex))))
+      (is (re-find #"The \"database\" resource-events-ttl must not be longer than report-ttl"
+                   (.getMessage ex))))
+    (let [ex (with-caught-ex-info
+               (configure-dbs
+                (-> cfg
+                    (assoc-in [:database :report-ttl] "3d")
+                    (assoc-in [:database :resource-events-ttl] "5d"))))]
+      (is (= ::conf/cli-error (:type (ex-data ex))))
+      (is (re-find #"The \"database\" resource-events-ttl must not be longer than report-ttl"
+                   (.getMessage ex))))))
 
 (deftest database-configuration
   (testing "database"

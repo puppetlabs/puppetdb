@@ -42,7 +42,7 @@
                       (recur gen-val overrides)
                       (throw (ex-info (str "Generator " gen " not registered") {:generator-key gen})))
      (gen/generator? gen) gen
-     :default (gen overrides))))
+     :else (gen overrides))))
 
 (defn convert [overridable-gen]
   (lookup overridable-gen))

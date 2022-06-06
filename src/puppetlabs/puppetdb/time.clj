@@ -208,7 +208,7 @@
   even though this will return `false`:
 
       `(= (days 2) (hours 48))`"
-  ([p] true)
+  ([_p] true)
   ([p1 p2] (= (.toStandardDuration p1) (.toStandardDuration p2)))
   ([p1 p2 & more]
      (if (periods-equal? p1 p2)
@@ -294,7 +294,7 @@
   ;; Currently represented as a java Instant via DateTimeFormatter/ISO_INSTANT
   (try
     (java.time.Instant/parse s)
-    (catch java.time.format.DateTimeParseException ex
+    (catch java.time.format.DateTimeParseException _
       nil)))
 
 (def parse-offset-iso
@@ -305,7 +305,7 @@
     (fn [s]
       (try
         (-> (java.time.OffsetDateTime/parse s formatter) .toInstant)
-        (catch java.time.format.DateTimeParseException ex
+        (catch java.time.format.DateTimeParseException _
           nil)))))
 
 (defn wire-datetime->instant

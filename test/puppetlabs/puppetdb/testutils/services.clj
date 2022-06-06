@@ -1,13 +1,11 @@
 (ns puppetlabs.puppetdb.testutils.services
   (:refer-clojure :exclude [get])
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.testutils :as testutils]
+  (:require [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* *read-db* with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [metrics.counters :refer [clear!]]
             [clojure.walk :as walk]
             [puppetlabs.trapperkeeper.app :as tk-app :refer [get-service]]
@@ -19,21 +17,16 @@
             [puppetlabs.trapperkeeper.services.metrics.metrics-service :refer [metrics-webservice]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
-            [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.http :refer [json-utf8-ctype?]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.config :as conf :refer [config-service]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.utils :refer [base-url->str base-url->str-with-prefix]]
-            [clojure.string :as str]
-            [me.raynes.fs :as fs]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service
                                                      maint-mode-service]]
-            [puppetlabs.puppetdb.config :refer [config-service]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.puppetdb.schema :as pls]
             [ring.util.response :as rr]))
@@ -149,7 +142,7 @@
         (tk-app/stop app))))))
 
 (defn create-url-str [base-url url-suffix]
-  (str (utils/base-url->str base-url)
+  (str (base-url->str base-url)
        (when url-suffix
          url-suffix)))
 
@@ -226,7 +219,7 @@
   ([base-url]
    (-> base-url
        (assoc :prefix "/")
-       utils/base-url->str-with-prefix)))
+       base-url->str-with-prefix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -303,14 +296,16 @@
 (pls/defn-validated post-ssl
   "Executes a mutually authenticated POST HTTP request against
   `url-str`. Uses the above `post` function"
-  [url-str :- String
-   body
-   & [opts]]
-  (post url-str
-        body
-        {:ssl-ca-cert default-ca-cert
-         :ssl-cert default-cert
-         :ssl-key  default-ssl-key}))
+  ([url-str body] (post-ssl url-str body nil))
+  ([url-str :- String
+    body
+    opts]
+   (post url-str
+         body
+         (merge {:ssl-ca-cert default-ca-cert
+                 :ssl-cert default-cert
+                 :ssl-key  default-ssl-key}
+                opts))))
 
 (pls/defn-validated post-ssl-or-throw
   "Same as `post-ssl` except will throw if an error status is returned."
@@ -433,12 +428,12 @@
   "Syncronously post a command to PDB by blocking until the message is consumed
    off the queue."
   [base-url certname cmd version payload]
-  (let [timeout-seconds 20]
-    (let [response (pdb-client/submit-command-via-http!
-                     base-url certname cmd version payload timeout-seconds)]
-      (if (>= (:status response) 400)
-        (throw (ex-info "Command processing failed" {:response response}))
-        response))))
+  (let [timeout-seconds 20
+        response (pdb-client/submit-command-via-http!
+                  base-url certname cmd version payload timeout-seconds)]
+    (if (>= (:status response) 400)
+      (throw (ex-info "Command processing failed" {:response response}))
+      response)))
 
 (defn wait-for-server-processing
   "Returns a truthy value indicating whether the wait was

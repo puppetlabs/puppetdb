@@ -2,26 +2,20 @@
   (:require [clojure.set :as set]
             [puppetlabs.puppetdb.command.constants :refer [command-names
                                                            normalize-command-name]]
-            [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension
-                                               supported-content-encodings]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [content-encoding->file-extension]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.comidi :as cmdi]
-            [ring.util.request :as request]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.utils :as utils])
+            [puppetlabs.i18n.core :refer [trs tru]])
   (:import
    (clojure.lang ExceptionInfo)
-   (org.apache.commons.io IOUtils)
+   (java.net HttpURLConnection)
    (org.apache.commons.fileupload.util LimitedInputStream)))
 
 (def min-supported-commands
@@ -151,7 +145,7 @@
         (http/json-response {:uuid uuid
                              :processed false
                              :timed_out true}
-                            http/status-unavailable)
+                            HttpURLConnection/HTTP_UNAVAILABLE)
         (let [{:keys [exception]} result
               base-response {:uuid uuid
                              :processed true}]
@@ -161,10 +155,10 @@
                     :timed_out false
                     :error (str exception)
                     :stack_trace (map str (.getStackTrace exception)))
-             http/status-unavailable)
+             HttpURLConnection/HTTP_UNAVAILABLE)
             (http/json-response (assoc base-response
                                        :timed_out false)
-                                http/status-ok)))))))
+                                HttpURLConnection/HTTP_OK)))))))
 
 (defn remove-nil-params
   "Removes key-value pairs in the request :params map when value is nil"
@@ -270,7 +264,7 @@
                                           Double/parseDouble
                                           (* 1000))
             submit-params (select-keys params ["certname" "command" "version" "producer-timestamp"])
-            submit-params (if-let [v (submit-params "version")]
+            submit-params (if (submit-params "version")
                             (update submit-params "version" str)
                             submit-params)
             compression (content-encoding->file-extension
@@ -297,7 +291,7 @@
         (when-not (= ::body-stream-overflow (:kind (ex-data ex)))
           (throw ex))
         (http/error-response (tru "Command size exceeds max-command-size")
-                             http/status-entity-too-large)))))
+                             HttpURLConnection/HTTP_ENTITY_TOO_LARGE)))))
 
 (defn- add-received-param
   [handle]

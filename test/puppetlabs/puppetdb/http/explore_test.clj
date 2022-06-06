@@ -5,9 +5,8 @@
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]
-            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.time :refer [now]]))
 
 (defn get-versioned-response
@@ -76,18 +75,18 @@
           get-response (partial get-versioned-response version)]
       (testing "/nodes should return all active nodes"
         (check-json-response
-         nodes response (get-response "nodes")
+         nodes _response (get-response "nodes")
          (is (= (set (mapv :certname nodes)) #{"host1" "host2"}))))
 
       (testing "/nodes/<node> should return status info"
         (doseq [host ["host1" "host2"]]
           (check-json-response
-           status response (get-response (str "nodes/" host))
+           status _response (get-response (str "nodes/" host))
            (is (= host (:certname status)))
            (is (nil? (:deactivated status)))))
         ;; host3 should be deactivated
         (check-json-response
-         status response (get-response "nodes/host3")
+         status _response (get-response "nodes/host3")
          (is (= "host3" (:certname status)))
          (is (:deactivated status))))
 
@@ -99,14 +98,14 @@
       (testing "/nodes/<node>/resources should return the resources just for that node"
         (doseq [host ["host1" "host2"]]
           (check-json-response
-           resources response (get-response (format "nodes/%s/resources" host))
+           resources _response (get-response (format "nodes/%s/resources" host))
            ;; The certname for each resource should be the current host
            (is (= (set (map :certname resources)) #{host})))))
 
       (testing "/nodes/<node>/resources/<type> should return the resources just for that node matching the supplied type"
         (doseq [host ["host1" "host2"]]
           (check-json-response
-           resources response (get-response (format "nodes/%s/resources/File" host))
+           resources _response (get-response (format "nodes/%s/resources/File" host))
            ;; The certname for each resource should be the current host
            (is (= (set (map :certname resources)) #{host}))
            (is (= (set (map :type resources)) #{"File"}))
@@ -115,7 +114,8 @@
       (testing "/nodes/<node>/resources/<type>/<title> should return the resources just for that node matching the supplied type/title"
         (doseq [host ["host1" "host2"]]
           (check-json-response
-           resources response (get-response (format "nodes/%s/resources/File/%%2Fetc%%2Ffoobar" host))
+           resources
+           _response (get-response (format "nodes/%s/resources/File/%%2Fetc%%2Ffoobar" host))
            ;; The certname for each resource should be the current host
            (is (= (set (map :certname resources)) #{host}))
            (is (= (set (map :type resources)) #{"File"}))
@@ -130,24 +130,24 @@
 
       (testing "/resources/<type> should return all resources matching the supplied type"
         (check-json-response
-         resources response (get-response "resources/File")
+         resources _response (get-response "resources/File")
          (is (= (set (map :certname resources)) #{"host1" "host2"}))
          (is (= (set (map :type resources)) #{"File"}))
          (is (= (count resources) 4))))
 
       (testing "/resources/<type> should return [] if the <type> doesn't match anything"
         (check-json-response
-         resources response (get-response "resources/Foobar")
+         resources _response (get-response "resources/Foobar")
          (is (= resources []))))
 
       (testing "colon allowed in resource type param"
         (check-json-response
-          resources response (get-response "resources/foo::bar")
+          resources _response (get-response "resources/foo::bar")
           (is (= resources []))))
 
       (testing "/resources/<type>/<title> should return all resources matching the supplied type/title"
         (check-json-response
-         resources response (get-response "resources/File/%2Fetc%2Ffoobar")
+         resources _response (get-response "resources/File/%2Fetc%2Ffoobar")
          (is (= (set (map :certname resources)) #{"host1" "host2"}))
          (is (= (set (map :type resources)) #{"File"}))
          (is (= (set (map :title resources)) #{"/etc/foobar"}))
@@ -155,7 +155,7 @@
 
       (testing "/resources/<type>/<title> should return [] if the <type> and <title> don't match anything"
         (check-json-response
-         resources response (get-response "resources/File/mehmeh")
+         resources _response (get-response "resources/File/mehmeh")
          (is (= resources []))))
 
       (let [treeify-facts (fn [facts]
@@ -168,26 +168,26 @@
 
         (testing "/facts/<fact> should return all instances of the given fact"
           (check-json-response
-           facts response (get-response "facts/kernel")
+           facts _response (get-response "facts/kernel")
            (is (= (set (map :name facts)) #{"kernel"}))
            (is (= (count facts) 2))))
 
         (testing "/facts/<fact>/<value> should return all instances of the given fact with the given value"
           (check-json-response
-           facts response (get-response "facts/kernel/Linux")
+           facts _response (get-response "facts/kernel/Linux")
            (is (= (set (map :name facts)) #{"kernel"}))
            (is (= (set (map :value facts)) #{"Linux"}))
            (is (= (count facts) 2))))
 
         (testing "/facts/<fact> should return [] if the fact doesn't match anything"
           (check-json-response
-           facts response (get-response "facts/blahblahblah")
+           facts _response (get-response "facts/blahblahblah")
            (is (= facts []))))
 
         (testing "/nodes/<node>/facts should return the facts just for that node"
           (doseq [host ["host1" "host2"]]
             (check-json-response
-             facts response (get-response (format "nodes/%s/facts" host))
+             facts _response (get-response (format "nodes/%s/facts" host))
              ;; The fqdn fact should be the name of the host
              (is (= (get-in (treeify-facts facts) [host "fqdn"]) host))
              (is (= (set (map :certname facts)) #{host}))
@@ -196,7 +196,7 @@
         (testing "/nodes/<node>/fact/<fact> should return the given fact for that node"
           (doseq [host ["host1" "host2"]]
             (check-json-response
-             facts response (get-response (format "nodes/%s/facts/kernel" host))
+             facts _response (get-response (format "nodes/%s/facts/kernel" host))
              (is (= (get-in (treeify-facts facts) [host "kernel"]) "Linux"))
              (is (= (set (map :certname facts)) #{host}))
              (is (= (count facts) 1)))))
@@ -204,7 +204,7 @@
         (testing "/nodes/<node>/fact/<fact>/<value> should return the given fact with the matching value for that node"
           (doseq [host ["host1" "host2"]]
             (check-json-response
-             facts response (get-response (format "nodes/%s/facts/kernel/Linux" host))
+             facts _response (get-response (format "nodes/%s/facts/kernel/Linux" host))
              (is (= (get-in (treeify-facts facts) [host "kernel"]) "Linux"))
              (is (= (set (map :certname facts)) #{host}))
              (is (= (set (map :name facts)) #{"kernel"}))

@@ -1,9 +1,14 @@
 (ns puppetlabs.puppetdb.zip-test
-  (:require [puppetlabs.puppetdb.zip :refer :all]
-            [clojure.test :refer :all]
-            [clojure.test.check.clojure-test :as cct]
-            [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]))
+  (:require
+   [clojure.test :refer :all]
+   [clojure.test.check.clojure-test :as cct]
+   [clojure.test.check.generators :as gen]
+   [clojure.test.check.properties :as prop]
+   [puppetlabs.puppetdb.zip :as zip
+    :refer [post-order-transform
+            post-order-visit
+            pre-order-visit
+            tree-zipper]]))
 
 (defn tree-generator
   "Returns a generator that creates trees using collections generated

@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.query.population-test
   (:require [puppetlabs.puppetdb.query.population :as pop]
-            [clojure.java.jdbc :as sql]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :refer [deactivate-node!]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.testutils :refer [with-fixtures]]
             [puppetlabs.puppetdb.time :refer [now to-timestamp]]))
 
 (deftest resource-count

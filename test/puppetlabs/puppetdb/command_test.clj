@@ -1,17 +1,17 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
-            [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [metrics.counters :as counters]
             [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants
-             :refer [latest-catalog-version latest-facts-version
+             :refer [command-names
+                     latest-facts-version
                      latest-configure-expiration-version
                      latest-deactivate-node-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
-            [puppetlabs.trapperkeeper.app :as tkapp]
+            [puppetlabs.trapperkeeper.app :as tkapp :refer [get-service]]
             [puppetlabs.puppetdb.metrics.core
              :refer [metrics-registries new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -23,44 +23,51 @@
                                                           v7-report
                                                           v8-report]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :as tu :refer [*db* with-test-db]]
             [schema.core :as s]
-            [puppetlabs.trapperkeeper.testutils.logging
-             :refer [atom-logger logs-matching with-log-output]]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
-            [puppetlabs.puppetdb.command :as cmd :refer :all]
+            [puppetlabs.puppetdb.command :as cmd
+             :refer [call-with-quick-retry
+                     cmd-metric
+                     command-delay-ms
+                     delay-pool-size
+                     enqueue-command
+                     fatality
+                     global-metric
+                     maximum-allowable-retries
+                     message-handler
+                     pause-execution
+                     quick-retry-count
+                     response-mult
+                     resume-execution
+                     stats
+                     upon-error-throw-fatality]]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
              :refer [args-supplied call-counter default-timeout-ms dotestseq
                      temp-dir times-called]]
 
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
-            [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples
+             :refer [wire-catalog-inputs wire-catalogs]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.test]
             [puppetlabs.puppetdb.utils.string-formatter :refer [dash->underscore-keys]]
             [puppetlabs.puppetdb.utils :as utils
-             :refer [await-scheduler-shutdown
+             :refer [await-ref-state
+                     await-scheduler-shutdown
                      schedule
                      scheduler
                      request-scheduler-shutdown]]
-            [puppetlabs.puppetdb.time :as tfmt]
             [puppetlabs.puppetdb.time :as time
              :refer [ago days from-sql-date now seconds to-date-time to-string
                      to-timestamp]]
-            [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
-            [clojure.string :as str]
-            [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.nio :refer [get-path]]
-            [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue
              :refer [catalog->command-req
                      catalog-inputs->command-req
@@ -70,11 +77,8 @@
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.threadpool :as pool]
-            [puppetlabs.puppetdb.utils :refer [await-ref-state]])
+            [puppetlabs.puppetdb.threadpool :as pool])
   (:import
    (clojure.lang ExceptionInfo)
    (java.nio.file Files)
@@ -103,7 +107,7 @@
                           :facts-blocklist-type "regex"})
 
 (defn shutdown-for-ex-dummy [msg]
-  (fn [ex]
+  (fn [_ex]
     (binding [*out* *err*]
       (println msg))))
 
@@ -333,7 +337,7 @@
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
-    (tqueue/with-stockpile q
+    (tqueue/with-stockpile _
       (with-message-handler {:keys [handle-message dlo delay-pool q]}
         (let [cmdref (->> (get-in wire-catalogs [5 :empty])
                           (catalog->command-req 5)
@@ -345,7 +349,7 @@
           (is (= 0 (count (fs/list-dir (:path dlo)))))))))
 
   (testing "Failures do not cause messages to be acknowledged"
-    (tqueue/with-stockpile q
+    (tqueue/with-stockpile _
       (with-redefs [cmd/attempt-exec-command (fn [& _] (throw (RuntimeException. "retry me")))]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (let [entry (queue/store-command q (failed-catalog-req 10 "cats" {:certname "cats"}))]
@@ -365,7 +369,7 @@
                                      "Ignoring shutdown exception during quick-retry logging test.")
                                     (fn []
                                       (throw (RuntimeException. "foo"))))
-             (catch RuntimeException e nil)))
+             (catch RuntimeException _ nil)))
       (is (= (get-in @log-output [0 1]) :debug))
       (is (instance? Exception (get-in @log-output [0 2])))))
 
@@ -381,7 +385,7 @@
                                       (publish)
                                       (do (swap! counter dec)
                                           (throw (RuntimeException. "foo"))))))
-           (catch RuntimeException e nil))
+           (catch RuntimeException _ nil))
       (is (= 1 (times-called publish)))))
 
   (testing "stops retrying after a success"
@@ -524,7 +528,7 @@
                                      :catalog_version "foo"
                                      :certname certname
                                      :timestamp tomorrow
-                                     :producer_timestamp (to-timestamp (t/plus (now) (days 1)))})
+                                     :producer_timestamp (to-timestamp (time/plus (now) (days 1)))})
             (handle-message (queue/store-command q (make-cmd-req)))
             (is (= [{:certname certname :catalog "ab"}]
                    (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
@@ -626,8 +630,7 @@
                (to-timestamp producer-timestamp)))))))
 
 (deftest replace-catalog-with-v4
-  (let [{certname :name
-         producer-timestmap :producer-timestamp :as v4-catalog} (get-in wire-catalogs [4 :empty])
+  (let [{certname :name :as v4-catalog} (get-in wire-catalogs [4 :empty])
         recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
@@ -640,11 +643,11 @@
       (is (empty? (fs/list-dir (:path dlo))))
       ;;v4 does not include a producer_timestmap, the backend
       ;;should use the time the command was received instead
-      (is (t/before? recent-time
-                     (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
-                         first
-                         :producer_timestamp
-                         to-date-time))))))
+      (is (time/before? recent-time
+                        (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
+                            first
+                            :producer_timestamp
+                            to-date-time))))))
 
 (defn update-resource
   "Updated the resource in `catalog` with the given `type` and `title`.
@@ -943,7 +946,7 @@
                                              ["bar" "2.3.4" "apt"]
                                              ["baz" "3.4.5" "apt"]])]
       (testing "should deduplicate package_inventory on facts v5"
-        (with-message-handler {:keys [handle-message dlo delay-pool q]}
+        (with-message-handler {:keys [handle-message _dlo _delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= [["bar" "2.3.4" "apt"]
                   ["baz" "3.4.5" "apt"]
@@ -973,7 +976,7 @@
                                               "suff-not" "val"
                                               "not-blocklisted-fact" "val"))]]
       (testing "should ignore the blocklisted facts using regex"
-        (with-message-handler {:keys [handle-message dlo delay-pool q]}
+        (with-message-handler {:keys [handle-message _dlo _delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
@@ -991,7 +994,7 @@
             (with-redefs [blocklist-config
                           {:facts-blocklist ["blocklisted-fact"]
                            :facts-blocklist-type "literal"}]
-              (with-message-handler {:keys [handle-message dlo delay-pool q]}
+              (with-message-handler {:keys [handle-message _dlo _delay-pool q]}
                 (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
                 (is (= [{:certname certname :name "a" :value "1"}
                         {:certname certname :name "b" :value "2"}
@@ -1189,7 +1192,7 @@
               {:certname certname :name "b" :value "2" :environment "DEV"}
               {:certname certname :name "c" :value "3" :environment "DEV"}]))
 
-      (is (every? (comp #(t/before? before-test-starts-time %)
+      (is (every? (comp #(time/before? before-test-starts-time %)
                         to-date-time
                         :producer_timestamp)
                   (query-to-vec
@@ -1201,21 +1204,19 @@
         (is (= result [(with-env {:certname certname})]))))))
 
 (deftest replace-facts-bad-payload
-  (let [bad-command "bad stuff"]
-    (dotestseq [version fact-versions
-                :let [command bad-command]]
-      (testing "should discard the message"
-        (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (handle-message (queue/store-command q (queue/create-command-req "replace facts"
-                                                                           latest-facts-version
-                                                                           "foo.example.com"
-                                                                           (ks/timestamp (now))
-                                                                           ""
-                                                                           identity
-                                                                           (tqueue/coerce-to-stream "bad stuff"))))
-          (is (empty? (query-to-vec "SELECT * FROM factsets")))
-          (is (= 0 (task-count delay-pool)))
-          (is (seq (fs/list-dir (:path dlo)))))))))
+  (dotestseq [_version fact-versions]
+    (testing "should discard the message"
+      (with-message-handler {:keys [handle-message dlo delay-pool q]}
+        (handle-message (queue/store-command q (queue/create-command-req "replace facts"
+                                                                         latest-facts-version
+                                                                         "foo.example.com"
+                                                                         (ks/timestamp (now))
+                                                                         ""
+                                                                         identity
+                                                                         (tqueue/coerce-to-stream "bad stuff"))))
+        (is (empty? (query-to-vec "SELECT * FROM factsets")))
+        (is (= 0 (task-count delay-pool)))
+        (is (seq (fs/list-dir (:path dlo))))))))
 
 (deftest replace-facts-bad-payload-v2
   (testing "should discard the message"
@@ -1291,7 +1292,7 @@
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
-    (with-message-handler {:keys [handle-message dlo delay-pool q command-chan]}
+    (with-message-handler {:keys [handle-message _dlo _delay-pool q command-chan]}
       (let [certname "some_certname"
             facts {:certname certname
                    :environment "DEV"
@@ -1301,10 +1302,6 @@
                             "kernel" "Linux"
                             "operatingsystem" "Debian"}
                    :producer_timestamp (to-timestamp (now))}
-            command   {:command (command-names :replace-facts)
-                       :version 4
-                       :payload facts}
-
             latch (java.util.concurrent.CountDownLatch. 2)
             orig-replace cmd/do-replace-facts]
 
@@ -1329,15 +1326,11 @@
                 fut (utils/noisy-future
                      (handle-message (queue/store-command q (facts->command-req 4 facts)))
                      (reset! first-message? true))
-
                 new-facts (update-in facts [:values]
                                      (fn [values]
                                        (-> values
                                            (dissoc "kernel")
-                                           (assoc "newfact2" "here"))))
-                new-facts-cmd {:command (command-names :replace-facts)
-                               :version 4
-                               :payload new-facts}]
+                                           (assoc "newfact2" "here"))))]
 
             (handle-message (queue/store-command q (facts->command-req 4 new-facts)))
             (reset! second-message? true)
@@ -1354,9 +1347,8 @@
 
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
-    (with-message-handler {:keys [handle-message command-chan dlo delay-pool q]}
-      (let [test-catalog (get-in catalogs [:empty])
-            {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
+    (with-message-handler {:keys [handle-message command-chan dlo _delay-pool q]}
+      (let [{certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             latch (java.util.concurrent.CountDownLatch. 2)
             orig-do-catalog cmd/do-replace-catalog]
@@ -1398,9 +1390,8 @@
 
 (deftest concurrent-catalog-resource-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
-    (with-message-handler {:keys [handle-message command-chan dlo delay-pool q]}
-      (let [test-catalog (get-in catalogs [:empty])
-            {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
+    (with-message-handler {:keys [handle-message command-chan dlo _delay-pool q]}
+      (let [{certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             latch (java.util.concurrent.CountDownLatch. 2)
             orig-do-catalog cmd/do-replace-catalog]
@@ -1434,7 +1425,7 @@
 
             (handle-message (queue/store-command q (catalog->command-req 6 new-wire-catalog)))
 
-            (is (= ::handled-first-message (deref fut tu/default-timeout-ms nil)))
+            (is (= ::handled-first-message (deref fut default-timeout-ms nil)))
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
@@ -1490,8 +1481,8 @@
                 (do
                   ;; Since we can't control the producer_timestamp.
                   (is (= certname (:certname row)))
-                  (is (t/after? (from-sql-date (:deactivated row))
-                                (from-sql-date yesterday))))
+                  (is (time/after? (from-sql-date (:deactivated row))
+                                   (from-sql-date yesterday))))
                 (is (= {:certname certname :deactivated yesterday} row)))
               (is (= 0 (task-count delay-pool)))
               (is (empty? (fs/list-dir (:path dlo))))
@@ -1591,9 +1582,9 @@
 
       ;; No producer_timestamp is included in v4, message received
       ;; time (now) is used intead
-      (is (t/before? recent-time
-                     (-> "select producer_timestamp from reports"
-                         query-to-vec first :producer_timestamp to-date-time)))
+      (is (time/before? recent-time
+                        (-> "select producer_timestamp from reports"
+                            query-to-vec first :producer_timestamp to-date-time)))
       (is (= 0 (task-count delay-pool)))
       (is (empty? (fs/list-dir (:path dlo)))))))
 
@@ -1611,12 +1602,12 @@
 
       ;; No producer_timestamp is included in v4, message received
       ;; time (now) is used intead
-      (is (t/before? recent-time
-                     (-> "select producer_timestamp from reports"
-                         query-to-vec
-                         first
-                         :producer_timestamp
-                         to-date-time)))
+      (is (time/before? recent-time
+                        (-> "select producer_timestamp from reports"
+                            query-to-vec
+                            first
+                            :producer_timestamp
+                            to-date-time)))
 
       ;;Status is not supported in v3, should be nil
       (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
@@ -1665,7 +1656,7 @@
           ;; grab reponse maps from commands above, timeout if not received
           (let [[val _] (async/alts!! [(async/into
                                         #{} (async/take 2 response-watch-ch))
-                                       (async/timeout tu/default-timeout-ms)])]
+                                       (async/timeout default-timeout-ms)])]
             (when-not val
               (throw (Exception. "timed out waiting for response-chan")))
 
@@ -1675,8 +1666,7 @@
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance
-    (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
-          dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           enqueue-command (partial enqueue-command dispatcher)
           stats (partial stats dispatcher)
           real-replace! scf-store/replace-facts!]
@@ -1747,8 +1737,7 @@
 
 (deftest command-response-channel
   (svc-utils/with-puppetdb-instance
-    (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
-          dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           enqueue-command (partial enqueue-command dispatcher)
           response-mult (response-mult dispatcher)
           response-chan (async/chan 4)
@@ -1840,9 +1829,9 @@
 
            (.release semaphore)
 
-           (is (not= ::timed-out (deref cmd-1 tu/default-timeout-ms ::timed-out)))
-           (is (not= ::timed-out (deref cmd-2 tu/default-timeout-ms ::timed-out)))
-           (is (not= ::timed-out (deref cmd-3 tu/default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-1 default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-2 default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-3 default-timeout-ms ::timed-out)))
 
            ;; There's currently a lot of layering in the messaging
            ;; stack. The callback mechanism that delivers the promise
@@ -1982,7 +1971,7 @@
             (deactivate "x.local")
             (deactivate "y.local")
             (deactivate "z.local")
-            (doseq [i (range (/ default-timeout-ms 20))
+            (doseq [_i (range (/ default-timeout-ms 20))
                     :while (not= 3 (- (:received-commands (stats))
                                       (:received-commands start-stats)))]
               (Thread/sleep 20))
@@ -1994,7 +1983,7 @@
                                         iterator-seq)]
                               (do (Files/delete p) p))))))
           ;; Lock has been released, wait for queue to drain
-          (doseq [i (range (/ default-timeout-ms 20))
+          (doseq [_i (range (/ default-timeout-ms 20))
                   :while (not= [0 0] (depths))]
             (Thread/sleep 20))
           (is (= [0 0] (depths)))
@@ -2051,7 +2040,7 @@
                (deliver continue-processing? true)
                (let [[val _] (async/alts!! [(async/into
                                              #{} (async/take 2 response-watch-ch))
-                                            (async/timeout tu/default-timeout-ms)])]
+                                            (async/timeout default-timeout-ms)])]
                  (when-not val
                    (throw (Exception. "timed out waiting for response-chan")))
                  (is (= 2 (count val)))
@@ -2075,14 +2064,14 @@
       (with-pdb-with-no-gc
         (let [pdb (get-service *server* :PuppetDBCommandDispatcher)
               pool (-> pdb service-context :delay-pool)
-              blocker (schedule pool #(do
-                                        (deliver ready-to-go? true)
-                                        (while (not (try
-                                                      @requested-shutdown?
-                                                      (catch InterruptedException ex
-                                                        false)))
-                                          (ignore-value true)))
-                                0)]
+              _blocker (schedule pool #(do
+                                         (deliver ready-to-go? true)
+                                         (while (not (try
+                                                       @requested-shutdown?
+                                                       (catch InterruptedException _
+                                                         false)))
+                                           (ignore-value true)))
+                                 0)]
           (is (= true (deref ready-to-go? default-timeout-ms false)))
           (tkapp/stop *server*)
           (is (= true @requested-shutdown?)))))))

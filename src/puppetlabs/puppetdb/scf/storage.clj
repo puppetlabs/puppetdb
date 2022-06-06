@@ -26,7 +26,6 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [com.rpl.specter :as sp]
             [clojure.java.jdbc :as sql]
-            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.data :as data]
@@ -42,7 +41,8 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.time :as time :refer [ago now to-timestamp from-sql-date before? after?]]
+            [puppetlabs.puppetdb.time :as time
+             :refer [ago now to-timestamp from-sql-date before?]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
@@ -53,9 +53,7 @@
            [org.postgresql.util PGobject]
            [org.joda.time Period]
            [java.sql SQLException Timestamp]
-           (java.time Instant LocalDate LocalDateTime Year ZoneId ZonedDateTime)
-           (java.time.temporal ChronoUnit)
-           (java.time.format DateTimeFormatter)))
+           (java.time ZoneId ZonedDateTime)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -233,11 +231,12 @@
 ;;; Certname querying/deleting
 
 (defn certname-exists?
-  "Returns a boolean indicating whether or not the given certname exists in the db"
+  "Returns a boolean indicating whether or not the given
+  certname exists in the db"
   [certname]
   {:pre [certname]}
-  (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
-                            certname]))))
+  (some? (seq (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
+                           certname]))))
 
 (pls/defn-validated add-certname!
   "Add the given host to the db"
@@ -455,9 +454,7 @@
 (s/defn catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [edges
-           resources
-           version
+   {:keys [version
            code_id
            job_id
            transaction_uuid
@@ -619,7 +616,7 @@
         (insert-records*
          :catalog_resources
          (map (fn [resource-ref]
-                (let [{:keys [type title exported parameters tags file line]
+                (let [{:keys [type title exported tags file line]
                        :as resource}
                       (get refs-to-resources resource-ref)]
                   (reset! last-record resource)
@@ -676,7 +673,7 @@
 (defn merge-resource-hash
   "Assoc each hash from `refs-to-hashes` as :resource on `refs-to-resources`"
   [refs-to-hashes refs-to-resources]
-  (reduce-kv (fn [acc k v]
+  (reduce-kv (fn [acc k _]
                (assoc-in acc [k :resource] (get refs-to-hashes k)))
              refs-to-resources refs-to-resources))
 
@@ -862,7 +859,8 @@
    received-timestamp :- pls/Timestamp]
   (inc! (get-storage-metric :updated-catalog))
   (time! (get-storage-metric :add-new-catalog)
-         (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+         (do
+           (add-catalog-metadata! hash catalog received-timestamp)
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (s/defn replace-catalog!
@@ -1096,8 +1094,7 @@
         just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
         existing-package-hashes (find-package-hashes just-hashes)
         ;; a map of package hash to id in the packages table
-        full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
-        new-package-ids (vals full-hashes-map)]
+        full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)]
 
     (jdbc/update! :certnames
                   {:package_hash (sutils/munge-hash-for-storage new-packageset-hash)}
@@ -1216,8 +1213,7 @@
   [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
    :- facts-schema]
   (jdbc/with-db-transaction []
-    (let [{:keys [package_hash certname_id factset_id
-                  ^bytes stable_hash volatile_fact_names]}
+    (let [{:keys [package_hash certname_id factset_id ^bytes stable_hash]}
           (certname-factset-metadata certname)
 
           ;; split facts into stable and volatile maps. Everything that was
@@ -1484,25 +1480,25 @@
                                                (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
                                                                        (sutils/munge-hash-for-storage))))
                            ;; group by the hash, and choose the oldest (aka first) of any duplicates.
-                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))]
-                       (let [last-record (atom nil)
-                             set-last-record! #(reset! last-record %)]
-                         (try
-                           (->> resource_events
-                                (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                                (map adjust-event)
-                                (map add-event-hash)
-                                ;; ON CONFLICT does *not* work properly in partitions, see:
-                                ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-                                ;; section 5.10.6
-                                remove-dupes
-                                (filter-expired-resources resource-events-ttl)
-                                (map set-last-record!)
-                                insert!
-                                dorun)
-                           (catch SQLException ex
-                             (let [{:keys [file line]} @last-record]
-                               (handle-resource-insert-sqlexception ex certname file line)))))))
+                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))
+                           last-record (atom nil)
+                           set-last-record! #(reset! last-record %)]
+                       (try
+                         (->> resource_events
+                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                              (map adjust-event)
+                              (map add-event-hash)
+                              ;; ON CONFLICT does *not* work properly in partitions, see:
+                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+                              ;; section 5.10.6
+                              remove-dupes
+                              (filter-expired-resources resource-events-ttl)
+                              (map set-last-record!)
+                              insert!
+                              dorun)
+                         (catch SQLException ex
+                           (let [{:keys [file line]} @last-record]
+                             (handle-resource-insert-sqlexception ex certname file line))))))
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp)))))))))
 
@@ -1555,7 +1551,7 @@
             (while (not @gc-finished?)
               (maybe-log-query-cancellation (bulldoze-blocking-qs gc-pid))
               (Thread/sleep 1000)))
-          (catch InterruptedException ex
+          (catch InterruptedException _
             true))))))
 
 (def gc-query-bulldozer-timeout-ms
@@ -1592,22 +1588,22 @@
 
 (defn call-with-lock-timeout [f timeout-ms]
   (let [set-timeout #(->> (format "set local lock_timeout = %d" %)
-                          (sql/execute! jdbc/*db*))]
-    ;; FIXME: possibly too crude...
-    (let [orig (-> "select setting from pg_settings where name = 'lock_timeout'"
-                   query-to-vec first :setting Long/parseLong)]
-      (set-timeout timeout-ms)
-      (let [result (f)]
-        ;; FIXME: For now we assume that when there's an exception,
-        ;; the transaction's about to end, and that'll restore the
-        ;; original value.  We don't use finally because we noticed
-        ;; some trouble there, presumably during an exception that had
-        ;; made restore operation invalid, and we didn't have time to
-        ;; investigate.  Depending on what the issue was, we might be
-        ;; able to put the set-timeout in a murphy finally block
-        ;; (i.e. to chain the two exceptions).
-        (set-timeout orig)
-        result))))
+                          (sql/execute! jdbc/*db*))
+        ;; FIXME: possibly too crude...
+        orig (-> "select setting from pg_settings where name = 'lock_timeout'"
+                 query-to-vec first :setting Long/parseLong)]
+    (set-timeout timeout-ms)
+    (let [result (f)]
+      ;; FIXME: For now we assume that when there's an exception,
+      ;; the transaction's about to end, and that'll restore the
+      ;; original value.  We don't use finally because we noticed
+      ;; some trouble there, presumably during an exception that had
+      ;; made restore operation invalid, and we didn't have time to
+      ;; investigate.  Depending on what the issue was, we might be
+      ;; able to put the set-timeout in a murphy finally block
+      ;; (i.e. to chain the two exceptions).
+      (set-timeout orig)
+      result)))
 
 (defn prune-daily-partitions
   "Deletes obsolete day-oriented partitions older than the date.
@@ -1812,13 +1808,9 @@
 
 (s/defn add-report!
   "Add a report and all of the associated events to the database."
-  ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
-   received-timestamp :- pls/Timestamp
-   db conn-status]
+  ([report received-timestamp db conn-status]
    (add-report! report received-timestamp db conn-status true))
-  ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
-    received-timestamp :- pls/Timestamp
-    db conn-status update-latest-report?]
+  ([report received-timestamp db conn-status update-latest-report?]
    (add-report! report received-timestamp db conn-status update-latest-report? {}))
   ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp

@@ -1,6 +1,19 @@
 (ns puppetlabs.puppetdb.time-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.time :refer :all]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.time
+    :refer [days
+            format-period
+            hours
+            minutes
+            parse-period
+            periods-equal?
+            seconds
+            to-days
+            to-hours
+            to-millis
+            to-minutes
+            to-seconds]]))
 
 (deftest test-periods-equal?
   (testing "should return true for a single period"

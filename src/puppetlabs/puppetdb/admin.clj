@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.admin
-  (:require [compojure.core :as compojure]
-            [puppetlabs.i18n.core :as i18n]
+  (:require [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.export :as export]
@@ -9,14 +8,14 @@
             [ring.middleware.multipart-params :as mp]
             [puppetlabs.puppetdb.query.summary-stats :as ss]
             [puppetlabs.puppetdb.time :refer [now]]
-            [ring.util.io :as rio]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.middleware :as mid]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s])
   (:import
-   (clojure.lang ExceptionInfo)))
+   (clojure.lang ExceptionInfo)
+   (java.net HttpURLConnection)))
 
 (def clean-command-schema
   {:command (s/eq "clean")
@@ -50,7 +49,7 @@
        {:kind "conflict"
         :msg (i18n/tru "Another cleanup is already in progress")
         :details nil}
-       http/status-conflict))))
+       HttpURLConnection/HTTP_CONFLICT))))
 
 (def delete-command-schema
   {:command (s/eq "delete")
@@ -65,10 +64,9 @@
       (http/bad-request-response (i18n/tru "Invalid command {0}: {1}"
                                            (pr-str body)
                                            (pr-str (:error invalid-info))))
-      (do
-        (let [certname (-> cmd :payload :certname)]
-          (delete-node certname)
-          (http/json-response {:deleted certname}))))))
+      (let [certname (-> cmd :payload :certname)]
+        (delete-node certname)
+        (http/json-response {:deleted certname})))))
 
 (defn- handle-cmd-req [req clean delete-node]
   (let [body (slurp (:body req))

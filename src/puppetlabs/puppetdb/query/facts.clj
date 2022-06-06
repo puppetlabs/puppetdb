@@ -4,9 +4,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 

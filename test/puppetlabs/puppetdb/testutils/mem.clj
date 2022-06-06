@@ -20,7 +20,7 @@
   (try
     ;; Because jmap quietly does nothing if the file exists.
     (-> filename java.io.File. .toPath Files/delete)
-    (catch NoSuchFileException ex
+    (catch NoSuchFileException _
       true))
   (assert (zero?
            (:exit (shell/sh "jmap"

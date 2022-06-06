@@ -1,22 +1,20 @@
 (ns puppetlabs.puppetdb.queue
   (:import (clojure.lang ExceptionInfo)
            [java.nio.charset StandardCharsets]
-           [java.io InputStreamReader BufferedReader InputStream Closeable]
+           [java.io InputStreamReader BufferedReader InputStream]
            [java.util TreeMap HashMap]
            [java.nio.file Files LinkOption]
            [java.nio.file.attribute FileAttribute]
            [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
   (:require [clojure.set :as set]
-            [clojure.string :as str :refer [re-quote-replacement]]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.stockpile.queue :as stock]
-            [metrics.timers :refer [timer time!]]
-            [metrics.counters :refer [inc!]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]
@@ -25,12 +23,11 @@
                                                content-encodings->file-extensions
                                                match-any-of utf8-length
                                                utf8-truncate]]
-            [puppetlabs.puppetdb.utils.string-formatter :as formatter :refer [re-quote]]
+            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [schema.core :as s]
-            [puppetlabs.puppetdb.time :as tcoerce]
-            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [now parse-wire-datetime]]))
+            [puppetlabs.puppetdb.time :as time
+             :refer [now parse-wire-datetime]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -99,9 +96,9 @@
   followed by a + or - and the difference between `received-ts` and
   `producer-ts` as a long."
   [received-ts producer-ts]
-  (let [received-time (tcoerce/to-long received-ts)]
+  (let [received-time (time/to-long received-ts)]
     (if-let [producer-offset (and producer-ts
-                                  (- (tcoerce/to-long producer-ts)
+                                  (- (time/to-long producer-ts)
                                      received-time))]
       (str received-time
            (when-not (neg? producer-offset) \+)
@@ -141,7 +138,7 @@
      (let [certname (or certname "unknown-host")
            received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
-           extension (str "json" (if (not-empty compression)
+           extension (str "json" (when (not-empty compression)
                                    (str "." compression)))
            cert->meta #(format "%s_%s_%d_%s.%s"
                                received+producer-time short-command version %
@@ -199,11 +196,11 @@
                certid (if-not cert-hash certname (str certname cert-hash))]
            (and certname
                 {:received (-> received-time-long
-                               tcoerce/from-long
+                               time/from-long
                                kitchensink/timestamp)
                  :producer-ts (some-> producer-offset
                                       (+ received-time-long)
-                                      tcoerce/from-long)
+                                      time/from-long)
                  :version (Long/parseLong version)
                  :command (get md-cmd->pdb-cmd md-command "unknown")
                  :certname certid
@@ -286,7 +283,7 @@
         stream (try
                  (stock/stream q entry)
                  (catch ExceptionInfo ex
-                   (let [{:keys [kind entry source] :as data} (ex-data ex)]
+                   (let [{:keys [kind entry]} (ex-data ex)]
                      (when-not (= kind ::stock/no-such-entry)
                        (throw ex))
                      ;; Do we want the entry, path or both in the log?
@@ -334,12 +331,12 @@
              (Files/delete stream-data)
              (log/warn (trs "Cleaned up orphaned command temp file: {0}"
                             (pr-str (str stream-data))))
-             (catch Exception ex
+             (catch Exception _
                (log/warn (trs "Unable to clean up orphaned command temp file: {0}"
                               (pr-str (str stream-data)))))))
 
          ::path-cleanup-failure-after-error
-         (let [{:keys [path exception]} data]
+         (let [{:keys [path]} data]
            ;; stockpile/store failed with the exception described by
            ;; the :cause, and then, on the way out, the attempt to remove the temporary
            ;; file described by path failed with the given exception.
@@ -378,10 +375,10 @@
                               ^clojure.lang.IFn delete-update-fn
                               ^clojure.lang.IFn ignore-update-fn]
   async-protos/Buffer
-  (full? [this]
+  (full? [_]
     (>= (.size fifo-queue) max-entries))
 
-  (remove! [this]
+  (remove! [_]
     (let [^CommandRef cmdref (val (.pollFirstEntry fifo-queue))
           command-type (:command cmdref)]
       (when (or (= command-type "replace catalog")
@@ -429,9 +426,9 @@
         (.put fifo-queue (:id cmdref) cmdref)))
     this)
 
-  (close-buf! [this])
+  (close-buf! [_])
   clojure.lang.Counted
-  (count [this]
+  (count [_]
     (.size fifo-queue)))
 
 (defn sorted-command-buffer

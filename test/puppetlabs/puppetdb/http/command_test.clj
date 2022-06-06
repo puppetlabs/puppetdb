@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.command-test
   (:require [clojure.core.async :as async]
             [clojure.math.combinatorics :refer [combinations]]
-            [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http.command :as tgt
@@ -13,25 +12,18 @@
                      assert-success!
                      test-command-app
                      dotestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [internal-request]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.stockpile.queue :as stock]
-            [puppetlabs.puppetdb.testutils.nio :as nio]
-            [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
-            [clojure.core.async :as async]
-            [puppetlabs.puppetdb.middleware
-             :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [puppetlabs.puppetdb.time :as time])
-  (:import [clojure.lang ExceptionInfo]
-           [java.io ByteArrayInputStream ByteArrayOutputStream]
-           [java.util.concurrent Semaphore]
-           (java.util.zip GZIPOutputStream)))
+  (:import
+   (java.io ByteArrayInputStream ByteArrayOutputStream)
+   (java.net HttpURLConnection)
+   (java.util.concurrent Semaphore)
+   (java.util.zip GZIPOutputStream)))
 
 (def endpoints [[:v1 "/v1"]])
 
@@ -51,7 +43,7 @@
                                "accept" "application/json"} body)))
 
 (defn form-command
-  [command version payload]
+  [_command _version payload]
   (json/generate-string payload))
 
 (defn create-handler [q]
@@ -61,7 +53,7 @@
 
 (deftest command-endpoint
   (dotestseq
-   [[version endpoint] endpoints]
+   [[_version endpoint] endpoints]
 
    (testing "Commands submitted via REST"
      (testing "should work when well-formed"
@@ -240,14 +232,14 @@
                 {:keys [status body headers]}
                 (app (post-request* "/v1" params request-body))
                 {:keys [error]} (json/parse-string body true)]
-            (is (= status http/status-bad-request))
+            (is (= status HttpURLConnection/HTTP_BAD_REQUEST))
             (is (= ["Content-Type"] (keys headers)))
             (is (http/json-utf8-ctype? (headers "Content-Type")))
             (is (re-find error-regex error))))))))
 
 (deftest receipt-timestamping
   (dotestseq
-   [[version endpoint] endpoints]
+   [[_version endpoint] endpoints]
 
    (tqueue/with-stockpile q
      (let [ms-before-test (System/currentTimeMillis)
@@ -318,7 +310,7 @@
                                :params (into {} bad-params)}
                   {:keys [status body]} (validate bad-request)
                   {:strs [error]} (json/parse-string body)]]
-      (is (= http/status-bad-request status))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
       (is (re-find #"missing required parameters" error)))))
 
 ;; Right now, this is the only unit test that tests the (eventually
@@ -326,13 +318,12 @@
 ;; tests test it via the altered terminus.
 (deftest almost-streaming-post
   (dotestseq
-    [[version endpoint] endpoints]
+    [[_version endpoint] endpoints]
     (tqueue/with-stockpile q
       (let [replace-ver (get min-supported-commands "replace facts")
             payload (form-command "replace facts" replace-ver {})
             checksum (kitchensink/utf8-string->sha1 payload)
-            req (internal-request {"payload" payload "checksum" checksum})
-            [command-chan app] (create-handler q)
+            [_ app] (create-handler q)
             response (app
                       (post-request* endpoint
                                      {"command" "replace_facts"
@@ -374,7 +365,7 @@
         ;; via timeout in the "success" case.
         (testing "when disabled, allows larger size"
           (testing "(without timeout),"
-            (is (= http/status-ok
+            (is (= HttpURLConnection/HTTP_OK
                    (:status (no-max-app req)))))
 
           (let [test-cmdref (async/<!! command-chan)]
@@ -391,7 +382,7 @@
           (testing "(with timeout),"
             (testing "when disabled, allows larger size"
               (let [response (no-max-app wait-req)]
-                (is (= http/status-unavailable (:status response)))
+                (is (= HttpURLConnection/HTTP_UNAVAILABLE (:status response)))
                 (is (= true
                        (get (json/parse-string (:body response)) "timed_out")))))))
 
@@ -400,10 +391,10 @@
                                  ["(with timeout)," wait-req]]]
           (testing case-name
             (testing "when enabled, rejects excessive string requests"
-              (is (= http/status-entity-too-large
+              (is (= HttpURLConnection/HTTP_ENTITY_TOO_LARGE
                      (:status (max-10-app req)))))
             (testing "when enabled, rejects excessive stream requests"
-              (is (= http/status-entity-too-large
+              (is (= HttpURLConnection/HTTP_ENTITY_TOO_LARGE
                      (:status (max-10-app
                                (assoc req :body
                                       (ByteArrayInputStream.

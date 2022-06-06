@@ -1,8 +1,8 @@
 (ns puppetlabs.puppetdb.integration.puppetserver-metrics
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.integration.fixtures :as int]
+   [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
 (deftest ^:integration puppetserver-http-client-metrics
   (with-open [pg (int/setup-postgres)

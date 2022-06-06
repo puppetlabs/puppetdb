@@ -279,6 +279,7 @@
                                           11 "-Djava.security.properties==dev-resources/jdk11-fips-security"
                                           (throw (ex-info "Unsupported major Java version. Expects 8 or 11."
                                                           {:major feature :minor interim})))))}]
+             :kondo {:dependencies [[clj-kondo "2022.04.23"]]}
              :ezbake {:dependencies ^:replace [;; NOTE: we need to explicitly pass in `nil` values
                                                ;; for the version numbers here in order to correctly
                                                ;; inherit the versions from our parent project.
@@ -356,6 +357,7 @@
                             "trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
                             ~puppetserver-test-dep-gem-list
                             "--config" "./test-resources/puppetserver/puppetserver.conf"]
+            "kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
             "distclean" ~(pdb-run-clean pdb-distclean-paths)
             "time-shift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"

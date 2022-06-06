@@ -6,15 +6,12 @@
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.string :as string]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.kitchensink.core :as kitchensink :refer [keyset
-                                                                 seq-contains?
-                                                                 order-by-expr?
-                                                                 parse-int]]
+            [puppetlabs.kitchensink.core :as kitchensink
+             :refer [seq-contains? order-by-expr? parse-int]]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs tru]]))
+            [puppetlabs.i18n.core :refer [tru]]))
 
 (def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
@@ -94,14 +91,12 @@
   that satisfy `order-by-expr?`"
   [order_by]
   {:post [(every? order-by-expr? %)]}
-  (when-let [bad-order-by (some
-                           (fn [x] (when-not (contains? x :field) x))
-                           order_by)]
+  (when-let [bad-order-by (some #(when-not (contains? % :field) %) order_by)]
     (throw (IllegalArgumentException.
-            (tru "Illegal value ''{0}'' in :order_by; missing required key 'field'."))))
-  (when-let [bad-order-by (some
-                           (fn [x] (when-not (valid-order-str? (:order x)) x))
-                           order_by)]
+            (tru "Illegal value ''{0}'' in :order_by; missing required key 'field'."
+                 bad-order-by))))
+  (when-let [bad-order-by (some (fn [x] (when-not (valid-order-str? (:order x)) x))
+                                order_by)]
     (throw (IllegalArgumentException.
             (tru "Illegal value ''{0}'' in :order_by; ''order'' must be either ''asc'' or ''desc''"
                  bad-order-by))))
@@ -238,18 +233,8 @@
                     (string/join "', '" (map name columns)))))))
   paging-options)
 
-(defn requires-paging?
-  "Given a paging-options map, return true if the query requires paging and
-  false if it does not."
-  [{:keys [limit offset order_by include_total] :as paging-options}]
-  (not
-   (and
-    (every? nil? [limit offset])
-    ((some-fn nil? (every-pred coll? empty?)) order_by)
-    (not include_total))))
-
 (defn dealias-order-by
-  [{:keys [projections] :as query-rec} paging-options]
+  [{:keys [projections] :as _query-rec} paging-options]
   (let [alias-map (->> projections
                        (kitchensink/mapvals (comp h/extract-sql :field))
                        (kitchensink/mapkeys keyword))
