@@ -2,9 +2,8 @@
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [get-request paged-results]]
+            [puppetlabs.puppetdb.testutils :as tu :refer [paged-results]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
@@ -13,7 +12,9 @@
                      query-response
                      ordered-query-result
                      vector-param]]
-            [flatland.ordered.map :as omap]))
+            [flatland.ordered.map :as omap])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def v4-endpoint "/v4/resources")
 (def v4-environments-endpoint "/v4/environments/DEV/resources")
@@ -24,7 +25,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= http/status-ok (:status response)))
+  (is (= HttpURLConnection/HTTP_OK (:status response)))
   (is (http/json-utf8-ctype? (tu/content-type response)))
   (is (= body (if (:body response)
                 (set (json/parse-string (slurp (:body response)) true))
@@ -39,13 +40,14 @@ to the result of the form supplied to this method."
       set))
 
 (deftest-http-app resource-endpoint-tests
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [foo1 bar1 foo2 bar2] :as expected} (store-example-resources)]
+  (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (query-response method endpoint)
-            body     (json/parse-string (slurp (get response :body "null")) true)]
+            result (query-result response)]
+        (is (= (set [foo1 bar1 foo2 bar2]) result))
         (is (= 200 (:status response)))))
 
     (testing "query with filter"
@@ -112,14 +114,14 @@ to the result of the form supplied to this method."
                                 ["and"
                                  ["=" "name" "operatingsystem"]
                                  ["=" "value" "Debian"]]]]]])]
-        (is (= status http/status-ok))
+        (is (= status HttpURLConnection/HTTP_OK))
         (is (= (set (json/parse-string (slurp body) true)) #{foo1})))
 
       (testing "using the value of a fact as the title of a resource"
         (let [{:keys [body status]} (query-response method endpoint
                                                     ["in" "title" ["extract" "value" ["select_facts"
                                                                                       ["=" "name" "message"]]]])]
-          (is (= status http/status-ok))
+          (is (= status HttpURLConnection/HTTP_OK))
           (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2})))))
 
     (testing "resource subqueries are supported"
@@ -131,13 +133,13 @@ to the result of the form supplied to this method."
                                                   ["=" "exported" false]
                                                   ["in" "title" ["extract" "title" ["select_resources"
                                                                                     ["=" "exported" true]]]]]])]
-        (is (= status http/status-ok))
+        (is (= status HttpURLConnection/HTTP_OK))
         (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2}))))
 
     (testing "error handling"
       (let [response (query-response method endpoint ["="])
             body     (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= (:status response) HttpURLConnection/HTTP_BAD_REQUEST))
         (are-error-response-headers (:headers response))
         (is (re-find #"= requires exactly two arguments" body))))
 
@@ -159,26 +161,28 @@ to the result of the form supplied to this method."
         (is-response-equal (query-response method endpoint query) result)))))
 
 (deftest-http-app query-with-explain-printing
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
     (testing "should support explain and not munge rows when quering in resources endpoint"
       (let [results (json/parse-string
                     (slurp (:body (query-response method endpoint nil
                                                   {:explain "analyze"}))))]
-        (is (not (empty? results)))
+        (is (seq results))
         (is (= true (contains? (first results) "query plan"))))))
 
 (deftest-http-app environments-resource-endpoint
-  [[version endpoint] endpoints
+  [[version _endpoint] endpoints
    method [:get :post]]
-  (let [{:keys [foo1 bar1 foo2 bar2] :as results} (store-example-resources)
+  (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)
         dev-endpoint (str "/" (name version) "/environments/DEV/resources")
         prod-endpoint (str "/" (name version) "/environments/PROD/resources")]
 
-    (doseq [endpoint [dev-endpoint prod-endpoint]]
+    (doseq [[endpoint expected] [[dev-endpoint [foo1 foo2]]
+                                 [prod-endpoint [bar1 bar2]]]]
       (testing (str "query without filter should not fail for endpoint " endpoint)
         (let [response (query-response method endpoint)
-              body     (get response :body "null")]
+              result (query-result response)]
+          (is (= (set expected) (set result)))
           (is (= 200 (:status response))))))
 
     (testing "DEV query with filter"
@@ -208,25 +212,25 @@ to the result of the form supplied to this method."
         (is-response-equal (query-response method prod-endpoint query) result)))))
 
 (deftest-http-app query-sourcefile-sourceline
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [bar2] :as results} (store-example-resources)]
+  (let [{:keys [bar2]} (store-example-resources)]
 
     (testing "sourcefile and source is not supported"
       (let [query ["=" "sourceline" 22]
             response (query-response method endpoint query)]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"'sourceline' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["~" "sourcefile" "foo"]
             response (query-response method endpoint query)]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (query-response method endpoint query)]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response)))))
 
@@ -248,7 +252,7 @@ to the result of the form supplied to this method."
         (is-response-equal (query-response method endpoint query) result)))))
 
 (deftest-http-app resource-query-paging
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (testing "supports paging via include_total"
     (let [expected (store-example-resources)]
@@ -256,36 +260,37 @@ to the result of the form supplied to this method."
                               ["with" true]]]
         (testing (str "should support paging through nodes " label " counts")
           (let [results (paged-results
+                         method
                          {:app-fn  *app*
                           :path    endpoint
                           :limit   2
                           :total   (count expected)
-                          :params {:order_by (json/generate-string
-                                              [{:field :certname
-                                                :order :desc}
-                                               {:field :type
-                                                :order :desc}
-                                               {:field :title
-                                                :order :desc}])}
+                          :params {:order_by (->> [{:field :certname
+                                                    :order :desc}
+                                                   {:field :type
+                                                    :order :desc}
+                                                   {:field :title
+                                                    :order :desc}]
+                                                  (vector-param method))}
                           :include_total  count?})]
             (is (= (count results) (count expected)))
             (is (= (set (vals expected))
                    (set results)))))))))
 
 (deftest-http-app resource-query-result-ordering
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
-  (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "ordering results with order_by"
       (let [params {:order_by (vector-param method [{"field" "certname" "order" "DESC"}
                                                     {"field" "resource" "order" "DESC"}])}
             response (query-response method endpoint nil params)
             actual   (json/parse-string (slurp (get response :body "null")) true)]
-        (is (= http/status-ok (:status response)))
+        (is (= HttpURLConnection/HTTP_OK (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
 (deftest-http-app query-environments
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "querying by equality and regexp should be allowed"
@@ -302,10 +307,10 @@ to the result of the form supplied to this method."
            ["not" ["=" "environment" "null"]]))))
 
 (deftest-http-app query-with-projection
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+  (let [{:keys [foo1 foo2]} (store-example-resources)]
     (testing "querying by equality and regexp should be allowed"
       (are [query expected] (is-response-equal
                               (query-response method endpoint query) expected)
@@ -326,7 +331,7 @@ to the result of the form supplied to this method."
              {:certname "two.local" :parameters.ensure "file"}}))))
 
 (deftest-http-app paging-results
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
 
@@ -360,7 +365,7 @@ to the result of the form supplied to this method."
             (is (= actual expected))))))))
 
 (deftest-http-app query-null-environments
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources false)]
@@ -382,12 +387,12 @@ to the result of the form supplied to this method."
                       #"Can't extract unknown 'resources' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))

@@ -8,7 +8,6 @@
             [schema.core :as s]
             [clojure.data :as data]
             [puppetlabs.puppetdb.schema :as pls]
-            [clojure.set :as set]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -74,8 +73,8 @@
     (when out-ex
       (try
         (binding [*out* *err*]
-          (println "stdout flush on exit failed: " out-ex)
-          (catch Exception _ nil)))))
+          (println "stdout flush on exit failed: " out-ex))
+        (catch Exception _ nil))))
   (try
     (binding [*out* *err*] (flush))
     (catch Exception _ nil))
@@ -154,13 +153,6 @@
   (and (>= 0 (compare \0 c))
        (>= 0 (compare c \9))))
 
-(defn update-vals
-  "This function is like update-in, except the vector argument contains top-level
-  keys rather than nested.  Applies function f to values corresponding to keys
-  ks in map m."
-  [m ks f]
-  (reduce #(update-in %1 [%2] f) m ks))
-
 (def ^{:doc "Acts as update-in if ks refers to a value, otherwise returns m."
        :arglists '([m ks f & args])}
   update-when
@@ -195,7 +187,7 @@
 (pls/defn-validated base-url->str :- s/Str
   "Converts the `base-url' map to an ASCII URL.  May throw
    MalformedURLException or URISyntaxException."
-  [{:keys [protocol host port prefix version] :as base-url} :- base-url-schema]
+  [{:keys [protocol host port prefix version] :as _base-url} :- base-url-schema]
   (-> (URL. protocol host port
             (str prefix "/" (name (or version :v4))))
       .toURI .toASCIIString))
@@ -203,12 +195,12 @@
 (pls/defn-validated base-url->str-no-path :- s/Str
   "Converts the `base-url' map to an ASCII URL minus the path element. This can
   be used to build a full URL when you have an absolute path."
-  [{:keys [protocol host port] :as base-url} :- base-url-schema]
+  [{:keys [protocol host port] :as _base-url} :- base-url-schema]
   (-> (URL. protocol host port "")
       .toURI .toASCIIString))
 
 (defn base-url->str-with-prefix
-  [{:keys [protocol host port prefix] :as base-url}]
+  [{:keys [protocol host port prefix] :as _base-url}]
   (-> (java.net.URL. protocol host port prefix)
       .toURI
       .toASCIIString))
@@ -538,7 +530,7 @@
 (defn update-matching-keys
   "Returns the map resulting from an (update m k f & args) for every
   key k in m satisfying (pred k)."
-  [m pred f & args]
+  [m pred f & _]
   (reduce
    (fn [result k]
      (if (pred k)

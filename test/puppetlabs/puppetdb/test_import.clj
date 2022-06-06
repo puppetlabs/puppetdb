@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.test-import
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.import :refer :all]
+            [puppetlabs.puppetdb.import :refer [command-matcher]]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.time :refer [now]]))
 

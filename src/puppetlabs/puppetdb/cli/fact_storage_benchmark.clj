@@ -2,10 +2,9 @@
   (:require [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.puppetdb.time :refer [now]]
-            [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.core.async :as async]
-            [clojure.set :as set]))
+            [clojure.core.async :as async]))
 
 
 (defn sleep-until-queue-empty [base-url]
@@ -36,19 +35,18 @@
      :values (into {} facts)}))
 
 (defn submit-facts-for-prefix [pdb-hostname prefix {:keys [num-generations num-nodes] :as opts}]
-  (do
-    (doseq [generation-num (range num-generations)]
-      (binding [*out* *err*]
-        (println "Submitting facts with prefix" prefix "for generation" generation-num "..."))
-      (doseq [certname (map (partial str "group-" prefix "-host-")
-                            (range num-nodes))]
-        (let [facts (gen-facts certname generation-num opts)]
-          (client/submit-facts (utils/pdb-cmd-base-url pdb-hostname 8080 :v1)
-                               certname
-                               5
-                               facts))))))
+  (doseq [generation-num (range num-generations)]
+    (binding [*out* *err*]
+      (println "Submitting facts with prefix" prefix "for generation" generation-num "..."))
+    (doseq [certname (map (partial str "group-" prefix "-host-")
+                          (range num-nodes))]
+      (let [facts (gen-facts certname generation-num opts)]
+        (client/submit-facts (utils/pdb-cmd-base-url pdb-hostname 8080 :v1)
+                             certname
+                             5
+                             facts)))))
 
-(defn parallel-submit-facts [pdb-hostname {:keys [num-threads num-nodes] :as opts}]
+(defn parallel-submit-facts [pdb-hostname {:keys [num-threads _num-nodes] :as opts}]
   (let [opts-for-thread (update opts :num-nodes #(Math/floor (/ % num-threads)))
         threads (->> (range num-threads)
                      (map (fn [thread-num]

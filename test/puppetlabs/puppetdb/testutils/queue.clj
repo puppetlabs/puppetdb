@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.queue
-  (:require [clojure.string :as str]
-            [clojure.java.shell :as shell]
-            [me.raynes.fs :refer [delete-dir]]
+  (:require [me.raynes.fs :refer [delete-dir]]
             [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.testutils.nio :refer [create-temp-dir]]

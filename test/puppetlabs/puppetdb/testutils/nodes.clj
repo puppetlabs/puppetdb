@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.testutils.nodes
   (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.time :refer [parse-period now plus seconds]]

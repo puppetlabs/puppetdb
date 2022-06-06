@@ -1,17 +1,30 @@
 (ns puppetlabs.puppetdb.scf.hash-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.scf.hash :refer :all]
-            [puppetlabs.puppetdb.scf.storage :refer [normalize-report]]
-            [puppetlabs.puppetdb.random :as random]
-            [clojure.math.combinatorics :refer (combinations subsets)]
-            [puppetlabs.puppetdb.examples :refer [catalogs]]
-            [puppetlabs.puppetdb.catalog.utils :as catutils]
-            [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.reports :as reports]
-            [clojure.test.check.clojure-test :as cct]
-            [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]
-            [puppetlabs.puppetdb.generative.generators :refer [string+]]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.scf.hash
+    :refer [catalog-resource-identity-format
+            catalog-similarity-hash
+            edge-comparator
+            fact-identity-hash
+            generic-identity-hash
+            generic-identity-string
+            package-identity-hash
+            package-similarity-hash
+            report-identity-hash
+            resource-comparator
+            resource-event-identity-string
+            resource-identity-hash]]
+   [puppetlabs.puppetdb.scf.storage :refer [normalize-report]]
+   [puppetlabs.puppetdb.random :as random]
+   [clojure.math.combinatorics :refer [combinations]]
+   [puppetlabs.puppetdb.examples :refer [catalogs]]
+   [puppetlabs.puppetdb.catalog.utils :as catutils]
+   [puppetlabs.puppetdb.examples.reports :refer [reports]]
+   [puppetlabs.puppetdb.reports :as reports]
+   [clojure.test.check.clojure-test :as cct]
+   [clojure.test.check.generators :as gen]
+   [clojure.test.check.properties :as prop]
+   [puppetlabs.puppetdb.generative.generators :refer [string+]]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -51,7 +64,7 @@
              (resource-identity-hash {}))))
 
     (testing "shouldn't change for identical input"
-      (doseq [i (range 10)
+      (doseq [_i (range 10)
               :let [r (random/random-kw-resource)]]
         (is (= (resource-identity-hash r)
                (resource-identity-hash r)))))

@@ -1,55 +1,35 @@
 (ns puppetlabs.puppetdb.http.events-test
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.testutils.events :refer [expected-resource-events]]
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [clojure.set :as clj-set]
-            [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   paged-results]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
                      are-error-response-headers
                      deftest-http-app
+                     is-query-result
                      query-response
                      vector-param
                      query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.time
-             :refer [ago now seconds to-long to-string to-timestamp]]))
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [puppetlabs.puppetdb.time :refer [ago now seconds to-string]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
 
-(defn parse-result
-  "Stringify (if needed) then parse the response"
-  [body]
-  (try
-    (if (string? body)
-      (json/parse-string body true)
-      (json/parse-string (slurp body) true))
-    (catch Throwable e
-      body)))
-
 (defn strip-count-fields
   [responses]
   (map #(dissoc % :count) responses))
-
-(defmacro is-query-result
-  [endpoint query expected-results]
-  `(let [request# (get-request ~endpoint (json/generate-string ~query))
-         response# (*app* request#)
-         status# (:status response#)
-         actual-result# (parse-result (:body response#))]
-     (is (= (count ~expected-results) (count actual-result#)))
-     (is (= ~expected-results (set actual-result#)))
-     (is (= http/status-ok status#))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -65,7 +45,7 @@
   (map #(kitchensink/maptrans {[:old_value :new_value] stringify-keys} %) events))
 
 (deftest-http-app query-by-report
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic-report (:basic reports)
@@ -189,7 +169,7 @@
               {:keys [status body]} (query-response
                                       method endpoint [">" "timestamp" 0]
                                       {:order_by (vector-param method [{:field "resource_title"}])})]
-          (is (= http/status-ok status))
+          (is (= HttpURLConnection/HTTP_OK status))
           (is (= expected (set (munge-event-values (json/parse-string (slurp body) true)))))))
 
       (testing "should reject dashes"
@@ -197,12 +177,12 @@
                                         {:order_by (vector-param method
                                                                 [{:field "resource-title"}])})
               body (get response :body "null")]
-          (is (= http/status-bad-request (:status response)))
+          (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
           (are-error-response-headers (:headers response))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
 (deftest-http-app query-distinct-resources
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic             (store-example-report! (:basic reports) (now))
@@ -215,7 +195,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_resources true})
             body (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -223,7 +203,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                      {:distinct_resources true :distinct_start_time 0})
             body (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -231,7 +211,7 @@
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                      {:distinct_resources true :distinct_end_time 0})
             body (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -240,7 +220,7 @@
       (let [response  (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_start_time 0 :distinct_end_time 0})
             body      (get response :body "null")]
-        (is (= http/status-bad-request (:status response)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"
@@ -295,7 +275,7 @@
         (is (= expected response))))))
 
 (deftest-http-app query-by-puppet-report-timestamp
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [basic (store-example-report! (:basic reports) (now))
@@ -333,7 +313,7 @@
         (is (= expected response))))))
 
 (deftest-http-app query-by-report-receive-timestamp
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [test-start-time (-> 1 seconds ago)
@@ -354,7 +334,7 @@
         (is (= expected response))))))
 
 (deftest-http-app query-by-corrective_change
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [basic (store-example-report! (:basic reports) (now))
         basic-events (get-in reports [:basic :resource_events :data])
@@ -454,7 +434,7 @@
        :message nil}})))
 
 (deftest-http-app valid-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
 
   (let [catalog (:basic catalogs)
@@ -473,7 +453,7 @@
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")
-      (is-query-result endpoint query results))))
+      (is-query-result method endpoint query results))))
 
 (def versioned-invalid-subqueries
   (omap/ordered-map
@@ -497,7 +477,7 @@
                  #"Can't match on unknown 'events' fields 'nothing' and 'nothing2' for 'in'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-subqueries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method  [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
@@ -506,7 +486,7 @@
             (query-response
              method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def versioned-invalid-queries
@@ -524,7 +504,7 @@
                    #"Can't extract unknown 'events' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method  [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
@@ -532,7 +512,7 @@
       (let [{:keys [status body headers]}
             (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
@@ -545,7 +525,7 @@
                  #".*invalid regular expression: brackets.*not balanced")))
 
 (deftest-http-app pg-invalid-regexps
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method  [:get :post]]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
@@ -553,5 +533,5 @@
       (let [{:keys [status body headers]}
             (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))

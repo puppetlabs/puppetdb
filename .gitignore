@@ -63,6 +63,7 @@ checkouts
 /puppet/state/
 /puppetserver/
 
+/.clj-kondo/.cache/
 /.eastwood
 /.nrepl-port
 /pdb.bcpkix

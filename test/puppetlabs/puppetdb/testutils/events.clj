@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.events
   (:require [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]

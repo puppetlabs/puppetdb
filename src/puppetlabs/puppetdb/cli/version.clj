@@ -20,7 +20,7 @@
 ;; cleanly accessible from here.  Perhaps we can revisit this once we've
 ;; refactored and cleaned up the configuration stuff a bit.
 
-(defn show-version [args]
+(defn show-version [_args]
   (doseq [[key val] {"version" (version)
                      "target_schema_version" (desired-schema-version)}]
     (println (format "%s=%s" key val))))

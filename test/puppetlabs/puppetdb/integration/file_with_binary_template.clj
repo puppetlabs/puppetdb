@@ -1,8 +1,8 @@
 (ns puppetlabs.puppetdb.integration.file-with-binary-template
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.trapperkeeper.app :as tk-app]
-            [me.raynes.fs :as fs]))
+  (:require
+   [clojure.test :refer :all]
+   [me.raynes.fs :as fs]
+   [puppetlabs.puppetdb.integration.fixtures :as int]))
 
 (deftest ^:integration file-with-binary-template
   (with-open [pg (int/setup-postgres)

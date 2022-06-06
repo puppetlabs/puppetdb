@@ -4,8 +4,6 @@
    This namespace contains some utility functions relating to checking version
    numbers of various fun things."
   (:require [clojure.string :as string]
-            [ring.util.codec :as ring-codec]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.dujour.version-check :as version-check]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
@@ -45,4 +43,4 @@
   [update-server db]
   (try
     @(version-check/check-for-update (pdb-version-check-values db) update-server)
-    (catch Exception e)))
+    (catch Exception _)))

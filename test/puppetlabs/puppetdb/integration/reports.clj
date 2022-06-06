@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.integration.reports
-  (:require [clojure.test :refer :all]
-            [clojure.string :refer [trim-newline]]
-            [me.raynes.fs :as fs]
+  (:require [clojure.string :as str]
+            [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [metrics.counters :as counters]
@@ -239,7 +238,7 @@
             ;; log message does not exist
             info-log-count (if (->> (int/bundle-exec {} "puppet" "--version")
                                     :out
-                                    trim-newline
+                                    str/trim-newline
                                     (re-matches #"^6.*"))
                              6
                              5)]

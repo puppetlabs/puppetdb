@@ -1,10 +1,10 @@
 (ns puppetlabs.puppetdb.dashboard-test
-  (:require [puppetlabs.puppetdb.dashboard :refer :all]
+  (:require [puppetlabs.puppetdb.dashboard
+             :refer [build-app dashboard-routes default-meter-defs]]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
+            [ring.mock.request :refer [request]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clojure.java.io :refer [file]]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
@@ -19,7 +19,7 @@
       (is (= "/pdb/dashboard/index.html" (get headers "Location")))))
   (testing "dashboard data request works"
     (let [handler (build-app default-meter-defs)
-          {:keys [status headers body]} (handler (request :get "/data"))
+          {:keys [status body]} (handler (request :get "/data"))
           body (json/parse-string body true)]
       (is (= status 200))
       (is (seq? body))

@@ -2,7 +2,6 @@
   (:require [clojure.test :refer :all]
             [clojure.test.check.clojure-test :as tc]
             [clojure.test.check.properties :as prop]
-            [clojure.test.check.generators :as gen]
             [puppetlabs.puppetdb.generative.overridable-generators :as ogen]))
 
 (ogen/defgen :test/a ogen/boolean)

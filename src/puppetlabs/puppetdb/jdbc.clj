@@ -1,10 +1,9 @@
 (ns puppetlabs.puppetdb.jdbc
   "Database utilities"
   (:require [clojure.java.jdbc :as sql]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.time :as pl-time]
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
@@ -13,7 +12,6 @@
   (:import
    (com.zaxxer.hikari HikariDataSource HikariConfig)
    (java.sql Connection SQLException SQLTransientConnectionException)
-   (java.util.concurrent TimeUnit)
    (org.postgresql.util PGobject)))
 
 (def ^:dynamic *db* nil)
@@ -61,7 +59,7 @@
   via (clojure.string/join command)."
   [& commands]
   (sql/db-do-commands *db* true
-                      (mapv #(if (coll? %) (string/join %) %)
+                      (mapv #(if (coll? %) (str/join %) %)
                             commands)))
 
 (defn do-prepared
@@ -71,7 +69,7 @@
   [sql & params]
   (sql/db-do-prepared *db* true
                       (apply vector
-                             (if (coll? sql) (string/join sql) sql)
+                             (if (coll? sql) (str/join sql) sql)
                              params)
                       {:multi? true}))
 
@@ -99,9 +97,8 @@
 (defn- insert-multi-row
   "Given a table and a list of columns, followed by a list of column
   value sequences, return a vector of the SQL needed for the insert
-  followed by the list of column value sequences. The entities
-  function specifies how column names are transformed."
-  [table columns values {:keys [on-conflict] :as opts}]
+  followed by the list of column value sequences."
+  [table columns values {:keys [on-conflict]}]
   (let [nc (count columns)
         vcs (map count values)]
     (if (not (and (or (zero? nc) (= nc (first vcs))) (apply = vcs)))
@@ -121,9 +118,8 @@
 
 (defn- insert-single-row-on-conflict
   "Given a table and a map representing a row, return a vector of the
-  SQL needed for the insert followed by the list of column values. The
-  entities function specifies how column names are transformed."
-  [table row entities {:keys [on-conflict] :as opts}]
+  SQL needed for the insert followed by the list of column values."
+  [table row {:keys [on-conflict]}]
   (let [ks (keys row)]
     (into [(str "INSERT INTO " (name table) " ( "
                 (str/join ", " (map (fn [col] (name col)) ks))
@@ -139,11 +135,11 @@
   names, a sequence of vectors of column values, one per row, and an
   options map, insert the rows into the database."
   [db table cols values opts]
-  (let [{:keys [entities transaction?]} (merge {:entities identity :transaction? true}
-                                               (when (map? db) db)
-                                               opts)
+  (let [{:keys [transaction?]} (merge {:transaction? true}
+                                      (when (map? db) db)
+                                      opts)
         sql-params (insert-multi-row table cols values opts)]
-    (if-let [con (sql/db-find-connection db)]
+    (if (sql/db-find-connection db)
       (sql/db-do-prepared db transaction? sql-params {:multi? true})
       (with-open [con (sql/get-connection db)]
         (sql/db-do-prepared (sql/add-connection db con) transaction?
@@ -168,20 +164,21 @@
     (multi-insert-helper db stmts opts)))
 
 (defn- insert-rows!
-  "Given a database connection, a table name, a sequence of rows, and
-  an options map, insert the rows into the database."
-  [db table rows {:keys [on-conflict] :as opts}]
-  (let [{:keys [entities identifiers qualifier transaction?]}
-        (merge {:entities identity :identifiers str/lower-case :transaction? true}
+  "Given a database connection, a table name, a sequence of rows, and an
+  options map, insert the rows into the database.  Options include
+  on-conflict."
+  [db table rows opts]
+  (let [{:keys [identifiers qualifier transaction?]}
+        (merge {:identifiers str/lower-case :transaction? true}
                (when (map? db) db)
                opts)
         sql-params (map (fn [row]
                           (when-not (map? row)
                             (throw (IllegalArgumentException.
                                     "insert / insert-multi! called with a non-map row")))
-                          (insert-single-row-on-conflict table row entities opts))
+                          (insert-single-row-on-conflict table row opts))
                         rows)]
-    (if-let [con (sql/db-find-connection db)]
+    (if (sql/db-find-connection db)
       (insert-helper db transaction? sql-params
                      {:identifiers identifiers :qualifier qualifier})
       (with-open [con (sql/get-connection db)]
@@ -270,9 +267,7 @@
   true, the result rows will be vectors, not maps, and the first
   result row will be a vector of column names."
   ([query f] (call-with-query-rows query {} f))
-  ([[sql & params]
-    {:keys [as-arrays? identifiers qualifier read-columns fetch-size] :as opts}
-    f]
+  ([[sql & params] {:keys [fetch-size] :as opts} f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doseq [[i param] (map vector (range) params)]
@@ -301,9 +296,7 @@
   call-with-query-rows, and apply any necessary conversions directly
   to each row.  (Most columns cannot be arrays.)"
   ([query f] (call-with-array-converted-query-rows query {} f))
-  ([[sql & params]
-    {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
-    f]
+  ([[sql & params] {:keys [as-arrays?] :as opts} f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doseq [[i param] (map vector (range) params)]
@@ -451,7 +444,7 @@
          (every? kitchensink/order-by-expr? order_by)]}
   (str sql
        (when-let [order-by (seq (map order-by-term->sql order_by))]
-         (str " ORDER BY " (string/join ", " order-by)))
+         (str " ORDER BY " (str/join ", " order-by)))
        (when limit (str " LIMIT " limit))
        (when offset (str " OFFSET " offset))))
 
@@ -630,7 +623,7 @@
             maximum-pool-size
             expected-schema
             rewrite-batched-inserts]
-     :as db-spec}
+     :as _db-spec}
     metrics-registry]
    (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
          conn-max-age-ms (some-> conn-lifetime pl-time/to-millis)

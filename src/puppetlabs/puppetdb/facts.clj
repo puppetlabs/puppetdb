@@ -2,16 +2,11 @@
   (:require [clojure.edn :as clj-edn]
             [clojure.set :as set]
             [clojure.string :as str]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.scf.hash :as hash]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
-                                                      package-tuple-hash]]))
+            [puppetlabs.puppetdb.package-util :refer [package-tuple]]))
 
 ;; SCHEMA
 
@@ -88,7 +83,7 @@
   (when (maybe-num-string? s)
     (try
       (Long/valueOf s)
-      (catch Exception e
+      (catch Exception _
         nil))))
 
 (def escape-quoted-num

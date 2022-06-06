@@ -1,10 +1,21 @@
 (ns puppetlabs.puppetdb.schema-test
   (:import [org.joda.time Minutes Days Seconds Period])
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.schema :refer :all]
-            [puppetlabs.puppetdb.time :as time]
-            [schema.core :as s]
-            [schema.coerce :as sc]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.schema
+    :refer [blocklist->vector
+            conversion-fns
+            convert-to-schema
+            defaulted-data
+            defaulted-maybe
+            defaulted-maybe-keys
+            defaulted-maybe?
+            schema-key->data-key
+            strip-unknown-keys
+            unknown-keys]]
+   [puppetlabs.puppetdb.time :as time]
+   [schema.core :as s]
+   [schema.coerce :as sc]))
 
 (deftest defaulted-maybe-test
   (let [defaulted-schema {:foo (defaulted-maybe Number 10)}]

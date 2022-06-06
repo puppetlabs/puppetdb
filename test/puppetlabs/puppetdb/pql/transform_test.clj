@@ -1,7 +1,26 @@
 (ns puppetlabs.puppetdb.pql.transform-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.pql :refer [transform]]
-            [puppetlabs.puppetdb.pql.transform :refer :all]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.pql :refer [transform]]
+   [puppetlabs.puppetdb.pql.transform
+    :refer [transform-boolean
+            transform-condexpnull
+            transform-condexpression
+            transform-dqstring
+            transform-exp
+            transform-expr-and
+            transform-expr-not
+            transform-expr-or
+            transform-extract
+            transform-from
+            transform-function
+            transform-groupby
+            transform-groupedlist
+            transform-groupedliterallist
+            transform-integer
+            transform-real
+            transform-sqstring
+            transform-subquery]]))
 
 (deftest test-from
   (testing "function"

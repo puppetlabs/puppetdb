@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.admin-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.cli.services :refer [query]]
             [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]

@@ -1,21 +1,18 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
-            [clojure.set :as set]
+            [clojure.set :as set :refer [map-invert]]
             [clojure.string :as str]
             [puppetlabs.i18n.core :refer [tru trs]]
-            [clojure.set :refer [map-invert]]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng.parse :as parse]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
@@ -23,8 +20,6 @@
             [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [clojure.string :as string]
             [clojure.walk :as walk])
   (:import
    (clojure.lang ExceptionInfo)
@@ -1528,7 +1523,7 @@
   ;; :depends.  proj-info is the query req field info map.
   (loop [result (vec projections)
          already-projected? (->> projections (map first) set)
-         [[fname {:keys [depends] :as info} :as proj] & projections] projections]
+         [[_fname {:keys [depends] :as _info} :as proj] & projections] projections]
     (if-not proj
       result
       (let [[new-projections result]
@@ -1555,7 +1550,7 @@
 (defn sql-select-for-query
   "Returns the honesql representation of the query's select,
   i.e. {:select expr}."
-  [{:keys [projected-fields call selection projections] :as query}]
+  [{:keys [projected-fields call selection projections] :as _query}]
   ;; This is where we finally fully expand the projections.
   (let [calls (mapv (comp hcore/raw :statement) call)
         non-call-projections (if (and (empty? calls) (empty? projected-fields))
@@ -1592,7 +1587,7 @@
 
 (extend-protocol SQLGen
   Query
-  (-plan->sql [{:keys [group-by projections projected-fields subquery? where] :as query}
+  (-plan->sql [{:keys [group-by projected-fields subquery? where] :as query}
                {:keys [node-purge-ttl] :as options}]
     (s/validate [projection-schema] projected-fields)
     (let [has-where? (boolean where)
@@ -1608,7 +1603,7 @@
         sql)))
 
   InExpression
-  (-plan->sql [{:keys [column subquery] :as this} options]
+  (-plan->sql [{:keys [column subquery]} options]
     ;; 'column' is actually a vector of columns.
     (s/validate [column-schema] column)
     ;; if a field has type jsonb, cast that field in the subquery to jsonb
@@ -1623,7 +1618,7 @@
         :from [[(-plan->sql subquery options) :sub]]}]))
 
   JsonContainsExpression
-  (-plan->sql [{:keys [field column-data array-in-path]} options]
+  (-plan->sql [{:keys [field column-data array-in-path]} _opts]
     (let [f (if (instance? SqlRaw (:field column-data))
               (-> column-data :field :s)
               field)]
@@ -1635,11 +1630,11 @@
         (hcore/raw (format "%s @> ?" f)))))
 
   FnBinaryExpression
-  (-plan->sql [{:keys [value function args operator]} options]
+  (-plan->sql [{:keys [function args operator]} _opts]
     (fn-binary-expression->hsql operator function args))
 
   JsonbPathBinaryExpression
-  (-plan->sql [{:keys [field value column-data operator]} options]
+  (-plan->sql [{:keys [field value column-data operator]} _opts]
     (su/jsonb-path-binary-expression operator
                                      (if (instance? SqlRaw (:field column-data))
                                        (-> column-data :field :s)
@@ -1647,7 +1642,7 @@
                                      value))
 
   JsonbScalarRegexExpression
-  (-plan->sql [{:keys [field]} options]
+  (-plan->sql [{:keys [field]} _opts]
     (su/jsonb-scalar-regex field))
 
   BinaryExpression
@@ -1662,35 +1657,35 @@
                 (utils/vector-maybe value))))
 
   InArrayExpression
-  (-plan->sql [{:keys [column]} options]
+  (-plan->sql [{:keys [column]} _opts]
     (s/validate column-schema column)
     (su/sql-in-array (:field column)))
 
   ArrayBinaryExpression
-  (-plan->sql [{:keys [column]} options]
+  (-plan->sql [{:keys [column]} _opts]
     (s/validate column-schema column)
     (su/sql-array-query-string (:field column)))
 
   RegexExpression
-  (-plan->sql [{:keys [column]} options]
+  (-plan->sql [{:keys [column]} _opts]
     (s/validate column-schema column)
     (su/sql-regexp-match (:field column)))
 
   ArrayRegexExpression
-  (-plan->sql [{:keys [column]} options]
+  (-plan->sql [{:keys [column]} _opts]
     (s/validate column-schema column)
     (su/sql-regexp-array-match (:field column)))
 
   PathArrayMatch
-  (-plan->sql [{:keys [column path]} options]
+  (-plan->sql [{:keys [column path]} _opts]
     (su/path-array-col-matches-ast-path (:field column) (:signature column) path))
 
   PathArrayAnyMatch
-  (-plan->sql [{:keys [column paths]} options]
+  (-plan->sql [{:keys [column paths]} _opts]
     (su/path-array-col-matches-any-ast-path (:field column) (:signature column) paths))
 
   PathArrayRegexMatch
-  (-plan->sql [{:keys [column path-rx]} options]
+  (-plan->sql [{:keys [column path-rx]} _opts]
     (s/validate column-schema column)
     (s/validate ast-path-schema path-rx)
     (su/path-array-col-matches-rx-vec (:field column) (:signature column) path-rx))
@@ -1724,7 +1719,7 @@
     [:not (-plan->sql (:clause expr) options)])
 
   Object
-  (-plan->sql [obj options]
+  (-plan->sql [obj _opts]
     obj))
 
 (defn plan->sql
@@ -1959,7 +1954,7 @@
                                   ::parse/indexed-field-part [(:name %) (:index %)]
                                   ::parse/match-field-part [(:pattern %)]
                                   ::parse/named-field-part [(:name %)]))
-                       (string/join "#~"))
+                       (str/join "#~"))
             ;; Right now, this code communicates the paths via AST
             ;; dotted fields, which is insufficient because the
             ;; current syntax can't represent all possible fact names
@@ -2096,10 +2091,9 @@
                   (when-not (or columns (and local-columns foreign-columns))
                     (throw (IllegalArgumentException.
                              (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
-                  (do
-                    ["in" (or local-columns columns)
-                     ["extract" (or foreign-columns columns)
-                      [(str "select_" sub-entity) expr]]]))
+                  ["in" (or local-columns columns)
+                   ["extract" (or foreign-columns columns)
+                    [(str "select_" sub-entity) expr]]])
                 (throw (IllegalArgumentException. (tru "No implicit relationship for entity ''{0}''" sub-entity)))))
 
             [["=" "latest_report?" value]]
@@ -2243,7 +2237,7 @@
              (first expr)))
 
 (defn create-json-subtree-projection
-  [[top & path :as parsed-field] projections]
+  [[top & path :as _parsed-field] projections]
   (let [stringify (fn [{:keys [field field-type]}]
                     (case field-type
                       :keyword (name field)
@@ -2336,7 +2330,7 @@
   (let [query-rec (user-query->logical-obj (str "select_" (formatter/dashes->underscores entity)))
         {:keys [limit offset order-by]} (create-paging-map clauses)]
     (if (extract-expression? expr)
-      (let [[extract columns remaining-expr] expr
+      (let [[_extract columns remaining-expr] expr
             column-list (utils/vector-maybe columns)
             projections (:projections query-rec)]
         (-> query-rec
@@ -2580,7 +2574,7 @@
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
             ;; FIXME: pass parsed representation down
-            (let [[top & path] (parse/parse-field column-name)
+            (let [[top & _path] (parse/parse-field column-name)
                   {:keys [type] :as cinfo} (get-in query-rec [:projections (:name top)])]
               (cond
                 (= :timestamp type)
@@ -2710,8 +2704,7 @@
   "Converts the given `user-query` to a query plan that can later be converted into
   a SQL statement"
   [query-rec paging-options user-query]
-  (let [plan-node (user-node->plan-node query-rec user-query)
-        projections (projectable-fields query-rec)]
+  (let [plan-node (user-node->plan-node query-rec user-query)]
     (if (instance? Query plan-node)
       plan-node
       (assoc query-rec :where plan-node :paging-options paging-options))))
@@ -2760,10 +2753,10 @@
   [expr]
   (let [message (vec (filter seq (for [clause expr]
                                    (let [operator (first clause)]
-                                     (if (vector? clause)
+                                     (when (vector? clause)
                                        (if (contains? #{"or" "and"} operator)
                                          (validate-extract-filters clause)
-                                         (if (not (valid-operator? operator))
+                                         (when-not (valid-operator? operator)
                                            (tru "{0} is not a valid expression for \"extract\"" (pr-str clause)))))))))]
     (if (empty? message)
       nil
@@ -2808,7 +2801,7 @@
                    :state (cond-> state column-validation-message (conj column-validation-message))
                    :cut true})
 
-                [["extract" column [subquery-name :guard (complement #{"not" "group_by" "or" "and"}) _]]]
+                [["extract" _column [subquery-name :guard (complement #{"not" "group_by" "or" "and"}) _]]]
                 (let [underscored-subquery-name (formatter/dashes->underscores subquery-name)
                       error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
                               (tru "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
@@ -3019,7 +3012,7 @@
 (defn parse-query-context
   "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
    a map."
-  [version query warn]
+  [query warn]
   (cm/match
     query
     ["from" (entity-str :guard #(string? %)) & remaining-query]
@@ -3066,7 +3059,7 @@
 
    ;; operator-field-clause (see query-eng-test)
    {:operator _
-    :column {:field (f :guard keyword?)
+    :column {:field (_f :guard keyword?)
              :join-deps (deps :guard set?)}}
    deps
 
@@ -3220,14 +3213,13 @@
                    ;; If we wanted to generalize this to apply to the
                    ;; plan recursively, i.e. subqueries, could
                    ;; convert-to-plan be relevant?
-                   (do
-                     (->> (:projected-fields plan)
-                          ;; Is this not supposed to be a map already?
-                          ;; i.e. wondering if we might have a
-                          ;; conversion bug elsewhere...
-                          (into {})
-                          (remove (comp :unprojectable? val))
-                          keys)))
+                   (->> (:projected-fields plan)
+                        ;; Is this not supposed to be a map already?
+                        ;; i.e. wondering if we might have a
+                        ;; conversion bug elsewhere...
+                        (into {})
+                        (remove (comp :unprojectable? val))
+                        keys))
         ;; Now we need just the base name, i.e. facts.kernel -> facts
         basename #(-> % parse/parse-field first :name)
         required-joins (map #(get-in proj-info [% :join-deps])
@@ -3285,7 +3277,7 @@
                               :merge-right-join
                               :right-join}
                             #{:left-join})
-                need-join? (fn [[table spec]]
+                need-join? (fn [[table _spec]]
                              ;; table e.g. :factsets or [:factsets :fs]
                              ;; spec e.g. [:= :certnames.certname :fs.certname]
                              (let [join-name (cond-> table (coll? table) second)]

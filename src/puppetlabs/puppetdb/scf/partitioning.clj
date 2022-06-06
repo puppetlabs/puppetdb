@@ -1,11 +1,10 @@
 (ns puppetlabs.puppetdb.scf.partitioning
   "Handles all work related to database table partitioning"
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]])
-
+  (:require
+   [clojure.string :as str]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [schema.core :as s])
   (:import (java.time LocalDateTime LocalDate ZoneId ZonedDateTime Instant)
            (java.time.temporal ChronoUnit)
            (java.time.format DateTimeFormatter)))
@@ -54,10 +53,10 @@
    date-column :- s/Str
    date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime Instant java.sql.Timestamp)
    constraint-fn :- (s/fn-schema
-                     (s/fn :- [s/Str] [iso-year-week :- s/Str]))
+                     (s/fn :- [s/Str] [_iso-year-week :- s/Str]))
    index-fn :- (s/fn-schema
-                (s/fn :- [s/Str] [full-table-name :- s/Str
-                                  iso-year-week :- s/Str]))]
+                (s/fn :- [s/Str] [_full-table-name :- s/Str
+                                  _iso-year-week :- s/Str]))]
   (let [date (to-zoned-date-time date)                      ;; guarantee a ZonedDateTime, so our suffix ends in Z
         start-of-day (-> date
                          (.truncatedTo (ChronoUnit/DAYS)))  ;; this is a ZonedDateTime

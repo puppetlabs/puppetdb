@@ -250,21 +250,15 @@
   [params
    param-spec :- param-spec-schema]
   (let [params (stringify-keys params)]
-    (kitchensink/cond-let
-      [p]
-      (kitchensink/excludes-some params (:required param-spec))
+    (when-let [excluded (kitchensink/excludes-some params (:required param-spec))]
       (throw (IllegalArgumentException.
-              (tru "Missing required query parameter ''{0}''" p)))
-
-      (let [diff (set/difference (kitchensink/keyset params)
-                                 (set (:required param-spec))
-                                 (set (:optional param-spec)))]
-        (seq diff))
+              (tru "Missing required query parameter ''{0}''" excluded))))
+    (when-let [invalid (seq (set/difference (kitchensink/keyset params)
+                                            (set (:required param-spec))
+                                            (set (:optional param-spec))))]
       (throw (IllegalArgumentException.
-               (tru "Unsupported query parameter ''{0}''" (first p))))
-
-      :else
-      params)))
+              (tru "Unsupported query parameter ''{0}''" (first invalid)))))
+    params))
 
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
@@ -329,7 +323,7 @@
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
-  [{:keys [params] :as req}
+  [{:keys [params]}
    parse-fn]
   (-> params
       (update-when ["query"] parse-fn)

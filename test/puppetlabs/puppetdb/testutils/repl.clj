@@ -3,9 +3,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as testutils]
             [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.cli.services :as svcs]
+            [puppetlabs.puppetdb.cli.services :as svcs :refer [puppetdb-service]]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
-            [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.app :as tka]
             [clojure.tools.namespace.repl :refer (refresh)]))

@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.facts
-  (:require [puppetlabs.puppetdb.testutils.tar :as tar]
-            [puppetlabs.puppetdb.utils :as utils]))
+  (:require
+   [puppetlabs.puppetdb.utils :as utils]))
 
 (def base-facts
   "A minimal set of facts useful for testing"

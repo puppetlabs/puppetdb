@@ -5,8 +5,7 @@
             [instaparse.failure :as failure]
             [instaparse.print :as print]
             [puppetlabs.i18n.core :refer [tru]]
-            [puppetlabs.puppetdb.pql.transform :as transform]
-            [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]]))
+            [puppetlabs.puppetdb.pql.transform :as transform]))
 
 (defn transform
   "Transform parsed PQL to AST."

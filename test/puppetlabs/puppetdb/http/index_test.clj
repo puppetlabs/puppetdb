@@ -2,7 +2,6 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples :as examples]
             [puppetlabs.puppetdb.pql :as pql]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [dotestseq]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db without-db-var]]
@@ -14,13 +13,15 @@
                      query-result
                      vector-param
                      with-http-app]]
-            [puppetlabs.puppetdb.time :refer [now]]))
+            [puppetlabs.puppetdb.time :refer [now]])
+  (:import
+   (java.net HttpURLConnection)))
 
 ;; Queries issued at the root query endpoint
 (def endpoints [[:v4 "/v4"]])
 
 (deftest-http-app index-queries
-  [[version endpoint] endpoints
+  [[_version endpoint] endpoints
    method [:get :post]]
   (let [catalog (:basic examples/catalogs)
         facts   {"kernel"          "Linux"
@@ -71,7 +72,7 @@
       (let [{:keys [status body headers]} (query-response method endpoint ["from" "foobar"])]
         (is (re-find #"Invalid entity" body))
         (are-error-response-headers headers)
-        (is (= status http/status-bad-request)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status)))
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"")]
@@ -81,13 +82,13 @@
                     "Unexpected end-of-input: expected close marker for Array "
                     "(start marker at [Source: (StringReader); line: 1, column: 1])") body))
         (are-error-response-headers headers)
-        (is (= http/status-bad-request status)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status)))
 
       ;; Ensure we don't allow multiple queries in one request
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] [\"from\",\"foo\"]")]
         (is (re-matches #"Only one query may be sent in a request. Found JSON .* after the query .*" body))
         (are-error-response-headers headers)
-        (is (= http/status-bad-request status)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status)))
 
       ;; Ensure we don't allow garbage after query
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"] random-stuff")]
@@ -97,12 +98,12 @@
                     "Unrecognized token 'random': was expecting "
                     "(JSON String, Number, Array, Object or token 'null', 'true' or 'false')") body))
         (are-error-response-headers headers)
-        (is (= http/status-bad-request status)))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status)))
 
       (let [{:keys [status body headers]} (query-response method endpoint "foobar {}")]
         (is (re-find #"PQL parse error at line 1, column 1" body))
         (are-error-response-headers headers)
-        (is (= status http/status-bad-request))))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST status))))
 
     (testing "pagination"
       (testing "with order_by parameter"
@@ -203,7 +204,7 @@
                        ["from" "foo"]
                        "foo{}"]]
           (let [{:keys [status]} (query-response method endpoint query)]
-            (is (= http/status-bad-request status))))))
+            (is (= HttpURLConnection/HTTP_BAD_REQUEST status))))))
 
     (testing "extract parameters"
       (doseq [query [["from" "nodes"
@@ -364,7 +365,7 @@
       (scf-store/add-certname! "foo.local")
       (scf-store/add-facts! facts)
       (with-http-app
-        (dotestseq [[version endpoint] endpoints
+        (dotestseq [[_version endpoint] endpoints
                     method [:get :post]]
           (let [query (partial query-result method endpoint)]
             (testing "that \"in\" fields can be duplicated"
@@ -455,7 +456,7 @@
         (scf-store/add-facts! facts)
         (scf-store/replace-catalog! resources (now))
         (with-http-app
-          (dotestseq [[version endpoint] endpoints
+          (dotestseq [[_version endpoint] endpoints
                       method [:get :post]]
             (testing "that joins from resource title to fact value work"
               (is (= #{(-> resource

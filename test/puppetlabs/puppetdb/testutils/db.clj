@@ -196,7 +196,7 @@
    migrated? is true, the database will already be fully migrated. Returns
    [scf-write-db, scf-read-db]"
   ([] (configure-temp-db {:migrated? true}))
-  ([{:keys [migrated?] :as opts}]
+  ([{:keys [migrated?]}]
    (when migrated?
      (ensure-pdb-db-templates-exist))
    (let [n (swap! test-db-counter inc)

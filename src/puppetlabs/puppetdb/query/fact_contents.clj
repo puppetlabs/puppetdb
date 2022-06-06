@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.query.fact-contents
   (:require [puppetlabs.puppetdb.facts :as f]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]

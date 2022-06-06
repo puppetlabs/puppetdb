@@ -1,6 +1,4 @@
 (ns puppetlabs.puppetdb.testutils.log
-  (:require
-   [clojure.java.io :as io])
   (:import
    [ch.qos.logback.classic Level]
    [ch.qos.logback.classic.spi ILoggingEvent]))

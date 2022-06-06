@@ -1,8 +1,7 @@
 (ns puppetlabs.puppetdb.integration.masterless
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [me.raynes.fs :as fs]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.integration.fixtures :as int]))
 
 (deftest ^:integration masterless-fact-storage
   (with-open [pg (int/setup-postgres)

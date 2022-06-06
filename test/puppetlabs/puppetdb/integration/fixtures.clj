@@ -16,7 +16,6 @@
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
-            [puppetlabs.trapperkeeper.core :as tk]
             [yaml.core :as yaml]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])
@@ -110,8 +109,7 @@
                                                     (ks/deep-merge config-overrides
                                                                    {:database (server-info postgres-server)
                                                                     :puppetdb {:disable-update-checking "true"}})
-                                                    10)
-        {:keys [host port]} base-url]
+                                                    10)]
     (PuppetDBTestServer. {:base-url base-url
                           :app app}
                          app)))
@@ -268,9 +266,8 @@
      :or {certname "default-agent"
           timeout tu/default-timeout-ms
           extra-puppet-args []
-          env {}}
-     :as opts}]
-   (let [{:keys [code-dir conf-dir hostname port]} (server-info puppet-server)
+          env {}}}]
+   (let [{:keys [code-dir hostname port]} (server-info puppet-server)
          site-pp (str code-dir  "/environments/production/manifests/site.pp")
          agent-conf-dir (str "target/agent-conf/" certname)]
      (fs/mkdirs (fs/parent site-pp))
@@ -304,7 +301,7 @@
                  "--vardir" "puppet"
                  certname-to-deactivate)))
 
-(defn run-puppet-node-status [pdb-server certname]
+(defn run-puppet-node-status [_pdb-server certname]
   (bundle-exec {}
                "puppet" "node" "status" certname
                "--confdir" "target/puppetserver/master-conf"
@@ -330,8 +327,7 @@
          env {}
          extra-puppet-args []
          terminus {}
-         timeout tu/default-timeout-ms}
-    :as opts}]
+         timeout tu/default-timeout-ms}}]
 
   (let [agent-conf-dir (io/file "target/puppet-apply-conf")
         manifest-file  (fs/temp-file "manifest" ".pp")

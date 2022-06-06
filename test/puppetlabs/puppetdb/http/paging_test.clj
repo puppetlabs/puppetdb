@@ -1,12 +1,13 @@
 (ns puppetlabs.puppetdb.http.paging-test
-  (:require [puppetlabs.puppetdb.http :as http]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
                      are-error-response-headers
-                     deftest-http-app]]))
+                     deftest-http-app]])
+  (:import
+   (java.net HttpURLConnection)))
 
 (def versions [:v4])
 
@@ -27,7 +28,7 @@
                                               ["these" "are" "unused"]
                                               {:order_by malformed-JSON}))
           body            (get response :body "null")]
-      (is (= (:status response) http/status-bad-request))
+      (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
       (are-error-response-headers (:headers response))
       (is (re-find #"Illegal value '.*' for :order_by; expected a JSON array of maps" body))))
 
@@ -41,7 +42,7 @@
                                           ["these" "are" "unused"]
                                           {:limit invalid-limit}))
             body      (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' for :limit; expected a positive non-zero integer" body)))))
 
@@ -55,7 +56,7 @@
                                           ["these" "are" "unused"]
                                           {:explain invalid-explain}))
             body      (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' for :explain; expected `analyze`." body)))))
 
@@ -68,7 +69,7 @@
                                           ["these" "are" "unused"]
                                           {:offset invalid-offset}))
             body      (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))
 
@@ -81,6 +82,6 @@
                                           ["these" "are" "unused"]
                                           {:order_by (json/generate-string invalid-order-by)}))
             body      (get response :body "null")]
-        (is (= (:status response) http/status-bad-request))
+        (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status response)))
         (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' in :order_by; 'order' must be either 'asc' or 'desc'" body))))))
