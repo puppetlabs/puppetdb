@@ -43,6 +43,12 @@ configured to log queries.  Note that Puppet intends to use origin
 names beginning with `puppet:` for its own queries, so it is
 recommended that other clients choose something else.
 
+* `explain`: optional. The string value `analyze`. This parameter can be used
+  to tell PuppetDB to return the execution plan of a statement instead of the
+  query results. The execution plan shows how the table(s) referenced by the
+  statement will be scanned, the estimated statement execution cost and the
+  actual run time statistics.
+
 ### Response format
 
 The response will be in `application/json`, and will contain a list of JSON
