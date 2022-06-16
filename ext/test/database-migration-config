@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Ensures PuppetDB jar fails to start and logs error message when the PuppetDB
+# PostgreSQL database is not fully migrated.
+# You can specify PuppetDB jar location with env var PDB_JAR.
+# PuppetDB configuration is sourced from PDBBOX sandbox or an ephemeral sandbox
+# Flags --pgbin and --pgbin are necessary unless set with ext/bin/test-config
+
 set -euo pipefail
 
 test_name=test-database-migration-config
@@ -10,6 +16,7 @@ misuse() { usage 1>&2; exit 2; }
 argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
 declare -A opt
 
+# Validate arguments
 while test $# -gt 0; do
     case "$1" in
         --pgbin|--pgport)
@@ -22,6 +29,8 @@ while test $# -gt 0; do
     esac
 done
 
+# If pgbin directory is not provided with --pgbin, read ext/test-conf/pgbin
+# If pgbin directory cannot be found, exit with error status
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
     if test  -z "${opt[pgbin]:-}"; then
@@ -30,6 +39,8 @@ if test -z "${opt[pgbin]:-}"; then
     fi
 fi
 
+# If pgport number is not provided with --pgport, read ext/test-conf/pgport
+# If pgport number cannot be found, exit with error status
 if test -z "${opt[pgport]:-}"; then
     opt[pgport]="$(ext/bin/test-config --get pgport)"
      if test  -z "${opt[pgport]:-}"; then
@@ -40,6 +51,7 @@ fi
 
 set -x
 
+# Create an ephemeral PuppetDB sandbox if one isn't set by PDBBOX
 if test -z "${PDBBOX:-}"; then
     # No PDBBOX, set one up and run ourselves again
     tmpdir="$(mktemp -d "$test_name-pdbbox-XXXXXX")"
@@ -52,6 +64,7 @@ if test -z "${PDBBOX:-}"; then
     exit 0
 fi
 
+# Create temporary directory
 tmpdir="$(mktemp -d "$test_name-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
@@ -61,20 +74,25 @@ trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 # can just set the option to false to test whether it blocks them.
 
 # Append "migrate = false" just after the [database] section header
-# macos sed appears to require the embedded newline
+# in PuppetDB config file to prevent upgrade subcommand from working.
+
+# MacOS sed appears to require the embedded newline
 sed '/\[database\]/a\
   migrate = false
 ' \
     "$PDBBOX/conf.d/pdb.ini" > "$tmpdir/pdb.ini"
 mv "$tmpdir/pdb.ini" "$PDBBOX/conf.d/pdb.ini"
 
+# Test on both services and upgrade subcommands
 for cmd in services upgrade; do
     rc=0
+    # Start PuppetDB jar with config from PuppetDB sandbox
     ./pdb "$cmd" -c "$PDBBOX/conf.d" 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
     cat "$tmpdir/out" "$tmpdir/err"
     echo  # in case the output doesn't end with a newline
     # This will become 109 once trapperkeeper supports custom exit statuses/
     test "$rc" -eq 109
+    # Ensure error message has the right output
     grep -F 'Database is not fully migrated and migration is disallowed' \
          "$tmpdir/err"
 done

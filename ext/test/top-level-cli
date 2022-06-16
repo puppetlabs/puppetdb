@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Runs simple tests on PuppetDB jar command line ouptput.
+# PuppetDB is started without configuration
+# PostgreSQL is not necessary
+
 set -uexo pipefail
 
 usage() { echo "Usage: [PDB_JAR=JAR] $(basename "$0")"; }
@@ -9,6 +13,7 @@ test $# -eq 0 || misuse
 
 jdkver=$(ext/bin/jdk-info --print major)
 
+# Number of characters expected for stderr output for subcommands
 expected_help_warnings=0
 expected_version_warnings=0
 case "$jdkver" in
@@ -25,10 +30,12 @@ case "$jdkver" in
         ;;
 esac
 
+# Create temporary directory to store output
 tmpdir="$(mktemp -d "test-top-level-cli-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
+# Test if unknown command produces correct output and exit status
 rc=0
 ./pdb frobnicate ... 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
 cat "$tmpdir/out" "$tmpdir/err"
@@ -36,6 +43,7 @@ test "$rc" -eq 2
 grep -F 'Available subcommands:' "$tmpdir/err"
 grep -E 'Display version information' "$tmpdir/err"
 
+# Test if help subcommand produces correct outout
 rc=0
 ./pdb help 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
 cat "$tmpdir/out" "$tmpdir/err"
@@ -43,12 +51,14 @@ test "$rc" -eq 0
 grep -F 'Available subcommands:' "$tmpdir/out"
 grep -F 'Display version information' "$tmpdir/out"
 
+# Test if number of characters from stderr output matches what is expected
 if ! test $(wc -c < "$tmpdir/err") -eq "$expected_help_warnings"; then
     echo 'ERROR: Unpected help warnings:' 1>&2
     cat "$tmpdir/err"
     false
 fi
 
+# Test if version subcommand produces correct output
 rc=0
 ./pdb version 1>"$tmpdir/out" 2>"$tmpdir/err" || rc=$?
 cat "$tmpdir/out" "$tmpdir/err"

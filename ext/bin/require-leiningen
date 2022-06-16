@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 
+# Installs leiningen onto machine
+# Supports at least Debian and MacOS
+
 set -uexo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
+# Default leiningen version
 default=2.9.5
 
 cmdname="$(basename "$0")"
@@ -12,11 +16,13 @@ usage() { echo "Usage: $cmdname VERSION INSTALLDIR_IF_NEEDED"; }
 
 misuse() { usage 1>&2; exit 2; }
 
+# Hashmap of leiningen checksums
 declare -A known_hash
 known_hash[2.9.1]=32acacc8354627724d27231bed8fa190d7df0356972e2fd44ca144c084ad4fc7
 known_hash[2.9.4]=1e21276bad56f4f8f8afd605ddf0c4d047a5244724a8dc6e13c6c55cc53b3fee
 known_hash[2.9.5]=79cc2c4aeddf829c393d31d80e6fddfd8b30cc1907a0e2f7cd73c93b300077f6
 
+# Verify two arguments were given
 test "$#" -eq 2 || misuse
 
 ver="$1"
@@ -27,6 +33,7 @@ fi
 install="$2"
 hash="${known_hash[$ver]}"
 
+# Exit if installed version is same as requested
 if command -v lein; then
     curver="$(lein version | cut -d' ' -f2)"
     if test "$curver" = "$ver"; then
@@ -40,25 +47,30 @@ if command -v lein; then
     fi
 fi
 
+# Verify checksum is known for requested version
 if test -z "$hash"; then
     echo "$cmdname: don't know sha256sum for $ver" 1>&2
     exit 2
 fi
 
+# Create temporary directory
 tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
+# Download leiningen from GitHub release
 cd "$tmpdir"
 curl -O "https://raw.githubusercontent.com/technomancy/leiningen/$ver/bin/lein"
 obshash="$("$script_home/sha256sum" < lein | cut -d' ' -f1)"
 cd ..
 
+# Verify checksum of exectuable
 if test "$obshash" != "$hash"; then
     echo "$cmdname: sha256sum $obshash != $hash" 1>&2
     exit 2
 fi
 
+# Install leiningen
 mkdir -p "$install/bin"
 mv -i "$tmpdir/lein" "$install/bin"
 chmod +x "$install/bin/lein"

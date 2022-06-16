@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 
+# Run Ruby rspec tests on Ruby code in puppet/ directory
+# Requires single argument, a Puppet version number like 6.27.0
+
 set -uxeo pipefail
 
+# Validate argument
 test "$#" -eq 1
 puppet_ref="$1"
 
+# Log Ruby version
 ruby -v
+# Save Puppet version as local test config value
 ext/bin/test-config --set puppet-ref "$puppet_ref"
+# The puppet directory contains the PuppetDB related Ruby files packaged with
+# Puppet as well as the rspec test files that test them
 cd puppet
+# Install Ruby dependencies from top-level Gemfile via bundle
 bundle install --retry=10
+# Start rspec tests
 bundle exec rspec spec

@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Run core, integration, and external PuppetDB tests
+# Installs ephemeral Leiningen and pgbox executables
+# Core and integration tests run in seperate sandboxes
+# --pgbin and --pgport required unless set with ext/bin/test-config
+
 set -euo pipefail
 
 usage() { echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT]'; }
@@ -7,6 +12,7 @@ misuse() { usage 1>&2; exit 2; }
 
 declare -A opt
 
+# Validate arguments
 while test $# -gt 0; do
     case "$1" in
         --pgbin|--pgport)
@@ -23,6 +29,8 @@ while test $# -gt 0; do
     esac
 done
 
+# If pgbin directory is not provided with --pgbin, read ext/test-conf/pgbin
+# If pgbin directory cannot be found, exit with error status
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
     if test  -z "${opt[pgbin]:-}"; then
@@ -31,6 +39,8 @@ if test -z "${opt[pgbin]:-}"; then
     fi
 fi
 
+# If pgport number is not provided with --pgport, read ext/test-conf/pgport
+# If pgport number cannot be found, exit with error status
 if test -z "${opt[pgport]:-}"; then
     opt[pgport]="$(ext/bin/test-config --get pgport)"
      if test  -z "${opt[pgport]:-}"; then
@@ -41,25 +51,30 @@ fi
 
 set -x
 
+# Create temporary directory
 tmpdir="$(mktemp -d "normal-tests-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 mkdir -p "$tmpdir/local"
 
-# So we can't end up fetching and installing lein and pgbox multiple times...
+# Install Leiningen and pgbox with default versions into temporary directory
 ext/bin/require-leiningen default "$tmpdir/local"
 ext/bin/require-pgbox default "$tmpdir/local"
+# Add to PATH to avoid fetching and installing lein and pgbox multiple times
 export PATH="$tmpdir/local/bin:$PATH"
 
+# Run core tests with ephemeral sandboxes
 echo -e '\n===== pdb core tests'
 ext/bin/boxed-core-tests \
     --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
     -- lein test
 
+# Run integration tests with ephemeral sandboxes
 echo -e '\n===== pdb integration tests'
 ext/bin/boxed-integration-tests \
     --pgbin "${opt[pgbin]}" --pgport "${opt[pgport]}" \
     -- lein test :integration
 
+# Create a PuppetDB jar and run external tests on it
 echo -e '\n===== pdb external tests'
 ext/bin/run-external-tests

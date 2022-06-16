@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 
+# Modify local testing environment to use specific version of Puppet Server.
+# With no arguments, uses default Puppet Server version
+# With one arguments, uses that as Puppet Server version
+# Creates a symlink to bundler-installed Puppet Server repo at vendor/puppet used for testing
+# Ex: config-puppetserver-test-ref
+# Ex: config-puppetserver-test-ref 6.27.0
+
 set -euo pipefail
 
+# Always run from the top-level of PuppetDB source tree
 script_home="$(cd "$(dirname "$0")" && pwd)"
 top="$script_home/../.."
 cd "$top"  # Always run from the top level of the tree
@@ -10,12 +18,14 @@ usage() {
     echo "Usage: $(basename "$0") [REF]"
 }
 
+# Runs pprint lein plugin and removes double quotes from printed value
 lein-pprint() {
     lein with-profile dev,ci pprint "$@" | sed -e 's/^"//' -e 's/"$//'
 }
 
 PDB_NO_PUPPETSERVER_INSTALL="${PDB_NO_PUPPETSERVER_INSTALL:-}"
 
+# Verify bundler is installed
 if test -z "$(type -t bundle)"; then
     cat 2>&1 <<-EOS
 	Ruby bundler does not appear to be available.
@@ -26,35 +36,47 @@ fi
 
 set -x
 
+# Remove old Puppet Server version test configuration
 rm -f ext/test-conf/puppetserver-ref-requested ext/test-conf/puppetserver-dep
 
 case "$#" in
     0)
+        # If no arguments provided, set Puppet Server version to default
         pupsrv_ref="$(cat ext/test-conf/puppetserver-ref-default)"
         ;;
     1)
+        # If one argument provided, set Puppet Server version to that value
         pupsrv_ref="$1"
         echo "$pupsrv_ref" > ext/test-conf/puppetserver-ref-requested
         ;;
     *)
+        # If more than one argument provided, exit with error status
         usage 1>&2
         exit 2
 esac
 
+# Check if puppetserver repository exists at top-level of PuppetDB source tree
 if test -d puppetserver; then
+   # If repo exists, checkout the requested version number
    git -C puppetserver checkout "$pupsrv_ref"
+   # Remove all files in repository not managed by git
    git -C puppetserver clean -fdx
 else
+   # If repo doesn't exist, clone from GitHub
    git clone --depth 10 -b "$pupsrv_ref" https://github.com/puppetlabs/puppetserver
 fi
 
 (export PUPPETSERVER_HEAP_SIZE=1G
  cd puppetserver
+ # Install Puppet Server dependencies
  # If we're not testing against the git tree (say in jenkins), don't install.
  if test -z "$PDB_NO_PUPPETSERVER_INSTALL"; then
      lein install
  fi
+ # Cache Puppet Server version in a file in ext/test-conf directory
  dep_ver="$(lein-pprint :version)"
  echo "$dep_ver" > "$top/ext/test-conf/puppetserver-dep")
 
+# Install Puppet Server Ruby dependencies using JRuby
+# Procedure defined in src-gems/puppetlabs/puppetdb/integration/install_gems.clj
 lein install-gems

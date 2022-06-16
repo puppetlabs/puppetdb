@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Sanity check for a PuppetDB test spec
+# Ensures that correct JDK is installed and test flavor is valid
+
 set -ueo pipefail
 
 usage()
@@ -13,6 +16,7 @@ misuse()
     exit 2
 }
 
+# Ensure version of JDK from spec is available
 verify-jdk() {
     local spec="$1"
     local actual_jdk expected_jdk
@@ -27,6 +31,7 @@ verify-jdk() {
 
 test $# -ne 1 && misuse
 
+# Ensure test kind/flavor from test spec is valid
 spec="$1"
 test_kind=$(ext/bin/flavor-from-spec "$spec")
 case "$test_kind" in

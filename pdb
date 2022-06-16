@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 
+# Starts PuppetDB using an existing uberjar
+# The uberjar location can be defined with PDB_JAR environment variable
+# The Bouncycastle dependency jars can be specified with BCPROV_JAR and BCPKIX_JAR
+# Must have PostgreSQL running for PuppetDB to work
+# Any arguments get passed straight to PuppetDB
+# Example: pdb --help
+# Example: pdb services --config ~/tmp/pdb-sandbox/conf.d
+
 set -eo pipefail
 
+# Extract version of a Maven package from `lein deps :tree` output
 dep-ver()
 {
     # Example:
@@ -14,6 +23,7 @@ dep-ver()
 
 cache_checked=''
 
+# Save Bouncy Castle package versions to local filesystem
 ensure-cache()
 {
     if test ! -e ./pdb.bcprov -o ./project.clj -nt ./pdb.bcprov \
@@ -29,6 +39,7 @@ ensure-cache()
     cache_checked=true
 }
 
+# Ensure a file exists. Otherwise prints the command to use to create the file.
 require-file()
 {
     local file="$1" fix="$2"
@@ -42,6 +53,8 @@ jar="${PDB_JAR:-target/puppetdb.jar}"
 bcprov=''
 bcpkix=''
 
+# Load Bouncy Castle Crypto package jar from a custom location or Maven cache
+# https://mavenlibs.com/maven/dependency/org.bouncycastle/bcprov-jdk15on
 if test "$BCPROV_JAR"; then
     bcprov="$BCPROV_JAR"
 else
@@ -50,6 +63,8 @@ else
     bcprov="$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/$bcprov_ver/bcprov-jdk15on-$bcprov_ver.jar"
 fi
 
+# Load another necessary Bouncy Castle jar from a custom location or Maven cache
+# https://mavenlibs.com/maven/dependency/org.bouncycastle/bcpkix-jdk15on
 if test "$BCPKIX_JAR"; then
     bcpkix="$BCPKIX_JAR"
 else
@@ -58,8 +73,10 @@ else
     bcpkix="$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/$bcpkix_ver/bcpkix-jdk15on-$bcpkix_ver.jar"
 fi
 
+# Validate that PuppetDB jar and Bouncy Castle jars exist
 require-file "$jar" "lein uberjar"
 require-file "$bcprov" "lein deps"
 require-file "$bcpkix" "lein deps"
 
+# Start PuppetDB and pass all received arguments to it
 exec java -cp "$jar:$bcprov:$bcpkix" clojure.main -m puppetlabs.puppetdb.core "$@"

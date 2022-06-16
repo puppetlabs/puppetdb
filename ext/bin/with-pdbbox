@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Runs a command using a new, ephemeral PuppetDB sandbox and PostgreSQL sandbox inside that
+# Sandbox contains PuppetDB and PostgreSQL configuration and data storage
+# The PuppetDB sandbox directory provided with --box must not already exist
+# The PuppetDB sandbox is destroyed after the command terminates
+
 set -ueo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
@@ -10,6 +15,8 @@ usage() {
 
 misuse() { usage 1>&2; exit 2; }
 
+# Validate arguments
+# All flags are required, trailing command is required too
 box=''
 pgbin=''
 pgport=''
@@ -47,6 +54,7 @@ test "$box" || misuse
 test "$pgbin" || misuse
 test "$pgport" || misuse
 
+# Ensure the PuppetDB sandbox directory doesn't already exist
 if test -e "$box"; then
     printf 'error: the --box %q already exists\n' "$box"
     exit 2
@@ -60,12 +68,15 @@ set -x
 # script_home allows people to invoke with-pdbbox from "other places".
 
 trap "$(printf 'rm -rf %q' "$box")" EXIT
+# Export new PuppetDB sandbox path for pdbbox-env to use
 export PDBBOX="$box"
+# Create new PuppetDB sandbox
 "$script_home"/pdbbox-init --sandbox "$box" --pgbin "$pgbin" \
               --pgport "$pgport" \
               --bind-addr ip6-localhost --bind-addr localhost
 
 # Use a subshell for a nested EXIT trap
 (trap '"$script_home"/pdbbox-env pg_ctl stop' EXIT
+ # Start PostgreSQL server new PostgreSQL sandbox inside of new PuppetDB sandbox
  "$script_home"/pdbbox-env pg_ctl start -w
  "$script_home"/pdbbox-env "${cmd[@]}")

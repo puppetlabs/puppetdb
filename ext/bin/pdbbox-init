@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Creates a local PuppetDB sandbox directory
+# Also creates a PostgreSQL sandbox inside of new PuppetDB sandbox in directory "pg"
+# These sandboxes contain all PuppetDB and PostgreSQL configuration and data storage
+# All flags are required
+# Sandbox directory must not already exist
+
 set -ueo pipefail
 
 usage()
@@ -13,6 +19,7 @@ misuse()
     exit 2
 }
 
+# Validate arguments
 pdbbox=''
 pgbin=''
 pgport=''
@@ -62,6 +69,8 @@ export PGUSER=postgres
 
 mkdir "$pdbbox"
 
+# Create PostgreSQL sandbox inside PuppetDB sandbox with pgbox
+# Relies on the PGBOX environment variable to know where sandbox should go
 pgbox init --pgbin "$pgbin" --port "$pgport" "${bind_args[@]}" -- -E UTF8 --locale=C
 
 mkdir "$pdbbox/var"
@@ -70,8 +79,10 @@ tmp_dir="$(mktemp -d ./tmp-pdbbox-XXXXXX)"
 
 trap "$(printf 'pgbox env pg_ctl stop; rm -rf %q' "$tmp_dir")" EXIT
 
+# Start PostgreSQL server using new PostgreSQL sandbox
 pgbox env pg_ctl start -w
 
+# Create random PostgreSQL passwords
 pg_passwd="$(cd "$PGBOX" && cat pass-admin)"
 admin_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
@@ -83,6 +94,7 @@ read_passwd="$(dd if=/dev/urandom bs=1 count=32 | base64)"
 # "ps", etc.  We also assume that mktemp perms are always go-wrx,
 # across all the relevant platforms.
 
+# Save password to a file securely
 save-passwd() {
     test $# -eq 3
     local passwd="$1" tmp_dir="$2" dest="$3"
@@ -97,6 +109,7 @@ save-passwd() {
     mv "$tmp_pass" "$dest"
 }
 
+# Set password for PostgreSQL user/role
 set-passwd() {
     test $# -eq 3
     local role="$1" pwfile="$2" tmp_dir="$3" tmp_cmds
@@ -108,11 +121,14 @@ set-passwd() {
     pgbox env psql -f "$tmp_cmds"
 }
 
+# Save newly created passwords to filesystem inside PuppetDB sandbox
 save-passwd "$passwd" "$tmp_dir" "$pdbbox/test-pass"
 save-passwd "$migrator_passwd" "$tmp_dir" "$pdbbox/test-pass-migrator"
 save-passwd "$admin_passwd" "$tmp_dir" "$pdbbox/test-pass-admin"
 save-passwd "$read_passwd" "$tmp_dir" "$pdbbox/test-pass-read"
 
+# Create PostgreSQL password file
+# https://www.postgresql.org/docs/14/libpq-pgpass.html
 tmp_pass="$(mktemp "$tmp_dir/tmp-pass-XXXXXX")"
 chmod 0600 "$tmp_pass" # Not entirely safe, but expected to be redundant
 cat > "$tmp_pass" <<-EOF
@@ -128,6 +144,7 @@ cat > "$tmp_pass" <<-EOF
 	EOF
 mv "$tmp_pass" "$PGBOX/pgpass"
 
+# Create Postgres testing roles
 pgbox env createuser -dERs pdb_test_admin
 pgbox env createuser -DERS pdb_test
 pgbox env createuser -DERS pdb_test_migrator
@@ -135,6 +152,7 @@ pgbox env createuser -DERS pdb_test_read
 
 tmp_cmds="$(mktemp "$tmp_dir/tmp-cmds-XXXXXX")"
 
+# Set passwords for Postgres testing roles
 set-passwd pdb_test "$pdbbox/test-pass" "$tmp_dir"
 set-passwd pdb_test_admin "$pdbbox/test-pass-admin" "$tmp_dir"
 set-passwd pdb_test_migrator "$pdbbox/test-pass-migrator" "$tmp_dir"
@@ -142,6 +160,7 @@ set-passwd pdb_test_read "$pdbbox/test-pass-read" "$tmp_dir"
 
 pgbox env psql -c 'grant pdb_test to pdb_test_migrator'
 
+# Creates a PuppetDB database. Loads necessary extensions, sets permissions
 setup-pdb()
 {
   local dbname="$1"
@@ -166,12 +185,14 @@ ADMIN
 MIGRATOR
 }
 
+# Create main PuppetDB postgres roles
 pgbox env createuser -DRS puppetdb
 pgbox env createuser -DRS puppetdb_read
 pgbox env createuser -DRS puppetdb_migrator
 
 pgbox env psql -c 'grant puppetdb to puppetdb_migrator'
 
+# Set passwords for main PuppetDB postgres roles
 set-passwd puppetdb "$pdbbox/test-pass" "$tmp_dir"
 set-passwd puppetdb_read "$pdbbox/test-pass-read" "$tmp_dir"
 set-passwd puppetdb_migrator "$pdbbox/test-pass-migrator" "$tmp_dir"
@@ -195,6 +216,7 @@ mkdir "$pdbbox/ssl"
 
 abs_pdbbox="$(cd "$pdbbox" && pwd)"
 
+# Create logging config file
 cat > "$pdbbox/logback.xml" <<EOF
 <configuration scan="true">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
@@ -217,6 +239,7 @@ EOF
 
 host=${bind_addr[${#bind_addr[@]}-1]}
 
+# Create PuppetDB main config file
 confdir="$pdbbox/conf.d"
 mkdir "$confdir"
 cat > "$confdir/pdb.ini" <<EOF
@@ -252,6 +275,7 @@ client-auth = want
 disable-update-checking = true
 EOF
 
+# Create PuppetDB auth config file
 cat > "$confdir/auth.conf" <<EOF
 authorization: {
     version: 1
@@ -333,6 +357,7 @@ if (( $maintenance_work_mem < 64 )); then
     maintenance_work_mem=64
 fi
 
+# Append to PostgreSQL config
 cat >> "$pdbbox/pg/data/postgresql.conf" <<EOF
 
 # tuning parameters
@@ -353,4 +378,5 @@ work_mem = 96MB
 wal_buffers = 8MB
 EOF
 
+# Make empty pdbbox file to signify that this directory is a PuppetDB sandbox
 touch "$pdbbox/pdbbox"

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Prepares Debian-like Linux machines for running PuppetDB tests
+# Installs JDK, Leiningen, and pgbox and creates
+# --for takes a test spec like core/openjdk8/pg-9.6
+
 set -uxeo pipefail
 
 usage() {
@@ -8,6 +12,7 @@ usage() {
 
 misuse() { usage 1>&2; exit 2; }
 
+# Validate arguments
 spec=''
 install=''
 while test $# -gt 0; do
@@ -30,6 +35,7 @@ test "$spec" || misuse
 test "$install" || misuse
 flavor=$(ext/bin/flavor-from-spec "$spec")
 
+# If flavor is not recognized, do nothing
 case "$flavor" in
     core|ext|core+ext|int|lint)
         jdk="$(ext/bin/jdk-from-spec "$spec")"
@@ -37,7 +43,9 @@ case "$flavor" in
         mkdir -p "$install"
         abs_install=$(cd "$install" && pwd)
         export PATH="$abs_install/bin:$PATH"
+        # Install JDK using cache if within 24 hours of last installation
         ext/bin/require-jdk --expire "$jdk" "$abs_install"
+        # Create testing script with updated PATH
         mkdir -p "$abs_install/etc"
         printf '
 export JAVA_HOME=%q/jdk
@@ -48,6 +56,7 @@ hash -r
                "$abs_install" "$abs_install" \
                > "$abs_install"/etc/pdb-test-env
         source "$abs_install"/etc/pdb-test-env
+        # Install leiningen and pgbox
         ext/bin/require-leiningen default "$abs_install"
         ext/bin/require-pgbox default "$abs_install"
         ;;

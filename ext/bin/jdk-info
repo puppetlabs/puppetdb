@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Prints information about installed JDK
+# Examples:
+# jdk-info --print version
+# jdk-info --print major
+# jdk-info --print spec
+
+# version: Full semver version of JDK (ex 11.0.15)
+# major: Major version of JDK (ex 11)
+# spec: Informal, package name of JDK (ex openjdk11)
+
 set -ueo pipefail
 
 usage()
@@ -13,6 +23,8 @@ misuse()
     exit 2
 }
 
+# Get major JDK version number
+# Example: openjdk11 -> 11
 extract-major() {
     local ver="$1"
     local ver_x="${ver%%.*}"
@@ -23,6 +35,8 @@ extract-major() {
     fi
 }
 
+# Prints version, major, or spec of installed JDK
+# Example: print-info major
 print-info() {
     local what="$1"
     local ver ver_out
@@ -53,12 +67,15 @@ print-info() {
     esac
 }
 
+# Get java command from environment or default to "java"
 java_bin="${JDK_INFO_JAVA:-java}"
 
+# If command is run with no arguments, declare misuse
 if test $# -eq 0; then
     misuse
 fi
 
+# Iterate through arguments and print off JDK info
 while test $# -gt 0; do
     case "$1" in
         --print)

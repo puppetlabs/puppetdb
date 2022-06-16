@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Run command using ephemeral Leiningen and pgbox executables, as well as
+# ephemeral PuppetDB and PostgreSQL sandboxes.
+# Flags --pgbin and --pgport are optional if previously set with ext/bin/test-config.
+# Destroys the executables and sandboxes afterwards.
+# Example: boxed-core-tests -- lein test
+
 set -uxeo pipefail
 
 usage() { echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT] -- CMD ...'; }
@@ -7,6 +13,7 @@ misuse() { usage 1>&2; exit 2; }
 
 declare -A opt
 
+# Validate arguments
 while test $# -gt 0; do
     case "$1" in
         --pgbin|--pgport)
@@ -24,6 +31,8 @@ while test $# -gt 0; do
 done
 cmd=("$@")
 
+# If pgbin directory is not provided with --pgbin, read ext/test-conf/pgbin
+# If pgbin directory cannot be found, exit with error status
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
     if test  -z "${opt[pgbin]:-}"; then
@@ -32,6 +41,8 @@ if test -z "${opt[pgbin]:-}"; then
     fi
 fi
 
+# If pgport number is not provided with --pgport, read ext/test-conf/pgport
+# If pgport number cannot be found, exit with error status
 if test -z "${opt[pgport]:-}"; then
     opt[pgport]="$(ext/bin/test-config --get pgport)"
      if test  -z "${opt[pgport]:-}"; then
@@ -40,15 +51,19 @@ if test -z "${opt[pgport]:-}"; then
     fi
 fi
 
+# Create temporary directory
 tmpdir="$(mktemp -d "core-test-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 mkdir -p "$tmpdir/local"
 
+# Install Leiningen and pgbox with default versions into temporary directory
 ext/bin/require-leiningen default "$tmpdir/local"
 ext/bin/require-pgbox default "$tmpdir/local"
 export PATH="$tmpdir/local/bin:$PATH"
+# Print host machine info for logging
 ext/bin/host-info
+# Runs command with ephemeral PuppetDB and PostgreSQL sandbox
 ext/bin/with-pdbbox --box "$tmpdir/box" \
                     --pgbin "${opt[pgbin]}" \
                     --pgport "${opt[pgport]}" \

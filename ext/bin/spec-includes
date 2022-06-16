@@ -4,6 +4,12 @@ command -v python2 > /dev/null && exec python2 "$0" "$@"
 echo "error: unable to find python3 or python2" 1>&2; exit 2
 """
 
+# Prints search string if its a component of test spec
+# First argument is test spec, second is search string
+# Ex: spec-includes core/openjdk8/pg-9.6/rich rich => rich
+# Ex: spec-includes core/openjdk8/pg-9.6/rich openjdk8 => openjdk8
+# Ex: spec-includes core/openjdk8/pg-9.6/rich foo =>
+
 from __future__ import print_function
 from sys import exit, stderr
 import os, sys

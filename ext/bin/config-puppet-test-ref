@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 
+# Modify local testing environment to use specific version of Puppet.
+# With no arguments, uses default Puppet version
+# With one argument, uses argument as Puppet version
+# Creates a symlink to bundler-installed Puppet repo at vendor/puppet used for testing
+# Ex: config-puppet-test-ref
+# Ex: config-puppet-test-ref 6.27.0
+
 set -euo pipefail
 
+# Always run from the top-level of PuppetDB source tree
 script_home="$(cd "$(dirname "$0")" && pwd)"
 top="$script_home/../.."
-cd "$top"  # Always run from the top level of the tree
+cd "$top"
 
 usage() {
     echo "Usage: $(basename "$0") [REF]"
 }
 
+# Verify bundler is installed
 if test -z "$(type -t bundle)"; then
     cat 2>&1 <<-EOS
 	Ruby bundler does not appear to be available.
@@ -20,27 +29,36 @@ fi
 
 set -x
 
+# Remove old Puppet version test configuration
 rm -f ext/test-conf/puppet-ref-requested
 
 case "$#" in
     0)
+        # If no arguments provided, set Puppet version to default
         puppet_ref="$(cat ext/test-conf/puppet-ref-default)"
         ;;
     1)
+        # If one argument provided, set Puppet version to that value
         puppet_ref="$1"
         echo "$puppet_ref" > ext/test-conf/puppet-ref-requested
         ;;
     *)
+        # If more than one argument provided, exit with error status
         usage 1>&2
         exit 2
 esac
 
+# Install and update Ruby dependencies from top-level Gemfile
 bundle install --without acceptance --path vendor/bundle --retry=10
 bundle update
+# Print out info on Puppet dependency
 bundle info puppet || true  # Not all versions appear to have info
 
 # Symlink vendor/puppet to the git tree bundler checked out.  Use a
 # relative path so that moving the pdb tree around won't break things.
 cd vendor
+# This will something like .../vendor/bundle/ruby/2.7.0/bundler/gems/puppet-ae5379e03311
+# It is a Puppet git repository installed by bundler
 puppet_path="$(bundle show puppet)"
+# Create a symlink at `vendor/puppet` that points to Puppet repository
 "$top/ext/bin/symlink-relative-to" "$puppet_path" puppet
