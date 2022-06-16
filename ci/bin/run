@@ -1,61 +1,86 @@
 #!/usr/bin/env bash
 
+# Entrypoint for CI test running on multiple platforms and operating systems
+# Requires testing spec argument
+# Ex: run core+ext/openjdk-8/pg-13
+
 set -uexo pipefail
 
 usage() { echo 'Usage: $(basename "$0") PDB_TEST_SPEC'; }
 misuse() { usage 1>&2; exit 2; }
 
+# Validate arguments
 test $# -eq 1 || misuse
 spec="$1"
 flavor=$(ext/bin/flavor-from-spec "$spec")
 
 case "$flavor" in
     core|ext|core+ext)
+        # Get PostgreSQL version from test spec
         pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
+        # Set PostgreSQL test options
         ext/bin/test-config --set pgver "$pgver"
         ext/bin/test-config --set pgport 34335
+        # Validate test spec
         ext/bin/check-spec-env "$spec"
         case "$flavor" in
             core|core+ext)
+                # Run core lein tests with ephemeral PuppetDB and PostgreSQL sandboxes
+                # Leiningen dev profile adds org.bouncycastle/bcpkix-jdk15on dependency
                 ext/bin/boxed-core-tests \
                     -- lein with-profiles "${LEIN_PROFILES:-dev}" test
                 ;;
         esac
         case "$flavor" in
             core+ext) # core will have already run host-info
+                # Run external tests on a PuppetDB uberjar
                 ext/bin/run-external-tests
                 ;;
             ext)
+                # Print out host machine info for logging
                 ext/bin/host-info
+                # Run external tests on a PuppetDB uberjar
                 ext/bin/run-external-tests
                 ;;
         esac
         ;;
     lint)
+        # Validate test spec
         ext/bin/check-spec-env "$spec"
+        # Run eastwood linter
         lein eastwood
+        # Run clj-kondo linter
         lein kondo --lint src test
         ;;
     rspec)
+        # Get Puppet version from test spec
         puppet_ref="$(ext/bin/prefixed-ref-from-spec "$spec" pup-)"
+        # Validate test spec
         ext/bin/check-spec-env "$spec"
+        # Run rspec Ruby tests on Ruby code in puppet/ directory
         ext/bin/run-rspec-tests "$puppet_ref"
         ;;
     int)
+        # Get version numbers from test spec
         pgver="$(ext/bin/prefixed-ref-from-spec "$spec" pg-)"
         puppet="$(ext/bin/prefixed-ref-from-spec "$spec" pup-)"
         server="$(ext/bin/prefixed-ref-from-spec "$spec" srv-)"
+        # Set test options from info in test spec
         ext/bin/test-config --set pgver "$pgver"
         ext/bin/test-config --set pgport 34335
         ext/bin/test-config --set puppet-ref "$puppet"
         ext/bin/test-config --set puppetserver-ref "$server"
+        # If "rich" is in test spec, run rich data tests
         PDB_TEST_RICH_DATA="$(ext/bin/spec-includes "$spec" rich)"
         export PDB_TEST_RICH_DATA
+        # Validate test spec
         ext/bin/check-spec-env "$spec"
+        # Run integration tests with Leiningen profile
         ext/bin/boxed-integration-tests \
             -- lein with-profiles "${LEIN_PROFILES:-dev}" test :integration
         ;;
     *)
+        # Error when test spec is unrecognized
         echo "Unrecognized spec: $flavor" 1>&2;
         exit 2
         ;;

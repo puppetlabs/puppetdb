@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 
+# Creates a PuppetDB uberjar and runs tests against it
+
 set -ueo pipefail
 
 failures=0
 
+# Log failed command
 failure() {
     if test "$TERM"; then
         echo "===== $(tput setaf 1)FAILED:$(tput sgr 0) $@" 1>&2
@@ -13,10 +16,12 @@ failure() {
     ((failures++)) || true
 }
 
+# Log successful command
 success() {
     echo "===== OK: $@" 1>&2
 }
 
+# Run a command and log success or failure based on exit status
 run() {
     echo -e "\n===== testing $@" 1>&2
     rc=0
@@ -28,22 +33,26 @@ run() {
     fi
 }
 
+# Create a PuppetDB uberjar
 run lein uberjar
 
 unset PDBBOX
 export PDB_JAR="$(pwd)/target/puppetdb.jar"
 
+# Run tests
 run ext/test/oom-causes-shutdown
 run ext/test/top-level-cli
 run ext/test/upgrade-and-exit
 run ext/test/database-migration-config
 run ext/test/schema-mismatch-causes-pdb-shutdown
 
+# If there are no failures, say so and exit
 if test "$failures" -eq 0; then
     echo "failures: $failures" 1>&2
     exit 0
 fi
 
+# If there are any failures, print them out
 # For some reason github's macos TERM=dumb doesn't work with tput:
 #     tput: No value for $TERM and no -T specified
 # though dumb appears to work fine in Linux.

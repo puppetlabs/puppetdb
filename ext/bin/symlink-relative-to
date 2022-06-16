@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Creates symbolic link to a relative path
+# Relative path is forced, even if absolute is given
+# Simple on Linux, more complicated on MacOS bc `ln` is missing -r flag
+
 set -uexo pipefail
 
 script_name=$(basename "$0")
@@ -9,10 +13,12 @@ link_name="$2"
 
 case "$OSTYPE" in
     darwin*)
+        # Require coreutils on MacOS
         if test -z "$(type -t realpath)"; then
             echo "$script_name: realpath missing; please install coreutils" 1>&2
             exit 2
         fi
+        # Use realpath to create relative link path
         target="$(realpath --relative-to "$(dirname "$link_name")" "$target")"
         ln -sf "$target" "$link_name"
         ;;

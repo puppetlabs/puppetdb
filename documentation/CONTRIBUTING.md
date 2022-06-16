@@ -140,40 +140,61 @@ Unless you override that with `test-config`:
 
     $ ext/bin/test-config --set pgver 9.6
 
-Given just the version, the tests will try to find a suitable
-PostgreSQL installation, but you can specify one directly like this:
+Given just the version, the tests will try to find a suitable PostgreSQL
+installation directory (containing executables like `pg_ctl`, `psql`, `initdb`,
+etc.), but you can specify one directly like this:
 
     $ ext/bin/test-config --set pgbin /usr/lib/postgresql/9.6/bin
 
-at which point the pgver setting will be irrelevant until/unless you
+When `pgbin` is set, the pgver setting will be irrelevant until/unless you
 reset pgbin:
 
     $ ext/bin/test-config --reset pgbin
 
-If you're running the tests all the time, you might want to set up
-your own persistent sandbox instead (`ext/bin/with-pdbbox` does
-something similar) so you can run tests directly against that:
+If you're running the tests all the time, you might want to set up your own
+persistent sandbox instead so you can run tests directly against that:
 
     $ ext/bin/pdbbox-init \
-      --sandbox ./test-sandbox \
+      --sandbox ~/tmp/pdb-sandbox \
       --pgbin /usr/lib/postgresql-9.6/bin \
       --pgport 17961
 
-Then you can start and stop the included database server like this:
+Using a persistent sandbox requires that you install
+[pgbox](https://gitlab.com/pgbox-org/pgbox) somewhere in your `PATH`. `pgbox`
+is a single-file Python script for creating and using PostgreSQL sandboxes. You
+can download `pgbox` manually from GitLab or use the `require-pgbox` helper
+script:
 
-    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ ext/bin/require-pgbox 0.0.0 /tmp/pgbox-install
+    $ mv /tmp/pgbox-install/bin/pgbox ~/.local/bin
+
+The `ext/bin/pdbbox-init` script uses `pgbox` under the hood to create a
+PostgreSQL sandbox inside of your PuppetDB sandbox in the directory `pg`. This
+directory contains configuration files, a database cluster, and a symlink to a
+PostgreSQL installation directory (defined with `--pgbin`).
+
+You can use `pgbox` directly by setting an environment variable called `PGBOX`
+with the path to the internal PostgreSQL sandbox:
+
+    $ PGBOX=~/tmp/pdb-sandbox/pg pgbox pg_ctl start -w
+
+The `ext/bin/pdbbox-env` script is a thin layer on top of `pgbox` that wraps
+the given command in a PuppetDB sandbox as well. This script is required for
+running and testing PuppetDB. It can also be used instead of `pgbox` to
+interact with the PuppetDB test database:
+
+    $ export PDBBOX=~/tmp/pdb-sandbox
     $ ext/bin/pdbbox-env pg_ctl start -w
     $ ext/bin/pdbbox-env pg_ctl stop
 
-and when the database server is running you can run the tests like
-this:
+Once the database server is running you can run the tests like this:
 
-    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ export PDBBOX=~/tmp/pdb-sandbox
     $ ext/bin/pdbbox-env lein test
 
 Note that in cases where durability and realistic performance aren't
 important (say for routine `lein test` runs), you may see substantially
-better performance if you disable postgres' fsync calls with `-F` like
+better performance if you disable PostgreSQL's fsync calls with `-F` like
 this:
 
     $ ext/bin/pdbbox-env pg_ctl start -o -F -w
@@ -199,15 +220,18 @@ distclean` will completely undo the configurations.
 After configuration you should be able to run the tests by specifying
 the `:integration` selector:
 
-    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ export PDBBOX=~/tmp/pdb-sandbox
     $ ext/bin/pdbbox-env lein test :integration
 
 You can also run puppetdb itself with the config file included in the
 sandbox:
 
-    $ export PDBBOX="$(pwd)/test-sandbox"
+    $ export PDBBOX=~/tmp/pdb-sandbox
     $ ext/bin/pdbbox-env lein run services \
-        -c test-sandbox/conf.d
+        -c ~/tmp/pdb-sandbox/conf.d
+
+Running `lein run services` may occasionally fail with an `Unable to resolve
+symbol` error. If this happens, run `lein distclean` and try again.
 
 And finally, you can of course set up and [configure your own
 PostgreSQL server][configure_postgres] for testing, but then you'll

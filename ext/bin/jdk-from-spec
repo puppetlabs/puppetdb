@@ -4,6 +4,9 @@ command -v python2 > /dev/null && exec python2 "$0" "$@"
 echo "error: unable to find python3 or python2" 1>&2; exit 2
 """
 
+# Gets the JDK package name from the spec string
+# jdk-from-spec core/openjdk8/pg-9.6 => openjdk8
+
 from __future__ import print_function
 from sys import exit, stderr
 import os, sys

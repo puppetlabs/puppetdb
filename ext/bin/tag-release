@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 #
+# Automates the release tagging process for PuppetDB.
+# This script tags and pushes all four branches at once.
+# Two branches must be tagged in FOSS PuppetDB, and an additional two branches
+# must be tagged in PuppetDB extensions.
+#
 # Env vars
 # PDB_PATH=~/wrk/pdb/<branch>
 # PDB_EXT_PATH=~/wrk/ext/<branch>
@@ -14,6 +19,7 @@
 # PDB_GIT_REMOTE=upstream-private ./tag-release 6.x 6.19.1
 set -euo pipefail
 
+# 
 update_version_var () {
    local file="$1"
    local varname="$2"
@@ -69,7 +75,7 @@ Examples
   Releasing 6.19.1 off of puppetdb branch 6.x
     $(basename $0) 6.x 6.19.1
 
-  Releasing 7.7.1 off of puppetdb branch 6.x
+  Releasing 7.7.1 off of puppetdb branch main
     $(basename $0) main 7.7.1
 
   For a release using puppetdb-private

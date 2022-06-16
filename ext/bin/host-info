@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
+# Prints out information about the host machine for testing logs
+
 set -uexo pipefail
 
+# Print out operating system information
 uname -a
+# Print out machine-specific hostname->IP address mappings
 cat /etc/hosts
 
+# Print out hostname memory information
 case "$OSTYPE" in
     darwin*|netbsd)
         hostname
@@ -19,10 +24,12 @@ case "$OSTYPE" in
         ;;
 esac
 
+# Print out detailed CPU information
 if test -e /proc/cpuinfo; then
     cat /proc/cpuinfo
 fi
 
+# Print out versions of critical testing software
 bash --version
 java -version || true
 lein version || true

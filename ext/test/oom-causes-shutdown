@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Tests a PuppetDB jar to to see if it gracefully shuts down on an OutOfMemoryError
+# when forced to allocate a large amount of memory.
+# Sets PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP environment variable which triggers
+# a hook in puppetlabs.puppetdb.cli.services/start-schema-checks that forces
+# PuppetDB to allocate that much memory for testing purposes.
+
+# You can specify PuppetDB jar location with env var PDB_JAR.
+# PuppetDB configuration is sourced from PDBBOX sandbox or an ephemeral sandbox
+# Flags --pgbin and --pgbin are necessary unless set with ext/bin/test-config
+
 set -euo pipefail
 
 desc=oom-causes-shutdown
@@ -10,6 +20,7 @@ misuse() { usage 1>&2; exit 2; }
 argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
 declare -A opt
 
+# Validate arguments
 while test $# -gt 0; do
     case "$1" in
         --pgbin|--pgport)
@@ -22,6 +33,8 @@ while test $# -gt 0; do
     esac
 done
 
+# If pgbin directory is not provided with --pgbin, read ext/test-conf/pgbin
+# If pgbin directory cannot be found, exit with error status
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
     if test  -z "${opt[pgbin]:-}"; then
@@ -30,6 +43,8 @@ if test -z "${opt[pgbin]:-}"; then
     fi
 fi
 
+# If pgport number is not provided with --pgport, read ext/test-conf/pgport
+# If pgport number cannot be found, exit with error status
 if test -z "${opt[pgport]:-}"; then
     opt[pgport]="$(ext/bin/test-config --get pgport)"
      if test  -z "${opt[pgport]:-}"; then
@@ -40,6 +55,7 @@ fi
 
 set -x
 
+# Create an ephemeral PuppetDB sandbox if one isn't set by PDBBOX
 if test -z "${PDBBOX:-}"; then
     # No PDBBOX, set one up and run ourselves again
     tmpdir="$(mktemp -d "test-${desc}-XXXXXX")"
@@ -52,12 +68,15 @@ if test -z "${PDBBOX:-}"; then
     exit 0
 fi
 
+# Create temporary directory
 tmpdir="$(mktemp -d "test-${desc}-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
 set -x
 
+# Force PuppetDB to allocate a large amount of memory and make sure it handles the
+# OutOfMemoryError gracefully by checking that it output the error to stdout
 rc=0
 # Show err and out, but save them separately
 PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP=4096 \
@@ -67,5 +86,7 @@ PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP=4096 \
     || rc=$?
 test "$rc" -eq 2
 
+# Verify logfile mentions PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP
 grep -F PDB_TEST_ALLOCATE_AT_LEAST_MB_AT_STARTUP "$tmpdir/pdb-out"
+# Verify logfile logs the OutOfMemoryError instead of crashing without a reason
 grep -F OutOfMemoryError "$tmpdir/pdb-out"

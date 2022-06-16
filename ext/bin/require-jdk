@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Installs JDK into environment
+# Can only install OpenJDK versions
+# --expire flag will skip installation if same JDK was installed less than 24 hours ago
+
 set -uexo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
@@ -19,6 +23,7 @@ epochsecs() { printf '%(%s)T\n' -1; }
 
 expire=''
 
+# Validate command arguments
 while true; do
     case "$1" in
         --expire) expire='true'; shift ;;
@@ -31,8 +36,10 @@ done
 test $# -eq 2 || misuse
 ver="$1"
 install="$2"
+# Path to the file this script uses to cache install time
 install_time="$install/jdk/jdk-install-time"
 
+# Version must be an OpenJDK version
 case "$ver" in
     openjdk*) ;;
     default) ver="$default" ;;
@@ -42,6 +49,8 @@ case "$ver" in
         ;;
 esac
 
+# If --expire flag is present, last JDK installation was within 24hrs, and the
+# current JDK is the same as the one being requested, skip installation
 if test "$expire"; then
     if test -e "$install_time"; then
         if test $(($(epochsecs) - $(< "$install_time"))) -lt 86400; then
@@ -58,11 +67,12 @@ else  # not expiring
     fi
 fi
 
-
+# Create temporary directory
 tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
+# Unsure OS is either Linux of MacOS
 case "$OSTYPE" in
     linux*)
         adoptos=linux
@@ -76,15 +86,18 @@ case "$OSTYPE" in
         ;;
 esac
 
+# Get OpenJDK tarball from official source
 curl -sSLo "$tmpdir/jdk.tar.gz" \
      -f --retry 3 \
      "https://api.adoptopenjdk.net/v3/binary/latest/${ver#openjdk}/ga/$adoptos/x64/jdk/hotspot/normal/adoptopenjdk?project=jdk"
 
+# Extract OpenJDK from tarball
 (cd "$tmpdir"
  mkdir tmp-unpack
  cd tmp-unpack
  tar xpSf ../jdk.tar.gz)
 
+# Rename OpenJDK directory to "jdk"
 case "$OSTYPE" in
     darwin*)
         (cd "$tmpdir/tmp-unpack"
@@ -98,8 +111,12 @@ case "$OSTYPE" in
         ;;
 esac
 
+# Remove current JDK if exists
 rm -rf "$install/jdk"
 mkdir -p "$install"
+# Move new JDK to installation directory
 mv "$tmpdir/tmp-unpack/jdk" "$install/jdk"
+# Cache new JDK version
 echo "$ver" > "$install/jdk/jdk-flavor"
+# Cache current time as installation time
 epochsecs > "$install_time"

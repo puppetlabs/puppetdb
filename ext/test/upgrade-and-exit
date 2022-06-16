@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Testing the upgrade subcommand on PuppetDB jar
+# Migrates an empty database to most recent migration.
+# You can specify PuppetDB jar location with env var PDB_JAR.
+# PuppetDB configuration is sourced from PDBBOX sandbox or an ephemeral sandbox
+# Flags --pgbin and --pgbin are necessary unless set with ext/bin/test-config
+
 set -euo pipefail
 
 usage() { echo 'Usage: [PDB_JAR=JAR] $(basename "$0") --pgbin PGBIN --pgport PGPORT'; }
@@ -8,6 +14,7 @@ misuse() { usage 1>&2; exit 2; }
 argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
 declare -A opt
 
+# Validate arguments
 while test $# -gt 0; do
     case "$1" in
         --pgbin|--pgport)
@@ -20,6 +27,7 @@ while test $# -gt 0; do
     esac
 done
 
+# Ensure we have pgbin value
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
     if test  -z "${opt[pgbin]:-}"; then
@@ -28,6 +36,7 @@ if test -z "${opt[pgbin]:-}"; then
     fi
 fi
 
+# Ensure we have pgport value
 if test -z "${opt[pgport]:-}"; then
     opt[pgport]="$(ext/bin/test-config --get pgport)"
      if test  -z "${opt[pgport]:-}"; then
@@ -38,6 +47,7 @@ fi
 
 set -x
 
+# Ensure there is a PuppetDB sandbox available
 if test -z "${PDBBOX:-}"; then
     # No PDBBOX, set one up and run ourselves again
     tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
@@ -50,12 +60,14 @@ if test -z "${PDBBOX:-}"; then
     exit 0
 fi
 
+# Create temporary directory for storing output
 tmpdir="$(mktemp -d "test-upgrade-and-exit-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
 test ! -e "$PDBBOX"/var/mq-migrated
 
+# Ensure database "puppetdb" has no tables
 psql -U puppetdb puppetdb -c '\dt' >"$tmpdir/out" 2>"$tmpdir/err"
 cat "$tmpdir/out"
 cat "$tmpdir/err"
@@ -63,8 +75,10 @@ cat "$tmpdir/err"
 grep 'No relations found' "$tmpdir/out" \
     || grep 'Did not find any relations' "$tmpdir/err"
 
+# Run upgrade
 ./pdb upgrade -c "$PDBBOX/conf.d"
 
+# Ensure maximum migration id matches most recent migration id
 psql -U puppetdb puppetdb -c 'select max(version) from schema_migrations;' \
      > "$tmpdir/out"
 cat "$tmpdir/out"
