@@ -145,16 +145,16 @@ jobs:
       script: *run-spec-tests
 
     # === container tests
-    - stage: ❧ pdb tests
-      name: container tests
-      dist: focal
-      language: ruby
-      rvm: 2.6.6
-      # necessary to prevent overwhelming TravisCI build output limits
-      env: DOCKER_COMPOSE_VERSION=1.28.6 DOCKER_BUILDX_VERSION=0.5.1 DOCKER_BUILD_FLAGS="--progress plain" PUPPETSERVER_IMAGE="puppet/puppetserver:edge"
-      before_install: *before-docker-tests
-      script: *run-docker-tests
-      after_script: *after-docker-tests
+    # - stage: ❧ pdb tests
+    #   name: container tests
+    #   dist: focal
+    #   language: ruby
+    #   rvm: 2.6.6
+    #   # necessary to prevent overwhelming TravisCI build output limits
+    #   env: DOCKER_COMPOSE_VERSION=1.28.6 DOCKER_BUILDX_VERSION=0.5.1 DOCKER_BUILD_FLAGS="--progress plain" PUPPETSERVER_IMAGE="puppet/puppetserver:edge"
+    #   before_install: *before-docker-tests
+    #   script: *run-docker-tests
+    #   after_script: *after-docker-tests
 
 on_success: ci/bin/travis-on-success
 
