@@ -4,6 +4,9 @@ command -v python2 > /dev/null && exec python2 "$0" "$@"
 echo "error: unable to find python3 or python2" 1>&2; exit 2
 """
 
+# Runs when FOSS PDB Travis tests succeed.
+# Triggers tests on same branch name for extensions repo.
+
 from __future__ import print_function
 from os import environ
 from pipes import quote

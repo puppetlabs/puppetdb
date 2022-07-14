@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 
+# Runs a command using an existing PostgreSQL sandbox inside a PuppetDB sandbox
+# Requires pgbox to already be installed and on PATH
+# Sets up PuppetDB environment variables for PostgreSQL roles and passwords used for testing
+# PDBBOX environment variable must be set and contain the path to your PuppetDB sandbox
+# You should first create a PuppetDB sandbox with ext/bin/pdbbox-init
+
 set -ueo pipefail
 
 usage() { echo 'Usage: PDBBOX=BOX_DIR pdbbox-env CMD [ARG...]'; }
 
+# PDBBOX must be set to an existing PuppetDB sandbox directory
+# CMD must be at least one token
 if test "$#" -lt 1 -o -z "$PDBBOX"; then
     usage 1>&2
     exit 1
@@ -12,10 +20,14 @@ fi
 pgport="$(cat "$PDBBOX/pg/port")"
 pghost="$(tail -1 "$PDBBOX/pg/bind-addrs")"
 
+# Set PGBOX to let pgbox command to know where PostgreSQL sandbox is located
+# PostgreSQL sandbox is expected to be in PuppetDB sandbox created with ext/bin/pdbbox-init
 export PGBOX="$PDBBOX/pg"
+# All environment variables below are loaded by puppetlabs.puppetdb.testutils.db/test-env
 export PDB_TEST_DB_HOST="$pghost"
 export PDB_TEST_DB_PORT="$pgport"
 export PDB_TEST_DB_USER=pdb_test
+# The passwords are read from files in the PuppetDB sandbox
 export PDB_TEST_DB_USER_PASSWORD="$(cat "$PDBBOX/test-pass")"
 export PDB_TEST_DB_READ=pdb_test_read
 export PDB_TEST_DB_READ_PASSWORD="$(cat "$PDBBOX/test-pass-read")"
@@ -24,4 +36,5 @@ export PDB_TEST_DB_MIGRATOR_PASSWORD="$(cat "$PDBBOX/test-pass-migrator")"
 export PDB_TEST_DB_ADMIN=pdb_test_admin
 export PDB_TEST_DB_ADMIN_PASSWORD="$(cat "$PDBBOX/test-pass-admin")"
 
+# Run provided command using PostgreSQL sandbox
 exec pgbox env "$@"

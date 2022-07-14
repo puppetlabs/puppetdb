@@ -1255,6 +1255,10 @@ msgid "{0} requires exactly two arguments"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid "Invalid {0} clause"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Cannot determine field type for field ''{0}''"
 msgstr ""
 

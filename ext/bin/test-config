@@ -4,6 +4,15 @@ command -v python2 > /dev/null && exec python2 "$0" "$@"
 echo "error: unable to find python3 or python2" 1>&2; exit 2
 """
 
+# Get, set, or reset persistent test configuration values by storing them in
+# local files in the directory `ext/test-conf`.
+# Recognized options:
+# pgbin: directory where postgresql executables reside
+# pgver: version of postgresql to use
+# pgport: port number for postgresql to listen on
+# puppet-ref: puppet tag or commit SHA to use for testing
+# puppetserver-ref: puppetserver tag or commit SHA to use for testing
+
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from collections import defaultdict
@@ -41,7 +50,7 @@ def get_pgver():
     if os.path.exists('ext/test-conf/pgver-requested'):
         return slurp('ext/test-conf/pgver-requested').rstrip()
     return slurp('ext/test-conf/pgver-default').strip()
-    
+
 def get_pgbin():
     if os.path.exists('ext/test-conf/pgbin-requested'):
         return slurp('ext/test-conf/pgbin-requested').rstrip()
@@ -64,7 +73,7 @@ def get_test_ref(which):
 
 def set_requested(what, value):
     spitn('ext/test-conf/%s-requested' % what, value)
-    
+
 def reset_requested(what):
     try:
         os.unlink('ext/test-conf/%s-requested' % what)
@@ -72,18 +81,19 @@ def reset_requested(what):
         if ex.errno != errno.ENOENT:
             raise
 
+# Use external scripts to set up Puppet and Puppetserver environments
 def set_puppet_ref(what, value):
     check_call(['ext/bin/config-puppet-test-ref', value])
-    
+
 def reset_puppet_ref(what):
     check_call(['ext/bin/config-puppet-test-ref'])
-    
+
 def set_puppetserver_ref(what, value):
     check_call(['ext/bin/config-puppetserver-test-ref', value])
-    
+
 def reset_puppetserver_ref(what):
     check_call(['ext/bin/config-puppetserver-test-ref'])
-    
+
 get_val = {}
 get_val['pgbin'] = get_pgbin
 get_val['pgver'] = get_pgver

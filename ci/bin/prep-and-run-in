@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
 
+# Prepares a CI machine for tests and runs tests
+# Ex: prep-and-run-in github core/openjdk8/pg-13
+
 set -uexo pipefail
 
 usage() { echo 'Usage: $(basename "$0") HOST_TYPE PDB_TEST_SPEC'; }
 misuse() { usage 1>&2; exit 2; }
 
+# Validate arguments
 test $# -eq 2 || misuse
 host_type="$1"
 spec="$2"
 
+# If running on a MacOS instance in Travis...
 if [ "$host_type" = travis ] && [[ "$OSTYPE" != darwin* ]]; then
-    # workaround for mongodb, CouchDB and git-lfs having invalid keys
+    # Workaround for mongodb, CouchDB and git-lfs having invalid keys
     # see: https://github.com/travis-ci/travis-ci/issues/9037 (which
     # is still broken)
     sudo -i rm -f /etc/apt/sources.list.d/mongodb*
     sudo -i rm -f /etc/apt/sources.list.d/couchdb*
     sudo -i apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
 
-    # see https://github.com/pyenv/pyenv/issues/789 When using the
+    # See https://github.com/pyenv/pyenv/issues/789 When using the
     # system python pyenv prepends /usr/bin to the path which breaks
     # anything that tries to override system defaults, like rvm/rbenv
     pyenv global 3.7.6
@@ -32,18 +37,22 @@ if [ "$host_type" = travis ] && [[ "$OSTYPE" != darwin* ]]; then
          postgresql-client-common postgresql-client postgresql-common
 fi
 
+# If machine has apt-get, prepare a Debian environment
 if command -v apt-get > /dev/null; then
     cmd=$(printf 'cd %q && ext/bin/prep-debianish-root --for %q --install ci/local' \
                  "$(pwd)" "$spec")
     sudo -i /bin/sh -c "$cmd"
     ext/bin/prep-debianish --for "$spec" --install ci/local
+# If machine is running MacOS, prepare a MacOS environment
 elif [[ "$OSTYPE" == darwin* ]]; then
     ext/bin/prep-macos --for "$spec" --install ci/local
+# If machine is not MacOS or Debian-like, abort
 else
     echo "Don't know how to run tests on $OSTYPE yet" 1>&2
     exit 2
 fi
 
+# If running on a MacOS instance on GitHub...
 if [ "$host_type" = github ] && [[ "$OSTYPE" != darwin* ]]; then
     # The current ubuntu image sets this to point to /usr/local/...
     # which causes chaos with respect to some built-in lein
@@ -54,9 +63,12 @@ if [ "$host_type" = github ] && [[ "$OSTYPE" != darwin* ]]; then
     echo 'unset LEIN_HOME' >> ci/local/etc/pdb-test-env
 fi
 
+# The pdb-test-env script gets created by prep-macos or prep-debianish
+# It contains environment variables that should be loaded before running tests
 if test -e ci/local/etc/pdb-test-env; then
     cat ci/local/etc/pdb-test-env 1>&2
     source ci/local/etc/pdb-test-env
 fi
 
+# Run the requested tests
 ci/bin/run "$spec"

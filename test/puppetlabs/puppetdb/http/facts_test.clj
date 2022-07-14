@@ -28,7 +28,8 @@
                      is-query-result
                      query-response
                      query-result
-                     vector-param]]
+                     vector-param
+                     with-http-app]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [call-with-puppetdb-instance]]
@@ -252,7 +253,18 @@
                 #"Can't extract unknown 'facts' field 'nothing'.*Acceptable fields are.*"
 
                 ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-                #"Can't extract unknown 'facts' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
+                #"Can't extract unknown 'facts' fields 'nothing' and 'nothing2'.*Acceptable fields are.*"
+
+                ["~>" "test" "test" "test"] #"~> requires exactly two arguments"
+                ["~>" "test"] #"~> requires exactly two arguments"
+                [">" "test" 50 100] #"> requires exactly two arguments"
+                [">" "test"] #"> requires exactly two arguments"
+                [">=" "test" 50 100] #">= requires exactly two arguments"
+                [">=" "test"] #">= requires exactly two arguments"
+                ["<" "test" 50 100] #"< requires exactly two arguments"
+                ["<" "test"] #"< requires exactly two arguments"
+                ["<=" "test" 50 100] #"<= requires exactly two arguments"
+                ["<=" "test"] #"<= requires exactly two arguments")))
 
 (deftest-http-app invalid-projections
   [[_version endpoint] facts-endpoints
@@ -263,6 +275,16 @@
         (is (re-find msg body))
         (is (= HttpURLConnection/HTTP_BAD_REQUEST status))
         (are-error-response-headers headers)))))
+
+(deftest valid-projections
+  (testing "Projection works with ~> (regexp array match) operator"
+    (with-test-db
+      (with-http-app
+        (let [query ["from" "fact_contents"
+                     ["extract" ["certname" "value"]
+                      ["~>" "path" ["virtual"]]] ["order_by" ["certname"]]]
+              {:keys [status]} (query-response :post "/v4" query)]
+          (is (= java.net.HttpURLConnection/HTTP_OK status)))))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map

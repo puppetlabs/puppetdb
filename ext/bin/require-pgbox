@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Installs pgbox onto machine
+# Supports at least Debian and MacOS
+
 set -uexo pipefail
 
 script_home="$(cd "$(dirname "$0")" && pwd)"
@@ -12,9 +15,11 @@ usage() { echo "Usage: $cmdname VERSION INSTALLDIR_IF_NEEDED"; }
 
 misuse() { usage 1>&2; exit 2; }
 
+# Hashmap of pgbox checksums
 declare -A known_hash
 known_hash[0.0.0]=c4dd424ddbcaf33cb0d3ef51255943cbdd87446ea7bf220528441849de35cfef
 
+# Verify two arguments were given
 test "$#" -eq 2 || misuse
 
 ver="$1"
@@ -25,11 +30,13 @@ fi
 install="$2"
 hash="${known_hash[$ver]}"
 
+# Verify checksum is known for requested version
 if ! test "$hash"; then
     echo "$cmdname: don't know sha256sum for $ver" 1>&2
     exit 2
 fi
 
+# Exit if installed version is same as requested
 if command -v pgbox; then
     curver="$(pgbox version | cut -d' ' -f2)"
     if test "$curver" = "$ver"; then
@@ -37,20 +44,24 @@ if command -v pgbox; then
     fi
 fi
 
+# Create temporary directory
 tmpdir="$(mktemp -d "$cmdname-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
+# Download pgbox from GitLab releases
 cd "$tmpdir"
 curl -O "https://gitlab.com/pgbox-org/pgbox/raw/82e512d37a7c6c2ae72d1293ea98945eaaae51f4/pgbox"
 obshash="$("$script_home/sha256sum" < pgbox | cut -d' ' -f1)"
 cd ..
 
+# Verify checksum of pgbox executable
 if test "$obshash" != "$hash"; then
     echo "$cmdname: sha256sum $obshash != $hash" 1>&2
     exit 2
 fi
 
+# Install pgbox
 mkdir -p "$install/bin"
 mv -i "$tmpdir/pgbox" "$install/bin"
 chmod +x "$install/bin/pgbox"

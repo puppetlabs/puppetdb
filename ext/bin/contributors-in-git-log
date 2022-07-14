@@ -3,6 +3,12 @@ command -v python3 > /dev/null && exec python3 "$0" "$@"
 command -v python2 > /dev/null && exec python2 "$0" "$@"
 echo "error: unable to find python3 or python2" 1>&2; exit 2
 """
+
+# Given two git tags, prints out a list of contributors who authored commits in
+# that commit range. Alphabetically sorted by first name. Excludes CI commits.
+# Output is wrapped at 72 characters.
+# Ex: contributors-in-git-log 6.0.0..6.27.0 => Bob Ross, Dolly Parton, and John Cena
+
 from __future__ import print_function
 
 import os, re, sys

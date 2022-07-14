@@ -4,6 +4,10 @@ command -v python2 > /dev/null && exec python2 "$0" "$@"
 echo "error: unable to find python3 or python2" 1>&2; exit 2
 """
 
+# Parses a spec for a given prefix and returns the ref (version number)
+# Basically prints out everything after the prefix up to the next / or end of spec
+# prefixed-ref-from-spec core/openjdk8/pg-9.6 pg- => 9.6
+
 from __future__ import print_function
 from sys import exit, stderr
 import os, sys

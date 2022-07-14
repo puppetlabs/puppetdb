@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Verifies that a PuppetDB jar will periodically check and shut down when it
+# notices that the database is at an unrecognized schema/migration number
+# This can happen anytime when there are multiple PuppetDB instances being used
+# and one is upgraded before the other.
+# The check happens in puppetlabs.puppetdb.cli.serverices/check-schema-version.
+
+# You can specify PuppetDB jar location with env var PDB_JAR.
+# PuppetDB configuration is sourced from PDBBOX sandbox or an ephemeral sandbox
+# Flags --pgbin and --pgbin are necessary unless set with ext/bin/test-config
+
 set -euo pipefail
 
 usage() { echo 'Usage: [PDB_JAR=JAR] $(basename "$0") --pgbin PGBIN --pgport PGPORT'; }
@@ -8,6 +18,7 @@ misuse() { usage 1>&2; exit 2; }
 argv=("$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" "$@")
 declare -A opt
 
+# Validate arguments
 while test $# -gt 0; do
     case "$1" in
         --pgbin|--pgport)
@@ -20,6 +31,8 @@ while test $# -gt 0; do
     esac
 done
 
+# If pgbin directory is not provided with --pgbin, read ext/test-conf/pgbin
+# If pgbin directory cannot be found, exit with error status
 if test -z "${opt[pgbin]:-}"; then
     opt[pgbin]="$(ext/bin/test-config --get pgbin)"
     if test  -z "${opt[pgbin]:-}"; then
@@ -28,6 +41,8 @@ if test -z "${opt[pgbin]:-}"; then
     fi
 fi
 
+# If pgport number is not provided with --pgport, read ext/test-conf/pgport
+# If pgport number cannot be found, exit with error status
 if test -z "${opt[pgport]:-}"; then
     opt[pgport]="$(ext/bin/test-config --get pgport)"
      if test  -z "${opt[pgport]:-}"; then
@@ -38,6 +53,7 @@ fi
 
 set -x
 
+# Create an ephemeral PuppetDB sandbox if one isn't set by PDBBOX
 if test -z "${PDBBOX:-}"; then
     # No PDBBOX, set one up and run ourselves again
     tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
@@ -50,11 +66,15 @@ if test -z "${PDBBOX:-}"; then
     exit 0
 fi
 
+# Create temporary directory
 tmpdir="$(mktemp -d "test-schema-mismatch-bails-XXXXXX")"
 tmpdir="$(cd "$tmpdir" && pwd)"
 trap "$(printf 'rm -rf %q' "$tmpdir")" EXIT
 
-# macos sed appears to require the embedded newlines
+# Append low schema-check-interval value just after the [database] section header
+# in PuppetDB config file to trigger a schema check quickly.
+
+# MacOS sed appears to require the embedded newline
 sed '/\[database\]/a\
   schema-check-interval = 500
 ' \
@@ -65,14 +85,14 @@ set -x
 cat "$PDBBOX/conf.d/"*
 set +x
 
-# use upgrade command to init pdb and apply all migrations
+# Use upgrade command to init pdb and apply all migrations
 ./pdb upgrade -c "$PDBBOX/conf.d"
 
-# start pdb in the background
+# Start pdb in the background
 touch "$tmpdir/pdb-out" "$tmpdir/pdb-err"
 ./pdb services -c "$PDBBOX/conf.d" 1>"$tmpdir/pdb-out" 2>"$tmpdir/pdb-err"  & pdb_pid=$!
 
-# allow time for pdb to start before changing migration level
+# Allow time for pdb to start before changing migration level
 while ! grep -F "PuppetDB finished starting" "$tmpdir/pdb-out" > /dev/null
 do
     echo 'Waiting for pdb to start...'
@@ -80,10 +100,10 @@ do
     sleep 3
 done
 
-# simulate a different pdb completing a new migration
+# Simulate a different pdb instance completing a new migration
 psql -U puppetdb puppetdb -c 'INSERT INTO schema_migrations (version, time) VALUES (10000, now());'
 
-# wait for the background pdb to notice the migration change and exit
+# Wait for the background pdb to notice the migration change and exit
 rc=0
 wait $pdb_pid || rc=$?
 test "$rc" -eq 77
