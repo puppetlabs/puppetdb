@@ -279,8 +279,9 @@
       (update-when [:distinct_resources] coerce-to-boolean)))
 
 (defn parse-json-sequence
-  "Parse a query string as JSON. Parse errors
-   will result in an IllegalArgumentException"
+  "Parse a query string as JSON. Parse errors will result in an
+  IllegalArgumentException. Should not be used as a parse-fn directly. Use
+  parse-json-query instead"
   [query]
   (try
     (with-open [string-reader (java.io.StringReader. query)]
@@ -291,7 +292,9 @@
 (defn parse-json-query
   "Parse a query string as JSON. Multiple queries or any other
   data, after the query, will result in an IllegalArgumentException"
-  [query]
+  [query query-uuid log-queries?]
+  (when log-queries?
+    (log/info (trs "Parsing PDBQuery:{0}:{1}" query-uuid (pr-str query))))
   (when query
     (let [[parsed & others] (parse-json-sequence query)]
       (when others
@@ -304,48 +307,53 @@
   "Time how long it takes to transform a PQL query to AST, if the time
    is greater than 1s, a warning is logged. Returns the transformed
    query."
-  [query]
+  [query query-uuid log-queries?]
+  (when log-queries?
+    (log/info (trs "Parsing PDBQuery:{0}:{1}" query-uuid (pr-str query))))
   (let [start (System/nanoTime)
         result (pql/parse-pql-query query)
         elapsed (/ (- (System/nanoTime) start) 1000000.0)
         max-pql-limit 1000]
-    (when (> elapsed max-pql-limit)
-      (log/warn (trs "Parsing PQL took {0} ms: {1}" elapsed (pr-str query))))
+    (when (and log-queries? (> elapsed max-pql-limit))
+      (log/warn (trs "Parsing PQL took {0} ms for PDBQuery:{1}:{2}" elapsed query-uuid (pr-str query))))
     result))
 
 (defn parse-json-or-pql-to-ast
   "Parse a query string either as JSON or PQL to transform it to AST"
-  [query]
+  [query query-uuid log-queries?]
   (when query
     (if (re-find #"^\s*\[" query)
-      (parse-json-query query)
-      (time-and-parse-pql query))))
+      (parse-json-query query query-uuid log-queries?)
+      (time-and-parse-pql query query-uuid log-queries?))))
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
-  [{:keys [params]}
+  [{:keys [params globals] query-uuid :puppetdb-query-uuid :as _req}
    parse-fn]
-  (-> params
-      (update-when ["query"] parse-fn)
+  (let
+    [log-queries? (:log-queries globals)]
+    (-> params
+      (update-when ["query"] #(parse-fn % query-uuid log-queries?))
       (update-when ["order_by"] parse-order-by-json)
       (update-when ["counts_filter"] json/parse-strict-string true)
       (update-when ["pretty"] coerce-to-boolean)
       (update-when ["include_facts_expiration"] coerce-to-boolean)
       (update-when ["include_package_inventory"] coerce-to-boolean)
-      keywordize-keys))
+      keywordize-keys)))
 
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
-  [req parse-fn]
-  (-> (let [req-body (request/body-string req)]
-        (try
-          (json/parse-string req-body true)
-        (catch JsonParseException e
-          (throw (IllegalArgumentException. (pprint-json-parse-exception e req-body))))))
-      (update :query (fn [query]
-                       (if (vector? query)
-                         query
-                         (parse-fn query))))))
+  [{query-uuid :puppetdb-query-uuid :as req} parse-fn]
+  (let [log-queries? (get-in req [:globals :log-queries])
+        req-body (request/body-string req)
+        parsed-body (try (json/parse-string req-body true)
+                      (catch JsonParseException e
+                        (throw (IllegalArgumentException.
+                                (pprint-json-parse-exception e req-body)))))]
+    (update parsed-body :query (fn [query]
+                                 (if (vector? query)
+                                   query
+                                   (parse-fn query query-uuid log-queries?))))))
 
 (pls/defn-validated create-query-map :- puppetdb-query-schema
   "Takes a ring request map and extracts the puppetdb query from the
@@ -369,10 +377,12 @@
      (handler
       (if puppetdb-query
         req
-        (let [query-map (create-query-map req param-spec parse-fn)
+        (let [query-uuid (str (java.util.UUID/randomUUID))
+              req-with-query-uuid (assoc req :puppetdb-query-uuid query-uuid)
+              query-map (create-query-map req-with-query-uuid param-spec parse-fn)
               pretty-print (:pretty query-map
                                     (get-in req [:globals :pretty-print]))]
-          (-> req
+          (-> req-with-query-uuid
               (assoc :puppetdb-query query-map)
               (assoc-in [:globals :pretty-print] pretty-print))))))))
 
@@ -433,10 +443,11 @@
 
 (defn query-handler
   [version]
-  (fn [{:keys [params globals puppetdb-query]}]
+  (fn [{:keys [params globals puppetdb-query puppetdb-query-uuid]}]
     (let [query-options (narrow-globals globals)]
       (if (and (:ast_only puppetdb-query) (valid-query? (:scf-read-db globals) version puppetdb-query query-options))
         (http/json-response (:query puppetdb-query))
         (qeng/produce-streaming-body version
                                 (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                                puppetdb-query-uuid
                                 query-options)))))

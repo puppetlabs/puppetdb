@@ -223,6 +223,12 @@
         (is (= 500 status))
         (is (= "Value does not match schema: (not (map? nil))" body))))
 
+    (testing "pql query fails with json parse error message"
+      (let [query "inventory[]{}"
+            {:keys [body status]} (query-response method endpoint query)]
+        (is (= 400 status))
+        (is (re-find #"^Json parse error" body))))
+
     (testing "inventory queries"
       (testing "well-formed queries"
         (doseq [[query result] (queries-and-results timestamp)]
