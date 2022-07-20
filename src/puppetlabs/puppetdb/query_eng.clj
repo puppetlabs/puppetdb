@@ -490,12 +490,10 @@
    If the query can't be parsed, a 400 is returned."
   [version :- s/Keyword
    query-map
+   query-uuid :- s/Str
    context :- query-context-schema]
-  ;; For now, generate the ids here; perhaps later, higher up
-  (assert (not (:query-id context)))
-  (let [qid (str (java.util.UUID/randomUUID))
-        context (assoc context :query-id qid)]
-    (with-log-mdc ["pdb-query-id" qid
+  (let [context (assoc context :query-id query-uuid)]
+    (with-log-mdc ["pdb-query-id" query-uuid
                    "pdb-query-origin" (:origin query-map)]
       (if use-preferred-streaming-method?
         (preferred-produce-streaming-body version query-map context)

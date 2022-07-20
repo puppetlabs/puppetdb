@@ -798,12 +798,16 @@ msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
+msgid "Parsing PDBQuery:{0}:{1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
 msgid ""
 "Only one query may be sent in a request. Found JSON {0} after the query {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
-msgid "Parsing PQL took {0} ms: {1}"
+msgid "Parsing PQL took {0} ms for PDBQuery:{1}:{2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
