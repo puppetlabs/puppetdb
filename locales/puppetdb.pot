@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 847d6af597567f2280d269abea032e7121cdd7b9\n"
+"X-Git-Ref: 0e22d241cd6d45f0f43c816806136554620fbd43\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -798,12 +798,16 @@ msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
+msgid "Parsing PDBQuery:{0}:{1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
 msgid ""
 "Only one query may be sent in a request. Found JSON {0} after the query {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
-msgid "Parsing PQL took {0} ms: {1}"
+msgid "Parsing PQL took {0} ms for PDBQuery:{1}:{2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
