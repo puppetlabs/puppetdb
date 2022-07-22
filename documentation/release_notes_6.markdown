@@ -17,6 +17,35 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 6.22.0
+
+Released August 2 2022
+
+### New features and improvements
+
+* Query logging has been improved when `log-queries` is set to true. Now
+  queries are logged with their UUID before they are parsed which makes
+  debugging easier when there are PQL parsing issues.
+  ([PDB-5482](https://tickets.puppetlabs.com/browse/PDB-5482))
+
+### Bug fixes
+
+* Fixed a bug that was introduced in 6.19.0 and 7.10.1 that caused valid
+  queries using the ~> operator inside of an extract clause to fail. The patch
+  also fixes a UX issue where providing the wrong amount of arguments in a ~>
+  clause would result in a cryptic error.
+  ([PE-33977](https://tickets.puppetlabs.com/browse/PE-33977))
+
+* Fixed a bug that was introduced in 6.21.0 and 7.10.1 which caused upgrade
+  failures with PostgreSQL hot standbys. The method of disabling the jit has
+  been changed to avoid the problem.
+  ([PDB-5483](https://tickets.puppetlabs.com/browse/PDB-5483))
+
+### Contributors
+
+Arjen Zonneveld, Austin Blatt, Jon-Paul Lindquist, Jonathan Newman, Maggie
+Dreyer, Rob Browning, and Stel Abrego
+
 ## PuppetDB 6.21.0
 
 Released April 12 2022
