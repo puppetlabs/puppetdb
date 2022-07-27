@@ -40,7 +40,7 @@ seconds`.
 > The rest of this documentation assumes that these two directories have been
 added to their proper path configurations.
 
-### Step 3: Install and configure the PuppetDB CLI
+### Step 2: Install and configure the PuppetDB CLI
 
 Install the PuppetDB CLI from Rubygems:
 
@@ -148,7 +148,7 @@ On Windows, escape slashes in paths.
 }
 ```
 
-### Step 4: Enjoy!
+### Step 3: Enjoy!
 
 Here are some examples of using the CLI.
 
