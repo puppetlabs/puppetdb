@@ -72,7 +72,7 @@ seconds`.
 ## Step 2: Enable the Puppet Platform package repository
 
 If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Platform package repository](https://puppet.com/docs/puppet/latest/puppet_platform.html)
+[enable the Puppet Platform package repository][package_repos]
 
 ## Step 3: Install PuppetDB
 
