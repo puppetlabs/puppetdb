@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/connect_puppet_apply.markdown"
 [jetty]: ./configure.markdown#jetty-http-settings
 [ssl_script]: ./maintain_and_tune.markdown#redo-ssl-setup-after-changing-certificates
 [settings_namespace]: https://puppet.com/docs/puppet/latest/lang_facts_and_builtin_vars.html#puppet-master-variables
-[package_repos]: https://puppet.com/docs/puppet/6/install_puppet.html#enable_the_puppet_platform_repository
+[package_repos]: https://puppet.com/docs/puppet/latest/install_puppet.html#enable_the_puppet_platform_repository
 
 > **Note:** To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 

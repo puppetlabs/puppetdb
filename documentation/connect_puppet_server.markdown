@@ -17,6 +17,8 @@ canonical: "/puppetdb/latest/connect_puppet_server.html"
 [store_report]: ./api/command/v1/commands.markdown#store-report-version-7
 [report_format]: ./api/wire_format/report_format_v5.markdown
 [puppetdb_server_urls]: ./puppetdb_connection.markdown#serverurls
+[package_repos]: https://puppet.com/docs/puppet/latest/install_puppet.html#enable_the_puppet_platform_repository
+
 
 > Note: To use PuppetDB, your site's Puppet Server(s) must be running
 > Puppet version 5.0.0 or later.
