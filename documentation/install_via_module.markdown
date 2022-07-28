@@ -3,7 +3,7 @@ title: "Installing PuppetDB via Puppet module"
 layout: default
 ---
 
-[package_repos]: https://puppet.com/docs/puppet/6/install_puppet.html#enable_the_puppet_platform_repository
+[package_repos]: https://puppet.com/docs/puppet/latest/install_puppet.html#enable_the_puppet_platform_repository
 
 # Installing PuppetDB via Puppet module
 
