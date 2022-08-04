@@ -1552,19 +1552,22 @@
   i.e. {:select expr}."
   [{:keys [projected-fields call selection projections] :as _query}]
   ;; This is where we finally fully expand the projections.
-  (let [calls (mapv (comp hcore/raw :statement) call)
+  (let [calls (mapv :statement call)
         non-call-projections (if (and (empty? calls) (empty? projected-fields))
                                projections
-                               projected-fields)]
-    (assoc selection
-           :select (->> non-call-projections
-                        (remove (comp :unprojectable? second))
-                        ;; Currently this does not support deps for
-                        ;; projected functions i.e. :calls.
-                        (include-projection-dependencies projections)
-                        (mapv (fn [[name {:keys [field]}]]
-                                [field (quote-projections name)]))
-                        (into calls)))))
+                               projected-fields)
+        ;; map honeysql v1 distinct modifier to honeysqlv2 :select-distinct
+        select-distinct (some #{:distinct} (selection :modifiers))
+        select (if select-distinct :select-distinct :select)]
+    (assoc (dissoc selection :modifiers) ;; honeysql v2 rejects unrecognized keys
+           select (->> non-call-projections
+                       (remove (comp :unprojectable? second))
+                       ;; Currently this does not support deps for
+                       ;; projected functions i.e. :calls.
+                       (include-projection-dependencies projections)
+                       (mapv (fn [[name {:keys [field]}]]
+                               [field (quote-projections name)]))
+                       (into calls)))))
 
 (defn fn-binary-expression->hsql
   "Produce a predicate that compares the result of a function against a
