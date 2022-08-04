@@ -1582,21 +1582,32 @@
                   (str/join ", " quoted-args)
                   op)]))
 
+(defn munge-query-ordering
+  [clauses]
+  (for [c clauses]
+    (if (vector? c)
+      (update c 1 {:ascending :asc :descending :desc})
+      [c :asc])))
+
 (defprotocol SQLGen
   (-plan->sql [query options] "Given the `query` plan node, convert it to a SQL string"))
 
 (extend-protocol SQLGen
   Query
-  (-plan->sql [{:keys [group-by projected-fields subquery? where] :as query}
+  (-plan->sql [{:keys [limit offset order-by group-by projected-fields subquery? where] :as query}
                {:keys [node-purge-ttl] :as options}]
     (s/validate [projection-schema] projected-fields)
     (let [has-where? (boolean where)
           sql (cond-> query
                 has-where? (update :selection #(hsql/where % (-plan->sql where options)))
                 true sql-select-for-query
+                true (dissoc :selection-params) ;; honeysql v2 disallows unrecognized keys
                 (not subquery?) (wrap-with-node-state-cte node-purge-ttl)
                 group-by (assoc :group-by group-by)
-                true (hcore/format :allow-dashed-names? true)
+                limit (assoc :limit limit)
+                offset (assoc :offset offset)
+                order-by (assoc :order-by order-by)
+                true (sql/format :allow-dashed-names? true)
                 true first)]
       (if (:subquery? query)
         [:raw (str " ( " sql " ) ")]
@@ -3350,11 +3361,20 @@
     (case target
       :parameterized-plan parameterized-plan
       :sql (let [{:keys [plan params]} parameterized-plan
-                 sql (plan->sql plan validated-options)
-                 paged-sql (wrap-with-explain (jdbc/paged-sql sql validated-options) explain)]
+                 {:keys [limit offset order_by]} validated-options
+                 paged-plan (cond-> plan
+                                limit (assoc :limit [:inline limit])
+                                offset (assoc :offset [:inline offset])
+                                ;; TODO: switching from underscore to dash here is ugly
+                                ;; move it to user-parameter handling in query_eng
+                                (seq order_by) (assoc :order-by (munge-query-ordering order_by)))
+                 paged-sql (wrap-with-explain (plan->sql paged-plan validated-options) explain)
+                 ;; This plan omits limit/offset so that it gets a full count of the results
+                 ;; it omits order-by because it is unecessary for a count-only query.
+                 count-sql (plan->sql plan validated-options)]
              (cond-> {:results-query (apply vector paged-sql params)}
                include_total (assoc :count-query
-                                    (apply vector (jdbc/count-sql sql)
+                                    (apply vector (jdbc/count-sql count-sql)
                                            params)))))))
 
 (defn compile-user-query->sql
