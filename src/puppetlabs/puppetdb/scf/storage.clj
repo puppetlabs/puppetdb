@@ -43,7 +43,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :as time
              :refer [ago now to-timestamp from-sql-date before?]]
-            [honeysql.core :as hcore]
+
+            [honey.sql :as hsql]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.package-util :as pkg-util]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -954,7 +955,7 @@
                 ["id = ?" certid]))
 
 (defn catalog-inputs-metadata [certname]
-  (-> (jdbc/query (hcore/format
+  (-> (jdbc/query (hsql/format
                     {:select [:id :catalog_inputs_timestamp :catalog_inputs_hash]
                      :from [:certnames]
                      :where [:= :certname certname]}))
@@ -1728,7 +1729,7 @@
                :where [:= :certname certname]
                :order-by [[:producer_timestamp :desc]]
                :limit 1}]
-    (:producer_timestamp (first (jdbc/query (hcore/format query))))))
+    (:producer_timestamp (first (jdbc/query (hsql/format query))))))
 
 (pls/defn-validated have-newer-record-for-certname?
   "Returns a truthy value indicating whether a record exists that has
