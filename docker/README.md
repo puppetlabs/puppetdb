@@ -52,6 +52,10 @@ The directory structure follows the following conventions.  The full path is alw
 - 'ssl-key'
   `/opt/puppetlabs/server/data/puppetdb/certs/private_keys/<certname>.pem`
 
+### Initialization Scripts
+
+If you would like to do additional initialization, add a directory called /docker-custom-entrypoint.d/ and fill it with .sh scripts. These scripts will be executed at the end of the entrypoint script, before the service is ran.
+
 ## Analytics Data Collection
 
  The puppetdb container collects usage data. This is disabled by default. You can enable it by passing `--env PUPPERWARE_ANALYTICS_ENABLED=true`
