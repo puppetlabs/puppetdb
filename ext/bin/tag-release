@@ -148,17 +148,23 @@ update-repo()
 
     echo   '----------------------------------------'
     echo   "Proposed commands:"
-    printf "  git push %q %q\n" "$remote" "$branch"
     printf "  git push %q %q\n" "$remote" "$version"
+    printf "  git push %q %q\n" "$remote" "$version:$branch"
+    printf "  git push %q %q\n" "$remote" "$branch"
     echo   '----------------------------------------'
     read -p "Do you want to push the tag and commit to $remote/$branch [y/N]: " confirm
     if [[ "$confirm" = y* ]] ; then
-        echo "Pushing commit..."
-        git push "$remote" "$branch"
+        # Push the tag first so that anything watching (hooks) will
+        # see the pushes in branch order and won't e.g. decide to skip
+        # work because it has already seen the commit/tag.
+        echo "Pushing release..."
+        git push "$remote" "$version:$branch"
         echo "Pushing tag..."
         git push "$remote" "$version"
+        echo "Pushing new snapshot version..."
+        git push "$remote" "$branch"
     else
-        echo "Skipping pushing tag and commit"
+        echo "Skipping pushing release, tag, and commit"
     fi
 )
 
