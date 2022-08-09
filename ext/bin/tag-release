@@ -148,7 +148,7 @@ update-repo()
 
     echo   '----------------------------------------'
     echo   "Proposed commands:"
-    printf "  git push %q %q\n" "$remote" "$version:$branch"
+    printf "  git push %q %q\n" "$remote" "$version^0:$branch"
     printf "  git push %q %q\n" "$remote" "$version"
     printf "  git push %q %q\n" "$remote" "$branch"
     echo   '----------------------------------------'
@@ -156,9 +156,11 @@ update-repo()
     if [[ "$confirm" = y* ]] ; then
         # Push the tag first so that anything watching (hooks) will
         # see the pushes in branch order and won't e.g. decide to skip
-        # work because it has already seen the commit/tag.
+        # work because it has already seen the commit/tag.  We need
+        # version^0 below for the commit associated with the tag
+        # because using the tag directly isn't allowed.
         echo "Pushing release..."
-        git push "$remote" "$version:$branch"
+        git push "$remote" "$version^0:$branch"
         echo "Pushing tag..."
         git push "$remote" "$version"
         echo "Pushing new snapshot version..."
