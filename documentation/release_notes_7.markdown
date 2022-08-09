@@ -15,6 +15,24 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.11.1
+
+Released August 11 2022
+
+### Security fixes
+
+* The `org.postgresql/postgresql` driver has been updated to version
+  42.4.1 to address
+  [CVE-2022-31197](https://nvd.nist.gov/vuln/detail/CVE-2022-31197),
+  which is an SQL injection risk that according to the CVE report, can
+  only be exploited if an attacker controls the database to the extent
+  that they can adjust relevant tables to have "malicious" column
+  names. ([PE-34250](https://tickets.puppetlabs.com/browse/PE-34250))
+
+### Contributors
+
+April Murphy, Jonathan Newman, Rob Browning, and Stel Abrego
+
 ## PuppetDB 7.11.0
 
 Released August 2 2022
