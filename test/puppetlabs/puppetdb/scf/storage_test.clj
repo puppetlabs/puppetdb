@@ -965,14 +965,14 @@
 (deftest-db catalog-replacement
   (testing "should noop if replaced by themselves"
     (add-certname! certname)
-    (let [hash (replace-catalog! catalog)]
+    (let [status (replace-catalog! catalog)]
       (replace-catalog! catalog (now))
 
       (is (= (query-to-vec ["SELECT certname FROM certnames"])
              [{:certname certname}]))
 
       (is (= (query-to-vec [(format "SELECT %s AS hash FROM catalogs" (sutils/sql-hash-as-str "hash"))])
-             [{:hash hash}])))))
+             [{:hash (:hash status)}])))))
 
 (deftest-db edge-replacement-differential
   (testing "should do selective inserts/deletes when edges are modified just slightly"
@@ -1053,7 +1053,7 @@
 (deftest-db catalog-duplicates
   (testing "should share structure when duplicate catalogs are detected for the same host"
     (add-certname! certname)
-    (let [hash (replace-catalog! catalog)
+    (let [status (replace-catalog! catalog)
           prev-dupe-num (counters/value (:duplicate-catalog @storage-metrics))
           prev-new-num  (counters/value (:updated-catalog @storage-metrics))]
 
@@ -1071,7 +1071,7 @@
              [{:certname certname}]))
 
       (is (= (query-to-vec [(format "SELECT certname, %s AS hash FROM catalogs" (sutils/sql-hash-as-str "hash"))])
-             [{:hash hash
+             [{:hash (:hash status)
                :certname certname}]))
 
       (replace-catalog! (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :line] 20) (now))
