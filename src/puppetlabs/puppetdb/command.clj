@@ -97,7 +97,8 @@
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
    (java.sql SQLException)
-   (java.util.concurrent RejectedExecutionException Semaphore)))
+   (java.util.concurrent RejectedExecutionException Semaphore)
+   (org.apache.commons.codec.binary Hex)))
 
 ;; ## Performance counters
 
@@ -282,24 +283,53 @@
         (.close ^Closeable command-stream)))))
 
 ;; FIXME: log db name, or lift out of per-db exec calls
-(defn log-command-processed-messsage [id received-time start-time command-kw certname & [opts]]
-  ;; manually stringify these to avoid locale-specific formatting
-  (let [id (str id)
-        received-time (str (time/to-long received-time))
-        duration (str (in-millis (interval start-time (now))))
-        command-name (command-names command-kw)
-        puppet-version (:puppet-version opts)
-        obsolete-cmd? (:obsolete-cmd? opts)]
-    (cond
-      puppet-version
-      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
-                     id received-time duration command-name puppet-version certname))
-      obsolete-cmd?
-      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command ignored (obsolete) for {4}"
-                     id received-time duration command-name certname))
-      :else
-      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
-                     id received-time duration command-name certname)))))
+(defn log-command-processed-messsage
+  ([id received-time start-time command-kw certname producer-ts status]
+   (log-command-processed-messsage id received-time start-time
+                                   command-kw certname producer-ts status nil))
+  ([id received-time start-time command-kw certname producer-ts
+    {:keys [status hash] :as _status}
+    {:keys [puppet-version] :as _opts}]
+   ;; manually stringify these to avoid locale-specific formatting
+   (let [id (str id)
+         received-time (str (time/to-long received-time))
+         duration (str (in-millis (interval start-time (now))))
+         command-name (command-names command-kw)
+         producer-utc-s (-> producer-ts time/to-timestamp .getTime)
+         summary (str id "-" received-time "-" producer-utc-s)
+         hash-prefix (if hash
+                       (let [hs (if (bytes? hash)
+                                  (Hex/encodeHexString hash)
+                                  hash)]
+                         (str " (" (subs hs 0 8)")"))
+                       "")]
+     (if puppet-version
+       (case status
+         :incorporated
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} processed for {5}"
+                        summary duration command-name puppet-version hash-prefix certname))
+         :stale
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} ignored (stale) for {5}"
+                        summary duration command-name puppet-version hash-prefix certname))
+         :duplicate
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} ignored (duplicate) for {5}"
+                        summary duration command-name puppet-version hash-prefix certname))
+         :obsolete
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} ignored (obsolete) for {5}"
+                        summary duration command-name puppet-version hash-prefix certname)))
+       (case status
+         :incorporated
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' command{3} processed for {4}"
+                        summary duration command-name hash-prefix certname))
+         :stale
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' command{3} ignored (stale) for {4}"
+                        summary duration command-name hash-prefix certname))
+         :duplicate
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' command{3} ignored (duplicate) for {4}"
+                        summary duration command-name hash-prefix certname))
+         :obsolete
+         (log/info (trs "[{0}] [{1} ms] ''{2}'' command{3} ignored (obsolete) for {4}"
+                        summary duration command-name hash-prefix certname)))))))
 
 ;; Catalog replacement
 
@@ -315,12 +345,13 @@
 
 (defn exec-replace-catalog
   [{:keys [id received payload]} start-time db conn-status]
-  (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
-    (jdbc/retry-with-monitored-connection
-     db conn-status {:isolation :repeatable-read
-                     :statement-timeout command-sql-statement-timeout-ms}
-     #(do-replace-catalog catalog certname producer-timestamp received))
-    (log-command-processed-messsage id received start-time :replace-catalog certname)))
+  (let [{producer-timestamp :producer_timestamp certname :certname :as catalog} payload
+        status (jdbc/retry-with-monitored-connection
+                db conn-status {:isolation :repeatable-read
+                                :statement-timeout command-sql-statement-timeout-ms}
+                #(do-replace-catalog catalog certname producer-timestamp received))]
+    (log-command-processed-messsage id received start-time :replace-catalog
+                                    certname producer-timestamp status)))
 
 ;; Catalog input replacement
 
@@ -331,14 +362,14 @@
   (let [{:keys [certname inputs catalog_uuid]
          stamp :producer_timestamp} payload]
     (when (seq inputs)
-      (jdbc/retry-with-monitored-connection
-       db conn-status {:isolation :repeatable-read
-                       :statement-timeout command-sql-statement-timeout-ms}
-       (fn []
-         (scf-storage/maybe-activate-node! certname stamp)
-         (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp)))
-      (log-command-processed-messsage id received start-time
-                                      :replace-catalog-inputs certname))))
+      (let [status (jdbc/retry-with-monitored-connection
+                    db conn-status {:isolation :repeatable-read
+                                    :statement-timeout command-sql-statement-timeout-ms}
+                    (fn []
+                      (scf-storage/maybe-activate-node! certname stamp)
+                      (scf-storage/replace-catalog-inputs! certname catalog_uuid inputs stamp)))]
+        (log-command-processed-messsage id received start-time :replace-catalog-inputs
+                                        certname stamp status)))))
 
 ;; Fact replacement
 
@@ -370,12 +401,13 @@
 
 (defn exec-replace-facts
   [{:keys [payload id received] :as _command} start-time db conn-status]
-  (let [{:keys [certname producer_timestamp]} payload]
-    (jdbc/retry-with-monitored-connection
-     db conn-status {:isolation :repeatable-read
-                     :statement-timeout command-sql-statement-timeout-ms}
-     #(do-replace-facts certname producer_timestamp payload))
-    (log-command-processed-messsage id received start-time :replace-facts certname)))
+  (let [{:keys [certname producer_timestamp]} payload
+        status (jdbc/retry-with-monitored-connection
+                db conn-status {:isolation :repeatable-read
+                                :statement-timeout command-sql-statement-timeout-ms}
+                #(do-replace-facts certname producer_timestamp payload))]
+    (log-command-processed-messsage id received start-time :replace-facts
+                                    certname producer_timestamp status)))
 
 ;; Node deactivation
 
@@ -400,14 +432,15 @@
 ;; FIXME: was to-timestamp redundant here and in store-report? others don't have it...
 
 (defn exec-deactivate-node [{:keys [id received payload]} start-time db conn-status]
-  (let [{:keys [certname producer_timestamp]} payload]
-    (jdbc/retry-with-monitored-connection
-     db conn-status {:isolation :read-committed
-                     :statement-timeout command-sql-statement-timeout-ms}
-     (fn []
-       (scf-storage/ensure-certname certname)
-       (scf-storage/deactivate-node! certname producer_timestamp)))
-    (log-command-processed-messsage id received start-time :deactivate-node certname)))
+  (let [{:keys [certname producer_timestamp]} payload
+        status (jdbc/retry-with-monitored-connection
+                db conn-status {:isolation :read-committed
+                                :statement-timeout command-sql-statement-timeout-ms}
+                (fn []
+                  (scf-storage/ensure-certname certname)
+                  (scf-storage/deactivate-node! certname producer_timestamp)))]
+    (log-command-processed-messsage id received start-time :deactivate-node
+                                    certname producer_timestamp status)))
 
 ;; Report submission
 
@@ -425,11 +458,13 @@
       (update-in [:payload :producer_timestamp] #(or % (now)))))
 
 (defn exec-store-report [options-config {:keys [payload id received]} start-time db conn-status]
-  (let [{:keys [certname puppet_version] :as report} payload]
-    ;; Unlike the other storage functions, add-report! manages its own
-    ;; transaction, so that it can dynamically create table partitions
-    (scf-storage/add-report! report received db conn-status true options-config)
-    (log-command-processed-messsage id received start-time :store-report certname
+  (let [{:keys [certname puppet_version producer_timestamp] :as report} payload
+        ;; Unlike the other storage functions, add-report! manages its
+        ;; own transaction, so that it can dynamically create table
+        ;; partitions
+        status (scf-storage/add-report! report received db conn-status true options-config)]
+    (log-command-processed-messsage id received start-time :store-report
+                                    certname producer_timestamp status
                                     {:puppet-version puppet_version})))
 
 ;; Expiration configuration
@@ -444,14 +479,16 @@
   (let [{:keys [certname producer_timestamp]} payload
         expire-facts? (get-in payload [:expire :facts])]
     (when-not (nil? expire-facts?)
-      (jdbc/retry-with-monitored-connection
-       db conn-status {:isolation :read-committed
-                       :statement-timeout command-sql-statement-timeout-ms}
-       (fn []
-         (scf-storage/maybe-activate-node! certname producer_timestamp)
-         (scf-storage/set-certname-facts-expiration certname expire-facts? producer_timestamp)))
-      (log-command-processed-messsage id received start-time
-                                      :configure-expiration certname))))
+      (let [status (jdbc/retry-with-monitored-connection
+                    db conn-status {:isolation :read-committed
+                                    :statement-timeout command-sql-statement-timeout-ms}
+                    (fn []
+                      (scf-storage/maybe-activate-node! certname producer_timestamp)
+                      (scf-storage/set-certname-facts-expiration certname expire-facts?
+                                                                 producer_timestamp)))]
+        (log-command-processed-messsage id received start-time
+                                        :configure-expiration certname
+                                        producer_timestamp status)))))
 
 ;; ## Command processors
 
@@ -602,13 +639,14 @@
   "Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
-  [cmd {:keys [command version certname id received] :as cmdref}
+  [cmd {:keys [command version certname id received producer_timestamp] :as cmdref}
    q response-chan stats _options-config maybe-send-cmd-event!]
   (swap! stats update :executed-commands inc)
   ((:callback cmd) {:command cmd :result nil})
   (async/>!! response-chan (make-cmd-processed-message cmd nil))
   (log-command-processed-messsage id received (now) (command-keys command)
-                                  certname {:obsolete-cmd? true})
+                                  certname producer_timestamp
+                                  {:status :obsolete})
   (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
   (maybe-send-cmd-event! cmdref ::processed)
   (update-counter! :depth command version dec!)

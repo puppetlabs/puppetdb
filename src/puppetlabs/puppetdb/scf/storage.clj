@@ -96,6 +96,10 @@
   {:id s/Int
    :environment s/Str})
 
+(def processing-status-schema
+  {:status (s/enum :duplicate :incorporated :stale :obsolete)
+   (s/optional-key :hash) (s/cond-pre s/Str (s/pred bytes?))})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas - Internal
 
@@ -355,7 +359,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Node data expiration
 
-(pls/defn-validated set-certname-facts-expiration
+(pls/defn-validated set-certname-facts-expiration :- processing-status-schema
   [certname :- s/Str
    expire? :- s/Bool
    updated :- pls/Timestamp]
@@ -367,7 +371,8 @@
           "    set expire = excluded.expire,"
           "        updated = excluded.updated"
           "    where excluded.updated > cfe.updated")
-     [expire? updated certname])))
+     [expire? updated certname])
+    {:status :incorporated}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
@@ -863,7 +868,7 @@
            (add-catalog-metadata! hash catalog received-timestamp)
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
-(s/defn replace-catalog!
+(s/defn replace-catalog! :- processing-status-schema
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   ([catalog :- catalog-schema]
@@ -872,27 +877,25 @@
     received-timestamp :- pls/Timestamp]
    (time! (get-storage-metric :replace-catalog)
           (jdbc/with-db-transaction []
-            (let [hash (time! (get-storage-metric :catalog-hash)
-                              (shash/catalog-similarity-hash catalog))
-                  {catalog-id :catalog_id
+            (let [{catalog-id :catalog_id
                    stored-hash :catalog_hash
                    certname-id :certname_id
                    latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
-              (cond
-                (some-> latest-producer-timestamp
-                        (.after (to-timestamp producer_timestamp)))
-                (log/warn (trs "Not replacing catalog for certname {0} because local data is newer." certname))
-
-                (= stored-hash hash)
-                (update-existing-catalog catalog-id hash catalog received-timestamp)
-
-                :else
-                (let [refs-to-hashes (time! (get-storage-metric :resource-hashes)
-                                            (kitchensink/mapvals shash/resource-identity-hash resources))]
-                  (if (nil? catalog-id)
-                    (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
-                    (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
-              hash)))))
+              (if (some-> latest-producer-timestamp
+                          (.after (to-timestamp producer_timestamp)))
+                {:status :stale}
+                (let [hash (time! (get-storage-metric :catalog-hash)
+                                  (shash/catalog-similarity-hash catalog))]
+                  (if (= stored-hash hash)
+                    (update-existing-catalog catalog-id hash catalog received-timestamp)
+                    (let [refs-to-hashes (time! (get-storage-metric :resource-hashes)
+                                                (kitchensink/mapvals shash/resource-identity-hash
+                                                                     resources))]
+                      (if (nil? catalog-id)
+                        (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
+                        (replace-existing-catalog certname-id catalog-id hash catalog
+                                                  refs-to-hashes received-timestamp))))
+                  {:status :incorporated :hash hash})))))))
 
 (defn catalog-hash-for-certname
   "Returns the hash for the `certname` catalog"
@@ -944,7 +947,7 @@
       (.update digest (byte 0)))
     (.digest digest)))
 
-(pls/defn-validated replace-catalog-inputs!
+(pls/defn-validated replace-catalog-inputs! :- processing-status-schema
   [certname :- s/Str
    catalog_uuid :- s/Str
    inputs :- [[s/Str]]
@@ -955,14 +958,16 @@
           {certid :id
            old-ts :catalog_inputs_timestamp
            ^bytes old-hash :catalog_inputs_hash} (catalog-inputs-metadata certname)]
-      (when (or (nil? old-ts)
-                (before? (from-sql-date old-ts) (from-sql-date updated)))
+      (if (and old-ts (not (before? (from-sql-date old-ts)
+                                    (from-sql-date updated))))
+        {:status :stale}
         (let [inputs (apply sorted-set inputs)
               ^bytes new-hash (catalog-inputs-hash certname inputs)]
           (when (not (Arrays/equals old-hash new-hash))
             (delete-catalog-inputs! certid)
             (store-catalog-inputs! certid inputs))
-          (update-catalog-input-metadata! certid catalog-uuid updated new-hash))))))
+          (update-catalog-input-metadata! certid catalog-uuid updated new-hash)
+          {:status :incorporated :hash new-hash})))))
 
 ;; ## Database compaction
 
@@ -1178,33 +1183,30 @@
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
-  ([fact-data] (add-facts! fact-data true))
   ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
-     :as fact-data} :- facts-schema
-    include-hash? :- s/Bool]
+     :as fact-data} :- facts-schema]
    (time! (get-storage-metric :add-new-fact)
      (jdbc/with-db-transaction []
        (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
                         (realize-paths (facts/facts->pathmaps values)
                                        (pathmap-digestor digest))
-                        (.digest digest))]
+                        (.digest digest))
+             hash (shash/fact-identity-hash fact-data)]
          (jdbc/insert! :factsets
-                     (merge
-                      {:certname certname
-                       :timestamp (to-timestamp timestamp)
-                       :environment_id (ensure-environment environment)
-                       :producer_timestamp (to-timestamp producer_timestamp)
-                       :producer_id (ensure-producer producer)
-                       :stable (sutils/munge-jsonb-for-storage values)
-                       :stable_hash (shash/generic-identity-sha1-bytes values)
-                       ;; need at least an empty map for the jsonb || operator
-                       :volatile (sutils/munge-jsonb-for-storage {})
-                       :paths_hash paths-hash}
-                      (when include-hash?
-                        {:hash (sutils/munge-hash-for-storage
-                                (shash/fact-identity-hash fact-data))}))))
-       (when (seq package_inventory)
-         (insert-packages certname package_inventory))))))
+                     {:certname certname
+                      :timestamp (to-timestamp timestamp)
+                      :environment_id (ensure-environment environment)
+                      :producer_timestamp (to-timestamp producer_timestamp)
+                      :producer_id (ensure-producer producer)
+                      :stable (sutils/munge-jsonb-for-storage values)
+                      :stable_hash (shash/generic-identity-sha1-bytes values)
+                      ;; need at least an empty map for the jsonb || operator
+                      :volatile (sutils/munge-jsonb-for-storage {})
+                      :paths_hash paths-hash
+                      :hash (sutils/munge-hash-for-storage hash)})
+         (when (seq package_inventory)
+           (insert-packages certname package_inventory))
+         {:status :incorporated :hash hash})))))
 
 (s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that
@@ -1262,20 +1264,19 @@
                          (let [digest (MessageDigest/getInstance "SHA-1")]
                            (realize-paths (facts/facts->pathmaps values)
                                           (pathmap-digestor digest))
-                           (.digest digest)))]
-
+                           (.digest digest)))
+            hash (shash/fact-identity-hash fact-data)]
         (jdbc/update! :factsets
                       (merge
                        {:timestamp (to-timestamp timestamp)
                         :environment_id (ensure-environment environment)
                         :producer_timestamp (to-timestamp producer_timestamp)
-                        :hash (-> fact-data
-                                  shash/fact-identity-hash
-                                  sutils/munge-hash-for-storage)
+                        :hash (sutils/munge-hash-for-storage hash)
                         :producer_id (ensure-producer producer)
                         :paths_hash paths-hash}
                        fact-json-updates)
-                      ["id=?" factset_id])))))
+                      ["id=?" factset_id])
+        {:status :incorporated :hash hash}))))
 
 (defn delete-unused-fact-paths
   "Deletes paths from fact_paths that are no longer needed by any
@@ -1411,7 +1412,7 @@
      (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
    resource-list))
 
-(s/defn add-report!*
+(s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
   the transaction.  This should always be set to `true`, except during some very specific testing
@@ -1431,9 +1432,10 @@
                report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
-               (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
-                             (query-to-vec report-hash)
-                             seq)
+               (if (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
+                       (query-to-vec report-hash)
+                       seq)
+                 {:status :duplicate :hash report-hash}
                  (let [certname-id (certname-id certname)
                        resource-events-ttl (get options-config :resource-events-ttl)
                        table-name (str "reports_" (-> producer_timestamp
@@ -1500,7 +1502,8 @@
                            (let [{:keys [file line]} @last-record]
                              (handle-resource-insert-sqlexception ex certname file line))))))
                    (when (and update-latest-report? (not= type "plan"))
-                     (update-latest-report! certname report-id producer_timestamp)))))))))
+                     (update-latest-report! certname report-id producer_timestamp))
+                   {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-cancellation
   "Takes a seq of maps containing information about PostgreSQL pids
@@ -1752,12 +1755,13 @@
   ([certname :- String timestamp :- pls/Timestamp]
    (let [sql-timestamp (to-timestamp timestamp)]
      (if (have-newer-record-for-certname? certname sql-timestamp)
-       (log/warn (trs "Not deactivating node {0} because local data is newer than {1}."
-                      certname timestamp))
-       (jdbc/do-prepared "UPDATE certnames SET deactivated = ?
+       {:status :stale}
+       (do
+         (jdbc/do-prepared "UPDATE certnames SET deactivated = ?
                          WHERE certname=?
                          AND (deactivated IS NULL OR deactivated < ?)"
-                         [sql-timestamp certname sql-timestamp])))))
+                           [sql-timestamp certname sql-timestamp])
+         {:status :incorporated})))))
 
 (pls/defn-validated expire-stale-nodes
   "Expires nodes with no activity within the provided horizon (prior
@@ -1792,7 +1796,7 @@
           expired-ts
           stale-start-ts stale-start-ts stale-start-ts stale-start-ts stale-start-ts))))
 
-(pls/defn-validated replace-facts!
+(pls/defn-validated replace-facts! :- processing-status-schema
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.
    Adds all new facts if no existing facts are found. Invoking this function under the umbrella of
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
@@ -1803,10 +1807,10 @@
          (if-let [local-factset-producer-ts (timestamp-of-newest-record :factsets certname)]
            (if-not (.after local-factset-producer-ts (to-timestamp producer_timestamp))
              (update-facts! fact-data)
-             (log/warn (trs "Not updating facts for certname {0} because local data is newer." certname)))
+             {:status :stale})
            (add-facts! fact-data))))
 
-(s/defn add-report!
+(s/defn add-report! :- processing-status-schema
   "Add a report and all of the associated events to the database."
   ([report received-timestamp db conn-status]
    (add-report! report received-timestamp db conn-status true))
