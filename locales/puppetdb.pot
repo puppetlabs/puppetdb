@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 50430804a620ef04d7fcca1b0c357ef82595de39\n"
+"X-Git-Ref: 5a93d158979a3592b47744ba7f401949683fe8b6\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -367,15 +367,37 @@ msgid "[{0}-{1}] ''{2}'' command enqueued for {3}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
+msgid "[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} processed for {5}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}-{1}] [{2} ms] ''{3}'' command ignored (obsolete) for {4}"
+msgid "[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} ignored (stale) for {5}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
+msgid ""
+"[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} ignored (duplicate) for {5}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid ""
+"[{0}] [{1} ms] ''{2}'' puppet v{3} command{4} ignored (obsolete) for {5}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1} ms] ''{2}'' command{3} processed for {4}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1} ms] ''{2}'' command{3} ignored (stale) for {4}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1} ms] ''{2}'' command{3} ignored (duplicate) for {4}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "[{0}] [{1} ms] ''{2}'' command{3} ignored (obsolete) for {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -1598,10 +1620,6 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Not replacing catalog for certname {0} because local data is newer."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Partition GC canceled queries from the following PostgreSQL pids: {0}"
 msgstr ""
 
@@ -1618,14 +1636,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "More than 2 partitions to prune: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Not deactivating node {0} because local data is newer than {1}."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Not updating facts for certname {0} because local data is newer."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
