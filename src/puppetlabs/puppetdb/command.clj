@@ -274,7 +274,7 @@
              (maybe-send-cmd-event! cmdref ::ingested)
              (log/debug (trs "[{0}-{1}] ''{2}'' command enqueued for {3}"
                              id
-                             (time/to-long received)
+                             (str (time/to-long received))
                              command
                              certname))))
     (finally
