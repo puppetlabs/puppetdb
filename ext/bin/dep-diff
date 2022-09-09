@@ -72,6 +72,18 @@ Usage:
         (exit 2))))
   ds)
 
+(defn strip-bc-scope [dep]
+  (if (#{'org.bouncycastle/bcutil-jdk15on 'org.bouncycastle/bcpkix-jdk15on 'org.bouncycastle/bcprov-jdk15on}
+       (first dep))
+    (letfn [(strip [remainder]
+              (when (seq remainder)
+                (if (= '(:scope "provided") (take 2 remainder))
+                  (strip (drop 2 remainder))
+                  (cons (first remainder)
+                        (strip (rest remainder))))))]
+      (vec (strip dep)))
+    dep))
+
 (defn strip-exclusions [dep]
   (letfn [(strip [remainder]
             (when (seq remainder)
@@ -81,16 +93,18 @@ Usage:
                       (strip (rest remainder))))))]
     (vec (strip dep))))
 
-(defn display-diff [{:keys [ignore-exclusions? mismatches-only? out]
+(defn display-diff [{:keys [ignore-exclusions? mismatches-only? pe-bouncy-castle-provided? out]
                      :or {out *out*} :as opts}
                     deps-1 deps-2]
   (doseq [name (-> (concat (keys deps-1) (keys deps-2)) distinct sort)
           :let [old (get deps-1 name)
                 new (get deps-2 name)]]
     (if (and (seq old) (seq new))
-      (let [relevant-set (if ignore-exclusions?
-                           #(->> % (map strip-exclusions) set)
-                           set)
+      (let [relevant-set (fn [s]
+                           ((cond-> set
+                              ignore-exclusions? (comp (partial map strip-exclusions))
+                              pe-bouncy-castle-provided? (comp (partial map strip-bc-scope)))
+                            s))
             relevant-old (relevant-set old)
             relevant-new (relevant-set new)]
         (when (not= relevant-old relevant-new)
@@ -124,6 +138,8 @@ Usage:
         "--mismatches" (recur (rest args) (assoc opts :mismatches-only? true))
         "--ignore-exclusions" (recur (rest args)
                                      (assoc opts :ignore-exclusions? true))
+        "--allow-pe-bc-provided" (recur (rest args)
+                                        (assoc opts :pe-bouncy-castle-provided? true))
         (cond
           (= "--" (first args)) (update opts :positional conj (rest args))
 
@@ -150,7 +166,7 @@ Usage:
     (if (:help? opts)
       (do (usage *out*) 0)
       (apply dispatch-diff
-             (merge {:out *out*} (select-keys opts [:mismatches-only? :ignore-exclusions?]))
+             (merge {:out *out*} (select-keys opts [:mismatches-only? :ignore-exclusions? :pe-bouncy-castle-provided?]))
              (:positional opts)))))
 
 (defn main [args]
