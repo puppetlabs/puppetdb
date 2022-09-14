@@ -19,7 +19,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## PuppetDB 6.22.1
 
-Released August 11 2022
+Released September 14 2022
 
 ### Security fixes
 
