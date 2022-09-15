@@ -96,6 +96,11 @@ jobs:
       env: PDB_TEST=core+ext/openjdk11/pg-14
       script: *run-core-and-ext-tests
 
+    - stage: ❧ pdb tests
+      name: core+ext jdk-17 pg-14
+      env: PDB_TEST=core+ext/openjdk17/pg-14
+      script: *run-core-and-ext-tests
+
     # Legacy testing, we do not promise support for jdk 8 or pg 9.6
     - stage: ❧ pdb tests
       name: core+ext jdk-8 pg-11
