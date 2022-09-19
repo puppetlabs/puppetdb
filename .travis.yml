@@ -6,7 +6,7 @@
 # appropriate.
 language: generic
 
-dist: bionic
+dist: jammy
 
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.

@@ -8,7 +8,7 @@ set -uexo pipefail
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
 # Default leiningen version
-default=2.9.5
+default=2.9.10
 
 cmdname="$(basename "$0")"
 
@@ -21,6 +21,7 @@ declare -A known_hash
 known_hash[2.9.1]=32acacc8354627724d27231bed8fa190d7df0356972e2fd44ca144c084ad4fc7
 known_hash[2.9.4]=1e21276bad56f4f8f8afd605ddf0c4d047a5244724a8dc6e13c6c55cc53b3fee
 known_hash[2.9.5]=79cc2c4aeddf829c393d31d80e6fddfd8b30cc1907a0e2f7cd73c93b300077f6
+known_hash[2.9.10]=bf30ef45439faa1abe5024152603e011bd186781f3c67faf389feea5a1286dc8
 
 # Verify two arguments were given
 test "$#" -eq 2 || misuse

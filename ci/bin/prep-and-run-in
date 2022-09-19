@@ -25,7 +25,7 @@ if [ "$host_type" = travis ] && [[ "$OSTYPE" != darwin* ]]; then
     # See https://github.com/pyenv/pyenv/issues/789 When using the
     # system python pyenv prepends /usr/bin to the path which breaks
     # anything that tries to override system defaults, like rvm/rbenv
-    pyenv global 3.7.6
+    pyenv global 3.9.13
 
     # Have to purge some of the existing pg bits so the 11 install
     # won't fail with errors like this:
