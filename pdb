@@ -14,7 +14,7 @@ set -eo pipefail
 dep-ver()
 {
     # Example:
-    #  [org.bouncycastle/bcpkix-jdk15on "1.70"]
+    #  [org.bouncycastle/bcpkix-jdk18on "1.71"]
     local artifact="$1" deps="$2"
     artifact_rx="${artifact//./\\.}"' "([0-9.]+)"'
     [[ $deps =~ $artifact_rx ]]
@@ -33,8 +33,8 @@ ensure-cache()
             exit 2
         fi
         local deps=$(lein deps :tree)
-        dep-ver org.bouncycastle/bcpkix-jdk15on "$deps" > ./pdb.bcpkix
-        dep-ver org.bouncycastle/bcprov-jdk15on "$deps" > ./pdb.bcprov
+        dep-ver org.bouncycastle/bcpkix-jdk18on "$deps" > ./pdb.bcpkix
+        dep-ver org.bouncycastle/bcprov-jdk18on "$deps" > ./pdb.bcprov
     fi
     cache_checked=true
 }
@@ -54,23 +54,23 @@ bcprov=''
 bcpkix=''
 
 # Load Bouncy Castle Crypto package jar from a custom location or Maven cache
-# https://mavenlibs.com/maven/dependency/org.bouncycastle/bcprov-jdk15on
+# https://mavenlibs.com/maven/dependency/org.bouncycastle/bcprov-jdk18on
 if test "$BCPROV_JAR"; then
     bcprov="$BCPROV_JAR"
 else
     ensure-cache
     bcprov_ver=$(<./pdb.bcprov)
-    bcprov="$HOME/.m2/repository/org/bouncycastle/bcprov-jdk15on/$bcprov_ver/bcprov-jdk15on-$bcprov_ver.jar"
+    bcprov="$HOME/.m2/repository/org/bouncycastle/bcprov-jdk18on/$bcprov_ver/bcprov-jdk18on-$bcprov_ver.jar"
 fi
 
 # Load another necessary Bouncy Castle jar from a custom location or Maven cache
-# https://mavenlibs.com/maven/dependency/org.bouncycastle/bcpkix-jdk15on
+# https://mavenlibs.com/maven/dependency/org.bouncycastle/bcpkix-jdk18on
 if test "$BCPKIX_JAR"; then
     bcpkix="$BCPKIX_JAR"
 else
     ensure-cache
     bcpkix_ver=$(<./pdb.bcpkix)
-    bcpkix="$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk15on/$bcpkix_ver/bcpkix-jdk15on-$bcpkix_ver.jar"
+    bcpkix="$HOME/.m2/repository/org/bouncycastle/bcpkix-jdk18on/$bcpkix_ver/bcpkix-jdk18on-$bcpkix_ver.jar"
 fi
 
 # Validate that PuppetDB jar and Bouncy Castle jars exist
