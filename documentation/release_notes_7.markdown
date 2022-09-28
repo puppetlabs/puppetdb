@@ -17,7 +17,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## PuppetDB 7.11.1
 
-Released August 11 2022
+Released September 14 2022
 
 ### Security fixes
 
