@@ -26,7 +26,7 @@ case "$flavor" in
         case "$flavor" in
             core|core+ext)
                 # Run core lein tests with ephemeral PuppetDB and PostgreSQL sandboxes
-                # Leiningen dev profile adds org.bouncycastle/bcpkix-jdk15on dependency
+                # Leiningen dev profile adds org.bouncycastle/bcpkix-jdk18on dependency
                 ext/bin/boxed-core-tests \
                     -- lein with-profiles "${LEIN_PROFILES:-dev}" test
                 ;;

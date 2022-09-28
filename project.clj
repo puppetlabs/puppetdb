@@ -1,6 +1,6 @@
 (def pdb-version "7.11.2-SNAPSHOT")
 
-(def clj-parent-version "5.2.1")
+(def clj-parent-version "5.2.5")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -259,7 +259,7 @@
                         :injections [(do
                                        (require 'schema.core)
                                        (schema.core/set-fn-validation! true))]}
-             :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
+             :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk18on]]
                               :plugins [[jonase/eastwood "0.3.14"
                                          :exclusions [org.clojure/clojure]]
                                         ]}]
@@ -293,7 +293,7 @@
 
                                                ;; ezbake does not use the uberjar profile so we need
                                                ;; to duplicate this dependency here
-                                               [org.bouncycastle/bcpkix-jdk15on nil]
+                                               [org.bouncycastle/bcpkix-jdk18on nil]
 
                                                ;; we need to explicitly pull in our parent project's
                                                ;; clojure version here, because without it, lein
@@ -321,7 +321,7 @@
              ; We only want to include bouncycastle in the FOSS uberjar.
              ; PE should be handled by selecting the proper bouncycastle jar
              ; at runtime (standard/fips)
-             :uberjar {:dependencies [[org.bouncycastle/bcpkix-jdk15on]]
+             :uberjar {:dependencies [[org.bouncycastle/bcpkix-jdk18on]]
                        :aot ~pdb-aot-namespaces}}
 
   :jar-exclusions [#"leiningen/"]

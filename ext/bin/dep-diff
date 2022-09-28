@@ -73,7 +73,7 @@ Usage:
   ds)
 
 (defn strip-bc-scope [dep]
-  (if (#{'org.bouncycastle/bcutil-jdk15on 'org.bouncycastle/bcpkix-jdk15on 'org.bouncycastle/bcprov-jdk15on}
+  (if (#{'org.bouncycastle/bcutil-jdk18on 'org.bouncycastle/bcpkix-jdk18on 'org.bouncycastle/bcprov-jdk18on}
        (first dep))
     (letfn [(strip [remainder]
               (when (seq remainder)
