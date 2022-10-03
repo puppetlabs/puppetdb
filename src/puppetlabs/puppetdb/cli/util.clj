@@ -24,6 +24,7 @@
     (re-matches #"1\.[89]($|(\..*))" version) :deprecated
     (re-matches #"10($|(\..*))" version) :deprecated
     (re-matches (re-pattern (str supported-java-version "($|(\\..*))")) version) :official
+    (re-matches #"17($|(\..*))" version) :tested
     :else :unknown))
 
 (defn jdk-unsupported-msg [version]
