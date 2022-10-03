@@ -22,7 +22,7 @@ case "$jdkver" in
       expected_help_warnings=60
       expected_version_warnings=60
         ;;
-    11 | 17)
+    11)
         ;;
     *)
         echo "JDK version '$jdkver' is not supported" 1>&2
