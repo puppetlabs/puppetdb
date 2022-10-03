@@ -96,26 +96,21 @@ jobs:
       env: PDB_TEST=core+ext/openjdk11/pg-14
       script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-17 pg-14
-      env: PDB_TEST=core+ext/openjdk17/pg-14
-      script: *run-core-and-ext-tests
-
     # Legacy testing, we do not promise support for jdk 8 or pg 9.6
     - stage: ❧ pdb tests
       name: core+ext jdk-8 pg-11
       env: PDB_TEST=core+ext/openjdk8/pg-11
       script: *run-core-and-ext-tests
 
-    # === integration with main branches
+    # === integration with 7.x branches
     - stage: ❧ pdb tests
-      name: int pup-main srv-main jdk-11 pg-11
-      env: PDB_TEST=int/openjdk11/pup-main/srv-main/pg-11
+      name: int pup-main srv-7.x jdk-11 pg-11
+      env: PDB_TEST=int/openjdk11/pup-main/srv-7.x/pg-11
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-main srv-main jdk-11 pg-11 rich
-      env: PDB_TEST=int/openjdk11/pup-main/srv-main/pg-11/rich
+      name: int pup-main srv-7.x jdk-11 pg-11 rich
+      env: PDB_TEST=int/openjdk11/pup-main/srv-7.x/pg-11/rich
       script: *run-integration-tests
 
     # === integration with Platform 6 branches
