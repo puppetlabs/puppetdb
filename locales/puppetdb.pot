@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 3ab7edc463edc76cf6a4c0a2e4c55bec60d39085\n"
+"X-Git-Ref: 796da00b395548ff1d06424177667fa2ccd10176\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1613,6 +1613,18 @@ msgstr ""
 msgid ""
 "  May indicate use of $facts[''my_fact''] instead of "
 "$'{'facts[''my_fact'']'}'"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Inserting new resources for certname {0}: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Deleting resources for certname {0}: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Certname {0} changed ''{1}'' resource ''{2}'' previously {3} now {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
