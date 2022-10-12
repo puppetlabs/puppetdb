@@ -606,6 +606,11 @@
       (throw (SQLException. msg (.getSQLState ex) (.getErrorCode ex) ex))))
   (throw ex))
 
+(def log-catalog-resource-changes?
+  (->> (or (System/getenv "PDB_LOG_CATALOG_RESOURCE_CHANGES") "no")
+       (re-matches #"yes|true|1")
+       seq))
+
 (s/defn insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
   [certname-id :- Long
@@ -616,6 +621,11 @@
     {:pre [(every? resource-ref? refs-to-insert)]}
 
     (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
+    (when (and log-catalog-resource-changes?
+               (seq refs-to-insert))
+      (log/info (trs "Inserting new resources for certname {0}: {1}"
+                     certname
+                     (select-keys refs-to-hashes refs-to-insert))))
     (let [last-record (atom nil)]
       (try
         (insert-records*
@@ -641,12 +651,20 @@
 
 (s/defn delete-catalog-resources!
   "Returns a function accepts old catalog resources that should be deleted."
-  [certname-id :- Long]
+  [certname-id :- Long
+   certname :- String
+   old-resources]
   (fn [refs-to-delete]
     {:pre [(every? resource-ref? refs-to-delete)]}
 
     (update! (get-storage-metric :catalog-volatility) (count refs-to-delete))
 
+    (when (and log-catalog-resource-changes?
+               (seq refs-to-delete))
+      (log/info (trs "Deleting resources for certname {0}: {1}"
+                     certname
+                     (pr-str (map #(select-keys % [:type :title :resource])
+                                  (vals (select-keys old-resources refs-to-delete)))))))
     (doseq [{:keys [type title]} refs-to-delete]
       (jdbc/delete! :catalog_resources
                     ["certname_id = ? and type = ? and title = ?"
@@ -668,11 +686,18 @@
   "Return resource references with values that are only the key/values that from `right` that
    are different from those of the `left`. The keys/values here are suitable for issuing update
    statements that will update resources to the correct (new) values."
-  [left right]
+  [left right certname]
   (reduce-kv (fn [acc k right-values]
                (let [updated-resource-vals (basic-diff (get left k) right-values)]
                  (if (seq updated-resource-vals)
-                   (assoc acc k updated-resource-vals)
+                   (do
+                     (when log-catalog-resource-changes?
+                       (log/info (trs "Certname {0} changed ''{1}'' resource ''{2}'' previously {3} now {4}"
+                                      certname (:type k) (:title k)
+                                      (select-keys (get left k)
+                                                   (keys updated-resource-vals))
+                                      updated-resource-vals)))
+                     (assoc acc k updated-resource-vals))
                    acc))) {} right))
 
 (defn merge-resource-hash
@@ -693,7 +718,7 @@
   (fn [maybe-updated-refs]
     {:pre [(every? resource-ref? maybe-updated-refs)]}
     (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
-          updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash)
+          updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash certname)
                                  (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
 
       (update! (get-storage-metric :catalog-volatility) (count updated-resources))
@@ -725,7 +750,7 @@
      (add-params! refs-to-resources refs-to-hashes)
      (utils/diff-fn old-resources
                     diffable-resources
-                    (delete-catalog-resources! certname-id)
+                    (delete-catalog-resources! certname-id certname old-resources)
                     (insert-catalog-resources! certname-id certname refs-to-hashes
                                                diffable-resources)
                     (update-catalog-resources! certname-id certname refs-to-hashes
