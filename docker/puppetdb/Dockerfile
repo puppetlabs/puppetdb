@@ -93,6 +93,7 @@ RUN apt-get update && \
     curl --output /usr/local/bin/lein https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && \
     chmod 0755 /usr/local/bin/lein && \
     /usr/local/bin/lein && \
+    gem install --no-doc public_suffix -v 4.0.7 && \
     gem install --no-doc bundler fpm
 
 COPY . /puppetdb
