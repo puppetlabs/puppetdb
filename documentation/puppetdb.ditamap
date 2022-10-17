@@ -113,6 +113,10 @@
       <topicref href="api/metrics/v1/changes-from-puppetdb-v3.markdown" format="markdown"/>
     </topichead>
 
+    <topichead navtitle="Metrics API version 2">
+      <topicref href="api/metrics/v2/jolokia.markdown" format="markdown"/>
+    </topichead>
+  
     <topichead navtitle="Command API">
       <topicref href="api/command/v1/commands.markdown" format="markdown"/>
     </topichead>
