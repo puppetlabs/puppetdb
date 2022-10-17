@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
 <map id="puppetdb" title="PuppetDB">
-    <topicmeta>
+  <topicmeta>
+    <author type="creator">april.murphy</author>
         <prodinfo>
             <prodname>puppetdb</prodname>
             <vrmlist>
