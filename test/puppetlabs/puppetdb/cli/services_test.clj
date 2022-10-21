@@ -490,22 +490,22 @@
 
                    (is (thrown-with-msg?
                         java.util.concurrent.ExecutionException
-                        #"ERROR: canceling statement due to user request"
+                        #"FATAL: terminating connection due to administrator command"
                         (deref report-query default-timeout-ms :timeout-getting-expected-query-ex)))
                    (is (thrown-with-msg?
                         java.util.concurrent.ExecutionException
-                        #"ERROR: canceling statement due to user request"
+                        #"FATAL: terminating connection due to administrator command"
                         (deref report-query2 default-timeout-ms :timeout-getting-expected-query-ex)))
                    (is (thrown-with-msg?
                         java.util.concurrent.ExecutionException
-                        #"ERROR: canceling statement due to user request"
+                        #"FATAL: terminating connection due to administrator command"
                         (deref resource-query default-timeout-ms :timeout-getting-expected-query-ex))))
 
                  ;; There should be two cancelled messages in the logs. One from the
                  ;; queries cancelled by report GC and one from resource_events GC
                  (is (= 2 (->> @log
                                (map :message)
-                               (map #(str/includes? % "Partition GC canceled"))
+                               (map #(str/includes? % "Partition GC terminated queries"))
                                (filter true?)
                                count)))
 
