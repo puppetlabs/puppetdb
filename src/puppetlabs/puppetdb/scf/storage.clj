@@ -1579,7 +1579,7 @@
             (deliver connected true)
             (while (not @gc-finished?)
               (maybe-log-query-termination (bulldoze-blocking-qs gc-pid))
-              (Thread/sleep 1000)))
+              (Thread/sleep 200)))
           (catch InterruptedException _
             true)
           (finally
