@@ -380,7 +380,10 @@
         (throw-cli-error
          (trs "gc-interval must be a number: {0}" x)))))
 
-(defn gc-interval->ms [config]
+(defn gc-interval->period
+  "Converts a gc-interval (either a number or String) in minutes into a Period.
+  Supports fractional minutes by converting to milliseconds"
+  [config]
   (update config
           :gc-interval
           (fn [minutes]
@@ -428,7 +431,7 @@
       pls/convert-blacklist-settings-to-blocklist
       convert-blocklist-config
       (coerce-and-validate-final-config per-write-database-config-out)
-      gc-interval->ms
+      gc-interval->period
       default-events-ttl
       (prefer-db-user-on-username-mismatch (name section-key))
       ensure-migrator-info
