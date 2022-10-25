@@ -69,13 +69,12 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time
-             :refer [before?
-                     now
-                     hours
+             :refer [hours
                      ago
                      to-seconds
                      to-millis
                      format-period
+                     period-longer?
                      period?]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
@@ -128,7 +127,8 @@
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 (def clean-options
-  #{"expire_nodes" "purge_nodes" "purge_reports" "gc_packages" "purge_resource_events" "other"})
+  #{"expire_nodes" "purge_nodes" "purge_reports" "gc_packages" "purge_resource_events"
+    "gc_fact_paths" "gc_catalogs" "other"})
 
 (def purge-nodes-opts-schema {:batch_limit s/Int})
 
@@ -160,6 +160,8 @@
              "purge_reports" "purging-reports"
              "purge_resource_events" "purging-resource-events"
              "gc_packages" "package-gc"
+             "gc_catalogs" "catalog-gc"
+             "gc_fact_paths" "fact-paths-gc"
              "other" "other"})
        (str/join " ")))
 
@@ -288,6 +290,24 @@
     (catch Exception e
       (log/error e (trs "Error during garbage collection")))))
 
+(defn clean-catalog-data
+  [db]
+  (try
+    (kitchensink/demarcate
+      (trs "sweep of stale catalog data")
+      (scf-store/clean-catalog-data db))
+    (catch Exception e
+      (log/error e (trs "Error during sweep of stale catalog data")))))
+
+(defn fact-path-gc
+  [db]
+  (try
+    (kitchensink/demarcate
+      (trs "sweep of unused fact paths")
+      (scf-store/fact-path-gc db))
+    (catch Exception e
+      (log/error e (trs "Error during sweep of unused fact paths")))))
+
 (def admin-metrics-registry
   (get-in metrics/metrics-registries [:admin :registry]))
 
@@ -306,12 +326,16 @@
          :report-purges (counter admin-metrics-registry [(pname "report-purges")])
          :resource-events-purges (counter admin-metrics-registry [(pname "resource-event-purges")])
          :package-gcs (counter admin-metrics-registry [(pname "package-gcs")])
+         :catalog-gcs (counter admin-metrics-registry [(pname "catalog-gcs")])
+         :fact-path-gcs (counter admin-metrics-registry [(pname "fact-path-gcs")])
          :other-cleans (counter admin-metrics-registry [(pname "other-cleans")])
          :node-expiration-time (timer admin-metrics-registry [(pname "node-expiration-time")])
          :node-purge-time (timer admin-metrics-registry [(pname "node-purge-time")])
          :report-purge-time (timer admin-metrics-registry [(pname "report-purge-time")])
          :resource-events-purge-time (timer admin-metrics-registry [(pname "resource-events-purge-time")])
          :package-gc-time (timer admin-metrics-registry [(pname "package-gc-time")])
+         :catalog-gc-time (timer admin-metrics-registry [(pname "catalog-gc-time")])
+         :fact-path-gc-time (timer admin-metrics-registry [(pname "fact-path-gc-time")])
          :other-clean-time (timer admin-metrics-registry [(pname "other-clean-time")])}]
     (mutils/prefix-metric-keys prefix admin-metrics)))
 
@@ -392,12 +416,25 @@
                                         :resource-events-ttl resource-events-ttl
                                         :db-lock-status db-lock-status}))
         (counters/inc! (get-metric :resource-events-purges)))
-      ;; It's important that this go last to ensure anything referencing
-      ;; an env or resource param is purged first.
+
+      ;; The "other" and "gc_catalogs" jobs remove environments and resource parameters
+      ;; that may be referenced from other tables, so it is important that these jobs go
+      ;; after any jobs that may remove references to environments (purge_nodes,
+      ;; purge_reports) and any jobs that may remove references to catalog resource
+      ;; parameters (purge_nodes).
       (when (request "other")
         (time! (get-metric :other-clean-time)
                (garbage-collect! db))
         (counters/inc! (get-metric :other-cleans)))
+      (when (request "gc_catalogs")
+        (time! (get-metric :catalog-gc-time)
+               (clean-catalog-data db))
+
+        (counters/inc! (get-metric :catalog-gcs)))
+      (when (request "gc_fact_paths")
+        (time! (get-metric :fact-path-gc-time)
+               (fact-path-gc db))
+        (counters/inc! (get-metric :fact-path-gcs)))
       (finally
         (clear-clean-status!)))))
 
@@ -711,7 +748,8 @@
   "Given a database config, creates a list of tuples that are the list of
   database clean requests to perform and their scheduled interval"
   [{:keys [gc-interval] :as config}]
-  (let [seconds-pos? (comp pos? to-seconds)]
+  (let [seconds-pos? (comp pos? to-seconds)
+        one-day (-> 24 hours .toPeriod)]
     (filter identity
             [(when (some-> (:node-ttl config) seconds-pos?)
                [["expire_nodes"] gc-interval])
@@ -730,7 +768,11 @@
 
                 :else [["purge_reports"] gc-interval]))
              [["gc_packages"] gc-interval]
-             [["other"] gc-interval]])))
+             [["gc_catalogs"] gc-interval]
+             ;; run fact path gc at most once per day
+             [["gc_fact_paths"] (if (period-longer? one-day gc-interval)
+                                  one-day
+                                  gc-interval)]])))
 
 (defn collect-garbage
   ([db clean-lock config db-lock-status clean-request]
@@ -867,24 +909,12 @@
      0 schema-check-interval)))
 
 (defn invoke-periodic-gc [db cfg request shutdown-for-ex
-                          clean-lock lock-status
-                          last-gc-run
-                          ;; "other" gc will only run if last-gc-run is before
-                          ;; fact-path-limit, both are timestamps
-                          fact-path-limit]
+                          clean-lock lock-status]
   (with-nonfatal-exceptions-suppressed
     (with-monitored-execution shutdown-for-ex
       (try
-        ;; Only perform fact-path gc ("other") unless it is the first gc after startup,
-        ;; or it has been at least 24h since the previous
-        (let [request (if (or (nil? @last-gc-run)
-                              (before? @last-gc-run fact-path-limit))
-                        (do
-                          (reset! last-gc-run (now))
-                          request)
-                        (remove #{"other"} request))]
-          ;; Always prune partitions incrementally
-          (collect-garbage db clean-lock cfg lock-status request true))
+        ;; Always prune partitions incrementally
+        (collect-garbage db clean-lock cfg lock-status request true)
         (catch InterruptedException _
           (log/info (trs "Garbage collector interrupted")))))))
 
@@ -895,14 +925,12 @@
   (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
                                     (map vector db-configs db-pools db-lock-statuses))]
     (doseq [[cfg db lock-status] dbs-with-gc-enabled]
-      (let [request-cfg (db-config->clean-request cfg)
-            last-gc-run (atom nil)]
+      (let [request-cfg (db-config->clean-request cfg)]
         ;; Start GC job pool with initial and subsequent delay of :gc-interval
         (doseq [[request interval] request-cfg]
           (schedule-with-fixed-delay job-pool #(invoke-periodic-gc db cfg request
                                                                    shutdown-for-ex
-                                                                   clean-lock lock-status
-                                                                   last-gc-run (-> 24 hours ago))
+                                                                   clean-lock lock-status)
                                      (to-millis interval) (to-millis interval)))))))
 
 
