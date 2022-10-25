@@ -508,6 +508,8 @@
    context
    (finally (some-> (:job-pool context)
                     (shut-down-service-scheduler-or-die request-shutdown)))
+   (finally (some-> (:gc-pool context)
+                    (shut-down-service-scheduler-or-die request-shutdown)))
    (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
    (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
                     .close))
@@ -706,22 +708,29 @@
                 nil))))))))
 
 (defn db-config->clean-request
-  [config]
+  "Given a database config, creates a list of tuples that are the list of
+  database clean requests to perform and their scheduled interval"
+  [{:keys [gc-interval] :as config}]
   (let [seconds-pos? (comp pos? to-seconds)]
     (filter identity
             [(when (some-> (:node-ttl config) seconds-pos?)
-               "expire_nodes")
+               [["expire_nodes"] gc-interval])
              (when (some-> (:node-purge-ttl config) seconds-pos?)
                (let [limit (:node-purge-gc-batch-limit config)]
                  (if (zero? limit)
-                            "purge_nodes"
-                            ["purge_nodes" {:batch_limit limit}])))
-             (when (some-> (:report-ttl config) seconds-pos?)
-               "purge_reports")
-             (when (some-> (:resource-events-ttl config) seconds-pos?)
-               "purge_resource_events")
-             "gc_packages"
-             "other"])))
+                            [["purge_nodes"] gc-interval]
+                            [[["purge_nodes" {:batch_limit limit}]] gc-interval])))
+             (let [report-ttl (some-> (:report-ttl config) seconds-pos?)
+                   events-ttl (some-> (:resource-events-ttl config) seconds-pos?)]
+               (cond
+                (and report-ttl events-ttl)
+                [["purge_reports" "purge_resource_events"] gc-interval]
+
+                events-ttl [["purge_resource_events"] gc-interval]
+
+                :else [["purge_reports"] gc-interval]))
+             [["gc_packages"] gc-interval]
+             [["other"] gc-interval]])))
 
 (defn collect-garbage
   ([db clean-lock config db-lock-status clean-request]
@@ -880,20 +889,21 @@
           (log/info (trs "Garbage collector interrupted")))))))
 
 (defn start-garbage-collection
+  "Starts garbage collection of the databases represented in db-configs"
   [{:keys [clean-lock] :as _context}
    job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
   (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
                                     (map vector db-configs db-pools db-lock-statuses))]
     (doseq [[cfg db lock-status] dbs-with-gc-enabled]
-      (let [interval (to-millis (:gc-interval cfg))
-            request (db-config->clean-request cfg)
+      (let [request-cfg (db-config->clean-request cfg)
             last-gc-run (atom nil)]
         ;; Start GC job pool with initial and subsequent delay of :gc-interval
-        (schedule-with-fixed-delay job-pool #(invoke-periodic-gc db cfg request
-                                                                 shutdown-for-ex
-                                                                 clean-lock lock-status
-                                                                 last-gc-run (-> 24 hours ago))
-                                   interval interval)))))
+        (doseq [[request interval] request-cfg]
+          (schedule-with-fixed-delay job-pool #(invoke-periodic-gc db cfg request
+                                                                   shutdown-for-ex
+                                                                   clean-lock lock-status
+                                                                   last-gc-run (-> 24 hours ago))
+                                     (to-millis interval) (to-millis interval)))))))
 
 
 (defn database-lock-status []
@@ -964,8 +974,13 @@
                    (init-queue config maybe-send-cmd-event! cmd-event-ch shutdown-for-ex)
 
                    _ command-loader :error #(some-> % future-cancel)
-                   ;; gc, schema checks, update checks
+                   ;; schema checks, update checks
                    job-pool (scheduler 4) :error #(shut-down-service-scheduler-or-die
+                                                   % request-shutdown)
+                   ;; schedule gc routines on a fixed delay, but ensure that we limit
+                   ;; database contention by "serializing" the jobs on a thread pool
+                   ;; with 1 thread
+                   gc-pool (scheduler 1) :error #(shut-down-service-scheduler-or-die
                                                    % request-shutdown)
                    ; Create connection pools for each DB we want to write to
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
@@ -985,12 +1000,13 @@
                              (cons read-database write-db-cfgs)
                              (cons read-db write-db-pools)
                              shutdown-for-ex)
-        (start-garbage-collection context job-pool
+        (start-garbage-collection context gc-pool
                                   write-db-cfgs write-db-pools write-db-lock-statuses
                                   shutdown-for-ex)
 
         (-> context
             (assoc :job-pool job-pool
+                   :gc-pool gc-pool
                    :command-loader command-loader
                    ::started? true)
             (update :shared-globals merge

@@ -352,7 +352,7 @@
               db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)
               db-lock-status (svcs/database-lock-status)]
           (collect-garbage db-cfg lock db-cfg db-lock-status
-                           (db-config->clean-request db-cfg)))
+                           (mapcat first (db-config->clean-request db-cfg))))
         (is (= expected-remaining
                (count (purgeable-nodes node-purge-ttl))))))))
 
@@ -393,10 +393,13 @@
           after-gc (CyclicBarrier. 2)
           original-periodic-gc svcs/invoke-periodic-gc
           invoke-periodic (fn [& args]
-                            (.await before-gc)
-                            (let [result (apply original-periodic-gc args)]
-                              (.await after-gc)
-                              result))]
+                            (if (some #{"purge_reports"} (nth args 2))
+                              (do
+                                (.await before-gc)
+                                (let [result (apply original-periodic-gc args)]
+                                  (.await after-gc)
+                                  result))
+                              (apply original-periodic-gc args)))]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
         (call-with-single-quiet-pdb-instance
          config
@@ -446,9 +449,12 @@
           after-gc (CyclicBarrier. 2)
           original-periodic-gc svcs/invoke-periodic-gc
           invoke-periodic (fn [& args]
-                            (let [result (apply original-periodic-gc args)]
-                              (.await after-gc)
-                              result))
+                            (if (some #{"purge_reports"} (nth args 2))
+                              (let [result (apply original-periodic-gc args)]
+                                (.await after-gc)
+                                result)
+                              ;; if not purging reports, run gc normally
+                              (apply original-periodic-gc args)))
           event-expired? (fn [_ _] true)]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic
                     scf-store/resource-event-expired? event-expired?]
