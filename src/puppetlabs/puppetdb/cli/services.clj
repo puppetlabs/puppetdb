@@ -69,12 +69,10 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time
-             :refer [hours
-                     ago
+             :refer [ago
                      to-seconds
                      to-millis
                      format-period
-                     period-longer?
                      period?]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [await-scheduler-shutdown
@@ -747,19 +745,22 @@
 (defn db-config->clean-request
   "Given a database config, creates a list of tuples that are the list of
   database clean requests to perform and their scheduled interval"
-  [{:keys [gc-interval] :as config}]
-  (let [seconds-pos? (comp pos? to-seconds)
-        one-day (-> 24 hours .toPeriod)]
+  [config]
+  (let [seconds-pos? (comp pos? to-seconds)]
     (filter identity
             [(when (some-> (:node-ttl config) seconds-pos?)
-               [["expire_nodes"] gc-interval])
+               [["expire_nodes"] (:gc-interval-expire-nodes config)])
+
              (when (some-> (:node-purge-ttl config) seconds-pos?)
-               (let [limit (:node-purge-gc-batch-limit config)]
+               (let [limit (:node-purge-gc-batch-limit config)
+                     gc-interval (:gc-interval-purge-nodes config)]
                  (if (zero? limit)
                             [["purge_nodes"] gc-interval]
                             [[["purge_nodes" {:batch_limit limit}]] gc-interval])))
+
              (let [report-ttl (some-> (:report-ttl config) seconds-pos?)
-                   events-ttl (some-> (:resource-events-ttl config) seconds-pos?)]
+                   events-ttl (some-> (:resource-events-ttl config) seconds-pos?)
+                   gc-interval (:gc-interval-purge-reports config)]
                (cond
                 (and report-ttl events-ttl)
                 [["purge_reports" "purge_resource_events"] gc-interval]
@@ -767,12 +768,10 @@
                 events-ttl [["purge_resource_events"] gc-interval]
 
                 :else [["purge_reports"] gc-interval]))
-             [["gc_packages"] gc-interval]
-             [["gc_catalogs"] gc-interval]
-             ;; run fact path gc at most once per day
-             [["gc_fact_paths"] (if (period-longer? one-day gc-interval)
-                                  one-day
-                                  gc-interval)]])))
+
+             [["gc_packages"] (:gc-interval-packages config)]
+             [["gc_catalogs"] (:gc-interval-catalogs config)]
+             [["gc_fact_paths"] (:gc-interval-fact-paths config)]])))
 
 (defn collect-garbage
   ([db clean-lock config db-lock-status clean-request]

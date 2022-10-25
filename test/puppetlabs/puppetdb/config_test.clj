@@ -402,6 +402,29 @@
         (is (thrown-with-msg? ExceptionInfo #"gc-interval cannot be negative"
                               (config-with {:database {:gc-interval "-1"}})))))
 
+    (testing "gc-interval"
+      (testing "should default to gc-interval"
+        (let [config (config-with {:database {:gc-interval "900"}})]
+          (doseq [c [:gc-interval-expire-nodes :gc-interval-purge-nodes :gc-interval-purge-reports
+                     :gc-interval-packages :gc-interval-fact-paths :gc-interval-catalogs]]
+            (let [gc-interval (get-in config [:database c])]
+              (is (time/period? gc-interval))
+              (if (= :gc-interval-fact-paths c)
+                (is (= 1440 (time/to-minutes gc-interval)))
+                (is (= 900 (time/to-minutes gc-interval))))))))
+
+      (testing "should allow overriding individual configs"
+        (let [config (config-with {:database {:gc-interval "900"
+                                              :gc-interval-fact-paths "900"
+                                              :gc-interval-purge-nodes "10"}})]
+          (doseq [c [:gc-interval-expire-nodes :gc-interval-purge-nodes :gc-interval-purge-reports
+                     :gc-interval-packages :gc-interval-fact-paths :gc-interval-catalogs]]
+            (let [gc-interval (get-in config [:database c])]
+              (is (time/period? gc-interval))
+              (if (= c :gc-interval-purge-nodes)
+                (is (= 10 (time/to-minutes gc-interval)))
+                (is (= 900 (time/to-minutes gc-interval)))))))))
+
     (testing "node-ttl"
       (testing "should parse node-ttl and return a period"
         (let [node-ttl (get-in (config-with {:database {:node-ttl "10d"}})
