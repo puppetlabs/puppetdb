@@ -1603,7 +1603,11 @@
       (try
         (.start gc-bulldozer)
         (when @bulldozer-connected
-          (drop-one candidate))
+          ;; This log message also provides evidence the bulldozer has
+          ;; acquired its connection.
+          (log/info (trs "Partition GC dropping partition {0}" candidate))
+          (drop-one candidate)
+          (log/info (trs "Partition GC dropped partition {0}" candidate)))
         (finally
           (when-not @bulldozer-connected
             (log/error (trs "Partition GC bulldozer could not connect to the database")))
@@ -1614,7 +1618,7 @@
           (when (.isAlive gc-bulldozer)
             ;; if the join above timed out and the bulldozer thread is still alive
             ;; log an ERROR because it could indicate a memory leak
-            (log/error "Unable to clean up the gc bulldozer thread.
+            (log/error "Unable to clean up the GC bulldozer thread.
                         Please file a bug with the stack trace below: \n"
                        (apply str (interpose "\n" (.getStackTrace gc-bulldozer))))))))))
 
@@ -1677,7 +1681,7 @@
                   ;; GC needs AccessExclusiveLocks on in order to drop
                   (drop-one-partition drop-one candidate db)
                   (when (> (bounded-count 3 candidates) 2)
-                    (log/warn (trs "More than 2 partitions to prune: {0}"
+                    (log/warn (trs "More than 2 partitions remaining to prune: {0}"
                                    (pr-str (butlast candidates))))))
                 (doseq [candidate candidates]
                   (drop-one candidate)))]
