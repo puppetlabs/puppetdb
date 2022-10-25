@@ -1558,7 +1558,7 @@
    until the bulldozer thread is interrupted or receives confirmation from the
    GC thread via the gc-finished? atom that the GC thread has dropped the
    partition."
-  [db gc-pid gc-finished?]
+  [db gc-pid connected gc-finished?]
   (let [bulldoze-blocking-qs
         (fn [gc-pid]
           (jdbc/query-to-vec
@@ -1571,16 +1571,20 @@
     (Thread.
      #(with-noisy-failure
         (try
-          ;; you can't use *db* value from the GC thread because the connection
-          ;; it has may already be blocked attempting to drop the partition.
-          ;; Binding *db* to the passed in db var will cause the bulldozer thread
-          ;; to get a new Hikari connection
-          (binding [jdbc/*db* db]
+          ;; The bulldozer must have its own connection so it can act
+          ;; independenly of the (potentially blocked) gc connection,
+          ;; i.e. (sql/db-find-connection db) should be false at this
+          ;; point.
+          (jdbc/with-db-connection db
+            (deliver connected true)
             (while (not @gc-finished?)
               (maybe-log-query-termination (bulldoze-blocking-qs gc-pid))
               (Thread/sleep 1000)))
           (catch InterruptedException _
-            true))))))
+            true)
+          (finally
+            (when-not (realized? connected)
+              (deliver connected false))))))))
 
 (def gc-query-bulldozer-timeout-ms
   (env-config-for-db-ulong "PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS"
@@ -1594,11 +1598,15 @@
                      first
                      :pg_backend_pid)
           gc-finished? (atom false)
-          gc-bulldozer (query-bulldozer db gc-pid gc-finished?)]
+          bulldozer-connected (promise)
+          gc-bulldozer (query-bulldozer db gc-pid bulldozer-connected gc-finished?)]
       (try
         (.start gc-bulldozer)
-        (drop-one candidate)
+        (when @bulldozer-connected
+          (drop-one candidate))
         (finally
+          (when-not @bulldozer-connected
+            (log/error (trs "Partition GC bulldozer could not connect to the database")))
           (reset! gc-finished? true)
           ;; make sure the gc-bulldozer thread has broken out of its loop
           (.interrupt gc-bulldozer)
