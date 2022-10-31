@@ -9,8 +9,10 @@ canonical: "/puppetdb/latest/api/metrics/v2/jolokia.html"
 By default, PuppetDB has two optional web APIs for
 [Java Management Extension (JMX)](https://docs.oracle.com/javase/tutorial/jmx/index.html)
 metrics, namely [managed beans (MBeans)](https://docs.oracle.com/javase/tutorial/jmx/mbeans/) and Jolokia.
+
+The Jolokia API is enabled by default. You must use `https://` to access `metrics/v2` for any service, and you must present authorization in the form of a Puppet certificate.
+
 For the older MBeans metrics API, see [the `/metrics/v1` documentation](../v1/mbeans.markdown).
-The Jolokia API is enabled by default with access restricted to localhost.
 
 ## Jolokia endpoints
 

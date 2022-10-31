@@ -15,6 +15,21 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.11.2
+
+Released October 11 2022
+
+### New features and improvements
+
+* PuppetDB will now log additional information when processing each
+  command, including the producer timestamp, and when available, a
+  prefix of the fingerprint.
+  ([PDB-5524](https://tickets.puppetlabs.com/browse/PDB-5524))
+
+### Contributors
+
+Austin Blatt, Jonathan Newman, Justin Stoller, and Rob Browning
+
 ## PuppetDB 7.11.1
 
 Released September 14 2022

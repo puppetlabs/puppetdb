@@ -2086,7 +2086,7 @@
                       :line       30
                       :tags       #{"file" "class" "foobar" "baz"}}}]
 
-    (are [expected left right] (= expected (diff-resources-metadata left right))
+    (are [expected left right] (= expected (diff-resources-metadata left right "debugging-certname"))
 
          {}
          resources-1

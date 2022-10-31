@@ -1620,6 +1620,18 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Inserting new resources for certname {0}: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Deleting resources for certname {0}: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Certname {0} changed ''{1}'' resource ''{2}'' previously {3} now {4}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Partition GC canceled queries from the following PostgreSQL pids: {0}"
 msgstr ""
 
