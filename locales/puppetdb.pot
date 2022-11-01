@@ -1632,12 +1632,12 @@ msgid "Certname {0} changed ''{1}'' resource ''{2}'' previously {3} now {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Partition GC canceled queries from the following PostgreSQL pids: {0}"
+msgid "Partition GC terminated queries from the following PostgreSQL pids: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid ""
-"Partition GC failed to cancel queries from the following PostgreSQL pids: "
+"Partition GC failed to terminate queries from the following PostgreSQL pids: "
 "{0}. "
 msgstr ""
 
@@ -1646,8 +1646,22 @@ msgid ""
 "The queries related to these pids may be blocking other database operations."
 msgstr ""
 
+#. This log message also provides evidence the bulldozer has
+#. acquired its connection.
 #: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "More than 2 partitions to prune: {0}"
+msgid "Partition GC dropping partition {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Partition GC dropped partition {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Partition GC bulldozer could not connect to the database"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "More than 2 partitions remaining to prune: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj

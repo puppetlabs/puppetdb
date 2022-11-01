@@ -1531,39 +1531,39 @@
                      (update-latest-report! certname report-id producer_timestamp))
                    {:status :incorporated :hash report-hash})))))))
 
-(defn maybe-log-query-cancellation
+(defn maybe-log-query-termination
   "Takes a seq of maps containing information about PostgreSQL pids
-   which the query-bulldozer attempted to call pg_cancel_backend(<pid>)
-   on and logs information about the cancellation attempt.
-   Example input: [{:pg_cancel_backend t/f :pid <pid>}]"
+   which the query-bulldozer attempted to call pg_terminate_backend(<pid>)
+   on and logs information about the termination attempt.
+   Example input: [{:pg_terminate_backend t/f :pid <pid>}]"
   [result]
-  (let [{canceled true failed false} (group-by :pg_cancel_backend result)]
-    (when (seq canceled)
+  (let [{terminated true failed false} (group-by :pg_terminate_backend result)]
+    (when (seq terminated)
       (log/info
-       (trs "Partition GC canceled queries from the following PostgreSQL pids: {0}"
-            (pr-str (mapv :pid canceled)))))
+       (trs "Partition GC terminated queries from the following PostgreSQL pids: {0}"
+            (pr-str (mapv :pid terminated)))))
     (when (seq failed)
       (log/error
        (str
-        (trs "Partition GC failed to cancel queries from the following PostgreSQL pids: {0}. "
+        (trs "Partition GC failed to terminate queries from the following PostgreSQL pids: {0}. "
              (pr-str (mapv :pid failed)))
         (trs "The queries related to these pids may be blocking other database operations."))))))
 
 (defn query-bulldozer
   "Creates a thread which will loop and wait for the gc-pid to get blocked
    waiting on an AccessExclusiveLock. Once this thread detects that GC is
-   blocked it will cancel all running queries from the pdb user against the
+   blocked it will terminate all running queries from the pdb user against the
    pdb database which have been granted locks with the exception of queries
    from the gc-pid or the bulldozer's pid. This should clear the way for GC
    to grab the lock it's requesting in the main GC thread. This loop repeats
    until the bulldozer thread is interrupted or receives confirmation from the
    GC thread via the gc-finished? atom that the GC thread has dropped the
    partition."
-  [db gc-pid gc-finished?]
+  [db gc-pid connected gc-finished?]
   (let [bulldoze-blocking-qs
         (fn [gc-pid]
           (jdbc/query-to-vec
-           (str "select pg_cancel_backend(pid), pid"
+           (str "select pg_terminate_backend(pid), pid"
                 " from pg_stat_activity"
                 " where (datname = (select current_database())"
                 "  and usename = (select current_user))"
@@ -1572,16 +1572,20 @@
     (Thread.
      #(with-noisy-failure
         (try
-          ;; you can't use *db* value from the GC thread because the connection
-          ;; it has may already be blocked attempting to drop the partition.
-          ;; Binding *db* to the passed in db var will cause the bulldozer thread
-          ;; to get a new Hikari connection
-          (binding [jdbc/*db* db]
+          ;; The bulldozer must have its own connection so it can act
+          ;; independenly of the (potentially blocked) gc connection,
+          ;; i.e. (sql/db-find-connection db) should be false at this
+          ;; point.
+          (jdbc/with-db-connection db
+            (deliver connected true)
             (while (not @gc-finished?)
-              (maybe-log-query-cancellation (bulldoze-blocking-qs gc-pid))
-              (Thread/sleep 1000)))
+              (maybe-log-query-termination (bulldoze-blocking-qs gc-pid))
+              (Thread/sleep 200)))
           (catch InterruptedException _
-            true))))))
+            true)
+          (finally
+            (when-not (realized? connected)
+              (deliver connected false))))))))
 
 (def gc-query-bulldozer-timeout-ms
   (env-config-for-db-ulong "PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS"
@@ -1595,11 +1599,19 @@
                      first
                      :pg_backend_pid)
           gc-finished? (atom false)
-          gc-bulldozer (query-bulldozer db gc-pid gc-finished?)]
+          bulldozer-connected (promise)
+          gc-bulldozer (query-bulldozer db gc-pid bulldozer-connected gc-finished?)]
       (try
         (.start gc-bulldozer)
-        (drop-one candidate)
+        (when @bulldozer-connected
+          ;; This log message also provides evidence the bulldozer has
+          ;; acquired its connection.
+          (log/info (trs "Partition GC dropping partition {0}" candidate))
+          (drop-one candidate)
+          (log/info (trs "Partition GC dropped partition {0}" candidate)))
         (finally
+          (when-not @bulldozer-connected
+            (log/error (trs "Partition GC bulldozer could not connect to the database")))
           (reset! gc-finished? true)
           ;; make sure the gc-bulldozer thread has broken out of its loop
           (.interrupt gc-bulldozer)
@@ -1607,7 +1619,7 @@
           (when (.isAlive gc-bulldozer)
             ;; if the join above timed out and the bulldozer thread is still alive
             ;; log an ERROR because it could indicate a memory leak
-            (log/error "Unable to clean up the gc bulldozer thread.
+            (log/error "Unable to clean up the GC bulldozer thread.
                         Please file a bug with the stack trace below: \n"
                        (apply str (interpose "\n" (.getStackTrace gc-bulldozer))))))))))
 
@@ -1637,7 +1649,7 @@
 (defn prune-daily-partitions
   "Deletes obsolete day-oriented partitions older than the date.
   Deletes only the oldest such candidate if incremntal? is true.  Will
-  throw an SQLException cancelation if the operation takes much longer
+  throw an SQLException termination if the operation takes much longer
   than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
   [table-prefix date incremental? update-lock-status status-key db]
   {:pre [(string? table-prefix)]}
@@ -1670,7 +1682,7 @@
                   ;; GC needs AccessExclusiveLocks on in order to drop
                   (drop-one-partition drop-one candidate db)
                   (when (> (bounded-count 3 candidates) 2)
-                    (log/warn (trs "More than 2 partitions to prune: {0}"
+                    (log/warn (trs "More than 2 partitions remaining to prune: {0}"
                                    (pr-str (butlast candidates))))))
                 (doseq [candidate candidates]
                   (drop-one candidate)))]
@@ -1903,6 +1915,6 @@
                     (sql/execute! jdbc/*db*))
            (delete-unused-fact-paths)
            (catch SQLException ex
-             (when-not (= (jdbc/sql-state :query-canceled) (.getSQLState ex))
+             (when-not (= (jdbc/sql-state :admin-shutdown) (.getSQLState ex))
                (throw ex))
              (log/warn (trs "sweep of unused fact paths timed out")))))))))
