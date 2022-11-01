@@ -63,13 +63,12 @@
   (:require [clojure.string :as str]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :refer [parse-number keyset]]
-            [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [db-serialize sql-as-numeric sql-array-query-string
-                     legacy-sql-regexp-match sql-regexp-array-match]]
+                     legacy-sql-regexp-match sql-regexp-array-match-str]]
             [puppetlabs.puppetdb.jdbc :refer [valid-jdbc-query?]]
             [clojure.core.match :refer [match]]
             [schema.core :as s]))
@@ -453,8 +452,7 @@
           (:where %)]}
   (match [path]
          ["tag"]
-         {:where (h/sqlraw->str
-                   (sql-regexp-array-match "tags"))
+         {:where (sql-regexp-array-match-str "tags")
           :params [value]}
 
          ;; node join.

@@ -360,10 +360,12 @@
   "Given a list of legal result columns and a map containing a single order_by term,
   return the SQL string representing this term for use in an ORDER BY clause."
   [[field order]]
-  {:pre [(keyword? field)
+  {:pre [(or (keyword? field) (and (seq field) (keyword? (second field))))
          (contains? #{:ascending :descending} order)]
    :post [(string? %)]}
-  (str (name field)
+  (str (if (keyword? field)
+         (name field)
+         (throw (IllegalArgumentException. (trs "Non-keyword order-by term {0}" (pr-str field)))))
        (when (= order :descending) " DESC")))
 
 (defn escape-single-quotes
@@ -423,6 +425,9 @@
                ;; prefix for the first arrow in field->'key1'...
                (str "->")))))
 
+;; TODO this is no longer used by the main query engine (engine.clj), but it is
+;; still used by the legacy query engines and should be removed once it is
+;; handled by honeysql everywhere
 (pls/defn-validated paged-sql :- String
   "Given a sql string and a map of paging options, return a modified SQL string
   that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
