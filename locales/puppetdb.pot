@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 5a93d158979a3592b47744ba7f401949683fe8b6\n"
+"X-Git-Ref: ed43176f8e0f37aaf4f75d637fbd341a1c8468b0\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -884,6 +884,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/jdbc.clj
 msgid "Requested unknown SQL state"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/jdbc.clj
+msgid "Non-keyword order-by term {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/jdbc.clj
