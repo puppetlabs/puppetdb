@@ -82,16 +82,6 @@ jobs:
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-12
-      env: PDB_TEST=core+ext/openjdk11/pg-12
-      script: *run-core-and-ext-tests
-
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-13
-      env: PDB_TEST=core+ext/openjdk11/pg-13
-      script: *run-core-and-ext-tests
-
-    - stage: ❧ pdb tests
       name: core+ext jdk-11 pg-14
       env: PDB_TEST=core+ext/openjdk11/pg-14
       script: *run-core-and-ext-tests
