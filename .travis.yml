@@ -139,11 +139,6 @@ jobs:
       env: PDB_TEST=rspec/pup-6.x
       script: *run-spec-tests
 
-    - stage: ❧ pdb tests
-      name: rspec pup-6.4.x
-      env: PDB_TEST=rspec/pup-6.4.x
-      script: *run-spec-tests
-
 on_success: ci/bin/travis-on-success
 
 notifications:
