@@ -87,7 +87,7 @@
                  ;; stream-query-result
                  [["/v4/catalogs/myhost.localdomain" [] {:origin "bar"}]
                   "\"from\",\"catalogs\""
-                  "row_to_json(edge_data)"
+                  "ROW_TO_JSON(edge_data)"
                   "bar"]]]
           (with-logged-event-maps events
             (is (= 200 (:status (apply query-response :get query))))
