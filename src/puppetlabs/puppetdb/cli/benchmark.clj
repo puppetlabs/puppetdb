@@ -329,9 +329,10 @@
                   messages-per-second (float (/ events-since-last-report time-diff-seconds))]
               (println-err
                (trs
-                "Sending {0} messages/s (load equivalent to {1} nodes)"
+                "Sending {0} messages/s (load equivalent to {1} nodes with a run interval of {2} minutes)"
                 messages-per-second
-                (int (/ messages-per-second expected-node-message-rate))))
+                (int (/ messages-per-second expected-node-message-rate))
+                (time/in-minutes run-interval)))
               (recur 0 t))
             (recur (inc events-since-last-report) last-report-time)))))))
 
@@ -517,7 +518,7 @@
 
         ;; processes
         _rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
-                                                      run-interval
+                                                      (-> 30 time/minutes)
                                                       commands-per-puppet-run)
         command-sender-finished-ch (start-command-sender base-url
                                                          command-send-ch
