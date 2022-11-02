@@ -164,3 +164,18 @@
                             (map hash))]
     (is (= 10 (count (distinct catalog-hashes))))
     (is (= 10 (count (distinct factset-hashes))))))
+
+(deftest all-hosts-are-present
+  (let [submitted (benchmark-nummsgs {}
+                                     "--config" "anything.ini"
+                                     "--numhosts" "100"
+                                     "--nummsgs" "3")
+        catalogs-per-host (->> submitted
+                               (filter #(= :catalog (:entity %)))
+                               (map :payload)
+                               (group-by :certname)
+                               (#(update-vals % count)))]
+    (is (= 100 (count catalogs-per-host)))
+    ; We should see at least 2 catalogs for every host accounting for potential
+    ; jitter in the simulation timer.
+    (is (every? #(>= % 2) (vals catalogs-per-host)))))
