@@ -428,13 +428,14 @@
    write-ch read-ch]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
-        ms-per-message (- (/ 1000 hosts-per-second) 3)]
+        ms-per-message (/ 1000 hosts-per-second)
+        ms-per-thread (* ms-per-message simulation-threads)]
     (async/pipeline-blocking
      simulation-threads
      write-ch
      (map (fn [host-state]
             (when-not num-msgs
-              (Thread/sleep (int (+ (rand) ms-per-message))))
+              (Thread/sleep (int (- ms-per-thread (rand)))))
             (update-host host-state rand-perc (now) run-interval)))
      read-ch)))
 
