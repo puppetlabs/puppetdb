@@ -38,7 +38,6 @@
    tick."
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
-            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -50,12 +49,12 @@
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
-            [clojure.core.async :refer [go go-loop <! chan] :as async]
+            [clojure.core.async :refer [go go-loop <! <!! chan] :as async]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
-   [clojure.core.async.impl.protocols Buffer]
+   [clojure.core.async.impl.protocols Buffer UnblockingBuffer]
    [java.nio.file.attribute FileAttribute]
    [java.nio.file Files OpenOption]
    [java.util ArrayDeque]))
@@ -353,21 +352,30 @@
   ;;   nil
   (go (delete-dir-or-report storage-dir)))
 
+(defn defer-file-buffer-item [path item]
+  (let [out (Files/newOutputStream path (into-array OpenOption []))]
+    (go
+      (try
+        (with-open [in (io/input-stream (nippy/freeze item))]
+          (io/copy in out))
+        path
+        (finally (.close out))))))
+
 (deftype TempFileBuffer [storage-dir q]
+  UnblockingBuffer
   Buffer
   (full? [_] false)
   (remove! [_]
-    (let [path (.poll q)
+    (let [path (<!! (.poll q))
           result (nippy/thaw (Files/readAllBytes path))]
       (Files/delete path)
       result))
 
   (add!* [_ item]
     (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
-                                     (into-array FileAttribute []))]
-      (ignore-value
-       (Files/write path (nippy/freeze item) (into-array OpenOption [])))
-      (.add q path)))
+                                     (into-array FileAttribute []))
+          ch (defer-file-buffer-item path item)]
+      (.add q ch)))
 
   (close-buf! [_]
     (.clear q)
