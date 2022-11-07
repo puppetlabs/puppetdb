@@ -19,7 +19,7 @@ jobs:
           - core+ext/openjdk8/pg-11
 
         branch: [7.x, main]
-        os: [ubuntu-18.04]
+        os: [ubuntu-20.04]
 
         # Defaults for special-case influencing vars
         lein-profile: ['']
@@ -28,21 +28,21 @@ jobs:
 
         # Special cases
         include:
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             flavor: core+ext/openjdk11/pg-11
             drop-joins: by-request
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             flavor: core+ext/openjdk11/pg-11
             lein-profile: fips
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             branch: 7.x
             flavor: core+ext/openjdk11/pg-11
             deprecated-query-streaming: 'by-request'
           # non-rich variants
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             branch: 7.x
             flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             branch: 7.x
             flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
 

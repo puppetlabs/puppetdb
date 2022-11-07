@@ -23,7 +23,7 @@ jobs:
           - rspec/pup-7.x
           - lint/openjdk11
 
-        os: [ubuntu-18.04]
+        os: [ubuntu-20.04]
 
         # Defaults for special-case influencing vars
         lein-profile: ['']
