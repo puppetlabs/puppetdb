@@ -237,7 +237,7 @@
          (catch SQLException ex
            (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
              (throw ex))
-           (log/warn (trs "sweep of stale reports timed out")))))
+           (log/warn ex (trs "sweep of stale reports timed out")))))
       (catch Exception e
         (if resource-events-ttl
           (log/error e (trs "Error while sweeping reports and resource events"))
@@ -271,7 +271,7 @@
           (catch SQLException ex
             (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
               (throw ex))
-            (log/warn (trs "sweep of stale resource events timed out"))))))
+            (log/warn ex (trs "sweep of stale resource events timed out"))))))
      (catch Exception e
        (log/error e (trs "Error while sweeping resource events"))))))
 
