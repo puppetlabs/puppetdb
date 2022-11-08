@@ -86,7 +86,7 @@
         (let [admin-metrics (list-metrics :puppetlabs.puppetdb.admin)
               ;; filter out non-broadcast metrics created in the registry during other tests
               broadcast-metrics (filter #(re-find (re-pattern (str "pg1" "|" "pg2")) (str %)) admin-metrics)
-              expected-count 13 ;; 13 per pg admin metrics registered in services.clj
+              expected-count 17 ;; 17 per pg admin metrics registered in services.clj
               [pg-1 pg-2] (vals (group-by #(subs (str %) 1 9) broadcast-metrics))]
           (is (= expected-count (count pg-1)))
           (is (= (count pg-1) (count pg-2)))))

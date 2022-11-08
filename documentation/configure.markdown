@@ -268,6 +268,41 @@ compaction process reclaims space and deletes unnecessary rows. If not
 supplied, the default is every 60 minutes.  If set to zero, all
 database GC processes will be disabled.
 
+### `gc-interval-expire-nodes`
+
+This controls how often, in minutes, to expire nodes that are no longer
+submitting commands. If not supplied, this value defaults to `gc-interval`.
+
+### `gc-interval-purge-nodes`
+
+This controls how often, in minutes, to remove nodes that have been expired or
+deactivated for longer than `node-purge-ttl`. If not supplied, this value
+defaults to `gc-interval`.
+
+### `gc-interval-purge-reports`
+
+This controls how often, in minutes, to remove reports and that have been
+expired or deactivated for longer than `reports-ttl` or `resource-events-ttl`
+respectively. If not supplied, this value defaults to `gc-interval`.
+
+### `gc-interval-packages`
+
+This controls how often, in minutes, to remove packages that are no longer
+associated with any nodes. If not supplied, this value defaults to
+`gc-interval`.
+
+### `gc-interval-catalogs`
+
+This controls how often, in minutes, to remove catalog data that is no longer
+associated with any nodes. If not supplied, this value defaults to
+`gc-interval`.
+
+### `gc-interval-fact-paths`
+
+This controls how often, in minutes, to remove fact paths that are no longer
+associated with any factsets. If not supplied, this value defaults to 24 hours
+or `gc-interval`, which ever is longer.
+
 ### `node-ttl`
 
 Mark as 'expired' nodes that haven't seen any activity (no new catalogs,

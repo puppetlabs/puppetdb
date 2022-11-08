@@ -66,6 +66,8 @@
     (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["purge_reports"]))))
     (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["purge_resource_events"]))))
     (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["gc_packages"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["gc_catalogs"]))))
+    (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["gc_fact_paths"]))))
     (is (= HttpURLConnection/HTTP_OK (:status (post-clean ["other"]))))
     (is (= HttpURLConnection/HTTP_BAD_REQUEST (:status (post-clean ["?"]))))))
 
@@ -180,6 +182,8 @@
    "purge_nodes" (counters/value (:node-purges @cli-svc/admin-metrics))
    "purge_reports" (counters/value (:report-purges @cli-svc/admin-metrics))
    "gc_packages" (counters/value (:package-gcs @cli-svc/admin-metrics))
+   "gc_catalogs" (counters/value (:catalog-gcs @cli-svc/admin-metrics))
+   "gc_fact_paths" (counters/value (:fact-path-gcs @cli-svc/admin-metrics))
    "other" (counters/value (:other-cleans @cli-svc/admin-metrics))})
 
 (defn- clean-timer-counts []
@@ -191,13 +195,18 @@
                     (:report-purge-time @cli-svc/admin-metrics))
    "gc_packages" (number-recorded
                   (:package-gc-time @cli-svc/admin-metrics))
+   "gc_catalogs" (number-recorded
+                  (:catalog-gc-time @cli-svc/admin-metrics))
+   "gc_fact_paths" (number-recorded
+                  (:fact-path-gc-time @cli-svc/admin-metrics))
    "other" (number-recorded
             (:other-clean-time @cli-svc/admin-metrics))})
 
 (defn- check-counts [get-counts]
   (with-pdb-with-no-gc
     (doseq [requested (combinations ["expire_nodes" "purge_nodes"
-                                     "purge_reports" "gc_packages" "other"]
+                                     "purge_reports" "gc_packages" "other"
+                                     "gc_catalogs" "gc_fact_paths"]
                                     3)]
       (let [requested (set requested)
             before (get-counts)

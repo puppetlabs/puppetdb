@@ -1896,25 +1896,30 @@
 (def fact-path-gc-lock-timeout-ms
   (env-config-for-db-ulong "PDB_FACT_PATH_GC_SQL_LOCK_TIMEOUT_MS" nil))
 
+(defn clean-catalog-data
+  "Delete unassociated resource parameters and environments."
+  [db]
+  (jdbc/with-transacted-connection db
+    (delete-unassociated-params!)
+    (delete-unassociated-environments!)))
+
+(defn fact-path-gc [db]
+  (jdbc/with-transacted-connection' db :repeatable-read
+    ;; May or may not require postgresql's "stronger than the
+    ;; standard" behavior for repeatable read.
+    (try
+      (some->> fact-path-gc-lock-timeout-ms
+               (format "set local lock_timeout = %d")
+               (sql/execute! jdbc/*db*))
+      (delete-unused-fact-paths)
+      (catch SQLException ex
+        (when-not (= (jdbc/sql-state :admin-shutdown) (.getSQLState ex))
+          (throw ex))
+        (log/warn (trs "sweep of unused fact paths timed out"))))))
+
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   [db]
-  (time!
-   (get-storage-metric :gc db)
-   (do
-     (jdbc/with-transacted-connection db
-       (delete-unassociated-params!)
-       (delete-unassociated-environments!))
-     (jdbc/with-transacted-connection' db :repeatable-read
-       ;; May or may not require postgresql's "stronger than the
-       ;; standard" behavior for repeatable read.
-       (kitchensink/demarcate "sweep of unused fact paths"
-         (try
-           (some->> fact-path-gc-lock-timeout-ms
-                    (format "set local lock_timeout = %d")
-                    (sql/execute! jdbc/*db*))
-           (delete-unused-fact-paths)
-           (catch SQLException ex
-             (when-not (= (jdbc/sql-state :admin-shutdown) (.getSQLState ex))
-               (throw ex))
-             (log/warn (trs "sweep of unused fact paths timed out")))))))))
+  (time! (get-storage-metric :gc db)
+    (clean-catalog-data db)
+    (fact-path-gc db)))

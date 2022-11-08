@@ -103,6 +103,12 @@
   (merge per-database-config-in
          (all-optional
            {:gc-interval (pls/defaulted-maybe (s/cond-pre String s/Int) "60")
+            :gc-interval-expire-nodes (s/cond-pre String s/Int)
+            :gc-interval-purge-nodes (s/cond-pre String s/Int)
+            :gc-interval-purge-reports (s/cond-pre String s/Int)
+            :gc-interval-packages (s/cond-pre String s/Int)
+            :gc-interval-fact-paths (s/cond-pre String s/Int)
+            :gc-interval-catalogs (s/cond-pre String s/Int)
             :report-ttl (pls/defaulted-maybe String report-ttl-default)
             :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
             :node-ttl (pls/defaulted-maybe String "7d")
@@ -146,6 +152,12 @@
   "Schema for parsed/processed database config that includes write database params"
   (merge per-database-config-out
          {:gc-interval (s/cond-pre String s/Int)
+          (s/optional-key :gc-interval-expire-nodes) (s/cond-pre String s/Int)
+          (s/optional-key :gc-interval-purge-nodes) (s/cond-pre String s/Int)
+          (s/optional-key :gc-interval-purge-reports) (s/cond-pre String s/Int)
+          (s/optional-key :gc-interval-packages) (s/cond-pre String s/Int)
+          (s/optional-key :gc-interval-fact-paths) (s/cond-pre String s/Int)
+          (s/optional-key :gc-interval-catalogs) (s/cond-pre String s/Int)
           :report-ttl Period
           :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
           :node-ttl Period
@@ -380,18 +392,33 @@
         (throw-cli-error
          (trs "gc-interval must be a number: {0}" x)))))
 
-(defn gc-interval->ms [config]
-  (update config
-          :gc-interval
-          (fn [minutes]
-            (let [ms (* 60 1000 (ensure-long-or-double minutes))]
-              (t/millis (cond
-                          (> ms 1) ms
-                          (> ms 0) 1
-                          (< ms 0) (throw-cli-error
-                                    (trs "gc-interval cannot be negative: {0}"
-                                         minutes))
-                          :else 0))))))
+(defn interval->period [minutes]
+  (let [ms (* 60 1000 (ensure-long-or-double minutes))]
+    (t/millis (cond
+               (> ms 1) ms
+               (> ms 0) 1
+               (< ms 0) (throw-cli-error
+                         (trs "gc-interval cannot be negative: {0}"
+                              minutes))
+               :else 0))))
+
+(defn gc-intervals->periods
+  [{:keys [gc-interval] :as config}]
+  (let [one-day  (-> 24 t/hours .toPeriod)
+        gc-interval-period (interval->period gc-interval)
+        get-period (fn [custom] (interval->period (or custom gc-interval)))
+        get-paths-period (fn [custom]
+                           (interval->period (or custom (if (t/period-longer? one-day gc-interval-period)
+                                                          (* 24 60)
+                                                          gc-interval))))]
+    (-> config
+        (update :gc-interval-expire-nodes get-period)
+        (update :gc-interval-purge-nodes get-period)
+        (update :gc-interval-purge-reports get-period)
+        (update :gc-interval-packages get-period)
+        (update :gc-interval-catalogs get-period)
+        (update :gc-interval-fact-paths get-paths-period)
+        (assoc :gc-interval gc-interval-period))))
 
 (defn using-ssl? [config]
   (and
@@ -428,7 +455,7 @@
       pls/convert-blacklist-settings-to-blocklist
       convert-blocklist-config
       (coerce-and-validate-final-config per-write-database-config-out)
-      gc-interval->ms
+      gc-intervals->periods
       default-events-ttl
       (prefer-db-user-on-username-mismatch (name section-key))
       ensure-migrator-info
