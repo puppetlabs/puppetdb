@@ -1353,7 +1353,7 @@
                 {:latest_report_id report-id
                  :latest_report_timestamp producer-timestamp}
                 [(str "certname = ?"
-                      "AND ( latest_report_timestamp < ?"
+                      " AND ( latest_report_timestamp < ?"
                       "      OR latest_report_timestamp is NULL )")
                  node producer-timestamp]))
 

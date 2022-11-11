@@ -163,11 +163,13 @@
         (jdbc/do-commands-outside-txn
          (format "drop database if exists %s" template-name)
          (format "create database %s" template-name)))
-      (jdbc/with-db-connection (db-admin-config template-name)
-        (jdbc/do-commands-outside-txn
-         "create extension if not exists pg_trgm"
-         "create extension if not exists pgcrypto"))
-      (let [cfg (routine-db-config template-name)]
+      (let [cfg (routine-db-config template-name)
+            owner (jdbc/double-quote (:user cfg))]
+        (jdbc/with-db-connection (db-admin-config template-name)
+          (jdbc/do-commands-outside-txn
+           "create extension if not exists pg_trgm"
+           "create extension if not exists pgcrypto"
+           (format "grant create on schema public to %s" owner)))
         (jdbc/with-db-connection cfg
           (initialize-schema)))
       (reset! template-created true))))
