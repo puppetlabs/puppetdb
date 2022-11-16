@@ -231,6 +231,18 @@
   (env-config-for-db-ulong "PDB_COMMAND_SQL_STATEMENT_TIMEOUT_MS"
                            (* 10 60 1000)))
 
+(def table-lock-order
+  "This provides a partial ordering of tables, to ensure that we always lock
+  them in a consistent order."
+  ["certnames" "reports" "resource_events"])
+
+(defn acquire-locks!
+  "Acquires a lock on the specified table."
+  [table-modes]
+  {:pre [(every? string? (keys table-modes))
+         (every? string? (vals table-modes))]}
+  (let [ordered-tables (sort-by #(.indexOf table-lock-order %) (keys table-modes))]
+    (apply jdbc/do-commands (map #(str "LOCK TABLE " % " IN " (get table-modes %) " MODE") ordered-tables))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
@@ -1710,6 +1722,16 @@
   {:pre [(instance? org.joda.time.DateTime report-ttl)
          (instance? org.joda.time.DateTime resource-events-ttl)
          (ifn? update-lock-status)]}
+  ;; We update these tables in a different order than report insertion, creates
+  ;; the potential for deadlocks when two concurrent transactions have each
+  ;; acquired a portion of their locks. So first, we acquire locks on all the
+  ;; tables in the same order they are accessed during insertion. These match
+  ;; the locks that would implicitly be acquired by the operations we're going
+  ;; to perform: Access exclusive for reports and resource_events so we can
+  ;; drop partition tables, and row exclusive to update certnames.
+  (acquire-locks! {"certnames" "ROW EXCLUSIVE"
+                   "reports" "ACCESS EXCLUSIVE"
+                   "resource_events" "ACCESS EXCLUSIVE"})
   ;; force a resource-events GC. prior to partitioning, this would have happened
   ;; via a cascade when the report was deleted, but now we just drop whole tables
   ;; of resource events.

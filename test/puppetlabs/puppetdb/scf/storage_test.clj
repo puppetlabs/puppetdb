@@ -26,7 +26,8 @@
    [puppetlabs.puppetdb.random :as random]
    [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
    [puppetlabs.puppetdb.scf.storage
-    :refer [activate-node!
+    :refer [acquire-locks!
+            activate-node!
             add-certname!
             add-facts!
             basic-diff
@@ -2216,3 +2217,16 @@
       (sql/execute! jdbc/*db* "set local lock_timeout = 300")
       (is (= 1000 (call-with-lock-timeout get-lock-timeout 1000))))
     (is (= orig (get-lock-timeout)))))
+
+(deftest lock-ordering
+  (with-redefs [jdbc/do-commands vector]
+    (let [lock-stmts (acquire-locks! {"reports" "EXCLUSIVE" "resource_events" "SHARE" "certnames" "ACCESS SHARE"})]
+      (is (= ["LOCK TABLE certnames IN ACCESS SHARE MODE"
+              "LOCK TABLE reports IN EXCLUSIVE MODE"
+              "LOCK TABLE resource_events IN SHARE MODE"]
+             lock-stmts)))
+    (let [lock-stmts (acquire-locks! {"reports" "EXCLUSIVE" "catalogs" "SHARE" "certnames" "ACCESS SHARE"})]
+      (is (= ["LOCK TABLE catalogs IN SHARE MODE"
+              "LOCK TABLE certnames IN ACCESS SHARE MODE"
+              "LOCK TABLE reports IN EXCLUSIVE MODE"]
+             lock-stmts)))))
