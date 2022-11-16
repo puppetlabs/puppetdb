@@ -1603,9 +1603,9 @@
   (env-config-for-db-ulong "PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS"
                            (* 5 60 1000)))
 
-(defn drop-one-partition [drop-one candidate db]
+(defn execute-with-bulldozer [db f]
   (if-not (pos? gc-query-bulldozer-timeout-ms)
-    (drop-one candidate)
+    (f)
     (let [gc-pid (-> "select pg_backend_pid();"
                      jdbc/query-to-vec
                      first
@@ -1616,11 +1616,7 @@
       (try
         (.start gc-bulldozer)
         (when @bulldozer-connected
-          ;; This log message also provides evidence the bulldozer has
-          ;; acquired its connection.
-          (log/info (trs "Partition GC dropping partition {0}" candidate))
-          (drop-one candidate)
-          (log/info (trs "Partition GC dropped partition {0}" candidate)))
+          (f))
         (finally
           (when-not @bulldozer-connected
             (log/error (trs "Partition GC bulldozer could not connect to the database")))
@@ -1663,7 +1659,7 @@
   Deletes only the oldest such candidate if incremntal? is true.  Will
   throw an SQLException termination if the operation takes much longer
   than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
-  [table-prefix date incremental? update-lock-status status-key db]
+  [table-prefix date incremental? update-lock-status status-key]
   {:pre [(string? table-prefix)]}
   (let [utcz (ZoneId/of "UTC")
         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
@@ -1689,10 +1685,9 @@
                       (update-lock-status status-key dec))))
         drop #(if incremental?
                 (when-let [[candidate & _] (seq candidates)]
-                  ;; only kill queries during periodic GC when we expect
-                  ;; contention with concurrent queries against tables partition
-                  ;; GC needs AccessExclusiveLocks on in order to drop
-                  (drop-one-partition drop-one candidate db)
+                  (log/info (trs "Partition GC dropping partition {0}" candidate))
+                  (drop-one candidate)
+                  (log/info (trs "Partition GC dropped partition {0}" candidate))
                   (when (> (bounded-count 3 candidates) 2)
                     (log/warn (trs "More than 2 partitions remaining to prune: {0}"
                                    (pr-str (butlast candidates))))))
@@ -1706,16 +1701,16 @@
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
-  [date incremental? update-lock-status db]
+  [date incremental? update-lock-status]
   (prune-daily-partitions "resource_events" date incremental?
-                          update-lock-status :write-locking-resource-events db))
+                          update-lock-status :write-locking-resource-events))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an producer-timestamp
   that is prior to the specified report-time.  When event-time is
   specified, delete all the events that are older than whichever time
   is more recent."
-  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status db]
+  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status]
     :or {resource-events-ttl report-ttl
          incremental? false
          update-lock-status (constantly true)}}]
@@ -1738,9 +1733,9 @@
   (delete-resource-events-older-than! (if (before? report-ttl resource-events-ttl)
                                         resource-events-ttl report-ttl)
                                       incremental?
-                                      update-lock-status db)
+                                      update-lock-status)
   (prune-daily-partitions "reports" report-ttl incremental?
-                          update-lock-status :write-locking-reports db)
+                          update-lock-status :write-locking-reports)
   ;; since we cannot cascade back to the certnames table anymore, go clean up
   ;; the latest_report_id column after a GC
   (jdbc/do-commands
