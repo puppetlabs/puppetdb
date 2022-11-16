@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: ed43176f8e0f37aaf4f75d637fbd341a1c8468b0\n"
+"X-Git-Ref: 9b655358ce430192a4376bf1c56c2953094e7d12\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -183,6 +183,22 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Error during garbage collection"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "sweep of stale catalog data"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Error during sweep of stale catalog data"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "sweep of unused fact paths"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Error during sweep of unused fact paths"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj

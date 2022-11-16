@@ -16,14 +16,13 @@
                      db-config->clean-request
                      init-with-db
                      init-write-dbs
-                     invoke-periodic-gc
                      maybe-check-for-updates
                      query]]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.cli
-             :refer [example-certname example-report example-facts get-factsets]]
+             :refer [example-certname example-report get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -352,7 +351,7 @@
               db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)
               db-lock-status (svcs/database-lock-status)]
           (collect-garbage db-cfg lock db-cfg db-lock-status
-                           (db-config->clean-request db-cfg)))
+                           (mapcat first (db-config->clean-request db-cfg))))
         (is (= expected-remaining
                (count (purgeable-nodes node-purge-ttl))))))))
 
@@ -393,10 +392,13 @@
           after-gc (CyclicBarrier. 2)
           original-periodic-gc svcs/invoke-periodic-gc
           invoke-periodic (fn [& args]
-                            (.await before-gc)
-                            (let [result (apply original-periodic-gc args)]
-                              (.await after-gc)
-                              result))]
+                            (if (some #{"purge_reports"} (nth args 2))
+                              (do
+                                (.await before-gc)
+                                (let [result (apply original-periodic-gc args)]
+                                  (.await after-gc)
+                                  result))
+                              (apply original-periodic-gc args)))]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic]
         (call-with-single-quiet-pdb-instance
          config
@@ -446,9 +448,12 @@
           after-gc (CyclicBarrier. 2)
           original-periodic-gc svcs/invoke-periodic-gc
           invoke-periodic (fn [& args]
-                            (let [result (apply original-periodic-gc args)]
-                              (.await after-gc)
-                              result))
+                            (if (some #{"purge_reports"} (nth args 2))
+                              (let [result (apply original-periodic-gc args)]
+                                (.await after-gc)
+                                result)
+                              ;; if not purging reports, run gc normally
+                              (apply original-periodic-gc args)))
           event-expired? (fn [_ _] true)]
       (with-redefs [svcs/invoke-periodic-gc invoke-periodic
                     scf-store/resource-event-expired? event-expired?]
@@ -513,57 +518,6 @@
                         (set (get-temporal-partitions "reports"))))
                  (is (= (->> event-parts (sort-by :table) (drop 1) set)
                         (set (get-temporal-partitions "resource_events")))))))))))))
-
-(deftest fact-path-gc-delay
-  (svc-utils/with-single-quiet-pdb-instance
-    (let [shutdown-mock (tu/call-counter)
-          invoke-gc (fn [last-gc-run]
-                      (invoke-periodic-gc *db*
-                                         {:node-ttl (time/parse-period "30d")
-                                          :node-purge-ttl (time/parse-period "14d")
-                                          :report-ttl (time/parse-period "14d")
-                                          :resource-events-ttl (time/parse-period "14d")}
-                                         ["expire_nodes" "purge_nodes" "purge_reports"
-                                          "purge_resource_events" "gc_packages" "other"]
-                                         shutdown-mock
-                                         (ReentrantLock.)
-                                         (atom nil)
-                                         (atom last-gc-run)
-                                         (-> 24 time/hours time/ago)))]
-      (sync-command-post (svc-utils/pdb-cmd-url)
-                         example-certname
-                         "replace facts"
-                         cmd-consts/latest-facts-version
-                         (assoc example-facts
-                                :producer_timestamp (-> 60 time/days time/ago)))
-
-      (is (< 0
-             (count (jdbc/with-transacted-connection *db*
-                      (jdbc/query ["select * from fact_paths"])))))
-
-      (jdbc/with-transacted-connection *db*
-        (scf-store/delete-certname! example-certname))
-
-      ;; invoke a gc where last-gc-run is less than 24 hours
-      (invoke-gc (-> 10 time/hours time/ago))
-
-
-      ;; the fact paths should not have been garbage collected
-      (is (< 0
-             (count (jdbc/with-transacted-connection *db*
-                      (jdbc/query ["select * from fact_paths"])))))
-
-      ;; invoke a gc where last-gc-run is greater than 24 hours
-      (invoke-gc (-> 25 time/hours time/ago))
-
-      ;; the fact paths should have been garbage collected
-      (is (= 0
-             (count (jdbc/with-transacted-connection *db*
-                      (jdbc/query ["select * from fact_paths"])))))
-
-      ;; sanity check that the gc runs were not failures
-      (is (= 0 (tu/times-called shutdown-mock))))))
-
 (deftest initialize-db
   (testing "when establishing migration database connections"
     (let [con-mig-user "conn-migration-user-value"
