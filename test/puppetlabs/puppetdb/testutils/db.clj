@@ -238,11 +238,6 @@
      (validate-read-only-user read-config (get-in test-env [:read :name]))
      [config read-config])))
 
-;; FIXME: create-temp-db is only around to ensure backwards compatibility
-;; new tests should not use this and instead use configure-temp-db directly
-;; in order to test using the read-only user
-(def create-temp-db (comp first configure-temp-db))
-
 (def ^:dynamic *db* nil)
 (def ^:dynamic *read-db* nil)
 
