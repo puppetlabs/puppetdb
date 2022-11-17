@@ -501,13 +501,16 @@
                         #"FATAL: terminating connection due to administrator command"
                         (deref resource-query default-timeout-ms :timeout-getting-expected-query-ex))))
 
-                 ;; There should be two cancelled messages in the logs. One from the
-                 ;; queries cancelled by report GC and one from resource_events GC
-                 (is (= 2 (->> @log
-                               (map :message)
-                               (map #(str/includes? % "Partition GC terminated queries"))
-                               (filter true?)
-                               count)))
+                 ;; There should be at least two cancelled messages in
+                 ;; the logs. One from the queries cancelled by report
+                 ;; GC and one from resource_events GC.  There may be
+                 ;; more if any of the SIGTERMed pg workers don't exit
+                 ;; before the bulldozer runs again.
+                 (is (<= 2 (->> @log
+                                (map :message)
+                                (map #(str/includes? % "Partition GC terminated queries"))
+                                (filter true?)
+                                count)))
 
                  (is (= (->> report-parts (sort-by :table) (drop 1) set)
                         (set (get-temporal-partitions "reports"))))
