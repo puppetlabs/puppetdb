@@ -20,7 +20,7 @@
                      maybe-check-for-updates
                      query]]
             [puppetlabs.puppetdb.testutils.db
-             :refer [*db* clear-db-for-testing! with-test-db
+             :refer [*db* *read-db* clear-db-for-testing! with-test-db
                      with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.cli
              :refer [example-certname example-report example-facts get-factsets]]
@@ -213,7 +213,7 @@
     (with-test-db
       (svc-utils/call-with-puppetdb-instance
        (-> (svc-utils/create-temp-config)
-           (assoc :database *db*)
+           (assoc :database *db* :read-database *read-db*)
            (assoc :jetty (merge cert-config
                                 {:ssl-port 0
                                  :ssl-host "0.0.0.0"
@@ -382,7 +382,7 @@
 (deftest regular-gc-drops-oldest-partitions-incrementally
   (with-unconnected-test-db
     (let [config (-> (create-temp-config)
-                     (assoc :database *db*)
+                     (assoc :database *db* :read-database *read-db*)
                      (assoc-in [:database :gc-interval] "0.01"))
           store-report #(sync-command-post (svc-utils/pdb-cmd-url)
                                            example-certname
@@ -436,7 +436,7 @@
 (deftest partition-gc-clears-queries-blocking-it-from-getting-accessexclusivelocks
   (with-unconnected-test-db
     (let [config (-> (create-temp-config)
-                     (assoc :database *db*)
+                     (assoc :database *db* :read-database *read-db*)
                      (assoc-in [:database :gc-interval] "0.01"))
           store-report #(sync-command-post (svc-utils/pdb-cmd-url)
                                            example-certname
@@ -476,7 +476,7 @@
                  ;; these queries will sleep in front of the next GC preventing it from getting
                  ;; the AccessExclusiveLock it needs, both should get canceled by GC
                  (let [report-query (future
-                                      (jdbc/with-transacted-connection *db*
+                                      (jdbc/with-transacted-connection *read-db*
                                         (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
                        report-query2 (future
                                        (jdbc/with-transacted-connection *db*
@@ -600,7 +600,7 @@
 (deftest correctly-sweep-reports
   (with-test-db
     (let [config (-> (create-temp-config)
-                     (assoc :database *db*)
+                     (assoc :database *db* :read-database *read-db*)
                      (assoc-in [:database :gc-interval] "0.01"))
           store-report #(sync-command-post (svc-utils/pdb-cmd-url)
                                            example-certname
