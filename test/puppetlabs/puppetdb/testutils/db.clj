@@ -215,8 +215,13 @@
           (format "create database %s template %s" db-q template-name)
           (format "create database %s" db-q))
 
-        ;; Needed by migration coordination, the user role must already be granted to migrator
-        ;; which happens in pdbbox-init
+        ;; Note: so it can terminate existing connections, the
+        ;; migrator must have been granted both the read and write
+        ;; user roles.  So it can terminate blocking queries from the
+        ;; gc bulldozer, the write role must have been granted the
+        ;; read user role.  All of this happens in pdbbox-init.
+
+        ;; Needed by migration coordination
         (format "revoke connect on database %s from public" db-q)
         (format "grant connect on database %s to %s with grant option" db-q migrator-q)
         (format "set role %s" migrator-q)
