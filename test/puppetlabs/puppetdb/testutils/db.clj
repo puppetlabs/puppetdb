@@ -294,7 +294,7 @@
         (f)))))
 
 (defmacro with-unconnected-test-db [& body]
-  `(call-with-test-db (fn [] ~@body)))
+  `(call-with-unconnected-test-db (fn [] ~@body)))
 
 (defn call-with-test-db
   "Binds *db* to a clean, migrated test database, makes it the active
