@@ -392,6 +392,12 @@ describe processor do
           merge_into: nil })
     end
 
+    context 'nil values as resource status values' do
+      it 'is treated as an empty map' do
+        subject.resource_status_to_hash(nil).should == {}
+      end
+    end
+
     context 'large resources' do
       let(:huge_title) { (0...2501).map { ('a'..'z').to_a[rand(26)] }.join }
       let (:status) do

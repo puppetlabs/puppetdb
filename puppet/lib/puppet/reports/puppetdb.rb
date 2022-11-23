@@ -189,6 +189,7 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Hash[<String, Object>]
   # @api private
   def resource_status_to_hash(resource_status)
+    return {} if resource_status.nil?
     defaulted_corrective_change = defined?(resource_status.corrective_change) ? resource_status.corrective_change : nil
     index_size = resource_event_index_size(resource_status)
 
