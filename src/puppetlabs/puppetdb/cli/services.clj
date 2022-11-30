@@ -219,8 +219,7 @@
         update-lock-status (partial update-db-lock-status db-lock-status)
         del-opts (merge {:report-ttl rounded-report-ttl
                          :incremental? incremental?
-                         :update-lock-status update-lock-status
-                         :db db}
+                         :update-lock-status update-lock-status}
                         (when resource-events-ttl
                           {:resource-events-ttl rounded-events-ttl}))]
     (try
@@ -232,7 +231,8 @@
                  (format-period report-ttl)))
        (try
          (jdbc/with-transacted-connection db
-           (scf-store/delete-reports-older-than! del-opts))
+           (scf-store/execute-with-bulldozer db
+             (fn [] (scf-store/delete-reports-older-than! del-opts))))
          ;; FIXME: do we really want sql errors appearing at this level?
          (catch SQLException ex
            (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
@@ -264,14 +264,16 @@
      (kitchensink/demarcate
       (format "sweep of stale resource events (threshold: %s)" rounded-ttl)
       (jdbc/with-transacted-connection db
-        (try
-          (scf-store/delete-resource-events-older-than! rounded-ttl incremental?
-                                                        update-lock-status db)
-          ;; FIXME: do we really want sql errors appearing at this level?
-          (catch SQLException ex
-            (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
-              (throw ex))
-            (log/warn (trs "sweep of stale resource events timed out"))))))
+        (scf-store/execute-with-bulldozer db
+          (fn []
+            (try
+              (scf-store/delete-resource-events-older-than! rounded-ttl incremental?
+                                                              update-lock-status)
+              ;; FIXME: do we really want sql errors appearing at this level?
+              (catch SQLException ex
+                (when-not (= (.getSQLState ex) (jdbc/sql-state :lock-not-available))
+                  (throw ex))
+                (log/warn (trs "sweep of stale resource events timed out"))))))))
      (catch Exception e
        (log/error e (trs "Error while sweeping resource events"))))))
 
