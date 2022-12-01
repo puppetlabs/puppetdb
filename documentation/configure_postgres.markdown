@@ -1,3 +1,4 @@
+[config]: ./configure.markdown
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [postgres_ssl]: ./postgres_ssl.markdown
 [migration_coordination]: ./migration_coordination.markdown
@@ -30,12 +31,18 @@ example setup is described below. First, you can create a user and database as
 follows. Then, to have a secure installation you must create a read-only user
 to configure the `[read-database]` config section. This limits the postgresql
 permissions of PuppetDB queries and prevents them from writing, updating,
-or deleting any data.
+or deleting any data.  If you do this, the normal `[database]` user
+should be granted the read user's "role" so that it will be able to
+properly coordinate partition clean up (it needs to be able to
+terminate read user queries that might be blocking the attempt).
 
 ```
 sudo -u postgres sh
 createuser -DRSP puppetdb
 createuser -DRSP puppetdb_read
+# For coordinating partition cleanup
+psql puppetdb -c 'grant puppetdb_read to puppetdb'
+
 createdb -E UTF8 -O postgres puppetdb
 psql puppetdb -c 'revoke create on schema public from public'
 psql puppetdb -c 'grant create on schema public to puppetdb'
@@ -160,7 +167,8 @@ provide PuppetDB with a separate, suitably configured PostgreSQL user
 revoke connection privileges to/from the normal PuppetDB database
 user, and it must also be allowed to terminate the normal user's
 existing connections.  One way to arrange that is to do sometthing
-like this after creating the `puppetdb` user as described above:
+like this after creating the `puppetdb` and `puppetdb_read` users as
+described above:
 
 ```
 sudo -u postgres sh
@@ -170,6 +178,11 @@ psql puppetdb -c 'grant connect on database puppetdb to puppetdb_migrator with g
 
 psql puppetdb -c 'set role puppetdb_migrator; grant connect on database puppetdb to puppetdb'
 psql puppetdb -c 'set role puppetdb_migrator; grant connect on database puppetdb to puppetdb_read'
+
+# Allow the migrator to terminate puppetdb connections.  It must also be
+# allowed to terminate puppetdb_read connections, and can, given the
+# recommended config (above) because the puppetdb role was granted the
+# puppetdb_read role.
 psql puppetdb -c 'grant puppetdb to puppetdb_migrator'
 exit
 ```
@@ -180,4 +193,3 @@ Then specify `puppetdb_migrator` as the
 
 See the [migration coordination documentation][migration_coordination]
 for a more detailed explanation of the process.
-

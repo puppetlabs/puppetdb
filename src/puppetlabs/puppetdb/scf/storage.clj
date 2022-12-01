@@ -1577,9 +1577,8 @@
           (jdbc/query-to-vec
            (str "select pg_terminate_backend(pid), pid"
                 " from pg_stat_activity"
-                " where (datname = (select current_database())"
-                "  and usename = (select current_user))"
-                "  and pid in (select unnest(pg_blocking_pids(?)))")
+                " where datname = (select current_database())"
+                "   and pid in (select unnest(pg_blocking_pids(?)))")
            gc-pid))]
     (Thread.
      #(with-noisy-failure
