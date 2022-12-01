@@ -585,10 +585,12 @@
         (testing "should use connection migrator user"
           (is (thrown-with-msg?
                 Exception #"everything ok exception"
-                (init-with-db "test-db" {:connection-migrator-username con-mig-user
-                                         :migrator-password            mig-pass
-                                         :user                         user
-                                         :password                     pass}))))))))
+                (init-with-db "test-db"
+                              {:connection-migrator-username con-mig-user
+                               :migrator-password            mig-pass
+                               :user                         user
+                               :password                     pass}
+                              "ignored"))))))))
 
 (deftest initialize-write-dbs
   (testing "when establishing write database connections"

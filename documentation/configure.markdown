@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/configure.html"
 
 # Configuring PuppetDB
 
+[configure-postgres]: ./configure_postgres.markdown
 [java-patterns]: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
 [logback]: http://logback.qos.ch/manual/configuration.html
 [dashboard]: ./maintain_and_tune.markdown#monitor-the-performance-dashboard
@@ -13,7 +14,7 @@ canonical: "/puppetdb/latest/configure.html"
 [repl]: ./repl.markdown
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [postgres_ssl]: ./postgres_ssl.markdown
-[migration_coordination]: ./migration_coordination.markdown
+[migration-coordination]: ./migration_coordination.markdown
 [module]: ./install_via_module.markdown
 [puppetdb.conf]: ./connect_puppet_server.markdown#edit-puppetdbconf
 [ha]: ./ha.markdown
@@ -372,7 +373,10 @@ is done via plaintext.
 
 The database user specified for database migration operations, in
 particular the database validation and migration at startup.  Defaults
-to the `username`.
+to the `username`.  See the [PostgreSQL configuration
+section](configure-postgres) for some important requirements for the
+privileges of this user (role), and the [migration coordination
+section](migration-coordination) for an overview of the process.
 
 ### `connection-migrator-username`
 The database migrator user for special cases when the database connection username
@@ -396,7 +400,10 @@ otherwise the database communication is done via plaintext.
 When set to `true` (the default), PuppetDB will upgrade the data in
 the database to the latest format at startup.  When `false`, PuppetDB
 will exit with an error status if the format version is not the one it
-expects, whether newer or older.
+expects, whether newer or older.  See the [PostgreSQL configuration
+section](configure-postgres) for some important requirements for the
+privileges of this user (role), and the [migration coordination
+section](migration-coordination) for an overview of the process.
 
 ### `maximum-pool-size`
 
@@ -509,7 +516,9 @@ parameters, PuppetDB's database connections will communicate in plaintext.
 
 ### `username`
 
-This is the username to use when connecting.
+This is the username to use when connecting.  See the [PostgreSQL
+configuration section](configure-postgres) for some important
+requirements for the privileges of this user (role).
 
 ### `password`
 
