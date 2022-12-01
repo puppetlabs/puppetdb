@@ -621,12 +621,12 @@
       (log/error (trs "The read-database user is not configured properly because it owns the schema that contains the puppetdb database")))))
 
 (defn prep-db
-  [{:keys [username migrator-username migrate min-required-version]}]
+  [{:keys [username migrator-username migrate min-required-version]} read-user]
   (require-valid-db-server min-required-version)
   (if migrate
     (if (= username migrator-username)
       (initialize-schema)
-      (initialize-schema username (jdbc/current-database)))
+      (initialize-schema username read-user (jdbc/current-database)))
     (require-current-schema
      (trs "Database is not fully migrated and migration is disallowed."))))
 
@@ -651,7 +651,7 @@
   version} if the current database is not supported. Throws
   {:kind ::invalid-database-configuration :failed-validation failed-map}
   if the database contains a disallowed setting."
-  [db-name db-config]
+  [db-name db-config read-user]
   ;; A C-c (SIGINT) will close the pool via the shutdown hook, which
   ;; will then cause the pool connection to throw a (generic)
   ;; SQLException.
@@ -684,7 +684,7 @@
                            (let [datasource {:datasource db-pool}]
                              (require-db-connection-as datasource migrator)
                              (jdbc/with-db-connection datasource
-                               (prep-db db-config)))
+                               (prep-db db-config read-user)))
                            true
                            (catch java.sql.SQLTransientConnectionException ex
                              ;; When coupled with the 3000ms timout, this
@@ -942,7 +942,7 @@
 
     ; Initialize migrator pool for each DB we want to write to
     (doseq [[name config] write-dbs-config]
-      (init-with-db name config))
+      (init-with-db name config (:username read-database)))
 
     (if upgrade-and-exit?
       context

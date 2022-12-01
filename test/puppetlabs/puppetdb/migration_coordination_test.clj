@@ -9,6 +9,7 @@
    [puppetlabs.puppetdb.testutils.cli :refer [example-report]]
    [puppetlabs.puppetdb.testutils.db :as tdb
     :refer [*db*
+            *read-db*
             clear-db-for-testing!
             with-test-db
             with-unconnected-test-db]]
@@ -20,18 +21,17 @@
    (org.postgresql.util PSQLException)))
 
 (deftest schema-mismatch-causes-new-connections-to-throw-expected-errors
-  (doseq [db-upgraded? [true false]]
+  (doseq [db-upgraded? [true false]
+          ;; Allow client connections to timeout more quickly to speed
+          ;; test, and don't shutdown on schema mismatches.
+          :let [custom-config {:connection-timeout 300
+                               :gc-interval "0"
+                               :schema-check-interval 0}]]
     (with-unconnected-test-db
        (call-with-puppetdb-instance
         (assoc (create-temp-config)
-               :database (merge *db*
-                                ;; Allow client connections to timeout
-                                ;; more quickly to speed test, and
-                                ;; don't shutdown on schema
-                                ;; mismatches.
-                                {:connection-timeout 300
-                                 :gc-interval "0"
-                                 :schema-check-interval 0}))
+               :database (merge *db* custom-config)
+               :read-database (merge *read-db* custom-config))
        (fn []
          (jdbc/with-transacted-connection *db*
            ;; Simulate either the db or pdb being upgraded before the other.
@@ -48,7 +48,8 @@
          ;; will cause HikariCP to create new connections which should all error
          (jdbc/with-transacted-connection
            (tdb/db-admin-config (tdb/subname->validated-db-name (:subname *db*)))
-           (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*)))
+           (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*))
+           (jdbc/disconnect-db-role (jdbc/current-database) (:user *read-db*)))
 
          (loop [retries 0]
            ;; Account for a race condition where connnections kicked out of PG by
@@ -100,7 +101,8 @@
                           (throw
                            (ex-info "test promise deref timed out"
                                     {:kind ::migrator-evicts-non-migrators-and-blocks-connections})))
-          config (assoc (create-temp-config) :database *db*)
+          config (assoc (create-temp-config)
+                        :database *db* :read-database *read-db*)
           sleep-ex (promise)
           connect-ex (promise)
           finished-migrations (promise)

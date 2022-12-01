@@ -52,12 +52,14 @@ When acting as a migrator (`migrate = true`)
 * If migrations *are* required, proceeds as follows.
 
 * Revokes connection privileges from the normal
-  [username][config#username].  This prevents any new connections from
-  being established.
+  [`database` username][config#database], and if it's different, the
+  [`read-database` username][config#read-database].  This prevents any
+  new connections from being established.
 
 * Terminates any existing database connections from the normal
-  [username][config#username].  The revocation above may not affect
-  them.
+  [`database` username][config#database], and if it's different, the
+  [`read-database` username][config#read-database].  The revocation
+  above may not affect them.
 
 * [Changes its role](https://www.postgresql.org/docs/11/sql-set-role.html)
    to the normal [username][config#username] so that all new database objects
@@ -77,7 +79,9 @@ All PuppetDB instances, including a migrator after migration
 ------------------------------------------------------------
 
 * Always connects to the database as the normal
-  [username][config#username] using the routine read and write pools.
+  [`database` username][config#database], and if it's different, the
+  [`read-database` username][config#read-database] using the routine
+  read and write pools.
 
 * Sets a [HikariCP connectionInitSql](https://github.com/brettwooldridge/HikariCP#infrequently-used)
   guard that prevents any new connections to a database that isn't at

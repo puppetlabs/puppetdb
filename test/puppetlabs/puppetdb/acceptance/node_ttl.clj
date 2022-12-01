@@ -6,7 +6,7 @@
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
    [puppetlabs.puppetdb.test-protocols :refer [called?]]
    [puppetlabs.puppetdb.testutils :as tu]
-   [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+   [puppetlabs.puppetdb.testutils.db :refer [*db* *read-db* with-test-db]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*server*]]
    [puppetlabs.puppetdb.time :as tc :refer [now parse-wire-datetime]]
    [puppetlabs.trapperkeeper.app :refer [get-service]]))
@@ -17,7 +17,7 @@
       (with-test-db
         (svc-utils/call-with-puppetdb-instance
          (-> (svc-utils/create-temp-config)
-             (assoc :database *db*)
+             (assoc :database *db* :read-database *read-db*)
              (assoc-in [:database :node-ttl] "1s")
              (assoc-in [:database :node-purge-ttl] "1s")
              (assoc-in [:database :gc-interval] "0.01"))
@@ -59,7 +59,7 @@
     (with-test-db
       (svc-utils/call-with-single-quiet-pdb-instance
        (-> (svc-utils/create-temp-config)
-           (assoc :database *db*)
+           (assoc :database *db* :read-database *read-db*)
            (assoc-in [:database :gc-interval] "0")
            (assoc-in [:database :node-ttl] lifetime-cfg)
            (assoc-in [:database :node-purge-ttl] lifetime-cfg))
@@ -169,7 +169,7 @@
     (with-test-db
       (svc-utils/call-with-puppetdb-instance
        (-> (svc-utils/create-temp-config)
-           (assoc :database *db*)
+           (assoc :database *db* :read-database *read-db*)
            (assoc-in [:database :node-ttl] "0s")
            (assoc-in [:database :report-ttl] "0s")
            (assoc-in [:database :node-purge-ttl] "1s")
