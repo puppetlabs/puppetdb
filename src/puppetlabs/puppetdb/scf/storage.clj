@@ -1890,8 +1890,11 @@
     (try
       (store!)
       (catch org.postgresql.util.PSQLException e
-        ;; 42P01 undefined table
-        (if (= "42P01" (.getSQLState e))
+        ;; * 42P01 undefined table -- inheritance based partitions, or
+        ;; declarative partitions when no children yet attached
+        ;; * 23514 check constraint violation -- declarative partitions when row
+        ;; does not match check constraint of existing children partitions
+        (if (or (= "42P01" (.getSQLState e)) (= "23514" (.getSQLState e)))
           (do
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
