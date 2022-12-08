@@ -3249,37 +3249,22 @@
                ::why :missing-join-deps-information})))
     (apply set/union required-joins)))
 
-(defn maybe-drop-unused-joins [{:keys [plan] :as incoming}]
-  ;; Right now, this only looks at top-level joins.  Only enable this
-  ;; for joins where we "know" it's OK.
+(defn drop-local-unused-joins-from-query
+  [plan]
   (if-not (:can-drop-unused-joins? plan)
     (do
       (log/debug (trs "Not dropping unused joins from query (disallowed)"))
-      incoming)
-    ;; {:projections
-    ;;  {"latest_report_corrective_change"
-    ;;   {:type :boolean,
-    ;;    :queryable? true,
-    ;;    :field :reports.corrective_change,
-    ;;    :join-deps #{:reports}},
-    ;;   "deactivated"
-    ;;   {:type :string,
-    ;;    :queryable? true,
-    ;;    :field :certnames.deactivated,
-    ;;    :join-deps #{:certnames}},
-    ;;   ...}
-    (try
-      (log/debug (trs "Attempting to drop unused joins from query"))
-      (when (and (:call plan)
-                 (or (not= 1 (count (:call plan)))
-                     (not= "count" (:function (first (:call plan))))))
-        (throw (ex-info "Can only optimize queries with a single count function call"
-                        {:kind ::cannot-drop-joins
-                         ::why :unsupported-function-calls})))
+      plan)
+    (if (and (:call plan)
+             (or (not= 1 (count (:call plan)))
+                 (not= "count" (:function (first (:call plan))))))
+      (throw (ex-info "Can only optimize queries with a single count function call"
+                      {:kind ::cannot-drop-joins
+                       ::why :unsupported-function-calls}))
       (let [proj-reqs (required-by-projections plan)]
         (if (and (empty? proj-reqs)
                  (empty? (:call plan)))
-          incoming
+          plan
           (let [where-reqs (extract-where-deps plan)
                 function-reqs (extract-function-deps plan)
                 required? (set/union proj-reqs where-reqs function-reqs)
@@ -3299,9 +3284,9 @@
                              (let [join-name (cond-> table (coll? table) second)]
                                (when-not (keyword? join-name)
                                  (throw (IllegalArgumentException.
-                                         (tru "{0} join in {1} query was expected to be a keyword"
-                                              join-name
-                                              (name (::which-query plan))))))
+                                          (tru "{0} join in {1} query was expected to be a keyword"
+                                               join-name
+                                               (name (::which-query plan))))))
                                (required? join-name)))
                 drop-joins (fn [result k v]
                              (if-not (join-key? k)
@@ -3312,15 +3297,25 @@
                                                             (partition 2 v)))))))
                 selection (reduce-kv drop-joins
                                      (:selection plan)
-                                     (:selection plan))
-                result (assoc plan :selection selection)]
-            (assoc incoming :plan result))))
-      (catch ExceptionInfo ex
-        (if (= ::cannot-drop-joins (:kind (ex-data ex)))
-          (do
-            (log/debug (str ex))
-            incoming)
-          (throw ex))))))
+                                     (:selection plan))]
+            (assoc plan :selection selection)))))))
+
+(defn drop-all-unused-joins [{:keys [plan] :as incoming}]
+  (try
+    (log/debug (trs "Attempting to drop unused joins from query"))
+    (let [{:keys [node _state]} (zip/post-order-visit (zip/tree-zipper plan)
+                                                      []
+                                                      [(fn [node state]
+                                                         (if (instance? Query node)
+                                                           {:node (drop-local-unused-joins-from-query node) :state state}
+                                                           {:node node :state state}))])]
+      (assoc incoming :plan node))
+    (catch ExceptionInfo ex
+      (if (= ::cannot-drop-joins (:kind (ex-data ex)))
+        (do
+          (log/debug (str ex))
+          incoming)
+        (throw ex)))))
 
 (def default-explain-form
   "EXPLAIN (VERBOSE,ANALYZE,BUFFERS,FORMAT JSON) ")
@@ -3352,7 +3347,7 @@
                                ;; Why paging-options?  See PDB-1936
                                (:optimize_drop_unused_joins validated-options
                                                             enable-drop-unused-joins-by-default?))
-                         maybe-drop-unused-joins
+                         drop-all-unused-joins
                          identity)
         parameterized-plan (->> user-query
                                 (push-down-context query-rec)

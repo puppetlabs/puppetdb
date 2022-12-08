@@ -441,10 +441,13 @@
 
 ;;;; drop-joins optimization tests
 
-(defn compiled-selects [[rec q] drop?]
-  (-> (compile-query rec q
-                     (when drop? {:optimize_drop_unused_joins true})
-                     :parameterized-plan)
+(defn compiled-query [[rec q] drop?]
+  (compile-query rec q
+                 (when drop? {:optimize_drop_unused_joins true})
+                 :parameterized-plan))
+
+(defn compiled-selects [q drop?]
+  (-> (compiled-query q drop?)
       (get-in [:plan :selection])
       (dissoc :from)))
 
@@ -656,3 +659,16 @@
         (is (= normal-inventory-joins (compiled-selects q nil)))
         (is (= {:left-join [:certnames [:= :fs.certname :certnames.certname]]}
                (compiled-selects q :drop-joins)))))))
+
+(deftest joins-dropped-for-subquery
+  (when (= "by-request" (System/getenv "PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS"))
+    (let [compiled-subquery-selects (fn [q drop?]
+                                      (-> (compiled-query q drop?)
+                                          (get-in [:plan :where :subquery :selection])
+                                          (dissoc :from)))
+          q [nodes-query ["extract" "certname"
+                          ["in" "certname"
+                           ["from" "nodes"
+                            ["extract" "certname"]]]]]]
+      (is (= normal-nodes-joins (compiled-subquery-selects q nil)))
+      (is (= {:left-join []} (compiled-subquery-selects q :drop-joins))))))
