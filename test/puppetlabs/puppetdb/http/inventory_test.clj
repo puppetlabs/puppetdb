@@ -9,6 +9,7 @@
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.testutils.http :refer [*app*
                                                         query-response
+                                                        vector-param
                                                         deftest-http-app]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    assert-success!]]
@@ -214,6 +215,11 @@
       (let [response (query-response method endpoint)]
         (assert-success! response)
         (slurp (:body response))))
+
+    (testing "order by jsonb value successful"
+      (let [{:keys [body status]} (query-response method endpoint nil {:order_by (vector-param method [{"field" "trusted"}])})]
+        (is (= 200 status))
+        (is (= 3 (count (json/parse-string (slurp body) true))))))
 
     (testing "broken query should not output error's stacktrace"
       (let [query ["extract"
