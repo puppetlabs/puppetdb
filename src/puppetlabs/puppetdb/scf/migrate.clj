@@ -55,6 +55,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [murphy :refer [try!]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -2283,79 +2284,100 @@
   []
   true)
 
-(defn update-schema
-  [non-migrator-name db-name]
-  {:pre [(or (not non-migrator-name)
-             (and non-migrator-name db-name))]}
-
-  ;; When a non-migrator-name is given, assume we're connected to the
-  ;; database as the migrator (e.g. via the PDBMigrationsPool), and
-  ;; then do our part to attempt to prevent concurrent migrations or
-  ;; any access to a database that's at an unexpected migration level.
-  ;; See the connectionInitSql setting for related efforts.
-  (let [coordinate? non-migrator-name
-        orig-user (and coordinate? (jdbc/current-user))]
-
-    (when coordinate?
-      (log/info
-       (trs "Revoking {0} database access from {1} during migrations"
-            db-name non-migrator-name))
-      (jdbc/revoke-role-db-access non-migrator-name db-name))
-
-    (try
-      (when coordinate?
-        ;; Because the revoke may not actually produce an error when
-        ;; it doesn't work.
-        (when (jdbc/has-database-privilege? non-migrator-name db-name "connect")
-          (throw
-           (ex-info "Unable to prevent non-migrator connections during migration"
-                    {:kind ::unable-to-block-other-pdbs-during-migration})))
-        (log/info
-         (trs "Disconnecting all {0} connections to {1} database before migrating"
-              non-migrator-name db-name))
-        (jdbc/disconnect-db-role db-name non-migrator-name)
-        ;; Must be non-migrator so new tables, etc. are owned by the normal role.
-        (jdbc/do-commands (str "set role " (jdbc/double-quote non-migrator-name))))
-
-      (jdbc/with-db-transaction []
-        (require-schema-migrations-table)
-        (log/info (trs "Locking migrations table before migrating"))
-        (jdbc/do-commands
-         "lock table schema_migrations in access exclusive mode")
-        (require-valid-schema)
-        (let [tables (set/union (run-migrations (pending-migrations))
-                                (create-indexes))]
-          (note-migrations-finished)
-          tables))
-
-      (finally
-        (when coordinate?
-          ;; This won't run if the jvm doesn't quit in a way that lets
-          ;; threads finish (TK's shutdown process does).
+(defn call-with-connections-blocked-during-migration
+  ;; The users in the second arity is the original list of users,
+  ;; which we need to track so we can do all the checks at the end.
+  ;; Until the end, some users (roles) might still have indirect
+  ;; connect privileges via the other users.  And of course we have to
+  ;; use a full recursion rather than an internal loop recur because
+  ;; clj can't recur across a try.
+  ([db-name users f]
+   (call-with-connections-blocked-during-migration db-name users users f))
+  ([db-name [user & others] users f]
+   (if-not user
+     (do
+       (log/info
+        (trs "Disconnecting all {0} connections to {1} database before migrating"
+             user db-name))
+       (doseq [user users]
+         ;; Because the revoke may not actually produce an error when
+         ;; it doesn't work.
+         (when (jdbc/has-database-privilege? user db-name "connect")
+           (throw
+            (ex-info (str "Unable to prevent " (pr-str user)" connections during migration")
+                     {:kind ::unable-to-block-other-pdbs-during-migration})))
+         (jdbc/disconnect-db-role db-name user))
+       (f))
+     ;; FIXME: Of course the finally blocks here won't run if the jvm
+     ;; doesn't quit in a way that lets threads finish (TK's shutdown
+     ;; process does).  To accommodate that, make sure we
+     ;; unconditionally restore the relevant privileges at startup if
+     ;; possible.
+     (do
+       (log/info
+        (trs "Revoking {0} database access from {1} during migrations"
+             db-name user))
+       (jdbc/revoke-role-db-access user db-name)
+       (try!
+        (call-with-connections-blocked-during-migration db-name others users f)
+        (finally
           (try
             (log/info
              (trs "Restoring access to {0} database to {1} after migrating"
-                  db-name non-migrator-name))
-            (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user)))
-            (jdbc/restore-role-db-access non-migrator-name db-name)
+                  db-name user))
+            (jdbc/restore-role-db-access user db-name)
+            ;; FIXME: can/should we remove this now, since try! does suppress
             (catch Throwable ex
               ;; Don't let this rethrow, so that it won't suppress any
               ;; pending exception.
               (log/error
-               ex (trs "Unable to restore db access after migrations"))))
-          (when-not (jdbc/has-database-privilege? non-migrator-name db-name "connect")
+               ex (trs "Unable to restore " (pr-str user) " db access after migrations"))))
+          (when-not (jdbc/has-database-privilege? user db-name "connect")
             (throw
-             (ex-info "Unable to restore non-migrator connections after migration "
-                      {:kind ::unable-to-block-other-pdbs-during-migration}))))))))
+             (ex-info (str "Unable to restore " (pr-str user) " connect rights after migration")
+                      {:kind ::unable-to-block-other-pdbs-during-migration})))))))))
+
+(defn update-schema
+  [write-user read-user db-name]
+  {:pre [(or (and write-user read-user db-name)
+             (not (or write-user read-user db-name)))]}
+  ;; When a write user is given, assume we're connected to the
+  ;; database as the migrator (e.g. via the PDBMigrationsPool), and
+  ;; then do our part to attempt to prevent concurrent migrations or
+  ;; any access to a database that's at an unexpected migration level.
+  ;; See the connectionInitSql setting for related efforts.
+  (let [orig-user (and write-user (jdbc/current-user))
+        migrate #(jdbc/with-db-transaction []
+                   (require-schema-migrations-table)
+                   (log/info (trs "Locking migrations table before migrating"))
+                   (jdbc/do-commands
+                    "lock table schema_migrations in access exclusive mode")
+                   (require-valid-schema)
+                   (let [tables (set/union (run-migrations (pending-migrations))
+                                           (create-indexes))]
+                     (note-migrations-finished)
+                     tables))]
+    (if-not write-user
+      (migrate)
+      (call-with-connections-blocked-during-migration
+       db-name
+       (distinct [read-user write-user])
+       (fn []
+         ;; So new tables, etc. are owned by the write-user
+         (jdbc/do-commands (str "set role " (jdbc/double-quote write-user)))
+         (try!
+          (migrate)
+          (finally
+            (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user))))))))))
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
   true if and only if migrations were run.  Assumes the database
   status, version, etc. have already been validated."
-  ([] (initialize-schema nil nil))
-  ([non-migrator-name db-name]
+  ([] (initialize-schema nil nil nil))
+  ([write-user read-user db-name]
    (try
-     (let [tables (update-schema non-migrator-name db-name)]
+     (let [tables (update-schema write-user read-user db-name)]
        (analyze-tables tables)
        (some? (seq tables)))
      (catch java.sql.SQLException e

@@ -218,8 +218,13 @@
           (format "create database %s template %s" db-q template-name)
           (format "create database %s" db-q))
 
-        ;; Needed by migration coordination, the user role must already be granted to migrator
-        ;; which happens in pdbbox-init
+        ;; Note: so it can terminate existing connections, the
+        ;; migrator must have been granted both the read and write
+        ;; user roles.  So it can terminate blocking queries from the
+        ;; gc bulldozer, the write role must have been granted the
+        ;; read user role.  All of this happens in pdbbox-init.
+
+        ;; Needed by migration coordination
         (format "revoke connect on database %s from public" db-q)
         (format "grant connect on database %s to %s with grant option" db-q migrator-q)
         (format "set role %s" migrator-q)
@@ -240,11 +245,6 @@
      (require-suitable-pg-arrangement config)
      (validate-read-only-user read-config (get-in test-env [:read :name]))
      [config read-config])))
-
-;; FIXME: create-temp-db is only around to ensure backwards compatibility
-;; new tests should not use this and instead use configure-temp-db directly
-;; in order to test using the read-only user
-(def create-temp-db (comp first configure-temp-db))
 
 (def ^:dynamic *db* nil)
 (def ^:dynamic *read-db* nil)
@@ -302,7 +302,7 @@
         (f)))))
 
 (defmacro with-unconnected-test-db [& body]
-  `(call-with-test-db (fn [] ~@body)))
+  `(call-with-unconnected-test-db (fn [] ~@body)))
 
 (defn call-with-test-db
   "Binds *db* to a clean, migrated test database, makes it the active
@@ -322,7 +322,8 @@
   [n f]
   (if (pos? n)
     (with-test-db
-      (call-with-test-dbs (dec n) (partial f *db*)))
+      (call-with-test-dbs (dec n) (partial f {:read-config *read-db*
+                                              :write-config *db*})))
     (f)))
 
 (defn without-db-var

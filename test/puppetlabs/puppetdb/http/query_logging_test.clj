@@ -9,7 +9,7 @@
    [puppetlabs.puppetdb.cli.services :as svcs]
    [puppetlabs.puppetdb.query-eng :as qeng]
    [puppetlabs.puppetdb.testutils.catalogs :refer [replace-catalog]]
-   [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db*]]
+   [puppetlabs.puppetdb.testutils.db :refer [with-test-db *db* *read-db*]]
    [puppetlabs.puppetdb.testutils.http
     :refer [call-with-http-app query-response with-http-app*]]
    [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
@@ -149,7 +149,8 @@
         (call-with-puppetdb-instance
          (-> (create-temp-config)
              (update :puppetdb (fn [x] (merge x {:log-queries "true"})))
-             (assoc :database *db*))
+             (assoc :database *db*)
+             (assoc :read-database *read-db*))
          (fn []
            (let [pdb-service (get-service *server* :PuppetDBServer)]
              ;; submit a few queires to the PuppetDBServer TK service query method
@@ -176,7 +177,8 @@
         (call-with-puppetdb-instance
          (-> (create-temp-config)
              (update :puppetdb (fn [x] (merge x {:log-queries "false"})))
-             (assoc :database *db*))
+             (assoc :database *db*)
+             (assoc :read-database *read-db*))
          (fn []
            (let [pdb-service (get-service *server* :PuppetDBServer)]
              ;; submit a few queires to the PuppetDBServer TK service query method

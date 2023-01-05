@@ -23,7 +23,7 @@
                                                           v7-report
                                                           v8-report]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.testutils.db :as tu :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :as tu :refer [*db* *read-db* with-test-db]]
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
@@ -1771,6 +1771,7 @@
     (svc-utils/call-with-puppetdb-instance
      (assoc (svc-utils/create-temp-config)
             :database *db*
+            :read-database *read-db*
             :command-processing {:threads 1})
      (fn []
        (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
@@ -1855,7 +1856,8 @@
   (with-test-db
     (svc-utils/call-with-puppetdb-instance
       (assoc (svc-utils/create-temp-config)
-            :database *db*
+             :database *db*
+             :read-database *read-db*
             :command-processing {:concurrent-writes 1})
      (fn []
        (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
@@ -2000,7 +2002,7 @@
     (let [producer-ts (now)
           shared-vardir (temp-dir)
           config (-> (svc-utils/create-temp-config)
-                     (assoc :database *db*)
+                     (assoc :database *db* :read-database *read-db*)
                      (assoc-in [:global :vardir] shared-vardir))]
 
       ;; Add unusual messages to the queue without processing them
