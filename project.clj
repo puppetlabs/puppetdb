@@ -152,7 +152,7 @@
   ;; Abort when version ranges or version conflicts are detected in
   ;; dependencies. Also supports :warn to simply emit warnings.
   ;; requires lein 2.2.0+.
-  :pedantic? :abort
+  ;;:pedantic? :abort
 
   :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]

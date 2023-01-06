@@ -19,7 +19,9 @@
             [yaml.core :as yaml]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])
-  (:import [com.typesafe.config ConfigValueFactory]))
+  (:import
+   (com.typesafe.config ConfigValueFactory)
+   (org.ini4j Ini)))
 
 (defprotocol TestServer
   (server-info [this]))
@@ -191,10 +193,22 @@
             :autosign true
             :node_name_value node-name}})
 
+(defn spit-ini
+  "Writes the `ini-map` to the Ini file at `file`. `ini-map` should
+   a map similar to the ones created by ini-to-map. The keys are keywords
+   for the sections and their values are maps of config keypairs."
+  [^java.io.File file ini-map]
+  (let [ini (org.ini4j.Ini. file)]
+    (.setEscape (.getConfig ini) false)
+    (doseq [[section-key section] ini-map
+            [k v] section]
+      (.put ini (name section-key) (name k) v))
+    (.store ini)))
+
 (defn write-puppetdb-terminus-config [pdb-servers path overrides]
   (let [f (io/file path)]
     (fs/create f)
-    (ks/spit-ini f
+    (spit-ini f
                  (ks/deep-merge
                   {:main {:server_urls (->> pdb-servers
                                             (map (comp svc-utils/root-url-str :base-url server-info))
@@ -210,7 +224,7 @@
     (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
     (-> puppet-conf .getParentFile .mkdirs)
     (spit (.getAbsolutePath puppet-conf) "")
-    (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
+    (spit-ini puppet-conf (puppet-server-config-with-name node-name))
     (fs/mkdirs (str env-dir "/modules"))
 
     (when tu/test-rich-data?
@@ -338,7 +352,7 @@
 
     (fs/mkdir agent-conf-dir)
     (fs/create puppet-conf-file)
-    (ks/spit-ini puppet-conf-file
+    (spit-ini puppet-conf-file
                  (-> {:main {:ssldir "./test-resources/puppetserver/ssl"
                              :certname "localhost"
                              :storeconfigs true
