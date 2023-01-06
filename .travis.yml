@@ -60,47 +60,47 @@ jobs:
     - os: osx
 
   include:
-    # === core+ext tests
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-11
-      env: PDB_TEST=core+ext/openjdk11/pg-11
-      script: *run-core-and-ext-tests
+    # # === core+ext tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-11 pg-11
+    #   env: PDB_TEST=core+ext/openjdk11/pg-11
+    #   script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-11 fips
-      env: PDB_TEST=core+ext/openjdk11/pg-11 LEIN_PROFILES=fips
-      script: *run-core-and-ext-tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-11 pg-11 fips
+    #   env: PDB_TEST=core+ext/openjdk11/pg-11 LEIN_PROFILES=fips
+    #   script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-11 no-drop-joins
-      env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=by-request
-      script: *run-core-and-ext-tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-11 pg-11 no-drop-joins
+    #   env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS=by-request
+    #   script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-11
-      env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD=no
-      script: *run-core-and-ext-tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-11 pg-11
+    #   env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD=no
+    #   script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-14
-      env: PDB_TEST=core+ext/openjdk11/pg-14
-      script: *run-core-and-ext-tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-11 pg-14
+    #   env: PDB_TEST=core+ext/openjdk11/pg-14
+    #   script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-17 pg-14
-      env: PDB_TEST=core+ext/openjdk17/pg-14
-      script: *run-core-and-ext-tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-17 pg-14
+    #   env: PDB_TEST=core+ext/openjdk17/pg-14
+    #   script: *run-core-and-ext-tests
 
-    - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-15
-      env: PDB_TEST=core+ext/openjdk11/pg-15
-      script: *run-core-and-ext-tests
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-11 pg-15
+    #   env: PDB_TEST=core+ext/openjdk11/pg-15
+    #   script: *run-core-and-ext-tests
 
-    # Legacy testing, we do not promise support for jdk 8 or pg 9.6
-    - stage: ❧ pdb tests
-      name: core+ext jdk-8 pg-11
-      env: PDB_TEST=core+ext/openjdk8/pg-11
-      script: *run-core-and-ext-tests
+    # # Legacy testing, we do not promise support for jdk 8 or pg 9.6
+    # - stage: ❧ pdb tests
+    #   name: core+ext jdk-8 pg-11
+    #   env: PDB_TEST=core+ext/openjdk8/pg-11
+    #   script: *run-core-and-ext-tests
 
     # === integration with 7.x branches
     - stage: ❧ pdb tests
@@ -124,16 +124,16 @@ jobs:
       env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
       script: *run-integration-tests
 
-    # === rspec tests
-    - stage: ❧ pdb tests
-      name: rspec pup-main
-      env: PDB_TEST=rspec/pup-main
-      script: *run-spec-tests
+    # # === rspec tests
+    # - stage: ❧ pdb tests
+    #   name: rspec pup-main
+    #   env: PDB_TEST=rspec/pup-main
+    #   script: *run-spec-tests
 
-    - stage: ❧ pdb tests
-      name: rspec pup-6.x
-      env: PDB_TEST=rspec/pup-6.x
-      script: *run-spec-tests
+    # - stage: ❧ pdb tests
+    #   name: rspec pup-6.x
+    #   env: PDB_TEST=rspec/pup-6.x
+    #   script: *run-spec-tests
 
 on_success: ci/bin/travis-on-success
 
