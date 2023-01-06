@@ -104,12 +104,12 @@ jobs:
 
     # === integration with 7.x branches
     - stage: ❧ pdb tests
-      name: int pup-main srv-7.x jdk-11 pg-11
+      name: int pup-7.x srv-7.x jdk-11 pg-11
       env: PDB_TEST=int/openjdk11/pup-main/srv-7.x/pg-11
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
-      name: int pup-main srv-7.x jdk-11 pg-11 rich
+      name: int pup-7.x srv-7.x jdk-11 pg-11 rich
       env: PDB_TEST=int/openjdk11/pup-main/srv-7.x/pg-11/rich
       script: *run-integration-tests
 
