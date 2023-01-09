@@ -63,7 +63,7 @@ if test -d puppetserver; then
    git -C puppetserver clean -fdx
 else
    # If repo doesn't exist, clone from GitHub
-   git clone --depth 10 -b "$pupsrv_ref" https://github.com/puppetlabs/puppetserver
+   git clone -b "$pupsrv_ref" https://github.com/puppetlabs/puppetserver
 fi
 
 (export PUPPETSERVER_HEAP_SIZE=1G
