@@ -72,6 +72,7 @@ fi
  # If we're not testing against the git tree (say in jenkins), don't install.
  if test -z "$PDB_NO_PUPPETSERVER_INSTALL"; then
      lein install
+     lein uberjar
  fi
  # Cache Puppet Server version in a file in ext/test-conf directory
  dep_ver="$(lein-pprint :version)"
