@@ -51,6 +51,8 @@ jobs:
         with:
           ref: ${{ matrix.branch }}
           persist-credentials: false
+      - name: Gather inital host info
+        run: ext/bin/host-info
       - env:
           LEIN_PROFILES: ${{ matrix.lein-profile }}
           PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS: ${{ matrix.drop-joins }}

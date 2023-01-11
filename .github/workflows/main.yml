@@ -40,7 +40,8 @@ jobs:
             flavor: rspec/pup-7.x
 
     steps:
-      - id: computed
+      - name: Compute job outputs
+        id: computed
         run: |
           echo "::set-output name=day::$(date +%Y-%m-%d)"
       - uses: actions/checkout@v2
@@ -59,6 +60,8 @@ jobs:
             vendor/bundle/ruby
             ~/.m2/repository
             ~/Library/Caches/Homebrew
+      - name: Gather inital host info
+        run: ext/bin/host-info
       - env:
           LEIN_PROFILES: ${{ matrix.lein-profile }}
           PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS: ${{ matrix.drop-joins }}
