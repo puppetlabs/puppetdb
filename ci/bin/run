@@ -27,8 +27,9 @@ case "$flavor" in
             core|core+ext)
                 # Run core lein tests with ephemeral PuppetDB and PostgreSQL sandboxes
                 # Leiningen dev profile adds org.bouncycastle/bcpkix-jdk18on dependency
-                ext/bin/boxed-core-tests \
-                    -- lein with-profiles "${LEIN_PROFILES:-dev}" test
+                ext/bin/boxed-core-tests --pglog pg.log \
+                    -- lein with-profiles "${LEIN_PROFILES:-dev}" test 2>&1 \
+                    | ts "%Y-%m-%d %H:%M:%.S %Z"
                 ;;
         esac
         case "$flavor" in
@@ -76,8 +77,9 @@ case "$flavor" in
         # Validate test spec
         ext/bin/check-spec-env "$spec"
         # Run integration tests with Leiningen profile
-        ext/bin/boxed-integration-tests \
-            -- lein with-profiles "${LEIN_PROFILES:-dev}" test :integration
+        ext/bin/boxed-integration-tests --pglog pg.log \
+            -- lein with-profiles "${LEIN_PROFILES:-dev}" test :integration 2>&1 \
+               | ts "%Y-%m-%d %H:%M:%.S %Z"
         ;;
     *)
         # Error when test spec is unrecognized
