@@ -83,3 +83,4 @@ jobs:
           name: "${{ steps.computed.outputs.pdb-job-id }}"
           path: |
             pg.log
+            test.log

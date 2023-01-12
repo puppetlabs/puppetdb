@@ -29,7 +29,7 @@ case "$flavor" in
                 # Leiningen dev profile adds org.bouncycastle/bcpkix-jdk18on dependency
                 ext/bin/boxed-core-tests --pglog pg.log \
                     -- lein with-profiles "${LEIN_PROFILES:-dev}" test 2>&1 \
-                    | ts "%Y-%m-%d %H:%M:%.S %Z"
+                    | tee >(ts "%Y-%m-%d %H:%M:%.S %Z" > test.log)
                 ;;
         esac
         case "$flavor" in
@@ -79,7 +79,7 @@ case "$flavor" in
         # Run integration tests with Leiningen profile
         ext/bin/boxed-integration-tests --pglog pg.log \
             -- lein with-profiles "${LEIN_PROFILES:-dev}" test :integration 2>&1 \
-               | ts "%Y-%m-%d %H:%M:%.S %Z"
+               | tee >(ts "%Y-%m-%d %H:%M:%.S %Z" > test.log)
         ;;
     *)
         # Error when test spec is unrecognized
