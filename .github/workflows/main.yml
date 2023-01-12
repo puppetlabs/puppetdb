@@ -55,7 +55,7 @@ jobs:
 
           echo "day=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
           echo "pdb-job-id=$pdb_test_gh_job_id" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           persist-credentials: false
       - uses: actions/cache@v3

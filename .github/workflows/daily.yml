@@ -61,7 +61,7 @@ jobs:
           pdb_test_gh_job_id+="_${{ matrix.deprecated-query-streaming }}"
 
           echo "pdb-job-id=$pdb_test_gh_job_id" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ matrix.branch }}
           persist-credentials: false
