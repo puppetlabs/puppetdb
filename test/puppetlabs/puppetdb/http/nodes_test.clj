@@ -14,8 +14,7 @@
                      vector-param
                      query-response]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
-            [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook
-                                                   use-preferred-streaming-method?]]
+            [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook]]
             [flatland.ordered.map :as omap])
   (:import
    (java.net HttpURLConnection)))
@@ -673,10 +672,8 @@
 (deftest-http-app error-in-query-streaming-is-communicated-to-caller
   [[_version endpoint] endpoints]
   (store-example-nodes)
-  (with-redefs [munge-fn-hook (fn [_] (throw (Exception. "BOOM!")))
-                ;; make sure this test always hits the deprecated-produce-streaming-body func
-                use-preferred-streaming-method? false]
-    (testing "an error inside of the http/streamed-response thread makes it back to the caller"
+  (with-redefs [munge-fn-hook (fn [_] (throw (Exception. "BOOM!")))]
+    (testing "generated-stream thread exceptions make it back to the caller"
       (let [{:keys [status body]}
             (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
                 (assoc-in [:headers "content-type"] "application/json")

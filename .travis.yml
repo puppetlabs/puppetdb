@@ -78,11 +78,6 @@ jobs:
       script: *run-core-and-ext-tests
 
     - stage: ❧ pdb tests
-      name: core+ext jdk-11 pg-11
-      env: PDB_TEST=core+ext/openjdk11/pg-11 PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD=no
-      script: *run-core-and-ext-tests
-
-    - stage: ❧ pdb tests
       name: core+ext jdk-11 pg-14
       env: PDB_TEST=core+ext/openjdk11/pg-14
       script: *run-core-and-ext-tests

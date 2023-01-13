@@ -5,7 +5,6 @@
    murphy/with-final hooks/with-final
    puppetlabs.puppetdb.command-test/with-message-handler hooks/one-binding-then-body
    puppetlabs.puppetdb.http.explore-test/check-json-response hooks/check-json-response
-   puppetlabs.puppetdb.http/streamed-response hooks/one-binding-then-body
    puppetlabs.puppetdb.jdbc-test/deftest-antonyms hooks/deftest-antonyms
    puppetlabs.puppetdb.testutils.http/deftest-http-app hooks/deftest-http-app
    puppetlabs.puppetdb.testutils.queue/with-stockpile hooks/one-binding-then-body
@@ -24,8 +23,7 @@
  :linters
  {:deprecated-var
   {:exclude
-   {puppetlabs.puppetdb.http/streamed-response {:namespaces [".*"]}
-    puppetlabs.puppetdb.jdbc/call-with-array-converted-query-rows {:namespaces [".*"]}}}
+   {puppetlabs.puppetdb.jdbc/call-with-array-converted-query-rows {:namespaces [".*"]}}}
   :refer-all {:exclude [clojure.test]}
   :unresolved-symbol
   {:exclude
