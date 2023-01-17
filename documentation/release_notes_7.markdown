@@ -15,6 +15,32 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.12.1
+
+Released January 17 2023
+
+### Bug fixes
+
+* Ordering query results by certain fields (e.g. the `trusted` facts
+  field) should no longer cause an error.
+  ([PDB-5568](https://tickets.puppetlabs.com/browse/PDB-5568))
+
+* The `org.postgresql/postgresql` driver has been updated to version
+  42.4.3 to address
+  [CVE-2022-41946](https://nvd.nist.gov/vuln/detail/CVE-2022-41946),
+  which is an information exposure vulnerability that could expose
+  database information to a local system
+  user. ([PDB-5570](https://tickets.puppetlabs.com/browse/PDB-5570))
+
+* The `org.ini4j/ini4j` library has been upgraded to 0.5.4 to address
+  [CVE-2022-41404](https://nvd.nist.gov/vuln/detail/CVE-2022-41404), a
+  Denial of Service (DoS) vulnerability.
+  ([PDB-5571](https://tickets.puppetlabs.com/browse/PDB-5571))
+
+### Contributors
+
+Austin Blatt and Rob Browning
+
 ## PuppetDB 7.12.0
 
 Released December 6 2022
