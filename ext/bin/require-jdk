@@ -89,7 +89,7 @@ esac
 # Get OpenJDK tarball from official source
 curl -sSLo "$tmpdir/jdk.tar.gz" \
      -f --retry 3 \
-     "https://api.adoptopenjdk.net/v3/binary/latest/${ver#openjdk}/ga/$adoptos/x64/jdk/hotspot/normal/adoptopenjdk?project=jdk"
+     "https://api.adoptium.net/v3/binary/latest/${ver#openjdk}/ga/$adoptos/x64/jdk/hotspot/normal/eclipse?project=jdk"
 
 # Extract OpenJDK from tarball
 (cd "$tmpdir"

@@ -144,6 +144,21 @@ cat > "$tmp_pass" <<-EOF
 	EOF
 mv "$tmp_pass" "$PGBOX/pgpass"
 
+setup-roles()
+{
+  local read_role="$1" write_role="$2" migrator_role="$3"
+  # The migrator needs the write role for migrations, so it can
+  # terminate any existing read and write role connections
+  # (transitively for the read role,via the write role's read role
+  # membership) after locking out new connections (by revoking the
+  # connect access that the migrator granted to the read and write
+  # roles).
+  pgbox env psql -c "grant $write_role to $migrator_role"
+  # The write role needs the pdb_test_read role for the partition gc
+  # bulldozer, so it can terminate any queries blocking the drop.
+  pgbox env psql -c "grant $read_role to $write_role"
+}
+
 # Create Postgres testing roles
 pgbox env createuser -dERs pdb_test_admin
 pgbox env createuser -DERS pdb_test
@@ -158,7 +173,7 @@ set-passwd pdb_test_admin "$pdbbox/test-pass-admin" "$tmp_dir"
 set-passwd pdb_test_migrator "$pdbbox/test-pass-migrator" "$tmp_dir"
 set-passwd pdb_test_read "$pdbbox/test-pass-read" "$tmp_dir"
 
-pgbox env psql -c 'grant pdb_test to pdb_test_migrator'
+setup-roles pdb_test_read pdb_test pdb_test_migrator
 
 # Creates a PuppetDB database. Loads necessary extensions, sets permissions
 setup-pdb()
@@ -190,7 +205,7 @@ pgbox env createuser -DRS puppetdb
 pgbox env createuser -DRS puppetdb_read
 pgbox env createuser -DRS puppetdb_migrator
 
-pgbox env psql -c 'grant puppetdb to puppetdb_migrator'
+setup-roles puppetdb_read puppetdb puppetdb_migrator
 
 # Set passwords for main PuppetDB postgres roles
 set-passwd puppetdb "$pdbbox/test-pass" "$tmp_dir"

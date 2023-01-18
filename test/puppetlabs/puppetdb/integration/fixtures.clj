@@ -108,6 +108,7 @@
                                                     "test-resources/integration-puppetdb.conf"
                                                     (ks/deep-merge config-overrides
                                                                    {:database (server-info postgres-server)
+                                                                    :read-database (read-db-info postgres-server)
                                                                     :puppetdb {:disable-update-checking "true"}})
                                                     10)]
     (PuppetDBTestServer. {:base-url base-url
@@ -193,7 +194,7 @@
 (defn write-puppetdb-terminus-config [pdb-servers path overrides]
   (let [f (io/file path)]
     (fs/create f)
-    (ks/spit-ini f
+    (tu/spit-ini f
                  (ks/deep-merge
                   {:main {:server_urls (->> pdb-servers
                                             (map (comp svc-utils/root-url-str :base-url server-info))
@@ -209,7 +210,7 @@
     (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
     (-> puppet-conf .getParentFile .mkdirs)
     (spit (.getAbsolutePath puppet-conf) "")
-    (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
+    (tu/spit-ini puppet-conf (puppet-server-config-with-name node-name))
     (fs/mkdirs (str env-dir "/modules"))
 
     (when tu/test-rich-data?
@@ -337,7 +338,7 @@
 
     (fs/mkdir agent-conf-dir)
     (fs/create puppet-conf-file)
-    (ks/spit-ini puppet-conf-file
+    (tu/spit-ini puppet-conf-file
                  (-> {:main {:ssldir "./test-resources/puppetserver/ssl"
                              :certname "localhost"
                              :storeconfigs true

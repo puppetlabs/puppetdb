@@ -28,7 +28,10 @@
   (let [new-config-file (testutils/temp-file "config" ".ini")
         config-path (kitchensink/absolute-path new-config-file)]
     (println "Writing current config to" config-path)
-    (kitchensink/spit-ini new-config-file (merge-with merge (kitchensink/ini-to-map config) config-overrides))
+    (testutils/spit-ini new-config-file
+                        (merge-with merge
+                                    (kitchensink/ini-to-map config)
+                                    config-overrides))
     (svcs/provide-services ["--config" config-path])))
 
 ;; Example of "reloaded" pattern with trapperkeeper

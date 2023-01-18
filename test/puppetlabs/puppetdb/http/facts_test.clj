@@ -17,6 +17,7 @@
                      parse-result]]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db*
+                     *read-db*
                      call-with-test-dbs
                      clear-db-for-testing!
                      init-db
@@ -705,14 +706,14 @@
 
   (call-with-test-dbs
    2
-   (fn [read-db-config write-db-config]
+   (fn [db-for-reads db-for-writes]
      (let [config (-> (svc-utils/create-temp-config)
-                      (assoc :read-database read-db-config)
-                      (assoc :database write-db-config))]
-       (clear-db-for-testing! read-db-config)
-       (clear-db-for-testing! write-db-config)
-       (init-db read-db-config)
-       (init-db write-db-config)
+                      (assoc :read-database (:read-config db-for-reads))
+                      (assoc :database (:write-config db-for-writes)))]
+       (clear-db-for-testing! (:write-config db-for-reads))
+       (clear-db-for-testing! (:write-config db-for-writes))
+       (init-db (:write-config db-for-reads))
+       (init-db (:write-config db-for-writes))
        (call-with-puppetdb-instance
         config
         (fn []
@@ -2294,6 +2295,7 @@
                        (call-with-puppetdb-instance
                         (-> (svc-utils/create-temp-config)
                             (assoc :database *db*)
+                            (assoc :read-database *read-db*)
                             (assoc-in [:developer :pretty-print] (str pretty?)))
                         (fn []
                           (let [facts {:certname "foo"

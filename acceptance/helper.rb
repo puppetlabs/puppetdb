@@ -326,12 +326,8 @@ module PuppetDBExtensions
       # Debian 11 only has builds starting in the 7 series
       if is_bullseye
         :puppet7
-      # Redhat8, Redhat7-fips, Debian 10, Ubuntu 20
-      # only have builds starting somewhere in the 6 series.
-      elsif is_el8 || is_rhel7fips || is_buster || is_focal
-        :puppet6
       else
-        :puppet5
+        :puppet6
       end
     end
   end
@@ -341,9 +337,7 @@ module PuppetDBExtensions
   # platform version returned by puppet_repo_version above
   def oldest_supported
     # account for bionic/rhel8 not having build before certian versions
-    if is_bionic
-      '5.2.4'
-    elsif is_bullseye
+    if is_bullseye
       '7.9.0'
     elsif is_el8
       '6.0.3'
@@ -354,7 +348,7 @@ module PuppetDBExtensions
     elsif is_focal
       '6.12.0'
     else
-      '5.2.0'
+      '6.0.0'
     end
   end
 

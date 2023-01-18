@@ -2,20 +2,16 @@ if (test_config[:install_mode] == :upgrade_oldest) \
     && !(test_config[:skip_presuite_provisioning])
 
   step "Clean out puppet5 repos to prepare for puppet6 upgrade" do
-    # skip this step for rhel8 beacause it only installs puppet6 in upgrade_oldest
-    if test_config[:install_mode] == :upgrade_oldest && !(is_el8 || is_rhel7fips || is_buster || is_focal)
+    # skip this step for bullseye beacause it only installs puppet7 in upgrade_oldest
+    if test_config[:install_mode] == :upgrade_oldest && !(is_bullseye)
       databases.each do |database|
 
-        # need to remove puppet5 repos to avoid conflicts when upgrading
-        uninstall_package(database, "puppet5-release")
-        uninstall_package(database, "puppet5-nightly-release")
+        # need to remove puppet6 repos to avoid conflicts when upgrading
+        uninstall_package(database, "puppet6-release")
+        uninstall_package(database, "puppet6-nightly-release")
 
-        # init the puppet6 repos to allow it to find the puppet6 collection
-        unless is_bullseye
-          initialize_repo_on_host(database, test_config[:os_families][database.name], test_config[:nightly])
-          # install puppet 6 directly to prepare for upgrade
-          install_puppet_agent_on(database, {:puppet_collection => "puppet6"})
-        end
+        initialize_repo_on_host(database, test_config[:os_families][database.name], test_config[:nightly])
+        install_puppet_agent_on(database, {:puppet_collection => "puppet7"})
 
         on(database, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
         if get_os_family(database) == :debian
