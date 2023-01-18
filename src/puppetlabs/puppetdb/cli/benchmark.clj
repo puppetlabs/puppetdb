@@ -38,7 +38,6 @@
    tick."
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
-            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -50,12 +49,12 @@
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
-            [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
+            [clojure.core.async :refer [go go-loop <! <!! chan] :as async]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
-   [clojure.core.async.impl.protocols Buffer]
+   [clojure.core.async.impl.protocols Buffer UnblockingBuffer]
    [java.nio.file.attribute FileAttribute]
    [java.nio.file Files OpenOption]
    [java.util ArrayDeque]))
@@ -330,15 +329,12 @@
                   messages-per-second (float (/ events-since-last-report time-diff-seconds))]
               (println-err
                (trs
-                "Sending {0} messages/s (load equivalent to {1} nodes)"
+                "Sending {0} messages/s (load equivalent to {1} nodes with a run interval of {2} minutes)"
                 messages-per-second
-                (int (/ messages-per-second expected-node-message-rate))))
+                (int (/ messages-per-second expected-node-message-rate))
+                (time/in-minutes run-interval)))
               (recur 0 t))
             (recur (inc events-since-last-report) last-report-time)))))))
-
-(defn rand-lastrun [run-interval]
-  (jitter (time/minus (now) run-interval)
-          (time/in-seconds run-interval)))
 
 (defn delete-dir-or-report [dir]
   (try
@@ -357,21 +353,30 @@
   ;;   nil
   (go (delete-dir-or-report storage-dir)))
 
+(defn defer-file-buffer-item [path item]
+  (let [out (Files/newOutputStream path (into-array OpenOption []))]
+    (go
+      (try
+        (with-open [in (io/input-stream (nippy/freeze item))]
+          (io/copy in out))
+        path
+        (finally (.close out))))))
+
 (deftype TempFileBuffer [storage-dir q]
+  UnblockingBuffer
   Buffer
   (full? [_] false)
   (remove! [_]
-    (let [path (.poll q)
+    (let [path (<!! (.poll q))
           result (nippy/thaw (Files/readAllBytes path))]
       (Files/delete path)
       result))
 
   (add!* [_ item]
     (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
-                                     (into-array FileAttribute []))]
-      (ignore-value
-       (Files/write path (nippy/freeze item) (into-array OpenOption [])))
-      (.add q path)))
+                                     (into-array FileAttribute []))
+          ch (defer-file-buffer-item path item)]
+      (.add q ch)))
 
   (close-buf! [_]
     (.clear q)
@@ -414,38 +419,25 @@
          :report (random-entity host reports)
          :factset (random-entity host facts)}))))
 
-(defn start-populate-queue
-  "Fills queue with host entries in the background. Stops if mq-ch is closed."
-  [mq-ch numhosts run-interval pdb-host catalogs reports facts]
-  (go
-    (println-err (trs "Populating queue in the background"))
-    (doseq [host (random-hosts numhosts pdb-host catalogs reports facts)
-            :while (>! mq-ch (assoc host :lastrun (rand-lastrun run-interval)))]
-      true)
-    (println-err (trs "Finished populating queue"))))
-
 (defn start-simulation-loop
-  "Run a background process which takes host-state maps from mq-ch, updates them
-  with update-host, and puts them on on command-send-ch *and* back on mq-ch. If
-  num-msgs is given, closes mq-ch after than many simulation steps have been
-  performed. If not, uses numhosts and run-interval to run the simulatation at a
-  reasonable rate. Close mq-ch to terminate the background process. "
+  "Run a background process which takes host-state maps from read-ch, updates
+  them with update-host, and puts them on write-ch. If num-msgs is not given,
+  uses numhosts and run-interval to run the simulation at a reasonable rate.
+  Close read-ch to terminate the background process."
   [numhosts run-interval num-msgs rand-perc simulation-threads
-   command-send-ch mq-ch]
+   write-ch read-ch]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
-        ms-per-message (- (/ 1000 hosts-per-second) 3)]
-
+        ms-per-message (/ 1000 hosts-per-second)
+        ms-per-thread (* ms-per-message simulation-threads)]
     (async/pipeline-blocking
      simulation-threads
-     command-send-ch
+     write-ch
      (map (fn [host-state]
             (when-not num-msgs
-              (Thread/sleep (int (+ (rand) ms-per-message))))
-            (let [updated-host-state (update-host host-state rand-perc (now) run-interval)]
-              (>!! mq-ch updated-host-state)
-              updated-host-state)))
-     mq-ch)))
+              (Thread/sleep (int (- ms-per-thread (rand)))))
+            (update-host host-state rand-perc (now) run-interval)))
+     read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
   (when-not catalogs
@@ -460,11 +452,16 @@
 
 ;; The core.async processes and channels fit together like this:
 ;;
-;; populate-queue
+;; (initial-hosts-ch: host-maps)
 ;;    |
-;;    | (mq-ch: host-maps) <---\
-;;    v                        |
-;; simulation-loop ------------/
+;;    v
+;; mix (simulation-read-ch: host-maps) <-- (mq-ch: host-maps) <--\
+;;    |                                                          |
+;;    v                                                          |
+;; simulation-loop                                               |
+;;    |                                                          |
+;;    v                                                          |
+;; mult (simulation-write-ch: host-maps) ------------------------/
 ;;    |
 ;;    | (command-send-ch: host-maps)
 ;;    v
@@ -475,7 +472,7 @@
 ;; rate-monitor
 ;;
 ;; It's all set up so that channel closes flow downstream (and upstream to the
-;; producer). Closing mq-ch shuts down everything.
+;; producer). Closing simulation-read-ch shuts down everything.
 
 (defn benchmark
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
@@ -500,52 +497,48 @@
                                (System/getProperty "java.io.tmpdir")))
 
         ;; channels
+        initial-hosts-ch (async/to-chan!
+                          (random-hosts numhosts pdb-host catalogs reports facts))
         mq-ch (chan (message-buffer temp-dir numhosts))
         _ (register-shutdown-hook! #(async/close! mq-ch))
 
         command-send-ch (chan)
         rate-monitor-ch (chan)
 
+        simulation-read-ch (let [ch (chan)
+                                 mixer (async/mix ch)]
+                             (async/solo-mode mixer :pause)
+                             (async/toggle mixer {initial-hosts-ch {:solo true}})
+                             (async/admix mixer mq-ch)
+                             (if nummsgs (async/take (* numhosts nummsgs) ch) ch))
+        simulation-write-ch (let [ch (chan)
+                                  mult (async/mult ch)]
+                              (async/tap mult command-send-ch)
+                              (async/tap mult mq-ch)
+                              ch)
+
         ;; processes
         _rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
-                                                      run-interval
+                                                      (-> 30 time/minutes)
                                                       commands-per-puppet-run)
         command-sender-finished-ch (start-command-sender base-url
-                                                         (if nummsgs
-                                                           (async/take (* numhosts nummsgs)
-                                                                       command-send-ch)
-                                                           command-send-ch)
+                                                         command-send-ch
                                                          rate-monitor-ch
                                                          threads)
-        populate-finished-ch (start-populate-queue mq-ch numhosts run-interval pdb-host
-                                                   catalogs reports facts)
-        _ (<!! populate-finished-ch)
         _ (start-simulation-loop numhosts run-interval nummsgs rand-perc
-                                 simulation-threads command-send-ch mq-ch)
+                                 simulation-threads simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
                   ([timeout-ms]
                    (let [t-ch (if timeout-ms (async/timeout timeout-ms) (chan))]
-                     (async/alt!! t-ch false populate-finished-ch true)
                      (async/alt!! t-ch false command-sender-finished-ch true)
                      (async/alt!! t-ch false rate-monitor-ch true))))
         stop-fn (fn stop-benchmark []
-                  (async/close! mq-ch)
+                  (async/close! simulation-read-ch)
                   (when-not (join-fn benchmark-shutdown-timeout)
                     (println-err (trs "Timed out while waiting for benchmark to stop."))
                     false))
         _ (register-shutdown-hook! stop-fn)]
-
-    ;; When running with nummsgs, benchmark shuts down when the channel from
-    ;; async/take closes. This doesn't close the upstream channels
-    ;; though (pipeline only propagates channel closes downstream). This
-    ;; process watches the command sender and makes sure that mq-ch gets
-    ;; closed when it terminates, ensuring timely queue cleanup.
-    ;; NB: This relies on the undocumented behavior of pipeline-* returning a
-    ;; channel which closes when the pipeline shuts down.
-    (go
-      (async/<! command-sender-finished-ch)
-      (async/close! mq-ch))
 
     {:stop stop-fn
      :join join-fn}))

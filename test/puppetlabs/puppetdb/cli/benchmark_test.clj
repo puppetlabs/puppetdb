@@ -164,3 +164,43 @@
                             (map hash))]
     (is (= 10 (count (distinct catalog-hashes))))
     (is (= 10 (count (distinct factset-hashes))))))
+
+(deftest all-hosts-are-present
+  (let [submitted (benchmark-nummsgs {}
+                                     "--config" "anything.ini"
+                                     "--numhosts" "100"
+                                     "--nummsgs" "3")
+        catalogs-per-host (->> submitted
+                               (filter #(= :catalog (:entity %)))
+                               (map :payload)
+                               (group-by :certname)
+                               (#(update-vals % count)))]
+    (is (= 100 (count catalogs-per-host)))
+    ; We should see at least 2 catalogs for every host accounting for potential
+    ; jitter in the simulation timer.
+    (is (every? #(>= % 2) (vals catalogs-per-host)))))
+
+(deftest benchmark-runs-at-correct-rate
+  (call-with-benchmark-status
+   {}
+   ["--config" "anything.ini"
+    "--numhosts" "600"
+    "--runinterval" "1"]
+   ;; This should generate 30 messages per second (10 hosts per second, 3
+   ;; messages per host).
+   (fn [submitted {:keys [stop]}]
+     (let [start (System/currentTimeMillis)
+           enough-records (* 3 30) ; 3 seconds
+           finished (promise)
+           watch-key (Object.)
+           watcher (fn [_k _ref _old new]
+                     (when (>= (count new) enough-records)
+                       (deliver finished true)))]
+       (add-watch submitted watch-key watcher)
+       (when-not (>= (count @submitted) enough-records) ; avoid add-watch race
+         (deref finished tu/default-timeout-ms nil))
+       ;; Allow a ~30% margin of error to account for jitter in the simulation
+       ;; timer.
+       (let [elapsed (/ (- (System/currentTimeMillis) start) 1000.0)]
+         (is (<= 2.1 elapsed 3.9)))
+       (stop)))))
