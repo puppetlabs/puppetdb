@@ -25,6 +25,8 @@
             [puppetlabs.puppetdb.scf.partitioning :as part]
             [clojure.string :as str])
   (:import (java.time ZoneId ZonedDateTime)
+           (java.time.format DateTimeFormatter)
+           (java.time.temporal ChronoUnit)
            (java.sql Timestamp)))
 
 (use-fixtures :each tdb/call-with-test-db)
@@ -1705,3 +1707,353 @@
                    :deferrable? "NO"},
                   :same nil}]}
                (diff-schema-maps before-migration (schema-info-map *db*))))))))
+
+;; Helper functions for migration-81-resource-events-declarative-partitioning
+;; and migration-82-reports-declarative-partitioning
+(defn diff-date-suffix
+  [date]
+  (let [formatter (.withZone (DateTimeFormatter/BASIC_ISO_DATE) (ZoneId/of "UTC"))]
+    (str/lower-case
+      (.format date formatter))))
+
+(defn resource-events-partition-day-index-diff-template
+  "Generates the expected primary key indix for one resource-event's partition
+  day table."
+  [date]
+  (let [date-suffix (diff-date-suffix date)]
+    [{:left-only nil,
+       :right-only
+       {:schema "public",
+        :table (format "resource_events_%s" date-suffix),
+        :index (format "resource_events_%s_pkey" date-suffix),
+        :index_keys ["event_hash" "\"timestamp\""],
+        :type "btree",
+        :unique? true,
+        :functional? false,
+        :is_partial false,
+        :primary? true,
+        :user "pdb_test"},
+       :same nil}]))
+
+(defn get-formatted-start-of-day
+  "Returns a formatted date like '2023-01-13 00:00:00+00' as seen in Postgres
+  constraints retrieved from the schema."
+  [date]
+  (let [date-formatter (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ssx") (ZoneId/of "UTC"))]
+    (-> date
+        (.truncatedTo (ChronoUnit/DAYS)) ;; this is a ZonedDateTime
+        (.format date-formatter))))
+
+(defn resource-events-partition-day-constraint-diff-template
+  "generates the expected diff of constraints for one resource-event's
+  partition day table"
+  [date]
+  (let [date-suffix (diff-date-suffix date)
+        formatted-start-of-day (get-formatted-start-of-day date)
+        formatted-start-of-next-day (get-formatted-start-of-day (.plusDays date 1))]
+    [{:left-only
+      {:constraint_name
+       (format "(((\"timestamp\" >= '%s'::timestamp with time zone) AND (\"timestamp\" < '%s'::timestamp with time zone)))" formatted-start-of-day formatted-start-of-next-day),
+       :table_name (format "resource_events_%s" date-suffix),
+       :constraint_type "CHECK",
+       :initially_deferred "NO",
+       :deferrable? "NO"},
+      :right-only nil,
+      :same nil}
+     {:left-only nil,
+      :right-only
+      {:constraint_name (format "resource_events_%s_pkey" date-suffix),
+       :table_name (format "resource_events_%s" date-suffix),
+       :constraint_type "PRIMARY KEY",
+       :initially_deferred "NO",
+       :deferrable? "NO"},
+      :same nil}]))
+
+(defn generate-diff-sequence
+  "Stamp out a set of diffs from the given template"
+  [template-fn]
+  (let [now (ZonedDateTime/now)
+        days (range -4 4)]
+    (flatten
+      (map (fn [day-offset]
+             (template-fn (.plusDays now day-offset)))
+           days))))
+
+(deftest migration-81-resource-events-declarative-partitioning
+  (testing "resource_events table declarative partitioning migration"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 80)
+      (let [before-migration (schema-info-map *db*)
+            exp-resource-events-indices-diff
+              [{:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_timestamp_idx",
+                 :index_keys ["\"timestamp\""],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_containing_class_idx",
+                 :index_keys ["containing_class"],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_pkey",
+                 :index_keys ["event_hash"],
+                 :type "btree",
+                 :unique? true,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? true,
+                 :user "pdb_test"},
+                :right-only nil,
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_pkey",
+                 :index_keys ["event_hash", "\"timestamp\""],
+                 :type "btree",
+                 :unique? true,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? true,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_property_idx",
+                 :index_keys ["property"],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_reports_id_idx",
+                 :index_keys ["report_id"],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_resource_title_idx",
+                 :index_keys ["resource_title"],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_status_for_corrective_change_idx",
+                 :index_keys ["status"],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial true,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "resource_events",
+                 :index "resource_events_resource_timestamp",
+                 :index_keys ["resource_type" "resource_title" "\"timestamp\""],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}]
+            exp-idx-diff (concat exp-resource-events-indices-diff
+                                 (generate-diff-sequence resource-events-partition-day-index-diff-template))
+            exp-constraint-diff (generate-diff-sequence resource-events-partition-day-constraint-diff-template)
+            expected-diff
+              {:index-diff (set exp-idx-diff),
+               :table-diff nil,
+               :constraint-diff (set exp-constraint-diff)}]
+        (apply-migration-for-testing! 81)
+        (let [raw-diff (diff-schema-maps before-migration (schema-info-map *db*))
+              diff (-> raw-diff
+                     (update :index-diff set)
+                     (update :constraint-diff set))]
+          (is (= expected-diff diff)))))))
+
+(defn report-partition-day-index-diff-template
+  "Generates the expected diff of primary key and producer timestamp indices
+  for one report's partition day table."
+  [date]
+  (let [date-suffix (diff-date-suffix date)]
+    [{:left-only nil,
+       :right-only
+       {:schema "public",
+        :table (format "reports_%s" date-suffix),
+        :index (format "reports_%s_pkey" date-suffix),
+        :index_keys ["id" "producer_timestamp"],
+        :type "btree",
+        :unique? true,
+        :functional? false,
+        :is_partial false,
+        :primary? true,
+        :user "pdb_test"},
+       :same nil}
+       {:left-only nil,
+        :right-only
+        {:schema "public",
+         :table (format "reports_%s" date-suffix),
+         :index (format "reports_%s_encode_producer_timestamp_idx" date-suffix),
+         :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp" ],
+         :type "btree",
+         :unique? true,
+         :functional? true,
+         :is_partial false,
+         :primary? false,
+         :user "pdb_test"},
+        :same nil}]))
+
+(defn report-partition-day-constraint-diff-template
+  "Generates the expected diff of a constraints for one report's partition day table"
+  [date]
+  (let [date-suffix (diff-date-suffix date)
+        formatted-start-of-day (get-formatted-start-of-day date)
+        formatted-start-of-next-day (get-formatted-start-of-day (.plusDays date 1))]
+    [{:left-only
+        {:constraint_name
+          (format "(((producer_timestamp >= '%s'::timestamp with time zone) AND (producer_timestamp < '%s'::timestamp with time zone)))" formatted-start-of-day formatted-start-of-next-day),
+          :table_name (format "reports_%s" date-suffix),
+          :constraint_type "CHECK",
+          :initially_deferred "NO",
+          :deferrable? "NO"},
+         :right-only nil,
+         :same nil}
+        {:left-only nil,
+         :right-only
+         {:constraint_name (format "reports_%s_pkey" date-suffix), :table_name (format "reports_%s" date-suffix),
+          :constraint_type "PRIMARY KEY",
+          :initially_deferred "NO",
+          :deferrable? "NO"},
+         :same nil}]))
+
+(deftest migration-82-reports-declarative-partitioning
+  (testing "reports table declarative partitioning migration"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 81)
+      (let [before-migration (schema-info-map *db*)
+            exp-reports-indices-diff
+              [{:left-only
+                {:schema "public",
+                 :table "reports",
+                 :index "reports_hash_expr_idx",
+                 :index_keys ["encode(hash, 'hex'::text)"],
+                 :type "btree",
+                 :unique? true,
+                 :functional? true,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :right-only nil,
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "reports",
+                 :index "reports_hash_expr_idx",
+                 :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp"],
+                 :type "btree",
+                 :unique? true,
+                 :functional? true,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only
+                {:schema "public",
+                 :table "reports",
+                 :index "reports_pkey",
+                 :index_keys ["id"],
+                 :type "btree",
+                 :unique? true,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? true,
+                 :user "pdb_test"},
+                :right-only nil,
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "reports",
+                 :index "reports_pkey",
+                 :index_keys ["id" "producer_timestamp"],
+                 :type "btree",
+                 :unique? true,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? true,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "reports",
+                 :index "idx_reports_compound_id",
+                 :index_keys ["producer_timestamp" "certname" "hash"],
+                 :type "btree",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial true,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}]
+            exp-idx-diff (concat exp-reports-indices-diff
+                                 (generate-diff-sequence report-partition-day-index-diff-template))
+            exp-constraint-diff (generate-diff-sequence report-partition-day-constraint-diff-template)
+            expected-diff
+              {:index-diff (set exp-idx-diff),
+               :table-diff nil,
+               :constraint-diff (set exp-constraint-diff)}]
+        (apply-migration-for-testing! 82)
+        (let [raw-diff (diff-schema-maps before-migration (schema-info-map *db*))
+              diff (-> raw-diff
+                     (update :index-diff set)
+                     (update :constraint-diff set))]
+          (is (= expected-diff diff)))))))
