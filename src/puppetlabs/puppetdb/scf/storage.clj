@@ -231,6 +231,18 @@
   (env-config-for-db-ulong "PDB_COMMAND_SQL_STATEMENT_TIMEOUT_MS"
                            (* 10 60 1000)))
 
+(def table-lock-order
+  "This provides a partial ordering of tables, to ensure that we always lock
+  them in a consistent order."
+  ["certnames" "reports" "resource_events"])
+
+(defn acquire-locks!
+  "Acquires a lock on the specified table."
+  [table-modes]
+  {:pre [(every? string? (keys table-modes))
+         (every? string? (vals table-modes))]}
+  (let [ordered-tables (sort-by #(.indexOf table-lock-order %) (keys table-modes))]
+    (apply jdbc/do-commands (map #(str "LOCK TABLE " % " IN " (get table-modes %) " MODE") ordered-tables))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
@@ -1565,9 +1577,8 @@
           (jdbc/query-to-vec
            (str "select pg_terminate_backend(pid), pid"
                 " from pg_stat_activity"
-                " where (datname = (select current_database())"
-                "  and usename = (select current_user))"
-                "  and pid in (select unnest(pg_blocking_pids(?)))")
+                " where datname = (select current_database())"
+                "   and pid in (select unnest(pg_blocking_pids(?)))")
            gc-pid))]
     (Thread.
      #(with-noisy-failure
@@ -1591,9 +1602,9 @@
   (env-config-for-db-ulong "PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS"
                            (* 5 60 1000)))
 
-(defn drop-one-partition [drop-one candidate db]
+(defn execute-with-bulldozer [db f]
   (if-not (pos? gc-query-bulldozer-timeout-ms)
-    (drop-one candidate)
+    (f)
     (let [gc-pid (-> "select pg_backend_pid();"
                      jdbc/query-to-vec
                      first
@@ -1604,11 +1615,7 @@
       (try
         (.start gc-bulldozer)
         (when @bulldozer-connected
-          ;; This log message also provides evidence the bulldozer has
-          ;; acquired its connection.
-          (log/info (trs "Partition GC dropping partition {0}" candidate))
-          (drop-one candidate)
-          (log/info (trs "Partition GC dropped partition {0}" candidate)))
+          (f))
         (finally
           (when-not @bulldozer-connected
             (log/error (trs "Partition GC bulldozer could not connect to the database")))
@@ -1651,7 +1658,7 @@
   Deletes only the oldest such candidate if incremntal? is true.  Will
   throw an SQLException termination if the operation takes much longer
   than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
-  [table-prefix date incremental? update-lock-status status-key db]
+  [table-prefix date incremental? update-lock-status status-key]
   {:pre [(string? table-prefix)]}
   (let [utcz (ZoneId/of "UTC")
         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
@@ -1677,10 +1684,9 @@
                       (update-lock-status status-key dec))))
         drop #(if incremental?
                 (when-let [[candidate & _] (seq candidates)]
-                  ;; only kill queries during periodic GC when we expect
-                  ;; contention with concurrent queries against tables partition
-                  ;; GC needs AccessExclusiveLocks on in order to drop
-                  (drop-one-partition drop-one candidate db)
+                  (log/info (trs "Partition GC dropping partition {0}" candidate))
+                  (drop-one candidate)
+                  (log/info (trs "Partition GC dropped partition {0}" candidate))
                   (when (> (bounded-count 3 candidates) 2)
                     (log/warn (trs "More than 2 partitions remaining to prune: {0}"
                                    (pr-str (butlast candidates))))))
@@ -1694,31 +1700,41 @@
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
-  [date incremental? update-lock-status db]
+  [date incremental? update-lock-status]
   (prune-daily-partitions "resource_events" date incremental?
-                          update-lock-status :write-locking-resource-events db))
+                          update-lock-status :write-locking-resource-events))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an producer-timestamp
   that is prior to the specified report-time.  When event-time is
   specified, delete all the events that are older than whichever time
   is more recent."
-  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status db]
+  [{:keys [report-ttl resource-events-ttl incremental? update-lock-status]
     :or {resource-events-ttl report-ttl
          incremental? false
          update-lock-status (constantly true)}}]
   {:pre [(instance? org.joda.time.DateTime report-ttl)
          (instance? org.joda.time.DateTime resource-events-ttl)
          (ifn? update-lock-status)]}
+  ;; We update these tables in a different order than report insertion, creates
+  ;; the potential for deadlocks when two concurrent transactions have each
+  ;; acquired a portion of their locks. So first, we acquire locks on all the
+  ;; tables in the same order they are accessed during insertion. These match
+  ;; the locks that would implicitly be acquired by the operations we're going
+  ;; to perform: Access exclusive for reports and resource_events so we can
+  ;; drop partition tables, and row exclusive to update certnames.
+  (acquire-locks! {"certnames" "ROW EXCLUSIVE"
+                   "reports" "ACCESS EXCLUSIVE"
+                   "resource_events" "ACCESS EXCLUSIVE"})
   ;; force a resource-events GC. prior to partitioning, this would have happened
   ;; via a cascade when the report was deleted, but now we just drop whole tables
   ;; of resource events.
   (delete-resource-events-older-than! (if (before? report-ttl resource-events-ttl)
                                         resource-events-ttl report-ttl)
                                       incremental?
-                                      update-lock-status db)
+                                      update-lock-status)
   (prune-daily-partitions "reports" report-ttl incremental?
-                          update-lock-status :write-locking-reports db)
+                          update-lock-status :write-locking-reports)
   ;; since we cannot cascade back to the certnames table anymore, go clean up
   ;; the latest_report_id column after a GC
   (jdbc/do-commands

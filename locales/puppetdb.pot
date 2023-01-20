@@ -1593,15 +1593,11 @@ msgid "Creating additional index `catalog_resources_file_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Revoking {0} database access from {1} during migrations"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Disconnecting all {0} connections to {1} database before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Locking migrations table before migrating"
+msgid "Revoking {0} database access from {1} during migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1609,7 +1605,11 @@ msgid "Restoring access to {0} database to {1} after migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Unable to restore db access after migrations"
+msgid "Unable to restore "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Locking migrations table before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj

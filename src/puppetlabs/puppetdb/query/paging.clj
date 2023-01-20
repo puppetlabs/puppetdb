@@ -8,7 +8,6 @@
             [clojure.string :as string]
             [puppetlabs.kitchensink.core :as kitchensink
              :refer [seq-contains? order-by-expr? parse-int]]
-            [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [puppetlabs.i18n.core :refer [tru]]))
@@ -236,7 +235,7 @@
 (defn dealias-order-by
   [{:keys [projections] :as _query-rec} paging-options]
   (let [alias-map (->> projections
-                       (kitchensink/mapvals (comp h/extract-sql :field))
+                       (kitchensink/mapvals :field)
                        (kitchensink/mapkeys keyword))
         rename-field (fn [order-by-pair]
                        (update order-by-pair 0 (partial get alias-map)))]

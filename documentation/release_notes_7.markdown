@@ -15,6 +15,89 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.12.1
+
+Released January 17 2023
+
+### Bug fixes
+
+* Ordering query results by certain fields (e.g. the `trusted` facts
+  field) should no longer cause an error.
+  ([PDB-5568](https://tickets.puppetlabs.com/browse/PDB-5568))
+
+* The `org.postgresql/postgresql` driver has been updated to version
+  42.4.3 to address
+  [CVE-2022-41946](https://nvd.nist.gov/vuln/detail/CVE-2022-41946),
+  which is an information exposure vulnerability that could expose
+  database information to a local system
+  user. ([PDB-5570](https://tickets.puppetlabs.com/browse/PDB-5570))
+
+* The `org.ini4j/ini4j` library has been upgraded to 0.5.4 to address
+  [CVE-2022-41404](https://nvd.nist.gov/vuln/detail/CVE-2022-41404), a
+  Denial of Service (DoS) vulnerability.
+  ([PDB-5571](https://tickets.puppetlabs.com/browse/PDB-5571))
+
+### Contributors
+
+Austin Blatt and Rob Browning
+
+## PuppetDB 7.12.0
+
+Released December 6 2022
+
+> Note: depending on your configuration, the bug fixes in this release
+> may require attention.  See below.
+
+### New features and improvements
+
+* The timing of garbage collection operations can be controlled more
+  selectively.  The `gc-interval` controls the timing of a set of
+  operations, and now the timing of each of those operations can be
+  [specified individually](./configure.markdown#database-settings).
+  ([PDB-5547](https://tickets.puppetlabs.com/browse/PDB-5547))
+
+### Bug fixes
+
+* Queries should no longer be able to block report garbage collection
+  indefinitely.  If you do not use the PostgreSQL module and have the
+  recommended, separate `[read-database]` `username`, then you may
+  need to make adjustments.
+
+  Specifically, the the normal (write) `[database]` `username` must
+  have the right to terminate the `[read-database]` `username`'s
+  queries.  The [recommended configuration](./configure_postgres.markdown)
+  has been updated to include a suitable `grant puppetdb_read to puppetdb`.
+  ([PDB-5559](https://tickets.puppetlabs.com/browse/PDB-5559))
+
+* The coordination of database migrations will now disallow
+  `[read-database]` user connections as intended.  If you do not use
+  the PostgreSQL module, have the recommended, separate
+  `[read-database]` `username`, and have enabled migration
+  coordination via a
+  [`migrator-username`](./configure.markdown#migrator-username)
+  then you may need to make adjustments.
+
+  Specifically, the the normal `migrator-username` must have the
+  ability to terminate the `[read-database]` `username`'s connections,
+  which the [recommended configuration](./configure_postgres.markdown)
+  accomplishes by granting the write user's role to the migrator via
+  the `grant puppetdb to puppetdb_migrator`, allowing the migrator to
+  terminate the read user's connections indirectly via the `grant
+  puppetdb_read to puppetdb`, also in the recommended configuration.
+  ([PDB-5559](https://tickets.puppetlabs.com/browse/PDB-5559))
+
+* PuppetDB now drops expired partitions (e.g. reports) more
+  effectively.  The changes will cause PostgreSQL to log messages like
+  this: "FATAL: terminating connection due to administrator command".
+  Previously PuppetDB could cause database deadlocks that might
+  indefinitely prevent the expired partitions from being dropped.
+  ([PDB-5559](https://tickets.puppetlabs.com/browse/PDB-5548))
+
+### Contributors
+
+April Murphy, Arthur Lawson, Austin Blatt, Cas Donoghue, Jonathan
+Newman, Justin Stoller, Nick Lewis, and Rob Browning
+
 ## PuppetDB 7.11.2
 
 Released October 11 2022

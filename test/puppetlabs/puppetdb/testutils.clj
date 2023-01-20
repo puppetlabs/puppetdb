@@ -22,7 +22,8 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.net HttpURLConnection)
-   (java.util.concurrent Semaphore)))
+   (java.util.concurrent Semaphore)
+   (org.ini4j Ini)))
 
 (defn env-true? [name]
   (when-let [x (System/getenv name)]
@@ -467,3 +468,20 @@
      ~@body
      (catch ExceptionInfo ex#
        ex#)))
+
+(defn spit-ini
+  "Writes the `ini-map` to the Ini file at `file`. `ini-map` should
+   a map similar to the ones created by ini-to-map. The keys are keywords
+   for the sections and their values are maps of config keypairs."
+  [^java.io.File file ini-map]
+  ;; This is a copy of the kitchensink.core spit-ini that disables the
+  ;; escaping because the upstream change just before 0.5.4 to start
+  ;; escaping colons by default produces server urls like
+  ;; "https\\://..." which crash the terminus parser.
+  (let [ini (Ini. file)]
+    ;; Disable escaping for now, e.g. colons in urls
+    (.setEscape (.getConfig ini) false)
+    (doseq [[section-key section] ini-map
+            [k v] section]
+      (.put ini (name section-key) (name k) v))
+    (.store ini)))
