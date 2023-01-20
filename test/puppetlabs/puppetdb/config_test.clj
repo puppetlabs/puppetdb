@@ -74,23 +74,7 @@
       (let [config (configure-puppetdb {:puppetdb {:log-queries "some-string"}})]
         (is (= false (get-in config [:puppetdb :log-queries]))))
       (is (thrown? clojure.lang.ExceptionInfo
-                   (configure-puppetdb {:puppetdb {:log-queries 1337}}))))
-
-    (testing "certificate-whitelist-gets-converted-to-allowlist"
-      (let [config (configure-puppetdb {:puppetdb
-                                        {:certificate-whitelist "cert1, cert2"}})]
-        ;; whitelist gets converted to allowlist
-        (is (= "cert1, cert2" (-> config :puppetdb :certificate-allowlist))))
-      (let [config (configure-puppetdb {:puppetdb
-                                        {:certificate-allowlist "cert1, cert2"}})]
-        ;; can set allowlist directly
-        (is (= "cert1, cert2" (-> config :puppetdb :certificate-allowlist))))
-
-      ;; setting both allowlist and whitelist errors
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
-                            (configure-puppetdb {:puppetdb
-                                                 {:certificate-allowlist "cert1, cert2"
-                                                  :certificate-whitelist "cert3, cert4"}}))))))
+                   (configure-puppetdb {:puppetdb {:log-queries 1337}}))))))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
@@ -187,7 +171,8 @@
    (fn [vardir]
      (doseq [[obsolete replacement val]
              [[[:database :facts-blacklist] [:database :facts-blocklist] ["x"]]
-              [[:database :facts-blacklist-type] [:database :facts-blocklist-type] "literal"]]
+              [[:database :facts-blacklist-type] [:database :facts-blocklist-type] "literal"]
+              [[:puppetdb :certificate-whitelist] [:puppetdb :certificate-allowlist] "x, y"]]
              :let [config {:global {:vardir (str vardir)}
                            :database {:user "x" :password "?" :subname "foo"}}]]
        (testing (str "redundant config settings rejected: " obsolete " " replacement)

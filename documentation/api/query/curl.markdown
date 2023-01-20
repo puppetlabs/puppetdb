@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/api/query/curl.html"
 
 [curl]: http://curl.haxx.se/docs/manpage.html
 [dashboard]: ../../maintain_and_tune.markdown#monitor-the-performance-dashboard
-[whitelist]: ../../configure.markdown#certificate-whitelist
+[allowlist]: ../../configure.markdown#certificate-allowlist
 [entities]: ./v4/entities.markdown
 [pql]: ./tutorial-pql.markdown
 [pdb-cli]: ../../pdb_client_tools.markdown
@@ -41,7 +41,7 @@ Any node managed by Puppet agent will already have all of these, and you can
 reuse them for contacting PuppetDB. You can also generate a new cert on the CA
 Puppet Server with the `puppet cert generate` command.
 
-> **Note:** If you have turned on [certificate whitelisting][whitelist], you must
+> **Note:** If you have turned on [certificate allowlisting][allowlist], you must
 make sure to authorize the certificate you are using:
 >
 > ```

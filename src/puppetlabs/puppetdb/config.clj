@@ -508,17 +508,8 @@
 
 (defn convert-certificate-whitelist-to-allowlist
   [config]
-  (let [{:keys [certificate-whitelist
-                certificate-allowlist]} (:puppetdb config)
-        allowlist-value (or certificate-allowlist certificate-whitelist)]
-    (when (and certificate-allowlist certificate-whitelist)
-      (let [msg (trs "Confusing configuration settings found! Both the deprecated certificate-whitelist and replacement certificate-allowlist are set. These settings are mutually exclusive, please prefer certificate-allowlist.")]
-        (throw (ex-info msg {:type ::cli-error :message msg}))))
-    (when certificate-whitelist
-      (log/warn (trs "The certificate-whitelist setting has been deprecated and will be removed in a future release. Please use certificate-allowlist instead.")))
-    (cond-> config
-      certificate-whitelist (update-in [:puppetdb] dissoc :certificate-whitelist)
-      allowlist-value (assoc-in [:puppetdb :certificate-allowlist] allowlist-value))))
+  (update config :puppetdb redirect-obsolete-config-setting
+          :certificate-whitelist :certificate-allowlist))
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
