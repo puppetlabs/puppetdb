@@ -497,8 +497,6 @@ be blocklisted.  When matching regular expressions, the name must
 match the entire pattern.  For example the pattern "xyz" will not
 match the fact "123xyzabc", but ".\*xyz.\*" will.
 
-> **Note**: This setting replaces the deprecated `facts-blacklist` setting which will be retired in a future release
-
 ### `facts-blocklist-type`
 
 Optional.  When set to `literal` (or not set) the `facts-blocklist`
@@ -506,9 +504,6 @@ names will be matched literally.  When set to `regex` (the only other
 legal value), the names will be matched as [Java regular
 expresions][java-patterns].  See the `facts-blocklist` description
 above for additional information.
-
-> **Note**: This setting replaces the deprecated `facts-blacklist-type` setting which will be retired in a future release
-
 
 ### `schema-check-interval`
 

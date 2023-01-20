@@ -13,7 +13,9 @@
             normalize-product-name
             validate-vardir
             warn-retirements]]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
    [puppetlabs.puppetdb.testutils :refer [with-caught-ex-info]]
+   [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.time :as time]
    [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
    [clojure.string :as str]
@@ -178,35 +180,26 @@
     (is (= (get-in ini-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))
     (is (= (get-in hocon-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))))
 
-(deftest blacklist-to-blocklist-defaulting-behavior
-  (let [config {:database {:user "x" :password "?"
-                           :classname "something"
-                           :subname "stuff"
-                           :subprotocol "more stuff"}}]
-
-    (testing "setting both facts-blacklist and facts-blocklist errors"
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
-                            (configure-dbs (-> config
-                                               (assoc-in
-                                                [:database :facts-blacklist]
-                                                "I, should, fail")
-                                               (assoc-in
-                                                [:database :facts-blocklist]
-                                                "when, both, are, set"))))))
-
-    (testing "facts-blacklist-is-converted-to-blocklist"
-      (let [final-config (configure-dbs (-> config
-                                            (assoc-in
-                                             [:database :facts-blacklist]
-                                             "blocklist")
-                                            (assoc-in
-                                             [:database :facts-blacklist-type]
-                                             "literal")))]
-        (is (= ["blocklist"] (get-in final-config [:database :facts-blocklist])))
-        (is (= "literal" (get-in final-config [:database :facts-blocklist-type])))))
-
-    (testing "facts-blocklist-type-is-converted-when-defaulted-to-facts-blocklist-type"
-      (is (= "literal" (get-in (configure-dbs config) [:database :facts-blocklist-type]))))))
+(deftest obsolete-config-redirections
+  (call-with-temp-dir-path
+   (get-path "target")
+   (str *ns*)
+   (fn [vardir]
+     (doseq [[obsolete replacement val]
+             [[[:database :facts-blacklist] [:database :facts-blocklist] ["x"]]
+              [[:database :facts-blacklist-type] [:database :facts-blocklist-type] "literal"]]
+             :let [config {:global {:vardir (str vardir)}
+                           :database {:user "x" :password "?" :subname "foo"}}]]
+       (testing (str "redundant config settings rejected: " obsolete " " replacement)
+         (is (thrown-with-msg?
+              clojure.lang.ExceptionInfo #"^Configuration specifies both"
+              (conf/process-config! (-> config
+                                        (assoc-in obsolete val)
+                                        (assoc-in replacement val))))))
+       (testing (str "obsolete config setting redirected: " obsolete "->" replacement)
+         (let [config (conf/process-config! (assoc-in config obsolete val))]
+           (is (= nil (get-in config obsolete)))
+           (is (= val (get-in config replacement)))))))))
 
 (deftest write-databases-behavior
   (is (= {"default" {:subname "x" ::conf/unnamed true}}

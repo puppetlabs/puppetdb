@@ -35,6 +35,17 @@
 ;; support defaulting/converting nested maps, these configs can be put
 ;; together in a single schema that defines the config for PuppetDB
 
+(defn redirect-obsolete-config-setting
+  [config obsolete replacement]
+  (if-let [obsolete-val (config obsolete)]
+    (let [existing-val (config replacement)]
+      (when (and obsolete-val existing-val)
+        (let [msg (trs "Configuration specifies both the obsolete {0} and its replacement {1}.  Please remove the former."
+                       (name obsolete) (name replacement))]
+          (throw (ex-info msg {:type ::cli-error :message msg}))))
+      (-> config (dissoc obsolete) (assoc replacement obsolete-val)))
+    config))
+
 (defn warn-unknown-keys
   [schema data]
   (doseq [k (pls/unknown-keys schema data)]
@@ -75,15 +86,8 @@
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
-
-     ;; preserve backwards compatability with facts-blacklist
-     :facts-blacklist pls/Blocklist
-     :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
      :facts-blocklist pls/Blocklist
-     ;; blocklist-type will get defaulted to value of blacklist-type
-     ;; if unset in pls/convert-blacklist-settings-to-blocklist
-     :facts-blocklist-type (s/enum "literal" "regex")
-
+     :facts-blocklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
      :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))
      ;; This is applicable to the read-database too because it's used
      ;; to limit the scope of some queries.
@@ -274,6 +278,11 @@
     (catch PatternSyntaxException e
       (.getMessage e))))
 
+(defn convert-blacklist-settings-to-blocklist [config]
+  (-> config
+      (redirect-obsolete-config-setting :facts-blacklist :facts-blocklist)
+      (redirect-obsolete-config-setting :facts-blacklist-type :facts-blocklist-type)))
+
 (defn convert-blocklist-config
   "Validate and convert facts blocklist section of the config to runtime format.
   Throws a {:type ::cli-error :message m} exception describing errors when compiling
@@ -449,10 +458,10 @@
   ;; FIXME: double-check this reordering wrt each function,
   ;; i.e. make sure they're OK with going *after* the defaulting.
   (-> settings
+      convert-blacklist-settings-to-blocklist
       (validate-and-default-incoming-config per-write-database-config-in)
       (require-db-subname section-key)
       (require-enclosing-report-ttl section-key)
-      pls/convert-blacklist-settings-to-blocklist
       convert-blocklist-config
       (coerce-and-validate-final-config per-write-database-config-out)
       gc-intervals->periods
@@ -472,7 +481,7 @@
          (if read-database
            (-> read-database
                (validate-and-default-incoming-config per-database-config-in)
-               pls/convert-blacklist-settings-to-blocklist
+               convert-blacklist-settings-to-blocklist
                (require-db-subname :read-database)
                (coerce-and-validate-final-config per-database-config-out)
                (prefer-db-user-on-username-mismatch "read-database"))
