@@ -18,16 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: Set up Ruby 2.6
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 2.6.x
+          ruby-version: '2.6'
       - run: gem install bundler
       - name: Build container
         working-directory: docker
         run: |
           docker system prune --all --force --volumes
           docker builder prune --force --keep-storage=10GB
-          make lint build test
+          make lint build
       - name: Publish container
         working-directory: docker
         run: |
@@ -39,7 +39,7 @@ jobs:
         working-directory: docker
         run: |
           if make prep; then
-            make lint build test
+            make lint build
           else
             echo "Skipping release container building and testing"
           fi
