@@ -79,9 +79,11 @@
         orig (.getAutoCommit conn)]
     (.setAutoCommit conn true)
     (try
-      (doseq [c commands]
+      (doseq [x commands
+              :let [batch (if (string? x) [x] x)]
+              cmd batch]
         (with-open [s (.createStatement conn)]
-          (.execute s c)))
+          (.execute s cmd)))
       (finally (.setAutoCommit conn orig)))))
 
 (defn insert!

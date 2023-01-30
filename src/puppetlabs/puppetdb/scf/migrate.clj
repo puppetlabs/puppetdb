@@ -2487,35 +2487,22 @@
 (defn maybe-create-trgm-indexes
   "Create trgm indexes if they do not currently exist."
   []
-  (if-not (sutils/pg-extension? "pg_trgm")
-    (do
-      (log/warn
-       (trs "DEPRECATED: The `pg_trgm` extension will be required in PDB 7.0.0"))
-      (log/warn
-       (str
-        (trs "PostgreSQL extension `pg_trgm` missing.")
-        (trs "  Unable to create the recommended pg_trgm indexes.\n")
-        (trs "To fix, run this on the PuppetDB database as the database super user:\n")
-        (trs "    CREATE EXTENSION pg_trgm;\n")
-        (trs "Then restart PuppetDB.\n")))
-      nil)
-    (do
-      (when-not (sutils/index-exists? "fact_paths_path_trgm")
-        (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
-        (jdbc/do-commands
-         "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-      (when-not (sutils/index-exists? "packages_name_trgm")
-        (log/info (trs "Creating additional index `packages_name_trgm`"))
-        (jdbc/do-commands
-         ["create index packages_name_trgm on packages"
-          "  using gin (name gin_trgm_ops)"]))
-      (when-not (sutils/index-exists? "catalog_resources_file_trgm")
-        (log/info (trs "Creating additional index `catalog_resources_file_trgm`"))
-        (jdbc/do-commands
-         ["create index catalog_resources_file_trgm on catalog_resources"
-          " using gin (file gin_trgm_ops) where file is not null"]
-         "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
-      nil)))
+  (when-not (sutils/index-exists? "fact_paths_path_trgm")
+    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
+    (jdbc/do-commands
+     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
+  (when-not (sutils/index-exists? "packages_name_trgm")
+    (log/info (trs "Creating additional index `packages_name_trgm`"))
+    (jdbc/do-commands
+     ["create index packages_name_trgm on packages"
+      "  using gin (name gin_trgm_ops)"]))
+  (when-not (sutils/index-exists? "catalog_resources_file_trgm")
+    (log/info (trs "Creating additional index `catalog_resources_file_trgm`"))
+    (jdbc/do-commands
+     ["create index catalog_resources_file_trgm on catalog_resources"
+      " using gin (file gin_trgm_ops) where file is not null"]
+     "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
+  nil)
 
 (defn ensure-report-id-index []
   (when-not (sutils/index-exists? "idx_reports_compound_id")
@@ -2591,6 +2578,17 @@
              (ex-info (str "Unable to restore " (pr-str user) " connect rights after migration")
                       {:kind ::unable-to-block-other-pdbs-during-migration})))))))))
 
+(defn- require-extensions []
+  (when-not (sutils/pg-extension? "pg_trgm")
+    (let [msg (str (trs "PuppetDB requires the PostgreSQL `pg_trgm` extension.\n")
+                   (trs "Please connect to the PuppetDB database and run this:\n")
+                   (trs "    CREATE EXTENSION pg_trgm;\n"))]
+      (log/error msg)
+      (throw (ex-info ""
+                      {:kind :puppetlabs.trapperkeeper.core/exit
+                       :status 2
+                       :messages [[msg *err*]]})))))
+
 (defn update-schema
   [write-user read-user db-name]
   {:pre [(or (and write-user read-user db-name)
@@ -2606,6 +2604,7 @@
                    (log/info (trs "Locking migrations table before migrating"))
                    (jdbc/do-commands
                     "lock table schema_migrations in access exclusive mode")
+                   (require-extensions)
                    (require-valid-schema)
                    (let [tables (set/union (run-migrations (pending-migrations))
                                            (create-indexes))]

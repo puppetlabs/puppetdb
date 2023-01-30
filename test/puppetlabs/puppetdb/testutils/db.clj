@@ -230,18 +230,21 @@
         (format "set role %s" migrator-q)
         (format "grant connect on database %s to %s" db-q user-q)))
 
-      ;; Switch to run these schema permissions commands on the newly created test database
-      (jdbc/with-db-connection (db-admin-config db)
-        (jdbc/do-commands-outside-txn
-         ;; Configure a read-only user
-         "revoke create on schema public from public"
-         (format "grant create on schema public to %s" user-q)
-         (format "alter default privileges for user %s in schema public grant select on tables to %s"
-                 user-q read-user-q)
-         (format "grant select on all tables in schema public to %s" read-user-q)
-         ;; Explicitly grant connect because it has been revoked above
-         (format "set role %s" migrator-q)
-         (format "grant connect on database %s to %s" db-q read-user-q)))
+     ;; Switch to run these schema permissions commands on the newly created test database
+     (jdbc/with-db-connection (db-admin-config db)
+       (jdbc/do-commands-outside-txn
+        (when-not migrated?
+          ["create extension if not exists pg_trgm"
+           "create extension if not exists pgcrypto"])
+        ;; Configure a read-only user
+        "revoke create on schema public from public"
+        (format "grant create on schema public to %s" user-q)
+        (format "alter default privileges for user %s in schema public grant select on tables to %s"
+                user-q read-user-q)
+        (format "grant select on all tables in schema public to %s" read-user-q)
+        ;; Explicitly grant connect because it has been revoked above
+        (format "set role %s" migrator-q)
+        (format "grant connect on database %s to %s" db-q read-user-q)))
      (require-suitable-pg-arrangement config)
      (validate-read-only-user read-config (get-in test-env [:read :name]))
      [config read-config])))
