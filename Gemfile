@@ -1,7 +1,7 @@
 gemfile_home = File.dirname(__FILE__)
 
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
-oldest_supported_puppet = "5.0.0"
+oldest_supported_puppet = "7.0.0"
 beaker_version = ENV['BEAKER_VERSION']
 
 begin
