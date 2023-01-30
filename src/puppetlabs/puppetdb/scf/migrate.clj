@@ -2297,6 +2297,26 @@
       ["ALTER TABLE reports"
        "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"])))
 
+(defn require-previously-optional-trigram-indexes
+  "Create trgm indexes if they do not currently exist."
+  []
+  (when-not (sutils/index-exists? "fact_paths_path_trgm")
+    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
+    (jdbc/do-commands
+     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
+  (when-not (sutils/index-exists? "packages_name_trgm")
+    (log/info (trs "Creating additional index `packages_name_trgm`"))
+    (jdbc/do-commands
+     ["create index packages_name_trgm on packages"
+      "  using gin (name gin_trgm_ops)"]))
+  (when-not (sutils/index-exists? "catalog_resources_file_trgm")
+    (log/info (trs "Creating additional index `catalog_resources_file_trgm`"))
+    (jdbc/do-commands
+     ["create index catalog_resources_file_trgm on catalog_resources"
+      " using gin (file gin_trgm_ops) where file is not null"]
+     "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
+  nil)
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2362,7 +2382,8 @@
    79 add-report-partition-indexes-on-certname-end-time
    80 add-workspaces-tables
    81 migrate-resource-events-to-declarative-partitioning
-   82 migrate-reports-to-declarative-partitioning})
+   82 migrate-reports-to-declarative-partitioning
+   83 require-previously-optional-trigram-indexes})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
@@ -2484,26 +2505,6 @@
 
 ;; SPECIAL INDEX HANDLING
 
-(defn maybe-create-trgm-indexes
-  "Create trgm indexes if they do not currently exist."
-  []
-  (when-not (sutils/index-exists? "fact_paths_path_trgm")
-    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
-    (jdbc/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-  (when-not (sutils/index-exists? "packages_name_trgm")
-    (log/info (trs "Creating additional index `packages_name_trgm`"))
-    (jdbc/do-commands
-     ["create index packages_name_trgm on packages"
-      "  using gin (name gin_trgm_ops)"]))
-  (when-not (sutils/index-exists? "catalog_resources_file_trgm")
-    (log/info (trs "Creating additional index `catalog_resources_file_trgm`"))
-    (jdbc/do-commands
-     ["create index catalog_resources_file_trgm on catalog_resources"
-      " using gin (file gin_trgm_ops) where file is not null"]
-     "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
-  nil)
-
 (defn ensure-report-id-index []
   (when-not (sutils/index-exists? "idx_reports_compound_id")
     (log/info "Indexing reports for id queries")
@@ -2516,9 +2517,7 @@
 (defn create-indexes
   "Create missing indexes for applicable database platforms."
   []
-  (set/union
-   (maybe-create-trgm-indexes)
-   (ensure-report-id-index)))
+  (set/union (ensure-report-id-index)))
 
 (defn note-migrations-finished
   "Currently just a hook used during testing."

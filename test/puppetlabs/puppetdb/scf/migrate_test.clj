@@ -2083,3 +2083,40 @@
                      (update :index-diff set)
                      (update :constraint-diff set))]
           (is (= expected-diff diff)))))))
+
+(deftest migration-83-creates-trigram-indexes
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 82)
+    (let [before-migration (schema-info-map *db*)]
+      (apply-migration-for-testing! 83)
+      (is (= {:index-diff
+              [{:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "catalog_resources",
+                 :index "catalog_resources_file_trgm",
+                 :index_keys ["file"],
+                 :type "gin",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial true,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}
+               {:left-only nil,
+                :right-only
+                {:schema "public",
+                 :table "fact_paths",
+                 :index "fact_paths_path_trgm",
+                 :index_keys ["path"],
+                 :type "gist",
+                 :unique? false,
+                 :functional? false,
+                 :is_partial false,
+                 :primary? false,
+                 :user "pdb_test"},
+                :same nil}],
+              :table-diff nil,
+              :constraint-diff nil}
+             (diff-schema-maps before-migration (schema-info-map *db*)))))))
