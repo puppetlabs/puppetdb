@@ -17,7 +17,7 @@ require 'puppet/util/log'
 
 def create_environmentdir(environment)
   envdir = File.join(Puppet[:environmentpath], environment)
-  if not Dir.exists?(envdir)
+  if not Dir.exist?(envdir)
     Dir.mkdir(envdir)
   end
 end

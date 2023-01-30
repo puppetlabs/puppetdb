@@ -22,7 +22,7 @@ module Puppet::Util::Puppetdb
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
 
-      if File.exists?(config_file)
+      if File.exist?(config_file)
         Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
         content = File.read(config_file)
       else
