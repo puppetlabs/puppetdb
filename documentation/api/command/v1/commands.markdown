@@ -289,14 +289,6 @@ To post a `replace facts` command you can use the following curl command:
       -d '{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"server1"}' \
       "http://localhost:8080/pdb/cmd/v1?command=replace_facts&version=5&certname=test1"
 
-or equivalently (with the deprecated mechanism):
-
-    curl -X POST \
-      -H "Accept: application/json" \
-      -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":5,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"server1"}}' \
-      http://localhost:8080/pdb/cmd/v1
-
 An example of `deactivate node`:
 
     curl -X POST \
@@ -304,14 +296,6 @@ An example of `deactivate node`:
       -H 'Accept:application/json' \
       -d '{"certname":"test1","producer_timestamp":"2015-01-01"}' \
       "http://localhost:8080/pdb/cmd/v1?certname=test1&command=deactivate_node&version=3"
-
-or equivalently:
-
-    curl -X POST \
-      -H "Accept: application/json" \
-      -H "Content-Type: application/json" \
-      -d '{"command":"deactivate node","version":3,"payload":{"certname":"test1","producer_timestamp":"2015-01-01"}}' \
-      http://localhost:8080/pdb/cmd/v1
 
 To `configure expiration` for facts:
 
