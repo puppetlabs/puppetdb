@@ -33,6 +33,7 @@ aliases:
 
   - &run-spec-tests |
     set -e
+    rvm use "$(./ext/bin/prefixed-ref-from-spec "$PDB_TEST" ruby-)"
     ci/bin/prep-and-run-in travis "$PDB_TEST"
 
   - &before-docker-tests
@@ -125,14 +126,16 @@ jobs:
       script: *run-integration-tests
 
     # === rspec tests
+    # Available ruby versions are printed with the "Pre-installed Ruby versions"
+    # header in Travis
     - stage: ❧ pdb tests
       name: rspec pup-main
-      env: PDB_TEST=rspec/pup-main
+      env: PDB_TEST=rspec/pup-main/ruby-3.1.2
       script: *run-spec-tests
 
     - stage: ❧ pdb tests
-      name: rspec pup-6.x
-      env: PDB_TEST=rspec/pup-7.x
+      name: rspec pup-7.x
+      env: PDB_TEST=rspec/pup-7.x/ruby-2.7.6
       script: *run-spec-tests
 
 on_success: ci/bin/travis-on-success
