@@ -535,6 +535,7 @@
                      "group by gid"))))))))
 
 (deftest migration-50-remove-historical-catalogs
+  ;; Completely retired/obsolete
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
     (fast-forward-to-migration! 49)

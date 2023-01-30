@@ -213,7 +213,6 @@
   (all-optional
    {:certificate-whitelist s/Str
     :certificate-allowlist s/Str
-    :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
     :disable-update-checking (pls/defaulted-maybe String "false")
     :add-agent-report-filter (pls/defaulted-maybe String "true")
     :log-queries (pls/defaulted-maybe String "false")}))
@@ -221,7 +220,6 @@
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
   {(s/optional-key :certificate-allowlist) s/Str
-   :historical-catalogs-limit s/Int
    :disable-update-checking Boolean
    :add-agent-report-filter Boolean
    :log-queries Boolean})

@@ -874,6 +874,7 @@
     "ALTER TABLE factsets DROP CONSTRAINT factsets_hash_key"))
 
 (defn add-support-for-historical-catalogs []
+  ;; Completely retired/obsolete
   (jdbc/do-commands
    "ALTER TABLE catalog_resources RENAME TO catalog_resources_tmp"
    ;; CREATE certnames and catalog_resources transform tables
@@ -1094,6 +1095,7 @@
     "alter table resource_events add column corrective_change boolean"))
 
 (defn remove-historical-catalogs
+  ;; Completely retired/obsolete
   []
   (jdbc/do-commands
     "alter table catalogs drop column edges"

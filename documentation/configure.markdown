@@ -222,10 +222,6 @@ If not supplied, PuppetDB uses standard HTTPS without any additional
 authorization. All HTTPS clients must still supply valid, verifiable
 SSL client certificates.
 
-### `historical-catalogs-limit` (PE only)
-
-> **Note**: This setting has no effect and will be retired in a future release.
-
 ### `disable-update-checking`
 
 Optional. Setting this to `true` disables checking for updated
