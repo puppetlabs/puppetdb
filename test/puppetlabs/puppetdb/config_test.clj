@@ -113,9 +113,7 @@
 (deftest blocklist-type-only-accepts-literal-regex-as-values
   (let [config-db (fn [bl-type]
                     (-> {:database {:user "x" :password "?"
-                                    :classname "something"
                                     :subname "stuff"
-                                    :subprotocol "more stuff"
                                     :facts-blocklist-type bl-type}}
                         configure-dbs))]
 
@@ -130,17 +128,13 @@
 
 (deftest blocklist-type-defaults-to-literal
   (let [config (-> {:database {:user "x" :password "?"
-                               :classname "something"
-                               :subname "stuff"
-                               :subprotocol "more stuff"}}
+                               :subname "stuff"}}
                    configure-dbs)]
     (is (= (get-in config [:database :facts-blocklist-type]) "literal"))))
 
 (deftest blocklist-converted-correctly-with-ini-and-conf-files
   (let [build-config (fn [x] (-> {:database {:user "x" :password "?"
-                                             :classname "something"
                                              :subname "stuff"
-                                             :subprotocol "more stuff"
                                              :facts-blocklist x}}
                                  configure-dbs))
         ini-config (build-config "fact1, fact2, fact3")
@@ -242,24 +236,18 @@
 
     (testing "migrate defaults to true"
       (let [config (-> {:database {:user "x" :password "?"
-                                   :classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"}}
+                                   :subname "stuff"}}
                        configure-dbs)]
         (is (= true (get-in config [:database :migrate])))))
 
     (testing "schema-check-interval defaults to 30 seconds"
       (let [config (-> {:database {:user "x" :password "?"
-                                   :classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"}}
+                                   :subname "stuff"}}
                        configure-dbs)
             thirty-seconds-in-millis 30000]
         (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))
 
-    (let [no-migrator {:database {:classname   "something"
-                                  :subname     "stuff"
-                                  :subprotocol "more stuff"
+    (let [no-migrator {:database {:subname     "stuff"
                                   :username    "someone"
                                   :password    "something"}}
           migrator (update no-migrator :database assoc
@@ -268,9 +256,8 @@
           connection-user (update migrator :database assoc
                                   :connection-username "connection-user-value"
                                   :connection-migrator-username "connection-migration-user-value")
-          ssl-connection {:database {:classname   "something"
-                                  :subname     "stuff?ssl=true"
-                                  :username    "someone"}}]
+          ssl-connection {:database {:subname     "stuff?ssl=true"
+                                     :username    "someone"}}]
 
       (testing "migrator-username"
         (let [config (configure-dbs no-migrator)]
@@ -312,9 +299,7 @@
           (is (= "password" (get-in config [:read-database :migrator-password]))))))))
 
 (deftest database-user-preferred-to-username-on-mismatch
-  (let [config (configure-dbs {:database {:classname "something"
-                                          :subname "stuff"
-                                          :subprotocol "more stuff"
+  (let [config (configure-dbs {:database {:subname "stuff"
                                           :user "someone"
                                           :username "someone-else"
                                           :password "something"}})]

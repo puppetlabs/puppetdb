@@ -209,6 +209,7 @@
   [args methods-array]
   (let [config (assoc (:config args)
                  :user "puppetdb"
+                 :classname "org.postgresql.Driver"
                  :subprotocol "postgresql"
                  :pool-name "PDBDataSetPool"
                  :connection-timeout 3000

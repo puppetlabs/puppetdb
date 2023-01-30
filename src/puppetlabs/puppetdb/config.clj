@@ -22,7 +22,7 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.util.regex PatternSyntaxException)
-   (org.joda.time Minutes Days Period)))
+   (org.joda.time Minutes Period)))
 
 (defn throw-cli-error [msg]
   (throw (ex-info msg {:type ::cli-error :message msg})))
@@ -91,14 +91,7 @@
      :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))
      ;; This is applicable to the read-database too because it's used
      ;; to limit the scope of some queries.
-     :node-purge-ttl (pls/defaulted-maybe String "14d")
-     ;; FIXME?
-     ;; completely retired (ignored)
-     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
-     :conn-keep-alive s/Int
-     :log-slow-statements s/Int
-     :statements-cache-size s/Int
-     :subprotocol (pls/defaulted-maybe String "postgresql")}))
+     :node-purge-ttl (pls/defaulted-maybe String "14d")}))
 
 (def report-ttl-default "14d")
 
@@ -121,7 +114,11 @@
 
 (def per-database-config-out
   "Schema for parsed/processed database config"
-  {:subname String
+  {;; These defaults are the final values since these params can no
+   ;; longer be specified.
+   :classname (pls/defaulted-maybe String "org.postgresql.Driver")
+   :subprotocol (pls/defaulted-maybe String "postgresql")
+   :subname String
    :conn-max-age Minutes
    :read-only? Boolean
    :partition-conn-min s/Int
@@ -144,13 +141,7 @@
    :facts-blocklist-type String
 
    :schema-check-interval s/Int
-   :node-purge-ttl Period
-   ;; completely retired (ignored)
-   :classname String
-   (s/optional-key :conn-keep-alive) Minutes
-   (s/optional-key :log-slow-statements) Days
-   (s/optional-key :statements-cache-size) s/Int
-   :subprotocol String})
+   :node-purge-ttl Period})
 
 (def per-write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
@@ -295,6 +286,7 @@
 (defn coerce-and-validate-final-config
   [config schema-out]
   (->> config
+       (pls/defaulted-data schema-out)
        (pls/convert-to-schema schema-out)
        (s/validate schema-out)))
 
