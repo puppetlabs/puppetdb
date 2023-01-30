@@ -80,16 +80,6 @@
   (testing "should use the thread value specified"
     (let [config (configure-command-processing {:command-processing {:threads 37}})]
       (is (= (get-in config [:command-processing :threads]) 37))))
-
-  (testing "retired command processing config"
-    (doseq [cmd-proc-key [:store-usage :temp-usage :memory-usage :max-frame-size]]
-      (let [cmd-proc-config {:command-processing {cmd-proc-key 10000}}
-            out-str (with-out-str
-                      (binding [*err* *out*]
-                        (configure-command-processing cmd-proc-config)))]
-        (is (.contains out-str
-                       (format "The configuration item `%s`" (name cmd-proc-key)))))))
-
   (let [with-ncores (fn [cores]
                       (with-redefs [kitchensink/num-cpus (constantly cores)]
                         (half-the-cores*)))]

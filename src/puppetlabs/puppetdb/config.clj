@@ -199,26 +199,14 @@
     {:threads (pls/defaulted-maybe s/Int half-the-cores)
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")
-     :concurrent-writes (pls/defaulted-maybe s/Int (min half-the-cores 4))
-
-     ;; Deprecated
-     :max-frame-size (pls/defaulted-maybe s/Int 209715200)
-     :store-usage s/Int
-     :temp-usage s/Int
-     :memory-usage s/Int}))
+     :concurrent-writes (pls/defaulted-maybe s/Int (min half-the-cores 4))}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
   {:threads s/Int
    :max-command-size s/Int
    :reject-large-commands Boolean
-   :concurrent-writes s/Int
-
-   ;; Deprecated
-   :max-frame-size s/Int
-   (s/optional-key :memory-usage) s/Int
-   (s/optional-key :store-usage) s/Int
-   (s/optional-key :temp-usage) s/Int})
+   :concurrent-writes s/Int})
 
 (def puppetdb-config-in
   "Schema for validating the incoming [puppetdb] block"
@@ -523,22 +511,8 @@
   (configure-section (merge {:developer {}} config)
                      :developer developer-config-in developer-config-out))
 
-(def retired-cmd-proc-keys
-  [:store-usage :max-frame-size :temp-usage :memory-usage])
-
-(defn warn-command-processing-retirements
-  [config]
-  (doseq [cmd-proc-key retired-cmd-proc-keys]
-    (when (get-in config [:command-processing cmd-proc-key])
-      (utils/println-err
-       (str (trs "The configuration item `{0}` in the [command-processing] section is retired, please remove this item from your config."
-                 (name cmd-proc-key))
-            " "
-            (trs "Consult the documentation for more details."))))))
-
 (defn configure-command-processing
   [config]
-  (warn-command-processing-retirements config)
   (configure-section config :command-processing command-processing-in command-processing-out))
 
 (defn convert-config
