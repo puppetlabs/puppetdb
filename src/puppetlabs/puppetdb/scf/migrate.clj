@@ -2505,22 +2505,6 @@
       tables)))
 
 
-;; SPECIAL INDEX HANDLING
-
-(defn ensure-report-id-index []
-  (when-not (sutils/index-exists? "idx_reports_compound_id")
-    (log/info "Indexing reports for id queries")
-    (jdbc/do-commands
-     "create index idx_reports_compound_id on reports
-        (producer_timestamp, certname, hash)
-        where start_time is not null")
-    #{"reports"}))
-
-(defn create-indexes
-  "Create missing indexes for applicable database platforms."
-  []
-  (set/union (ensure-report-id-index)))
-
 (defn note-migrations-finished
   "Currently just a hook used during testing."
   []
@@ -2607,8 +2591,7 @@
                     "lock table schema_migrations in access exclusive mode")
                    (require-extensions)
                    (require-valid-schema)
-                   (let [tables (set/union (run-migrations (pending-migrations))
-                                           (create-indexes))]
+                   (let [tables (run-migrations (pending-migrations))]
                      (note-migrations-finished)
                      tables))]
     (if-not write-user

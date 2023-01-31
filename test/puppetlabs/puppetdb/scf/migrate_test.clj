@@ -4,7 +4,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.migrate :as migrate
              :refer [applied-migrations
-                     create-indexes
                      desired-schema-version
                      initialize-schema
                      migrations
@@ -1295,7 +1294,6 @@
   (clear-db-for-testing!)
   ;; intentionally apply all of the migrations before looking to ensure our autovacuum scale factors aren't lost
   (fast-forward-to-migration! (desired-schema-version))
-  (create-indexes)
   (let [values {"catalog_resources" "0.01"}]
     (doseq [[table factor] values]
       (is (= [{:reloptions [(format "autovacuum_analyze_scale_factor=%s" factor)]}]
