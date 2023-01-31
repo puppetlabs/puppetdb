@@ -446,12 +446,16 @@
                                            cmd-consts/latest-report-version
                                            (change-report-time example-report %))
           after-gc (CyclicBarrier. 2)
+          before-gc (CyclicBarrier. 2)
+          queries-begun (CyclicBarrier. 4)
           original-periodic-gc svcs/invoke-periodic-gc
           invoke-periodic (fn [& args]
                             (if (some #{"purge_reports"} (nth args 2))
-                              (let [result (apply original-periodic-gc args)]
-                                (.await after-gc)
-                                result)
+                              (do
+                                (.await before-gc)
+                                (let [result (apply original-periodic-gc args)]
+                                  (.await after-gc)
+                                  result))
                               ;; if not purging reports, run gc normally
                               (apply original-periodic-gc args)))
           event-expired? (fn [_ _] true)]
@@ -463,6 +467,7 @@
            (with-log-level "puppetlabs.puppetdb.scf.storage" :info
              (with-logged-event-maps log
                ;; Wait for the first, full gc to finish.
+               (.await before-gc)
                (.await after-gc)
                (store-report "2011-01-01T12:00:01-03:00")
                (store-report "2011-01-02T12:00:01-03:00")
@@ -482,15 +487,24 @@
                  ;; the AccessExclusiveLock it needs, both should get canceled by GC
                  (let [report-query (future
                                       (jdbc/with-transacted-connection *read-db*
-                                        (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
+                                        (.await queries-begun)
+                                        (jdbc/do-commands "select id, pg_sleep(12) from reports")))
                        report-query2 (future
                                        (jdbc/with-transacted-connection *db*
-                                         (jdbc/do-commands "select id, pg_sleep(1200) from reports")))
+                                         (.await queries-begun)
+                                         (jdbc/do-commands "select id, pg_sleep(12) from reports")))
                        resource-query (future
                                         (jdbc/with-transacted-connection *db*
-                                          (jdbc/do-commands "select event_hash, pg_sleep(1200) from resource_events")))]
+                                          (.await queries-begun)
+                                          (jdbc/do-commands "select event_hash, pg_sleep(12) from resource_events")))]
 
-                   ;; gc should clear the two queries from above and drop only the oldest partition
+                   ;; Intention is to ensure that the queries have begun before gc starts and the query bulldozer whizzes by,
+                   ;; because if the bulldozer zips through before the queries are actually made, nothing gets cleared.
+                   (.await queries-begun)
+                   (Thread/sleep 1000)
+
+                   ;; gc should clear the three queries from above and drop only the oldest partition
+                   (.await before-gc)
                    (.await after-gc)
 
                    (is (thrown-with-msg?
@@ -520,7 +534,16 @@
                  (is (= (->> report-parts (sort-by :table) (drop 1) set)
                         (set (get-temporal-partitions "reports"))))
                  (is (= (->> event-parts (sort-by :table) (drop 1) set)
+                        (set (get-temporal-partitions "resource_events"))))
+
+                 (.await before-gc)
+                 (.await after-gc)
+
+                 (is (= (->> report-parts (sort-by :table) (drop 2) set)
+                        (set (get-temporal-partitions "reports"))))
+                 (is (= (->> event-parts (sort-by :table) (drop 2) set)
                         (set (get-temporal-partitions "resource_events")))))))))))))
+
 (deftest initialize-db
   (testing "when establishing migration database connections"
     (let [con-mig-user "conn-migration-user-value"
