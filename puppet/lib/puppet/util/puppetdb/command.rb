@@ -11,6 +11,27 @@ class Puppet::Util::Puppetdb::Command
 
   CommandsUrl = "/pdb/cmd/v1"
 
+  def coerce_payload(payload, certname)
+    c = ""
+    case payload
+    when Hash
+      c = payload.map do |k, v|
+        [k, coerce_payload(v, certname)]
+      end
+      c = c.to_h
+    when Array
+      c = payload.map do |v|
+        coerce_payload(v, certname)
+      end
+    when String
+      return Puppet::Util::Puppetdb::CharEncoding.utf8_string(payload, "Error encoding data #{payload} for host '#{certname}'")
+    else
+      c = payload # TODO any error cases?
+    end
+
+    c
+  end
+
   # Public instance methods
 
   # Initialize a Command object, for later submission.
@@ -25,12 +46,13 @@ class Puppet::Util::Puppetdb::Command
   #   by JSON serialization / deserialization libraries.
   def initialize(command, version, certname, producer_timestamp_utc, payload)
     checksum_payload = nil
+    coerced_payload = coerce_payload(payload, certname)
     profile("Format payload", [:puppetdb, :payload, :format]) do
       checksum_payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
         :command => command,
         :version => version,
         :certname => certname,
-        :payload => payload,
+        :payload => coerced_payload,
       # We use to_pson still here, to work around the support for shifting
       # binary data from a catalog to PuppetDB. Attempting to use to_json
       # we get to_json conversion errors:
@@ -41,14 +63,14 @@ class Puppet::Util::Puppetdb::Command
       #
       # This is roughly inline with how Puppet serializes for catalogs as of
       # Puppet 4.1.0. We need a better answer to non-utf8 data end-to-end.
-      }.to_pson, "Error encoding a '#{command}' command for host '#{certname}'")
+      }.to_json, "Error encoding a '#{command}' command for host '#{certname}'")
     end
     @checksum = Digest::SHA1.hexdigest(checksum_payload)
     @command = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(command).gsub(" ", "_")
     @version = version
     @certname = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(certname)
     @producer_timestamp_utc = producer_timestamp_utc
-    @payload = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(payload.to_pson)
+    @payload = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(coerced_payload.to_json)
   end
 
   attr_reader :command, :version, :certname, :producer_timestamp_utc, :payload, :checksum
@@ -113,5 +135,4 @@ class Puppet::Util::Puppetdb::Command
     # way besides this pseudo-global reference.
     Puppet::Util::Puppetdb.config
   end
-
 end
