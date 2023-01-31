@@ -1704,13 +1704,16 @@
                                   candidate))
                    (drop-one candidate)
                    (log/info (trs "Partition GC {0} partition {1}"
-                                  (if just-detach? "detached" "Dropped")
+                                  (if just-detach? "detached" "dropped")
                                   candidate))
                    (when (> (bounded-count 3 candidates) 2)
                      (log/warn (trs "More than 2 partitions remaining to prune: {0}"
-                                    (pr-str (butlast candidates))))))
-                 (doseq [candidate candidates]
-                   (drop-one candidate)))]
+                                    (pr-str (butlast candidates)))))
+                   [candidate])
+                 (do
+                   (doseq [candidate candidates]
+                     (drop-one candidate))
+                   candidates))]
      (if-not daily-partition-drop-lock-timeout-ms
        (drop)
        (call-with-lock-timeout drop daily-partition-drop-lock-timeout-ms)))))
@@ -1724,21 +1727,62 @@
   (prune-daily-partitions table-prefix date incremental?
                           update-lock-status status-key true))
 
+(defn drop-partition-tables
+  "Drops the given set of tables."
+  [old-partition-tables]
+  (doseq [table old-partition-tables]
+    (jdbc/do-commands
+      (format "drop table if exists %s cascade" table))))
+
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
   [date incremental? update-lock-status]
-  (when (detach-partitions-concurrently?)
-    (detach-daily-partitions "resource_events" date incremental?
-                             update-lock-status :write-locking-resource-events))
+  (if-not (detach-partitions-concurrently?)
+    ;; PG11
+    (jdbc/with-db-transaction []
+      (prune-daily-partitions "resource_events" date incremental?
+                              update-lock-status :write-locking-resource-events))
+    ;; PG14+
+    (let [detached-tables
+           (detach-daily-partitions "resource_events" date incremental?
+                                    update-lock-status :write-locking-resource-events)]
+      (jdbc/with-db-transaction []
+        (drop-partition-tables detached-tables)))))
+
+(defn cleanup-dropped-report-certnames
+  "Since we cannot cascade back to the certnames table anymore, go clean up
+  the latest_report_id column after a GC."
+  []
+  (jdbc/do-commands
+   ["UPDATE certnames SET latest_report_id = NULL"
+    "  WHERE certname IN"
+    "    (SELECT DISTINCT certnames.certname FROM certnames"
+    "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
+    "       WHERE reports.id IS NULL)"]))
+
+(defn delete-reports-older-than-in-pg-11!
+  "PostgreSQL 11 workflow for deleting all reports in the database which have
+  a producer-timestamp that is prior to the specified report-time.  When
+  event-time is specified, delete all the events that are older than whichever
+  time is more recent."
+  [report-ttl resource-events-ttl incremental? update-lock-status]
   (jdbc/with-db-transaction []
-    (prune-daily-partitions "resource_events" date incremental?
-                            update-lock-status :write-locking-resource-events)))
+    (acquire-locks! {"certnames" "ROW EXCLUSIVE"
+                     "reports" "ACCESS EXCLUSIVE"
+                     "resource_events" "ACCESS EXCLUSIVE"})
+    (prune-daily-partitions "resource_events" resource-events-ttl
+                            incremental? update-lock-status
+                            :write-locking-resource-events)
+    (prune-daily-partitions "reports" report-ttl
+                            incremental? update-lock-status
+                            :write-locking-reports)
+    (cleanup-dropped-report-certnames)))
 
 (defn delete-reports-older-than!
-  "Delete all reports in the database which have an producer-timestamp
-  that is prior to the specified report-time.  When event-time is
+  "Delete all reports in the database which have a producer-timestamp
+  that is prior to the specified report-time. When event-time is
   specified, delete all the events that are older than whichever time
   is more recent."
   [{:keys [report-ttl resource-events-ttl incremental? update-lock-status]
@@ -1748,46 +1792,42 @@
   {:pre [(instance? org.joda.time.DateTime report-ttl)
          (instance? org.joda.time.DateTime resource-events-ttl)
          (ifn? update-lock-status)]}
-  (let [effective-resource-events-ttl (if (before? report-ttl resource-events-ttl)
-                                        resource-events-ttl report-ttl)
-        table-lock-level (if (detach-partitions-concurrently?)
-                           "SHARE UPDATE EXCLUSIVE" "ACCESS EXCLUSIVE")]
-    ;; Detach partition concurrently must take place outside of a transaction.
-    (when (detach-partitions-concurrently?)
-      (detach-daily-partitions "resource_events" effective-resource-events-ttl
-                               incremental? update-lock-status
-                               :write-locking-resource-events)
-      (detach-daily-partitions "reports" report-ttl
-                               incremental? update-lock-status
-                               :write-locking-reports))
-    (jdbc/with-db-transaction []
-      ;; We update these tables in a different order than report insertion, creates
-      ;; the potential for deadlocks when two concurrent transactions have each
-      ;; acquired a portion of their locks. So first, we acquire locks on all the
-      ;; tables in the same order they are accessed during insertion. These match
-      ;; the locks that would implicitly be acquired by the operations we're going
-      ;; to perform: Access exclusive for reports and resource_events so we can
-      ;; drop partition tables, and row exclusive to update certnames.
-      (acquire-locks! {"certnames" "ROW EXCLUSIVE"
-                       "reports" table-lock-level
-                       "resource_events" table-lock-level})
-      ;; force a resource-events GC. prior to partitioning, this would have happened
-      ;; via a cascade when the report was deleted, but now we just drop whole tables
-      ;; of resource events.
-      (prune-daily-partitions "resource_events" effective-resource-events-ttl
-                              incremental? update-lock-status
-                              :write-locking-resource-events)
-      (prune-daily-partitions "reports" report-ttl
-                              incremental? update-lock-status
-                              :write-locking-reports)
-      ;; since we cannot cascade back to the certnames table anymore, go clean up
-      ;; the latest_report_id column after a GC
-      (jdbc/do-commands
-       ["UPDATE certnames SET latest_report_id = NULL"
-        "  WHERE certname IN"
-        "    (SELECT DISTINCT certnames.certname FROM certnames"
-        "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
-        "       WHERE reports.id IS NULL)"]))))
+  (let [effective-resource-events-ttl
+         (if (before? report-ttl resource-events-ttl) resource-events-ttl report-ttl)]
+    (if-not (detach-partitions-concurrently?)
+      ;; PG11
+      (delete-reports-older-than-in-pg-11! report-ttl effective-resource-events-ttl
+                                           incremental? update-lock-status)
+      ;; PG14+
+      ;; Detach partition concurrently must take place outside of a transaction.
+      (let [detached-resource-event-tables
+             (detach-daily-partitions "resource_events" effective-resource-events-ttl
+                                      incremental? update-lock-status
+                                      :write-locking-resource-events)
+            detached-report-tables
+             (detach-daily-partitions "reports" report-ttl
+                                    incremental? update-lock-status
+                                    :write-locking-reports)]
+        ;; Now we can delete the partitions with less intrusive locking.
+        (jdbc/with-db-transaction []
+          ;; We update these tables in a different order than report insertion, creates
+          ;; the potential for deadlocks when two concurrent transactions have each
+          ;; acquired a portion of their locks. So first, we acquire locks on all the
+          ;; tables in the same order they are accessed during insertion. These match
+          ;; the locks that would implicitly be acquired by the operations we're going
+          ;; to perform: Access exclusive for reports and resource_events so we can
+          ;; drop partition tables, and row exclusive to update certnames.
+          (acquire-locks! {"certnames" "ROW EXCLUSIVE"
+                           "reports" "SHARE UPDATE EXCLUSIVE"
+                           "resource_events" "SHARE UPDATE EXCLUSIVE"})
+          ;; force a resource-events GC. prior to partitioning, this would have happened
+          ;; via a cascade when the report was deleted, but now we just drop whole tables
+          ;; of resource events.
+          (drop-partition-tables detached-resource-event-tables)
+          (drop-partition-tables detached-report-tables)
+          ;; since we cannot cascade back to the certnames table anymore, go clean up
+          ;; the latest_report_id column after a GC.
+          (cleanup-dropped-report-certnames))))))
 
 ;; A db version that is "allowed" but not supported is deprecated
 (def oldest-allowed-db [11 0])
