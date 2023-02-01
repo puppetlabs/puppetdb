@@ -78,7 +78,7 @@ describe Puppet::Util::Puppetdb::Command do
   describe "on ruby >= 1.9" do
 
     it "should warn when a command payload includes non-ascii UTF-8 characters" do
-      Puppet.expects(:warning).with {|msg| msg =~ /Error encoding data .* for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/}
+      Puppet.expects(:warning).with {|msg| msg =~ /Lossy encoding of a .* command for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/}
       cmd = described_class.new("command-1", 1, "foo.localdomain", Time.now.utc, {"foo" => [192].pack('c*')})
       cmd.payload.include?("\ufffd").should be_truthy
     end
@@ -96,12 +96,11 @@ describe Puppet::Util::Puppetdb::Command do
 
       it "should warn when a command payload includes non-ascii UTF-8 characters" do
         Puppet.expects(:warning).with do |msg|
-          msg =~ /Error encoding data .* for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/
+          msg =~ /Lossy encoding of a .* command for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/
         end
         Puppet.expects(:debug).with do |msg|
-          msg =~ /Error encoding data .* for host 'foo.localdomain'/ &&
-            msg =~ Regexp.new(Regexp.quote('"command":"command-1","version":1,"certname":"foo.localdomain","payload":{"foo"')) &&
-            msg =~ /1 invalid\/undefined/
+          msg =~ /Lossy encoding of a .* command for host 'foo.localdomain'/ &&
+            msg =~ /1 invalid\/undefined bytes/
         end
         cmd = described_class.new("command-1", 1, "foo.localdomain", Time.now.utc, {"foo" => [192].pack('c*')})
         cmd.payload.include?("\ufffd").should be_truthy
