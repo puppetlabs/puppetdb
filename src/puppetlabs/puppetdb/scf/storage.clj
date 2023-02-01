@@ -1719,20 +1719,31 @@
        (call-with-lock-timeout drop daily-partition-drop-lock-timeout-ms)))))
 
 (defn detach-daily-partitions
-  "Detaches declarative partitions in PG14+, allowing us to reduce locking to
-  SHARE UPDATE EXCLUSIVE instead of ACCESS EXCLUSIVE when we later drop the
-  partition tables.
-  NOTE: This should be run outside of a transaction."
+  "Detaches declarative partitions concurrently in PG14+, which runs with a
+  less restrictive SHARE UPDATE EXCLUSIVE lock instead of ACCESS EXCLUSIVE.
+  Once it's detached, it should no longer participate in queries to the parent
+  table and the subsequent drop should be able to acquire an ACCESS EXCLUSIVE
+  lock more quickly.
+
+  NOTE: This must be run outside of a transaction."
   [table-prefix date incremental? update-lock-status status-key]
   (prune-daily-partitions table-prefix date incremental?
                           update-lock-status status-key true))
 
-(defn drop-partition-tables
-  "Drops the given set of tables."
-  [old-partition-tables]
-  (doseq [table old-partition-tables]
-    (jdbc/do-commands
-      (format "drop table if exists %s cascade" table))))
+(defn drop-partition-tables!
+  "Drops the given set of tables. Will throw an SQLException termination if the
+  operation takes much longer than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
+  [old-partition-tables update-lock-status status-key]
+  (let [drop #(doseq [table old-partition-tables]
+                 (try
+                   (update-lock-status status-key inc)
+                   (jdbc/do-commands
+                     (format "drop table if exists %s cascade" table))
+                   (finally
+                     (update-lock-status status-key dec))))]
+    (if-not daily-partition-drop-lock-timeout-ms
+      (drop)
+      (call-with-lock-timeout drop daily-partition-drop-lock-timeout-ms))))
 
 (defn delete-resource-events-older-than!
   "Delete all resource events in the database by dropping any partition older than the day of the year of the given
@@ -1749,7 +1760,8 @@
            (detach-daily-partitions "resource_events" date incremental?
                                     update-lock-status :write-locking-resource-events)]
       (jdbc/with-db-transaction []
-        (drop-partition-tables detached-tables)))))
+        (drop-partition-tables! detached-tables
+                                update-lock-status :write-locking-resource-events)))))
 
 (defn cleanup-dropped-report-certnames
   "Since we cannot cascade back to the certnames table anymore, go clean up
@@ -1818,13 +1830,15 @@
           ;; to perform: Access exclusive for reports and resource_events so we can
           ;; drop partition tables, and row exclusive to update certnames.
           (acquire-locks! {"certnames" "ROW EXCLUSIVE"
-                           "reports" "SHARE UPDATE EXCLUSIVE"
-                           "resource_events" "SHARE UPDATE EXCLUSIVE"})
+                           "reports" "ACCESS EXCLUSIVE"
+                           "resource_events" "ACCESS EXCLUSIVE"})
           ;; force a resource-events GC. prior to partitioning, this would have happened
           ;; via a cascade when the report was deleted, but now we just drop whole tables
           ;; of resource events.
-          (drop-partition-tables detached-resource-event-tables)
-          (drop-partition-tables detached-report-tables)
+          (drop-partition-tables! detached-resource-event-tables
+                                  update-lock-status :write-locking-resource-events)
+          (drop-partition-tables! detached-report-tables
+                                  update-lock-status :write-locking-reports)
           ;; since we cannot cascade back to the certnames table anymore, go clean up
           ;; the latest_report_id column after a GC.
           (cleanup-dropped-report-certnames))))))
