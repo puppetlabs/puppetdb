@@ -1921,33 +1921,59 @@
   "Generates the expected diff of primary key and producer timestamp indices
   for one report's partition day table."
   [date]
-  (let [date-suffix (diff-date-suffix date)]
-    [{:left-only nil,
-       :right-only
-       {:schema "public",
-        :table (format "reports_%s" date-suffix),
-        :index (format "reports_%s_pkey" date-suffix),
-        :index_keys ["id" "producer_timestamp"],
-        :type "btree",
-        :unique? true,
-        :functional? false,
-        :is_partial false,
-        :primary? true,
-        :user "pdb_test"},
-       :same nil}
-       {:left-only nil,
-        :right-only
-        {:schema "public",
-         :table (format "reports_%s" date-suffix),
-         :index (format "reports_%s_encode_producer_timestamp_idx" date-suffix),
-         :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp" ],
-         :type "btree",
-         :unique? true,
-         :functional? true,
-         :is_partial false,
-         :primary? false,
-         :user "pdb_test"},
-        :same nil}]))
+  (let [date-suffix (diff-date-suffix date)
+        common-partition-indexes
+          [{:left-only nil,
+             :right-only
+             {:schema "public",
+              :table (format "reports_%s" date-suffix),
+              :index (format "reports_%s_pkey" date-suffix),
+              :index_keys ["id" "producer_timestamp"],
+              :type "btree",
+              :unique? true,
+              :functional? false,
+              :is_partial false,
+              :primary? true,
+              :user "pdb_test"},
+             :same nil}
+             {:left-only nil,
+              :right-only
+              {:schema "public",
+               :table (format "reports_%s" date-suffix),
+               :index (format "reports_%s_encode_producer_timestamp_idx" date-suffix),
+               :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp" ],
+               :type "btree",
+               :unique? true,
+               :functional? true,
+               :is_partial false,
+               :primary? false,
+               :user "pdb_test"},
+              :same nil}]
+        ;; Postgresql 11.18 fixed a bug in naming of partitioned indexes that might
+        ;; be contributing to the changed naming of reports_noop_idx in partitions in
+        ;; PG 11.17 testing...
+        ;; https://www.postgresql.org/docs/11/release-11-18.html#id-1.11.6.5.4
+        pg11-18-db [11 18]
+        {current-db-version :version} (sutils/db-metadata)]
+        (if (neg? (compare current-db-version pg11-18-db))
+          ;; In PG < 11.18 postgresql mysteriously has a different naming for
+          ;; the automatically generated noop indexes on the partition
+          ;; tables...
+          (conj common-partition-indexes
+                {:left-only
+                 {:index (format "reports_noop_idx_%s" date-suffix)},
+                  :right-only
+                  {:index (format "reports_%s_noop_idx" date-suffix)},
+                   :same {:schema "public",
+                   :table (format "reports_%s" date-suffix),
+                   :index_keys ["noop"],
+                   :type "btree",
+                   :unique? false,
+                   :functional? false,
+                   :is_partial true,
+                   :primary? false,
+                   :user "pdb_test"}})
+          common-partition-indexes)))
 
 (defn report-partition-day-constraint-diff-template
   "Generates the expected diff of a constraints for one report's partition day table"
