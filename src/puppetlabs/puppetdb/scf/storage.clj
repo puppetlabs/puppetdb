@@ -1822,16 +1822,10 @@
                                     :write-locking-reports)]
         ;; Now we can delete the partitions with less intrusive locking.
         (jdbc/with-db-transaction []
-          ;; We update these tables in a different order than report insertion, creates
-          ;; the potential for deadlocks when two concurrent transactions have each
-          ;; acquired a portion of their locks. So first, we acquire locks on all the
-          ;; tables in the same order they are accessed during insertion. These match
-          ;; the locks that would implicitly be acquired by the operations we're going
-          ;; to perform: Access exclusive for reports and resource_events so we can
-          ;; drop partition tables, and row exclusive to update certnames.
-          (acquire-locks! {"certnames" "ROW EXCLUSIVE"
-                           "reports" "ACCESS EXCLUSIVE"
-                           "resource_events" "ACCESS EXCLUSIVE"})
+          ;; Nothing should acquire locks on the detached tables, but to be safe, acquire
+          ;; lock on certnames first since that is generally the order we acquire locks,
+          ;; and maintaining that order is a good practice for avoiding deadlocks.
+          (acquire-locks! {"certnames" "ROW EXCLUSIVE"})
           ;; force a resource-events GC. prior to partitioning, this would have happened
           ;; via a cascade when the report was deleted, but now we just drop whole tables
           ;; of resource events.
