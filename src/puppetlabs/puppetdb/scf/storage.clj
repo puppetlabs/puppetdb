@@ -1653,45 +1653,94 @@
       (set-timeout orig)
       result)))
 
+;; Postgresql 14 allows DETACH PARTITION partition_name CONCURRENTLY with less locking.
+(def pg14-db [14 0])
+
+(defn detach-partitions-concurrently?
+  "True if Postgresql server supports ALTER TABLE DETACH PARTITION CONCURRENTLY. (PG 14+)"
+  []
+  (let [{current-db-version :version} (sutils/db-metadata)]
+    (not (neg? (compare current-db-version pg14-db)))))
+
 (defn prune-daily-partitions
-  "Deletes obsolete day-oriented partitions older than the date.
-  Deletes only the oldest such candidate if incremntal? is true.  Will
-  throw an SQLException termination if the operation takes much longer
-  than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
+  "Either detaches or drops obsolete day-oriented partitions
+  older than the date. Deletes or detaches only the oldest such candidate if
+  incremental? is true. Will throw an SQLException termination if the operation
+  takes much longer than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
+  ([table-prefix date incremental? update-lock-status status-key]
+   (prune-daily-partitions table-prefix date incremental?
+                           update-lock-status status-key false))
+  ([table-prefix date incremental? update-lock-status status-key just-detach?]
+   {:pre [(string? table-prefix)]}
+   (let [utcz (ZoneId/of "UTC")
+         expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
+                                           utcz)
+         expired? (fn [table]
+                    (let [parts (str/split table #"_")
+                          table-full-date (last parts)
+                          table-year (Integer/parseInt (subs table-full-date 0 4))
+                          table-month (Integer/parseInt (subs table-full-date 4 6))
+                          table-day (Integer/parseInt (subs table-full-date 6 8))
+                          table-date (ZonedDateTime/of table-year table-month table-day
+                                                       0 0 0 0 utcz)]
+                      (.isBefore table-date expire-date)))
+         candidates (->> (partitioning/get-partition-names table-prefix)
+                         (filter expired?)
+                         sort)
+         drop-one (fn [table]
+                    (update-lock-status status-key inc)
+                    (try!
+                      (if just-detach?
+                        (jdbc/do-commands-outside-txn
+                          (format "alter table %s detach partition %s concurrently" table-prefix table))
+                        (jdbc/do-commands
+                          (format "drop table if exists %s cascade" table)))
+                      (finally
+                        (update-lock-status status-key dec))))
+         drop #(if incremental?
+                 (when-let [[candidate & _] (seq candidates)]
+                   (log/info (trs "Partition GC {0} partition {1}"
+                                  (if just-detach? "detaching" "dropping")
+                                  candidate))
+                   (drop-one candidate)
+                   (log/info (trs "Partition GC {0} partition {1}"
+                                  (if just-detach? "detached" "dropped")
+                                  candidate))
+                   (when (> (bounded-count 3 candidates) 2)
+                     (log/warn (trs "More than 2 partitions remaining to prune: {0}"
+                                    (pr-str (butlast candidates)))))
+                   [candidate])
+                 (do
+                   (doseq [candidate candidates]
+                     (drop-one candidate))
+                   candidates))]
+     (if-not daily-partition-drop-lock-timeout-ms
+       (drop)
+       (call-with-lock-timeout drop daily-partition-drop-lock-timeout-ms)))))
+
+(defn detach-daily-partitions
+  "Detaches declarative partitions concurrently in PG14+, which runs with a
+  less restrictive SHARE UPDATE EXCLUSIVE lock instead of ACCESS EXCLUSIVE.
+  Once it's detached, it should no longer participate in queries to the parent
+  table and the subsequent drop should be able to acquire an ACCESS EXCLUSIVE
+  lock more quickly.
+
+  NOTE: This must be run outside of a transaction."
   [table-prefix date incremental? update-lock-status status-key]
-  {:pre [(string? table-prefix)]}
-  (let [utcz (ZoneId/of "UTC")
-        expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
-                                          utcz)
-        expired? (fn [table]
-                   (let [parts (str/split table #"_")
-                         table-full-date (last parts)
-                         table-year (Integer/parseInt (subs table-full-date 0 4))
-                         table-month (Integer/parseInt (subs table-full-date 4 6))
-                         table-day (Integer/parseInt (subs table-full-date 6 8))
-                         table-date (ZonedDateTime/of table-year table-month table-day
-                                                      0 0 0 0 utcz)]
-                     (.isBefore table-date expire-date)))
-        candidates (->> (partitioning/get-partition-names table-prefix)
-                        (filter expired?)
-                        sort)
-        drop-one (fn [table]
+  (prune-daily-partitions table-prefix date incremental?
+                          update-lock-status status-key true))
+
+(defn drop-partition-tables!
+  "Drops the given set of tables. Will throw an SQLException termination if the
+  operation takes much longer than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
+  [old-partition-tables update-lock-status status-key]
+  (let [drop #(doseq [table old-partition-tables]
+                 (try
                    (update-lock-status status-key inc)
-                   (try!
-                    (jdbc/do-commands
+                   (jdbc/do-commands
                      (format "drop table if exists %s cascade" table))
-                    (finally
-                      (update-lock-status status-key dec))))
-        drop #(if incremental?
-                (when-let [[candidate & _] (seq candidates)]
-                  (log/info (trs "Partition GC dropping partition {0}" candidate))
-                  (drop-one candidate)
-                  (log/info (trs "Partition GC dropped partition {0}" candidate))
-                  (when (> (bounded-count 3 candidates) 2)
-                    (log/warn (trs "More than 2 partitions remaining to prune: {0}"
-                                   (pr-str (butlast candidates))))))
-                (doseq [candidate candidates]
-                  (drop-one candidate)))]
+                   (finally
+                     (update-lock-status status-key dec))))]
     (if-not daily-partition-drop-lock-timeout-ms
       (drop)
       (call-with-lock-timeout drop daily-partition-drop-lock-timeout-ms))))
@@ -1701,12 +1750,51 @@
   date.
   Note: this ignores the time in the given timestamp, rounding to the day."
   [date incremental? update-lock-status]
-  (prune-daily-partitions "resource_events" date incremental?
-                          update-lock-status :write-locking-resource-events))
+  (if-not (detach-partitions-concurrently?)
+    ;; PG11
+    (jdbc/with-db-transaction []
+      (prune-daily-partitions "resource_events" date incremental?
+                              update-lock-status :write-locking-resource-events))
+    ;; PG14+
+    (let [detached-tables
+           (detach-daily-partitions "resource_events" date incremental?
+                                    update-lock-status :write-locking-resource-events)]
+      (jdbc/with-db-transaction []
+        (drop-partition-tables! detached-tables
+                                update-lock-status :write-locking-resource-events)))))
+
+(defn cleanup-dropped-report-certnames
+  "Since we cannot cascade back to the certnames table anymore, go clean up
+  the latest_report_id column after a GC."
+  []
+  (jdbc/do-commands
+   ["UPDATE certnames SET latest_report_id = NULL"
+    "  WHERE certname IN"
+    "    (SELECT DISTINCT certnames.certname FROM certnames"
+    "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
+    "       WHERE reports.id IS NULL)"]))
+
+(defn delete-reports-older-than-in-pg-11!
+  "PostgreSQL 11 workflow for deleting all reports in the database which have
+  a producer-timestamp that is prior to the specified report-time.  When
+  event-time is specified, delete all the events that are older than whichever
+  time is more recent."
+  [report-ttl resource-events-ttl incremental? update-lock-status]
+  (jdbc/with-db-transaction []
+    (acquire-locks! {"certnames" "ROW EXCLUSIVE"
+                     "reports" "ACCESS EXCLUSIVE"
+                     "resource_events" "ACCESS EXCLUSIVE"})
+    (prune-daily-partitions "resource_events" resource-events-ttl
+                            incremental? update-lock-status
+                            :write-locking-resource-events)
+    (prune-daily-partitions "reports" report-ttl
+                            incremental? update-lock-status
+                            :write-locking-reports)
+    (cleanup-dropped-report-certnames)))
 
 (defn delete-reports-older-than!
-  "Delete all reports in the database which have an producer-timestamp
-  that is prior to the specified report-time.  When event-time is
+  "Delete all reports in the database which have a producer-timestamp
+  that is prior to the specified report-time. When event-time is
   specified, delete all the events that are older than whichever time
   is more recent."
   [{:keys [report-ttl resource-events-ttl incremental? update-lock-status]
@@ -1716,38 +1804,41 @@
   {:pre [(instance? org.joda.time.DateTime report-ttl)
          (instance? org.joda.time.DateTime resource-events-ttl)
          (ifn? update-lock-status)]}
-  ;; We update these tables in a different order than report insertion, creates
-  ;; the potential for deadlocks when two concurrent transactions have each
-  ;; acquired a portion of their locks. So first, we acquire locks on all the
-  ;; tables in the same order they are accessed during insertion. These match
-  ;; the locks that would implicitly be acquired by the operations we're going
-  ;; to perform: Access exclusive for reports and resource_events so we can
-  ;; drop partition tables, and row exclusive to update certnames.
-  (acquire-locks! {"certnames" "ROW EXCLUSIVE"
-                   "reports" "ACCESS EXCLUSIVE"
-                   "resource_events" "ACCESS EXCLUSIVE"})
-  ;; force a resource-events GC. prior to partitioning, this would have happened
-  ;; via a cascade when the report was deleted, but now we just drop whole tables
-  ;; of resource events.
-  (delete-resource-events-older-than! (if (before? report-ttl resource-events-ttl)
-                                        resource-events-ttl report-ttl)
-                                      incremental?
-                                      update-lock-status)
-  (prune-daily-partitions "reports" report-ttl incremental?
-                          update-lock-status :write-locking-reports)
-  ;; since we cannot cascade back to the certnames table anymore, go clean up
-  ;; the latest_report_id column after a GC
-  (jdbc/do-commands
-   ["UPDATE certnames SET latest_report_id = NULL"
-    "  WHERE certname IN"
-    "    (SELECT DISTINCT certnames.certname FROM certnames"
-    "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
-    "       WHERE reports.id IS NULL)"]))
-
-
+  (let [effective-resource-events-ttl
+         (if (before? report-ttl resource-events-ttl) resource-events-ttl report-ttl)]
+    (if-not (detach-partitions-concurrently?)
+      ;; PG11
+      (delete-reports-older-than-in-pg-11! report-ttl effective-resource-events-ttl
+                                           incremental? update-lock-status)
+      ;; PG14+
+      ;; Detach partition concurrently must take place outside of a transaction.
+      (let [detached-resource-event-tables
+             (detach-daily-partitions "resource_events" effective-resource-events-ttl
+                                      incremental? update-lock-status
+                                      :write-locking-resource-events)
+            detached-report-tables
+             (detach-daily-partitions "reports" report-ttl
+                                    incremental? update-lock-status
+                                    :write-locking-reports)]
+        ;; Now we can delete the partitions with less intrusive locking.
+        (jdbc/with-db-transaction []
+          ;; Nothing should acquire locks on the detached tables, but to be safe, acquire
+          ;; lock on certnames first since that is generally the order we acquire locks,
+          ;; and maintaining that order is a good practice for avoiding deadlocks.
+          (acquire-locks! {"certnames" "ROW EXCLUSIVE"})
+          ;; force a resource-events GC. prior to partitioning, this would have happened
+          ;; via a cascade when the report was deleted, but now we just drop whole tables
+          ;; of resource events.
+          (drop-partition-tables! detached-resource-event-tables
+                                  update-lock-status :write-locking-resource-events)
+          (drop-partition-tables! detached-report-tables
+                                  update-lock-status :write-locking-reports)
+          ;; since we cannot cascade back to the certnames table anymore, go clean up
+          ;; the latest_report_id column after a GC.
+          (cleanup-dropped-report-certnames))))))
 
 ;; A db version that is "allowed" but not supported is deprecated
-(def oldest-allowed-db [9 6])
+(def oldest-allowed-db [11 0])
 
 (def oldest-supported-db [11 0])
 
@@ -1890,8 +1981,11 @@
     (try
       (store!)
       (catch org.postgresql.util.PSQLException e
-        ;; 42P01 undefined table
-        (if (= "42P01" (.getSQLState e))
+        ;; * 42P01 undefined table -- inheritance based partitions, or
+        ;; declarative partitions when no children yet attached
+        ;; * 23514 check constraint violation -- declarative partitions when row
+        ;; does not match check constraint of existing children partitions
+        (if (or (= "42P01" (.getSQLState e)) (= "23514" (.getSQLState e)))
           (do
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
