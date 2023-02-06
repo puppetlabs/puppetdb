@@ -230,7 +230,7 @@
          (format "sweep of stale reports (threshold: %s)"
                  (format-period report-ttl)))
        (try
-         (jdbc/with-transacted-connection db
+         (jdbc/with-db-connection db
            (scf-store/execute-with-bulldozer db
              (fn [] (scf-store/delete-reports-older-than! del-opts))))
          ;; FIXME: do we really want sql errors appearing at this level?
@@ -263,7 +263,7 @@
    (try
      (kitchensink/demarcate
       (format "sweep of stale resource events (threshold: %s)" rounded-ttl)
-      (jdbc/with-transacted-connection db
+      (jdbc/with-db-connection db
         (scf-store/execute-with-bulldozer db
           (fn []
             (try

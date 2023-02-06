@@ -65,9 +65,12 @@
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.puppetdb.scf.partitioning :as partitioning
-             :refer [get-temporal-partitions]])
+             :refer [get-temporal-partitions]]
+            [schema.core :as s])
   (:import
-   (java.time ZonedDateTime)
+   (java.time LocalDateTime LocalDate ZonedDateTime Instant)
+   (java.time.temporal ChronoUnit)
+   (java.time.format DateTimeFormatter)
    (org.postgresql.util PGobject)))
 
 (defn init-through-2-3-8
@@ -1587,6 +1590,75 @@
 ;; original version of migration 69 before a user has applied migration 73
 (defn migration-69-stub [])
 
+(s/defn create-original-partition
+  "Creates an inheritance partition for the historical state of migrations #73 and #74"
+  [base-table :- s/Str
+   date-column :- s/Str
+   date :- (s/cond-pre LocalDate LocalDateTime ZonedDateTime Instant java.sql.Timestamp)
+   constraint-fn :- (s/fn-schema
+                     (s/fn :- [s/Str] [_iso-year-week :- s/Str]))
+   index-fn :- (s/fn-schema
+                (s/fn :- [s/Str] [_full-table-name :- s/Str
+                                  _iso-year-week :- s/Str]))]
+  (let [date (partitioning/to-zoned-date-time date)                      ;; guarantee a ZonedDateTime, so our suffix ends in Z
+        start-of-day (-> date
+                         (.truncatedTo (ChronoUnit/DAYS)))  ;; this is a ZonedDateTime
+        start-of-next-day (-> start-of-day
+                              (.plusDays 1))
+        date-formatter (DateTimeFormatter/ISO_OFFSET_DATE_TIME)
+
+        table-name-suffix (partitioning/date-suffix date)
+        full-table-name (format "%s_%s" base-table table-name-suffix)]
+    (apply jdbc/do-commands
+           (concat [(format (str "CREATE TABLE IF NOT EXISTS %s ("
+                                 (str/join ", "
+                                          (cons "CHECK ( %s >= TIMESTAMP WITH TIME ZONE '%s' AND %s < TIMESTAMP WITH TIME ZONE '%s' )"
+                                                (constraint-fn table-name-suffix)))
+                                 ") INHERITS (%s)")
+                            full-table-name
+                            ;; this will write the constraint in UTC. note: when you read this back from the database,
+                            ;; you will get it in local time.
+                            ;; example: constraint will have 2019-09-21T00:00:00Z but upon querying, you'll see 2019-09-21 17:00:00-07
+                            ;; this is just the database performing i18n
+                            date-column (.format start-of-day date-formatter) date-column (.format start-of-next-day date-formatter)
+                            base-table)]
+                   (index-fn full-table-name table-name-suffix)))))
+
+(defn create-original-resource-events-partition
+  "Creates an inheritance partition in the resource_events table for migration #73"
+  [date]
+  (create-original-partition
+   "resource_events" "\"timestamp\""
+   date
+   (constantly [])
+   (fn [full-table-name iso-week-year]
+     [(format "CREATE INDEX IF NOT EXISTS resource_events_containing_class_idx_%s ON %s USING btree (containing_class)"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_property_idx_%s ON %s USING btree (property)"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_reports_id_idx_%s ON %s USING btree (report_id)"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_resource_timestamp_%s ON %s USING btree (resource_type, resource_title, \"timestamp\")"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_resource_title_idx_%s ON %s USING btree (resource_title)"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_status_for_corrective_change_idx_%s ON %s USING btree (status) WHERE corrective_change"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_status_idx_%s ON %s USING btree (status)"
+              iso-week-year full-table-name)
+
+      (format "CREATE INDEX IF NOT EXISTS resource_events_timestamp_idx_%s ON %s USING btree (\"timestamp\")"
+              iso-week-year full-table-name)
+
+      (format "CREATE UNIQUE INDEX IF NOT EXISTS resource_events_hash_%s ON %s (event_hash)"
+              iso-week-year full-table-name)])))
+
 (defn resource-events-partitioning
   ([]
    (resource-events-partitioning 500))
@@ -1648,7 +1720,7 @@
   (let [now (ZonedDateTime/now)
         days (range -4 4)]
     (doseq [day-offset days]
-      (partitioning/create-resource-events-partition (.plusDays now day-offset))))
+      (create-original-resource-events-partition (.plusDays now day-offset))))
 
   ;; null values are not considered equal in postgresql indexes,
   ;; therefore the existing unique constraint did not function
@@ -1677,7 +1749,7 @@
        ["select rowdate from find_resource_events_unique_dates()"]
        (fn [rows]
          (doseq [row rows]
-           (partitioning/create-resource-events-partition (-> (:rowdate row)
+           (create-original-resource-events-partition (-> (:rowdate row)
                                                               (.toInstant))))))
      (jdbc/do-commands
        ;; restore the transaction's timezone setting after creating the partitions
@@ -1763,9 +1835,9 @@
    "DROP FUNCTION find_resource_events_unique_dates()")))
 
 (defn create-original-reports-partition
-  "Creates a partition in the reports table"
+  "Creates an inheritance partition in the reports table for migration #74"
   [date]
-  (partitioning/create-partition
+  (create-original-partition
     "reports" "\"producer_timestamp\""
     date
     (fn [iso-week-year]
@@ -2045,6 +2117,186 @@
     "  PRIMARY KEY (workspace_uuid, certname),"
     "  FOREIGN KEY (workspace_uuid) REFERENCES workspaces(uuid) ON DELETE CASCADE)"]))
 
+(defn reattach-partitions
+  "Detaches partition children from PostgreSQL inheritance and attaches them to
+  the new partition table (under its placeholder name)."
+  [table child-table-maps]
+  (let [placeholder-name (format "%s_partitioned" table)]
+    (apply jdbc/do-commands
+      (flatten
+        (map (fn [child-map]
+               (let [child (:table child-map)
+                     date (:part child-map)
+                     basic-iso-date-formatter (DateTimeFormatter/BASIC_ISO_DATE)
+                     iso-offset-date-formatter (DateTimeFormatter/ISO_OFFSET_DATE_TIME)
+                     start (partitioning/to-zoned-date-time (LocalDate/parse date basic-iso-date-formatter))
+                     end (-> start (.plusDays 1))]
+                 [
+                   (format "ALTER TABLE %s NO INHERIT %s" child table)
+                   (format
+                      "ALTER TABLE %s
+                       ATTACH PARTITION %s
+                       FOR VALUES FROM ('%s') TO ('%s')"
+                      placeholder-name child
+                      (.format start iso-offset-date-formatter)
+                      (.format end iso-offset-date-formatter))
+                  ]))
+              child-table-maps)))))
+
+(defn drop-child-partition-constraints
+  "Drops the redundant constraints previously placed on the child tables that
+  were enforcing the partitioning for the inheritance partitions."
+  [date-column child-table-maps]
+  (apply jdbc/do-commands
+    (map (fn [child-map]
+           (let [child (:table child-map)
+                 check-constraint-name (format "%s_%s_check" child date-column)]
+             (format "ALTER TABLE %s DROP CONSTRAINT %s" child check-constraint-name)))
+         child-table-maps)))
+
+(defn migrate-resource-events-to-declarative-partitioning
+  []
+  (let [table "resource_events"
+        date-column "timestamp"
+        child-table-maps (partitioning/get-temporal-partitions table)]
+    ; Create new partitioned table with placeholder name and original schema
+    ; as documented in migration 73 (resource-events-partitioning)
+    (jdbc/do-commands
+      (format "CREATE TABLE resource_events_partitioned (
+         event_hash bytea NOT NULL,
+         report_id bigint NOT NULL,
+         certname_id bigint NOT NULL,
+         status text NOT NULL,
+         \"timestamp\" timestamp with time zone NOT NULL,
+         resource_type text NOT NULL,
+         resource_title text NOT NULL,
+         property text,
+         new_value text,
+         old_value text,
+         message text,
+         file text DEFAULT NULL::character varying,
+         line integer,
+         name text,
+         containment_path text[],
+         containing_class text,
+         corrective_change boolean) PARTITION BY RANGE (%s)" date-column))
+
+    ; Moving existing children to partitioned table
+    (reattach-partitions table child-table-maps)
+
+    ; Drop redundant child constraints
+    (drop-child-partition-constraints date-column child-table-maps)
+
+    (jdbc/do-commands
+      ; Drop original table
+      "DROP TABLE resource_events"
+      ; Rename partitioned table as actual table name
+      "ALTER TABLE resource_events_partitioned RENAME TO resource_events")
+
+    ; Create indices on partitioned table
+    (jdbc/do-commands
+      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_pkey PRIMARY KEY (event_hash, timestamp)"
+      "CREATE INDEX IF NOT EXISTS resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
+      "CREATE INDEX IF NOT EXISTS resource_events_property_idx ON resource_events USING btree (property)"
+      "CREATE INDEX IF NOT EXISTS resource_events_reports_id_idx ON resource_events USING btree (report_id)"
+      "CREATE INDEX IF NOT EXISTS resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")"
+      "CREATE INDEX IF NOT EXISTS resource_events_resource_title_idx ON resource_events USING btree (resource_title)"
+      "CREATE INDEX IF NOT EXISTS resource_events_status_for_corrective_change_idx ON resource_events USING btree (status) WHERE corrective_change"
+      "CREATE INDEX IF NOT EXISTS resource_events_status_idx ON resource_events USING btree (status)"
+      "CREATE INDEX IF NOT EXISTS resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")")))
+
+(defn migrate-reports-to-declarative-partitioning
+  []
+  (let [table "reports"
+        date-column "producer_timestamp"
+        child-table-maps (partitioning/get-temporal-partitions table)]
+    ; Create new partitioned table with placeholder name and original schema
+    ; as documented in migration 74 (reports-partitioning)
+    (jdbc/do-commands
+      (format "CREATE TABLE reports_partitioned (
+         id bigint NOT NULL,
+         hash bytea NOT NULL,
+         transaction_uuid uuid,
+         certname text NOT NULL,
+         puppet_version text NOT NULL,
+         report_format smallint NOT NULL,
+         configuration_version text NOT NULL,
+         start_time timestamp with time zone NOT NULL,
+         end_time timestamp with time zone NOT NULL,
+         receive_time timestamp with time zone NOT NULL,
+         noop boolean,
+         environment_id bigint,
+         status_id bigint,
+         metrics_json json,
+         logs_json json,
+         producer_timestamp timestamp with time zone NOT NULL,
+         metrics jsonb,
+         logs jsonb,
+         resources jsonb,
+         catalog_uuid uuid,
+         cached_catalog_status text,
+         code_id text,
+         producer_id bigint,
+         noop_pending boolean,
+         corrective_change boolean,
+         job_id text,
+         report_type text DEFAULT 'agent' NOT NULL) PARTITION BY RANGE (%s)" date-column))
+
+    ; Moving existing children to partitioned table
+    (reattach-partitions table child-table-maps)
+
+    ; Drop redundant child constraints
+    (drop-child-partition-constraints date-column child-table-maps)
+
+    (jdbc/do-commands
+      ; Attach sequence and set it as default for reports.id (must be done before dropping reports)
+      "ALTER SEQUENCE reports_id_seq OWNED BY reports_partitioned.id"
+      "ALTER TABLE reports_partitioned ALTER COLUMN id SET DEFAULT nextval('reports_id_seq'::regclass)"
+
+      ; Drop original table
+      "DROP TABLE reports"
+      ; Rename partitioned table as actual table name
+      "ALTER TABLE reports_partitioned RENAME TO reports")
+
+    ; Recreate indices and constraints on partitioned table as performed for
+    ; migration 74 (reports-partitioning)
+    (jdbc/do-commands
+      ; Recreate indices
+      "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id, producer_timestamp)"
+      "CREATE INDEX idx_reports_compound_id ON reports USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
+      "CREATE INDEX idx_reports_noop_pending ON reports USING btree (noop_pending) WHERE (noop_pending = true)"
+      "CREATE INDEX idx_reports_prod ON reports USING btree (producer_id)"
+      "CREATE INDEX idx_reports_producer_timestamp ON reports USING btree (producer_timestamp)"
+      ["CREATE INDEX idx_reports_producer_timestamp_by_hour_certname ON reports USING btree "
+       "  (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"]
+      ["CREATE INDEX reports_cached_catalog_status_on_fail ON reports USING btree"
+       "  (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"]
+      "CREATE INDEX reports_catalog_uuid_idx ON reports USING btree (catalog_uuid)"
+      "CREATE INDEX idx_reports_certname_end_time ON reports USING btree (certname,end_time)"
+      "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
+      "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
+
+      ; NOTE: The reports_hash_expr_idx changes to include
+      ; the producer_timestamp because declarative partitions must include the
+      ; range column in all unique indices.
+      "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports USING btree (encode(hash, 'hex'::text), producer_timestamp)"
+      ; The idx_reports_id index goes away since it's a duplicate of the reports_pkey
+
+      "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
+      "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
+      "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
+      "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))"
+
+      ; And add foreign keys
+      ["ALTER TABLE reports"
+       "  ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"]
+      ["ALTER TABLE reports"
+       "  ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"]
+      ["ALTER TABLE reports"
+       "  ADD CONSTRAINT reports_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"]
+      ["ALTER TABLE reports"
+       "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"])))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2108,7 +2360,9 @@
    77 add-catalog-inputs-pkey
    78 add-catalog-inputs-hash
    79 add-report-partition-indexes-on-certname-end-time
-   80 add-workspaces-tables})
+   80 add-workspaces-tables
+   81 migrate-resource-events-to-declarative-partitioning
+   82 migrate-reports-to-declarative-partitioning})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.

@@ -1829,12 +1829,13 @@
       (let [assert-index-exists (fn [index indexes]
                                   (is (true? (some #(str/includes? % index) indexes))))
 
-            partition (get-partition-names "reports")]
-        ;; check that idx_reports_id index is present in on demand paritions
-        (is (= 1 (count partition)))
-        (dorun (->> partition
-                    (map tu/table-indexes)
-                    (map (partial assert-index-exists "idx_reports_id_")))))))
+            partitions (get-partition-names "reports")]
+        ;; check that primary key index is present in on demand paritions
+        ;; XXX Do we still care about this?
+        (is (= 1 (count partitions)))
+        (doseq [partition-name partitions
+                indices (map tu/table-indexes partitions)]
+           (assert-index-exists (format "%s_pkey" partition-name) indices)))))
 
   (deftest-db report-with-event-timestamp
     (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
