@@ -14,7 +14,7 @@
 ;; Testing hook
 (defn java-version [] (System/getProperty "java.version"))
 
-(def supported-java-version "11")
+(def supported-java-version "17")
 
 (defn jdk-support-status
   "Returns :official, :tested, :deprecated, :unknown, or :no."
@@ -24,7 +24,7 @@
     (re-matches #"1\.[89]($|(\..*))" version) :deprecated
     (re-matches #"10($|(\..*))" version) :deprecated
     (re-matches (re-pattern (str supported-java-version "($|(\\..*))")) version) :official
-    (re-matches #"17($|(\..*))" version) :tested
+    (re-matches #"11($|(\..*))" version) :tested
     :else :unknown))
 
 (defn jdk-unsupported-msg [version]

@@ -22,7 +22,7 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.util.regex PatternSyntaxException)
-   (org.joda.time Minutes Days Period)))
+   (org.joda.time Minutes Period)))
 
 (defn throw-cli-error [msg]
   (throw (ex-info msg {:type ::cli-error :message msg})))
@@ -34,6 +34,17 @@
 ;; in the INI file. When the schema defaulting code gets changed to
 ;; support defaulting/converting nested maps, these configs can be put
 ;; together in a single schema that defines the config for PuppetDB
+
+(defn redirect-obsolete-config-setting
+  [config obsolete replacement]
+  (if-let [obsolete-val (config obsolete)]
+    (let [existing-val (config replacement)]
+      (when (and obsolete-val existing-val)
+        (let [msg (trs "Configuration specifies both the obsolete {0} and its replacement {1}.  Please remove the former."
+                       (name obsolete) (name replacement))]
+          (throw (ex-info msg {:type ::cli-error :message msg}))))
+      (-> config (dissoc obsolete) (assoc replacement obsolete-val)))
+    config))
 
 (defn warn-unknown-keys
   [schema data]
@@ -75,26 +86,12 @@
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
      :connection-timeout (pls/defaulted-maybe s/Int 3000)
-
-     ;; preserve backwards compatability with facts-blacklist
-     :facts-blacklist pls/Blocklist
-     :facts-blacklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
      :facts-blocklist pls/Blocklist
-     ;; blocklist-type will get defaulted to value of blacklist-type
-     ;; if unset in pls/convert-blacklist-settings-to-blocklist
-     :facts-blocklist-type (s/enum "literal" "regex")
-
+     :facts-blocklist-type (pls/defaulted-maybe (s/enum "literal" "regex") "literal")
      :schema-check-interval (pls/defaulted-maybe s/Int (* 30 1000))
      ;; This is applicable to the read-database too because it's used
      ;; to limit the scope of some queries.
-     :node-purge-ttl (pls/defaulted-maybe String "14d")
-     ;; FIXME?
-     ;; completely retired (ignored)
-     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
-     :conn-keep-alive s/Int
-     :log-slow-statements s/Int
-     :statements-cache-size s/Int
-     :subprotocol (pls/defaulted-maybe String "postgresql")}))
+     :node-purge-ttl (pls/defaulted-maybe String "14d")}))
 
 (def report-ttl-default "14d")
 
@@ -117,7 +114,11 @@
 
 (def per-database-config-out
   "Schema for parsed/processed database config"
-  {:subname String
+  {;; These defaults are the final values since these params can no
+   ;; longer be specified.
+   :classname (pls/defaulted-maybe String "org.postgresql.Driver")
+   :subprotocol (pls/defaulted-maybe String "postgresql")
+   :subname String
    :conn-max-age Minutes
    :read-only? Boolean
    :partition-conn-min s/Int
@@ -140,13 +141,7 @@
    :facts-blocklist-type String
 
    :schema-check-interval s/Int
-   :node-purge-ttl Period
-   ;; completely retired (ignored)
-   :classname String
-   (s/optional-key :conn-keep-alive) Minutes
-   (s/optional-key :log-slow-statements) Days
-   (s/optional-key :statements-cache-size) s/Int
-   :subprotocol String})
+   :node-purge-ttl Period})
 
 (def per-write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
@@ -195,33 +190,20 @@
     {:threads (pls/defaulted-maybe s/Int half-the-cores)
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")
-     :concurrent-writes (pls/defaulted-maybe s/Int (min half-the-cores 4))
-
-     ;; Deprecated
-     :max-frame-size (pls/defaulted-maybe s/Int 209715200)
-     :store-usage s/Int
-     :temp-usage s/Int
-     :memory-usage s/Int}))
+     :concurrent-writes (pls/defaulted-maybe s/Int (min half-the-cores 4))}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
   {:threads s/Int
    :max-command-size s/Int
    :reject-large-commands Boolean
-   :concurrent-writes s/Int
-
-   ;; Deprecated
-   :max-frame-size s/Int
-   (s/optional-key :memory-usage) s/Int
-   (s/optional-key :store-usage) s/Int
-   (s/optional-key :temp-usage) s/Int})
+   :concurrent-writes s/Int})
 
 (def puppetdb-config-in
   "Schema for validating the incoming [puppetdb] block"
   (all-optional
    {:certificate-whitelist s/Str
     :certificate-allowlist s/Str
-    :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
     :disable-update-checking (pls/defaulted-maybe String "false")
     :add-agent-report-filter (pls/defaulted-maybe String "true")
     :log-queries (pls/defaulted-maybe String "false")}))
@@ -229,7 +211,6 @@
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
   {(s/optional-key :certificate-allowlist) s/Str
-   :historical-catalogs-limit s/Int
    :disable-update-checking Boolean
    :add-agent-report-filter Boolean
    :log-queries Boolean})
@@ -274,6 +255,11 @@
     (catch PatternSyntaxException e
       (.getMessage e))))
 
+(defn convert-blacklist-settings-to-blocklist [config]
+  (-> config
+      (redirect-obsolete-config-setting :facts-blacklist :facts-blocklist)
+      (redirect-obsolete-config-setting :facts-blacklist-type :facts-blocklist-type)))
+
 (defn convert-blocklist-config
   "Validate and convert facts blocklist section of the config to runtime format.
   Throws a {:type ::cli-error :message m} exception describing errors when compiling
@@ -300,6 +286,7 @@
 (defn coerce-and-validate-final-config
   [config schema-out]
   (->> config
+       (pls/defaulted-data schema-out)
        (pls/convert-to-schema schema-out)
        (s/validate schema-out)))
 
@@ -449,10 +436,10 @@
   ;; FIXME: double-check this reordering wrt each function,
   ;; i.e. make sure they're OK with going *after* the defaulting.
   (-> settings
+      convert-blacklist-settings-to-blocklist
       (validate-and-default-incoming-config per-write-database-config-in)
       (require-db-subname section-key)
       (require-enclosing-report-ttl section-key)
-      pls/convert-blacklist-settings-to-blocklist
       convert-blocklist-config
       (coerce-and-validate-final-config per-write-database-config-out)
       gc-intervals->periods
@@ -472,7 +459,7 @@
          (if read-database
            (-> read-database
                (validate-and-default-incoming-config per-database-config-in)
-               pls/convert-blacklist-settings-to-blocklist
+               convert-blacklist-settings-to-blocklist
                (require-db-subname :read-database)
                (coerce-and-validate-final-config per-database-config-out)
                (prefer-db-user-on-username-mismatch "read-database"))
@@ -499,17 +486,8 @@
 
 (defn convert-certificate-whitelist-to-allowlist
   [config]
-  (let [{:keys [certificate-whitelist
-                certificate-allowlist]} (:puppetdb config)
-        allowlist-value (or certificate-allowlist certificate-whitelist)]
-    (when (and certificate-allowlist certificate-whitelist)
-      (let [msg (trs "Confusing configuration settings found! Both the deprecated certificate-whitelist and replacement certificate-allowlist are set. These settings are mutually exclusive, please prefer certificate-allowlist.")]
-        (throw (ex-info msg {:type ::cli-error :message msg}))))
-    (when certificate-whitelist
-      (log/warn (trs "The certificate-whitelist setting has been deprecated and will be removed in a future release. Please use certificate-allowlist instead.")))
-    (cond-> config
-      certificate-whitelist (update-in [:puppetdb] dissoc :certificate-whitelist)
-      allowlist-value (assoc-in [:puppetdb :certificate-allowlist] allowlist-value))))
+  (update config :puppetdb redirect-obsolete-config-setting
+          :certificate-whitelist :certificate-allowlist))
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
@@ -523,22 +501,8 @@
   (configure-section (merge {:developer {}} config)
                      :developer developer-config-in developer-config-out))
 
-(def retired-cmd-proc-keys
-  [:store-usage :max-frame-size :temp-usage :memory-usage])
-
-(defn warn-command-processing-retirements
-  [config]
-  (doseq [cmd-proc-key retired-cmd-proc-keys]
-    (when (get-in config [:command-processing cmd-proc-key])
-      (utils/println-err
-       (str (trs "The configuration item `{0}` in the [command-processing] section is retired, please remove this item from your config."
-                 (name cmd-proc-key))
-            " "
-            (trs "Consult the documentation for more details."))))))
-
 (defn configure-command-processing
   [config]
-  (warn-command-processing-retirements config)
   (configure-section config :command-processing command-processing-in command-processing-out))
 
 (defn convert-config

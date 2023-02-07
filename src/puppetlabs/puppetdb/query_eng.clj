@@ -183,10 +183,6 @@
 
         (munge-fn version url-prefix)))))
 
-(def use-preferred-streaming-method?
-  (->> (or (System/getenv "PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD") "")
-       (re-matches #"yes|true|1") seq not))
-
 (def query-context-schema
   {:scf-read-db s/Any
    :url-prefix String
@@ -233,9 +229,7 @@
                                     (select-keys context [:log-queries :query-id]))]
                     (jdbc/call-with-array-converted-query-rows results-query
                                                                (comp row-fn munge-fn)))]
-           (if use-preferred-streaming-method?
-             (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))
-             (jdbc/with-transacted-connection scf-read-db (f)))))))))
+           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -373,6 +367,9 @@
     {:status status
      :stream stream}))
 
+;; for testing via with-redefs
+(def munge-fn-hook identity)
+
 (defn preferred-produce-streaming-body
   [version query-map context]
   (let [{:keys [scf-read-db url-prefix warn-experimental log-queries query-id]
@@ -394,7 +391,7 @@
             {:keys [status stream]} (body-stream scf-read-db
                                                  (coerce-from-json remaining-query)
                                                  entity version query-options
-                                                 munge-fn
+                                                 (munge-fn-hook munge-fn)
                                                  stream-ctx)
             {:keys [count error]} @status]
         (when error
@@ -414,75 +411,6 @@
           (log/debug ex (trs "Invalid query regex: {0} {1} {2}" query-id query query-options))
           (http/error-response ex))))))
 
-;; for testing via with-redefs
-(def munge-fn-hook identity)
-
-(defn- deprecated-produce-streaming-body
-  [version query-map context]
-  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print
-                log-queries query-id]
-         :or {warn-experimental true}} context
-        query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
-        {:keys [query remaining-query entity query-options]}
-        (user-query->engine-query version query-map query-config warn-experimental)
-        origin (:origin query-map)]
-
-    (when log-queries
-      ;; Log origin and AST of incoming query
-      (let [query (:query query-map)]
-        (log/infof "PDBQuery:%s:%s"
-                   query-id (-> (sorted-map :origin origin :ast query)
-                                json/generate-string))))
-
-    (try
-      (jdbc/with-transacted-connection scf-read-db
-        (let [munge-fn (get-munge-fn entity version query-options url-prefix)
-              {:keys [results-query count-query]}
-              (-> remaining-query
-                  coerce-from-json
-                  (query->sql entity version query-options
-                              (select-keys context [:log-queries :query-id])))
-              query-error (promise)
-              resp (http/streamed-response
-                    buffer
-                    (with-log-mdc ["pdb-query-id" query-id
-                                   "pdb-query-origin" origin]
-                      (try (jdbc/with-transacted-connection scf-read-db
-                             (jdbc/call-with-array-converted-query-rows
-                              results-query
-                              (comp #(http/stream-json % buffer pretty-print)
-                                    #(do (when-not (instance? PGobject %)
-                                           (first %))
-                                         (deliver query-error nil) %)
-                                    (munge-fn-hook munge-fn))))
-                           ;; catch throwable to make sure any trouble is forwarded to the
-                           ;; query-error promise below. If something throws and is not passed
-                           ;; along the deref will block indefinitely.
-                           (catch Throwable e
-                             (deliver query-error e)))))]
-          (if @query-error
-            (throw @query-error)
-            (cond-> (http/json-response* resp)
-                    count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
-      (catch com.fasterxml.jackson.core.JsonParseException e
-        (log/error
-         e
-         (trs "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
-              query query-options))
-        (http/error-response e))
-      (catch IllegalArgumentException e
-        (log/error
-         e
-         (trs
-          "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
-          query query-options))
-        (http/error-response e))
-      (catch org.postgresql.util.PSQLException e
-        (if (= (.getSQLState e) (jdbc/sql-state :invalid-regular-expression))
-          (do (log/debug e (trs "Caught PSQL processing exception"))
-              (http/error-response (.getMessage e)))
-          (throw e))))))
-
 (pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
    the query results. query-map is a clojure map of the form
@@ -495,9 +423,7 @@
   (let [context (assoc context :query-id query-uuid)]
     (with-log-mdc ["pdb-query-id" query-uuid
                    "pdb-query-origin" (:origin query-map)]
-      (if use-preferred-streaming-method?
-        (preferred-produce-streaming-body version query-map context)
-        (deprecated-produce-streaming-body version query-map context)))))
+      (preferred-produce-streaming-body version query-map context))))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."

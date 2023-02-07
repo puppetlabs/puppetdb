@@ -102,9 +102,8 @@ endpoint.
 
 ### Database Metrics
 
-The deprecated BoneCP connection pooling library has been removed from PuppetDB
-and has been replaced with HikariCP. The complete list of HikariCP metrics and
-their names can be found in
+PuppetDB relies on the HikariCP connection pool. The complete list of
+HikariCP metrics and their names can be found in
 [their documentation](https://github.com/brettwooldridge/HikariCP/wiki/Dropwizard-Metrics).
 All the database metrics have the following naming convention:
 

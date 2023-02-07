@@ -82,16 +82,10 @@
               x))
     metrics))
 
-(defn jdbc-configs->pdb-if-needed [config]
-  (-> config
-      (update :database #(dissoc % :classname :subprotocol))
-      (update :read-database #(dissoc % :classname :subprotocol))))
-
 (defn run-test-puppetdb [config services bind-attempts]
   (when (zero? bind-attempts)
     (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
   (let [config (-> config
-                   jdbc-configs->pdb-if-needed
                    conf/adjust-and-validate-tk-config
                    assoc-open-port)
         port (or (get-in config [:jetty :port])

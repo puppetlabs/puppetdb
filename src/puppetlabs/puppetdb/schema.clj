@@ -7,7 +7,6 @@
             [clojure.string :as str]
             [schema.utils :as su]
             [cheshire.custom :as json]
-            [clojure.tools.logging :as log]
             [schema.spec.core]
             [schema.spec.variant]))
 
@@ -165,23 +164,6 @@
   [schema data]
   (select-keys data (map schema-key->data-key (keys schema))))
 
-(defn convert-blacklist-settings-to-blocklist [config]
-  (let [{:keys [facts-blocklist
-                facts-blocklist-type
-                facts-blacklist
-                facts-blacklist-type]} config
-        blocklist-value (or facts-blocklist facts-blacklist)
-        bloclist-type (or facts-blocklist-type facts-blacklist-type)]
-    (when (and facts-blacklist facts-blocklist)
-      (let [msg (trs "Confusing configuration settings found! Both the deprecated facts-blacklist and replacement facts-blocklist are set. These settings are mutually exclusive, please prefer facts-blocklist.")]
-        (throw (ex-info msg {:type ::cli-error :message msg}))))
-    (when facts-blacklist
-      (log/warn (trs "The facts-blacklist and facts-blacklist-type settings have been deprecated and will be removed in a future release. Please use facts-blocklist and facts-blocklist-type instead.")))
-    (cond-> config
-      true (dissoc :facts-blacklist :facts-blacklist-type)
-      blocklist-value (assoc :facts-blocklist blocklist-value)
-      bloclist-type (assoc :facts-blocklist-type bloclist-type))))
-
 ;; FIXME - see db uses for testing, not right for multidb now.
 
 (defn transform-data
@@ -190,5 +172,4 @@
   [in-schema out-schema data]
   (->> data
        (defaulted-data in-schema)
-       convert-blacklist-settings-to-blocklist
        (convert-to-schema out-schema)))

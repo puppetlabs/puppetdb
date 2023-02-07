@@ -54,7 +54,7 @@ standard bindir by omitting the `--bindir` option.
 
 If the node you installed the CLI on is not the same node as your PuppetDB
 server, you will need to add the CLI node's certname to the PuppetDB
-certificate-whitelist and specify the paths to the CLI node's cacert, cert, and
+certificate-allowlist and specify the paths to the CLI node's cacert, cert, and
 private key when using the CLI either with flags or a configuration file.
 
 To configure the PuppetDB CLI to talk to your PuppetDB with flags, add a

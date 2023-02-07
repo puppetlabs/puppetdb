@@ -19,5 +19,6 @@
   (is (= :deprecated (jdk-support-status "1.9.0")))
   (is (= :deprecated (jdk-support-status "10")))
   (is (= :deprecated (jdk-support-status "10.0")))
-  (is (= :official (jdk-support-status "11.0")))
-  (is (= :official (jdk-support-status "11.0.7"))))
+  (is (= :tested (jdk-support-status "11.0")))
+  (is (= :tested (jdk-support-status "11.0.7")))
+  (is (= :official (jdk-support-status "17.0.4"))))

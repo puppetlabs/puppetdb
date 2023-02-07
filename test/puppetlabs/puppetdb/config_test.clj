@@ -13,7 +13,9 @@
             normalize-product-name
             validate-vardir
             warn-retirements]]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
    [puppetlabs.puppetdb.testutils :refer [with-caught-ex-info]]
+   [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.puppetdb.time :as time]
    [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
    [clojure.string :as str]
@@ -50,12 +52,6 @@
       (is (thrown? clojure.lang.ExceptionInfo
                    (configure-puppetdb {:puppetdb {:add-agent-report-filter 1337}}))))
 
-    (testing "should allow for `pe-puppetdb`'s historical-catalogs-limit setting"
-      (let [config (configure-puppetdb {})]
-        (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 0)))
-      (let [config (configure-puppetdb {:puppetdb {:historical-catalogs-limit 5}})]
-        (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 5))))
-
     (testing "disable-update-checking should default to 'false' if left unspecified"
       (let [config (configure-puppetdb {})]
         (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
@@ -72,38 +68,12 @@
       (let [config (configure-puppetdb {:puppetdb {:log-queries "some-string"}})]
         (is (= false (get-in config [:puppetdb :log-queries]))))
       (is (thrown? clojure.lang.ExceptionInfo
-                   (configure-puppetdb {:puppetdb {:log-queries 1337}}))))
-
-    (testing "certificate-whitelist-gets-converted-to-allowlist"
-      (let [config (configure-puppetdb {:puppetdb
-                                        {:certificate-whitelist "cert1, cert2"}})]
-        ;; whitelist gets converted to allowlist
-        (is (= "cert1, cert2" (-> config :puppetdb :certificate-allowlist))))
-      (let [config (configure-puppetdb {:puppetdb
-                                        {:certificate-allowlist "cert1, cert2"}})]
-        ;; can set allowlist directly
-        (is (= "cert1, cert2" (-> config :puppetdb :certificate-allowlist))))
-
-      ;; setting both allowlist and whitelist errors
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
-                            (configure-puppetdb {:puppetdb
-                                                 {:certificate-allowlist "cert1, cert2"
-                                                  :certificate-whitelist "cert3, cert4"}}))))))
+                   (configure-puppetdb {:puppetdb {:log-queries 1337}}))))))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
     (let [config (configure-command-processing {:command-processing {:threads 37}})]
       (is (= (get-in config [:command-processing :threads]) 37))))
-
-  (testing "retired command processing config"
-    (doseq [cmd-proc-key [:store-usage :temp-usage :memory-usage :max-frame-size]]
-      (let [cmd-proc-config {:command-processing {cmd-proc-key 10000}}
-            out-str (with-out-str
-                      (binding [*err* *out*]
-                        (configure-command-processing cmd-proc-config)))]
-        (is (.contains out-str
-                       (format "The configuration item `%s`" (name cmd-proc-key)))))))
-
   (let [with-ncores (fn [cores]
                       (with-redefs [kitchensink/num-cpus (constantly cores)]
                         (half-the-cores*)))]
@@ -143,9 +113,7 @@
 (deftest blocklist-type-only-accepts-literal-regex-as-values
   (let [config-db (fn [bl-type]
                     (-> {:database {:user "x" :password "?"
-                                    :classname "something"
                                     :subname "stuff"
-                                    :subprotocol "more stuff"
                                     :facts-blocklist-type bl-type}}
                         configure-dbs))]
 
@@ -160,17 +128,13 @@
 
 (deftest blocklist-type-defaults-to-literal
   (let [config (-> {:database {:user "x" :password "?"
-                               :classname "something"
-                               :subname "stuff"
-                               :subprotocol "more stuff"}}
+                               :subname "stuff"}}
                    configure-dbs)]
     (is (= (get-in config [:database :facts-blocklist-type]) "literal"))))
 
 (deftest blocklist-converted-correctly-with-ini-and-conf-files
   (let [build-config (fn [x] (-> {:database {:user "x" :password "?"
-                                             :classname "something"
                                              :subname "stuff"
-                                             :subprotocol "more stuff"
                                              :facts-blocklist x}}
                                  configure-dbs))
         ini-config (build-config "fact1, fact2, fact3")
@@ -178,35 +142,27 @@
     (is (= (get-in ini-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))
     (is (= (get-in hocon-config [:database :facts-blocklist]) ["fact1" "fact2" "fact3"]))))
 
-(deftest blacklist-to-blocklist-defaulting-behavior
-  (let [config {:database {:user "x" :password "?"
-                           :classname "something"
-                           :subname "stuff"
-                           :subprotocol "more stuff"}}]
-
-    (testing "setting both facts-blacklist and facts-blocklist errors"
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confusing configuration"
-                            (configure-dbs (-> config
-                                               (assoc-in
-                                                [:database :facts-blacklist]
-                                                "I, should, fail")
-                                               (assoc-in
-                                                [:database :facts-blocklist]
-                                                "when, both, are, set"))))))
-
-    (testing "facts-blacklist-is-converted-to-blocklist"
-      (let [final-config (configure-dbs (-> config
-                                            (assoc-in
-                                             [:database :facts-blacklist]
-                                             "blocklist")
-                                            (assoc-in
-                                             [:database :facts-blacklist-type]
-                                             "literal")))]
-        (is (= ["blocklist"] (get-in final-config [:database :facts-blocklist])))
-        (is (= "literal" (get-in final-config [:database :facts-blocklist-type])))))
-
-    (testing "facts-blocklist-type-is-converted-when-defaulted-to-facts-blocklist-type"
-      (is (= "literal" (get-in (configure-dbs config) [:database :facts-blocklist-type]))))))
+(deftest obsolete-config-redirections
+  (call-with-temp-dir-path
+   (get-path "target")
+   (str *ns*)
+   (fn [vardir]
+     (doseq [[obsolete replacement val]
+             [[[:database :facts-blacklist] [:database :facts-blocklist] ["x"]]
+              [[:database :facts-blacklist-type] [:database :facts-blocklist-type] "literal"]
+              [[:puppetdb :certificate-whitelist] [:puppetdb :certificate-allowlist] "x, y"]]
+             :let [config {:global {:vardir (str vardir)}
+                           :database {:user "x" :password "?" :subname "foo"}}]]
+       (testing (str "redundant config settings rejected: " obsolete " " replacement)
+         (is (thrown-with-msg?
+              clojure.lang.ExceptionInfo #"^Configuration specifies both"
+              (conf/process-config! (-> config
+                                        (assoc-in obsolete val)
+                                        (assoc-in replacement val))))))
+       (testing (str "obsolete config setting redirected: " obsolete "->" replacement)
+         (let [config (conf/process-config! (assoc-in config obsolete val))]
+           (is (= nil (get-in config obsolete)))
+           (is (= val (get-in config replacement)))))))))
 
 (deftest write-databases-behavior
   (is (= {"default" {:subname "x" ::conf/unnamed true}}
@@ -280,24 +236,18 @@
 
     (testing "migrate defaults to true"
       (let [config (-> {:database {:user "x" :password "?"
-                                   :classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"}}
+                                   :subname "stuff"}}
                        configure-dbs)]
         (is (= true (get-in config [:database :migrate])))))
 
     (testing "schema-check-interval defaults to 30 seconds"
       (let [config (-> {:database {:user "x" :password "?"
-                                   :classname "something"
-                                   :subname "stuff"
-                                   :subprotocol "more stuff"}}
+                                   :subname "stuff"}}
                        configure-dbs)
             thirty-seconds-in-millis 30000]
         (is (= (get-in config [:database :schema-check-interval]) thirty-seconds-in-millis))))
 
-    (let [no-migrator {:database {:classname   "something"
-                                  :subname     "stuff"
-                                  :subprotocol "more stuff"
+    (let [no-migrator {:database {:subname     "stuff"
                                   :username    "someone"
                                   :password    "something"}}
           migrator (update no-migrator :database assoc
@@ -306,9 +256,8 @@
           connection-user (update migrator :database assoc
                                   :connection-username "connection-user-value"
                                   :connection-migrator-username "connection-migration-user-value")
-          ssl-connection {:database {:classname   "something"
-                                  :subname     "stuff?ssl=true"
-                                  :username    "someone"}}]
+          ssl-connection {:database {:subname     "stuff?ssl=true"
+                                     :username    "someone"}}]
 
       (testing "migrator-username"
         (let [config (configure-dbs no-migrator)]
@@ -350,9 +299,7 @@
           (is (= "password" (get-in config [:read-database :migrator-password]))))))))
 
 (deftest database-user-preferred-to-username-on-mismatch
-  (let [config (configure-dbs {:database {:classname "something"
-                                          :subname "stuff"
-                                          :subprotocol "more stuff"
+  (let [config (configure-dbs {:database {:subname "stuff"
                                           :user "someone"
                                           :username "someone-else"
                                           :password "something"}})]

@@ -7,7 +7,7 @@
             [clojure.tools.logging :as log]
             [clojure.string :as s])
   (:import
-   (java.io IOException Writer)
+   (java.io Writer)
    (java.net HttpURLConnection)
    (org.apache.http.impl EnglishReasonPhraseCatalog)))
 
@@ -181,32 +181,6 @@
   (if pretty-print
     (json/generate-pretty-stream coll buffer)
     (json/generate-stream coll buffer)))
-
-(defmacro streamed-response
-  "Evaluates `body` in a thread, with a local variable (`writer-var`)
-  bound to a fresh, UTF-8 Writer object.
-
-  Returns an InputStream. The InputStream is connected to the Writer
-  by a pipe. Deadlock is prevented by executing `body` in a separate
-  thread, therefore allowing `body` (the producer) to execute
-  alongside the consumer of the returned InputStream.
-
-  As `body` is executed in a separate thread, it's not possible for
-  the caller to catch exceptions thrown by `body`. Errors are instead
-  logged."
-  {:deprecated true} ;; Drop with deprecated-produce-streaming-body
-  [writer-var & body]
-  `(rio/piped-input-stream
-    (fn [ostream#]
-      (with-open [~writer-var (io/writer ostream# :encoding "UTF-8")]
-        (try
-          (do ~@body)
-          (catch IOException e#
-            ;; IOException includes things like broken pipes due to
-            ;; client disconnect, so no need to spam the log normally.
-            (log/debug e# (trs "Error streaming response")))
-          (catch Exception e#
-            (log/error e# (trs "Error streaming response"))))))))
 
 (defn parse-boolean-query-param
   "Utility method for parsing a query parameter whose value is expected to be

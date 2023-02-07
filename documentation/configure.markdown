@@ -222,12 +222,6 @@ If not supplied, PuppetDB uses standard HTTPS without any additional
 authorization. All HTTPS clients must still supply valid, verifiable
 SSL client certificates.
 
-> **Note**: This setting replaces the deprecated `certificate-whitelist` setting which will be retired in a future release
-
-### `historical-catalogs-limit` (PE only)
-
-> **Note**: This setting has no effect and will be retired in a future release.
-
 ### `disable-update-checking`
 
 Optional. Setting this to `true` disables checking for updated
@@ -497,8 +491,6 @@ be blocklisted.  When matching regular expressions, the name must
 match the entire pattern.  For example the pattern "xyz" will not
 match the fact "123xyzabc", but ".\*xyz.\*" will.
 
-> **Note**: This setting replaces the deprecated `facts-blacklist` setting which will be retired in a future release
-
 ### `facts-blocklist-type`
 
 Optional.  When set to `literal` (or not set) the `facts-blocklist`
@@ -506,9 +498,6 @@ names will be matched literally.  When set to `regex` (the only other
 legal value), the names will be matched as [Java regular
 expresions][java-patterns].  See the `facts-blocklist` description
 above for additional information.
-
-> **Note**: This setting replaces the deprecated `facts-blacklist-type` setting which will be retired in a future release
-
 
 ### `schema-check-interval`
 
@@ -982,15 +971,6 @@ Can be set to `true` (the default) or `false`.  When true, will
 attempt to interrupt the thread performing sync when the
 [`entity-time-limit`](#entity-time-limit) is exceeded during a sync
 attempt, in addition to the normal periodic checks for for a timeout.
-
-### `PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD`
-
-When set to `true`, (the default before PuppetDB 7), use the
-deprecated query streaming method which retries queries internally
-when certain kinds of transient errors are encountered.  The
-deprecated method also holds an extra database connection open during
-the initial phase of the response.  In newer versions (since 7.0.0),
-the default is `false`.
 
 ### `PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS`
 
