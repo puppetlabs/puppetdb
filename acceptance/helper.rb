@@ -429,6 +429,15 @@ module PuppetDBExtensions
     end
   end
 
+  def install_puppetdb_module(hosts, puppet_platform)
+    command = "puppet module install puppetlabs/puppetdb"
+    # Use the older 7.10.0 version of puppetdb module on puppet5 because
+    # it depends on puppetlabs-postgresql < 8, which does not use Deferred
+    # (which does not exist in puppet5).
+    command << " -v 7.10.0" if puppet_platform == :puppet5
+    on hosts, command
+  end
+
   def install_puppetdb(host, version=nil)
     manifest = <<-EOS
     class { 'puppetdb::globals':
