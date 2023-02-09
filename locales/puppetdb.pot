@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9b655358ce430192a4376bf1c56c2953094e7d12\n"
+"X-Git-Ref: 1a530198597b03481c6b50fa1e4977d7dcd82bea\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1666,18 +1666,12 @@ msgid ""
 "The queries related to these pids may be blocking other database operations."
 msgstr ""
 
-#. This log message also provides evidence the bulldozer has
-#. acquired its connection.
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Partition GC dropping partition {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Partition GC dropped partition {0}"
-msgstr ""
-
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Partition GC bulldozer could not connect to the database"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Partition GC {0} partition {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
