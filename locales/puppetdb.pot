@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 9b655358ce430192a4376bf1c56c2953094e7d12\n"
+"X-Git-Ref: e69da4506ceea4122157b96013a3b097ff7b8e6a\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -94,7 +94,9 @@ msgid "Exception while submitting command: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Sending {0} messages/s (load equivalent to {1} nodes)"
+msgid ""
+"Sending {0} messages/s (load equivalent to {1} nodes with a run interval of "
+"{2} minutes)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
@@ -107,14 +109,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
 msgid "Cleanup timeout expired; leaving files in {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Populating queue in the background"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Finished populating queue"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
@@ -487,6 +481,12 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid ""
+"Configuration specifies both the obsolete {0} and its replacement {1}.  "
+"Please remove the former."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
 "The configuration item `{0}` does not exist and should be removed from the "
 "config."
 msgstr ""
@@ -525,29 +525,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid "gc-interval cannot be negative: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid ""
-"Confusing configuration settings found! Both the deprecated certificate-"
-"whitelist and replacement certificate-allowlist are set. These settings are "
-"mutually exclusive, please prefer certificate-allowlist."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid ""
-"The certificate-whitelist setting has been deprecated and will be removed in "
-"a future release. Please use certificate-allowlist instead."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid ""
-"The configuration item `{0}` in the [command-processing] section is retired, "
-"please remove this item from your config."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/config.clj
-msgid "Consult the documentation for more details."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -592,6 +569,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid "Use [nrepl] instead."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Consult the documentation for more details."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
@@ -752,12 +733,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj src/puppetlabs/puppetdb/middleware.clj
 msgid "must accept {0}"
-msgstr ""
-
-#. IOException includes things like broken pipes due to
-#. client disconnect, so no need to spam the log normally.
-#: src/puppetlabs/puppetdb/http.clj
-msgid "Error streaming response"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj src/puppetlabs/puppetdb/middleware.clj
@@ -1221,16 +1196,6 @@ msgstr ""
 msgid "Invalid query regex: {0} {1} {2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj
-msgid ""
-"Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
-"error code."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/query_eng.clj
-msgid "Caught PSQL processing exception"
-msgstr ""
-
 #: src/puppetlabs/puppetdb/query_eng/default_reports.clj
 msgid "Unrecognized ast clause {0} in ast query {1}"
 msgstr ""
@@ -1403,11 +1368,11 @@ msgid "Not dropping unused joins from query (disallowed)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "Attempting to drop unused joins from query"
+msgid "{0} join in {1} query was expected to be a keyword"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "{0} join in {1} query was expected to be a keyword"
+msgid "Attempting to drop unused joins from query"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
@@ -1519,6 +1484,18 @@ msgid "Migrated {0} of {1} reports"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating additional index `fact_paths_path_trgm`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating additional index `packages_name_trgm`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating additional index `catalog_resources_file_trgm`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Found an old and unsupported database migration (migration number {0})."
 msgstr ""
 
@@ -1557,42 +1534,6 @@ msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "DEPRECATED: The `pg_trgm` extension will be required in PDB 7.0.0"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "PostgreSQL extension `pg_trgm` missing."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "  Unable to create the recommended pg_trgm indexes.n"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "To fix, run this on the PuppetDB database as the database super user:n"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "    CREATE EXTENSION pg_trgm;n"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Then restart PuppetDB.n"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Creating additional index `fact_paths_path_trgm`"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Creating additional index `packages_name_trgm`"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Creating additional index `catalog_resources_file_trgm`"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Disconnecting all {0} connections to {1} database before migrating"
 msgstr ""
 
@@ -1606,6 +1547,18 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Unable to restore "
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "PuppetDB requires the PostgreSQL `pg_trgm` extension.n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Please connect to the PuppetDB database and run this:n"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "    CREATE EXTENSION pg_trgm;n"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1666,18 +1619,12 @@ msgid ""
 "The queries related to these pids may be blocking other database operations."
 msgstr ""
 
-#. This log message also provides evidence the bulldozer has
-#. acquired its connection.
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Partition GC dropping partition {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Partition GC dropped partition {0}"
-msgstr ""
-
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Partition GC bulldozer could not connect to the database"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Partition GC {0} partition {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
@@ -1710,20 +1657,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/schema.clj
 msgid "schema coercion error: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/schema.clj
-msgid ""
-"Confusing configuration settings found! Both the deprecated facts-blacklist "
-"and replacement facts-blocklist are set. These settings are mutually "
-"exclusive, please prefer facts-blocklist."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/schema.clj
-msgid ""
-"The facts-blacklist and facts-blacklist-type settings have been deprecated "
-"and will be removed in a future release. Please use facts-blocklist and "
-"facts-blocklist-type instead."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/status.clj
