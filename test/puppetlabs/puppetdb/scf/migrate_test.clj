@@ -1981,7 +1981,8 @@
   [date]
   (let [date-suffix (diff-date-suffix date)
         formatted-start-of-day (get-formatted-start-of-day date)
-        formatted-start-of-next-day (get-formatted-start-of-day (.plusDays date 1))]
+        formatted-start-of-next-day (get-formatted-start-of-day (.plusDays date 1))
+        table-name (format "reports_%s" date-suffix)]
     [{:left-only
       {:constraint_name
        (format "(((producer_timestamp >= '%s'::timestamp with time zone) AND (producer_timestamp < '%s'::timestamp with time zone)))" formatted-start-of-day formatted-start-of-next-day)
@@ -1998,8 +1999,39 @@
        :constraint_type "PRIMARY KEY"
        :initially_deferred "NO"
        :deferrable? "NO"}
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_prod_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_certname_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_status_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_env_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
       :same nil}]))
-
 
 (deftest migration-82-reports-declarative-partitioning
   (testing "reports table declarative partitioning migration"
@@ -2073,9 +2105,44 @@
                  :primary? false
                  :user "pdb_test"}
                 :same nil}]
-            exp-idx-diff (concat exp-reports-indices-diff
-                                 (generate-diff-sequence report-partition-day-index-diff-template))
-            exp-constraint-diff (generate-diff-sequence report-partition-day-constraint-diff-template)
+
+              exp-reports-constraint-diff
+              [{:left-only
+                {:constraint_name "reports_prod_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
+                :same nil}
+               {:left-only
+                {:constraint_name "reports_certname_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
+                :same nil}
+               {:left-only
+                {:constraint_name "reports_status_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
+                :same nil}
+               {:left-only
+                {:constraint_name "reports_env_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
+                :same nil}]
+              exp-idx-diff (concat exp-reports-indices-diff
+                                   (generate-diff-sequence report-partition-day-index-diff-template))
+              exp-constraint-diff (concat exp-reports-constraint-diff
+                                          (generate-diff-sequence report-partition-day-constraint-diff-template))
             expected-diff
               {:index-diff (set exp-idx-diff)
                :table-diff nil

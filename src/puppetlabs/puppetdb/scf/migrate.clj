@@ -2154,6 +2154,17 @@
              (format "ALTER TABLE %s DROP CONSTRAINT %s" child check-constraint-name)))
          child-table-maps)))
 
+(defn drop-foreign-key-constraints
+  "Drops the foreign keys previously placed on the child tables"
+  [child-table-maps]
+  (apply jdbc/do-commands
+    (mapcat (fn [child-map]
+           (let [child (:table child-map)
+                 fkeys ["reports_certname_fkey" "reports_env_fkey" "reports_prod_fkey" "reports_status_fkey"]]
+             (map (fn [fkey] (format "ALTER TABLE %s DROP CONSTRAINT %s_%s" child fkey (:part child-map)))
+                  fkeys)))
+         child-table-maps)))
+
 (defn migrate-resource-events-to-declarative-partitioning
   []
   (let [table "resource_events"
@@ -2248,6 +2259,9 @@
     ;; Drop redundant child constraints
     (drop-child-partition-constraints date-column child-table-maps)
 
+    ;; Drop existing foreign keys from partitions
+    (drop-foreign-key-constraints child-table-maps)
+
     (jdbc/do-commands
       ;; Attach sequence and set it as default for reports.id (must be done before dropping reports)
       "ALTER SEQUENCE reports_id_seq OWNED BY reports_partitioned.id"
@@ -2285,17 +2299,7 @@
       "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
       "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
       "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
-      "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))"
-
-      ; And add foreign keys
-      ["ALTER TABLE reports"
-       "  ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"]
-      ["ALTER TABLE reports"
-       "  ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"]
-      ["ALTER TABLE reports"
-       "  ADD CONSTRAINT reports_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"]
-      ["ALTER TABLE reports"
-       "  ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"])))
+      "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))")))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
