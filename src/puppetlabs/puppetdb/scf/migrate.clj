@@ -2159,8 +2159,8 @@
   (let [table "resource_events"
         date-column "timestamp"
         child-table-maps (partitioning/get-temporal-partitions table)]
-    ; Create new partitioned table with placeholder name and original schema
-    ; as documented in migration 73 (resource-events-partitioning)
+    ;; Create new partitioned table with placeholder name and original schema
+    ;; as documented in migration 73 (resource-events-partitioning)
     (jdbc/do-commands
       (format "CREATE TABLE resource_events_partitioned (
          event_hash bytea NOT NULL,
@@ -2181,19 +2181,19 @@
          containing_class text,
          corrective_change boolean) PARTITION BY RANGE (%s)" date-column))
 
-    ; Moving existing children to partitioned table
+    ;; Moving existing children to partitioned table
     (reattach-partitions table child-table-maps)
 
-    ; Drop redundant child constraints
+    ;; Drop redundant child constraints
     (drop-child-partition-constraints date-column child-table-maps)
 
     (jdbc/do-commands
-      ; Drop original table
+      ;; Drop original table
       "DROP TABLE resource_events"
-      ; Rename partitioned table as actual table name
+      ;; Rename partitioned table as actual table name
       "ALTER TABLE resource_events_partitioned RENAME TO resource_events")
 
-    ; Create indices on partitioned table
+    ;; Create indices on partitioned table
     (jdbc/do-commands
       "ALTER TABLE resource_events ADD CONSTRAINT resource_events_pkey PRIMARY KEY (event_hash, timestamp)"
       "CREATE INDEX IF NOT EXISTS resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
@@ -2210,8 +2210,8 @@
   (let [table "reports"
         date-column "producer_timestamp"
         child-table-maps (partitioning/get-temporal-partitions table)]
-    ; Create new partitioned table with placeholder name and original schema
-    ; as documented in migration 74 (reports-partitioning)
+    ;; Create new partitioned table with placeholder name and original schema
+    ;; as documented in migration 74 (reports-partitioning)
     (jdbc/do-commands
       (format "CREATE TABLE reports_partitioned (
          id bigint NOT NULL,
@@ -2242,26 +2242,26 @@
          job_id text,
          report_type text DEFAULT 'agent' NOT NULL) PARTITION BY RANGE (%s)" date-column))
 
-    ; Moving existing children to partitioned table
+    ;; Moving existing children to partitioned table
     (reattach-partitions table child-table-maps)
 
-    ; Drop redundant child constraints
+    ;; Drop redundant child constraints
     (drop-child-partition-constraints date-column child-table-maps)
 
     (jdbc/do-commands
-      ; Attach sequence and set it as default for reports.id (must be done before dropping reports)
+      ;; Attach sequence and set it as default for reports.id (must be done before dropping reports)
       "ALTER SEQUENCE reports_id_seq OWNED BY reports_partitioned.id"
       "ALTER TABLE reports_partitioned ALTER COLUMN id SET DEFAULT nextval('reports_id_seq'::regclass)"
 
-      ; Drop original table
+      ;; Drop original table
       "DROP TABLE reports"
-      ; Rename partitioned table as actual table name
+      ;; Rename partitioned table as actual table name
       "ALTER TABLE reports_partitioned RENAME TO reports")
 
-    ; Recreate indices and constraints on partitioned table as performed for
-    ; migration 74 (reports-partitioning)
+    ;; Recreate indices and constraints on partitioned table as performed for
+    ;; migration 74 (reports-partitioning)
     (jdbc/do-commands
-      ; Recreate indices
+      ;; Recreate indices
       "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id, producer_timestamp)"
       "CREATE INDEX idx_reports_compound_id ON reports USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
       "CREATE INDEX idx_reports_noop_pending ON reports USING btree (noop_pending) WHERE (noop_pending = true)"
@@ -2276,11 +2276,11 @@
       "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
       "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
 
-      ; NOTE: The reports_hash_expr_idx changes to include
-      ; the producer_timestamp because declarative partitions must include the
-      ; range column in all unique indices.
+      ;; NOTE: The reports_hash_expr_idx changes to include
+      ;; the producer_timestamp because declarative partitions must include the
+      ;; range column in all unique indices.
       "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports USING btree (encode(hash, 'hex'::text), producer_timestamp)"
-      ; The idx_reports_id index goes away since it's a duplicate of the reports_pkey
+      ;; The idx_reports_id index goes away since it's a duplicate of the reports_pkey
 
       "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
       "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
