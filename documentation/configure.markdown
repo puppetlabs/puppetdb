@@ -632,7 +632,7 @@ The `[jetty]` section configures HTTP for PuppetDB.
 Sets the IP interface to listen on for **unencrypted** HTTP
 traffic. If not supplied, we bind to `localhost`, which will reject
 connections from anywhere but the PuppetDB server itself. To listen on
-all available interfaces, use `0.0.0.0`.
+all available interfaces, use `::`.
 
 To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccomend using an IP address instead of a hostname.
 
@@ -663,7 +663,7 @@ can be made at one time. Defaults to 50.
 
 Sets which IP interface to listen on for **encrypted** HTTPS traffic. If
 not supplied, we bind to `localhost`. To listen on all available
-interfaces, use `0.0.0.0`.
+interfaces, use `::`.
 
 To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccomend using an IP address instead of a hostname
 
@@ -830,7 +830,7 @@ Specifies the host or IP address for the REPL service to listen on. By
 default this is `127.0.0.1` only. As this is an insecure channel this
 is the only recommended setting for production environments.
 
-If you wish to listen on all interfaces, you can specify `0.0.0.0`, for example, although this is generally not recommended for production.
+If you wish to listen on all interfaces, you can specify `::`, for example, although this is generally not recommended for production.
 
 ## `[developer]` settings
 

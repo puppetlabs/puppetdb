@@ -69,7 +69,7 @@ COPY docker/puppetdb/docker-entrypoint.d /docker-entrypoint.d
 
 # hadolint ignore=DL3009
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y ca-certificates curl dnsutils netcat && \
+    apt-get install --no-install-recommends -y ca-certificates curl dnsutils netcat-openbsd && \
     chmod +x /ssl.sh /wtfc.sh /docker-entrypoint.sh /healthcheck.sh /docker-entrypoint.d/*.sh && \
     dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb
 
