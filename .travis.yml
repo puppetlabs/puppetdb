@@ -29,6 +29,7 @@ aliases:
 
   - &run-integration-tests |
     set -e
+    rvm use "$(./ext/bin/prefixed-ref-from-spec "$PDB_TEST" ruby-)"
     ci/bin/prep-and-run-in travis "$PDB_TEST"
 
   - &run-spec-tests |
@@ -106,23 +107,23 @@ jobs:
     # === integration with 7.x branches
     - stage: ❧ pdb tests
       name: int pup-7.x srv-7.x jdk-11 pg-11
-      env: PDB_TEST=int/openjdk11/pup-7.x/srv-7.x/pg-11
+      env: PDB_TEST=int/openjdk11/pup-7.x/srv-7.x/pg-11/ruby-2.7.6
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
       name: int pup-7.x srv-7.x jdk-11 pg-11 rich
-      env: PDB_TEST=int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
+      env: PDB_TEST=int/openjdk11/pup-7.x/srv-7.x/pg-11/rich/ruby-2.7.6
       script: *run-integration-tests
 
     # === integration with Platform 6 branches
     - stage: ❧ pdb tests
       name: int pup-6.x srv-6.x jdk-11 pg-11
-      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11
+      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11/ruby-2.5.9
       script: *run-integration-tests
 
     - stage: ❧ pdb tests
       name: int pup-6.x srv-6.x jdk-11 pg-11 rich
-      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
+      env: PDB_TEST=int/openjdk11/pup-6.x/srv-6.x/pg-11/rich/ruby-2.5.9
       script: *run-integration-tests
 
     # === rspec tests
