@@ -1737,9 +1737,10 @@
 
 (defn get-formatted-start-of-day
   "Returns a formatted date like '2023-01-13 00:00:00+00' as seen in Postgres
-  constraints retrieved from the schema."
+  constraints retrieved from the schema. This assumes that Postgres is running
+  in the systemDefault timezone"
   [date]
-  (let [date-formatter (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ssx") (ZoneId/of "UTC"))]
+  (let [date-formatter (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ssx") (ZoneId/systemDefault))]
     (-> date
         (.truncatedTo (ChronoUnit/DAYS)) ;; this is a ZonedDateTime
         (.format date-formatter))))
@@ -1776,7 +1777,7 @@
         days (range -4 4)]
     (flatten
       (map (fn [day-offset]
-             (template-fn (.plusDays now day-offset)))
+             (template-fn (part/to-zoned-date-time (.plusDays now day-offset))))
            days))))
 
 (deftest migration-81-resource-events-declarative-partitioning
