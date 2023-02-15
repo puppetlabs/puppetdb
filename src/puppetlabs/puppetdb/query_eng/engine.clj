@@ -2357,7 +2357,7 @@
                                 :field]))
       ;; Turn facts.foo into a double quoted keyword so that the SQL identifier `:"facts.foo"`
       ;; matches the extraction of (fs.volatile||fs.stable) AS "facts.foo" from the selection
-      (keyword (jdbc/double-quote column-or-fn-name))
+      (htypes/raw (jdbc/double-quote column-or-fn-name))
       (or (get-in query-rec [:projections column-or-fn-name :field])
           (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
             (keyword column-or-fn-name)

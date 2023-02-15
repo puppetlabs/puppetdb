@@ -174,6 +174,14 @@
      ["null?" "facts" true]
      #{}
 
+     ["extract" ["facts.foo"]
+      ["group_by" "facts.foo"]]
+     #{{:facts.foo nil}}
+
+     ["extract" ["facts.f/oo"]
+      ["group_by" "facts.f/oo"]]
+     #{{:facts.f/oo nil}}
+
      ["extract" [["function", "count"] "facts.domain"]
       ["group_by" "facts.domain"]]
      #{{:facts.domain "testing.com" :count 2}
