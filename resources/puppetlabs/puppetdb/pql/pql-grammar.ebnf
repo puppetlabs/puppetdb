@@ -55,7 +55,7 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
 expr-or      = expr-and { <whitespace>, or, <whitespace>, expr-or };
 expr-and     = expr-not { <whitespace>, and, <whitespace>, expr-and };
 expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;
-<expr-rest>  = ( <lparens>, [<whitespace>], expression, [<whitespace>], <rparens> ) | condexpression | condexpnull | subquery;
+<expr-rest>  = ( <lparens>, [<whitespace>], expression, [<whitespace>], <rparens> ) | condexpression | condexpnull | subquery | jsonbexpr;
 
 (* Implicit subqueries *)
 subquery = entity, [<whitespace>], where;
@@ -85,6 +85,10 @@ function         = functionname, [<whitespace>], groupedarglist;
 groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>;
 <arglist>      = (field | string), [ [<whitespace>], <','>, [<whitespace>], stringlist ];
 <stringlist>   = string {[<whitespace>] <','> [<whitespace>] string};
+
+(* jsonb_typeof part *)
+jsonbexpr       = jsonb, <lparens>, [<whitespace>], field, [<whitespace>], <rparens>, [<whitespace>], condmatch, [<whitespace>], string;
+<jsonb>         = 'jsonb_typeof';
 
 (* Represents a field from an entity *)
 field = #'[a-zA-Z0-9_]+\??' | (dottedfield, fieldpath);
