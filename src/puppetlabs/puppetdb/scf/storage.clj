@@ -40,7 +40,7 @@
             [metrics.gauges :refer [gauge-fn]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [do-hsql query-to-vec]]
             [puppetlabs.puppetdb.time :as time
              :refer [ago now to-timestamp from-sql-date before?]]
 
@@ -279,6 +279,25 @@
   (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
 
+(defn delete-certnames!
+  "Delete the list of hosts from the db"
+  [certnames]
+  (let [select-certname-ids {:select [:id] :from [:certnames] :where [:in :certname certnames]}]
+    ;; With partitioning, we must execute this delete on every active partition
+    (doseq [table (partitioning/get-partition-names "resource_events")]
+      (do-hsql {:delete-from (keyword table)
+                :where [:in :certname-id select-certname-ids]}))
+    (doseq [table (partitioning/get-partition-names "reports")]
+      (do-hsql {:delete-from (keyword table)
+                :where [:in :certname certnames]}))
+    (do-hsql {:delete-from :catalog-inputs
+              :where [:in :certname-id select-certname-ids]})
+    (do-hsql {:delete-from :certname-packages
+              :where [:in :certname-id select-certname-ids]})
+    (do-hsql {:delete-from :certnames
+              :where [:in :certname certnames]})))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Node activation/deactivation
 
@@ -303,32 +322,24 @@
 (defn purge-deactivated-and-expired-nodes!
   "Delete nodes from the database which were deactivated before horizon."
   ([horizon]
-   (let [ts (to-timestamp horizon)]
-     (when-not ts
-       (throw (Exception. (trs "Provided horizon not a valid timestamp {0}"
-                               (pr-str horizon)))))
-     (jdbc/do-prepared
-      (str "with ids as (delete from certnames"
-           "               where deactivated < ? or expired < ?"
-           "               returning id)"
-           "  delete from certname_packages"
-           "    where certname_id in (select * from ids)")
-      [ts ts])))
+   (purge-deactivated-and-expired-nodes! horizon nil))
   ([horizon batch-limit]
    (let [ts (to-timestamp horizon)]
      (when-not ts
        (throw (Exception. (trs "Provided horizon not a valid timestamp {0}"
                                (pr-str horizon)))))
-     (jdbc/do-prepared
-      (str "with ids as (delete from certnames"
-           "               where id in (select id from certnames"
-           "                              where deactivated < ?"
-           "                                    or expired < ?"
-           "                                limit ?)"
-           "               returning id)"
-           "  delete from certname_packages"
-           "    where certname_id in (select * from ids)")
-      [ts ts batch-limit]))))
+     (let [certnames-to-delete
+           (-> {:select [:certname]
+                :from :certnames
+                :where [:or
+                        [:< :deactivated ts]
+                        [:< :expired ts]]}
+               (cond-> batch-limit (assoc :limit batch-limit))
+               hsql/format
+               jdbc/query
+               (->> (map :certname)))]
+       (when (seq certnames-to-delete)
+         (delete-certnames! certnames-to-delete))))))
 
 (defn activate-node!
   "Reactivate the given host. Adds the host to the database if it was not

@@ -3,6 +3,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [honey.sql :as hsql]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.time :as pl-time]
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
@@ -73,6 +74,11 @@
                              (if (coll? sql) (str/join sql) sql)
                              params)
                       {:multi? true}))
+
+(defn do-hsql
+  [honeysql-command]
+  (sql/db-do-prepared *db* true
+                      (hsql/format honeysql-command)))
 
 (defn do-commands-outside-txn [& commands]
   (let [^Connection conn (:connection *db*)
