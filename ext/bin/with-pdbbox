@@ -10,7 +10,7 @@ set -ueo pipefail
 script_home="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-    echo 'with-pdbbox --box DIR --pgbin PGBIN --pgport PORT -- CMD [ARG...]'
+    echo 'with-pdbbox --box DIR --pgbin PGBIN --pgport PORT [--pglog PATH] -- CMD [ARG...]'
 }
 
 misuse() { usage 1>&2; exit 2; }
@@ -20,6 +20,7 @@ misuse() { usage 1>&2; exit 2; }
 box=''
 pgbin=''
 pgport=''
+pglog=''
 
 while test $# -gt 0; do
     case "$1" in
@@ -39,6 +40,12 @@ while test $# -gt 0; do
             shift
             test "$#" -ge 1 || misuse
             pgport="$1"
+            shift
+            ;;
+        --pglog)
+            shift
+            test "$#" -ge 1 || misuse
+            pglog="$1"
             shift
             ;;
         --)
@@ -75,8 +82,13 @@ export PDBBOX="$box"
               --pgport "$pgport" \
               --bind-addr ip6-localhost --bind-addr localhost
 
+pg_ctl_args=()
+if test "$pglog"; then
+    pg_ctl_args+=(-l "$pglog")
+fi
+
 # Use a subshell for a nested EXIT trap
 (trap '"$script_home"/pdbbox-env pg_ctl stop' EXIT
  # Start PostgreSQL server new PostgreSQL sandbox inside of new PuppetDB sandbox
- "$script_home"/pdbbox-env pg_ctl start -w
+ "$script_home"/pdbbox-env pg_ctl start -w "${pg_ctl_args[@]}"
  "$script_home"/pdbbox-env "${cmd[@]}")
