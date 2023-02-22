@@ -38,7 +38,8 @@ test "$install" || misuse
 brew install bash || true
 brew install bash
 brew install coreutils
-brew install ruby
+
+command -v ruby || brew install ruby
 
 # for ts
 brew install moreutils
