@@ -23,10 +23,13 @@ class Puppet::Util::Puppetdb::Command
     case payload
     when Hash
       c = payload.map do |k, v|
-        new_v, l = coerce_payload(v, error_context_str)
-
+        new_k, l = coerce_payload(k, error_context_str)
         had_lossy_string ||= l
-        [k, new_v]
+
+        new_v, l = coerce_payload(v, error_context_str)
+        had_lossy_string ||= l
+
+        [new_k, new_v]
       end
       c = c.to_h
     when Array
