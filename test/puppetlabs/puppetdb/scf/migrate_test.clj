@@ -1981,23 +1981,57 @@
   [date]
   (let [date-suffix (diff-date-suffix date)
         formatted-start-of-day (get-formatted-start-of-day date)
-        formatted-start-of-next-day (get-formatted-start-of-day (.plusDays date 1))]
+        formatted-start-of-next-day (get-formatted-start-of-day (.plusDays date 1))
+        table-name (format "reports_%s" date-suffix)]
     [{:left-only
-        {:constraint_name
-          (format "(((producer_timestamp >= '%s'::timestamp with time zone) AND (producer_timestamp < '%s'::timestamp with time zone)))" formatted-start-of-day formatted-start-of-next-day),
-          :table_name (format "reports_%s" date-suffix),
-          :constraint_type "CHECK",
-          :initially_deferred "NO",
-          :deferrable? "NO"},
-         :right-only nil,
-         :same nil}
-        {:left-only nil,
-         :right-only
-         {:constraint_name (format "reports_%s_pkey" date-suffix), :table_name (format "reports_%s" date-suffix),
-          :constraint_type "PRIMARY KEY",
-          :initially_deferred "NO",
-          :deferrable? "NO"},
-         :same nil}]))
+      {:constraint_name
+       (format "(((producer_timestamp >= '%s'::timestamp with time zone) AND (producer_timestamp < '%s'::timestamp with time zone)))" formatted-start-of-day formatted-start-of-next-day)
+       :table_name (format "reports_%s" date-suffix)
+       :constraint_type "CHECK"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only nil
+      :right-only
+      {:constraint_name (format "reports_%s_pkey" date-suffix)
+       :table_name (format "reports_%s" date-suffix)
+       :constraint_type "PRIMARY KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_prod_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_certname_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_status_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}
+     {:left-only
+      {:constraint_name (format "reports_env_fkey_%s" date-suffix)
+       :table_name table-name
+       :constraint_type "FOREIGN KEY"
+       :initially_deferred "NO"
+       :deferrable? "NO"}
+      :right-only nil
+      :same nil}]))
 
 (deftest migration-82-reports-declarative-partitioning
   (testing "reports table declarative partitioning migration"
@@ -2007,76 +2041,111 @@
       (let [before-migration (schema-info-map *db*)
             exp-reports-indices-diff
               [{:left-only
-                {:schema "public",
-                 :table "reports",
-                 :index "reports_hash_expr_idx",
-                 :index_keys ["encode(hash, 'hex'::text)"],
-                 :type "btree",
-                 :unique? true,
-                 :functional? true,
-                 :is_partial false,
-                 :primary? false,
-                 :user "pdb_test"},
-                :right-only nil,
+                {:schema "public"
+                 :table "reports"
+                 :index "reports_hash_expr_idx"
+                 :index_keys ["encode(hash, 'hex'::text)"]
+                 :type "btree"
+                 :unique? true
+                 :functional? true
+                 :is_partial false
+                 :primary? false
+                 :user "pdb_test"}
+                :right-only nil
                 :same nil}
-               {:left-only nil,
+               {:left-only nil
                 :right-only
-                {:schema "public",
-                 :table "reports",
-                 :index "reports_hash_expr_idx",
-                 :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp"],
-                 :type "btree",
-                 :unique? true,
-                 :functional? true,
-                 :is_partial false,
-                 :primary? false,
-                 :user "pdb_test"},
+                {:schema "public"
+                 :table "reports"
+                 :index "reports_hash_expr_idx"
+                 :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp"]
+                 :type "btree"
+                 :unique? true
+                 :functional? true
+                 :is_partial false
+                 :primary? false
+                 :user "pdb_test"}
                 :same nil}
                {:left-only
-                {:schema "public",
-                 :table "reports",
-                 :index "reports_pkey",
-                 :index_keys ["id"],
-                 :type "btree",
-                 :unique? true,
-                 :functional? false,
-                 :is_partial false,
-                 :primary? true,
-                 :user "pdb_test"},
+                {:schema "public"
+                 :table "reports"
+                 :index "reports_pkey"
+                 :index_keys ["id"]
+                 :type "btree"
+                 :unique? true
+                 :functional? false
+                 :is_partial false
+                 :primary? true
+                 :user "pdb_test"}
+                :right-only nil
+                :same nil}
+               {:left-only nil
+                :right-only
+                {:schema "public"
+                 :table "reports"
+                 :index "reports_pkey"
+                 :index_keys ["id" "producer_timestamp"]
+                 :type "btree"
+                 :unique? true
+                 :functional? false
+                 :is_partial false
+                 :primary? true
+                 :user "pdb_test"}
+                :same nil}
+               {:left-only nil
+                :right-only
+                {:schema "public"
+                 :table "reports"
+                 :index "idx_reports_compound_id"
+                 :index_keys ["producer_timestamp" "certname" "hash"]
+                 :type "btree"
+                 :unique? false
+                 :functional? false
+                 :is_partial true
+                 :primary? false
+                 :user "pdb_test"}
+                :same nil}]
+
+              exp-reports-constraint-diff
+              [{:left-only
+                {:constraint_name "reports_prod_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
                 :right-only nil,
                 :same nil}
-               {:left-only nil,
-                :right-only
-                {:schema "public",
-                 :table "reports",
-                 :index "reports_pkey",
-                 :index_keys ["id" "producer_timestamp"],
-                 :type "btree",
-                 :unique? true,
-                 :functional? false,
-                 :is_partial false,
-                 :primary? true,
-                 :user "pdb_test"},
+               {:left-only
+                {:constraint_name "reports_certname_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
                 :same nil}
-               {:left-only nil,
-                :right-only
-                {:schema "public",
-                 :table "reports",
-                 :index "idx_reports_compound_id",
-                 :index_keys ["producer_timestamp" "certname" "hash"],
-                 :type "btree",
-                 :unique? false,
-                 :functional? false,
-                 :is_partial true,
-                 :primary? false,
-                 :user "pdb_test"},
+               {:left-only
+                {:constraint_name "reports_status_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
+                :same nil}
+               {:left-only
+                {:constraint_name "reports_env_fkey",
+                 :table_name "reports",
+                 :constraint_type "FOREIGN KEY",
+                 :initially_deferred "NO",
+                 :deferrable? "NO"},
+                :right-only nil,
                 :same nil}]
-            exp-idx-diff (concat exp-reports-indices-diff
-                                 (generate-diff-sequence report-partition-day-index-diff-template))
-            exp-constraint-diff (generate-diff-sequence report-partition-day-constraint-diff-template)
+              exp-idx-diff (concat exp-reports-indices-diff
+                                   (generate-diff-sequence report-partition-day-index-diff-template))
+              exp-constraint-diff (concat exp-reports-constraint-diff
+                                          (generate-diff-sequence report-partition-day-constraint-diff-template))
             expected-diff
-              {:index-diff (set exp-idx-diff),
-               :table-diff nil,
+              {:index-diff (set exp-idx-diff)
+               :table-diff nil
                :constraint-diff (set exp-constraint-diff)}]
         (apply-migration-for-testing! 82)
         (let [raw-diff (diff-schema-maps before-migration (schema-info-map *db*))

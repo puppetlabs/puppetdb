@@ -1706,6 +1706,76 @@
                  "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
+(deftest-db node-purge-cleans-facts
+  (let [facts {"domain" "mydomain.com"
+               "fqdn" "myhost.mydomain.com"
+               "hostname" "myhost"
+               "kernel" "Linux"
+               "operatingsystem" "Debian"}]
+    (add-certname! "node1")
+    (add-certname! "node2")
+    (add-facts! {:certname "node1"
+                 :values facts
+                 :timestamp previous-time
+                 :environment nil
+                 :producer_timestamp previous-time
+                 :producer "bar.com"})
+    (add-facts! {:certname "node2"
+                 :values facts
+                 :timestamp previous-time
+                 :environment nil
+                 :producer_timestamp previous-time
+                 :producer "bar.com"}))
+
+  (deactivate-node! "node1")
+  (deactivate-node! "node2" (-> 10 days ago))
+  (purge-deactivated-and-expired-nodes! (-> 5 days ago))
+
+  (let [facts (query-to-vec "select certname from factsets")]
+    (is (= 1
+           (count facts)))
+    (is (= "node1"
+           (:certname (first facts))))))
+
+(deftest-db node-purge-cleans-catalogs
+  (add-certname! "node1")
+  (add-certname! "node2")
+  (replace-catalog! (assoc catalog :certname "node1"
+                           :producer_timestamp previous-time))
+  (replace-catalog! (assoc catalog :certname "node2"
+                           :producer_timestamp previous-time))
+
+  (deactivate-node! "node1")
+  (deactivate-node! "node2" (-> 10 days ago))
+  (purge-deactivated-and-expired-nodes! (-> 5 days ago))
+
+  (let [catalogs (query-to-vec "select certname from catalogs")]
+    (is (= 1
+           (count catalogs)))
+    (is (= "node1"
+           (:certname (first catalogs))))))
+
+(deftest-db node-purge-cleans-reports
+  (add-certname! "node1")
+  (add-certname! "node2")
+  (store-example-report! (assoc (:basic reports)
+                                :certname "node1"
+                                :producer_timestamp previous-time) (now))
+  (store-example-report! (assoc (:basic reports)
+                                :certname "node2"
+                                :producer_timestamp previous-time) (now))
+
+  (deactivate-node! "node1")
+  (deactivate-node! "node2" (-> 10 days ago))
+  (purge-deactivated-and-expired-nodes! (-> 5 days ago))
+
+  (let [reports (query-to-vec
+                 "select certname from reports")]
+    (is (= 1
+           (count reports)))
+    (is (= "node1"
+           (:certname (first reports))))))
+
 (deftest-db node-purge-cleans-packages
   (testing "should purge nodes which were deactivated before the specified date"
     (add-certname! "node1")
