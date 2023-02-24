@@ -1,4 +1,3 @@
-
 name: main
 on: [push, pull_request]
 
@@ -16,31 +15,30 @@ jobs:
         # converted to "_" in the pdb-job-id below.
 
         flavor:
-          - core+ext/openjdk11/pg-11
-          - core+ext/openjdk11/pg-14
+          - core+ext/openjdk17/pg-14
+          - core+ext/openjdk17/pg-11
 
           # integration
-          - int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
-          - int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
+          - int/openjdk17/pup-main/srv-main/pg-14/rich
+          - int/openjdk17/pup-7.x/srv-7.x/pg-14/rich
 
-          - rspec/pup-7.x
-          - lint/openjdk11
+          - rspec/pup-main
+          - lint/openjdk17
 
         os: [ubuntu-20.04]
 
         # Defaults for special-case influencing vars
         lein-profile: ['']
         drop-joins: ['']
-        deprecated-query-streaming: ['']
 
         # Special cases
         include:
           - os: macos-10.15
-            flavor: core+ext/openjdk11/pg-11
+            flavor: core+ext/openjdk17/pg-14
           - os: macos-10.15
-            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
+            flavor: int/openjdk17/pup-main/srv-main/pg-14/rich
           - os: macos-10.15
-            flavor: rspec/pup-7.x
+            flavor: rspec/pup-main
 
     steps:
       - name: Compute job outputs
@@ -51,7 +49,6 @@ jobs:
           pdb_test_gh_job_id="${pdb_test_gh_job_id//\//_}"
           pdb_test_gh_job_id+="_${{ matrix.lein-profile }}"
           pdb_test_gh_job_id+="_${{ matrix.drop-joins }}"
-          pdb_test_gh_job_id+="_${{ matrix.deprecated-query-streaming }}"
 
           echo "day=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
           echo "pdb-job-id=$pdb_test_gh_job_id" >> "$GITHUB_OUTPUT"
@@ -76,7 +73,6 @@ jobs:
       - env:
           LEIN_PROFILES: ${{ matrix.lein-profile }}
           PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS: ${{ matrix.drop-joins }}
-          PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD: ${{ matrix.deprecated-query-streaming }}
         run: ci/bin/prep-and-run-in github ${{ matrix.flavor }}
       - uses: actions/upload-artifact@v3
         with:
