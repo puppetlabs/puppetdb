@@ -1,5 +1,4 @@
-
-name: main
+name: daily
 on:
   schedule:
     # 12:00 UTC
@@ -17,7 +16,8 @@ jobs:
 
         # These run on every branch
         flavor:
-          - core+ext/openjdk11/pg-15
+          - core+ext/openjdk17/pg-15
+          - core+ext/openjdk11/pg-11
           # legacy testing, we do not promise support for jdk 8
           - core+ext/openjdk8/pg-11
 
@@ -37,17 +37,28 @@ jobs:
           - os: ubuntu-20.04
             flavor: core+ext/openjdk11/pg-11
             lein-profile: fips
+
+          # non-rich variants for main
           - os: ubuntu-20.04
-            branch: 7.x
-            flavor: core+ext/openjdk11/pg-11
-            deprecated-query-streaming: 'by-request'
-          # non-rich variants
+            branch: main
+            flavor: int/openjdk11/pup-main/srv-main/pg-14
+          - os: ubuntu-20.04
+            branch: main
+            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-14
+
+          # non-rich variants for 7.x
           - os: ubuntu-20.04
             branch: 7.x
             flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
           - os: ubuntu-20.04
             branch: 7.x
             flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
+
+          # Test deprecated streaming on 7.x
+          - os: ubuntu-20.04
+            branch: 7.x
+            flavor: core+ext/openjdk11/pg-11
+            deprecated-query-streaming: 'by-request'
 
     steps:
       - name: Compute job outputs
