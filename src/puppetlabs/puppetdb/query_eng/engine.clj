@@ -55,7 +55,7 @@
       "always" true
       "by-default" true
       "by-request" false
-      nil true
+      (nil "") true
       (throw
        (Exception. (trs "Invalid PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS setting {0}"
                         (pr-str v)))))))

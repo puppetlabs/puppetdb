@@ -1,12 +1,12 @@
 
 name: main
-on: [push, pull_request]
+on:
+  schedule:
+    # 12:00 UTC
+    - cron: '0 12 * * *'
 
 jobs:
-  # We use "o" as the name to keep it short since the flavor repeats
-  # it, and the current actions interface doesn't show very many
-  # characters in the test names.
-  o:
+  core:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -15,17 +15,13 @@ jobs:
         # additions/removals of matrix axes.  The flavor "/" is
         # converted to "_" in the pdb-job-id below.
 
+        # These run on every branch
         flavor:
-          - core+ext/openjdk11/pg-11
-          - core+ext/openjdk11/pg-14
+          - core+ext/openjdk11/pg-15
+          # legacy testing, we do not promise support for jdk 8
+          - core+ext/openjdk8/pg-11
 
-          # integration
-          - int/openjdk11/pup-6.x/srv-6.x/pg-11/rich
-          - int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
-
-          - rspec/pup-7.x
-          - lint/openjdk11
-
+        branch: [7.x, main]
         os: [ubuntu-20.04]
 
         # Defaults for special-case influencing vars
@@ -35,12 +31,23 @@ jobs:
 
         # Special cases
         include:
-          - os: macos-10.15
+          - os: ubuntu-20.04
             flavor: core+ext/openjdk11/pg-11
-          - os: macos-10.15
-            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
-          - os: macos-10.15
-            flavor: rspec/pup-7.x
+            drop-joins: by-request
+          - os: ubuntu-20.04
+            flavor: core+ext/openjdk11/pg-11
+            lein-profile: fips
+          - os: ubuntu-20.04
+            branch: 7.x
+            flavor: core+ext/openjdk11/pg-11
+            deprecated-query-streaming: 'by-request'
+          # non-rich variants
+          - os: ubuntu-20.04
+            branch: 7.x
+            flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
+          - os: ubuntu-20.04
+            branch: 7.x
+            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
 
     steps:
       - name: Compute job outputs
@@ -53,24 +60,11 @@ jobs:
           pdb_test_gh_job_id+="_${{ matrix.drop-joins }}"
           pdb_test_gh_job_id+="_${{ matrix.deprecated-query-streaming }}"
 
-          echo "day=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
           echo "pdb-job-id=$pdb_test_gh_job_id" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v3
         with:
+          ref: ${{ matrix.branch }}
           persist-credentials: false
-      - uses: actions/cache@v3
-        with:
-          key: |
-            ${{ matrix.flavor }}
-            ${{ runner.os }}
-            ${{ hashFiles('**/Gemfile') }}
-            ${{ hashFiles('**/project.clj') }}
-            ${{ steps.computed.outputs.day }}
-          path: |
-            ci/local/jdk
-            vendor/bundle/ruby
-            ~/.m2/repository
-            ~/Library/Caches/Homebrew
       - name: Gather inital host info
         run: ext/bin/host-info
       - env:

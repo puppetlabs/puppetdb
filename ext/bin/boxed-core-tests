@@ -8,7 +8,7 @@
 
 set -uxeo pipefail
 
-usage() { echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT] -- CMD ...'; }
+usage() { echo 'Usage: $(basename "$0") [--pgbin DIR] [--pgport PORT] [--pglog PATH] -- CMD ...'; }
 misuse() { usage 1>&2; exit 2; }
 
 declare -A opt
@@ -16,7 +16,7 @@ declare -A opt
 # Validate arguments
 while test $# -gt 0; do
     case "$1" in
-        --pgbin|--pgport)
+        --pgbin|--pgport|--pglog)
             test $# -gt 1 || misuse
             opt["${1:2}"]="$2"
             shift 2
@@ -63,8 +63,10 @@ ext/bin/require-pgbox default "$tmpdir/local"
 export PATH="$tmpdir/local/bin:$PATH"
 # Print host machine info for logging
 ext/bin/host-info
+
 # Runs command with ephemeral PuppetDB and PostgreSQL sandbox
-ext/bin/with-pdbbox --box "$tmpdir/box" \
-                    --pgbin "${opt[pgbin]}" \
-                    --pgport "${opt[pgport]}" \
-                    -- "${cmd[@]}"
+box_args=()
+if test "${opt[pgbin]:-}"; then box_args+=(--pgbin "${opt[pgbin]}"); fi
+if test "${opt[pgport]:-}"; then box_args+=(--pgport "${opt[pgport]}"); fi
+if test "${opt[pglog]:-}"; then box_args+=(--pglog "${opt[pglog]}"); fi
+ext/bin/with-pdbbox --box "$tmpdir/box" "${box_args[@]}" -- "${cmd[@]}"
