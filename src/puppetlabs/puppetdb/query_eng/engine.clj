@@ -3306,9 +3306,8 @@
     (let [{:keys [node _state]} (zip/post-order-visit (zip/tree-zipper plan)
                                                       []
                                                       [(fn [node state]
-                                                         (if (instance? Query node)
-                                                           {:node (drop-local-unused-joins-from-query node) :state state}
-                                                           {:node node :state state}))])]
+                                                         (when (instance? Query node)
+                                                           {:node (drop-local-unused-joins-from-query node) :state state}))])]
       (assoc incoming :plan node))
     (catch ExceptionInfo ex
       (if (= ::cannot-drop-joins (:kind (ex-data ex)))
