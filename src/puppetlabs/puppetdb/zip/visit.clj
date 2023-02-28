@@ -28,6 +28,7 @@
 (defn- visit-node
   [dir node state visitors]
   (loop [node           node
+         new-node       nil
          state          state
          [v & visitors] visitors]
     (if v
@@ -35,14 +36,14 @@
         (if (or b c)
           {:node node* :state state* :break b :cut c}
           (recur (if (nil? node*) node node*)
+                 (if (nil? node*) new-node node*)
                  (if (nil? state*) state state*)
                  visitors)))
-      {:node node :state state})))
+      {:node new-node :state state})))
 
 (defn- visit-location
   [dir loc state visitors]
-  (let [node (z/node loc)
-        context (visit-node dir (z/node loc) state visitors)]
+  (let [context (visit-node dir (z/node loc) state visitors)]
     {:loc   (if (nil? (:node context)) loc (z/replace loc (:node context)))
      :state (if (nil? (:state context)) state (:state context))
      :break (:break context)
