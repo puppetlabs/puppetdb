@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.zip
-  (:require [fast-zip.visit :as zv]
+  (:require [puppetlabs.puppetdb.zip.visit :as zv]
             [fast-zip.core :as z]))
 
 (defprotocol NodeTraversal

@@ -186,7 +186,7 @@
                  [com.rpl/specter "0.5.7"]
                  [com.taoensso/nippy :exclusions [org.tukaani/xz]]
                  [digest "1.4.3"]
-                 [fast-zip-visit "1.0.2"]
+                 [fast-zip "0.4.0"]
                  [instaparse]
                  [murphy "0.5.2"]
                  [clj-commons/fs]
