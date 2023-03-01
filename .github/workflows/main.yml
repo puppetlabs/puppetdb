@@ -18,14 +18,11 @@ jobs:
           - core+ext/openjdk17/pg-14
           - core+ext/openjdk17/pg-11
 
-          # integration
-          - int/openjdk17/pup-main/srv-main/pg-14/rich
-          - int/openjdk17/pup-7.x/srv-7.x/pg-14/rich
-
           - rspec/pup-main
           - lint/openjdk17
 
         os: [ubuntu-20.04]
+        ruby: ['3.2']
 
         # Defaults for special-case influencing vars
         lein-profile: ['']
@@ -33,12 +30,24 @@ jobs:
 
         # Special cases
         include:
-          - os: macos-10.15
+          # integration
+          - flavor: int/openjdk17/pup-main/srv-main/pg-14/rich
+            os: ubuntu-20.04
+            ruby: '3.2'
+          - flavor: int/openjdk17/pup-7.x/srv-7.x/pg-14/rich
+            os: ubuntu-20.04
+            ruby: '2.7'
+
+          # macos
+          - os: macos-11
             flavor: core+ext/openjdk17/pg-14
-          - os: macos-10.15
+            ruby: '3.2'
+          - os: macos-11
             flavor: int/openjdk17/pup-main/srv-main/pg-14/rich
-          - os: macos-10.15
+            ruby: '3.2'
+          - os: macos-11
             flavor: rspec/pup-main
+            ruby: '3.2'
 
     steps:
       - name: Compute job outputs
@@ -55,6 +64,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '${{ matrix.ruby }}'
       - uses: actions/cache@v3
         with:
           key: |
