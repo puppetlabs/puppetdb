@@ -23,6 +23,7 @@ jobs:
 
         branch: [7.x, main]
         os: [ubuntu-20.04]
+        ruby: ['3.2']
 
         # Defaults for special-case influencing vars
         lein-profile: ['']
@@ -32,31 +33,38 @@ jobs:
         # Special cases
         include:
           - os: ubuntu-20.04
+            ruby: '3.2'
             flavor: core+ext/openjdk11/pg-11
             drop-joins: by-request
           - os: ubuntu-20.04
+            ruby: '3.2'
             flavor: core+ext/openjdk11/pg-11
             lein-profile: fips
 
           # non-rich variants for main
           - os: ubuntu-20.04
             branch: main
+            ruby: '3.2'
             flavor: int/openjdk11/pup-main/srv-main/pg-14
           - os: ubuntu-20.04
             branch: main
+            ruby: '2.7'
             flavor: int/openjdk11/pup-7.x/srv-7.x/pg-14
 
           # non-rich variants for 7.x
           - os: ubuntu-20.04
             branch: 7.x
+            ruby: '2.5'
             flavor: int/openjdk11/pup-6.x/srv-6.x/pg-11
           - os: ubuntu-20.04
             branch: 7.x
+            ruby: '2.7'
             flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
 
           # Test deprecated streaming on 7.x
           - os: ubuntu-20.04
             branch: 7.x
+            ruby: '2.7'
             flavor: core+ext/openjdk11/pg-11
             deprecated-query-streaming: 'by-request'
 
@@ -76,6 +84,9 @@ jobs:
         with:
           ref: ${{ matrix.branch }}
           persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '${{ matrix.ruby }}'
       - name: Gather inital host info
         run: ext/bin/host-info
       - env:
