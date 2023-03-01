@@ -203,7 +203,7 @@
                  [org.apache.commons/commons-lang3]
 
                  ;; Database connectivity
-                 [com.zaxxer/HikariCP]
+                 [com.zaxxer/HikariCP "5.0.1"]
                  [com.github.seancorfield/honeysql]
 
                  ;; WebAPI support libraries.
