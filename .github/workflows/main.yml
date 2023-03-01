@@ -35,11 +35,11 @@ jobs:
 
         # Special cases
         include:
-          - os: macos-10.15
+          - os: macos-11
             flavor: core+ext/openjdk11/pg-11
-          - os: macos-10.15
+          - os: macos-11
             flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11/rich
-          - os: macos-10.15
+          - os: macos-11
             flavor: rspec/pup-7.x
 
     steps:

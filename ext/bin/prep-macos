@@ -41,7 +41,6 @@ brew install coreutils
 brew install ruby
 
 # for ts
-brew uninstall parallel
 brew install moreutils
 
 # If flavor is not recognized, do nothing
