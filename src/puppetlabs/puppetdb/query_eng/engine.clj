@@ -1856,7 +1856,7 @@
     ;; See rewrite-fact-query for an example.
     (and (map? node)
          (:selection-params node))
-    {:node node
+    {:node nil
      :state (apply conj (:selection-params node) state)}))
 
 (defn extract-all-params
@@ -2822,7 +2822,7 @@
                       error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
                               (tru "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
                               (tru "Unsupported subquery `{0}`" subquery-name))]
-                  {:node node
+                  {:node nil
                    :state (conj state error)
                    :cut true})
 
@@ -2853,7 +2853,7 @@
                             (= "node_state" field)
                             (contains? (set qfields) field)
                             (some #(re-matches % field) (map re-pattern dotted-fields)))
-                {:node node
+                {:node nil
                  :state (conj
                           state
                           (if (empty? qfields)
@@ -2876,7 +2876,7 @@
                                                   "Can't extract" "")
                                                 (validate-extract-filters expr))]
               (when column-validation-message
-                {:node node
+                {:node nil
                  :state (conj state column-validation-message)}))
 
             [["in" field ["array" _]]]
@@ -2885,7 +2885,7 @@
               (when-not (or (vec? field)
                             (contains? (set qfields) field)
                             (some #(re-matches % field) (map re-pattern dotted-fields)))
-                {:node node
+                {:node nil
                  :state (conj state
                               (if (empty? qfields)
                                 (tru "''{0}'' is not a queryable object for {1}. Entity {1} has no queryable objects"
@@ -2902,7 +2902,7 @@
                                              (:alias query-context)
                                              "Can't match on" "for 'in'")]
               (when column-validation-message
-                {:node node
+                {:node nil
                  :state (conj state column-validation-message)}))
 
             :else nil))
@@ -2915,7 +2915,7 @@
             {:node (with-meta (vec (apply vector (str/lower-case op) stmt-rest))
                               (meta node))
              :state state}
-            :else {:node node :state state}))
+            :else nil))
 
 (defn push-down-context
   "Pushes the top level query context down to each query node, throws IllegalArgumentException
