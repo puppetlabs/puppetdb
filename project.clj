@@ -203,7 +203,8 @@
                  [org.apache.commons/commons-lang3]
 
                  ;; Database connectivity
-                 [com.zaxxer/HikariCP]
+                 ;; pin specifically to 2.7.4 for jdk8 packaging compatibility
+                 [com.zaxxer/HikariCP "2.7.4"]
                  [com.github.seancorfield/honeysql]
 
                  ;; WebAPI support libraries.
@@ -302,10 +303,13 @@
                                                ;; lein depend on clojure 1.6.
                                                [org.clojure/clojure nil]
 
+                                               ;; pin specifically to 2.7.4 for jdk8 packaging compatibility
+                                               [com.zaxxer/HikariCP "2.7.4"]
+
                                                ;; This circular dependency is required because of a bug in
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
                                                ;; in the final package.
-                                               [puppetlabs/puppetdb ~pdb-version]]
+                                               [puppetlabs/puppetdb ~pdb-version :exclusions [com.zaxxer/HikariCP]]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "2.3.2"]]}
              :testutils {:source-paths ^:replace ["test"]
