@@ -221,7 +221,8 @@
                ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
                ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F or -R"]
-               ["-i" (str "--runinterval RUNINTERVAL" "interval (in minutes)"
+               ["-i" "--runinterval RUNINTERVAL"
+                     (str "Interval (in minutes)"
                           " to use during simulation. This option"
                           " requires some temporary filesystem space, which"
                           " will be allocated in TMPDIR (if set in the"
