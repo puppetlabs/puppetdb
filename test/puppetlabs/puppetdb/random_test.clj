@@ -5,6 +5,7 @@
     :refer [random-bool
             random-node-name
             random-pp-path
+            random-sha1
             random-string
             random-string-alpha
             random-type-name]]))
@@ -47,3 +48,9 @@
   (testing "should return a random path"
     (is (string? (random-pp-path)))
     (is (= 54 (count (random-pp-path))))))
+
+(deftest test-random-sha1
+  (testing "returns a random sha1 hash"
+    (is (string? (random-sha1)))
+    (is (re-matches #"[\da-z]{40}" (random-sha1)))
+    (is (re-matches #"[\da-z]{40}" (random-sha1 1000)))))

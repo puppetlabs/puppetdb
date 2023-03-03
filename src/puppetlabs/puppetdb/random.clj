@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.random
   (:require
    [clojure.string :as string]
-   [clojure.walk :refer [keywordize-keys]])
+   [clojure.walk :refer [keywordize-keys]]
+   [puppetlabs.kitchensink.core :as kitchensink])
   (:import
    (org.apache.commons.lang3 RandomStringUtils)))
 
@@ -87,3 +88,9 @@
    "new_value"          (random-string)
    "message"            (random-string)
    })
+
+(defn random-sha1
+  "Generate a SHA1 hash of a random-string."
+  ([] (random-sha1 100))
+  ([str-size]
+   (kitchensink/utf8-string->sha1 (random-string str-size))))
