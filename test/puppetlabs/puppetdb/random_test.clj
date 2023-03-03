@@ -5,6 +5,7 @@
     :refer [random-bool
             random-node-name
             random-pp-path
+            random-pronouncable-word
             random-sha1
             random-string
             random-string-alpha
@@ -54,3 +55,11 @@
     (is (string? (random-sha1)))
     (is (re-matches #"[\da-z]{40}" (random-sha1)))
     (is (re-matches #"[\da-z]{40}" (random-sha1 1000)))))
+
+(deftest test-random-pronouncable-word
+  (let [consonants "[bcdfghjklmnpqrstvwxz]"
+        exp-regex-str (format "(?:%s[aeiouy])" consonants)]
+    (testing "returns a random pronouncable word string"
+      (is (re-matches (re-pattern (str exp-regex-str "{3}")) (random-pronouncable-word)))
+      (is (re-matches (re-pattern (str exp-regex-str "{4}")) (random-pronouncable-word 8)))
+      (is (re-matches (re-pattern (str exp-regex-str "{3}" consonants)) (random-pronouncable-word 7))))))

@@ -21,6 +21,19 @@
   ([length]
    (.toLowerCase (RandomStringUtils/randomAlphabetic length))))
 
+(defn random-pronouncable-word
+  "Generate a random string of optional length that alternates consonants and
+   vowels to produce a loosely recognizable wordish thing."
+  ([] (random-pronouncable-word 6))
+  ([length]
+   (let [random-consonant #(RandomStringUtils/random 1 "bcdfghjklmnpqrstvwxz")
+         random-vowel #(RandomStringUtils/random 1 "aeiouy")]
+     (->> (for [i (range length)]
+           (if (even? i)
+             (random-consonant)
+             (random-vowel)))
+         (string/join "")))))
+
 (defn random-bool
   "Generate a random boolean"
   []

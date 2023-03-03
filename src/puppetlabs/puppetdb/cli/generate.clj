@@ -9,22 +9,81 @@
    to benchmark 1000 nodes, you don't need to generate initial
    catalog/fact/report json for 1000 nodes."
   (:require
-    [clojure.java.io :as io]
+    [clojure.string :as string]
     [puppetlabs.i18n.core :refer [trs]]
     [puppetlabs.kitchensink.core :as kitchensink]
     [puppetlabs.puppetdb.cheshire :as json]
     [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
     [puppetlabs.puppetdb.export :as export]
     [puppetlabs.puppetdb.nio :refer [get-path]]
+    [puppetlabs.puppetdb.random :refer [random-resource random-sha1 random-pronouncable-word]]
     [puppetlabs.puppetdb.time :refer [now]]
-    [puppetlabs.puppetdb.utils :as utils :refer [println-err]])
+    [puppetlabs.puppetdb.utils :as utils])
   (:import
     [java.nio.file.attribute FileAttribute]
     [java.nio.file Files]))
 
+(defn pseudonym
+  "Generate a fictious but somewhat intelligible keyword name."
+  ([prefix ordinal]
+   (pseudonym prefix ordinal 6))
+  ([prefix ordinal length]
+   (let [mid-length (max (- length (count prefix) (count (str ordinal))) 1)]
+     (format "%s-%s-%s" prefix (random-pronouncable-word mid-length) ordinal))))
+
+(defn generate-classes
+  [number]
+  (map (fn [i] (random-resource "Class" (pseudonym "class" i))) (range number)))
+
+(defn generate-resources
+  [number title-size]
+    (map (fn [i]
+           (let [type-name (rand-nth ["File" "Exec" "Service"])
+                 title (pseudonym "resource" i title-size)]
+             (random-resource type-name title)))
+         (range number)))
+
+(defn generate-edge
+  ([source target]
+   (generate-edge source target "contains"))
+  ([source target relation]
+   {:source (select-keys source ["type" "title"])
+    :target (select-keys target ["type" "title"])
+    :relationship relation}))
+
+(defn generate-edges
+  "Generate a set of edges associating each class with main-stage and randomly
+   distributing remaining resources within the classes."
+  [main-stage classes resources]
+  (let [class-map
+          (reduce
+            (fn [cmap r]
+              (let [class-key (rand-nth classes)]
+                (update cmap class-key conj r)))
+            {} resources)]
+    (->> class-map
+         (map
+           (fn [[cls cls-resources]]
+             (concat
+               (list (generate-edge main-stage cls)) (map #(generate-edge cls %) cls-resources))))
+         flatten)))
+
 (defn generate-catalog
   [certname num-classes, num-resources, title-size, _total-catalog-size, _depth]
-  {})
+  (let [main-stage (random-resource "Stage" "main")
+        classes (generate-classes num-classes)
+        resources (generate-resources (- num-resources num-classes) title-size)
+        edges (generate-edges main-stage classes resources)]
+    {:resources (reduce into [[main-stage] classes resources])
+     :edges edges
+     :producer_timestamp (now)
+     :transaction_uuid (kitchensink/uuid)
+     :certname certname
+     :hash (random-sha1)
+     :version (quot (System/currentTimeMillis) 1000)
+     :producer "puppetmaster1"
+     :catalog_uuid (kitchensink/uuid)
+     :code_id (random-sha1)}))
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -50,7 +109,7 @@
    given options and store them in the given output directory."
   [options]
   (let [{:keys [num-hosts num-classes num-resources title-size output-dir]} options
-        output-path (-> (if (clojure.string/blank? output-dir)
+        output-path (-> (if (string/blank? output-dir)
                           (create-temp-dir)
                           (get-path output-dir))
                         .toAbsolutePath
