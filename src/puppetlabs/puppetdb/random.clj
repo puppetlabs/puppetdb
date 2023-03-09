@@ -21,19 +21,6 @@
   ([length]
    (.toLowerCase (RandomStringUtils/randomAlphabetic length))))
 
-(defn random-pronouncable-word
-  "Generate a random string of optional length that alternates consonants and
-   vowels to produce a loosely recognizable wordish thing."
-  ([] (random-pronouncable-word 6))
-  ([length]
-   (let [random-consonant #(RandomStringUtils/random 1 "bcdfghjklmnpqrstvwxz")
-         random-vowel #(RandomStringUtils/random 1 "aeiouy")]
-     (->> (for [i (range length)]
-           (if (even? i)
-             (random-consonant)
-             (random-vowel)))
-         (string/join "")))))
-
 (defn random-bool
   "Generate a random boolean"
   []
@@ -107,3 +94,40 @@
   ([] (random-sha1 100))
   ([str-size]
    (kitchensink/utf8-string->sha1 (random-string str-size))))
+
+(defn sample-normal
+  "Get a random integer from a normal distribution described by the given mean and
+   standard deviation from that mean.
+
+   ~68% of the returned values will fall within mean +/- standard-deviation.
+   ~95% within two standard-deviations.
+   ~99% within three...
+   https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule
+   "
+  [mean standard-deviation]
+  (-> random .nextGaussian (* standard-deviation) (+ mean) int))
+
+(defn safe-sample-normal
+  "Get a random integer from the normal distribution guarded by some sane lower
+   and upper bound. If not given, they default to 0 and twice the mean."
+  [mean standard-deviation & {:keys [lowerb upperb] :or {lowerb 0 upperb (* 2 mean)}}]
+   (-> (sample-normal mean standard-deviation) (max lowerb) (min upperb)))
+
+(defn random-pronouncable-word
+  "Generate a random string of optional length that alternates consonants and
+   vowels to produce a loosely recognizable wordish thing.
+
+   Optionally, supply standard deviation, to return a word of variable length
+   from the given size based on the safe-sample-normal function."
+  ([] (random-pronouncable-word 6))
+  ([length] (random-pronouncable-word length nil))
+  ([length sd] (random-pronouncable-word length sd {}))
+  ([length sd bounds]
+   (let [random-consonant #(RandomStringUtils/random 1 "bcdfghjklmnpqrstvwxz")
+         random-vowel #(RandomStringUtils/random 1 "aeiouy")
+         actual-length (if (nil? sd) length (safe-sample-normal length sd bounds))]
+     (->> (for [i (range actual-length)]
+           (if (even? i)
+             (random-consonant)
+             (random-vowel)))
+         (string/join "")))))

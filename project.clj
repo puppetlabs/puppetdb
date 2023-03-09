@@ -159,6 +159,7 @@
                  [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [org.clojure/core.memoize]
+                 [org.clojure/data.generators "1.0.0"]
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/tools.namespace]

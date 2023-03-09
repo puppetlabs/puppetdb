@@ -30,7 +30,7 @@
         (is (= 7 (count (edge-test "Class" "File" e))))))))
 
 (deftest generate-catalog
-  (let [c (generate/generate-catalog "host-1" 2 10 20 nil nil)]
+  (let [c (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 200})]
     (is (contains? c :certname))
     (testing "resource count matches num-resources options + main"
       (is (= 11 (count (:resources c)))))
