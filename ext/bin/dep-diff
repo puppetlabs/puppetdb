@@ -2,7 +2,7 @@
 ":"; # -*-clojure-*-
 ":"; set -ueo pipefail
 ":"; script_home="$(cd "$(dirname "$0")" && pwd)"
-":"; exec "$script_home/clj-1.10" "$0" "$@"
+":"; exec "$script_home/clj-1.11" "$0" "$@"
 
 (require
  '[clojure.edn :as edn]
@@ -32,15 +32,19 @@
 (defn usage [stream]
   (msgn stream (str/triml "
 Usage:
-  dep-diff --help
-  dep-diff [--mismatches] [--ignore-exclusions] [--] OLD_TREE_PATH NEW_TREE_PATH
+    dep-diff --help
+    dep-diff [OPT...] [--] OLD_TREE_PATH NEW_TREE_PATH
+  OPT:
+     --mismatches | --ignore-exclusions | --ignore-id X/Y
 
   Examines two dependency lists as-per \"lein deps :tree\" and reports
   any differences with respect to the dependency names and versions.
   If --mismatches is specified, then only reports mismatched versions
   of dependencies the two lists have in common.  If
   --ignore-exclusions is specified, then does not consider exclusions
-  when comparing the dependencies.")))
+  when comparing the dependencies.  Specific dependencies can be
+  excluded from consideration via --ignore-id, e.g. --ignore-id
+  org.clojure/tools.cli.")))
 
 (defn exit [rc]
   (throw (ex-info "" {:kind ::exit ::rc 1})))
@@ -93,10 +97,12 @@ Usage:
                       (strip (rest remainder))))))]
     (vec (strip dep))))
 
-(defn display-diff [{:keys [ignore-exclusions? mismatches-only? pe-bouncy-castle-provided? out]
+(defn display-diff [{:keys [ignore-exclusions? mismatches-only?
+                            ignore-ids pe-bouncy-castle-provided? out]
                      :or {out *out*} :as opts}
                     deps-1 deps-2]
   (doseq [name (-> (concat (keys deps-1) (keys deps-2)) distinct sort)
+          :when (or (empty? ignore-ids) (not (ignore-ids name)))
           :let [old (get deps-1 name)
                 new (get deps-2 name)]]
     (if (and (seq old) (seq new))
@@ -130,7 +136,8 @@ Usage:
 
 (defn args->opts [args]
   (loop [args args
-         opts {:positional []}]
+         opts {:positional []
+               :ignore-ids #{}}]
     (if-not (seq args)
       opts
       (case (first args)
@@ -138,6 +145,8 @@ Usage:
         "--mismatches" (recur (rest args) (assoc opts :mismatches-only? true))
         "--ignore-exclusions" (recur (rest args)
                                      (assoc opts :ignore-exclusions? true))
+        "--ignore-id" (recur (nthrest args 2)
+                             (update opts :ignore-ids #(conj % (-> args (nth 1) symbol))))
         "--allow-pe-bc-provided" (recur (rest args)
                                         (assoc opts :pe-bouncy-castle-provided? true))
         (cond
@@ -166,7 +175,8 @@ Usage:
     (if (:help? opts)
       (do (usage *out*) 0)
       (apply dispatch-diff
-             (merge {:out *out*} (select-keys opts [:mismatches-only? :ignore-exclusions? :pe-bouncy-castle-provided?]))
+             (merge {:out *out*} (select-keys opts [:mismatches-only? :ignore-exclusions?
+                                                    :ignore-ids :pe-bouncy-castle-provided?]))
              (:positional opts)))))
 
 (defn main [args]
