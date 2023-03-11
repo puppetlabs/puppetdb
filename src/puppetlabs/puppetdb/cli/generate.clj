@@ -13,8 +13,10 @@
    * facts
    * reports"
   (:require
+    [clojure.set :as cset]
     [clojure.string :as string]
     [clojure.data.generators :as dgen]
+    [clojure.tools.namespace.dependency :as dep]
     [puppetlabs.i18n.core :refer [trs]]
     [puppetlabs.kitchensink.core :as kitchensink]
     [puppetlabs.puppetdb.cheshire :as json]
@@ -114,37 +116,85 @@
              (assoc resource "parameters" parameters)))
          (range number))))
 
-(defn generate-edge
-  ([source target]
-   (generate-edge source target "contains"))
-  ([source target relation]
-   {:source (select-keys source ["type" "title"])
-    :target (select-keys target ["type" "title"])
-    :relationship relation}))
+(defprotocol NamedEdges
+  (add [catalog r1 r2 relation] "Create an edge of relation between resource 1 and 2 in catalog."))
 
-(defn generate-edges
-  "Generate a set of edges associating each class with main-stage and randomly
-   distributing remaining resources within the classes."
-  [main-stage classes resources]
-  (let [class-resources-map
-          (reduce
-            (fn [cmap r]
-              (let [class-key (rand-nth classes)]
-                (update cmap class-key conj r)))
-            {} resources)]
-    (->> class-resources-map
-         (map
-           (fn [[cls cls-resources]]
-             (concat
-               (list (generate-edge main-stage cls)) (map #(generate-edge cls %) cls-resources))))
-         flatten)))
+(defrecord Catalog [graph edges]
+  ;; graph is a clojure.tools.namespace.dependency MapDependencyGraph of catalog resources.
+  ;; edges is a set tracking the relation type of each edge.
+  NamedEdges
+    (add [catalog r1 r2 relation]
+      (let [[source target] (case relation
+                               (:before :contains :notifies) [r1 r2]
+                               (:required-by :subscription-of) [r2 r1])]
+        (Catalog.
+          (dep/depend (:graph catalog) source target)
+          (conj (:edges catalog) {:source source :target target :relation relation})))))
+
+(defn new-catalog-graph
+  "Return a new initialized empty Catalog."
+  []
+  (->Catalog (dep/graph) #{}))
+
+(defn generate-catalog-graph
+  "Generate a set of containment edges associating each class with main-stage
+   and randomly distributing remaining resources within the classes.
+
+   Randomly generates additional required-by, notifies, before and
+   subscription-of between a given percentage of both class and non-class resources.
+
+   Makes use of Catalog to ensure we're still building a directed acyclic graph, and to
+   track the relation type between edges."
+  [main-stage classes resources additional-edge-percent]
+  (let [additional-class-edges (quot (* additional-edge-percent (count classes)) 100)
+        additional-resource-edges (quot (* additional-edge-percent (count resources)) 100)
+        shuffled-classes (shuffle classes)
+        shuffled-resources (shuffle resources)
+        shuffled-all-resources (shuffle (into classes resources))
+        get-weighted-relation-fn #(dgen/weighted
+                                    ;; relation       % frequency
+                                    {:before          10
+                                     :notifies        40
+                                     :required-by     45
+                                     :subscription-of  5})
+        create-edge-fn (fn [source-resources c target]
+                         (let [relation (get-weighted-relation-fn)
+                               target-dependencies
+                                 (dep/transitive-dependencies (:graph c) target)
+                               target-dependents
+                                 (dep/transitive-dependents (:graph c) target)
+                               source
+                                 (-> (set source-resources)
+                                     (cset/difference target-dependents target-dependencies #{target})
+                                     vec
+                                     shuffle
+                                     first)]
+                           (if (nil? source)
+                             c ;; nothing left
+                             (add c source target relation))))]
+        (as-> (new-catalog-graph) cat
+          ;; add classes contained by main
+          (reduce #(add %1 main-stage %2 :contains) cat classes)
+          ;; contain all other resources within random classes
+          (reduce #(let [cls (rand-nth classes)] (add %1 cls %2 :contains)) cat resources)
+          ;; add additional edges between some subset of classes
+          (reduce (partial create-edge-fn shuffled-classes) cat (take additional-class-edges shuffled-classes))
+          ;; add additional edges of some subset of other resources to all resources
+          (reduce (partial create-edge-fn shuffled-all-resources) cat (take additional-resource-edges shuffled-resources)))))
+
+(defn generate-edge
+  [{:keys [source target relation]}]
+  {:source (select-keys source ["type" "title"])
+   :target (select-keys target ["type" "title"])
+   :relationship relation})
 
 (defn generate-catalog
-  [certname {:keys [num-classes num-resources resource-size title-size]}]
+  [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent]}]
   (let [main-stage (rnd/random-resource "Stage" "main")
         classes (generate-classes num-classes title-size)
         resources (generate-resources (- num-resources num-classes) resource-size title-size)
-        edges (generate-edges main-stage classes resources)]
+        catalog-graph (generate-catalog-graph main-stage classes resources additional-edge-percent)
+        edges (map generate-edge (:edges catalog-graph))]
     {:resources (reduce into [[main-stage] classes resources])
      :edges edges
      :producer_timestamp (now)
@@ -219,6 +269,9 @@
                 :default 20
                 :parse-fn #(Integer/parseInt %)]
                ["-s" "--resource-size" "The average resource size in kB."
+                :default 50
+                :parse-fn #(Integer/parseInt %)]
+               ["-e" "--additional-edge-percent" "The percent of generated classes and resources for which to create additional edges."
                 :default 50
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
