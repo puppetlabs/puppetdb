@@ -9,6 +9,11 @@
    to benchmark 1000 nodes, you don't need to generate initial
    catalog/fact/report json for 1000 nodes.
 
+   If you want a representative sample with big differences between catalogs,
+   you will need to run the tool multiple times. For example, if you want a set
+   of 5 large catalogs and 10 small ones, you will need to run the tool twice
+   with the desired parameters to create the two different sets.
+
    TODO:
    * facts
    * reports"
@@ -103,14 +108,21 @@
   [number avg-resource-size title-size]
   (let [tag-word-fn #(rnd/random-pronouncable-word 15 7 {:lowerb 5 :upperb 100})]
     (map (fn [i]
-           (let [type-name (random-type)
+           (let [line-size 4 ;; stored as an int in the database...
+                 type-name (random-type)
                  title (pseudonym "resource" i title-size)
+                 file (rnd/random-pp-path)
                  resource-size (rnd/safe-sample-normal avg-resource-size (quot avg-resource-size 4))
                  tags-mean (-> (quot resource-size 5) (min 200))
                  tags-size (rnd/safe-sample-normal tags-mean (quot tags-mean 2) {:lowerb 10})
-                 parameters-size (- resource-size tags-size)
+                 parameters-size (max 0
+                                   (- resource-size
+                                      tags-size
+                                      (count type-name)
+                                      (count title)
+                                      (count file)
+                                      line-size))
                  tags (build-to-size tags-size tag-word-fn)
-                 file (rnd/random-pp-path)
                  parameters (build-parameters parameters-size)
                  resource (rnd/random-resource type-name title {"tags" tags "file" file})]
              (assoc resource "parameters" parameters)))
@@ -138,7 +150,8 @@
 
 (defn generate-catalog-graph
   "Generate a set of containment edges associating each class with main-stage
-   and randomly distributing remaining resources within the classes.
+   and randomly distributing remaining resources within the classes. Returns
+   a Catalog instance.
 
    Randomly generates additional required-by, notifies, before and
    subscription-of between a given percentage of both class and non-class resources.
