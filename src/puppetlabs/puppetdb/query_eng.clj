@@ -325,10 +325,10 @@
         stream (generated-stream
                 ;; Runs in a future
                 (fn [out]
-                  (with-log-mdc ["pdb-query-id" query-id
-                                 "pdb-query-origin" (:origin query-options)]
-                    (with-open! [out (io/writer out :encoding "UTF-8")]
-                      (try
+                  (try
+                    (with-log-mdc ["pdb-query-id" query-id
+                                   "pdb-query-origin" (:origin query-options)]
+                      (with-open! [out (io/writer out :encoding "UTF-8")]
                         (jdbc/with-db-connection db
                           (jdbc/with-db-transaction []
                             (let [{:keys [results-query count-query]}
@@ -350,16 +350,16 @@
                               (jdbc/call-with-array-converted-query-rows results-query
                                                                          stream-row)
                               (when-not (realized? status)
-                                (deliver status st)))))
-                        (catch Throwable ex
-                          (cond
-                            ;; If it's an exit, we've already handled it.
-                            (identical? quiet-exit ex) nil
-                            (realized? status)
-                            (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
-                              (log/error ex msg)
-                              (throw ex))
-                            :else (deliver status {:error ex}))))))))]
+                                (deliver status st)))))))
+                    (catch Throwable ex
+                      (cond
+                        ;; If it's an exit, we've already handled it.
+                        (identical? quiet-exit ex) nil
+                        (realized? status)
+                        (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
+                          (log/error ex msg)
+                          (throw ex))
+                        :else (deliver status {:error ex}))))))]
     {:status status
      :stream stream}))
 
