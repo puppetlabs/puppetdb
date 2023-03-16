@@ -351,19 +351,15 @@
                                                                          stream-row)
                               (when-not (realized? status)
                                 (deliver status st)))))
-                        (catch Exception ex
+                        (catch Throwable ex
                           (cond
                             ;; If it's an exit, we've already handled it.
                             (identical? quiet-exit ex) nil
-                            (realized? status) (throw ex)
-                            :else (deliver status {:error ex})))
-                        (catch Throwable ex
-                          (if (realized? status)
-                            (do
-                              (log/error ex (trs "Query streaming failed: {0} {1}"
-                                                 query query-options))
+                            (realized? status)
+                            (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
+                              (log/error ex msg)
                               (throw ex))
-                            (deliver status {:error ex}))))))))]
+                            :else (deliver status {:error ex}))))))))]
     {:status status
      :stream stream}))
 
