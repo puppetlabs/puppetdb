@@ -352,11 +352,11 @@
                               (when-not (realized? status)
                                 (deliver status st)))))
                         (catch Exception ex
-                          ;; If it's an exit, we've already handled it.
-                          (when-not (identical? quiet-exit ex)
-                            (if (realized? status)
-                              (throw ex)
-                              (deliver status {:error ex}))))
+                          (cond
+                            ;; If it's an exit, we've already handled it.
+                            (identical? quiet-exit ex) nil
+                            (realized? status) (throw ex)
+                            :else (deliver status {:error ex})))
                         (catch Throwable ex
                           (if (realized? status)
                             (do
