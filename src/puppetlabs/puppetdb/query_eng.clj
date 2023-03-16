@@ -333,35 +333,34 @@
                           (catch IOException ex
                             (log/debug ex (trs "Unable to stream response: {0}"
                                                (.getMessage ex)))
-                            (throw quiet-exit)))))
-        stream (generated-stream
-                ;; Runs in a future
-                (fn [out]
-                  (try
-                    (with-log-mdc ["pdb-query-id" query-id
-                                   "pdb-query-origin" (:origin query-options)]
-                      (with-open! [out (io/writer out :encoding "UTF-8")]
-                        (jdbc/with-db-connection db
-                          (jdbc/with-db-transaction []
-                            (let [{:keys [results-query count-query]}
-                                  (query->sql query entity version query-options context)
-                                  st (when count-query
-                                       {:count (jdbc/get-result-count count-query)})]
-                              (jdbc/call-with-array-converted-query-rows
-                               results-query #(stream-rows % out st))
-                              (when-not (realized? status)
-                                (deliver status st)))))))
-                    (catch Throwable ex
-                      (cond
-                        ;; If it's an exit, we've already handled it.
-                        (identical? quiet-exit ex) nil
-                        (realized? status)
-                        (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
-                          (log/error ex msg)
-                          (throw ex))
-                        :else (deliver status {:error ex}))))))]
+                            (throw quiet-exit)))))]
     {:status status
-     :stream stream}))
+     :stream (generated-stream
+              ;; Runs in a future
+              (fn serialize-query-response [out]
+                (try
+                  (with-log-mdc ["pdb-query-id" query-id
+                                 "pdb-query-origin" (:origin query-options)]
+                    (with-open! [out (io/writer out :encoding "UTF-8")]
+                      (jdbc/with-db-connection db
+                        (jdbc/with-db-transaction []
+                          (let [{:keys [results-query count-query]}
+                                (query->sql query entity version query-options context)
+                                st (when count-query
+                                     {:count (jdbc/get-result-count count-query)})]
+                            (jdbc/call-with-array-converted-query-rows
+                             results-query #(stream-rows % out st))
+                            (when-not (realized? status)
+                              (deliver status st)))))))
+                  (catch Throwable ex
+                    (cond
+                      ;; If it's an exit, we've already handled it.
+                      (identical? quiet-exit ex) nil
+                      (realized? status)
+                      (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
+                        (log/error ex msg)
+                        (throw ex))
+                      :else (deliver status {:error ex}))))))}))
 
 ;; for testing via with-redefs
 (def munge-fn-hook identity)
