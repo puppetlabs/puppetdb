@@ -320,8 +320,20 @@
   ;;
   ;; produce-streaming-body blocks until status is delivered, so
   ;; ensure it always is.
-  (let [status (promise)
-        quiet-exit (Exception. "private singleton escape exception escaped")
+  (let [quiet-exit (Exception. "private singleton escape exception escaped")
+        status (promise)
+        stream-rows (fn stream-rows [rows out status-after-first-row]
+                      (let [r (munge-fn rows)]
+                        (when-not (instance? PGobject r)
+                          (first r))
+                        (when-not (realized? status)
+                          (deliver status status-after-first-row))
+                        (try
+                          (http/stream-json r out pretty-print)
+                          (catch IOException ex
+                            (log/debug ex (trs "Unable to stream response: {0}"
+                                               (.getMessage ex)))
+                            (throw quiet-exit)))))
         stream (generated-stream
                 ;; Runs in a future
                 (fn [out]
@@ -334,21 +346,9 @@
                             (let [{:keys [results-query count-query]}
                                   (query->sql query entity version query-options context)
                                   st (when count-query
-                                       {:count (jdbc/get-result-count count-query)})
-                                  stream-row (fn [row]
-                                               (let [r (munge-fn row)]
-                                                 (when-not (instance? PGobject r)
-                                                   (first r))
-                                                 (when-not (realized? status)
-                                                   (deliver status st))
-                                                 (try
-                                                   (http/stream-json r out pretty-print)
-                                                   (catch IOException ex
-                                                     (log/debug ex (trs "Unable to stream response: {0}"
-                                                                        (.getMessage ex)))
-                                                     (throw quiet-exit)))))]
-                              (jdbc/call-with-array-converted-query-rows results-query
-                                                                         stream-row)
+                                       {:count (jdbc/get-result-count count-query)})]
+                              (jdbc/call-with-array-converted-query-rows
+                               results-query #(stream-rows % out st))
                               (when-not (realized? status)
                                 (deliver status st)))))))
                     (catch Throwable ex
