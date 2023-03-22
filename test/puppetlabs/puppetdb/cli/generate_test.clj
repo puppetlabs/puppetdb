@@ -196,3 +196,6 @@
         output (with-out-str (generate/summarize data))]
     (is (re-find #":catalogs: 5\b" output))
     (is (re-find #":facts: 0\b" output))))
+
+(deftest generate-fact-values
+  (let []))

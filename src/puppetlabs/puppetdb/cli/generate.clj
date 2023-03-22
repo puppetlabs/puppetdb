@@ -100,6 +100,7 @@
    * reports"
   (:require
     [clojure.data.generators :as dgen]
+    [clojure.java.io :as io]
     [clojure.pprint :as pp]
     [clojure.set :as cset]
     [clojure.string :as string]
@@ -109,6 +110,7 @@
     [puppetlabs.puppetdb.cheshire :as json]
     [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
     [puppetlabs.puppetdb.export :as export]
+    [puppetlabs.puppetdb.facts :as facts]
     [puppetlabs.puppetdb.nio :refer [get-path]]
     [puppetlabs.puppetdb.random :as rnd]
     [puppetlabs.puppetdb.time :refer [now]]
@@ -117,6 +119,8 @@
     [java.nio.file.attribute FileAttribute]
     [java.nio.file Files]
     [org.apache.commons.lang3 RandomStringUtils]))
+
+(def resource-fact-path "puppetlabs/puppetdb/generate/samples/facts/baseline-agent-node.json")
 
 (defn pseudonym
   "Generate a fictitious but somewhat intelligible keyword name."
@@ -355,6 +359,92 @@
                  c)))
            catalog-vec))))
 
+(defn load-baseline-factset
+  "Loads a default set of baseline facts from the classpath resources."
+  []
+  (json/parse-string (slurp (io/resource resource-fact-path))))
+
+(defn create-new-facts
+  [number max-depth]
+  (reduce (fn [facts _i]
+            (let [depth (+ 1 (rand-int max-depth))
+                  fps (shuffle (facts/facts->pathmaps facts))
+                  existing-fp-array (some-> (filter
+                                              #(= depth (count (get % :path_array)))
+                                              fps)
+                                            first
+                                            (get :path_array))
+                  new-fp-array (repeatedly depth
+                                           #(parameter-name
+                                             (rnd/safe-sample-normal 20 10 {:lowerb 5})))
+                  fp-array (dgen/weighted
+                              ;; half the time generate a new fact structure
+                             {new-fp-array         50
+                              ;; the other half of the time insert into an existing
+                              ;; structure (if found and not root)
+                              #(if (or
+                                     (nil? existing-fp-array)
+                                     (= (count existing-fp-array) 1))
+                                new-fp-array
+                                (conj (vec (butlast existing-fp-array))
+                                      (parameter-name
+                                        (rnd/safe-sample-normal 20 10 {:lowerb 5})))) 50})
+                  value (rnd/random-string (rnd/safe-sample-normal 50 25))]
+              (assoc-in facts fp-array value)))
+          {}
+          (range number)))
+
+(defn generate-fact-values
+  [num-facts max-fact-depth]
+  (let [baseline-factset (load-baseline-factset)
+        baseline-values (get baseline-factset "values")
+        baseline-fact-paths (shuffle (facts/facts->pathmaps baseline-values))
+        baseline-leaves (filter #(not= 5 (get % :value_type_id)) baseline-fact-paths)
+        baseline-facts-to-vary (quot (count baseline-fact-paths) 2)
+        baseline-values-varied
+          (reduce (fn [facts fact-path]
+                    (let [path-array (get fact-path :path_array)
+                          value-type-id (get fact-path :value_type_id)
+                          mutator-fn (case value-type-id
+                                       (0 4) (fn [_s] (rnd/random-pronouncable-word))
+                                       (1 2) (fn [_i] (rand-int 1000))
+                                       3 not
+                                       5 (fn [e] e))]
+                      (update-in facts path-array mutator-fn)))
+                  baseline-values
+                  (take baseline-facts-to-vary baseline-fact-paths))
+        facts-to-add (- num-facts (count baseline-leaves))]
+    (if (< facts-to-add 0)
+      ;; Trim facts down to num-facts.
+      ;; (Note, this does not elliminate empty arrays/maps, so you will
+      ;; still have 50 or so empty facts, even if num-facts is 0.)
+      (reduce (fn [facts fact-path]
+                (let [path-array (get fact-path :path_array)]
+                  (if (> (count path-array) 1)
+                    (let [parent-path (butlast path-array)
+                          last-key (last path-array)]
+                      (update-in facts parent-path
+                                 #(if (integer? last-key)
+                                    ;; drop last from list
+                                    (vec (drop-last %))
+                                    ;; dissociate from map
+                                    (dissoc % last-key))))
+                    (dissoc facts (first path-array)))))
+              baseline-values-varied
+              (take (abs facts-to-add) baseline-leaves))
+      ;; Add additional facts to bring us up to num-facts count.
+      (let [new-facts (create-new-facts facts-to-add max-fact-depth)]
+        (merge baseline-values-varied new-facts)))))
+
+(defn generate-facts
+  [certname {:keys [num-facts max-fact-depth avg-package-inventory-count]}]
+  {:certname certname
+   :timestamp (now)
+   :environment "production"
+   :producer_timestamp (now)
+   :producer "puppetmaster1"
+   :values (generate-fact-values num-facts max-fact-depth)})
+
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
   []
@@ -436,7 +526,7 @@
         hosts (map (fn [i] (format "host-%s-%s" (rnd/random-pronouncable-word) i)) (range num-hosts))
         catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
                      (sprinkle-blobs options))
-        facts []
+        facts (map (fn [host] (generate-facts host options)) hosts)
         reports []]
     {:catalogs
       {:dir (.resolve output-path "catalogs")
@@ -462,6 +552,19 @@
   [{:keys [silent verbose]}]
   (and verbose (not silent)))
 
+(defn analyze-facts
+  "Dev utility function to get some data about a JSON factset file."
+  [file]
+  (let [facts (json/parse-string (slurp file))
+        values (get facts "values")
+        fact-paths (facts/facts->pathmaps values)]
+    (pp/print-table [(update-vals
+                             (group-by #(format "Depth %s" (count (:path_array %))) fact-paths)
+                             count)])
+    (prn)
+    (pp/pprint {:total-fact-value-weight (weigh values)
+                :total-weight (weigh facts)})))
+
 (defn generate
   "Build up a dataset of sample PuppetDB facts, catalogs and reports based on
    given options and store them in the given output directory."
@@ -483,7 +586,8 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs [["-c" "--num-classes NUMCLASSES" "Number of class resources to generate in catalogs."
+  (let [specs [;; Catalog generation options
+               ["-c" "--num-classes NUMCLASSES" "Number of class resources to generate in catalogs."
                 :default 10
                 :parse-fn #(Integer/parseInt %)]
                ["-r" "--num-resources NUMRESOURCES" "Number of resources to generate in catalogs. (Includes num-classes.)"
@@ -504,11 +608,21 @@
                ["-B" "--blob-size BLOBSIZE" "Average size of a large resource parameter blob in kB."
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
+               [nil "--random-distribution" "Pick from a random distribution of resources, edge percent and blobs to provide a less even catalog set."
+                :default false]
+
+               ;; Facts options
+               ["-f" "--num-facts NUMFACTS" "Number of facts to generate in a factset"
+                :default 400
+                :parse-fn #(Integer/parseInt %)]
+               [nil "--max-fact-depth FACTDEPTH" "Maximum depth of the nested structure of additional facts."
+                :default 5
+                :parse-fn #(Integer/parseInt %)]
+
+               ;; General options
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
                 :default 5
                 :parse-fn #(Integer/parseInt %)]
-               ["-d" "--random-distribution" "Whether or not pick from a random distribution of resources, edge percent and blobs to provide a less even catalog set."
-                :default false]
                ["-o" "--output-dir OUTPUTDIR" "Directory to write output files to. Will allocate in TMPDIR (if set in the environment) or java.io.tmpdir if not given."]
                ["-v" "--verbose" "Whether to provide verbose output."
                 :default false]
