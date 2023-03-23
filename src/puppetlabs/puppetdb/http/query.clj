@@ -318,7 +318,7 @@
       (log/warn (trs "Parsing PQL took {0} ms for PDBQuery:{1}:{2}" elapsed query-uuid (pr-str query))))
     result))
 
-(defn parse-json-or-pql-to-ast
+(defn parse-json-or-pql-query
   "Parse a query string either as JSON or PQL to transform it to AST"
   [query query-uuid log-queries?]
   (when query
@@ -367,11 +367,11 @@
      (throw (IllegalArgumentException. (tru "PuppetDB queries must be made via GET/POST"))))
    param-spec))
 
-(defn extract-query
+(defn wrap-typical-query
   "Query handler that converts the incoming request (GET or POST)
   parameters/body to a pdb query map"
   ([handler param-spec]
-   (extract-query handler param-spec parse-json-query))
+   (wrap-typical-query handler param-spec parse-json-query))
   ([handler param-spec parse-fn]
    (fn [{:keys [puppetdb-query] :as req}]
      (handler
@@ -385,10 +385,6 @@
           (-> req-with-query-uuid
               (assoc :puppetdb-query query-map)
               (assoc-in [:globals :pretty-print] pretty-print))))))))
-
-(defn extract-query-pql
-  [handler param-spec]
-  (extract-query handler param-spec parse-json-or-pql-to-ast))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
