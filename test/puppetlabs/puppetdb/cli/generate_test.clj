@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.cli.generate-test
   (:require [clojure.java.shell :as shell]
             [clojure.set :as cset]
+            [clojure.string :as string]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.generate :as generate]))
@@ -70,16 +71,21 @@
 (defmethod weigh clojure.lang.IPersistentMap
   [mp]
   (reduce (fn [size [k v]]
-            (+ size (count k) (weigh v)))
+            (+ size (count (str k)) (weigh v)))
           0, mp))
-(defmethod weigh clojure.lang.IPersistentVector
-  [vc]
+(defn- weigh-vec-set-or-seq
+  [a]
   (reduce (fn [size e]
             (+ size (weigh e)))
-          0, vc))
+          0, a))
+(defmethod weigh clojure.lang.IPersistentVector [vc] (weigh-vec-set-or-seq vc))
+(defmethod weigh clojure.lang.IPersistentSet [st] (weigh-vec-set-or-seq st))
+(defmethod weigh clojure.lang.ISeq [sq] (weigh-vec-set-or-seq sq))
+(defmethod weigh clojure.lang.Keyword [k] (count (str k)))
 (defmethod weigh String [s] (count s))
 (defmethod weigh Number [_] 4)
 (defmethod weigh Boolean [_] 1)
+(defmethod weigh org.joda.time.DateTime [_] 8)
 (defmethod weigh :default
   [what] (throw (Exception. (format "Don't know how to weigh a %s of type %s" what (type what)))))
 
@@ -91,8 +97,28 @@
         avg-footprint (quot total-footprint (count resources))]
     (is (= 100 (count resources)))
     (is (< 400 avg-footprint 600))
-    (is (< 40000 total-footprint  60000))
-    ))
+    (is (< 40000 total-footprint  60000))))
+
+(deftest add-blob
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 200 :additional-edge-percent 50})
+        c-with-blob (generate/add-blob catalog 100)]
+    (testing "catalog is modified"
+      (is (not= catalog c-with-blob))
+      (is (< (weigh catalog) 5000))
+      (is (> (weigh c-with-blob) 50000)))
+    (testing "blob parameter is added"
+      (let [resources (:resources c-with-blob)
+            resources-with-blobs (filter
+                                   (fn [rs]
+                                     (let [param-keys (keys (get rs "parameters"))]
+                                       (some #(string/starts-with? % "content_blob_") param-keys)))
+                                   resources)
+            resource-with-blob (first resources-with-blobs)
+            content-blob-params (->> (get resource-with-blob "parameters")
+                                     (filter (fn [[k _]] (string/starts-with? k "content_blob_"))))]
+        (is (= (count resources-with-blobs) 1))
+        (is (= (count content-blob-params) 1))
+        (is (> (count (first (vals content-blob-params))) 50000))))))
 
 (deftest generate
   (let [tmpdir (generate/create-temp-dir)
@@ -107,17 +133,23 @@
                  :title-size title-size
                  :resource-size resource-size
                  :additional-edge-percent additional-edge-percent
+                 :avg-blob-count 0
+                 :blob-size 100
                  :output-dir (.toString tmpdir)}
         additional-edge-% (/ additional-edge-percent 100.0)
         num-edges (+ num-resources (int (* num-resources additional-edge-%)))]
-    (try
-      (generate/generate options)
-      (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))]
-        (testing "generation of files"
-          (doseq [f (.listFiles catalog-dir)]
-            (let [cat (json/parse-string (slurp f))]
+    (testing "without blobs"
+      (try
+        (generate/generate options)
+        (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
+              catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))
+              total-weight (->> catalogs (map weigh) (reduce +))]
+          (testing "generation of files"
+            (is (< 250000 total-weight 500000))
+            (doseq [cat catalogs]
               (is (= (+ num-resources 1) (count (get cat "resources"))))
               (is (= num-edges (count (get cat "edges"))))
+              (is (< 50000 (weigh cat) 100000)
               (let [resources (get cat "resources")
                     ;; Ignore the size of the base resource keys as they are
                     ;; not stored in the database.
@@ -131,9 +163,21 @@
                     avg-resource-footprint (quot (reduce + (map :w footprints)) (count resources))
                     min-footprint (first footprints)
                     max-footprint (last footprints)]
-                (is (< (* resource-size 0.5) avg-resource-footprint  (* resource-size 1.5)))
+                (is (< (* resource-size 0.5) avg-resource-footprint (* resource-size 1.5)))
                 ;; Class resources aren't varied much.
                 (is (< 25 (:w min-footprint) 150) (format "Odd min-footprint %s" min-footprint))
-                (is (< resource-size (:w max-footprint) (* resource-size 2.5)) (format "Odd max-footprint %s" max-footprint))
-                )))))
-      (finally (shell/sh "rm" "-rf" (.toString tmpdir))))))
+                (is (< resource-size (:w max-footprint) (* resource-size 2.5)) (format "Odd max-footprint %s" max-footprint)))))))
+        (finally (shell/sh "rm" "-rf" (.toString tmpdir)))))
+    (testing "with blobs"
+      (try
+        (shell/sh "mkdir" (.toString tmpdir))
+        (generate/generate (merge options {:avg-blob-count 1}))
+        (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
+              catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))]
+          (testing "generation of files"
+            (doseq [cat catalogs]
+                (is (= (+ num-resources 1) (count (get cat "resources"))))
+                (is (= num-edges (count (get cat "edges")))))
+            (let [total-weight (->> catalogs (map weigh) (reduce +))]
+              (is (> total-weight 700000)))))
+        (finally (shell/sh "rm" "-rf" (.toString tmpdir)))))))

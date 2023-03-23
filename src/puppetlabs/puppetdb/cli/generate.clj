@@ -14,6 +14,29 @@
    of 5 large catalogs and 10 small ones, you will need to run the tool twice
    with the desired parameters to create the two different sets.
 
+   ### Flag Notes
+
+   The num-resources flag is total and includes num-classes. So if you set
+   --num-resources to 100 and --num-classes to 30, you will get a catalog with a
+   hundred resources, thirty of which are classes.
+
+   A containment edge is always generated between the main stage and each
+   class. And non-class resources get a containment edge to a random class. So
+   there will always be a base set of containment edges equal to the resource
+   count. The --additional-edge-percent governs how many non-containment edges
+   are added on top of that to simulate some further catalog structure. There is
+   no guarantee of relationship depth (as far as, for example Stage(main) ->
+   Class(foo) -> Class(bar) -> Resource(biff)), but it does ensure some edges
+   between classes, as well as between class and non-class resources.
+
+   The --avg-blob-count and --blob-size parameters control inclusion of large
+   text blobs in catalog resources. By default an average of 1 ~100kb blob is
+   added per catalog. Blobs are distributed randomly through the set, so if you
+   set --avg-blob-count to 20 over --hosts 10, on averge there will be two per
+   catalog, but some may have none, others four, etc...
+
+   Set --avg-blob-count to 0 to exclude blobs altogether.
+
    TODO:
    * facts
    * reports"
@@ -105,28 +128,29 @@
                                   (rnd/random-pronouncable-word 10 4 {:lowerb 2}))))), 1}))
 
 (defn generate-resources
-  [number avg-resource-size title-size]
+  [number avg-resource-size title-size ]
   (let [tag-word-fn #(rnd/random-pronouncable-word 15 7 {:lowerb 5 :upperb 100})]
-    (map (fn [i]
-           (let [line-size 4 ;; stored as an int in the database...
-                 type-name (random-type)
-                 title (pseudonym "resource" i title-size)
-                 file (rnd/random-pp-path)
-                 resource-size (rnd/safe-sample-normal avg-resource-size (quot avg-resource-size 4))
-                 tags-mean (-> (quot resource-size 5) (min 200))
-                 tags-size (rnd/safe-sample-normal tags-mean (quot tags-mean 2) {:lowerb 10})
-                 parameters-size (max 0
-                                   (- resource-size
-                                      tags-size
-                                      (count type-name)
-                                      (count title)
-                                      (count file)
-                                      line-size))
-                 tags (build-to-size tags-size tag-word-fn)
-                 parameters (build-parameters parameters-size)
-                 resource (rnd/random-resource type-name title {"tags" tags "file" file})]
-             (assoc resource "parameters" parameters)))
-         (range number))))
+    (vec
+      (map (fn [i]
+             (let [line-size 4 ;; stored as an int in the database...
+                   type-name (random-type)
+                   title (pseudonym "resource" i title-size)
+                   file (rnd/random-pp-path)
+                   resource-size (rnd/safe-sample-normal avg-resource-size (quot avg-resource-size 4))
+                   tags-mean (-> (quot resource-size 5) (min 200))
+                   tags-size (rnd/safe-sample-normal tags-mean (quot tags-mean 2) {:lowerb 10})
+                   parameters-size (max 0
+                                     (- resource-size
+                                        tags-size
+                                        (count type-name)
+                                        (count title)
+                                        (count file)
+                                        line-size))
+                   tags (build-to-size tags-size tag-word-fn)
+                   parameters (build-parameters parameters-size)
+                   resource (rnd/random-resource type-name title {"tags" tags "file" file})]
+               (assoc resource "parameters" parameters)))
+           (range number)))))
 
 (defprotocol NamedEdges
   (add [catalog r1 r2 relation] "Create an edge of relation between resource 1 and 2 in catalog."))
@@ -201,6 +225,27 @@
    :target (select-keys target ["type" "title"])
    :relationship relation})
 
+(defn add-blob
+  "Add a large parameter string blob to one of the given catalog's resource parameters.
+
+   The blob will be of mean blob-size picked from a normal distribution with a standard
+   deviation of one tenth the mean and an upper and lower bound of +/- 50% of the mean.
+
+   So given a blob-size of 100kb, a random resource will get an additional
+   content parameter sized roughly between 90-110kb but with an absolute
+   lower bound of 50kb and an upper bound of 150kb.
+
+   Returns the updated catalog."
+  [{:keys [resources] :as catalog} blob-size-in-kb]
+  (let [avg-blob-size-in-bytes (* blob-size-in-kb 1000)
+        standard-deviation (quot avg-blob-size-in-bytes 10)
+        lowerb (quot avg-blob-size-in-bytes 2)
+        upperb (+ avg-blob-size-in-bytes lowerb)
+        bsize (rnd/safe-sample-normal avg-blob-size-in-bytes standard-deviation {:lowerb lowerb :upperb upperb})
+        pname (format "content_blob_%s" (rnd/random-pronouncable-word))]
+    (update-in catalog [:resources (rand-int (count resources)) "parameters"]
+               #(merge % {pname (RandomStringUtils/randomAscii bsize)}))))
+
 (defn generate-catalog
   [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent]}]
   (let [main-stage (rnd/random-resource "Stage" "main")
@@ -242,14 +287,16 @@
   "Build up a dataset of sample PuppetDB facts, catalogs and reports based on
    given options and store them in the given output directory."
   [options]
-  (let [{:keys [num-hosts output-dir]} options
+  (let [{:keys [num-hosts output-dir avg-blob-count blob-size]} options
         output-path (-> (if (string/blank? output-dir)
                           (create-temp-dir)
                           (get-path output-dir))
                         .toAbsolutePath
                         .normalize)
         hosts (map (fn [i] (format "host-%s-%s" (rnd/random-pronouncable-word) i)) (range num-hosts))
-        catalogs (map (fn [host] (generate-catalog host options)) hosts)
+        catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
+                     vec
+                     (rnd/distribute #(add-blob % blob-size) avg-blob-count))
         facts []
         reports []
         data {:catalogs
@@ -275,17 +322,23 @@
   (let [specs [["-c" "--num-classes NUMCLASSES" "Number of class resources to generate in catalogs."
                 :default 10
                 :parse-fn #(Integer/parseInt %)]
-               ["-r" "--num-resources NUMRESOURCES" "Number of resources to generate in catalogs."
+               ["-r" "--num-resources NUMRESOURCES" "Number of resources to generate in catalogs. (Includes num-classes.)"
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
-               ["-t" "--title-size TITLESIZE" "Number of characters in resource titles."
+               ["-t" "--title-size TITLESIZE" "Avergae number of characters in resource titles."
                 :default 20
                 :parse-fn #(Integer/parseInt %)]
-               ["-s" "--resource-size" "The average resource size in kB."
-                :default 50
+               ["-s" "--resource-size" "The average resource size in bytes."
+                :default 200
                 :parse-fn #(Integer/parseInt %)]
                ["-e" "--additional-edge-percent" "The percent of generated classes and resources for which to create additional edges."
                 :default 50
+                :parse-fn #(Integer/parseInt %)]
+               ["-b" "--avg-blob-count" "Average number of larger resource parameter blobs to add per catalog. Set to 0 to ensure none."
+                :default 1
+                :parse-fn #(Integer/parseInt %)]
+               ["-B" "--blob-size" "Average size of a large resource parameter blob in kB."
+                :default 100
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
                 :default 5
