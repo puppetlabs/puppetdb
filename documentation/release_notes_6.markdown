@@ -8,7 +8,6 @@ canonical: "/puppetdb/latest/release_notes.html"
 [drop-joins]: ./api/query/v4/query.markdown#experimental-query-optimization
 [facts]: ./api/query/v4/facts.markdown
 [fact-contents]: ./api/query/v4/fact-contents.markdown
-[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.markdown
 [puppet-apply]: ./connect_puppet_apply.markdown
 [api-overview]: ./api/query/v4/overview.markdown
 [known-issues]: ./known_issues.markdown
@@ -727,7 +726,7 @@ Waggett, Robert Roland, Scot Kreienkamp, Vadym Chepkov, and Zak Kent
 
 - **New `ignored` metric.** The `ignored` metric tracks the number of obsolete
   commands since the last restart. For more on the `ignored` metric, see
-  [Metrics endpoint][metrics]. [PDB-4278](https://tickets.puppetlabs.com/browse/PDB-4278)
+  Metrics endpoint. [PDB-4278](https://tickets.puppetlabs.com/browse/PDB-4278)
 
 - **Return a specific fact or resource paramater with `inventory` and `resources` endpoints.** You can now use dot notation
   with `inventory` and `resources` endpoints to return a specific fact or resource parameter instead of the

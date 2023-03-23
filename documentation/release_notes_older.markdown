@@ -11,7 +11,6 @@ canonical: "/puppetdb/latest/release_notes.markdown"
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
 [upgrades]: upgrade.markdown
-[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
 [pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: pdb_support_guide.markdown#message-queue
@@ -649,7 +648,7 @@ details on other breaking changes are below
   flag instead) ([PDB-2036](https://tickets.puppetlabs.com/browse/PDB-2036))
 
 * Upgraded to metrics-clojure `2.6.0`. This has caused our JMX beans to be
-  renamed. See the [metrics documentation][metrics] for more info
+  renamed. See the metrics documentation for more info
   ([PDB-2234](https://tickets.puppetlabs.com/browse/PDB-2234))
 
 
