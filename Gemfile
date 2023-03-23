@@ -44,6 +44,8 @@ group :test do
       :ref => puppet_ref, :require => false
   end
 
+  gem 'puppet-pson', '~> 1.1'
+
   gem 'mocha', '~> 1.0'
 end
 

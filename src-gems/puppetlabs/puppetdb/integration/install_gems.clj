@@ -14,6 +14,10 @@
   (gem-run! config "install" "facter" "--no-document")
   (gem-run! config "install" "hiera" "--no-document")
 
+  ;; Used by the test file-with-binary-template to ensure we handle PSON
+  ;; serialized catalogs properly.
+  (gem-run! config "install" "puppet-pson" "--no-document")
+
   ;; Install the puppetserver vendored gems listed inside its jar; this is where
   ;; ezbake gets them
   (let [gem-list (string/split (slurp (io/resource (str "ext/build-scripts/" gem-list-name))) #"\n")]
