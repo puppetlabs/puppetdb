@@ -103,8 +103,7 @@
    ~68% of the returned values will fall within mean +/- standard-deviation.
    ~95% within two standard-deviations.
    ~99% within three...
-   https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule
-   "
+   https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule"
   [mean standard-deviation]
   (-> random .nextGaussian (* standard-deviation) (+ mean) int))
 

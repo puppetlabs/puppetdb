@@ -1,8 +1,9 @@
 (ns puppetlabs.puppetdb.cli.generate
-  "Data Generation utility
+  "# Data Generation utility
 
-   This command-line tool can generate a base sampling of catalog, fact and
-   report files suitable for consumption by the PuppetDB benchmark utility.
+   This command-line tool can generate a base sampling of catalog files
+   suitable for consumption by the PuppetDB benchmark utility. (Fact and report
+   files are on the todo list.)
 
    Note that it is only necessary to generate a small set of initial sample
    data since benchmark will permute per node differences. So even if you want
@@ -14,11 +15,17 @@
    of 5 large catalogs and 10 small ones, you will need to run the tool twice
    with the desired parameters to create the two different sets.
 
-   ### Flag Notes
+   ## Flag Notes
+
+   ### Catalogs
+
+   #### Resource Counts
 
    The num-resources flag is total and includes num-classes. So if you set
    --num-resources to 100 and --num-classes to 30, you will get a catalog with a
    hundred resources, thirty of which are classes.
+
+   #### Edges
 
    A containment edge is always generated between the main stage and each
    class. And non-class resources get a containment edge to a random class. So
@@ -29,6 +36,8 @@
    Class(foo) -> Class(bar) -> Resource(biff)), but it does ensure some edges
    between classes, as well as between class and non-class resources.
 
+   #### Large Resource Parameter Blobs
+
    The --avg-blob-count and --blob-size parameters control inclusion of large
    text blobs in catalog resources. By default an average of 1 ~100kb blob is
    added per catalog. Blobs are distributed randomly through the set, so if you
@@ -37,13 +46,15 @@
 
    Set --avg-blob-count to 0 to exclude blobs altogether.
 
-   TODO:
+   ## TODO
+
    * facts
    * reports"
   (:require
+    [clojure.data.generators :as dgen]
+    [clojure.pprint :as pp]
     [clojure.set :as cset]
     [clojure.string :as string]
-    [clojure.data.generators :as dgen]
     [clojure.tools.namespace.dependency :as dep]
     [puppetlabs.i18n.core :refer [trs]]
     [puppetlabs.kitchensink.core :as kitchensink]
@@ -60,7 +71,7 @@
     [org.apache.commons.lang3 RandomStringUtils]))
 
 (defn pseudonym
-  "Generate a fictious but somewhat intelligible keyword name."
+  "Generate a fictitious but somewhat intelligible keyword name."
   ([prefix ordinal]
    (pseudonym prefix ordinal 6))
   ([prefix ordinal length]
@@ -259,7 +270,7 @@
      :transaction_uuid (kitchensink/uuid)
      :certname certname
      :hash (rnd/random-sha1)
-     :version (quot (System/currentTimeMillis) 1000)
+     :version (str (quot (System/currentTimeMillis) 1000))
      :producer "puppetmaster1"
      :catalog_uuid (kitchensink/uuid)
      :code_id (rnd/random-sha1)}))
@@ -283,39 +294,113 @@
           f (.toFile (.resolve dir file-name))]
       (json/spit-json f i))))
 
-(defn generate
-  "Build up a dataset of sample PuppetDB facts, catalogs and reports based on
-   given options and store them in the given output directory."
-  [options]
-  (let [{:keys [num-hosts output-dir avg-blob-count blob-size]} options
-        output-path (-> (if (string/blank? output-dir)
-                          (create-temp-dir)
-                          (get-path output-dir))
-                        .toAbsolutePath
-                        .normalize)
+(defmulti weigh "Loosely weigh up the bytes of a structure." class)
+(defmethod weigh clojure.lang.IPersistentMap
+  [mp]
+  (reduce (fn [size [k v]]
+            (+ size (count (str k)) (weigh v)))
+          0, mp))
+(defn- weigh-vec-set-or-seq
+  [a]
+  (reduce (fn [size e]
+            (+ size (weigh e)))
+          0, a))
+(defmethod weigh clojure.lang.IPersistentVector [vc] (weigh-vec-set-or-seq vc))
+(defmethod weigh clojure.lang.IPersistentSet [st] (weigh-vec-set-or-seq st))
+(defmethod weigh clojure.lang.ISeq [sq] (weigh-vec-set-or-seq sq))
+(defmethod weigh clojure.lang.Keyword [k] (count (str k)))
+(defmethod weigh String [s] (count s))
+(defmethod weigh Number [_] 4)
+(defmethod weigh Boolean [_] 1)
+(defmethod weigh org.joda.time.DateTime [_] 8)
+(defmethod weigh :default
+  [what] (throw (Exception. (format "Don't know how to weigh a %s of type %s" what (type what)))))
+
+(defn summarize
+  "Print out a verbose summary of the generated data."
+  [data]
+  (doseq [[kind {:keys [col]}] data]
+    (println (format "%s: %s" kind (count col)))
+    (case kind
+      :catalogs
+        (let [stats (map (fn [{:keys [certname resources edges] :as c}]
+                           (let [resource-weights (sort (map weigh resources))]
+                             {:certname certname
+                              :resource-count (count resources)
+                              :resource-weight (weigh resources)
+                              :min-resource (first resource-weights)
+                              :mean-resource (quot (reduce + resource-weights) (count resource-weights))
+                              :max-resource (last resource-weights)
+                              :edge-count (count edges)
+                              :edge-weight (weigh edges)
+                              :catalog-weight (weigh c)}))
+                           col)]
+          (pp/print-table [:certname
+                           :catalog-weight
+                           :resource-count
+                           :resource-weight
+                           :min-resource
+                           :mean-resource
+                           :max-resource
+                           :edge-count
+                           :edge-weight] stats)
+          (prn))
+      (do
+        (println "default")
+        (prn)))))
+
+(defn generate-data
+  "Generate and return a map of facts, catalogs and reports."
+  [options output-path]
+  (let [{:keys [num-hosts avg-blob-count blob-size]} options
         hosts (map (fn [i] (format "host-%s-%s" (rnd/random-pronouncable-word) i)) (range num-hosts))
         catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
                      vec
                      (rnd/distribute #(add-blob % blob-size) avg-blob-count))
         facts []
-        reports []
-        data {:catalogs
-               {:dir (.resolve output-path "catalogs")
-                :namer export/export-filename
-                :col catalogs}
-              :facts
-               {:dir (.resolve output-path "facts")
-                :namer #(str (:certname %) export/export-file-ext)
-                :col facts}
-              :reports
-               {:dir (.resolve output-path "reports")
-                :namer export/export-filename
-                :col reports}}]
+        reports []]
+    {:catalogs
+      {:dir (.resolve output-path "catalogs")
+       :namer export/export-filename
+       :col catalogs}
+     :facts
+      {:dir (.resolve output-path "facts")
+       :namer #(str (:certname %) export/export-file-ext)
+       :col facts}
+     :reports
+      {:dir (.resolve output-path "reports")
+       :namer export/export-filename
+       :col reports}}))
+
+(defn silent?
+  "User has requested output silence."
+  [{:keys [silent]}]
+  silent)
+
+(defn verbose?
+  "User has requested verbose output.
+   But make sure silent isn't set..."
+  [{:keys [silent verbose]}]
+  (and verbose (not silent)))
+
+(defn generate
+  "Build up a dataset of sample PuppetDB facts, catalogs and reports based on
+   given options and store them in the given output directory."
+  [{:keys [output-dir] :as options}]
+  (let [output-path (-> (if (string/blank? output-dir)
+                        (create-temp-dir)
+                        (get-path output-dir))
+                        .toAbsolutePath
+                        .normalize)]
     (when-not (.exists (.toFile output-path))
       (utils/throw-sink-cli-error (trs "Error: output path does not exist: {0}" output-path)))
-    (println (format "Generate from %s and store at %s" options output-path))
-    (doseq [[_kind d] data]
-      (generate-files-from-wireformat-collection d))))
+    (when-not (silent? options)
+      (println (format "Generate from %s and store at %s" options output-path)))
+    (let [data (generate-data options output-path)]
+      (doseq [[_kind d] data]
+        (generate-files-from-wireformat-collection d))
+      (when (verbose? options)
+        (summarize data)))))
 
 (defn- validate-cli!
   [args]
@@ -328,22 +413,26 @@
                ["-t" "--title-size TITLESIZE" "Avergae number of characters in resource titles."
                 :default 20
                 :parse-fn #(Integer/parseInt %)]
-               ["-s" "--resource-size" "The average resource size in bytes."
+               ["-s" "--resource-size RESOURCESIZE" "The average resource size in bytes."
                 :default 200
                 :parse-fn #(Integer/parseInt %)]
-               ["-e" "--additional-edge-percent" "The percent of generated classes and resources for which to create additional edges."
+               ["-e" "--additional-edge-percent ADDITIONALEDGEPERCENT" "The percent of generated classes and resources for which to create additional edges."
                 :default 50
                 :parse-fn #(Integer/parseInt %)]
-               ["-b" "--avg-blob-count" "Average number of larger resource parameter blobs to add per catalog. Set to 0 to ensure none."
+               ["-b" "--avg-blob-count AVGBLOBCOUNT" "Average number of larger resource parameter blobs to add per catalog. Set to 0 to ensure none."
                 :default 1
                 :parse-fn #(Integer/parseInt %)]
-               ["-B" "--blob-size" "Average size of a large resource parameter blob in kB."
+               ["-B" "--blob-size BLOBSIZE" "Average size of a large resource parameter blob in kB."
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
                 :default 5
                 :parse-fn #(Integer/parseInt %)]
-               ["-o" "--output-dir OUTPUTDIR" "Directory to write output files to. Will allocate in TMPDIR (if set in the environment) or java.io.tmpdir if not given."]]
+               ["-o" "--output-dir OUTPUTDIR" "Directory to write output files to. Will allocate in TMPDIR (if set in the environment) or java.io.tmpdir if not given."]
+               ["-v" "--verbose" "Whether to provide verbose output."
+                :default false]
+               [nil "--silent" "Whether to suppress non-error output."
+                :default false]]
         required []]
     (utils/try-process-cli
       (fn []
