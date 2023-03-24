@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* *read-db* with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
-            [puppetlabs.puppetdb.time :as time :refer [now]]
+            [puppetlabs.puppetdb.time :as time :refer [now parse-period]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]]
             [metrics.counters :refer [clear!]]
             [clojure.walk :as walk]
@@ -43,6 +43,19 @@
    :node-purge-ttl "14d"
    :jetty {:port 0}
    :command-processing {}})
+
+(defn create-default-globals
+  ([db] (create-default-globals db db))
+  ([read-db write-db]
+   {:product-name "puppetdb"
+    :url-prefix ""
+    :scf-read-db read-db
+    :scf-write-dbs [write-db]
+    :scf-write-db-names ["default"]
+    :node-purge-ttl (parse-period "14d")
+    :add-agent-report-filter true
+    :log-queries false
+    :update-server "FOO"}))
 
 (defn open-port-num
   "Returns a currently open port number"

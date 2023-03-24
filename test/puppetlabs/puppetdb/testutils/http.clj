@@ -2,9 +2,9 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.testutils.services :refer [create-default-globals]]
             [puppetlabs.puppetdb.testutils.db :refer [*db* *read-db* with-test-db]]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.cheshire :as json])
@@ -93,15 +93,7 @@
       :headers {"accept" "application/json"
                 "content-type" "application/x-www-form-urlencoded"}
       :content-type "application/x-www-form-urlencoded"
-      :globals (merge {:update-server "FOO"
-                       :scf-read-db          *db*
-                       :scf-write-dbs        [*db*]
-                       :scf-write-db-names   ["default"]
-                       :product-name         "puppetdb"
-                       :add-agent-report-filter true
-                       :node-purge-ttl       (t/parse-period "14d")
-                       :log-queries          false}
-                      global-overrides)}))
+      :globals (merge (create-default-globals *db*) global-overrides)}))
 
 (defn internal-request-post
   "A variant of internal-request designed to submit application/json requests
@@ -113,11 +105,7 @@
       :headers {"accept" "application/json"
                 "content-type" "application/json"}
       :content-type "application/json"
-      :globals {:update-server "FOO"
-                :scf-read-db          *db*
-                :scf-write-dbs        [*db*]
-                :scf-write-db-names   ["default"]
-                :product-name         "puppetdb"}
+      :globals (create-default-globals *db*)
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
 (defn call-with-http-app
@@ -126,13 +114,7 @@
   adjust-globals is provided."
   ([f] (call-with-http-app f identity))
   ([f adjust-globals]
-   (let [get-shared-globals #(adjust-globals {:scf-read-db *read-db*
-                                              :scf-write-dbs [*db*]
-                                              :scf-write-db-names ["default"]
-                                              :url-prefix ""
-                                              :add-agent-report-filter true
-                                              :node-purge-ttl (t/parse-period "14d")
-                                              :log-queries false})]
+   (let [get-shared-globals #(adjust-globals (create-default-globals *read-db* *db*))]
      (binding [*app* (wrap-with-puppetdb-middleware
                       (server/build-app get-shared-globals))]
        (f)))))
