@@ -102,7 +102,7 @@ Each change below is marked with the corresponding release version.
   reversioned at v1. If you are currently accessing mbeans at
   http://localhost:8080/v3/metrics/mbeans, you will now access them at
   http://localhost:8080/metrics/v1/mbeans and so on, according to the
-  [metrics api documentation](../../metrics/v1/mbeans.markdown).
+  metrics api documentation.
 
 * (3.0) PuppetDB's mbeans (listed at /metrics/v1/mbeans) are no longer prefixed with
   "com."

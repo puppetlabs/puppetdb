@@ -21,8 +21,9 @@ The instructions below are simplified. For full usage details, see [the curl man
 
 With its default settings, PuppetDB accepts unsecured HTTP connections at port 8080 on `localhost`. This allows you to SSH into the PuppetDB server and run curl commands without specifying certificate information:
 
-    curl http://localhost:8080/pdb/query/v4/nodes
-    curl 'http://localhost:8080/metrics/v1/mbeans/java.lang:type=Memory'
+```sh
+curl http://localhost:8080/pdb/query/v4/nodes
+```
 
 If you have allowed unsecured access to other hosts in order to [monitor the dashboard][dashboard], these hosts can also use plain HTTP curl commands.
 

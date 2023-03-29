@@ -11,7 +11,6 @@ canonical: "/puppetdb/latest/release_notes.html"
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
 [upgrades]: upgrade.markdown
-[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
 [pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: pdb_support_guide.markdown#message-queue

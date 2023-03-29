@@ -6,7 +6,7 @@ layout: default
 [configure]: ./configure.markdown
 [pe-configure]: https://puppet.com/docs/pe/latest/config_puppetdb.html
 [logging]: ./logging.markdown
-[metrics]: ./api/metrics/v1/mbeans.markdown
+[metrics]: ./api/metrics/v2/jolokia.markdown
 
 # Configuring PuppetDB for High Availability
 
@@ -235,11 +235,14 @@ Some additional metrics are provided to help monitor the state of your HA setup.
 For basic information on metrics in PuppetDB, see
 [the main metrics documentation][metrics].
 
-These metrics are all available via the metrics HTTP endpoint. For example, you
+These metrics are all available via the metrics v2 endpoint. For example, you
 can fetch the data using cURL like this:
 
 ```sh
-curl http://localhost:8080/metrics/v1/mbeans/puppetlabs.puppetdb.ha:name\=sync-has-worked-once
+curl https://localhost:8081/metrics/v2/read/puppetlabs.puppetdb.ha:name\=sync-has-worked-once \
+  --cert path/to/localhost.pem \
+  --key path/to/localhost.key \
+  --cacert path/to/ca.pem
 ```
 
 The following metrics are all located in the `puppetlabs.puppetdb.ha` namespace.

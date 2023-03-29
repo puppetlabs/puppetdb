@@ -11,7 +11,6 @@ canonical: "/puppetdb/latest/release_notes.html"
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: /puppetdb/3.2/migrate.html
 [upgrades]: upgrade.markdown
-[metrics]: api/metrics/v1/changes-from-puppetdb-v3.markdown
 [pqltutorial]: api/query/tutorial-pql.markdown
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: pdb_support_guide.markdown#message-queue
@@ -141,8 +140,8 @@ Roland, and Zak Kent
 ### New features and improvements
 
 - **New `ignored` metric.** The `ignored` metric tracks the number of obsolete
-  commands since the last restart. For more on the `ignored` metric, see[Metrics
-  endpoint][metrics]. [PDB-4278](https://tickets.puppetlabs.com/browse/PDB-4278)
+  commands since the last restart. For more on the `ignored` metric, see Metrics
+  endpoint. [PDB-4278](https://tickets.puppetlabs.com/browse/PDB-4278)
 
 ### Bug fixes
 
