@@ -2120,7 +2120,7 @@
 (defn reattach-partitions
   "Detaches partition children from PostgreSQL inheritance and attaches them to
   the new partition table (under its placeholder name)."
-  [table child-table-maps]
+  [table child-table-maps {:keys [drop-indexes]}]
   (let [placeholder-name (format "%s_partitioned" table)]
     (apply jdbc/do-commands
       (flatten
@@ -2140,7 +2140,9 @@
                       placeholder-name child
                       (.format start iso-offset-date-formatter)
                       (.format end iso-offset-date-formatter))
-                  ]))
+                   ;; Clean up any old unique indexes superseded by new indexes
+                   ;; with partition keys
+                   (map #(format "DROP INDEX %s_%s" %1 date) drop-indexes)]))
               child-table-maps)))))
 
 (defn drop-child-partition-constraints
@@ -2193,7 +2195,8 @@
          corrective_change boolean) PARTITION BY RANGE (%s)" date-column))
 
     ;; Moving existing children to partitioned table
-    (reattach-partitions table child-table-maps)
+    (reattach-partitions table child-table-maps
+                         {:drop-indexes ["resource_events_hash"]})
 
     ;; Drop redundant child constraints
     (drop-child-partition-constraints date-column child-table-maps)
@@ -2254,7 +2257,8 @@
          report_type text DEFAULT 'agent' NOT NULL) PARTITION BY RANGE (%s)" date-column))
 
     ;; Moving existing children to partitioned table
-    (reattach-partitions table child-table-maps)
+    (reattach-partitions table child-table-maps
+                         {:drop-indexes ["idx_reports_id", "reports_hash_expr_idx"]})
 
     ;; Drop redundant child constraints
     (drop-child-partition-constraints date-column child-table-maps)

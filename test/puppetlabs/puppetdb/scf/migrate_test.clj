@@ -1717,7 +1717,8 @@
       (.format date formatter))))
 
 (defn resource-events-partition-day-index-diff-template
-  "Generates the expected primary key indix for one resource-event's partition
+  "Generates the expected primary key index and the corresponding dropped
+  obsolete resource_events_hash_* index for one resource-event's partition
   day table."
   [date]
   (let [date-suffix (diff-date-suffix date)]
@@ -1733,7 +1734,20 @@
         :is_partial false,
         :primary? true,
         :user "pdb_test"},
-       :same nil}]))
+       :same nil},
+       {:left-only
+        {:schema "public",
+         :table (format "resource_events_%s" date-suffix),
+         :index (format "resource_events_hash_%s" date-suffix),
+         :index_keys ["event_hash"],
+         :type "btree",
+         :unique? true,
+         :functional? false,
+         :is_partial false,
+         :primary? false,
+         :user "pdb_test"},
+        :right-only nil,
+        :same nil}]))
 
 (defn get-formatted-start-of-day
   "Returns a formatted date like '2023-01-13 00:00:00+00' as seen in Postgres
@@ -1919,8 +1933,9 @@
           (is (= expected-diff diff)))))))
 
 (defn report-partition-day-index-diff-template
-  "Generates the expected diff of primary key and producer timestamp indices
-  for one report's partition day table."
+  "Generates the expected diff of primary key and producer timestamp indices,
+  and of the corresponding dropped obsolete reports_hash_expr_idx_* and
+  idx_reports_id_* indices for one report's partition day table."
   [date]
   (let [date-suffix (diff-date-suffix date)
         common-partition-indexes
@@ -1949,7 +1964,33 @@
                :is_partial false,
                :primary? false,
                :user "pdb_test"},
-              :same nil}]
+              :same nil}
+              {:left-only
+               {:schema "public",
+                :table (format "reports_%s" date-suffix),
+                :index (format "reports_hash_expr_idx_%s" date-suffix),
+                :index_keys ["encode(hash, 'hex'::text)"],
+                :type "btree",
+                :unique? true,
+                :functional? true,
+                :is_partial false,
+                :primary? false,
+                :user "pdb_test"},
+               :right-only nil,
+               :same nil}
+              {:left-only
+               {:schema "public",
+                :table (format "reports_%s" date-suffix),
+                :index (format "idx_reports_id_%s" date-suffix),
+                :index_keys ["id"],
+                :type "btree",
+                :unique? true,
+                :functional? false,
+                :is_partial false,
+                :primary? false,
+                :user "pdb_test"},
+               :right-only nil,
+               :same nil}]
         ;; Postgresql 11.18 fixed a bug in naming of partitioned indexes that might
         ;; be contributing to the changed naming of reports_noop_idx in partitions in
         ;; PG 11.17 testing...
