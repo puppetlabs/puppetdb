@@ -40,8 +40,7 @@ module CharEncoding
   # the beginning of a string or if another bad character appears
   # before reaching the 100 characters
   #
-  # @param str string coming from to_pson, likely a command to be submitted to PDB
-  # @param bad_char_range a range indicating a block of invalid characters
+  # @param str A string: for example a command to be submitted to PDB
   # @return String
   def self.error_char_context(str)
 
@@ -59,24 +58,13 @@ module CharEncoding
 
   # @api private
   #
-  # Attempts to coerce str to UTF-8, if that fails will output context
-  # information using error_context_str
+  # Attempts to coerce str to UTF-8
   #
-  # @param str A string coming from to_pson, likely a command to be submitted to PDB
-  # @param error_context_str information about where this string came from for
+  # @param str A string: for example a command to be submitted to PDB
   # use in error messages. Defaults to nil, in which case no error is reported.
   # @return Str
   def self.coerce_to_utf8(str)
     str_copy = str.dup
-    # This code is passed in a string that was created by
-    # to_pson. to_pson calls force_encoding('ASCII-8BIT') on the
-    # string before it returns it. This leaves the actual UTF-8 bytes
-    # alone. Below we check to see if this is the case (this should be
-    # most common). In this case, the bytes are still UTF-8 and we can
-    # just encode! and we're good to go. If They are not valid UTF-8
-    # bytes, that means there is probably some binary data mixed in
-    # the middle of the UTF-8 string. In this case we need to output a
-    # warning and give the user more information
     str_copy.force_encoding("UTF-8")
     if str_copy.valid_encoding?
       str_copy.encode!("UTF-8")

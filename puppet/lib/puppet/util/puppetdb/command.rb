@@ -14,7 +14,7 @@ class Puppet::Util::Puppetdb::Command
   # Recursively coerce all the strings in a payload to UTF-8
   #
   # @param payload Initially the whole Puppet object converted
-  #   to_data_hash. The called recusively if the command has neseted
+  #   to_data_hash. This is called recusively if the command has neseted
   #   structures.
   # @param error_context_str a string prefix for log messages
   def coerce_payload(payload, error_context_str)
