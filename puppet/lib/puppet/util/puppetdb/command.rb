@@ -22,16 +22,14 @@ class Puppet::Util::Puppetdb::Command
     had_lossy_string = false
     case payload
     when Hash
-      c = payload.map do |k, v|
+      c = payload.each_with_object({}) do |(k, v), memo|
         new_k, l = coerce_payload(k, error_context_str)
         had_lossy_string ||= l
 
         new_v, l = coerce_payload(v, error_context_str)
         had_lossy_string ||= l
-
-        [new_k, new_v]
+        memo[new_k] = new_v
       end
-      c = c.to_h
     when Array
       c = payload.map do |v|
         new_v, l = coerce_payload(v, error_context_str)
