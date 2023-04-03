@@ -12,6 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/overview.html"
 [entities]: ./entities.markdown
 [pql]: ./pql.markdown
 [ast]: ./ast.markdown
+[query-timeout-config]: ../../../configure.markdown#query-timeout-default
 
 The root query endpoint can be used to retrieve any known entities from a
 single endpoint.
@@ -33,6 +34,18 @@ you can specify `node_state = 'inactive'`; for all both active and inactive, use
 (`["from", "<ENTITY>", ["<OPERATOR>", "<FIELD>", "<VALUE>"]]`). Unlike other endpoints,
 a query with a [`from`][from] is required to choose the [entity][entities] for which to query. For
 general info about queries, see [our guide to query structure.][query]
+
+* `timeout`: An optional limit on the number of seconds that the query
+  will be allowed to run (e.g. `timeout=30`).  If the limit is
+  reached, the query will be interrupted.  At the moment, that will
+  result in either a 500 HTTP response status, or (more likely) a
+  truncated JSON result if the result has begun streaming.  Specifying
+  this parameter is strongly encouraged.  Lingering queries can
+  consume substantial server resources (particularly on the PostgreSQL
+  server) decreasing performance, for example, and increasing the
+  maximum required storage space.
+  The [query timeout configuration settings][query-timeout-config] are
+  also recommended.
 
 * `ast_only`: optional. A boolean value. When true, the query response will be the supplied 
 `query` in AST, either exactly as supplied or translated from PQL. False by default.
