@@ -326,8 +326,7 @@
                       (let [r (munge-fn rows)]
                         (when-not (instance? PGobject r)
                           (first r))
-                        (when-not (realized? status)
-                          (deliver status status-after-first-row))
+                        (deliver status status-after-first-row)
                         (try
                           (http/stream-json r out pretty-print)
                           (catch IOException ex
@@ -350,8 +349,7 @@
                                      {:count (jdbc/get-result-count count-query)})]
                             (jdbc/call-with-array-converted-query-rows
                              results-query #(stream-rows % out st))
-                            (when-not (realized? status)
-                              (deliver status st)))))))
+                            (deliver status st))))))
                   (catch Throwable ex
                     (cond
                       ;; If it's an exit, we've already handled it.
