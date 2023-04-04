@@ -70,6 +70,7 @@
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time
              :refer [ago
+                     ephemeral-now-ns
                      to-seconds
                      to-millis
                      format-period
@@ -1139,7 +1140,9 @@
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
-  (query [this version query-expr paging-options row-callback-fn]
+  (query
+    [this version query-expr paging-options row-callback-fn]
+    [this version query-expr paging-options row-callback-fn {:keys [timeout-ns]}]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
     be a map containing :order_by, :offset, and/or :limit.")
   (clean [this] [this what]
@@ -1213,16 +1216,18 @@
 
   (query
    [this version query-expr options row-callback-fn]
+   (query this version query-expr options row-callback-fn nil))
+
+  (query
+   [this version query-expr options row-callback-fn {:keys [timeout-ns]}]
    (throw-if-shutdown-pending (get-shutdown-reason))
    (let [sc (service-context this)
          _ (throw-unless-started sc)
-         context (-> (get sc :shared-globals)
-                           http-q/narrow-globals
-                           (assoc :url-prefix @(get sc :url-prefix)))]
-     (qeng/stream-query-result version
-                               query-expr
-                               options context
-                               row-callback-fn)))
+         context (merge (-> sc :shared-globals http-q/narrow-globals)
+                        {:url-prefix @(get sc :url-prefix)}
+                        (when timeout-ns
+                          {:query-deadline-ns (+ (ephemeral-now-ns) timeout-ns)}))]
+     (qeng/stream-query-result version query-expr options context row-callback-fn)))
 
   (clean
    [this]
