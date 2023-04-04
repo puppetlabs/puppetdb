@@ -15,6 +15,32 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.13.0
+
+Released April 6 2023
+
+### Bug fixes
+
+* queries with thousands of `in array` entries would cause performance problems 
+  in query compilation.
+  ([PDB-3171](https://tickets.puppetlabs.com/browse/PDB-3171))
+* PuppetDB should no longer crash on reload (SIGHUP) in some cases 
+  (e.g. after startup but before processing any commands).
+  ([PDB-5215](https://tickets.puppetlabs.com/browse/PDB-5215))
+
+## New features and improvements
+
+* PuppetDB installations with PostgreSQL 14+ will detach reports and resource_events 
+  partitions concurrently before dropping them.
+  ([PDB-5554](https://tickets.puppetlabs.com/browse/PDB-5554))
+* The reports and resource_events tables were migrated to use PostgreSQL declarative partitioning in support of PDB-5554.
+  ([PDB-5567](https://tickets.puppetlabs.com/browse/PDB-5567))
+
+### Contributors
+
+Austin Blatt, Joshua Partlow, Rob Browning, and Nick Lewis
+
+
 ## PuppetDB 7.12.1
 
 Released January 17 2023
