@@ -964,6 +964,8 @@
                        :shared-globals {:pretty-print (:pretty-print developer)
                                         :node-purge-ttl (:node-purge-ttl database)
                                         :add-agent-report-filter (get-in config [:puppetdb :add-agent-report-filter])
+                                        :query-timeout-default (get-in config [:puppetdb :query-timeout-default])
+                                        :query-timeout-max (get-in config [:puppetdb :query-timeout-max])
                                         :cmd-event-mult cmd-event-mult
                                         :maybe-send-cmd-event! maybe-send-cmd-event!
                                         ;; FIXME: remove this if/when

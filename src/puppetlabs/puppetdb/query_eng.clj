@@ -20,6 +20,7 @@
             [puppetlabs.puppetdb.query-eng.default-reports :as dr]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.time :refer [ephemeral-now-ns]]
             [puppetlabs.puppetdb.utils :as utils :refer [with-log-mdc]]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
@@ -31,6 +32,13 @@
    (java.io IOException InputStream)
    (org.postgresql.util PGobject PSQLException)
    (org.joda.time Period)))
+
+(defn query-timeout [id origin]
+  ;; Note: the exception message is currently logged directly in some cases.
+  (ex-info (if origin
+             (trs "PDBQuery:{0}: from {1} exceeded timeout" id (pr-str origin))
+             (trs "PDBQuery:{0}: exceeded timeout" id))
+           {:kind :puppetlabs.puppetdb.query/timeout :id id :origin origin}))
 
 (def entity-fn-idx
   (atom
@@ -58,7 +66,7 @@
     :catalog-input-contents {:munge (constantly identity)
                              :rec eng/catalog-input-contents-query}
     :catalog-inputs {:munge inputs/munge-catalog-inputs
-                             :rec eng/catalog-inputs-query}
+                     :rec eng/catalog-inputs-query}
     :nodes {:munge (constantly identity)
             :rec eng/nodes-query}
     ;; Not a real entity name of course -- requested by query parameter.
@@ -191,18 +199,36 @@
    (s/optional-key :warn-experimental) Boolean
    (s/optional-key :pretty-print) (s/maybe Boolean)
    (s/optional-key :log-queries) Boolean
-   (s/optional-key :query-id) s/Str})
+   (s/optional-key :query-id) s/Str
+   (s/optional-key :query-deadline-ns) s/Num})
+
+(defn time-limited-seq
+  "Returns a new sequence of the items in coll that will call on-timeout
+  (which must return something seq-ish if it doesn't throw) if the
+  timeout is reached while consuming the collection.  The timeout is
+  with respect to the ephemeral-now-ns timeline."
+  [coll deadline-ns on-timeout]
+  ;; on-timeout must throw or return something seq-ish
+  ;; Check before and after realizing each element
+  (lazy-seq
+   (if (> (ephemeral-now-ns) deadline-ns)
+     (on-timeout)
+     (when-let [s (seq coll)]
+       (cons (first s)
+             (if (> (ephemeral-now-ns) deadline-ns)
+               (on-timeout)
+               (time-limited-seq (rest s) deadline-ns on-timeout)))))))
 
 (pls/defn-validated stream-query-result
-  "Given a query, and database connection, return a Ring response with the query
-   results."
+  "Given a query, and database connection, call row-fn on the
+  resulting (munged) row sequence."
   ([version query options context]
    ;; We default to doall because tests need this for the most part
    (stream-query-result version query options context doall))
   ([version :- s/Keyword
     query
     options
-    context :- query-context-schema
+    {:keys [query-deadline-ns] :as context} :- query-context-schema
     row-fn]
    ;; For now, generate the ids here; perhaps later, higher up
    (assert (not (:query-id context)))
@@ -222,14 +248,18 @@
                       query-id (-> (sorted-map :origin origin :ast query)
                                    json/generate-string)))
 
-         (let [f #(let [{:keys [results-query]}
-                        (query->sql remaining-query entity version
-                                    (merge options
-                                           (select-keys context [:node-purge-ttl :add-agent-report-filter]))
-                                    (select-keys context [:log-queries :query-id]))]
-                    (jdbc/call-with-array-converted-query-rows results-query
-                                                               (comp row-fn munge-fn)))]
-           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (f)))))))))
+         (letfn [(traverse-rows []
+                   (let [{:keys [results-query]}
+                         (query->sql remaining-query entity version
+                                     (merge options
+                                            (select-keys context [:node-purge-ttl :add-agent-report-filter]))
+                                     (select-keys context [:log-queries :query-id]))
+                         throw-timeout #(throw (query-timeout query-id origin))]
+                     (jdbc/call-with-array-converted-query-rows
+                      results-query
+                      (cond-> (comp row-fn munge-fn)
+                        query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout))))))]
+           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (traverse-rows)))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -300,12 +330,12 @@
   "Returns a map whose :stream is an InputStream that produces (via a
   future) the results of the query as JSON, and whose :status is a
   promise to which nil or {:count n} will be delivered after the first
-  row is retrieved, or to which {:error exception} will be delivered
-  if an exception happens before then.  An exception thrown by the
-  future after that point will produce an exception from the next call
-  to the InputStream read or close methods."
+  row is retrieved (if any), or to which {:error exception} will be
+  delivered if an exception happens before then.  An exception thrown
+  by the future after that point will produce an exception from the
+  next call to the InputStream read or close methods."
   [db query entity version query-options munge-fn
-   {:keys [pretty-print query-id] :as context}]
+   {:keys [pretty-print query-id query-deadline-ns] :as context}]
   ;; Client disconnects present as generic IOExceptions from the
   ;; output writer (via stream-json), and we just log them at debug
   ;; level.  For now, after the first row, there's nothing we can do
@@ -320,15 +350,35 @@
   ;;
   ;; produce-streaming-body blocks until status is delivered, so
   ;; ensure it always is.
-  (let [quiet-exit (Exception. "private singleton escape exception escaped")
+
+  (let [origin (:origin query-options)
+        ;; This is used for cases where the consumer (jetty thread) is
+        ;; presumed "gone", e.g. if the attempt to write json to it
+        ;; throws an IO exception.  In that case, we don't want to
+        ;; hand it an exception to log (presumably it already did
+        ;; something), we just want to handle it ourselves and quit.
+        ;; This must only be used after we've delivered the status,
+        ;; since it (intentionally) doesn't deliver.
+        quiet-exit (Exception. "private singleton escape exception escaped")
+        throw-timeout #(throw (query-timeout query-id origin))
         status (promise)
-        stream-rows (fn stream-rows [rows out status-after-first-row]
-                      (let [r (munge-fn rows)]
-                        (when-not (instance? PGobject r)
-                          (first r))
-                        (deliver status status-after-first-row)
+        ;; The time-limited-seq should check for timeout before and
+        ;; after realizing each row, which should allow us to time out
+        ;; between the db pull and network push.  If we ever want to
+        ;; handle db-side errors independently, we'll need to add a
+        ;; pull-side try/catch (e.g., I think, the (seq s) in
+        ;; time-delmited-seq) or to rewrite this as an explicit loop,
+        ;; or...
+        stream-rows (fn stream-rows [rows out status-after-query-start]
+                      (let [rows (munge-fn rows)]
+                        (when-not (instance? PGobject rows)
+                          (first rows))
+                        (deliver status status-after-query-start)
                         (try
-                          (http/stream-json r out pretty-print)
+                          (http/stream-json (if query-deadline-ns
+                                              (time-limited-seq rows query-deadline-ns throw-timeout)
+                                              rows)
+                                            out pretty-print)
                           (catch IOException ex
                             (log/debug ex (trs "Unable to stream response: {0}"
                                                (.getMessage ex)))
@@ -339,25 +389,45 @@
               (fn serialize-query-response [out]
                 (try
                   (with-log-mdc ["pdb-query-id" query-id
-                                 "pdb-query-origin" (:origin query-options)]
+                                 "pdb-query-origin" origin]
                     (with-open! [out (io/writer out :encoding "UTF-8")]
-                      (jdbc/with-db-connection db
-                        (jdbc/with-db-transaction []
-                          (let [{:keys [results-query count-query]}
-                                (query->sql query entity version query-options context)
-                                st (when count-query
-                                     {:count (jdbc/get-result-count count-query)})]
-                            (jdbc/call-with-array-converted-query-rows
-                             results-query #(stream-rows % out st))
-                            (deliver status st))))))
+                      (try
+                        (jdbc/with-db-connection db
+                          (jdbc/with-db-transaction []
+                            (let [{:keys [results-query count-query]}
+                                  (query->sql query entity version query-options context)
+                                  st (when count-query
+                                       {:count (jdbc/get-result-count count-query)})]
+                              (jdbc/call-with-array-converted-query-rows
+                               results-query #(stream-rows % out st)))))
+                        (catch ExceptionInfo ex
+                          ;; Handle any timemout here while we can
+                          ;; still try to show the client
+                          ;; something "useful" at the end of the
+                          ;; truncated JSON.
+                          (if (and (realized? status) (instance? ExceptionInfo ex)
+                                   (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                            (let [msg (.getMessage ex)]
+                              (log/warn ex)
+                              (.write out msg)
+                              (.flush out))
+                            (throw ex))))))
+                  ;; These delivers may not do anything, i.e. if the
+                  ;; query has already started.
                   (catch Throwable ex
                     (cond
-                      ;; If it's an exit, we've already handled it.
-                      (identical? quiet-exit ex) nil
+                      (identical? quiet-exit ex)
+                      (when-not (realized? status)
+                        (log/error ex (trs "Impossible situation: query streamer exiting without delivery")))
+
                       (realized? status)
-                      (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
-                        (log/error ex msg)
-                        (throw ex))
+                      (if (and (instance? ExceptionInfo ex)
+                               (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                        (log/warn (.getMessage ex))
+                        (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
+                          (log/error ex msg)
+                          (throw ex)))
+
                       :else (deliver status {:error ex}))))))}))
 
 ;; for testing via with-redefs
@@ -380,7 +450,8 @@
 
     (try
       (let [munge-fn (get-munge-fn entity version query-options url-prefix)
-            stream-ctx (select-keys context [:log-queries :pretty-print :query-id])
+            stream-ctx (select-keys context [:log-queries :pretty-print :query-id
+                                             :query-deadline-ns])
             {:keys [status stream]} (body-stream scf-read-db
                                                  (coerce-from-json remaining-query)
                                                  entity version query-options

@@ -149,7 +149,8 @@
                                "include_facts_expiration"
                                "include_package_inventory"
                                "explain"
-                               "origin"]})
+                               "origin"
+                               "timeout"]})
 (def paging-params {:optional paging/query-params})
 (def pretty-params {:optional ["pretty"]})
 (def typical-params (merge-param-specs global-params

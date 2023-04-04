@@ -23,10 +23,13 @@
                                                       parse-order-by
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.pql :as pql]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [ephemeral-now-ns to-timestamp]]
             [puppetlabs.puppetdb.utils :refer [update-when]]
             [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]])
-  (:import (com.fasterxml.jackson.core JsonParseException)))
+  (:import
+   (clojure.lang ExceptionInfo)
+   (com.fasterxml.jackson.core JsonParseException)
+   (java.net HttpURLConnection)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -46,15 +49,16 @@
    (s/optional-key :include_package_inventory) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
+   (s/optional-key :timeout) (s/maybe s/Num) ;; seconds
    (s/optional-key :origin) (s/maybe s/Str)
    (s/optional-key :distinct_resources) (s/maybe s/Bool)
    (s/optional-key :distinct_start_time) s/Any
    (s/optional-key :distinct_end_time) s/Any
    (s/optional-key :limit) (s/maybe s/Int)
+   (s/optional-key :offset) (s/maybe s/Int)
    (s/optional-key :counts_filter) s/Any
    (s/optional-key :count_by) (s/maybe s/Str)
-   (s/optional-key :summarize_by) (s/maybe s/Str)
-   (s/optional-key :offset) (s/maybe s/Int)})
+   (s/optional-key :summarize_by) (s/maybe s/Str)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Query munging functions
@@ -244,6 +248,20 @@
     b
     (Boolean/parseBoolean b)))
 
+(defn parse-timeout [x]
+  (if (number? x)
+    x
+    (let [msg #(tru "Query timeout must be non-negative number, not {0}" x)]
+      ;; Suspect we shouldn't be throwing IllegalArgumentException,
+      ;; but that's the current approach (cf. parse-limit).
+      (when-not (string? x)
+        (throw (IllegalArgumentException. (msg))))
+      (let [n (cond
+                (re-matches #"\d+" x) (Long/parseLong x)
+                (re-matches #"\d*\.\d+" x) (Double/parseDouble x)
+                :else (throw (IllegalArgumentException. (msg))))]
+        (if (zero? n) ##Inf n)))))
+
 (pls/defn-validated validate-query-params
   "Given a set of params and a param spec, throw an error if required params
    are missing or unsupported params are present, otherwise return the params."
@@ -276,7 +294,8 @@
       (update-when [:explain] parse-explain)
       (update-when [:include_facts_expiration] coerce-to-boolean)
       (update-when [:include_package_inventory] coerce-to-boolean)
-      (update-when [:distinct_resources] coerce-to-boolean)))
+      (update-when [:distinct_resources] coerce-to-boolean)
+      (update-when [:timeout] parse-timeout)))
 
 (defn parse-json-sequence
   "Parse a query string as JSON. Parse errors will result in an
@@ -368,8 +387,10 @@
    param-spec))
 
 (defn wrap-typical-query
-  "Query handler that converts the incoming request (GET or POST)
-  parameters/body to a pdb query map"
+  "Wrap a query endpoint request handler with the normal behaviors.
+  Augment the query handler with code to extract the query from the
+  incoming GET or POST and include it in the request as a pdb query
+  map, and handle query timeouts."
   ([handler param-spec]
    (wrap-typical-query handler param-spec parse-json-query))
   ([handler param-spec parse-fn]
@@ -377,14 +398,36 @@
      (handler
       (if puppetdb-query
         req
-        (let [query-uuid (str (java.util.UUID/randomUUID))
-              req-with-query-uuid (assoc req :puppetdb-query-uuid query-uuid)
-              query-map (create-query-map req-with-query-uuid param-spec parse-fn)
-              pretty-print (:pretty query-map
-                                    (get-in req [:globals :pretty-print]))]
-          (-> req-with-query-uuid
-              (assoc :puppetdb-query query-map)
-              (assoc-in [:globals :pretty-print] pretty-print))))))))
+        (try
+          (let [start-ns (ephemeral-now-ns) ;; capture at the top
+                query-uuid (str (java.util.UUID/randomUUID))
+                req-with-query-uuid (assoc req :puppetdb-query-uuid query-uuid)
+                query-map (create-query-map req-with-query-uuid param-spec parse-fn)
+                ;; Right now, query parsing (above) has no timeouts.
+                max-timeout (get-in req [:globals :query-timeout-max])
+                timeout (or (:timeout query-map)
+                            (get-in req [:globals :query-timeout-default]))
+                deadline (+ start-ns (* (min timeout max-timeout) 1000000000))
+                pretty-print (:pretty query-map (get-in req [:globals :pretty-print]))]
+            (-> req-with-query-uuid
+                (assoc :puppetdb-query query-map)
+                (assoc-in [:globals :pretty-print] pretty-print)
+                (assoc-in [:globals :query-deadline-ns] deadline)))
+          (catch ExceptionInfo ex
+            (when-not (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex)))
+              (throw ex))
+            ;; Note, this will not be reached for the typical
+            ;; streaming query case because after the query starts, we
+            ;; return from this function with a 200, and the stream,
+            ;; and further errors/timeouts have to be handled by the
+            ;; generated-stream thread feeding jetty.
+            (let [{:keys [id origin]} (ex-data ex)]
+              (log/warn (.getMessage ex))
+              (http/error-response
+               (if origin
+                 (tru "Query {0} from {1} exceeded timeout" id (pr-str origin))
+                 (tru "Query {0} exceeded timeout" id))
+               HttpURLConnection/HTTP_INTERNAL_ERROR)))))))))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
@@ -426,7 +469,7 @@
   [globals]
   (select-keys globals [:scf-read-db :warn-experimental :url-prefix
                         :pretty-print :node-purge-ttl :add-agent-report-filter
-                        :log-queries]))
+                        :log-queries :query-deadline-ns]))
 
 (defn valid-query?
   [scf-read-db version query-map query-options]

@@ -549,7 +549,9 @@
                                  :product-name "puppetdb"
                                  :add-agent-report-filter true
                                  :node-purge-ttl (parse-period "14d")
-                                 :url-prefix "/pdb")))))
+                                 :url-prefix "/pdb"
+                                 :query-timeout-default ##Inf
+                                 :query-timeout-max ##Inf)))))
 
 (deftest-http-app fact-queries
   [[_version endpoint] facts-endpoints

@@ -39,7 +39,9 @@
   []
   {:nrepl {}
    :global {:vardir (testutils/temp-dir)}
-   :puppetdb {:disable-update-checking "true"}
+   :puppetdb {:disable-update-checking "true"
+              :query-timeout-default "0"
+              :query-timeout-max "0"}
    :node-purge-ttl "14d"
    :jetty {:port 0}
    :command-processing {}})
@@ -53,6 +55,8 @@
     :scf-write-dbs [write-db]
     :scf-write-db-names ["default"]
     :node-purge-ttl (parse-period "14d")
+    :query-timeout-default ##Inf
+    :query-timeout-max ##Inf
     :add-agent-report-filter true
     :log-queries false
     :update-server "FOO"}))
