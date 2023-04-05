@@ -127,8 +127,8 @@
   [& body]
   `(call-with-http-app (fn [] ~@body)))
 
+(defmacro with-http-app-and-db [& body]
+  `(with-test-db (with-http-app ~@body)))
+
 (defmacro deftest-http-app [name bindings & body]
-  `(deftest ~name
-     (tu/dotestseq ~bindings
-       (with-test-db
-         (with-http-app ~@body)))))
+  `(deftest ~name (tu/dotestseq ~bindings (with-http-app-and-db ~@body))))

@@ -305,12 +305,15 @@
   call-with-query-rows, and apply any necessary conversions directly
   to each row.  (Most columns cannot be arrays.)"
   ([query f] (call-with-array-converted-query-rows query {} f))
-  ([[sql & params] {:keys [as-arrays?] :as opts} f]
+  ([[sql & params]
+    {:keys [as-arrays? fetch-size]
+     :or {fetch-size 500} :as opts}
+    f]
    (with-db-transaction []
      (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doseq [[i param] (map vector (range) params)]
          (.setObject stmt (inc i) param))
-       (.setFetchSize stmt 500)
+       (.setFetchSize stmt fetch-size)
        (let [fix-vals (if as-arrays?
                         #(mapv any-sql-array->vec %)
                         #(kitchensink/mapvals any-sql-array->vec %))]

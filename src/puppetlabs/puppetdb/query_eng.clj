@@ -339,6 +339,13 @@
       (reset [] (.reset stream))
       (skip [n] (.skip stream n)))))
 
+;; Could this just be a key in a query/context specific map?
+
+;; Strictly for testing (seconds) - only works if all the threads
+;; involved are related via binding conveyance.  Otherwise, we'll need
+;; a redef.
+(def ^:dynamic diagnostic-inter-row-sleep nil)
+
 (defn- body-stream
   "Returns a map whose :stream is an InputStream that produces (via a
   future) the results of the query as JSON, and whose :status is a
@@ -383,15 +390,16 @@
         ;; time-delmited-seq) or to rewrite this as an explicit loop,
         ;; or...
         stream-rows (fn stream-rows [rows out status-after-query-start]
-                      (let [rows (munge-fn rows)]
+                      (let [timeout-seq #(time-limited-seq % query-deadline-ns throw-timeout)
+                            rows (cond->> rows
+                                   diagnostic-inter-row-sleep (map #(dissoc % :pg_sleep))
+                                   true munge-fn
+                                   query-deadline-ns timeout-seq)]
                         (when-not (instance? PGobject rows)
                           (first rows))
                         (deliver status status-after-query-start)
                         (try
-                          (http/stream-json (if query-deadline-ns
-                                              (time-limited-seq rows query-deadline-ns throw-timeout)
-                                              rows)
-                                            out pretty-print)
+                          (http/stream-json rows out pretty-print)
                           (catch IOException ex
                             (log/debug ex (trs "Unable to stream response: {0}"
                                                (.getMessage ex)))
@@ -411,10 +419,16 @@
                             (let [{:keys [results-query count-query]}
                                   (query->sql query entity version query-options context)
                                   st (when count-query
-                                       {:count (jdbc/get-result-count count-query)})]
+                                       {:count (jdbc/get-result-count count-query)})
+                                  add-sleep #(format "select pg_sleep(%f), * from (%s) as placeholder_name"
+                                                     (float diagnostic-inter-row-sleep) %)
+                                  results-query (cond-> results-query
+                                                  diagnostic-inter-row-sleep (update 0 add-sleep))]
                               (update-pg-timeouts query-deadline-ns)
                               (jdbc/call-with-array-converted-query-rows
-                               results-query #(stream-rows % out st)))))
+                               results-query
+                               (when diagnostic-inter-row-sleep {:fetch-size 1})
+                               #(stream-rows % out st)))))
                         (catch ExceptionInfo ex
                           ;; Handle any timemout here while we can
                           ;; still try to show the client

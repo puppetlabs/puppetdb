@@ -260,6 +260,11 @@
   [certname :- String]
   (jdbc/insert! :certnames {:certname certname}))
 
+(defn add-certnames
+  "Inserts the collection of certnames."
+  [certnames]
+  (jdbc/insert-multi! :certnames [:certname] (map vector certnames)))
+
 (pls/defn-validated ensure-certname
   "Adds the given host to the db iff it isn't already there."
   [certname :- String]
