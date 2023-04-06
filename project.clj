@@ -1,6 +1,6 @@
 (def pdb-version "8.0.0-SNAPSHOT")
 
-(def clj-parent-version "5.3.1")
+(def clj-parent-version "5.3.3")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -237,6 +237,7 @@
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"
+                       :puppet-platform-version 7
                        :main-namespace "puppetlabs.puppetdb.cli.services"
                        :start-timeout 14400
                        :repo-target "puppet7"
@@ -307,7 +308,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.3.2"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.4.1"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but
