@@ -11,6 +11,51 @@ class Puppet::Util::Puppetdb::Command
 
   CommandsUrl = "/pdb/cmd/v1"
 
+  # Recursively coerce all the strings in a payload to UTF-8
+  #
+  # @param payload Initially the whole Puppet object converted
+  #   to_data_hash. This is called recusively if the command has neseted
+  #   structures.
+  # @param error_context_str a string prefix for log messages
+  def coerce_payload(payload, error_context_str)
+    c = ""
+    had_lossy_string = false
+    case payload
+    when Hash
+      c = payload.each_with_object({}) do |(k, v), memo|
+        new_k, l = coerce_payload(k, error_context_str)
+        had_lossy_string ||= l
+
+        new_v, l = coerce_payload(v, error_context_str)
+        had_lossy_string ||= l
+        memo[new_k] = new_v
+      end
+    when Array
+      c = payload.map do |v|
+        new_v, l = coerce_payload(v, error_context_str)
+
+        had_lossy_string ||= l
+        new_v
+      end
+    when String
+      coerced_str = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(payload)
+
+      if coerced_str != payload
+        had_lossy_string = true
+
+        if Puppet.settings[:log_level] == "debug"
+          Puppet.debug error_context_str + "\n" + Puppet::Util::Puppetdb::CharEncoding.error_char_context(coerced_str)
+        end
+      end
+
+      c = coerced_str
+    else
+      c = payload
+    end
+
+    [c, had_lossy_string]
+  end
+
   # Public instance methods
 
   # Initialize a Command object, for later submission.
@@ -24,41 +69,34 @@ class Puppet::Util::Puppetdb::Command
   #   primitive (numeric type, string, array, or hash) that is natively supported
   #   by JSON serialization / deserialization libraries.
   def initialize(command, version, certname, producer_timestamp_utc, payload)
-    checksum_payload = nil
+    coerced_payload = nil
     profile("Format payload", [:puppetdb, :payload, :format]) do
-      checksum_payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
-        :command => command,
-        :version => version,
-        :certname => certname,
-        :payload => payload,
-      # We use to_pson still here, to work around the support for shifting
-      # binary data from a catalog to PuppetDB. Attempting to use to_json
-      # we get to_json conversion errors:
-      #
-      #   Puppet source sequence is illegal/malformed utf-8
-      #   json/ext/GeneratorMethods.java:71:in `to_json'
-      #   puppet/util/puppetdb/command.rb:31:in `initialize'
-      #
-      # This is roughly inline with how Puppet serializes for catalogs as of
-      # Puppet 4.1.0. We need a better answer to non-utf8 data end-to-end.
-      }.to_pson, "Error encoding a '#{command}' command for host '#{certname}'")
+      error_context_str = "Lossy encoding of a '#{command}' command for host '#{certname}'"
+
+      coerced_payload, had_lossy_string = coerce_payload(payload, error_context_str)
+
+      if had_lossy_string
+        Puppet.warning "#{error_context_str} ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB, see debug logging for more info"
+      end
+
+      # coerce to json while we are still inside the profiling block
+      coerced_payload = coerced_payload.to_json
     end
-    @checksum = Digest::SHA1.hexdigest(checksum_payload)
     @command = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(command).gsub(" ", "_")
     @version = version
     @certname = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(certname)
     @producer_timestamp_utc = producer_timestamp_utc
-    @payload = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(payload.to_pson)
+    @payload = coerced_payload
   end
 
-  attr_reader :command, :version, :certname, :producer_timestamp_utc, :payload, :checksum
+  attr_reader :command, :version, :certname, :producer_timestamp_utc, :payload
 
   # Submit the command, returning the result hash.
   #
   # @return [Hash <String, String>]
   def submit
     for_whom = " for #{certname}" if certname
-    params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.iso8601(3)}"
+    params = "version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.iso8601(3)}"
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path, ssl_context|
@@ -113,5 +151,4 @@ class Puppet::Util::Puppetdb::Command
     # way besides this pseudo-global reference.
     Puppet::Util::Puppetdb.config
   end
-
 end
