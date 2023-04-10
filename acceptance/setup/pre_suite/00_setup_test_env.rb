@@ -9,4 +9,3 @@ end
 
 PuppetDBExtensions.initialize_test_config(options,
             os_families)
-
