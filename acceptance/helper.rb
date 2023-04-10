@@ -411,16 +411,10 @@ module PuppetDBExtensions
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
-    elsif host['platform'].include?('ubuntu-16.04')
-      "#{version}xenial"
     elsif host['platform'].include?('ubuntu-18.04')
       "#{version}bionic"
     elsif host['platform'].include?('ubuntu-20.04')
       "#{version}focal"
-    elsif host['platform'].include?('debian-8')
-      "#{version}jessie"
-    elsif host['platform'].include?('debian-9')
-      "#{version}stretch"
     elsif host['platform'].include?('debian-10')
       "#{version}buster"
     elsif host['platform'].include?('debian-11')
@@ -988,11 +982,6 @@ EOS
   end
 
   def install_puppet(puppet_collection = "puppet6")
-    hosts.each do |host|
-      if host['platform'].variant == 'debian' && host['platform'].version == '8'
-        install_package(host, "openjdk-8-jre-headless")
-      end
-    end
     # If our :install_type is :pe then the harness has already installed puppet.
     case test_config[:install_type]
     when :package
