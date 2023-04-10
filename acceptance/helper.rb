@@ -1122,51 +1122,6 @@ EOS
     install_puppet_conf
   end
 
-  def create_remote_site_pp(host, manifest)
-    testdir = host.tmpdir("remote-site-pp")
-    manifest_file = "#{testdir}/environments/production/manifests/site.pp"
-    apply_manifest_on(host, <<-PP)
-    File {
-      ensure => directory,
-      mode => "0750",
-      owner => #{master.puppet['user']},
-      group => #{master.puppet['group']},
-    }
-
-    file {
-      '#{testdir}':;
-      '#{testdir}/environments':;
-      '#{testdir}/environments/production':;
-      '#{testdir}/environments/production/manifests':;
-      '#{testdir}/environments/production/modules':;
-    }
-PP
-    create_remote_file(host, manifest_file, manifest)
-    remote_path = "#{testdir}/environments"
-    on host, "chmod -R +rX #{testdir}"
-    on host, "chown -R #{master.puppet['user']}:#{master.puppet['user']} #{testdir}"
-    remote_path
-  end
-
-  def run_agents_with_new_site_pp(host, manifest, env_vars = {}, extra_cli_args = "")
-
-    manifest_path = create_remote_site_pp(host, manifest)
-    with_puppet_running_on host, {
-      'master' => {
-        'storeconfigs' => 'true',
-        'storeconfigs_backend' => 'puppetdb',
-        'autosign' => 'true',
-      },
-      'main' => {
-        'environmentpath' => manifest_path,
-      }} do
-      #only some of the opts work on puppet_agent, acceptable exit codes does not
-      agents.each{ |agent| on agent, puppet_agent("--test --server #{host} #{extra_cli_args}",
-                                                  { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
-
-    end
-  end
-
   def databases
     extend Beaker::DSL::Roles
     hosts_as(:database).sort_by {|db| db.to_str}
