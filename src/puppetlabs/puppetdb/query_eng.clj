@@ -448,48 +448,6 @@
 ;; for testing via with-redefs
 (def munge-fn-hook identity)
 
-(defn preferred-produce-streaming-body
-  [version query-map context]
-  (let [{:keys [scf-read-db url-prefix warn-experimental log-queries query-id]
-         :or {warn-experimental true}} context
-        query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
-        {:keys [query remaining-query entity query-options]}
-        (user-query->engine-query version query-map query-config warn-experimental)]
-
-    (when log-queries
-      ;; Log origin and AST of incoming query
-      (let [{:keys [origin query]} query-map]
-        (log/infof "PDBQuery:%s:%s"
-                   query-id (-> (sorted-map :origin origin :ast query)
-                                json/generate-string))))
-
-    (try
-      (let [munge-fn (get-munge-fn entity version query-options url-prefix)
-            stream-ctx (select-keys context [:log-queries :pretty-print :query-id
-                                             :query-deadline-ns])
-            {:keys [status stream]} (body-stream scf-read-db
-                                                 (coerce-from-json remaining-query)
-                                                 entity version query-options
-                                                 (munge-fn-hook munge-fn)
-                                                 stream-ctx)
-            {:keys [count error]} @status]
-        (when error
-          (throw error))
-        (cond-> (http/json-response* stream)
-          count (http/add-headers {:count count})))
-      (catch JsonParseException ex
-        (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))
-        (http/error-response ex))
-      (catch IllegalArgumentException ex ;; thrown by (at least) munge-fn
-        (log/error ex (trs "Invalid query: {0} {1} {2}" query-id query query-options))
-        (http/error-response ex))
-      (catch PSQLException ex
-        (when-not (= (.getSQLState ex) (jdbc/sql-state :invalid-regular-expression))
-          (throw ex))
-        (do
-          (log/debug ex (trs "Invalid query regex: {0} {1} {2}" query-id query query-options))
-          (http/error-response ex))))))
-
 (pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
    the query results. query-map is a clojure map of the form
@@ -502,7 +460,45 @@
   (let [context (assoc context :query-id query-uuid)]
     (with-log-mdc ["pdb-query-id" query-uuid
                    "pdb-query-origin" (:origin query-map)]
-      (preferred-produce-streaming-body version query-map context))))
+      (let [{:keys [scf-read-db url-prefix warn-experimental log-queries query-id]
+             :or {warn-experimental true}} context
+            query-config (select-keys context [:node-purge-ttl :add-agent-report-filter])
+            {:keys [query remaining-query entity query-options]}
+            (user-query->engine-query version query-map query-config warn-experimental)]
+
+        (when log-queries
+          ;; Log origin and AST of incoming query
+          (let [{:keys [origin query]} query-map]
+            (log/infof "PDBQuery:%s:%s"
+                       query-id (-> (sorted-map :origin origin :ast query)
+                                    json/generate-string))))
+
+        (try
+          (let [munge-fn (get-munge-fn entity version query-options url-prefix)
+                stream-ctx (select-keys context [:log-queries :pretty-print :query-id
+                                                 :query-deadline-ns])
+                {:keys [status stream]} (body-stream scf-read-db
+                                                     (coerce-from-json remaining-query)
+                                                     entity version query-options
+                                                     (munge-fn-hook munge-fn)
+                                                     stream-ctx)
+                {:keys [count error]} @status]
+            (when error
+              (throw error))
+            (cond-> (http/json-response* stream)
+              count (http/add-headers {:count count})))
+          (catch JsonParseException ex
+            (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))
+            (http/error-response ex))
+          (catch IllegalArgumentException ex ;; thrown by (at least) munge-fn
+            (log/error ex (trs "Invalid query: {0} {1} {2}" query-id query query-options))
+            (http/error-response ex))
+          (catch PSQLException ex
+            (when-not (= (.getSQLState ex) (jdbc/sql-state :invalid-regular-expression))
+              (throw ex))
+            (do
+              (log/debug ex (trs "Invalid query regex: {0} {1} {2}" query-id query query-options))
+              (http/error-response ex))))))))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."
