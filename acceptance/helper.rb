@@ -197,12 +197,7 @@ module PuppetDBExtensions
   def get_os_family(host)
     on(host, "which yum", :silent => true)
     if result.exit_code == 0
-      on(host, "ls /etc/fedora-release", :silent => true)
-      if result.exit_code == 2
-        :redhat
-      else
-        :fedora
-      end
+      :redhat
     else
       :debian
     end
@@ -425,9 +420,6 @@ module PuppetDBExtensions
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
-    elsif host['platform'].include?('fedora')
-      version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{version}.fc#{version_tag}"
     elsif host['platform'].include?('ubuntu-16.04')
       "#{version}xenial"
     elsif host['platform'].include?('ubuntu-18.04')
@@ -481,7 +473,7 @@ module PuppetDBExtensions
           when :debian
             result = on host, "dpkg-query --showformat \"\\${Version}\" --show puppetdb"
             result.stdout.strip
-          when :redhat, :fedora
+          when :redhat
             result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}-%{RELEASE}\""
             result.stdout.strip
           else
@@ -960,7 +952,7 @@ EOS
       os = os_families[host.name]
 
       case os
-      when :redhat, :fedora
+      when :redhat
         install_pacakge(host, 'ruby')
         install_pacakge(host, 'git-core')
       when :debian

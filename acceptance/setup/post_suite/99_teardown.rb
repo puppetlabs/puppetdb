@@ -7,7 +7,7 @@ def uninstall_package(host, os_families, pkg_name)
   case os
   when :debian
     on(host, "apt-get -f -y purge #{pkg_name} ")
-  when :redhat, :fedora
+  when :redhat
     on(host, "yum -y remove #{pkg_name}")
   else
     raise ArgumentError, "Unsupported OS family: '#{os}'"
