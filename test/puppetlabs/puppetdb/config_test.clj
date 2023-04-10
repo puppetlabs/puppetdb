@@ -520,3 +520,20 @@
       (is (true? (:reject-large-commands default-config)))
       (is (= 25000
              (:max-command-size default-config))))))
+
+(deftest query-timeout-settings
+  (is (= 600 (-> (configure-puppetdb {}) (get-in [:puppetdb :query-timeout-default]))))
+  (is (= ##Inf (-> (configure-puppetdb {}) (get-in [:puppetdb :query-timeout-max]))))
+  (doseq [setting [:query-timeout-default :query-timeout-max]]
+    (is (= ##Inf (-> (configure-puppetdb {:puppetdb {setting "0"}})
+                     (get-in [:puppetdb setting]))))
+    (is (= 10 (-> (configure-puppetdb {:puppetdb {setting "10"}})
+                  (get-in [:puppetdb setting]))))
+    (is (= 1.1 (-> (configure-puppetdb {:puppetdb {setting "1.1"}})
+                   (get-in [:puppetdb setting]))))
+    (let [ex (with-caught-ex-info (configure-puppetdb {:puppetdb {setting "-1"}}))]
+      (is (= ::conf/cli-error (:type (ex-data ex))))
+      (is (str/includes? (.getMessage ex) "must be non-negative number")))
+    (let [ex (with-caught-ex-info (configure-puppetdb {:puppetdb {setting "x"}}))]
+      (is (= ::conf/cli-error (:type (ex-data ex))))
+      (is (str/includes? (.getMessage ex) "must be non-negative number")))))
