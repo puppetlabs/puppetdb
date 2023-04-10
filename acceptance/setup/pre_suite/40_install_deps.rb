@@ -4,11 +4,6 @@ unless (test_config[:skip_presuite_provisioning])
     os = test_config[:os_families][master.name]
     case os
     when :redhat
-      if is_el6
-        # workaround for old ca-certificates package, trick
-        # yum into looking for a newer redhat 6.y version's package
-        on master, "rm -f /etc/yum.repos.d/localmirror-extras.repo /etc/yum.repos.d/localmirror-optional.repo &&  sed -i 's/68/610/' /etc/yum.repos.d/localmirror-os.repo"
-      end
       on master, "yum install -y ca-certificates"
     when :debian
       on master, "apt-get install -y ca-certificates libgnutls30"

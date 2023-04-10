@@ -292,11 +292,6 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian11-64-1'
   end
 
-  def is_el6()
-    return test_config[:os_families].has_key?('redhat6-64-1') ||
-           test_config[:os_families].has_key?('centos6-64-1')
-  end
-
   def is_el8()
     return test_config[:os_families].has_key?('redhat8-64-1') ||
            test_config[:os_families].has_key?('centos8-64-1')
@@ -412,11 +407,7 @@ module PuppetDBExtensions
     ## These 'platform' values come from the acceptance config files, so
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
-    if host['platform'].include?('el-5')
-      "#{version}.el5"
-    elsif host['platform'].include?('el-6')
-      "#{version}.el6"
-    elsif host['platform'].include?('el-7')
+    if host['platform'].include?('el-7')
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
