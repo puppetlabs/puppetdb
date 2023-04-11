@@ -197,12 +197,7 @@ module PuppetDBExtensions
   def get_os_family(host)
     on(host, "which yum", :silent => true)
     if result.exit_code == 0
-      on(host, "ls /etc/fedora-release", :silent => true)
-      if result.exit_code == 2
-        :redhat
-      else
-        :fedora
-      end
+      :redhat
     else
       :debian
     end
@@ -297,11 +292,6 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian11-64-1'
   end
 
-  def is_el6()
-    return test_config[:os_families].has_key?('redhat6-64-1') ||
-           test_config[:os_families].has_key?('centos6-64-1')
-  end
-
   def is_el8()
     return test_config[:os_families].has_key?('redhat8-64-1') ||
            test_config[:os_families].has_key?('centos8-64-1')
@@ -314,14 +304,27 @@ module PuppetDBExtensions
   # This specifies which puppet platform repo to initialize in order
   # to find packages.
   #
+  # For install tests it should pick the nightly repo so we are testing the
+  # latest dev builds of agent and server
+  #
+  # For upgrade_latest tests it should be the non-nightly version. Tests are
+  # run with the shipped package because nightly packages are pruned eventually.
+  #
   # For upgrade_oldest tests it must match the result of oldest_supported
   #
   # TODO: when testing X.0.0-SNAPSHOT one of install/upgrade_latest tests
   # will fail because those two tests will need to use different repos
-  def puppet_repo_version
-    case test_config[:install_mode]
-    when :install, :upgrade_latest
-      test_config[:platform_version]
+  def puppet_repo_version(platform_version, install_type, nightly)
+    case install_type
+    when :install
+      if nightly
+        :"#{platform_version}-nightly"
+      else
+        platform_version
+      end
+    when :upgrade_latest
+      # always use the non-nightly version
+      platform_version
     when :upgrade_oldest
       # Debian 11 only has builds starting in the 7 series
       if is_bullseye
@@ -404,27 +407,14 @@ module PuppetDBExtensions
     ## These 'platform' values come from the acceptance config files, so
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
-    if host['platform'].include?('el-5')
-      "#{version}.el5"
-    elsif host['platform'].include?('el-6')
-      "#{version}.el6"
-    elsif host['platform'].include?('el-7')
+    if host['platform'].include?('el-7')
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
-    elsif host['platform'].include?('fedora')
-      version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{version}.fc#{version_tag}"
-    elsif host['platform'].include?('ubuntu-16.04')
-      "#{version}xenial"
     elsif host['platform'].include?('ubuntu-18.04')
       "#{version}bionic"
     elsif host['platform'].include?('ubuntu-20.04')
       "#{version}focal"
-    elsif host['platform'].include?('debian-8')
-      "#{version}jessie"
-    elsif host['platform'].include?('debian-9')
-      "#{version}stretch"
     elsif host['platform'].include?('debian-10')
       "#{version}buster"
     elsif host['platform'].include?('debian-11')
@@ -468,7 +458,7 @@ module PuppetDBExtensions
           when :debian
             result = on host, "dpkg-query --showformat \"\\${Version}\" --show puppetdb"
             result.stdout.strip
-          when :redhat, :fedora
+          when :redhat
             result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}-%{RELEASE}\""
             result.stdout.strip
           else
@@ -752,14 +742,6 @@ EOS
     install_postgres(host)
   end
 
-  ############################################################################
-  # NOTE: This code was merged into beaker, however it does not work as desired.
-  #   We need to get the version in beaker working as expected and then we can
-  #   remove this version.
-  #
-  #   Temp copy of Justins new Puppet Master Methods
-  ############################################################################
-
   # Restore puppet.conf from backup, if puppet.conf.bak exists.
   #
   # @api private
@@ -771,10 +753,6 @@ EOS
                "rm -rf #{confdir}/puppet.conf.bak; " +
              "fi"
   end
-
-  ##############################################################################
-  # END_OF Temp Copy of Justins new Puppet Master Methods
-  ##############################################################################
 
   def parse_json_with_error(input)
     begin
@@ -865,125 +843,18 @@ EOS
   # End Object diff functions
   ##############################################################################
 
-  def initialize_repo_on_host(host, os, nightly, puppet_platform = :puppet6)
-    case os
-    when :debian
-
-      # For openjdk8
-      if host['platform'].version == '8'
-        create_remote_file(host,
-                          "/etc/apt/sources.list.d/jessie-backports.list",
-                          "deb https://artifactory.delivery.puppetlabs.net/artifactory/debian_archive__remote/ jessie-backports main")
-      end
-
-      if options[:type] == 'aio' then
-        if nightly && puppet_platform == :puppet6
-          ## puppet6 repos
-          on host, "curl -O https://nightlies.puppet.com/apt/puppet6-nightly-release-$(lsb_release -sc).deb"
-          on host, "dpkg -i puppet6-nightly-release-$(lsb_release -sc).deb"
-
-        elsif nightly && puppet_platform == :puppet5
-          on host, "curl -O https://nightlies.puppet.com/apt/puppet5-nightly-release-$(lsb_release -sc).deb"
-          on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
-
-        elsif nightly && puppet_platform == :puppet7
-          on host, "curl -O https://nightlies.puppet.com/apt/puppet7-nightly-release-$(lsb_release -sc).deb"
-          on host, "dpkg -i puppet7-nightly-release-$(lsb_release -sc).deb"
-
-        else
-          on host, "curl -O https://apt.puppet.com/puppet7-release-$(lsb_release -sc).deb"
-          on host, "dpkg -i puppet7-release-$(lsb_release -sc).deb"
-        end
-      else
-        on host, "curl -O https://apt.puppet.com/puppet6-release-$(lsb_release -sc).deb"
-        on host, "dpkg -i puppet6-release-$(lsb_release -sc).deb"
-      end
-      on host, "apt-get update"
-      on host, "apt-get install debian-archive-keyring"
-    when :redhat
-      if options[:type] == 'aio' then
-        /^(el|centos)-(\d+)-(.+)$/.match(host.platform)
-        variant = ($1 == 'centos') ? 'el' : $1
-        version = $2
-        _arch = $3
-
-        if nightly && puppet_platform == :puppet6
-          ## puppet6 repos
-          on host, "curl -O https://nightlies.puppet.com/yum/puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
-          on host, "rpm -i puppet6-nightly-release-#{variant}-#{version}.noarch.rpm"
-
-        elsif nightly && puppet_platform == :puppet5
-          ## puppet6 repos
-          on host, "curl -O https://nightlies.puppet.com/yum/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
-          on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
-
-        elsif nightly && puppet_platform == :puppet7
-          on host, "curl -O https://nightlies.puppet.com/yum/puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
-          on host, "rpm -i puppet7-nightly-release-#{variant}-#{version}.noarch.rpm"
-
-        else
-          on host, "curl -O https://yum.puppet.com/puppet7-release-#{variant}-#{version}.noarch.rpm"
-          on host, "rpm -i puppet7-release-#{variant}-#{version}.noarch.rpm"
-        end
-      else
-        on host, "yum clean all -y"
-        on host, "yum upgrade -y"
-        create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
-  [puppetlabs-dependencies]
-  name=Puppet Labs Dependencies - $basearch
-  baseurl=https://yum.puppetlabs.com/el/$releasever/dependencies/$basearch
-  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
-  enabled=1
-  gpgcheck=1
-        REPO
-
-        create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
-  [puppetlabs-products]
-  name=Puppet Labs Products - $basearch
-  baseurl=https://yum.puppetlabs.com/el/$releasever/products/$basearch
-  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
-  enabled=1
-  gpgcheck=1
-        REPO
-
-        create_remote_file host, '/etc/yum.repos.d/epel.repo', <<-REPO
-  [epel]
-  name=Extra Packages for Enterprise Linux $releasever - $basearch
-  baseurl=https://download.fedoraproject.org/pub/epel/$releasever/$basearch
-  mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=epel-$releasever&arch=$basearch
-  failovermethod=priority
-  enabled=1
-  gpgcheck=0
-        REPO
-      end
-    when :fedora
-      create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
-  [puppetlabs-dependencies]
-  name=Puppet Labs Dependencies - $basearch
-  baseurl=https://yum.puppetlabs.com/fedora/f$releasever/dependencies/$basearch
-  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
-  enabled=1
-  gpgcheck=1
-      REPO
-
-      create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
-  [puppetlabs-products]
-  name=Puppet Labs Products - $basearch
-  baseurl=https://yum.puppetlabs.com/fedora/f$releasever/products/$basearch
-  gpgkey=https://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
-  enabled=1
-  gpgcheck=1
-      REPO
-    else
-      raise ArgumentError, "Unsupported OS '#{os}'"
-    end
-  end
-
   def install_puppet_from_package(puppet_collection = "puppet6")
     hosts.each do |host|
       install_puppet_agent_on(host, {:puppet_collection => puppet_collection})
       on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
-      install_package(host, 'puppetserver')
+
+      # Take new configuration file on debian to prevent tests from hanging
+      # when this is used to upgrade puppet
+      if get_os_family(database) == :debian
+        database.install_package('puppetserver', '-o Dpkg::Options::="--force-confnew"')
+      else
+        install_package(database, 'puppetserver')
+      end
     end
   end
 
@@ -1054,7 +925,7 @@ EOS
       os = os_families[host.name]
 
       case os
-      when :redhat, :fedora
+      when :redhat
         install_pacakge(host, 'ruby')
         install_pacakge(host, 'git-core')
       when :debian
@@ -1099,11 +970,6 @@ EOS
   end
 
   def install_puppet(puppet_collection = "puppet6")
-    hosts.each do |host|
-      if host['platform'].variant == 'debian' && host['platform'].version == '8'
-        install_package(host, "openjdk-8-jre-headless")
-      end
-    end
     # If our :install_type is :pe then the harness has already installed puppet.
     case test_config[:install_type]
     when :package
@@ -1120,51 +986,6 @@ EOS
       exit 1
     end
     install_puppet_conf
-  end
-
-  def create_remote_site_pp(host, manifest)
-    testdir = host.tmpdir("remote-site-pp")
-    manifest_file = "#{testdir}/environments/production/manifests/site.pp"
-    apply_manifest_on(host, <<-PP)
-    File {
-      ensure => directory,
-      mode => "0750",
-      owner => #{master.puppet['user']},
-      group => #{master.puppet['group']},
-    }
-
-    file {
-      '#{testdir}':;
-      '#{testdir}/environments':;
-      '#{testdir}/environments/production':;
-      '#{testdir}/environments/production/manifests':;
-      '#{testdir}/environments/production/modules':;
-    }
-PP
-    create_remote_file(host, manifest_file, manifest)
-    remote_path = "#{testdir}/environments"
-    on host, "chmod -R +rX #{testdir}"
-    on host, "chown -R #{master.puppet['user']}:#{master.puppet['user']} #{testdir}"
-    remote_path
-  end
-
-  def run_agents_with_new_site_pp(host, manifest, env_vars = {}, extra_cli_args = "")
-
-    manifest_path = create_remote_site_pp(host, manifest)
-    with_puppet_running_on host, {
-      'master' => {
-        'storeconfigs' => 'true',
-        'storeconfigs_backend' => 'puppetdb',
-        'autosign' => 'true',
-      },
-      'main' => {
-        'environmentpath' => manifest_path,
-      }} do
-      #only some of the opts work on puppet_agent, acceptable exit codes does not
-      agents.each{ |agent| on agent, puppet_agent("--test --server #{host} #{extra_cli_args}",
-                                                  { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
-
-    end
   end
 
   def databases

@@ -59,7 +59,7 @@ if (test_config[:use_proxies])
     case test_config[:os_families][database.name]
     when :debian
       setup_apt_proxy()
-    when :redhat, :fedora
+    when :redhat
       setup_yum_proxy()
     else
       raise ArgumentError, "Unsupported OS family: '#{config[:os_families][database.name]}'"

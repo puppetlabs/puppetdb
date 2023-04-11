@@ -1,7 +1,13 @@
 test_name "Install Puppet" do
   unless (test_config[:skip_presuite_provisioning])
+    if is_el8 && ([:upgrade_latest].include? test_config[:install_mode])
+      on(hosts, 'update-crypto-policies --set LEGACY')
+    end
+
     step "Install Puppet" do
-      install_puppet(puppet_repo_version)
+      install_puppet(puppet_repo_version(test_config[:platform_version],
+                                         test_config[:install_mode],
+                                         test_config[:nightly]))
     end
   end
 
