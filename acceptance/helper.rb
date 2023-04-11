@@ -33,7 +33,7 @@ module PuppetDBExtensions
 
     platform_version =
       get_option_value(options[:platform_version],
-                       [:puppet5, :puppet6, :puppet7],
+                       [:puppet5, :puppet6, :puppet7, :puppet8],
                        "Puppet Platform Repo Version",
                        "PLATFORM_VERSION",
                        :puppet5)
@@ -326,12 +326,7 @@ module PuppetDBExtensions
       # always use the non-nightly version
       platform_version
     when :upgrade_oldest
-      # Debian 11 only has builds starting in the 7 series
-      if is_bullseye
-        :puppet7
-      else
-        :puppet6
-      end
+      :puppet7
     end
   end
 
@@ -342,16 +337,8 @@ module PuppetDBExtensions
     # account for bionic/rhel8 not having build before certian versions
     if is_bullseye
       '7.9.0'
-    elsif is_el8
-      '6.0.3'
-    elsif is_rhel7fips
-      '6.4.0'
-    elsif is_buster
-      '6.7.0'
-    elsif is_focal
-      '6.12.0'
     else
-      '6.0.0'
+      '7.0.0'
     end
   end
 
