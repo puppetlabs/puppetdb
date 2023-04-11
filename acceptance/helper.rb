@@ -742,14 +742,6 @@ EOS
     install_postgres(host)
   end
 
-  ############################################################################
-  # NOTE: This code was merged into beaker, however it does not work as desired.
-  #   We need to get the version in beaker working as expected and then we can
-  #   remove this version.
-  #
-  #   Temp copy of Justins new Puppet Master Methods
-  ############################################################################
-
   # Restore puppet.conf from backup, if puppet.conf.bak exists.
   #
   # @api private
@@ -761,10 +753,6 @@ EOS
                "rm -rf #{confdir}/puppet.conf.bak; " +
              "fi"
   end
-
-  ##############################################################################
-  # END_OF Temp Copy of Justins new Puppet Master Methods
-  ##############################################################################
 
   def parse_json_with_error(input)
     begin
