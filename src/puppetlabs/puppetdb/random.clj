@@ -1,7 +1,9 @@
 (ns puppetlabs.puppetdb.random
   (:require
+   [clojure.pprint :as pp]
    [clojure.string :as string]
-   [clojure.walk :refer [keywordize-keys]])
+   [clojure.walk :refer [keywordize-keys]]
+   [puppetlabs.kitchensink.core :as kitchensink])
   (:import
    (org.apache.commons.lang3 RandomStringUtils)))
 
@@ -87,3 +89,76 @@
    "new_value"          (random-string)
    "message"            (random-string)
    })
+
+(defn random-sha1
+  "Generate a SHA1 hash of a random-string."
+  ([] (random-sha1 100))
+  ([str-size]
+   (kitchensink/utf8-string->sha1 (random-string str-size))))
+
+(defn sample-normal
+  "Get a random integer from a normal distribution described by the given mean and
+   standard deviation from that mean.
+
+   ~68% of the returned values will fall within mean +/- standard-deviation.
+   ~95% within two standard-deviations.
+   ~99% within three...
+   https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule"
+  [mean standard-deviation]
+  (-> random .nextGaussian (* standard-deviation) (+ mean) int))
+
+(defn safe-sample-normal
+  "Get a random integer from the normal distribution guarded by some sane lower
+   and upper bound. If not given, they default to 0 and twice the mean."
+  [mean standard-deviation & {:keys [lowerb upperb] :or {lowerb 0 upperb (* 2 mean)}}]
+   (-> (sample-normal mean standard-deviation) (max lowerb) (min upperb)))
+
+(defn random-pronouncable-word
+  "Generate a random string of optional length that alternates consonants and
+   vowels to produce a loosely recognizable wordish thing.
+
+   Optionally, supply standard deviation, to return a word of variable length
+   from the given size based on the safe-sample-normal function."
+  ([] (random-pronouncable-word 6))
+  ([length] (random-pronouncable-word length nil))
+  ([length sd] (random-pronouncable-word length sd {}))
+  ([length sd bounds]
+   (let [random-consonant #(RandomStringUtils/random 1 "bcdfghjklmnpqrstvwxz")
+         random-vowel #(RandomStringUtils/random 1 "aeiouy")
+         actual-length (if (nil? sd) length (safe-sample-normal length sd bounds))]
+     (->> (for [i (range actual-length)]
+           (if (even? i)
+             (random-consonant)
+             (random-vowel)))
+         (string/join "")))))
+
+(defn distribute
+  "Perform f an avg-actions number of times randomly across the elements of the vector.
+
+   The avg-actions may be a float, but if avg-actions is zero, nothing will be done.
+
+   The total number of actions to perform will be plucked from a
+   safe-sample-normal curve based on a mean of vect count times
+   avg-actions. You can customize this with an options hash supplying
+   standard-deviation, upper and lower bounds.
+
+   Returns the updated vector."
+  [vect f avg-actions & {:keys [debug] :as options}]
+  (let [mean-total-actions (int (* (count vect) avg-actions))
+        standard-deviation (or (:standard-deviation options)
+                               (max 1 (quot mean-total-actions 5)))
+        lowerb (or (:lowerb options)
+                   (max 0 (- mean-total-actions (int (* standard-deviation 1.5)))))
+        upperb (or (:upperb options)
+                   (+ mean-total-actions (int (* standard-deviation 1.5))))
+        total-actions (if (= 0 avg-actions)
+                        0 ;; do nothing
+                        (safe-sample-normal mean-total-actions standard-deviation {:lowerb lowerb :upperb upperb}))]
+    (when debug
+      (pp/pprint {:avg-actions avg-actions :mean-total-actions mean-total-actions :standard-deviation standard-deviation :lowerb lowerb :upperb upperb :total-actions total-actions :options options}))
+    (loop [i total-actions
+           v vect]
+      (if (> i 0)
+        (recur (- i 1)
+               (update v (rand-int (count v)) f))
+        v))))

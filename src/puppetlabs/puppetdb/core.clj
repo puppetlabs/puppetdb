@@ -12,6 +12,7 @@
    "  upgrade                 Upgrade to latest version and exit"
    "  benchmark               Run development-only benchmarking tool"
    "  fact-storage-benchmark"
+   "  generate                Create sample data files for benchmarking"
    "  help                    Display usage summary"
    "For help on a given subcommand, invoke it with -h"])
 
@@ -41,7 +42,7 @@
     "upgrade" (run-resolved "services" 'cli [args {:upgrade-and-exit? true}])
     "services" (run-resolved "services" 'cli [args])
 
-    ("benchmark" "fact-storage-benchmark" "version")
+    ("benchmark" "fact-storage-benchmark" "version" "generate")
     (run-resolved subcommand 'cli [args])
 
     (do

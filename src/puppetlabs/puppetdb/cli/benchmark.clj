@@ -46,7 +46,7 @@
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.random :refer [random-string random-bool]]
+            [puppetlabs.puppetdb.random :refer [random-string random-bool random-sha1]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.core.async :refer [go go-loop <! <!! chan] :as async]
@@ -101,7 +101,7 @@
   [catalog]
   (assoc catalog
          "catalog_uuid" (kitchensink/uuid)
-         "code_id" (kitchensink/utf8-string->sha1 (random-string 100))))
+         "code_id" (random-sha1)))
 
 (defn rand-catalog-mutation
   "Grabs one of the mutate-fns randomly and returns it"
@@ -221,7 +221,8 @@
                ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
                ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F or -R"]
-               ["-i" (str "--runinterval RUNINTERVAL" "interval (in minutes)"
+               ["-i" "--runinterval RUNINTERVAL"
+                     (str "Interval (in minutes)"
                           " to use during simulation. This option"
                           " requires some temporary filesystem space, which"
                           " will be allocated in TMPDIR (if set in the"
