@@ -83,7 +83,7 @@
         c-with-blob (generate/add-blob catalog 100)]
     (testing "catalog is modified"
       (is (not= catalog c-with-blob))
-      (is (< (generate/weigh catalog) 5000))
+      (is (< (generate/weigh catalog) 6000))
       (is (> (generate/weigh c-with-blob) 50000)))
     (testing "blob parameter is added"
       (let [resources (:resources c-with-blob)
@@ -112,7 +112,7 @@
                  :title-size title-size
                  :resource-size resource-size
                  :additional-edge-percent additional-edge-percent
-                 :avg-blob-count 0
+                 :blob-count 0
                  :blob-size 100
                  :output-dir (.toString tmpdir)
                  :silent true}
@@ -151,15 +151,31 @@
     (testing "with blobs"
       (try
         (shell/sh "mkdir" (.toString tmpdir))
-        (generate/generate (merge options {:avg-blob-count 1}))
+        (generate/generate (merge options {:blob-count 1}))
         (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
               catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))]
           (testing "generation of files"
             (doseq [cat catalogs]
                 (is (= (+ num-resources 1) (count (get cat "resources"))))
-                (is (= num-edges (count (get cat "edges")))))
+                (is (= num-edges (count (get cat "edges"))))
+                (is (> (generate/weigh cat) 100000)))
             (let [total-weight (->> catalogs (map generate/weigh) (reduce +))]
               (is (> total-weight 700000)))))
+        (finally (shell/sh "rm" "-rf" (.toString tmpdir)))))
+    (testing "distributed with blobs"
+      (try
+        (shell/sh "mkdir" (.toString tmpdir))
+        (generate/generate (merge options {:blob-count 2 :random-distribution true}))
+        (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
+              catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))]
+          (testing "generation of files"
+            (doseq [cat catalogs]
+              (let [resource-count (count (get cat "resources"))
+                    edge-count (count (get cat "edges"))]
+                (is (< 1 resource-count (* num-resources 2)))
+                (is (<= resource-count edge-count (* resource-count 2)))))
+            (let [total-weight (->> catalogs (map generate/weigh) (reduce +))]
+              (is (> total-weight 900000)))))
         (finally (shell/sh "rm" "-rf" (.toString tmpdir)))))))
 
 (deftest summarize
@@ -174,7 +190,7 @@
                  :title-size title-size
                  :resource-size resource-size
                  :additional-edge-percent additional-edge-percent
-                 :avg-blob-count 0
+                 :blob-count 0
                  :blob-size 100}
         data (generate/generate-data options (get-path "/dev/null"))
         output (with-out-str (generate/summarize data))]

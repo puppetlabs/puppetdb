@@ -38,13 +38,61 @@
 
    #### Large Resource Parameter Blobs
 
-   The --avg-blob-count and --blob-size parameters control inclusion of large
-   text blobs in catalog resources. By default an average of 1 ~100kb blob is
-   added per catalog. Blobs are distributed randomly through the set, so if you
-   set --avg-blob-count to 20 over --hosts 10, on averge there will be two per
+   The --blob-count and --blob-size parameters control inclusion of large
+   text blobs in catalog resources. By default one ~100kb blob is
+   added per catalog.
+
+   Set --blob-count to 0 to exclude blobs altogether.
+
+   #### Random Distribution
+
+   The default catalog generation produces relatively uniform catalogs with equal
+   resource and edge counts and similar byte counts.
+
+   Example:
+
+      jpartlow@jpartlow-dev-2204:~/work/src/puppetdb$ lein run generate --verbose
+      ...
+      Generate from {:resource-size 200, :silent false, :additional-edge-percent 50, :random-distribution false, :verbose true, :num-hosts 5, :blob-count 1, :help false, :blob-size 100, :num-resources 100, :num-classes 10, :title-size 20} and store at /tmp/pdb-generate-7287481941956485370
+      :catalogs: 5
+
+      |     :certname | :catalog-weight | :resource-count | :resource-weight | :min-resource | :mean-resource | :max-resource | :edge-count | :edge-weight |
+      |---------------+-----------------+-----------------+------------------+---------------+----------------+---------------+-------------+--------------|
+      | host-cuxajo-0 |          170755 |             101 |           153432 |            94 |           1519 |        126759 |         150 |        17023 |
+      | host-vudagu-1 |          172902 |             101 |           156028 |           107 |           1544 |        129527 |         150 |        16574 |
+      | host-jaxoda-2 |          146566 |             101 |           129521 |            80 |           1282 |        102617 |         150 |        16745 |
+      | host-dofuqu-3 |          141793 |             101 |           124675 |           111 |           1234 |         97633 |         150 |        16818 |
+      | host-vibocu-4 |          158409 |             101 |           140961 |           108 |           1395 |        114629 |         150 |        17148 |
+      ...
+
+   This mode is best used when generating several sets of catalogs of distinct
+   weights and counts to provide an overall sample set for benchmark that
+   includes some fixed number of fairly well described catalog examples.
+
+   By setting --random-distribution to true, you can generate a more random
+   catalog set with class, resource, edge and total blob count randomized. The
+   values used will be picked from a normal curve based on the set value as
+   mean.
+
+   Blobs will be distributed randomly through the set, so if you
+   set --blob-count to 2 over --hosts 10, on averge there will be two per
    catalog, but some may have none, others four, etc...
 
-   Set --avg-blob-count to 0 to exclude blobs altogether.
+   Example:
+
+      jpartlow@jpartlow-dev-2204:~/work/src/puppetdb$ lein run generate --verbose --random-distribution
+      ...
+      Generate from {:resource-size 200, :silent false, :additional-edge-percent 50, :random-distribution true, :verbose true, :num-hosts 5, :blob-count 1, :help false, :blob-size 100, :num-resources 100, :num-classes 10, :title-size 20} and store at /tmp/pdb-generate-5327046227415516789
+        :catalogs: 5
+
+        |     :certname | :catalog-weight | :resource-count | :resource-weight | :min-resource | :mean-resource | :max-resource | :edge-count | :edge-weight |
+        |---------------+-----------------+-----------------+------------------+---------------+----------------+---------------+-------------+--------------|
+        | host-denune-0 |          361113 |              92 |           345788 |           120 |           3758 |        115375 |         132 |        15025 |
+        | host-lakezo-1 |           31841 |              76 |            19727 |           119 |            259 |           464 |         106 |        11814 |
+        | host-bysoza-2 |          141905 |             107 |           124171 |           111 |           1160 |         95754 |         153 |        17434 |
+        | host-nyhege-3 |           52469 |             116 |            31495 |           142 |            271 |           419 |         181 |        20674 |
+        | host-suxuto-4 |           63264 |             142 |            39601 |            95 |            278 |           412 |         205 |        23363 |
+      ...
 
    ## TODO
 
@@ -258,11 +306,20 @@
                #(merge % {pname (RandomStringUtils/randomAscii bsize)}))))
 
 (defn generate-catalog
-  [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent]}]
+  [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent random-distribution]}]
   (let [main-stage (rnd/random-resource "Stage" "main")
-        classes (generate-classes num-classes title-size)
-        resources (generate-resources (- num-resources num-classes) resource-size title-size)
-        catalog-graph (generate-catalog-graph main-stage classes resources additional-edge-percent)
+        class-count (if random-distribution
+                      (rnd/safe-sample-normal num-classes (quot num-classes 4))
+                      num-classes)
+        resource-count (if random-distribution
+                         (rnd/safe-sample-normal num-resources (quot num-resources 4))
+                         num-resources)
+        edge-percent (if random-distribution
+                       (rnd/safe-sample-normal additional-edge-percent (quot additional-edge-percent 5))
+                       additional-edge-percent)
+        classes (generate-classes class-count title-size)
+        resources (generate-resources (- resource-count class-count) resource-size title-size)
+        catalog-graph (generate-catalog-graph main-stage classes resources edge-percent)
         edges (map generate-edge (:edges catalog-graph))]
     {:resources (reduce into [[main-stage] classes resources])
      :edges edges
@@ -274,6 +331,29 @@
      :producer "puppetmaster1"
      :catalog_uuid (kitchensink/uuid)
      :code_id (rnd/random-sha1)}))
+
+(defn sprinkle-blobs
+  "Add large text blobs to catalogs.
+
+   If random-distribution is false, will sprinkle blob-count blobs of an avg
+   blob-size in kb into each catalog.
+
+   If random-distribution is true, will sprinkle a total number of blobs, picked
+   from a random distribution based on a mean of blob-count * catalog count,
+   randomly over the catalogs. The result is likely, but not guaranteed, to be a
+   much more uneven catalog set."
+  [catalogs {:keys [blob-count blob-size random-distribution]}]
+  (let [catalog-vec (vec catalogs)]
+    (if random-distribution
+      (rnd/distribute catalog-vec #(add-blob % blob-size) blob-count)
+      (map (fn [catalog]
+             (loop [i blob-count
+                    c catalog]
+               (if (> i 0)
+                 (recur (- i 1)
+                        (add-blob c blob-size))
+                 c)))
+           catalog-vec))))
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -352,11 +432,10 @@
 (defn generate-data
   "Generate and return a map of facts, catalogs and reports."
   [options output-path]
-  (let [{:keys [num-hosts avg-blob-count blob-size]} options
+  (let [{:keys [num-hosts]} options
         hosts (map (fn [i] (format "host-%s-%s" (rnd/random-pronouncable-word) i)) (range num-hosts))
         catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
-                     vec
-                     (rnd/distribute #(add-blob % blob-size) avg-blob-count))
+                     (sprinkle-blobs options))
         facts []
         reports []]
     {:catalogs
@@ -410,7 +489,7 @@
                ["-r" "--num-resources NUMRESOURCES" "Number of resources to generate in catalogs. (Includes num-classes.)"
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
-               ["-t" "--title-size TITLESIZE" "Avergae number of characters in resource titles."
+               ["-t" "--title-size TITLESIZE" "Average number of characters in resource titles."
                 :default 20
                 :parse-fn #(Integer/parseInt %)]
                ["-s" "--resource-size RESOURCESIZE" "The average resource size in bytes."
@@ -419,7 +498,7 @@
                ["-e" "--additional-edge-percent ADDITIONALEDGEPERCENT" "The percent of generated classes and resources for which to create additional edges."
                 :default 50
                 :parse-fn #(Integer/parseInt %)]
-               ["-b" "--avg-blob-count AVGBLOBCOUNT" "Average number of larger resource parameter blobs to add per catalog. Set to 0 to ensure none."
+               ["-b" "--blob-count BLOBCOUNT" "Number of larger resource parameter blobs to add per catalog. Set to 0 to ensure none."
                 :default 1
                 :parse-fn #(Integer/parseInt %)]
                ["-B" "--blob-size BLOBSIZE" "Average size of a large resource parameter blob in kB."
@@ -428,6 +507,8 @@
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
                 :default 5
                 :parse-fn #(Integer/parseInt %)]
+               ["-d" "--random-distribution" "Whether or not pick from a random distribution of resources, edge percent and blobs to provide a less even catalog set."
+                :default false]
                ["-o" "--output-dir OUTPUTDIR" "Directory to write output files to. Will allocate in TMPDIR (if set in the environment) or java.io.tmpdir if not given."]
                ["-v" "--verbose" "Whether to provide verbose output."
                 :default false]
