@@ -71,15 +71,16 @@
   [:optimize_drop_unused_joins :include_facts_expiration :explain :origin])
 
 (defn status-response
-  "Executes `query` and if a result is found, calls `found-fn` with
-  that result, returns 404 otherwise."
-  ([version query globals found-fn not-found-response query-params]
+  "Executes `query` and if a row is found, returns `(found row)`,
+  otherwise `(not-found)`."
+  ([version query globals found not-found query-params]
    (let [[item & items] (stream-query-result version query query-params globals)]
      (when (seq items) ;; For now, just log
        (log/error (trs "more than one item returned for singular query")))
+     ;; FIXME: should this respect the pretty parameter?
      (if item
-       (http/json-response (found-fn item))
-       not-found-response))))
+       (http/json-response (found item))
+       (not-found)))))
 
 (defn catalog-status
   "Produces a response body for a request to retrieve the catalog for the node in route-params"
@@ -91,7 +92,7 @@
                        (http-q/narrow-globals globals)
                        #(s/validate catalog-query-schema
                                     (kitchensink/mapvals sutils/parse-db-json [:edges :resources] %))
-                       (http/status-not-found-response "catalog" node)
+                       #(http/status-not-found-response "catalog" node)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn factset-status
@@ -103,7 +104,7 @@
                        ["from" "factsets" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "factset" node)
+                       #(http/status-not-found-response "factset" node)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn node-status
@@ -115,7 +116,7 @@
                        ["from" "nodes" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "node" node)
+                       #(http/status-not-found-response "node" node)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn environment-status
@@ -127,7 +128,7 @@
                        ["from" "environments" ["=" "name" environment]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "environment" environment)
+                       #(http/status-not-found-response "environment" environment)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn producer-status
@@ -139,7 +140,7 @@
                        ["from" "producers" ["=" "name" producer]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "producer" producer)
+                       #(http/status-not-found-response "producer" producer)
                        (select-keys puppetdb-query global-engine-params)))))
 
 ;; Routes
