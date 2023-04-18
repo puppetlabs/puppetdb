@@ -122,6 +122,39 @@
 
 (def resource-fact-path "puppetlabs/puppetdb/generate/samples/facts/baseline-agent-node.json")
 
+(defmulti weigh "Loosely weigh up the bytes of a structure." class)
+(defmethod weigh clojure.lang.IPersistentMap
+  [mp]
+  (reduce (fn [size [k v]]
+            (+ size (count (str k)) (weigh v)))
+          0, mp))
+(defn- weigh-vec-set-or-seq
+  [a]
+  (reduce (fn [size e]
+            (+ size (weigh e)))
+          0, a))
+(defmethod weigh clojure.lang.IPersistentVector [vc] (weigh-vec-set-or-seq vc))
+(defmethod weigh clojure.lang.IPersistentSet [st] (weigh-vec-set-or-seq st))
+(defmethod weigh clojure.lang.ISeq [sq] (weigh-vec-set-or-seq sq))
+(defmethod weigh clojure.lang.Keyword [k] (count (str k)))
+(defmethod weigh String [s] (count s))
+(defmethod weigh Number [_] 4)
+(defmethod weigh Boolean [_] 1)
+(defmethod weigh org.joda.time.DateTime [_] 8)
+(defmethod weigh :default
+  [what] (throw (Exception. (format "Don't know how to weigh a %s of type %s" what (type what)))))
+
+(defn silent?
+  "User has requested output silence."
+  [{:keys [silent]}]
+  silent)
+
+(defn verbose?
+  "User has requested verbose output.
+   But make sure silent isn't set..."
+  [{:keys [silent verbose]}]
+  (and verbose (not silent)))
+
 (defn pseudonym
   "Generate a fictitious but somewhat intelligible keyword name."
   ([prefix ordinal]
@@ -394,56 +427,107 @@
           {}
           (range number)))
 
+(defn mutate-fact-values
+  "Mutates num-to-change leaf facts (string, number, boolean) in the given
+   set of fact-values, using the given leaf-fact-paths to find them."
+  [fact-values num-to-change leaf-fact-paths]
+  (reduce (fn [facts fact-path]
+            (let [path-array (get fact-path :path_array)
+                  value-type-id (get fact-path :value_type_id)
+                  mutator-fn (case value-type-id
+                               (0 4) (fn [_s] (rnd/random-pronouncable-word))
+                               (1 2) (fn [_i] (rand-int 1000))
+                               3 not
+                               ;; shouldn't have a 5 in leaves, but do nothing by default
+                               (fn [e] e))]
+              (update-in facts path-array mutator-fn)))
+          fact-values
+          (take num-to-change leaf-fact-paths)))
+
+(defn delete-facts
+  "Trim facts down to num-facts.
+   NOTE: this does not elliminate empty arrays/maps, so you will
+   still have 50 or so empty facts, even if num-facts is 0."
+  [fact-values number-to-delete leaf-fact-paths]
+  (reduce (fn [facts fact-path]
+            (let [path-array (get fact-path :path_array)]
+              (if (> (count path-array) 1)
+                (let [parent-path (butlast path-array)
+                      last-key (last path-array)]
+                  (update-in facts parent-path
+                             #(if (integer? last-key)
+                                ;; drop last from list
+                                (vec (drop-last %))
+                                ;; dissociate from map
+                                (dissoc % last-key))))
+                (dissoc facts (first path-array)))))
+          fact-values
+          (take number-to-delete leaf-fact-paths)))
+
+(defn fatten-fact-values
+  "Randomly increase size of string facts until we reach total-fact-size-in-bytes."
+  [fact-values total-fact-size-in-bytes]
+  (let [fact-paths (facts/facts->pathmaps fact-values)
+        string-fact-paths (filter #(= 0 (get % :value_type_id)) fact-paths)]
+    (loop [facts fact-values
+           weight (weigh facts)]
+      (if (< weight total-fact-size-in-bytes)
+        (let [path (-> (rand-nth string-fact-paths)
+                       (get :path_array))
+              remaining-weight (max 0 (- total-fact-size-in-bytes weight))
+              string-size-to-add (min (rnd/safe-sample-normal 100 50) remaining-weight)
+              additional-string (rnd/random-string string-size-to-add)
+              fattened-facts (update-in facts path str additional-string)]
+          (recur fattened-facts (weigh fattened-facts)))
+        facts))))
+
 (defn generate-fact-values
-  [num-facts max-fact-depth]
+  "Generates a set of fact values.
+
+   * starts by loading the same set of baseline facts from resources
+   * mutates half the leaves
+   * then either
+     * removes facts down to num-facts if less than the fact count from baseline
+     * or uses create-facts to reach num-facts of max-depth
+   * then fattens up remaining fact strings to reach total-fact-size-in-kb
+
+   NOTE: fact removal won't reach 0 as empty arrays and maps in the fact paths
+   are left behind, and won't change the depth of the baseline facts.
+
+   NOTE: if total-fact-size is less than the weight of adjusted baseline facts,
+   nothing more is done. So count trumps size."
+  [num-facts max-fact-depth total-fact-size-in-kb options]
   (let [baseline-factset (load-baseline-factset)
         baseline-values (get baseline-factset "values")
         baseline-fact-paths (shuffle (facts/facts->pathmaps baseline-values))
         baseline-leaves (filter #(not= 5 (get % :value_type_id)) baseline-fact-paths)
-        baseline-facts-to-vary (quot (count baseline-fact-paths) 2)
-        baseline-values-varied
-          (reduce (fn [facts fact-path]
-                    (let [path-array (get fact-path :path_array)
-                          value-type-id (get fact-path :value_type_id)
-                          mutator-fn (case value-type-id
-                                       (0 4) (fn [_s] (rnd/random-pronouncable-word))
-                                       (1 2) (fn [_i] (rand-int 1000))
-                                       3 not
-                                       5 (fn [e] e))]
-                      (update-in facts path-array mutator-fn)))
-                  baseline-values
-                  (take baseline-facts-to-vary baseline-fact-paths))
-        facts-to-add (- num-facts (count baseline-leaves))]
-    (if (< facts-to-add 0)
-      ;; Trim facts down to num-facts.
-      ;; (Note, this does not elliminate empty arrays/maps, so you will
-      ;; still have 50 or so empty facts, even if num-facts is 0.)
-      (reduce (fn [facts fact-path]
-                (let [path-array (get fact-path :path_array)]
-                  (if (> (count path-array) 1)
-                    (let [parent-path (butlast path-array)
-                          last-key (last path-array)]
-                      (update-in facts parent-path
-                                 #(if (integer? last-key)
-                                    ;; drop last from list
-                                    (vec (drop-last %))
-                                    ;; dissociate from map
-                                    (dissoc % last-key))))
-                    (dissoc facts (first path-array)))))
-              baseline-values-varied
-              (take (abs facts-to-add) baseline-leaves))
-      ;; Add additional facts to bring us up to num-facts count.
-      (let [new-facts (create-new-facts facts-to-add max-fact-depth)]
-        (merge baseline-values-varied new-facts)))))
+        num-baseline-leaves-to-vary (quot (count baseline-leaves) 2)
+        facts-to-add (- num-facts (count baseline-leaves))
+        total-fact-size-in-bytes (* total-fact-size-in-kb 1000)]
+    (as-> baseline-values fact-values
+      (mutate-fact-values fact-values num-baseline-leaves-to-vary baseline-leaves)
+      (if (< facts-to-add 0)
+        (delete-facts fact-values (abs facts-to-add) baseline-leaves)
+        ;; or add additional facts to bring us up to num-facts count.
+        (let [new-facts (create-new-facts facts-to-add max-fact-depth)]
+          (merge fact-values new-facts)))
+      (let [weight (weigh fact-values)]
+        (if (> weight total-fact-size-in-bytes)
+          (do
+            (when-not (silent? options)
+              (println (format "Warning: the weight of the baseline factset adjusted to %s facts is already %s bytes which is greater than the requested total size of %s bytes. To preserve the fact count, nothing else was done." num-facts weight total-fact-size-in-bytes )))
+            fact-values)
+          (fatten-fact-values fact-values total-fact-size-in-bytes))))))
 
 (defn generate-facts
-  [certname {:keys [num-facts max-fact-depth avg-package-inventory-count]}]
+  [certname
+   {:keys [num-facts max-fact-depth total-fact-size avg-package-inventory-count] :as options}]
   {:certname certname
    :timestamp (now)
    :environment "production"
    :producer_timestamp (now)
    :producer "puppetmaster1"
-   :values (generate-fact-values num-facts max-fact-depth)})
+   :values (generate-fact-values num-facts max-fact-depth total-fact-size options)})
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -464,60 +548,55 @@
           f (.toFile (.resolve dir file-name))]
       (json/spit-json f i))))
 
-(defmulti weigh "Loosely weigh up the bytes of a structure." class)
-(defmethod weigh clojure.lang.IPersistentMap
-  [mp]
-  (reduce (fn [size [k v]]
-            (+ size (count (str k)) (weigh v)))
-          0, mp))
-(defn- weigh-vec-set-or-seq
-  [a]
-  (reduce (fn [size e]
-            (+ size (weigh e)))
-          0, a))
-(defmethod weigh clojure.lang.IPersistentVector [vc] (weigh-vec-set-or-seq vc))
-(defmethod weigh clojure.lang.IPersistentSet [st] (weigh-vec-set-or-seq st))
-(defmethod weigh clojure.lang.ISeq [sq] (weigh-vec-set-or-seq sq))
-(defmethod weigh clojure.lang.Keyword [k] (count (str k)))
-(defmethod weigh String [s] (count s))
-(defmethod weigh Number [_] 4)
-(defmethod weigh Boolean [_] 1)
-(defmethod weigh org.joda.time.DateTime [_] 8)
-(defmethod weigh :default
-  [what] (throw (Exception. (format "Don't know how to weigh a %s of type %s" what (type what)))))
+(defn print-summary-table
+  [stat-map]
+  (let [col-headers (keys (first stat-map))]
+    (pp/print-table col-headers stat-map)
+    (prn)))
 
 (defn summarize
   "Print out a verbose summary of the generated data."
   [data]
   (doseq [[kind {:keys [col]}] data]
     (println (format "%s: %s" kind (count col)))
-    (case kind
-      :catalogs
-        (let [stats (map (fn [{:keys [certname resources edges] :as c}]
-                           (let [resource-weights (sort (map weigh resources))]
-                             {:certname certname
-                              :resource-count (count resources)
-                              :resource-weight (weigh resources)
-                              :min-resource (first resource-weights)
-                              :mean-resource (quot (reduce + resource-weights) (count resource-weights))
-                              :max-resource (last resource-weights)
-                              :edge-count (count edges)
-                              :edge-weight (weigh edges)
-                              :catalog-weight (weigh c)}))
-                           col)]
-          (pp/print-table [:certname
-                           :catalog-weight
-                           :resource-count
-                           :resource-weight
-                           :min-resource
-                           :mean-resource
-                           :max-resource
-                           :edge-count
-                           :edge-weight] stats)
-          (prn))
-      (do
-        (println "default")
-        (prn)))))
+    (let [stats
+           (case kind
+             :catalogs
+               (map (fn [{:keys [certname resources edges] :as c}]
+                      (let [resource-weights (sort (map weigh resources))]
+                        (array-map :certname certname
+                                   :resource-count (count resources)
+                                   :resource-weight (weigh resources)
+                                   :min-resource (first resource-weights)
+                                   :mean-resource (quot (reduce + resource-weights) (count resource-weights))
+                                   :max-resource (last resource-weights)
+                                   :edge-count (count edges)
+                                   :edge-weight (weigh edges)
+                                   :catalog-weight (weigh c))))
+                      col)
+             :facts
+               (map (fn [{:keys [certname values] :as f}]
+                      (let [fact-paths (facts/facts->pathmaps values)
+                            leaves (filter #(not= 5 (:value_type_id %)) fact-paths)
+                            depths (into (sorted-map)
+                                         (group-by #(count (:path_array %)) leaves))
+                            max-depth-keys (as-> depths s
+                                                 (get s (last (keys s)))
+                                                 (map :path_array s))]
+                        (array-map :certname certname
+                                   :fact-count (count leaves)
+                                   :avg-depth (quot
+                                                (reduce (fn [sum [d fps]]
+                                                          (+ sum (* d (count fps))))
+                                                        0, depths)
+                                                (count leaves))
+                                   :max-depth (apply max (keys depths))
+                                   :fact-weight (weigh values)
+                                   :total-weight (weigh f)
+                                   :ex-max-depth-keys (first max-depth-keys))))
+                    col)
+             [{:not-implemented nil}])]
+       (print-summary-table stats))))
 
 (defn generate-data
   "Generate and return a map of facts, catalogs and reports."
@@ -540,17 +619,6 @@
       {:dir (.resolve output-path "reports")
        :namer export/export-filename
        :col reports}}))
-
-(defn silent?
-  "User has requested output silence."
-  [{:keys [silent]}]
-  silent)
-
-(defn verbose?
-  "User has requested verbose output.
-   But make sure silent isn't set..."
-  [{:keys [silent verbose]}]
-  (and verbose (not silent)))
 
 (defn analyze-facts
   "Dev utility function to get some data about a JSON factset file."
@@ -577,7 +645,9 @@
     (when-not (.exists (.toFile output-path))
       (utils/throw-sink-cli-error (trs "Error: output path does not exist: {0}" output-path)))
     (when-not (silent? options)
-      (println (format "Generate from %s and store at %s" options output-path)))
+      (pp/pprint {:generated-from options
+                  :stored-at (format "%s" output-path)})
+      (prn))
     (let [data (generate-data options output-path)]
       (doseq [[_kind d] data]
         (generate-files-from-wireformat-collection d))
@@ -614,6 +684,9 @@
                ;; Facts options
                ["-f" "--num-facts NUMFACTS" "Number of facts to generate in a factset"
                 :default 400
+                :parse-fn #(Integer/parseInt %)]
+               ["-F" "--total-fact-size TOTALFACTSIZE" "Average total weight of the collected facts in kB."
+                :default 10
                 :parse-fn #(Integer/parseInt %)]
                [nil "--max-fact-depth FACTDEPTH" "Maximum depth of the nested structure of additional facts."
                 :default 5
