@@ -281,7 +281,7 @@
                       (parameter-name
                         (rnd/safe-sample-normal 20 5 {:lowerb 5}))
                       (RandomStringUtils/randomAscii
-                        (rnd/safe-sample-normal 50 25 {:upperb size}))))
+                        (rnd/safe-sample-normal 50 25 {:upperb (max 50 size)}))))
         parameters))))
 
 (defn generate-classes
@@ -319,7 +319,7 @@
                    file (rnd/random-pp-path)
                    resource-size (rnd/safe-sample-normal avg-resource-size (quot avg-resource-size 4))
                    tags-mean (-> (quot resource-size 5) (min 200))
-                   tags-size (rnd/safe-sample-normal tags-mean (quot tags-mean 2) {:lowerb 10})
+                   tags-size (rnd/safe-sample-normal tags-mean (quot tags-mean 2) {:lowerb (min tags-mean 10)})
                    parameters-size (max 0
                                      (- resource-size
                                         tags-size

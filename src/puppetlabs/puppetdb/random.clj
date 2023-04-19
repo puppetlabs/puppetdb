@@ -111,6 +111,8 @@
   "Get a random integer from the normal distribution guarded by some sane lower
    and upper bound. If not given, they default to 0 and twice the mean."
   [mean standard-deviation & {:keys [lowerb upperb] :or {lowerb 0 upperb (* 2 mean)}}]
+   (when (> lowerb mean) (throw (ArithmeticException. (format "Called safe-sample-normal with lowerb of %s which is greater than mean of %s." lowerb mean))))
+   (when (< upperb mean) (throw (ArithmeticException. (format "Called safe-sample-normal with upperb of %s which is less than mean of %s." upperb mean))))
    (-> (sample-normal mean standard-deviation) (max lowerb) (min upperb)))
 
 (defn random-pronouncable-word

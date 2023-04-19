@@ -10,7 +10,8 @@
             random-sha1
             random-string
             random-string-alpha
-            random-type-name]]))
+            random-type-name
+            safe-sample-normal]]))
 
 (deftest test-random-string
   (testing "should return a string of specified length"
@@ -116,3 +117,15 @@
                                (merge options
                                       {:standard-deviation 10 :lowerb 5 :upperb 50}))]
           (is (<= 5 (tally dv20 ) 50))))))
+
+(deftest safe-sample-normal-test
+  (testing "positive"
+    (is (<= 0 (safe-sample-normal 2 1) 4)))
+  (testing "bounds"
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with lowerb of 3 which is greater than mean of 2." (safe-sample-normal 2 1 {:lowerb 3})))
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with upperb of 1 which is less than mean of 2." (safe-sample-normal 2 1 {:upperb 1}))))
+  (testing "negative with default bounds"
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with lowerb of 0 which is greater than mean of -2." (safe-sample-normal -2 1)))
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with upperb of -4 which is less than mean of -2." (safe-sample-normal -2 1 {:lowerb -5}))))
+  (testing "negative with appropriate bounds"
+    (is (<= -3 (safe-sample-normal -2 1 {:lowerb -3 :upperb 0}) 0))))
