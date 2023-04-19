@@ -44,60 +44,130 @@
 
    Set --blob-count to 0 to exclude blobs altogether.
 
-   #### Random Distribution
+   ### Facts
 
-   The default catalog generation produces relatively uniform catalogs with equal
-   resource and edge counts and similar byte counts.
+   #### Baseline Facts
+
+   Each fact set begins with a set of baseline facts from:
+   [baseline-agent-node.json](./resources/puppetlabs/puppetdb/generate/samples/facts/baseline-agent-node.json).
+
+   These provide some consistency for a common set of baseline fact paths
+   present on any puppet node. The generator then mutates half of the values to
+   provide variety.
+
+   #### Fact Counts
+
+   The --num-facts parameter controls the number of facts to generate per host.
+
+   There are 376 leaf facts in the baseline file. Setting num-facts less than
+   this will remove baseline facts to approach the requested number of facts.
+   (Empty maps and arrays are not removed from the factset, so it will never
+   pair down to zero.) Setting num-facts to a larger number will add facts of
+   random depth based on --max-fact-depth until the requested count is reached.
+
+   #### Total Facts Size
+
+   The --total-fact-size parameter controls the total weight of the fact values
+   map in kB. Weight is added after count is reached. So if the weight of the
+   adjusted baseline facts already exceeds the total-fact-size, nothing more is
+   done. No attempt is made to pair facts back down the requested size, as this
+   would likely require removing facts.
+
+   #### Max Fact Depth
+
+   The --max-fact-depth parameter is the maximum nested depth a fact added to
+   the baseline facts may reach. For example a max depth of 5, would mean that
+   an added fact would at most be a nest of four maps:
+
+     {foo: {bar: {baz: {biff: boz}}}}
+
+   Since depth is picked randomly for each additional fact, this does not
+   guarantee facts of a given depth. Nor does it directly affect the average
+   depth of facts in the generated factset, although the larger the
+   max-fact-depth and num-facts, the more likely that the average depth will
+   drift higher.
+
+   #### Package Inventory
+
+   TODO
+
+   ### Reports
+
+   TODO
+
+   ### Random Distribution
+
+   The default generation produces relatively uniform structures.
+
+   * for catalogs it generates equal resource and edge counts and similar byte
+     counts.
+   * for factsets it generates equal fact counts and similar byte counts.
 
    Example:
 
-      jpartlow@jpartlow-dev-2204:~/work/src/puppetdb$ lein run generate --verbose
+      jpartlow@jpartlow-dev-2204:~/work/src/puppetdb$ lein run generate --verbose --output-dir generate-test
       ...
-      Generate from {:resource-size 200, :silent false, :additional-edge-percent 50, :random-distribution false, :verbose true, :num-hosts 5, :blob-count 1, :help false, :blob-size 100, :num-resources 100, :num-classes 10, :title-size 20} and store at /tmp/pdb-generate-7287481941956485370
       :catalogs: 5
 
-      |     :certname | :catalog-weight | :resource-count | :resource-weight | :min-resource | :mean-resource | :max-resource | :edge-count | :edge-weight |
-      |---------------+-----------------+-----------------+------------------+---------------+----------------+---------------+-------------+--------------|
-      | host-cuxajo-0 |          170755 |             101 |           153432 |            94 |           1519 |        126759 |         150 |        17023 |
-      | host-vudagu-1 |          172902 |             101 |           156028 |           107 |           1544 |        129527 |         150 |        16574 |
-      | host-jaxoda-2 |          146566 |             101 |           129521 |            80 |           1282 |        102617 |         150 |        16745 |
-      | host-dofuqu-3 |          141793 |             101 |           124675 |           111 |           1234 |         97633 |         150 |        16818 |
-      | host-vibocu-4 |          158409 |             101 |           140961 |           108 |           1395 |        114629 |         150 |        17148 |
+      |     :certname | :resource-count | :resource-weight | :min-resource | :mean-resource | :max-resource | :edge-count | :edge-weight | :catalog-weight |
+      |---------------+-----------------+------------------+---------------+----------------+---------------+-------------+--------------+-----------------|
+      | host-sarasu-0 |             101 |           137117 |            90 |           1357 |        110246 |         150 |        16831 |          154248 |
+      | host-lukoxo-1 |             101 |           132639 |            98 |           1313 |        104921 |         150 |        16565 |          149504 |
+      | host-dykivy-2 |             101 |           120898 |           109 |           1197 |         94013 |         150 |        16909 |          138107 |
+      | host-talyla-3 |             101 |           110328 |           128 |           1092 |         82999 |         150 |        16833 |          127461 |
+      | host-foropy-4 |             101 |           136271 |           106 |           1349 |        109811 |         150 |        16980 |          153551 |
+
+      :facts: 5
+
+      |     :certname | :fact-count | :avg-depth | :max-depth | :fact-weight | :total-weight |
+      |---------------+-------------+------------+------------+--------------+---------------|
+      | host-sarasu-0 |         400 |       2.77 |          7 |        10000 |         10118 |
+      | host-lukoxo-1 |         400 |        2.8 |          7 |        10000 |         10118 |
+      | host-dykivy-2 |         400 |     2.7625 |          7 |        10000 |         10118 |
+      | host-talyla-3 |         400 |     2.7825 |          7 |        10000 |         10118 |
+      | host-foropy-4 |         400 |     2.7925 |          7 |        10000 |         10118 |
       ...
 
-   This mode is best used when generating several sets of catalogs of distinct
-   weights and counts to provide an overall sample set for benchmark that
-   includes some fixed number of fairly well described catalog examples.
+   This mode is best used when generating several different sample sets with
+   distinct weights and counts to provide (when combined) an overall sample set
+   for benchmark that includes some fixed number of fairly well described
+   catalog, fact and report examples.
 
-   By setting --random-distribution to true, you can generate a more random
-   catalog set with class, resource, edge and total blob count randomized. The
-   values used will be picked from a normal curve based on the set value as
-   mean.
+   By setting --random-distribution to true, you can instead generate a more random
+   sample set, where the exact parameter values used per host will be picked
+   from a normal curve based on the set value as mean.
+
+   * for catalogs, this will effect the class, resource, edge and total blob counts
 
    Blobs will be distributed randomly through the set, so if you
    set --blob-count to 2 over --hosts 10, on averge there will be two per
    catalog, but some may have none, others four, etc...
 
+   * for facts, this will effect the fact and package counts, the total weight and the max fact depth.
+
    Example:
 
       jpartlow@jpartlow-dev-2204:~/work/src/puppetdb$ lein run generate --verbose --random-distribution
-      ...
-      Generate from {:resource-size 200, :silent false, :additional-edge-percent 50, :random-distribution true, :verbose true, :num-hosts 5, :blob-count 1, :help false, :blob-size 100, :num-resources 100, :num-classes 10, :title-size 20} and store at /tmp/pdb-generate-5327046227415516789
-        :catalogs: 5
+      :catalogs: 5
 
-        |     :certname | :catalog-weight | :resource-count | :resource-weight | :min-resource | :mean-resource | :max-resource | :edge-count | :edge-weight |
-        |---------------+-----------------+-----------------+------------------+---------------+----------------+---------------+-------------+--------------|
-        | host-denune-0 |          361113 |              92 |           345788 |           120 |           3758 |        115375 |         132 |        15025 |
-        | host-lakezo-1 |           31841 |              76 |            19727 |           119 |            259 |           464 |         106 |        11814 |
-        | host-bysoza-2 |          141905 |             107 |           124171 |           111 |           1160 |         95754 |         153 |        17434 |
-        | host-nyhege-3 |           52469 |             116 |            31495 |           142 |            271 |           419 |         181 |        20674 |
-        | host-suxuto-4 |           63264 |             142 |            39601 |            95 |            278 |           412 |         205 |        23363 |
-      ...
+      |     :certname | :resource-count | :resource-weight | :min-resource | :mean-resource | :max-resource | :edge-count | :edge-weight | :catalog-weight |
+      |---------------+-----------------+------------------+---------------+----------------+---------------+-------------+--------------+-----------------|
+      | host-cevani-0 |             122 |            33831 |            93 |            277 |           441 |         193 |        22044 |           56175 |
+      | host-firilo-1 |              91 |           115091 |           119 |           1264 |         91478 |         130 |        14466 |          129857 |
+      | host-gujudi-2 |             129 |            36080 |           133 |            279 |           465 |         180 |        20230 |           56610 |
+      | host-xegyxy-3 |             106 |           120603 |           136 |           1137 |         92278 |         153 |        17482 |          138385 |
+      | host-jaqomi-4 |             107 |           211735 |            87 |           1978 |         98354 |         159 |        17792 |          229827 |
 
-   ## TODO
+      :facts: 5
 
-   * facts
-   * reports"
+      |     :certname | :fact-count | :avg-depth | :max-depth | :fact-weight | :total-weight |
+      |---------------+-------------+------------+------------+--------------+---------------|
+      | host-cevani-0 |         533 |  3.4690433 |          9 |        25339 |         25457 |
+      | host-firilo-1 |         355 |  2.7464788 |          7 |        13951 |         14069 |
+      | host-gujudi-2 |         380 |       2.75 |          8 |        16111 |         16229 |
+      | host-xegyxy-3 |         360 |  2.7305555 |          7 |         5962 |          6080 |
+      | host-jaqomi-4 |         269 |  2.7695167 |          7 |        16984 |         17102 |
+      ..."
   (:require
     [clojure.data.generators :as dgen]
     [clojure.java.io :as io]
@@ -154,6 +224,21 @@
    But make sure silent isn't set..."
   [{:keys [silent verbose]}]
   (and verbose (not silent)))
+
+(defn vary-param
+  "Return the given param, or if random-distribution is true, pick from a
+   normal distribution with the given param value as mean and a standard
+   deviation of parm-value * stnd-deviation-percent."
+  [param-value random-distribution stnd-deviation-percent & safe-standard-normal-options]
+  (let [stnd-deviation (* param-value stnd-deviation-percent)]
+    (if random-distribution
+      (rnd/safe-sample-normal param-value stnd-deviation safe-standard-normal-options)
+      param-value)))
+
+(defn leaf-fact-paths
+  "Filter for fact-paths that are not collections."
+  [fact-paths]
+  (filter #(not= 5 (:value_type_id %)) fact-paths))
 
 (defn pseudonym
   "Generate a fictitious but somewhat intelligible keyword name."
@@ -345,15 +430,9 @@
 (defn generate-catalog
   [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent random-distribution]}]
   (let [main-stage (rnd/random-resource "Stage" "main")
-        class-count (if random-distribution
-                      (rnd/safe-sample-normal num-classes (quot num-classes 4))
-                      num-classes)
-        resource-count (if random-distribution
-                         (rnd/safe-sample-normal num-resources (quot num-resources 4))
-                         num-resources)
-        edge-percent (if random-distribution
-                       (rnd/safe-sample-normal additional-edge-percent (quot additional-edge-percent 5))
-                       additional-edge-percent)
+        class-count (vary-param num-classes random-distribution 0.25)
+        resource-count (vary-param num-resources random-distribution 0.25)
+        edge-percent (vary-param additional-edge-percent random-distribution 0.2)
         classes (generate-classes class-count title-size)
         resources (generate-resources (- resource-count class-count) resource-size title-size)
         catalog-graph (generate-catalog-graph main-stage classes resources edge-percent)
@@ -496,14 +575,13 @@
 
    NOTE: if total-fact-size is less than the weight of adjusted baseline facts,
    nothing more is done. So count trumps size."
-  [num-facts max-fact-depth total-fact-size-in-kb options]
+  [num-facts max-fact-depth total-fact-size-in-bytes options]
   (let [baseline-factset (load-baseline-factset)
         baseline-values (get baseline-factset "values")
         baseline-fact-paths (shuffle (facts/facts->pathmaps baseline-values))
-        baseline-leaves (filter #(not= 5 (get % :value_type_id)) baseline-fact-paths)
+        baseline-leaves (leaf-fact-paths baseline-fact-paths)
         num-baseline-leaves-to-vary (quot (count baseline-leaves) 2)
-        facts-to-add (- num-facts (count baseline-leaves))
-        total-fact-size-in-bytes (* total-fact-size-in-kb 1000)]
+        facts-to-add (- num-facts (count baseline-leaves))]
     (as-> baseline-values fact-values
       (mutate-fact-values fact-values num-baseline-leaves-to-vary baseline-leaves)
       (if (< facts-to-add 0)
@@ -515,19 +593,23 @@
         (if (> weight total-fact-size-in-bytes)
           (do
             (when-not (silent? options)
-              (println (format "Warning: the weight of the baseline factset adjusted to %s facts is already %s bytes which is greater than the requested total size of %s bytes. To preserve the fact count, nothing else was done." num-facts weight total-fact-size-in-bytes )))
+              (println (format "Warning: the weight of the baseline factset adjusted to %s facts is already %s bytes which is greater than the requested total size of %s bytes." num-facts weight total-fact-size-in-bytes )))
             fact-values)
           (fatten-fact-values fact-values total-fact-size-in-bytes))))))
 
-(defn generate-facts
+(defn generate-factset
   [certname
-   {:keys [num-facts max-fact-depth total-fact-size avg-package-inventory-count] :as options}]
-  {:certname certname
-   :timestamp (now)
-   :environment "production"
-   :producer_timestamp (now)
-   :producer "puppetmaster1"
-   :values (generate-fact-values num-facts max-fact-depth total-fact-size options)})
+   {:keys [num-facts max-fact-depth total-fact-size random-distribution] :as options}]
+  (let [fact-count (vary-param num-facts random-distribution 0.25)
+        total-fact-size-in-bytes (* total-fact-size 1000)
+        facts-weight (vary-param total-fact-size-in-bytes random-distribution 0.5)
+        max-depth (vary-param max-fact-depth random-distribution 0.5)]
+    {:certname certname
+     :timestamp (now)
+     :environment "production"
+     :producer_timestamp (now)
+     :producer "puppetmaster1"
+     :values (generate-fact-values fact-count max-depth facts-weight options)}))
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -577,23 +659,19 @@
              :facts
                (map (fn [{:keys [certname values] :as f}]
                       (let [fact-paths (facts/facts->pathmaps values)
-                            leaves (filter #(not= 5 (:value_type_id %)) fact-paths)
+                            leaves (leaf-fact-paths fact-paths)
                             depths (into (sorted-map)
-                                         (group-by #(count (:path_array %)) leaves))
-                            max-depth-keys (as-> depths s
-                                                 (get s (last (keys s)))
-                                                 (map :path_array s))]
+                                         (group-by #(count (:path_array %)) leaves))]
                         (array-map :certname certname
                                    :fact-count (count leaves)
-                                   :avg-depth (quot
-                                                (reduce (fn [sum [d fps]]
-                                                          (+ sum (* d (count fps))))
-                                                        0, depths)
-                                                (count leaves))
+                                   :avg-depth (float (/
+                                                       (reduce (fn [sum [d fps]]
+                                                                 (+ sum (* d (count fps))))
+                                                               0, depths)
+                                                       (count leaves)))
                                    :max-depth (apply max (keys depths))
                                    :fact-weight (weigh values)
-                                   :total-weight (weigh f)
-                                   :ex-max-depth-keys (first max-depth-keys))))
+                                   :total-weight (weigh f))))
                     col)
              [{:not-implemented nil}])]
        (print-summary-table stats))))
@@ -605,7 +683,7 @@
         hosts (map (fn [i] (format "host-%s-%s" (rnd/random-pronouncable-word) i)) (range num-hosts))
         catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
                      (sprinkle-blobs options))
-        facts (map (fn [host] (generate-facts host options)) hosts)
+        facts (map (fn [host] (generate-factset host options)) hosts)
         reports []]
     {:catalogs
       {:dir (.resolve output-path "catalogs")
@@ -625,13 +703,21 @@
   [file]
   (let [facts (json/parse-string (slurp file))
         values (get facts "values")
-        fact-paths (facts/facts->pathmaps values)]
+        fact-paths (facts/facts->pathmaps values)
+        leaves (leaf-fact-paths fact-paths)]
+    (println "fact-paths depths")
     (pp/print-table [(update-vals
                              (group-by #(format "Depth %s" (count (:path_array %))) fact-paths)
                              count)])
     (prn)
+    (println "leaf fact-paths depths")
+    (pp/print-table [(update-vals
+                             (group-by #(format "Depth %s" (count (:path_array %))) leaves)
+                             count)])
+    (prn)
     (pp/pprint {:total-fact-value-weight (weigh values)
-                :total-weight (weigh facts)})))
+                :total-weight (weigh facts)
+                :total-leaves (count leaves)})))
 
 (defn generate
   "Build up a dataset of sample PuppetDB facts, catalogs and reports based on
@@ -678,8 +764,6 @@
                ["-B" "--blob-size BLOBSIZE" "Average size of a large resource parameter blob in kB."
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
-               [nil "--random-distribution" "Pick from a random distribution of resources, edge percent and blobs to provide a less even catalog set."
-                :default false]
 
                ;; Facts options
                ["-f" "--num-facts NUMFACTS" "Number of facts to generate in a factset"
@@ -689,13 +773,15 @@
                 :default 10
                 :parse-fn #(Integer/parseInt %)]
                [nil "--max-fact-depth FACTDEPTH" "Maximum depth of the nested structure of additional facts."
-                :default 5
+                :default 7
                 :parse-fn #(Integer/parseInt %)]
 
                ;; General options
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
                 :default 5
                 :parse-fn #(Integer/parseInt %)]
+               [nil "--random-distribution" "Pick from a random distribution around the mean of key settings such as num of resources, facts, etc, to provide for less even catalogs, fact sets and reports."
+                :default false]
                ["-o" "--output-dir OUTPUTDIR" "Directory to write output files to. Will allocate in TMPDIR (if set in the environment) or java.io.tmpdir if not given."]
                ["-v" "--verbose" "Whether to provide verbose output."
                 :default false]
