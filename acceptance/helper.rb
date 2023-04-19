@@ -338,7 +338,7 @@ module PuppetDBExtensions
     if is_bullseye
       '7.9.0'
     else
-      '7.0.0'
+      '7.3.1'
     end
   end
 
