@@ -3,11 +3,11 @@ if (test_config[:install_mode] == :upgrade_oldest) \
 
   step "Clean out puppet6 repos to prepare for puppet7 upgrade" do
     # skip this step for bullseye beacause it only installs puppet7 in upgrade_oldest
-    if test_config[:install_mode] == :upgrade_oldest && !(is_bullseye)
+    if test_config[:install_mode] == :upgrade_oldest
       databases.each do |database|
 
         # need to remove puppet6 repo to avoid conflicts when upgrading
-        uninstall_package(database, "puppet6-release")
+        uninstall_package(database, "puppet7-release")
 
         # This is an upgrade oldest test, but we are upgrading now and want the
         # latest platform so specify the :install type to get the proper puppet repo
