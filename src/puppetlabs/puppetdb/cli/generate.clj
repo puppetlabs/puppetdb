@@ -89,7 +89,8 @@
 
    #### Package Inventory
 
-   TODO
+   The --num-packages parameter sets the number of packages to generate for the
+   factset's package_inventory array. Set to 0 to exclude.
 
    ### Reports
 
@@ -597,19 +598,35 @@
             fact-values)
           (fatten-fact-values fact-values total-fact-size-in-bytes))))))
 
+(defn generate-package-inventory
+  "Build a list of package [name, provider, version] vectors per the wire format."
+  [num-packages]
+  (let [providers ;; with 3-5 fake providers
+         (map (fn [_] (rnd/random-pronouncable-word)) (range (+ 3 (rand-int 3))))]
+    (map (fn [_]
+           (let [package-name (parameter-name (rnd/safe-sample-normal 12 7 {:lowerb 5}))
+                 provider (rand-nth providers)
+                 version (format "%s.%s.%s" (rand-int 11) (rand-int 50) (rand-int 100))]
+             [package-name, provider, version]))
+         (range num-packages))))
+
 (defn generate-factset
   [certname
-   {:keys [num-facts max-fact-depth total-fact-size random-distribution] :as options}]
+   {:keys [num-facts max-fact-depth total-fact-size num-packages random-distribution] :as options}]
   (let [fact-count (vary-param num-facts random-distribution 0.25)
         total-fact-size-in-bytes (* total-fact-size 1000)
         facts-weight (vary-param total-fact-size-in-bytes random-distribution 0.5)
-        max-depth (vary-param max-fact-depth random-distribution 0.5)]
-    {:certname certname
-     :timestamp (now)
-     :environment "production"
-     :producer_timestamp (now)
-     :producer "puppetmaster1"
-     :values (generate-fact-values fact-count max-depth facts-weight options)}))
+        max-depth (vary-param max-fact-depth random-distribution 0.5)
+        package-count (vary-param num-packages random-distribution 0.25)
+        factset {:certname certname
+                 :timestamp (now)
+                 :environment "production"
+                 :producer_timestamp (now)
+                 :producer "puppetmaster1"
+                 :values (generate-fact-values fact-count max-depth facts-weight options)}]
+    (if (> num-packages 0)
+      (merge factset {:package_inventory (generate-package-inventory package-count)})
+      factset)))
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -657,7 +674,7 @@
                                    :catalog-weight (weigh c))))
                       col)
              :facts
-               (map (fn [{:keys [certname values] :as f}]
+               (map (fn [{:keys [certname values package_inventory] :or {package_inventory []} :as f}]
                       (let [fact-paths (facts/facts->pathmaps values)
                             leaves (leaf-fact-paths fact-paths)
                             depths (into (sorted-map)
@@ -671,6 +688,8 @@
                                                        (count leaves)))
                                    :max-depth (apply max (keys depths))
                                    :fact-weight (weigh values)
+                                   :package-count (count package_inventory)
+                                   :package-weight (weigh package_inventory)
                                    :total-weight (weigh f))))
                     col)
              [{:not-implemented nil}])]
@@ -774,6 +793,9 @@
                 :parse-fn #(Integer/parseInt %)]
                [nil "--max-fact-depth FACTDEPTH" "Maximum depth of the nested structure of additional facts."
                 :default 7
+                :parse-fn #(Integer/parseInt %)]
+               ["-p" "--num-packages NUMPACKAGES" "Number of packages to include in package inventory"
+                :default 1000
                 :parse-fn #(Integer/parseInt %)]
 
                ;; General options
