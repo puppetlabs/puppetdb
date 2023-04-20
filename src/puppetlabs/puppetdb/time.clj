@@ -337,3 +337,12 @@
    (.getSecondOfMinute date)
    (.getMillisOfSecond date)
    (ZoneId/of (.getID (.getZone date)))))
+
+(defn ephemeral-now-ns
+  "Returns the current time as *signed* integer nanoseconds with respect
+  to some ephemeral time line.  Values are only comparable within the
+  same process, and the range of values may be limited, but
+  differences between successive calls within no more than 250 years
+  of each other will be correct."
+  []
+  (System/nanoTime))

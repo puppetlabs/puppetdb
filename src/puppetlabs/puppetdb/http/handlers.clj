@@ -23,10 +23,10 @@
 
 ;; General route/handler construction functions
 
-(pls/defn-validated extract-query :- bidi-schema/RoutePair
+(pls/defn-validated wrap-typical-query :- bidi-schema/RoutePair
   [param-spec :- params-schema
    routes :- bidi-schema/RoutePair]
-  (cmdi/wrap-routes routes #(http-q/extract-query % param-spec)))
+  (cmdi/wrap-routes routes #(http-q/wrap-typical-query % param-spec)))
 
 (pls/defn-validated append-handler :- bidi-schema/RoutePair
   [route :- bidi-schema/RoutePair
@@ -71,15 +71,16 @@
   [:optimize_drop_unused_joins :include_facts_expiration :explain :origin])
 
 (defn status-response
-  "Executes `query` and if a result is found, calls `found-fn` with
-  that result, returns 404 otherwise."
-  ([version query globals found-fn not-found-response query-params]
+  "Executes `query` and if a row is found, returns `(found row)`,
+  otherwise `(not-found)`."
+  ([version query globals found not-found query-params]
    (let [[item & items] (stream-query-result version query query-params globals)]
      (when (seq items) ;; For now, just log
        (log/error (trs "more than one item returned for singular query")))
+     ;; FIXME: should this respect the pretty parameter?
      (if item
-       (http/json-response (found-fn item))
-       not-found-response))))
+       (http/json-response (found item))
+       (not-found)))))
 
 (defn catalog-status
   "Produces a response body for a request to retrieve the catalog for the node in route-params"
@@ -91,7 +92,7 @@
                        (http-q/narrow-globals globals)
                        #(s/validate catalog-query-schema
                                     (kitchensink/mapvals sutils/parse-db-json [:edges :resources] %))
-                       (http/status-not-found-response "catalog" node)
+                       #(http/status-not-found-response "catalog" node)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn factset-status
@@ -103,7 +104,7 @@
                        ["from" "factsets" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "factset" node)
+                       #(http/status-not-found-response "factset" node)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn node-status
@@ -115,7 +116,7 @@
                        ["from" "nodes" ["=" "certname" node]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "node" node)
+                       #(http/status-not-found-response "node" node)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn environment-status
@@ -127,7 +128,7 @@
                        ["from" "environments" ["=" "name" environment]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "environment" environment)
+                       #(http/status-not-found-response "environment" environment)
                        (select-keys puppetdb-query global-engine-params)))))
 
 (defn producer-status
@@ -139,7 +140,7 @@
                        ["from" "producers" ["=" "name" producer]]
                        (http-q/narrow-globals globals)
                        identity
-                       (http/status-not-found-response "producer" producer)
+                       #(http/status-not-found-response "producer" producer)
                        (select-keys puppetdb-query global-engine-params)))))
 
 ;; Routes
@@ -149,7 +150,8 @@
                                "include_facts_expiration"
                                "include_package_inventory"
                                "explain"
-                               "origin"]})
+                               "origin"
+                               "timeout"]})
 (def paging-params {:optional paging/query-params})
 (def pretty-params {:optional ["pretty"]})
 (def typical-params (merge-param-specs global-params
@@ -168,15 +170,15 @@
                             (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
                             (no-certname-entities (get-entity req)) req
                             :else (http-q/restrict-query-to-active-nodes req))))
-                  (http-q/extract-query-pql
-                   (merge-param-specs typical-params
-                                      {:optional ["ast_only"]
-                                       :required ["query"]}))))))
+                  (http-q/wrap-typical-query
+                   (merge-param-specs typical-params {:optional ["ast_only"]
+                                                      :required ["query"]})
+                   http-q/parse-json-or-pql-query)))))
 
 (pls/defn-validated events-routes :- bidi-schema/RoutePair
   "Ring app for querying events"
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    (merge-param-specs typical-params
                       {:optional ["query"
                                   "distinct_resources"
@@ -189,7 +191,7 @@
 (pls/defn-validated reports-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/routes
-   (extract-query
+   (wrap-typical-query
     typical-params
     (cmdi/ANY "" []
               (create-query-handler version "reports")))
@@ -213,7 +215,7 @@
 
 (pls/defn-validated resources-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -232,14 +234,14 @@
 
 (pls/defn-validated edge-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/ANY "" []
              (create-query-handler version "edges" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated catalog-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
 
@@ -261,7 +263,7 @@
 
 (pls/defn-validated catalog-input-contents-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -270,7 +272,7 @@
 
 (pls/defn-validated catalog-inputs-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -280,7 +282,7 @@
 
 (pls/defn-validated facts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -301,7 +303,7 @@
 
 (pls/defn-validated inventory-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
     typical-params
     (cmdi/routes
       (cmdi/ANY "" []
@@ -310,7 +312,7 @@
 
 (pls/defn-validated packages-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -318,7 +320,7 @@
 
 (pls/defn-validated package-inventory-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
     typical-params
     (cmdi/routes
       (cmdi/ANY "" []
@@ -330,7 +332,7 @@
 
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -346,7 +348,7 @@
 
 (pls/defn-validated fact-names-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/ANY "" []
              (comp
@@ -361,7 +363,7 @@
 
 (pls/defn-validated node-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/routes
     (cmdi/ANY "" []
@@ -380,7 +382,7 @@
 (pls/defn-validated environments-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/routes
-   (extract-query
+   (wrap-typical-query
     typical-params
     (cmdi/ANY "" []
               (create-query-handler version "environments")))
@@ -392,25 +394,25 @@
 
                  (wrap-with-parent-check
                   (cmdi/routes
-                   (extract-query
+                   (wrap-typical-query
                     typical-params
                     (cmdi/context "/facts"
                                   (-> (facts-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
 
-                   (extract-query
+                   (wrap-typical-query
                     typical-params
                     (cmdi/context "/resources"
                                   (-> (resources-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
 
-                   (extract-query
+                   (wrap-typical-query
                     typical-params
                     (cmdi/context "/reports"
                                   (-> (reports-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
 
-                   (extract-query
+                   (wrap-typical-query
                     (merge-param-specs
                      typical-params
                      {:optional ["query"
@@ -426,7 +428,7 @@
 (pls/defn-validated producers-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/routes
-   (extract-query
+   (wrap-typical-query
     typical-params
     (cmdi/ANY "" []
               (create-query-handler version "producers")))
@@ -437,19 +439,19 @@
                                                              pretty-params)))
                  (wrap-with-parent-check
                   (cmdi/routes
-                   (extract-query
+                   (wrap-typical-query
                     typical-params
                     (cmdi/context "/factsets"
                                   (-> (factset-routes version)
                                       (append-handler http-q/restrict-query-to-producer))))
 
-                  (extract-query
+                  (wrap-typical-query
                     typical-params
                     (cmdi/context "/catalogs"
                                   (-> (catalog-routes version)
                                       (append-handler http-q/restrict-query-to-producer))))
 
-                   (extract-query
+                   (wrap-typical-query
                     typical-params
                     (cmdi/context "/reports"
                                   (-> (reports-routes version)
@@ -458,21 +460,21 @@
 
 (pls/defn-validated fact-contents-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/ANY "" []
              (create-query-handler version "fact_contents" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated fact-path-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    typical-params
    (cmdi/ANY "" []
              (create-query-handler version "fact_paths"))))
 
 (pls/defn-validated event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    (merge-param-specs typical-params
                       {:required ["summarize_by"]
                        :optional ["counts_filter" "count_by"
@@ -483,7 +485,7 @@
 
 (pls/defn-validated agg-event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
+  (wrap-typical-query
    (merge-param-specs global-params
                       {:required ["summarize_by"]
                        :optional ["query" "counts_filter" "count_by"

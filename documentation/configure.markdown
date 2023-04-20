@@ -20,6 +20,7 @@ canonical: "/puppetdb/latest/configure.html"
 [ha]: ./ha.markdown
 [node-ttl]: #node-ttl
 [admin-cmd]: ./api/admin/v1/cmd.markdown
+[query-timeout-parameter]: ./api/query/v4/overview.markdown#url-parameters
 
 PuppetDB has three main groups of settings:
 
@@ -208,6 +209,36 @@ override this setting to point to your proxy server.
 
 The `[puppetdb]` section is used to configure PuppetDB
 application-specific behavior.
+
+### `query-timeout-default`
+
+A limit on the number of seconds that a query will be allowed to run,
+defaulting to 10 minutes.  Setting it to zero disables the timeout.
+This limit applies only if the incoming query has not specified its
+own [`timeout`][query-timeout-parameter].  See the `query-timeout-max`
+(below) for a hard upper limit.
+
+If the limit is reached, the query will be interrupted.  At the
+moment, that will result in either a 500 HTTP response status, or
+(more likely) a truncated JSON result if the result has begun
+streaming.  Specifying this parameter is strongly encouraged.
+Lingering queries can consume substantial server resources
+(particularly on the PostgreSQL server) decreasing performance, for
+example, and increasing the maximum required storage space.
+
+At the moment, this limit only applies to the `/pdb//query/..`
+endpoints.
+
+### `query-timeout-max`
+
+An optional limit on the number of seconds that any query will be
+allowed to run.  This limit applies to all queries, and provides an
+upper bound with respect to any `query-timeout-default` setting
+(above) or query-specific [`timeout`][query-timeout-parameter].  See
+the `query-timeout-default` description for additional information.
+
+At the moment, this limit only applies to the `/pdb//query/..`
+endpoints.
 
 ### `certificate-allowlist`
 

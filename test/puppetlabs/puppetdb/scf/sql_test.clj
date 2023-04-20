@@ -7,7 +7,7 @@
    [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [with-puppetdb-instance]]))
 
-; This MUST match the SQL run by resources/ext/cli/delete-reports.erb
+;; This MUST match the SQL run by resources/ext/cli/delete-reports.erb
 (def delete-reports-sql-commands
   ["BEGIN TRANSACTION"
    "UPDATE certnames SET latest_report_id = NULL"

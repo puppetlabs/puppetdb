@@ -206,14 +206,18 @@
     :certificate-allowlist s/Str
     :disable-update-checking (pls/defaulted-maybe String "false")
     :add-agent-report-filter (pls/defaulted-maybe String "true")
-    :log-queries (pls/defaulted-maybe String "false")}))
+    :log-queries (pls/defaulted-maybe String "false")
+    :query-timeout-default (pls/defaulted-maybe String "600")
+    :query-timeout-max (pls/defaulted-maybe String "0")}))
 
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
   {(s/optional-key :certificate-allowlist) s/Str
    :disable-update-checking Boolean
    :add-agent-report-filter Boolean
-   :log-queries Boolean})
+   :log-queries Boolean
+   :query-timeout-default s/Num
+   :query-timeout-max s/Num})
 
 (def developer-config-in
   (all-optional
@@ -485,16 +489,36 @@
         forbid-duplicate-write-db-subnames)))
 
 (defn convert-certificate-whitelist-to-allowlist
+  [pdb-section]
+  (redirect-obsolete-config-setting
+   pdb-section :certificate-whitelist :certificate-allowlist))
+
+(defn convert-query-timeouts
   [config]
-  (update config :puppetdb redirect-obsolete-config-setting
-          :certificate-whitelist :certificate-allowlist))
+  (letfn [(parse-timeout [s what]
+            (let [msg #(trs "Configured {0} timeout must be non-negative number, not {1}"
+                            what (pr-str s))
+                  n (cond
+                      (re-matches #"\d+" s) (Long/parseLong s)
+                      (re-matches #"\d*\.\d+" s) (Double/parseDouble s)
+                      :else (throw-cli-error (msg)))]
+              (cond
+                (neg? n) (throw-cli-error (msg))
+                (zero? n) ##Inf
+                :else n)))]
+    (-> config
+        (update :query-timeout-default parse-timeout "query-timeout-default")
+        (update :query-timeout-max parse-timeout "query-timeout-max"))))
 
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
   [config]
-  (-> (merge {:puppetdb {}} config)
-      convert-certificate-whitelist-to-allowlist
-      (configure-section :puppetdb puppetdb-config-in puppetdb-config-out)))
+  (update config :puppetdb
+          #(-> (or % {})
+               convert-certificate-whitelist-to-allowlist
+               (validate-and-default-incoming-config puppetdb-config-in)
+               convert-query-timeouts
+               (coerce-and-validate-final-config puppetdb-config-out))))
 
 (defn configure-developer
   [config]
