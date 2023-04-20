@@ -33,7 +33,7 @@ module PuppetDBExtensions
 
     platform_version =
       get_option_value(options[:platform_version],
-                       [:puppet5, :puppet6, :puppet7, :puppet8],
+                       [:puppet5, :puppet6, :puppet7, :puppet8, :"puppet8-nightly"],
                        "Puppet Platform Repo Version",
                        "PLATFORM_VERSION",
                        :puppet5)
@@ -315,16 +315,22 @@ module PuppetDBExtensions
   # TODO: when testing X.0.0-SNAPSHOT one of install/upgrade_latest tests
   # will fail because those two tests will need to use different repos
   def puppet_repo_version(platform_version, install_type, nightly)
+    # When adding a new platform version, only puppet8-nightly will be available
+    # for a time. In order to generate packages we will have to run with the nightly
+    # platform version (in addition to our own nightly boolean). This will prune the -nightly
+    # and allow us to function normally.
+    sanitized_version = "#{platform_version}".delete_suffix("-nightly").to_sym
+
     case install_type
     when :install
       if nightly
-        :"#{platform_version}-nightly"
+        :"#{sanitized_version}-nightly"
       else
-        platform_version
+        sanitized_version
       end
     when :upgrade_latest
-      # always use the non-nightly version
-      platform_version
+      # always use the non-nightly version to install released packages
+      sanitized_version
     when :upgrade_oldest
       :puppet7
     end
@@ -338,7 +344,7 @@ module PuppetDBExtensions
     if is_bullseye
       '7.9.0'
     else
-      '7.0.0'
+      '7.3.1'
     end
   end
 
@@ -504,7 +510,7 @@ module PuppetDBExtensions
 
   def enable_https_apt_sources(host)
     manifest = <<-EOS
-      if ($facts['osfamily'] == 'Debian') {
+      if ($facts['os']['family'] == 'Debian') {
         package { 'apt-transport-https': ensure => installed }
       }
     EOS
