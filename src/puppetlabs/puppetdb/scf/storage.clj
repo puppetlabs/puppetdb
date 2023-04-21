@@ -1856,7 +1856,7 @@
 ;; A db version that is "allowed" but not supported is deprecated
 (def oldest-allowed-db [11 0])
 
-(def oldest-supported-db [11 0])
+(def oldest-supported-db [14 0])
 
 (defn timestamp-of-newest-record [entity certname]
   (let [query {:select [:producer_timestamp]
