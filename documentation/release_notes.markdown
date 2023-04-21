@@ -1,1 +1,1 @@
-release_notes_7.markdown
+release_notes_8.markdown
