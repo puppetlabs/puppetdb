@@ -39,8 +39,8 @@ To start using PuppetDB today:
 
 ## Version note
 
-This documentation covers PuppetDB 7, which adds several new features and
-contains some breaking changes since PuppetDB 6.
+This documentation covers PuppetDB 8, which adds several new features and
+contains some breaking changes since PuppetDB 7.
 
 [See the release notes][releasenotes] for information on all
 changes.
@@ -74,10 +74,10 @@ Puppet provides PuppetDB packages and a module which simplify the
 setup of its SSL certificates and init scripts. The packages are
 available for the following operating systems:
 
-* Red Hat Enterprise Linux 6, 7, and 8
+* Red Hat Enterprise Linux 7, and 8
 * SuSE Enterprise Linux 12
-* Debian 8 (Jessie), 9 (Stretch), and 10 (Buster)
-* Ubuntu 16.04 (Xenial) LTS, 18.04 (Bionic) LTS, and 20.04 (focal)
+* Debian 10 (Buster), 11 (Bullseye)
+* Ubuntu 18.04 (Bionic) LTS, and 20.04 (Focal) LTS
 
 [See here for instructions for installing via the PuppetDB module.][install_via_module]
 
@@ -94,15 +94,18 @@ any Unix-like OS with JVM 11 or newer, including:
 
 [See here for advanced installation instructions.][install_advanced]
 
-### Puppet 7.0.0
+### Puppet 8.0.0
 
-Your site's Puppet Server must be running Puppet Server 7.0.0 or later.
+Your site's Puppet Server must be running Puppet Server 8.0.0 or later.
 [You will need to connect your Puppet Servers to PuppetDB after installing it][connect].
 If you wish to use PuppetDB with
 [standalone nodes that are running puppet apply][apply], every node
-must be running 7.0.0 or later.
+must be running 8.0.0 or later.
 
-### PostgreSQL 11
+### PostgreSQL 14
+
+PuppetDB 8 recommends PostgreSQL 14 or later in order to take advantage of new
+features in PostgreSQL.
 
 PuppetDB requires PostgreSQL 11 or later. If not provided by your
 distribution, compatible versions of Postgres can be installed from the PGDG
