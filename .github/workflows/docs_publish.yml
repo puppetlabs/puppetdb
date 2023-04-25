@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - doc-latest
+    - doc-7.y
     - doc-6.y
 
   workflow_dispatch:
