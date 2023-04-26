@@ -26,15 +26,18 @@ of date.
 
 If you are not planning to change your underlying PuppetDB database
 configuration prior to upgrading, you don't need to worry about migrating your
-existing data: PuppetDB will handle this automatically. However, if you plan to
-switch to a different database, you should export your existing data prior to
-changing your database configuration, but you must use PuppetDB 3.x to do so.
-Please consult the [Migrating Data][puppetdb3] for more information.
+existing data: PuppetDB will handle this automatically. If you are upgrading
+your Postgres between minor versions, no changes are needed as well. To upgrade
+your PostgreSQL database from one major version to another consult the
+[PostgreSQL upgrade
+docs](https://www.postgresql.org/docs/current/upgrading.html) for information
+on your options.
 
 ## Upgrading with the PuppetDB module
 
 If you [installed PuppetDB with the module][module], you only need to do the
-following to upgrade:
+following to upgrade between major versions of PuppetDB. The module does not
+automate major version upgrades of the PostgreSQL database.
 
 1. Make sure that the Puppet Server has an updated version of the
    [puppetlabs-puppetdb](https://forge.puppetlabs.com/puppetlabs/puppetdb)
