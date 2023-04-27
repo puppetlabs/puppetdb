@@ -594,7 +594,7 @@
         (if (> weight total-fact-size-in-bytes)
           (do
             (when-not (silent? options)
-              (println (format "Warning: the weight of the baseline factset adjusted to %s facts is already %s bytes which is greater than the requested total size of %s bytes." num-facts weight total-fact-size-in-bytes )))
+              (println (trs "Warning: the weight of the baseline factset adjusted to {0} facts is already {1} bytes which is greater than the requested total size of {2} bytes." num-facts weight total-fact-size-in-bytes )))
             fact-values)
           (fatten-fact-values fact-values total-fact-size-in-bytes))))))
 
