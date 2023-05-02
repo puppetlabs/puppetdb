@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 6026857825dc4945d53f3021167adb87a7c0a8d8\n"
+"X-Git-Ref: bf018cec653d7125dcc16517ef1741627da2c876\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -129,6 +129,12 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
 msgid "Press ctrl-c to stop"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/generate.clj
+msgid ""
+"Warning: the weight of the baseline factset adjusted to {0} facts is already "
+"{1} bytes which is greater than the requested total size of {2} bytes."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/generate.clj
@@ -532,6 +538,10 @@ msgid "gc-interval cannot be negative: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
+msgid "Configured {0} timeout must be non-negative number, not {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
 msgid "Required setting ''vardir'' is not specified."
 msgstr ""
 
@@ -805,6 +815,10 @@ msgid "more than one item returned for singular query"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
+msgid "Query timeout must be non-negative number, not {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid "Missing required query parameter ''{0}''"
 msgstr ""
@@ -829,6 +843,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
 msgid "PuppetDB queries must be made via GET/POST"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
+msgid "Query {0} from {1} exceeded timeout"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http/query.clj
+msgid "Query {0} exceeded timeout"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
@@ -1166,6 +1188,14 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
+msgid "PDBQuery:{0}: from {1} exceeded timeout"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "PDBQuery:{0}: exceeded timeout"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
 msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
@@ -1181,6 +1211,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
 msgid "Unable to stream response: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Impossible situation: query streamer exiting without delivery"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
