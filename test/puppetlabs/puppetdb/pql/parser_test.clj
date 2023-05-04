@@ -285,11 +285,11 @@
          [:condexpression [:field "d"] "=" [:integer "4"]]]
         [:expr-and
          [:expr-not
-          [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
+          [:condexpression [:field "a"] "=" [:integer "1"]]]]]
       [:expr-or
        [:expr-and
         [:expr-not
-         [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]
+         [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]]
 
     "(c = 3 or d = 4) and (a = 1 or b = 2)"
     [[:expr-or
