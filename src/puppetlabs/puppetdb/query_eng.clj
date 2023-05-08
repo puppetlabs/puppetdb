@@ -205,19 +205,22 @@
 (defn time-limited-seq
   "Returns a new sequence of the items in coll that will call on-timeout
   (which must return something seq-ish if it doesn't throw) if the
-  timeout is reached while consuming the collection.  The timeout is
-  with respect to the ephemeral-now-ns timeline."
+  timeout is reached while consuming the collection.  Does nothing
+  given an ##Inf timeout.  The timeout is with respect to the
+  ephemeral-now-ns timeline."
   [coll deadline-ns on-timeout]
   ;; on-timeout must throw or return something seq-ish
   ;; Check before and after realizing each element
-  (lazy-seq
-   (if (> (ephemeral-now-ns) deadline-ns)
-     (on-timeout)
-     (when-let [s (seq coll)]
-       (cons (first s)
-             (if (> (ephemeral-now-ns) deadline-ns)
-               (on-timeout)
-               (time-limited-seq (rest s) deadline-ns on-timeout)))))))
+  (if (= ##Inf deadline-ns)
+    coll
+    (lazy-seq
+     (if (> (ephemeral-now-ns) deadline-ns)
+       (on-timeout)
+       (when-let [s (seq coll)]
+         (cons (first s)
+               (if (> (ephemeral-now-ns) deadline-ns)
+                 (on-timeout)
+                 (time-limited-seq (rest s) deadline-ns on-timeout))))))))
 
 (defn ms-til-ns-deadline
   [deadline-ns]
