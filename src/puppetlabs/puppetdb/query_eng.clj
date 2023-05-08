@@ -227,9 +227,15 @@
   (int (quot (- deadline-ns (ephemeral-now-ns))
              1000000)))
 
-(defn update-pg-timeouts [deadline-ns]
+(defn update-pg-timeouts
+  "Sets the pg query-related timeouts (idle and statement) to respect
+  deadline-ns unless the deadline has passed, then sets them to
+  min-ms."
+  [deadline-ns min-ms]
+  (assert (pos? min-ms))
   (when (some-> deadline-ns (not= ##Inf))
-    (let [timeout-ms (ms-til-ns-deadline deadline-ns)]
+    (let [timeout-ms (ms-til-ns-deadline deadline-ns)
+          timeout-ms (if (pos? timeout-ms) timeout-ms min-ms)]
       (jdbc/do-commands
        (format "set local statement_timeout = %d" timeout-ms)
        (format "set local idle_in_transaction_session_timeout = %d" timeout-ms)))))
@@ -264,7 +270,7 @@
                                    json/generate-string)))
 
          (letfn [(traverse-rows []
-                   (update-pg-timeouts query-deadline-ns)
+                   (update-pg-timeouts query-deadline-ns 1)
                    (let [{:keys [results-query]}
                          (query->sql remaining-query entity version
                                      (merge options
@@ -418,7 +424,7 @@
                       (try
                         (jdbc/with-db-connection db
                           (jdbc/with-db-transaction []
-                            (update-pg-timeouts query-deadline-ns)
+                            (update-pg-timeouts query-deadline-ns 1)
                             (let [{:keys [results-query count-query]}
                                   (query->sql query entity version query-options context)
                                   st (when count-query
@@ -427,7 +433,7 @@
                                                      (float diagnostic-inter-row-sleep) %)
                                   results-query (cond-> results-query
                                                   diagnostic-inter-row-sleep (update 0 add-sleep))]
-                              (update-pg-timeouts query-deadline-ns)
+                              (update-pg-timeouts query-deadline-ns 1)
                               (jdbc/call-with-array-converted-query-rows
                                results-query
                                (when diagnostic-inter-row-sleep {:fetch-size 1})
