@@ -224,26 +224,24 @@
               :or {warn-experimental true}} context
              {:keys [remaining-query entity]} (eng/parse-query-context query warn-experimental)
              munge-fn (get-munge-fn entity version options url-prefix)]
-
          (when log-queries
            ;; Log origin and AST of incoming query
            (log/infof "PDBQuery:%s:%s"
                       query-id (-> (sorted-map :origin origin :ast query)
                                    json/generate-string)))
-
-         (letfn [(traverse-rows []
-                   (jdbc/update-local-timeouts query-deadline-ns 1)
-                   (let [{:keys [results-query]}
-                         (query->sql remaining-query entity version
-                                     (merge options
-                                            (select-keys context [:node-purge-ttl :add-agent-report-filter]))
-                                     (select-keys context [:log-queries :query-id]))
-                         throw-timeout #(throw (query-timeout query-id origin))]
-                     (jdbc/call-with-array-converted-query-rows
-                      results-query
-                      (cond-> (comp row-fn munge-fn)
-                        query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout))))))]
-           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (traverse-rows)))))))))
+         (jdbc/with-db-connection scf-read-db
+           (jdbc/with-db-transaction []
+             (jdbc/update-local-timeouts query-deadline-ns 1)
+             (let [{:keys [results-query]}
+                   (query->sql remaining-query entity version
+                               (merge options
+                                      (select-keys context [:node-purge-ttl :add-agent-report-filter]))
+                               (select-keys context [:log-queries :query-id]))
+                   throw-timeout #(throw (query-timeout query-id origin))]
+               (jdbc/call-with-array-converted-query-rows
+                results-query
+                (cond-> (comp row-fn munge-fn)
+                  query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout))))))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
