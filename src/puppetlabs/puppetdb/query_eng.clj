@@ -30,6 +30,7 @@
    (clojure.lang ExceptionInfo)
    (com.fasterxml.jackson.core JsonParseException)
    (java.io IOException InputStream)
+   (java.sql SQLException)
    (org.postgresql.util PGobject PSQLException)
    (org.joda.time Period)))
 
@@ -223,7 +224,8 @@
        (let [{:keys [scf-read-db url-prefix warn-experimental log-queries]
               :or {warn-experimental true}} context
              {:keys [remaining-query entity]} (eng/parse-query-context query warn-experimental)
-             munge-fn (get-munge-fn entity version options url-prefix)]
+             munge-fn (get-munge-fn entity version options url-prefix)
+             throw-timeout #(throw (query-timeout query-id origin))]
          (when log-queries
            ;; Log origin and AST of incoming query
            (log/infof "PDBQuery:%s:%s"
@@ -231,17 +233,21 @@
                                    json/generate-string)))
          (jdbc/with-db-connection scf-read-db
            (jdbc/with-db-transaction []
-             (jdbc/update-local-timeouts query-deadline-ns 1)
-             (let [{:keys [results-query]}
-                   (query->sql remaining-query entity version
-                               (merge options
-                                      (select-keys context [:node-purge-ttl :add-agent-report-filter]))
-                               (select-keys context [:log-queries :query-id]))
-                   throw-timeout #(throw (query-timeout query-id origin))]
-               (jdbc/call-with-array-converted-query-rows
-                results-query
-                (cond-> (comp row-fn munge-fn)
-                  query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout))))))))))))
+             (try
+               (jdbc/update-local-timeouts query-deadline-ns 1)
+               (let [{:keys [results-query]}
+                     (query->sql remaining-query entity version
+                                 (merge options
+                                        (select-keys context [:node-purge-ttl :add-agent-report-filter]))
+                                 (select-keys context [:log-queries :query-id]))]
+                 (jdbc/call-with-array-converted-query-rows
+                  results-query
+                  (cond-> (comp row-fn munge-fn)
+                    query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
+               (catch SQLException ex
+                 (if (jdbc/local-timeout-ex? ex)
+                   (throw-timeout)
+                   (throw ex)))))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -398,6 +404,10 @@
                                results-query
                                (when diagnostic-inter-row-sleep {:fetch-size 1})
                                #(stream-rows % out st)))))
+                        (catch SQLException ex
+                          (if (jdbc/local-timeout-ex? ex)
+                            (throw-timeout)
+                            (throw ex)))
                         (catch ExceptionInfo ex
                           ;; Handle any timemout here while we can
                           ;; still try to show the client

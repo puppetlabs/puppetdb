@@ -22,9 +22,11 @@
 
 (defn sql-state [kw-name]
   (or ({:admin-shutdown "57P01"
+        :idle-in-transaction-session-timeout "25P03"
+        :idle-session-timeout "57P05"
         :invalid-regular-expression "2201B"
-        :program-limit-exceeded "54000"
         :lock-not-available "55P03"
+        :program-limit-exceeded "54000"
         :query-canceled "57014"}
        kw-name)
       (throw (IllegalArgumentException.
@@ -761,6 +763,17 @@
   (do-commands
    (format "grant connect on database %s to %s"
           (double-quote db) (double-quote role))))
+
+(defn local-timeout-ex?
+  "Returns true if ex is an exception that might have been thrown as a
+  result of the timeouts set by update-local-timeouts."
+  [ex]
+  (let [state (.getSQLState ex)]
+    (case state ;; https://www.postgresql.org/docs/current/errcodes-appendix.html
+      ;; query_canceled
+      ;; idle_in_transaction_session_timeout
+      ("57014" "25P03") true
+      false)))
 
 (defn- ms-until-ns-deadline
   [deadline-ns]
