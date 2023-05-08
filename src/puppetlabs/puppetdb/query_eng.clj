@@ -21,7 +21,8 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [ephemeral-now-ns]]
-            [puppetlabs.puppetdb.utils :as utils :refer [with-log-mdc]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [with-log-mdc time-limited-seq]]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [ring.util.io :as rio]
@@ -201,26 +202,6 @@
    (s/optional-key :log-queries) Boolean
    (s/optional-key :query-id) s/Str
    (s/optional-key :query-deadline-ns) s/Num})
-
-(defn time-limited-seq
-  "Returns a new sequence of the items in coll that will call on-timeout
-  (which must return something seq-ish if it doesn't throw) if the
-  timeout is reached while consuming the collection.  Does nothing
-  given an ##Inf timeout.  The timeout is with respect to the
-  ephemeral-now-ns timeline."
-  [coll deadline-ns on-timeout]
-  ;; on-timeout must throw or return something seq-ish
-  ;; Check before and after realizing each element
-  (if (= ##Inf deadline-ns)
-    coll
-    (lazy-seq
-     (if (> (ephemeral-now-ns) deadline-ns)
-       (on-timeout)
-       (when-let [s (seq coll)]
-         (cons (first s)
-               (if (> (ephemeral-now-ns) deadline-ns)
-                 (on-timeout)
-                 (time-limited-seq (rest s) deadline-ns on-timeout))))))))
 
 (defn ms-til-ns-deadline
   [deadline-ns]
