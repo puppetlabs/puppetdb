@@ -19,18 +19,18 @@
 
 (defn timed-nodes-query
   "Returns [response elapsed-sec]"
-  [& {:keys [timeout]}]
+  [& {:keys [timeout origin]}]
   (let [start (time/ephemeral-now-ns)
         {:keys [body] :as res}
         (-> (assoc *base-url* :prefix "/pdb/query/v4/nodes")
             base-url->str-with-prefix
-            (http/get (merge {:throw-exceptions false
-                              :content-type :json
-                              :character-encoding "UTF-8"
-                              :accept :json
-                              :as :stream}
-                             (when timeout
-                               {:query-params {"timeout" (str timeout)}}))))
+            (http/get (cond-> {:throw-exceptions false
+                               :content-type :json
+                               :character-encoding "UTF-8"
+                               :accept :json
+                               :as :stream}
+                        origin (assoc-in [:query-params "origin"] origin)
+                        timeout (assoc-in [:query-params "timeout"] (str timeout)))))
         body (slurp body)
         end (time/ephemeral-now-ns)]
     [(assoc res :body body)
@@ -123,3 +123,20 @@
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
            (is (< 0.1 elapsed 0.3))))))))
+
+(deftest sync-overrides-max
+  (with-unconnected-test-db
+    (call-with-puppetdb-instance
+     (config :max "0.1")
+     (fn []
+       (jdbc/with-db-transaction [] (add-certnames certnames))
+       (with-redefs [diagnostic-inter-row-sleep 0.01]
+         (let [[{:keys [status body]}]
+               (timed-nodes-query :timeout "2")]
+           (is (= 200 status) "timeout after first row should produce 200")
+           (is (str/includes? body "exceeded timeout")))
+         (doseq [origin ["puppet:puppetdb-sync-batch" "puppet:puppetdb-sync-summary"]]
+           (let [[{:keys [status body]}]
+                 (timed-nodes-query :timeout "2" :origin origin)]
+             (is (= 200 status))
+             (is (= 100 (count (json/parse-string body)))))))))))
