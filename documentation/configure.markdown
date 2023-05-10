@@ -240,6 +240,10 @@ the `query-timeout-default` description for additional information.
 At the moment, this limit only applies to the `/pdb//query/..`
 endpoints.
 
+Note that this maximum does not apply to PuppetDB sync (PE Only)
+queries (with `origin=puppet:puppetdb-sync-*`).  They specify their
+own timeouts related to the sync `entity-time-limit`.
+
 ### `certificate-allowlist`
 
 Optional. This describes the path to a file that contains a list of

@@ -20,8 +20,8 @@
             [puppetlabs.puppetdb.query-eng.default-reports :as dr]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :refer [ephemeral-now-ns]]
-            [puppetlabs.puppetdb.utils :as utils :refer [with-log-mdc]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [with-log-mdc time-limited-seq]]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [ring.util.io :as rio]
@@ -30,6 +30,7 @@
    (clojure.lang ExceptionInfo)
    (com.fasterxml.jackson.core JsonParseException)
    (java.io IOException InputStream)
+   (java.sql SQLException)
    (org.postgresql.util PGobject PSQLException)
    (org.joda.time Period)))
 
@@ -202,35 +203,6 @@
    (s/optional-key :query-id) s/Str
    (s/optional-key :query-deadline-ns) s/Num})
 
-(defn time-limited-seq
-  "Returns a new sequence of the items in coll that will call on-timeout
-  (which must return something seq-ish if it doesn't throw) if the
-  timeout is reached while consuming the collection.  The timeout is
-  with respect to the ephemeral-now-ns timeline."
-  [coll deadline-ns on-timeout]
-  ;; on-timeout must throw or return something seq-ish
-  ;; Check before and after realizing each element
-  (lazy-seq
-   (if (> (ephemeral-now-ns) deadline-ns)
-     (on-timeout)
-     (when-let [s (seq coll)]
-       (cons (first s)
-             (if (> (ephemeral-now-ns) deadline-ns)
-               (on-timeout)
-               (time-limited-seq (rest s) deadline-ns on-timeout)))))))
-
-(defn ms-til-ns-deadline
-  [deadline-ns]
-  (int (quot (- deadline-ns (ephemeral-now-ns))
-             1000000)))
-
-(defn update-pg-timeouts [deadline-ns]
-  (when (some-> deadline-ns (not= ##Inf))
-    (let [timeout-ms (ms-til-ns-deadline deadline-ns)]
-      (jdbc/do-commands
-       (format "set local statement_timeout = %d" timeout-ms)
-       (format "set local idle_in_transaction_session_timeout = %d" timeout-ms)))))
-
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, call row-fn on the
   resulting (munged) row sequence."
@@ -252,27 +224,30 @@
        (let [{:keys [scf-read-db url-prefix warn-experimental log-queries]
               :or {warn-experimental true}} context
              {:keys [remaining-query entity]} (eng/parse-query-context query warn-experimental)
-             munge-fn (get-munge-fn entity version options url-prefix)]
-
+             munge-fn (get-munge-fn entity version options url-prefix)
+             throw-timeout #(throw (query-timeout query-id origin))]
          (when log-queries
            ;; Log origin and AST of incoming query
            (log/infof "PDBQuery:%s:%s"
                       query-id (-> (sorted-map :origin origin :ast query)
                                    json/generate-string)))
-
-         (letfn [(traverse-rows []
-                   (update-pg-timeouts query-deadline-ns)
-                   (let [{:keys [results-query]}
-                         (query->sql remaining-query entity version
-                                     (merge options
-                                            (select-keys context [:node-purge-ttl :add-agent-report-filter]))
-                                     (select-keys context [:log-queries :query-id]))
-                         throw-timeout #(throw (query-timeout query-id origin))]
-                     (jdbc/call-with-array-converted-query-rows
-                      results-query
-                      (cond-> (comp row-fn munge-fn)
-                        query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout))))))]
-           (jdbc/with-db-connection scf-read-db (jdbc/with-db-transaction [] (traverse-rows)))))))))
+         (jdbc/with-db-connection scf-read-db
+           (jdbc/with-db-transaction []
+             (try
+               (jdbc/update-local-timeouts query-deadline-ns 1)
+               (let [{:keys [results-query]}
+                     (query->sql remaining-query entity version
+                                 (merge options
+                                        (select-keys context [:node-purge-ttl :add-agent-report-filter]))
+                                 (select-keys context [:log-queries :query-id]))]
+                 (jdbc/call-with-array-converted-query-rows
+                  results-query
+                  (cond-> (comp row-fn munge-fn)
+                    query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
+               (catch SQLException ex
+                 (if (jdbc/local-timeout-ex? ex)
+                   (throw-timeout)
+                   (throw ex)))))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -415,7 +390,7 @@
                       (try
                         (jdbc/with-db-connection db
                           (jdbc/with-db-transaction []
-                            (update-pg-timeouts query-deadline-ns)
+                            (jdbc/update-local-timeouts query-deadline-ns 1)
                             (let [{:keys [results-query count-query]}
                                   (query->sql query entity version query-options context)
                                   st (when count-query
@@ -424,11 +399,15 @@
                                                      (float diagnostic-inter-row-sleep) %)
                                   results-query (cond-> results-query
                                                   diagnostic-inter-row-sleep (update 0 add-sleep))]
-                              (update-pg-timeouts query-deadline-ns)
+                              (jdbc/update-local-timeouts query-deadline-ns 1)
                               (jdbc/call-with-array-converted-query-rows
                                results-query
                                (when diagnostic-inter-row-sleep {:fetch-size 1})
                                #(stream-rows % out st)))))
+                        (catch SQLException ex
+                          (if (jdbc/local-timeout-ex? ex)
+                            (throw-timeout)
+                            (throw ex)))
                         (catch ExceptionInfo ex
                           ;; Handle any timemout here while we can
                           ;; still try to show the client

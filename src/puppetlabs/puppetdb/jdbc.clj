@@ -5,7 +5,7 @@
             [clojure.tools.logging :as log]
             [honey.sql :as hsql]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.time :as pl-time]
+            [puppetlabs.puppetdb.time :as pl-time :refer [ephemeral-now-ns]]
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [schema.core :as s]
@@ -22,9 +22,11 @@
 
 (defn sql-state [kw-name]
   (or ({:admin-shutdown "57P01"
+        :idle-in-transaction-session-timeout "25P03"
+        :idle-session-timeout "57P05"
         :invalid-regular-expression "2201B"
-        :program-limit-exceeded "54000"
         :lock-not-available "55P03"
+        :program-limit-exceeded "54000"
         :query-canceled "57014"}
        kw-name)
       (throw (IllegalArgumentException.
@@ -761,3 +763,32 @@
   (do-commands
    (format "grant connect on database %s to %s"
           (double-quote db) (double-quote role))))
+
+(defn local-timeout-ex?
+  "Returns true if ex is an exception that might have been thrown as a
+  result of the timeouts set by update-local-timeouts."
+  [ex]
+  (let [state (.getSQLState ex)]
+    (case state ;; https://www.postgresql.org/docs/current/errcodes-appendix.html
+      ;; query_canceled
+      ;; idle_in_transaction_session_timeout
+      ("57014" "25P03") true
+      false)))
+
+(defn- ms-until-ns-deadline
+  [deadline-ns]
+  (int (quot (- deadline-ns (ephemeral-now-ns))
+             1000000)))
+
+(defn update-local-timeouts
+  "Sets the local timeouts (idle and statement) to respect
+  deadline-ns unless the deadline has passed, then sets them to
+  min-ms."
+  [deadline-ns min-ms]
+  (assert (pos? min-ms))
+  (when (some-> deadline-ns (not= ##Inf))
+    (let [timeout-ms (ms-until-ns-deadline deadline-ns)
+          timeout-ms (if (pos? timeout-ms) timeout-ms min-ms)]
+      (do-commands
+       (format "set local statement_timeout = %d" timeout-ms)
+       (format "set local idle_in_transaction_session_timeout = %d" timeout-ms)))))
