@@ -7,6 +7,7 @@
             random-node-name
             random-pp-path
             random-pronouncable-word
+            random-sentence-ish
             random-sha1
             random-string
             random-string-alpha
@@ -65,6 +66,9 @@
       (is (re-matches (re-pattern (str exp-regex-str "{3}")) (random-pronouncable-word)))
       (is (re-matches (re-pattern (str exp-regex-str "{4}")) (random-pronouncable-word 8)))
       (is (re-matches (re-pattern (str exp-regex-str "{3}" consonants)) (random-pronouncable-word 7))))))
+
+(deftest test-random-sentence-ish
+  (is (re-matches #"\A[A-Z]\w*(?: \w+)*\.\Z" (random-sentence-ish))))
 
 (deftest test-distribute
   (let [v5 (vec (map {} (range 5)))

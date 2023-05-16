@@ -265,7 +265,7 @@
   ([]
    (parameter-name 6))
   ([size]
-   (let [p-word-fn #(rnd/random-pronouncable-word 6 2 {:lowerb 1})
+   (let [p-word-fn #(rnd/random-pronouncable-word 6 2)
          words (build-to-size size p-word-fn)]
      (string/join "_" words))))
 
