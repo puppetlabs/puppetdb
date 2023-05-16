@@ -1,9 +1,8 @@
 (ns puppetlabs.puppetdb.cli.generate
   "# Data Generation utility
 
-   This command-line tool can generate a base sampling of catalog files
-   suitable for consumption by the PuppetDB benchmark utility. (Fact and report
-   files are on the todo list.)
+   This command-line tool can generate a base sampling of catalog, fact and
+   report files suitable for consumption by the PuppetDB benchmark utility.
 
    Note that it is only necessary to generate a small set of initial sample
    data since benchmark will permute per node differences. So even if you want
@@ -628,6 +627,47 @@
       (merge factset {:package_inventory (generate-package-inventory package-count)})
       factset)))
 
+(defn generate-report
+  "Generate a report based on the given catalog.
+
+   Ensure that percent-resource-change resources have events.
+
+   Exclude or keep unchanged resources based on exclude-unchanged-resources."
+  [catalog percent-resource-change exclude-unchanged-resources]
+  {})
+
+(defn add-logs-to-reports
+  ""
+  [reports num-additional-logs percent-of-reports-with-additional-logs]
+  reports)
+
+(defn generate-reports
+  "Generate a set of reports for the given catalog based on options."
+  [catalog
+   {:keys [num-reports
+           high-change-reports-percent
+           high-change-resources-percent
+           low-change-reports-percent
+           low-change-resources-percent
+           exclude-unchanged-resources
+           num-additional-logs
+           percent-of-reports-with-additional-logs] :as options}]
+  (let [high-change-count (int (* (/ high-change-reports-percent 100) num-reports))
+        low-change-count (int (* (/ low-change-reports-percent 100) num-reports))
+        no-change-count (- num-reports high-change-count low-change-count)
+        reports-spread [[high-change-count, high-change-resources-percent]
+                        [low-change-count, low-change-resources-percent]
+                        [no-change-count, 0]]
+        reports (reduce
+                  (fn [reports [report-count percent-resource-change]]
+                    (conj reports
+                          (repeatedly report-count
+                                      #(generate-report catalog
+                                                        percent-resource-change
+                                                        exclude-unchanged-resources))))
+                  [], reports-spread)]
+    (add-logs-to-reports reports num-additional-logs percent-of-reports-with-additional-logs)))
+
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
   []
@@ -703,7 +743,8 @@
         catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
                      (sprinkle-blobs options))
         facts (map (fn [host] (generate-factset host options)) hosts)
-        reports []]
+        reports (-> (map (fn [catalog] (generate-reports catalog options)) catalogs)
+                    flatten)]
     {:catalogs
       {:dir (.resolve output-path "catalogs")
        :namer export/export-filename
@@ -761,7 +802,15 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs [;; Catalog generation options
+  (let [validate-options (fn [options]
+                           (cond
+                             (<= (+ (:high-change-reports-percent options)
+                                    (:low-change-reports-percent options)) 100)
+                             (utils/throw-sink-cli-error
+                               (trs "Error: the sum of -h and -l must be less than or equal to 100%"))
+                             :else options))
+
+        specs [;; Catalog generation options
                ["-c" "--num-classes NUMCLASSES" "Number of class resources to generate in catalogs."
                 :default 10
                 :parse-fn #(Integer/parseInt %)]
@@ -784,7 +833,7 @@
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
 
-               ;; Facts options
+               ;; Fact generation options
                ["-f" "--num-facts NUMFACTS" "Number of facts to generate in a factset"
                 :default 400
                 :parse-fn #(Integer/parseInt %)]
@@ -794,9 +843,42 @@
                [nil "--max-fact-depth FACTDEPTH" "Maximum depth of the nested structure of additional facts."
                 :default 7
                 :parse-fn #(Integer/parseInt %)]
-               ["-p" "--num-packages NUMPACKAGES" "Number of packages to include in package inventory"
+               ["-p" "--num-packages NUMPACKAGES" "Number of packages to include in package inventory."
                 :default 1000
                 :parse-fn #(Integer/parseInt %)]
+
+               ;; Report generation options
+               ["-R" "--num-reports NUMREPORTS" "Number of reports to generate per catalog"
+                :default 10
+                :parse-fn #(Integer/parseInt %)]
+               ["-h" "--high-change-reports-percent PERCENTHIGHCHANGEREPORTS" "Percentage of reports per catalog that generate a high number of change events."
+                :default 5
+                :parse-fn #(Float/parseFloat %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               ["-H" "--high-change-resources-percent PERCENTHIGHCHANGERESOURCES" "Percentage of resources with resource events in a high change report."
+                :default 80
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               ["-l" "--low-change-reports-percent PERCENTLOWCHANGEREPORTS" "Percentage of reports per catalog that generate a low number of change events."
+                :default 20
+                :parse-fn #(Float/parseFloat %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               ["-L" "--low-change-resources-percent PERCENTLOWCHANGERESOURCES" "Percentage of resources with resource events in a low change report."
+                :default 5
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               [nil "--[no-]exclude-unchanged-resources" "Whether to exclude unchanged resources from reports."
+                :default true]
+               [nil "--num-additional-logs NUMADDITIONALLOGS" "Number of additional logs to include in reports (can simulate --debug output if desired)."
+                :default 0
+                :parse-fn #(Integer/parseInt %)]
+               ;; Sigh. If we do another round, might want to switch to a
+               ;; config file where these sorts of values can be fiddled rather
+               ;; than --very-long-flags-of-lengthiness
+               [nil "--percent-of-reports-with-additional-logs PERCENTREPORTSADDITIONALLOGS" "Percentage of reports to add the additional logs to, if any additional logs have been set."
+                :default 1
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
 
                ;; General options
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
@@ -814,7 +896,8 @@
       (fn []
         (-> args
             (kitchensink/cli! specs required)
-            first)))))
+            first
+            validate-options)))))
 
 (defn generate-wrapper
   "Generates a set of fact, catalog and report json files based on the given args."
