@@ -25,10 +25,12 @@
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [ring.util.io :as rio]
-            [schema.core :as s])
+            [schema.core :as s]
+            [puppetlabs.trapperkeeper.services.webserver.jetty9-core :refer [*pdb-response*]])
   (:import
    (clojure.lang ExceptionInfo)
    (com.fasterxml.jackson.core JsonParseException)
+   (java.nio ByteBuffer)
    (java.io IOException InputStream)
    (java.sql SQLException)
    (org.postgresql.util PGobject PSQLException)
@@ -314,12 +316,40 @@
       (reset [] (.reset stream))
       (skip [n] (.skip stream n)))))
 
+(defn last-interceptor [interceptor]
+  (->> (iterate #(.getNextInterceptor %) interceptor)
+       (take-while identity)
+       last))
+
+(defn- response-client-gone? [response]
+  ;; Various ssumptions here:
+  ;;   - transport will be non-blocking
+  ;;   - everyone, including jetty, etc. won't miss discarded bytes
+  ;;   - transport will return -1 when client is gone (clearly)
+  ;; It's expected that there won't be any bytes, and read will return 0
+  (let [transport (-> response .getHttpOutput .getInterceptor last-interceptor
+                      .getEndPoint .getTransport)
+        ;; FIXME: should this be bigger, i.e. to clear any kernel,
+        ;; etc.  buffering on our side each time, if the client did
+        ;; send anything?  Or should it be an error (eventually, say
+        ;; in pdb X+1) for the client to send data?
+        buf (ByteBuffer/allocate 1)]
+    (= -1 (.read transport buf))))
+
+(defn- throw-on-client-disconnect [response rows]
+  (map #(if (response-client-gone? response)
+          (throw (ex-info "end-of-line" {}))
+          %)
+       rows))
+
 ;; Could this just be a key in a query/context specific map?
 
 ;; Strictly for testing (seconds) - only works if all the threads
 ;; involved are related via binding conveyance.  Otherwise, we'll need
 ;; a redef.
-(def ^:dynamic diagnostic-inter-row-sleep nil)
+
+;; Slow things down so we can watch the client disconnect behavior.
+(def ^:dynamic diagnostic-inter-row-sleep 0.1)
 
 (defn- body-stream
   "Returns a map whose :stream is an InputStream that produces (via a
@@ -366,10 +396,12 @@
         ;; or...
         stream-rows (fn stream-rows [rows out status-after-query-start]
                       (let [timeout-seq #(time-limited-seq % query-deadline-ns throw-timeout)
+                            ;; ...transducer?
                             rows (cond->> rows
                                    diagnostic-inter-row-sleep (map #(dissoc % :pg_sleep))
                                    true munge-fn
-                                   query-deadline-ns timeout-seq)]
+                                   query-deadline-ns timeout-seq
+                                   true (throw-on-client-disconnect *pdb-response*))]
                         (when-not (instance? PGobject rows)
                           (first rows))
                         (deliver status status-after-query-start)
