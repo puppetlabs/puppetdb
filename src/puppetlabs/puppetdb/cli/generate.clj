@@ -183,7 +183,7 @@
     [puppetlabs.puppetdb.facts :as facts]
     [puppetlabs.puppetdb.nio :refer [get-path]]
     [puppetlabs.puppetdb.random :as rnd]
-    [puppetlabs.puppetdb.time :refer [now]]
+    [puppetlabs.puppetdb.time :as time :refer [now]]
     [puppetlabs.puppetdb.utils :as utils])
   (:import
     [java.nio.file.attribute FileAttribute]
@@ -210,6 +210,7 @@
 (defmethod weigh String [s] (count s))
 (defmethod weigh Number [_] 4)
 (defmethod weigh Boolean [_] 1)
+(defmethod weigh nil [_] 0)
 (defmethod weigh org.joda.time.DateTime [_] 8)
 (defmethod weigh :default
   [what] (throw (Exception. (format "Don't know how to weigh a %s of type %s" what (type what)))))
@@ -286,7 +287,7 @@
 
 (defn generate-classes
   [number title-size]
-  (map (fn [i] (rnd/random-resource "Class" (pseudonym "class" i title-size))) (range number)))
+  (map (fn [i] (rnd/random-kw-resource "Class" (pseudonym "class" i title-size))) (range number)))
 
 (def builtin-puppet-types
   "List of some built in puppet types for randomized resources."
@@ -329,8 +330,8 @@
                                         line-size))
                    tags (build-to-size tags-size tag-word-fn)
                    parameters (build-parameters parameters-size)
-                   resource (rnd/random-resource type-name title {"tags" tags "file" file})]
-               (assoc resource "parameters" parameters)))
+                   resource (rnd/random-kw-resource type-name title {:tags tags :file file})]
+               (assoc resource :parameters parameters)))
            (range number)))))
 
 (defprotocol NamedEdges
@@ -402,8 +403,8 @@
 
 (defn generate-edge
   [{:keys [source target relation]}]
-  {:source (select-keys source ["type" "title"])
-   :target (select-keys target ["type" "title"])
+  {:source (select-keys source [:type :title])
+   :target (select-keys target [:type :title])
    :relationship relation})
 
 (defn add-blob
@@ -424,12 +425,23 @@
         upperb (+ avg-blob-size-in-bytes lowerb)
         bsize (rnd/safe-sample-normal avg-blob-size-in-bytes standard-deviation {:lowerb lowerb :upperb upperb})
         pname (format "content_blob_%s" (rnd/random-pronouncable-word))]
-    (update-in catalog [:resources (rand-int (count resources)) "parameters"]
+    (update-in catalog [:resources (rand-int (count resources)) :parameters]
                #(merge % {pname (RandomStringUtils/randomAscii bsize)}))))
+
+(defn system-seconds-str
+  "Epoch seconds as a string. Used by default as a version string in Puppet
+   catalogs and reports."
+  []
+  (str (quot (System/currentTimeMillis) 1000)))
+
+;; A puppet server.
+(def producer-host "puppet-primary-1")
+;; Default environment for catalogs, facts and reports.
+(def environment "production")
 
 (defn generate-catalog
   [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent random-distribution]}]
-  (let [main-stage (rnd/random-resource "Stage" "main")
+  (let [main-stage (rnd/random-kw-resource "Stage" "main")
         class-count (vary-param num-classes random-distribution 0.25)
         resource-count (vary-param num-resources random-distribution 0.25)
         edge-percent (vary-param additional-edge-percent random-distribution 0.2)
@@ -443,10 +455,12 @@
      :transaction_uuid (kitchensink/uuid)
      :certname certname
      :hash (rnd/random-sha1)
-     :version (str (quot (System/currentTimeMillis) 1000))
-     :producer "puppetmaster1"
+     :environment environment
+     :version (system-seconds-str)
+     :producer producer-host
      :catalog_uuid (kitchensink/uuid)
-     :code_id (rnd/random-sha1)}))
+     :code_id (rnd/random-sha1)
+     :job_id nil}))
 
 (defn sprinkle-blobs
   "Add large text blobs to catalogs.
@@ -619,13 +633,58 @@
         package-count (vary-param num-packages random-distribution 0.25)
         factset {:certname certname
                  :timestamp (now)
-                 :environment "production"
+                 :environment environment
                  :producer_timestamp (now)
-                 :producer "puppetmaster1"
+                 :producer producer-host
                  :values (generate-fact-values fact-count max-depth facts-weight options)}]
     (if (> num-packages 0)
       (merge factset {:package_inventory (generate-package-inventory package-count)})
       factset)))
+
+(defn generate-log
+  "Create one log entry for a report's log array."
+  ([level message] (generate-log {:level level :message message}))
+  ([{:keys [file line level message source tags]
+     :or {level (rand-nth ["info" "notice"])
+          message (rnd/random-sentence-ish)
+          tags #{level}
+          source "Puppet"}}]
+   (let [final-tags (cset/union (set tags) #{level})]
+     {:file file
+      :line line
+      :level level
+      :message message
+      :source source
+      :tags final-tags
+      :time (now)})))
+
+(defn generate-report-logs
+  "Generate log of changes for a report based on a set of changed resources
+   and some boilerplate."
+  [catalog changed-resources]
+  (let [headers (if (> (count changed-resources) 0)
+                  (map #(generate-log "info" %)
+                       [(format "Using environment '%s'" (:environment catalog))
+                        "Retrieving pluginfacts"
+                        "Retrieving plugin"
+                        "Loading facts"
+                        (format "Applying configuration version '%s'" (:version catalog))])
+                  [])
+        footers [(generate-log "notice" (format "Applied catalog in %s.%s seconds"
+                                                (rand-int 100) (rand-int 100)))]
+        changes (map generate-log changed-resources)]
+    (-> (concat headers changes)
+        (concat footers))))
+
+(defn generate-report-metrics
+  ""
+  [catalog changed-resources]
+  [])
+
+(defn generate-report-resources
+  ""
+  [catalog changed-resources exclude-unchanged-resources]
+  [])
 
 (defn generate-report
   "Generate a report based on the given catalog.
@@ -634,11 +693,43 @@
 
    Exclude or keep unchanged resources based on exclude-unchanged-resources."
   [catalog percent-resource-change exclude-unchanged-resources]
-  {})
+  (let [certname (:certname catalog)
+        producer-timestamp (now)
+        start-time (time/minus producer-timestamp (time/seconds (+ 30 (rand-int 30))))
+        end-time (time/minus producer-timestamp (time/seconds 1))
+        status (if (= 0 percent-resource-change) "unchanged" "changed")
+        corrective-change (if (= 0 percent-resource-change)
+                            false
+                            (< 0.5 (rand)))
+        changed-resource-count (if (= 0 percent-resource-change)
+                                 0
+                                 (max 1 (int (* percent-resource-change (count (:resources catalog))))))
+       changed-resources (take changed-resource-count (shuffle (:resources catalog)))]
+    {:certname certname
+     :job_id nil
+     :puppet_version "8.0.1"
+     :report_format 12
+     :configuration_version (system-seconds-str)
+     :producer_timestamp producer-timestamp
+     :start_time start-time
+     :end_time end-time
+     :environment environment
+     :transaction_uuid (kitchensink/uuid)
+     :status status
+     :noop false
+     :noop_pending false
+     :corrective_change corrective-change
+     :logs (generate-report-logs catalog changed-resources)
+     :metrics (generate-report-metrics catalog changed-resources)
+     :resources (generate-report-resources catalog changed-resources exclude-unchanged-resources)
+     :catalog_uuid (kitchensink/uuid)
+     :code_id (rnd/random-sha1)
+     :cached_catalog_status "not_used"
+     :producer producer-host}))
 
 (defn add-logs-to-reports
   ""
-  [reports num-additional-logs percent-of-reports-with-additional-logs]
+  [reports num-additional-logs percent-add-report-logs]
   reports)
 
 (defn generate-reports
@@ -651,7 +742,7 @@
            low-change-resources-percent
            exclude-unchanged-resources
            num-additional-logs
-           percent-of-reports-with-additional-logs] :as options}]
+           percent-add-report-logs] :as options}]
   (let [high-change-count (int (* (/ high-change-reports-percent 100) num-reports))
         low-change-count (int (* (/ low-change-reports-percent 100) num-reports))
         no-change-count (- num-reports high-change-count low-change-count)
@@ -666,7 +757,7 @@
                                                         percent-resource-change
                                                         exclude-unchanged-resources))))
                   [], reports-spread)]
-    (add-logs-to-reports reports num-additional-logs percent-of-reports-with-additional-logs)))
+    (add-logs-to-reports reports num-additional-logs percent-add-report-logs)))
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -875,7 +966,7 @@
                ;; Sigh. If we do another round, might want to switch to a
                ;; config file where these sorts of values can be fiddled rather
                ;; than --very-long-flags-of-lengthiness
-               [nil "--percent-of-reports-with-additional-logs PERCENTREPORTSADDITIONALLOGS" "Percentage of reports to add the additional logs to, if any additional logs have been set."
+               [nil "--percent-add-report-logs PERCENTADDREPORTLOGS" "Percentage of reports to add the additional logs to, if any additional logs have been set."
                 :default 1
                 :parse-fn #(Integer/parseInt %)
                 :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
