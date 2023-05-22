@@ -1,0 +1,145 @@
+#!/usr/bin/env ruby
+#
+# intended to do some basic analysis of the index usage in a given
+# Puppet Enterprise Support Script
+
+def usage
+  <<~USAGETXT
+  Usage:
+      analyze-index-usage DATABASE_NAME SUPPORT_SCRIPT_DIR
+  USAGETXT
+end
+
+def helptext
+  printf usage
+
+  exit 0
+end
+
+def misuse
+  STDERR.printf usage
+
+  exit 2
+end
+
+helptext if ARGV.any? { |arg| arg == "-h" || arg == "--help" }
+
+misuse unless ARGV.length == 2
+
+db_name = ARGV[0]
+support_script = ARGV[1]
+
+# Check for existence of the db stats file
+db_stats_file = File.join(support_script, "enterprise/postgres_db_stats.txt")
+unless File.exist? db_stats_file
+  STDERR.puts "File does not exist #{db_stats_file}"
+  exit 2
+end
+
+def move_enum_to_db_table(enum, db_name, table_name)
+  # Find database section
+  loop do
+    break if /^#{db_name}$/ =~ enum.next
+  end
+
+  # Find table inside the database section
+  loop do
+    break if /^#{table_name}/ =~ enum.next
+  end
+end
+
+def parse_table_columns(enum)
+  # Parse the table column header
+  names = enum.next.split('|').map { |l| l.strip }
+
+  enum.next
+
+  names
+end
+
+def parse_table_rows(enum, column_names)
+  rows = []
+  loop do
+    l = enum.next
+
+    # tables end with (# rows)
+    break if /^\(/ =~ l
+
+    row = l.split('|').map { |l| l.strip }
+
+    h = {}
+    row.each_index do |i|
+      h[column_names[i]] = row[i]
+    end
+    rows << h
+  end
+
+  rows
+end
+
+# Parse the information about table writes
+enum = File.new(db_stats_file).each
+move_enum_to_db_table(enum, db_name, 'pg_stat_user_tables')
+column_names = parse_table_columns(enum)
+
+# Parse the rows, one for each table
+tables = parse_table_rows(enum, column_names)
+
+# convert table array to hash so we can look up each table by name when we
+# print the information for each index below
+table_hash = tables.each_with_object({}) do |v, table_hash|
+  name = v["relname"]
+  table_hash[name] = v
+end
+
+# I don't know if the table ordering is stable, so get a new enumerator
+# before looking for the index usage statistics
+enum = File.new(db_stats_file).each
+move_enum_to_db_table(enum, db_name, 'pg_stat_user_indexes')
+column_names = parse_table_columns(enum)
+
+# Parse the rows, one for each index
+indexes = parse_table_rows(enum, column_names)
+
+puts '%-30s | %-60s | %-12s | %-12s | %-13s | %-13s | %-12s |' % ["tablename", "index_name", "idx_scan", "idx_tup_read", "idx_tup_fetch", 'table_updates', 'total_tup']
+puts '----------------------------------------------------------------------------------------------------------------------------------------------------------------------------'
+
+# Ruby doesn't promise to be a stable sort, but it appears to be. This does a
+# series of sorts to produce a table that's hopefully readable (where the least
+# used indexes are at the bottom). The order is fairly arbitrary.
+indexes.sort_by do |v|
+  v["relname"]
+end.sort_by do |v|
+  v["idx_tup_fetch"].to_i
+end.sort_by do |v|
+  v["idx_tup_read"].to_i
+end.sort_by do |v|
+  v["idx_scan"].to_i
+end.reverse.each do |v|
+  table = v['relname']
+  ts = table_hash[table]
+
+  # updates intends to quantify the rough write load for each index. Whenever a
+  # row is written to, the index will need to be updated, so this sums up all
+  # the writes to the table for each index. hot updates do not create a dead row
+  # and may not update the primary key (or its index), but they will need to update
+  # some other set of indexes.
+  #
+  # Not every update will update every index so this is just an approximation
+  #
+  # Q: does delete actually write to index?
+  updates = ts['n_tup_ins'].to_i + ts['n_tup_upd'].to_i + ts['n_tup_del'].to_i + ts['n_tup_hot_upd'].to_i
+
+  # For each index, the total_tup number and the size of the datatype(s) being
+  # indexed should be roughly the size of the index (plus some inevitable
+  # overhead). This may also vary for indexes that can reduce size by
+  # compression/deduplication
+  #
+  # This number is only an estimate. Dead tuples are still represented in
+  # indexes so they are included in the total. Even tuples that have been
+  # reclaimed by vacuum may still be represented in an index if it doesn't have
+  # many tuples to clean up, so this number is only an estimate.
+  total_tup = ts['n_live_tup'].to_i + ts['n_dead_tup'].to_i
+
+  puts '%-30s | %-60s | %-12s | %-12s | %-13s | %-13s | %-12s |' % [table, v['indexrelname'], v['idx_scan'], v['idx_tup_read'], v['idx_tup_fetch'], updates, total_tup]
+end
