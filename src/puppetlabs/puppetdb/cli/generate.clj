@@ -681,10 +681,54 @@
   [catalog changed-resources]
   [])
 
-(defn generate-report-resources
-  ""
-  [catalog changed-resources exclude-unchanged-resources]
+(defn create-resource-events
+  []
   [])
+
+(defn create-report-resource
+  "Create a report resource map for a report's resources array based on the
+   given catalog resource. Add resource events if changed is true."
+  [catalog catalog-resource changed]
+  (let [contained-by (fn [target-resource]
+                       (first
+                         (filter (fn [{{ttype :type ttitle :title} :target
+                                      :keys [relationship]}]
+                                   (and (= ttype (:type target-resource))
+                                        (= ttitle (:title target-resource))
+                                        (= :contains relationship)))
+                                 (:edges catalog))))
+        rtype (:type catalog-resource)
+        rtitle (:title catalog-resource)
+        rpathstr #(format "%s[%s]" (:type %) (:title %))
+        containment-edges (loop [edge (contained-by catalog-resource)
+                                 path (list {:source {:type rtype :title rtitle}})]
+                            (if (nil? edge)
+                              path
+                              (recur (contained-by (:source edge)) (conj path edge))))
+        containment-path (map (fn [{:keys [source]}] (rpathstr source))
+                              containment-edges)]
+    {:skipped false
+     :timestamp now
+     :resource_type rtype
+     :resource_title rtitle
+     :file (:file catalog-resource)
+     :line (:line catalog-resource)
+     :containment_path containment-path
+     :corrective_change false
+     :events (if changed (create-resource-events) [])}))
+
+(defn generate-report-resources
+  "Generate the list of resources for the given catalog.
+   Generate resource-events for any resouce that is a member of changed-resources.
+   Include or exclude unchanged resources from the list based on the
+   exclude-unchanged-resources flag."
+  [catalog changed-resources exclude-unchanged-resources]
+  (reduce (fn [resources r]
+            (let [changed (some #{r} changed-resources)]
+              (if (or changed (not exclude-unchanged-resources))
+                (conj resources (create-report-resource catalog r changed))
+                resources)))
+          [], (:resources catalog)))
 
 (defn generate-report
   "Generate a report based on the given catalog.
@@ -751,7 +795,7 @@
                         [no-change-count, 0]]
         reports (reduce
                   (fn [reports [report-count percent-resource-change]]
-                    (conj reports
+                    (into reports
                           (repeatedly report-count
                                       #(generate-report catalog
                                                         percent-resource-change

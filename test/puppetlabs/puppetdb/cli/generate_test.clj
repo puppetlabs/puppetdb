@@ -391,3 +391,57 @@
       (let [logs (generate/generate-report-logs catalog [])]
         (is (= 1 (count logs)))
         (is (string/starts-with? (-> logs first (get :message)) "Applied catalog in"))))))
+
+(deftest generate-report-metrics-test
+
+         )
+
+(deftest create-report-resource-test
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        resource (rand-nth (:resources catalog))]
+    (testing "with events"
+      (let [report-resource (generate/create-report-resource catalog resource true)]
+        (clojure.pprint/pprint report-resource)
+         ))
+    (testing "without events"
+      (let [report-resource (generate/create-report-resource catalog resource true)]
+         ))))
+
+(deftest generate-report-resources-test
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        changed-resources (take 10 (shuffle (:resources catalog)))]
+    (testing "with unchanged resources"
+      (testing "with changes"
+        (let [report-resources (generate/generate-report-resources catalog changed-resources false)]
+          (clojure.pprint/pprint report-resources)
+               ))
+      (testing "without changes"
+        (let [report-resources (generate/generate-report-resources catalog [] false)]
+          (clojure.pprint/pprint report-resources)
+               )))
+    (testing "without unchanged resources"
+      (testing "with changes"
+        (let [report-resources (generate/generate-report-resources catalog changed-resources true)]
+          (clojure.pprint/pprint report-resources)
+               ))
+      (testing "with changes"
+        (let [report-resources (generate/generate-report-resources catalog [] true)]
+          (clojure.pprint/pprint report-resources)
+               )))))
+
+(deftest generate-report-test
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        percent-resource-change 10]
+    (testing "unchanged resources excluded"
+      (let [report (generate/generate-report catalog percent-resource-change true)]
+        (is (= (:certname catalog) (:certname report)))))
+    (testing "unchanged resources included"
+      (let [report (generate/generate-report catalog percent-resource-change false)]
+        (is (= (:certname catalog) (:certname report)))))))
+
+(deftest generate-reports-test
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        num-reports (:num-reports default-test-options)
+        reports (generate/generate-reports catalog default-test-options)]
+    (clojure.pprint/pprint reports)
+    (is (= num-reports (count reports)))))
