@@ -229,7 +229,7 @@
 (defn vary-param
   "Return the given param, or if random-distribution is true, pick from a
    normal distribution with the given param value as mean and a standard
-   deviation of parm-value * stnd-deviation-percent."
+   deviation of param-value * stnd-deviation-percent."
   [param-value random-distribution stnd-deviation-percent & safe-standard-normal-options]
   (let [stnd-deviation (* param-value stnd-deviation-percent)]
     (if random-distribution
@@ -681,41 +681,92 @@
   [catalog changed-resources]
   [])
 
+(defn create-event
+  "Generate a resource event of a particular category of size (of values/message).
+   Typically values are small, but may be large in the case of properties like
+   file content, where content is embedded in the catalog, for example."
+  ([]
+   (let [size-class (dgen/weighted {:small  666
+                                    :medium 331
+                                    :large    3})]
+     (create-event size-class)))
+  ([size-class]
+   (let [size (case size-class
+               :small (dgen/uniform 0 30)
+               :medium (dgen/uniform 50 150)
+               ;; This is guesswork that probably needs a knob.
+               ;; On, average will be ~10,000.
+               :large (min (max 1000 (dgen/geometric 0.0001)) 100000)
+               (throw (Exception. (format "create-event expects :small, :medium or :large. Got '%s'" size-class))))]
+     {:new_value (rnd/random-string size)
+      :corrective_change false
+      :property (rnd/random-pronouncable-word)
+      :name (parameter-name)
+      :old_value (rnd/random-string size)
+      :status "success"
+      :timestamp (now)
+      :message (if (< size 10) (rnd/random-sentence-ish 5) (rnd/random-string size))})))
+
 (defn create-resource-events
-  []
-  [])
+  "Creates a set of resource events.
+   If the number of resource-events is not specified it is calculated from a
+   geometric distribution with a high mean very likely to return 1 event, but
+   no more than 10."
+  ([] (create-resource-events {}))
+  ([{:keys [num-events start-time]
+     :or {num-events (min (dgen/geometric 0.95) 10)
+          start-time (now)}}]
+   (let [start-times (reduce (fn [times _]
+                               (let [last-time (or (last times) start-time)]
+                                 (conj times
+                                       (time/plus last-time (time/millis (rand-int 50))))))
+                             [], (range 0 num-events))]
+     (map #(assoc (create-event) :timestamp %) start-times))))
+
+(defn resource-name
+  [resource]
+  (format "%s[%s]" (:type resource) (:title resource)))
+
+(defn containment-path
+  "Return a vector of the resource names containing the given catalog resource in the
+   given catalog.
+   Throws an error if resource is not in catalog."
+  [resource catalog]
+  (when (not (some #{resource} (:resources catalog)))
+    (throw (Exception. (format "containment-path not valid for a resource not in the given catalog. %s" resource))))
+  (let [contains (fn [target-resource]
+                     (->> (:edges catalog)
+                          (filter (fn [{{ttype :type ttitle :title} :target
+                                       :keys [relationship]}]
+                                    (and (= ttype (:type target-resource))
+                                         (= ttitle (:title target-resource))
+                                         (= :contains relationship))))
+                          first
+                          :source))
+        path-resources (loop [parent (contains resource)
+                              path (list resource)]
+                         (if (nil? parent)
+                           path
+                           (recur (contains parent) (conj path parent))))]
+    (->> path-resources
+         (map #(resource-name %))
+         vec)))
 
 (defn create-report-resource
   "Create a report resource map for a report's resources array based on the
    given catalog resource. Add resource events if changed is true."
-  [catalog catalog-resource changed]
-  (let [contained-by (fn [target-resource]
-                       (first
-                         (filter (fn [{{ttype :type ttitle :title} :target
-                                      :keys [relationship]}]
-                                   (and (= ttype (:type target-resource))
-                                        (= ttitle (:title target-resource))
-                                        (= :contains relationship)))
-                                 (:edges catalog))))
-        rtype (:type catalog-resource)
-        rtitle (:title catalog-resource)
-        rpathstr #(format "%s[%s]" (:type %) (:title %))
-        containment-edges (loop [edge (contained-by catalog-resource)
-                                 path (list {:source {:type rtype :title rtitle}})]
-                            (if (nil? edge)
-                              path
-                              (recur (contained-by (:source edge)) (conj path edge))))
-        containment-path (map (fn [{:keys [source]}] (rpathstr source))
-                              containment-edges)]
-    {:skipped false
-     :timestamp now
-     :resource_type rtype
-     :resource_title rtitle
-     :file (:file catalog-resource)
-     :line (:line catalog-resource)
-     :containment_path containment-path
-     :corrective_change false
-     :events (if changed (create-resource-events) [])}))
+  ([catalog catalog-resource changed]
+   (create-report-resource catalog catalog-resource changed (now)))
+  ([catalog catalog-resource changed start-time]
+   {:skipped false
+    :timestamp start-time
+    :resource_type (:type catalog-resource)
+    :resource_title (:title catalog-resource)
+    :file (:file catalog-resource)
+    :line (:line catalog-resource)
+    :containment_path (containment-path catalog-resource catalog)
+    :corrective_change false
+    :events (if changed (create-resource-events {:start-time start-time}) [])}))
 
 (defn generate-report-resources
   "Generate the list of resources for the given catalog.
@@ -723,12 +774,20 @@
    Include or exclude unchanged resources from the list based on the
    exclude-unchanged-resources flag."
   [catalog changed-resources exclude-unchanged-resources]
-  (reduce (fn [resources r]
-            (let [changed (some #{r} changed-resources)]
-              (if (or changed (not exclude-unchanged-resources))
-                (conj resources (create-report-resource catalog r changed))
-                resources)))
-          [], (:resources catalog)))
+  (let [start-time (now)]
+    (reduce
+      (fn [resources r]
+        (let [changed (some #{r} changed-resources)
+              previous-resource (last resources)
+              previous-resource-events (:events previous-resource)
+              last-end-time (or (:timestamp (last previous-resource-events))
+                                (:timestamp previous-resource)
+                                start-time)
+              event-start-time (time/plus last-end-time (time/millis (rand-int 100)))]
+          (if (or changed (not exclude-unchanged-resources))
+            (conj resources (create-report-resource catalog r changed))
+            resources)))
+      [], (:resources catalog))))
 
 (defn generate-report
   "Generate a report based on the given catalog.
@@ -738,9 +797,6 @@
    Exclude or keep unchanged resources based on exclude-unchanged-resources."
   [catalog percent-resource-change exclude-unchanged-resources]
   (let [certname (:certname catalog)
-        producer-timestamp (now)
-        start-time (time/minus producer-timestamp (time/seconds (+ 30 (rand-int 30))))
-        end-time (time/minus producer-timestamp (time/seconds 1))
         status (if (= 0 percent-resource-change) "unchanged" "changed")
         corrective-change (if (= 0 percent-resource-change)
                             false
@@ -748,7 +804,18 @@
         changed-resource-count (if (= 0 percent-resource-change)
                                  0
                                  (max 1 (int (* percent-resource-change (count (:resources catalog))))))
-       changed-resources (take changed-resource-count (shuffle (:resources catalog)))]
+        changed-resources (take changed-resource-count (shuffle (:resources catalog)))
+        report-resources (generate-report-resources catalog changed-resources exclude-unchanged-resources)
+        first-ts (or (:timestamp (first report-resources))
+                     (now)) ;; could be nil if no changed resources and excluding unchanged
+        last-resource (last report-resources)
+        ;; Timestamp of last resource's last event or of the last resource if no events.
+        last-ts (or (:timestamp (last (:events last-resource)))
+                    (:timestamp last-resource)
+                    (now)) ;; could be nil if no changed resources and excluding unchanged
+        start-time (time/minus first-ts (time/seconds (rand-int 60)))
+        end-time (time/plus last-ts (time/seconds (rand-int 60)))
+        producer-timestamp (time/plus end-time (time/seconds 1))]
     {:certname certname
      :job_id nil
      :puppet_version "8.0.1"
@@ -765,7 +832,7 @@
      :corrective_change corrective-change
      :logs (generate-report-logs catalog changed-resources)
      :metrics (generate-report-metrics catalog changed-resources)
-     :resources (generate-report-resources catalog changed-resources exclude-unchanged-resources)
+     :resources report-resources
      :catalog_uuid (kitchensink/uuid)
      :code_id (rnd/random-sha1)
      :cached_catalog_status "not_used"

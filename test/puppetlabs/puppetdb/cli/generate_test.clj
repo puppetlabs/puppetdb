@@ -392,42 +392,76 @@
         (is (= 1 (count logs)))
         (is (string/starts-with? (-> logs first (get :message)) "Applied catalog in"))))))
 
-(deftest generate-report-metrics-test
+(deftest create-event-test
+  (is (< 50 (generate/weigh (generate/create-event :small)) 200))
+  (is (< 200 (generate/weigh (generate/create-event :medium)) 600))
+  (is (< 3000 (generate/weigh (generate/create-event :large)) 300100)))
 
-         )
+(deftest create-resource-events-test
+  (is (<= 1 (count (generate/create-resource-events)) 10))
+  (is (= 2 (count (generate/create-resource-events {:num-events 2}))))
+  (is (apply <= (map #(-> (:timestamp %) time/to-long) (generate/create-resource-events {:num-events 5})))))
+
+(deftest containment-path-test
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})]
+    (testing "not in catalog"
+      (is (thrown-with-msg? Exception #"containment-path not valid for a resource not in the given catalog" (generate/containment-path
+                    (first (generate/generate-resources 1 100 20))
+                    catalog))))
+    (testing "non-root resource"
+      (let [resource (last (:resources catalog))
+            path (generate/containment-path resource catalog)]
+        (is (= 3 (count path)))
+        (is (= (generate/resource-name resource) (last path)))
+        (is (= "Stage[main]" (first path)))))
+    (testing "root resource"
+      (let [resource (first (:resources catalog))
+            path (generate/containment-path resource catalog)]
+        (is (= 1 (count path)))
+        (is (= ["Stage[main]"] path))))))
 
 (deftest create-report-resource-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
         resource (rand-nth (:resources catalog))]
     (testing "with events"
       (let [report-resource (generate/create-report-resource catalog resource true)]
-        (clojure.pprint/pprint report-resource)
-         ))
+        (is (>= (count (:events report-resource)) 1))))
     (testing "without events"
-      (let [report-resource (generate/create-report-resource catalog resource true)]
-         ))))
+      (let [report-resource (generate/create-report-resource catalog resource false)]
+        (is (= 0 (count (:events report-resource))))))))
 
 (deftest generate-report-resources-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
-        changed-resources (take 10 (shuffle (:resources catalog)))]
+        catalog-resources (:resources catalog)
+        changed-resources (take 10 (shuffle catalog-resources))
+        filter-for-events (fn [rresources] (filter #(not (empty? (:events %))) rresources))]
     (testing "with unchanged resources"
       (testing "with changes"
-        (let [report-resources (generate/generate-report-resources catalog changed-resources false)]
-          (clojure.pprint/pprint report-resources)
-               ))
+        (let [report-resources (generate/generate-report-resources catalog changed-resources false)
+              resources-with-events (filter-for-events report-resources)]
+          (is (= (count catalog-resources) (count report-resources)))
+          (is (= (count changed-resources) (count resources-with-events)))
+          (is (apply <= (map #(-> (:timestamp %) time/to-long) report-resources)))))
       (testing "without changes"
-        (let [report-resources (generate/generate-report-resources catalog [] false)]
-          (clojure.pprint/pprint report-resources)
-               )))
+        (let [report-resources (generate/generate-report-resources catalog [] false)
+              resources-with-events (filter-for-events report-resources)]
+          (is (= (count catalog-resources) (count report-resources)))
+          (is (= 0 (count resources-with-events))))))
     (testing "without unchanged resources"
       (testing "with changes"
-        (let [report-resources (generate/generate-report-resources catalog changed-resources true)]
-          (clojure.pprint/pprint report-resources)
-               ))
+        (let [report-resources (generate/generate-report-resources catalog changed-resources true)
+              resources-with-events (filter-for-events report-resources)]
+          (is (= (count changed-resources) (count report-resources)))
+          (is (= (count changed-resources) (count resources-with-events)))
+          (is (apply <= (map #(-> (:timestamp %) time/to-long) report-resources)))))
       (testing "with changes"
-        (let [report-resources (generate/generate-report-resources catalog [] true)]
-          (clojure.pprint/pprint report-resources)
-               )))))
+        (let [report-resources (generate/generate-report-resources catalog [] true)
+              resources-with-events (filter-for-events report-resources)]
+          (is (= 0 (count report-resources)))
+          (is (= 0 (count resources-with-events))))))))
+
+(deftest generate-report-metrics-test
+  (is (= 1 0) "pending"))
 
 (deftest generate-report-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
@@ -443,5 +477,4 @@
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
         num-reports (:num-reports default-test-options)
         reports (generate/generate-reports catalog default-test-options)]
-    (clojure.pprint/pprint reports)
     (is (= num-reports (count reports)))))
