@@ -93,7 +93,57 @@
 
    ### Reports
 
-   TODO
+   #### Reports per Catalog
+   
+   The --num-reports flag governs the number of reports to generate per
+   generated catalog.  Since one catalog is generated per host, this means you
+   will end up with num-hosts * num-reports reports.
+
+   #### Variation in Reports
+
+   A report details change, or lack there of, during enforcement of the puppet
+   catalog on the host. Since the benchmark tool currently chooses randomly from the
+   given report files, a simple mechanism for determining the likelihood of
+   receiving a report of a particular size (with lots of changes, few changes or
+   no changes) is to produce multiple reports of each type per host to generate
+   a weighted average. (If there are 10 reports, 2 are large and 8 are small,
+   then it's 80% likely any given report submission submitted by benchmark will
+   be of the small variety...)
+
+   The knobs to control this with the generate tool are:
+
+   * --num-reports, to determine the base number of reports to generate per catalog
+   * --high-change-reports-percent, percentage of that base to generate as
+     reports with a high number of change events, as determined by:
+   * --high-change-resource-percent, percentage of resources in a high change
+     report that will experience events (changes)
+   * --low-change-reports-percent, percentage of the base reports to generate
+     as reports with a low number of change events as determined by:
+   * --low-change-resource-percent, percentage of resources in a low change
+     report that will experience events (changes)
+
+   The left over percentage of reports will be no change reports (generally the
+   most common) indicating the report run was steady-state with no changes.
+
+   #### Unchanged Resources
+
+   In Puppet 8, by default, the agent no longer includes unchanged resources in
+   the report, reducing its size.
+
+   The generate tool also does this by default, but you can set
+   --no-exclude-unchanged-resources to instead include unchanged resources in
+   every report (for default Puppet 7 behavior, for example).
+
+   #### Logs
+
+   In addition to a few boilerplate log lines, random logs are generated for
+   each change event in the report. However other factors, such as pluginsync,
+   puppet runs with debug lines and additional logging in modules can increase
+   log output (quite dramatically in the case of debug output from the agent).
+
+   To simulate this, you can set --num-additional-logs to include in a report.
+   And you can set --percent-add-report-logs to indicate what percentage of
+   reports have this additional number of logs included.
 
    ### Random Distribution
 
@@ -144,6 +194,8 @@
    catalog, but some may have none, others four, etc...
 
    * for facts, this will effect the fact and package counts, the total weight and the max fact depth.
+
+   This has no effect on generated reports at the moment.
 
    Example:
 
