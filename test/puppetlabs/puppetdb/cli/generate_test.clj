@@ -461,7 +461,10 @@
           (is (= 0 (count resources-with-events))))))))
 
 (deftest generate-report-metrics-test
-  (is (= 1 0) "pending"))
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        resources (:resources catalog)
+        report-metrics (generate/generate-report-metrics resources 10)]
+    (is (< 600 (generate/weigh report-metrics) 800))))
 
 (deftest generate-report-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})

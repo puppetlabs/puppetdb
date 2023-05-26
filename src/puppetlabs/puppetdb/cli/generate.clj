@@ -677,9 +677,48 @@
         (concat footers))))
 
 (defn generate-report-metrics
-  ""
-  [catalog changed-resources]
-  [])
+  "This builds a fake set of metrics that's representative as far as general size.
+   Metrics are just stored as part of the report blob and aren't decomposed or
+   otherwise functional within puppetdb itself, so not trying to make them particularly
+   accurate as far as representing a real report run."
+  [catalog-resources event-count]
+  (let [resources-categories ["changed"
+                              "corrective_change"
+                              "failed"
+                              "failed_to_restart"
+                              "out_of_sync"
+                              "restarted"
+                              "scheduled"
+                              "skipped"]
+        total (count catalog-resources)
+        times-categories (->> catalog-resources
+                              (map (fn [resource]
+                                     (-> resource
+                                         :type
+                                         (string/split #"::")
+                                         last
+                                         string/lower-case)))
+                              set)]
+    (concat
+      (map (fn [cname] {"name" cname "value" 0 "category" "resources"})
+           resources-categories)
+      (map (fn [rname] {"name" rname
+                        "value" (dgen/weighted {#(dgen/float), 4
+                                                #(+ (rand-int 50) (dgen/float)), 1})
+                        "category" "times"})
+           times-categories)
+      [{"name" "total"
+        "value" event-count
+        "category" "changes"}
+       {"name" "failure"
+        "value" 0
+        "category" "events"}
+       {"name" "success"
+        "value" event-count
+        "category" "events"}
+       {"name" "total"
+        "value" event-count
+        "category" "events"}])))
 
 (defn create-event
   "Generate a resource event of a particular category of size (of values/message).
@@ -806,6 +845,9 @@
                                  (max 1 (int (* percent-resource-change (count (:resources catalog))))))
         changed-resources (take changed-resource-count (shuffle (:resources catalog)))
         report-resources (generate-report-resources catalog changed-resources exclude-unchanged-resources)
+        event-count (reduce (fn [sum r]
+                              (+ sum (count (:events r))))
+                            0, report-resources)
         first-ts (or (:timestamp (first report-resources))
                      (now)) ;; could be nil if no changed resources and excluding unchanged
         last-resource (last report-resources)
@@ -831,7 +873,7 @@
      :noop_pending false
      :corrective_change corrective-change
      :logs (generate-report-logs catalog changed-resources)
-     :metrics (generate-report-metrics catalog changed-resources)
+     :metrics (generate-report-metrics (:resources catalog) event-count)
      :resources report-resources
      :catalog_uuid (kitchensink/uuid)
      :code_id (rnd/random-sha1)
