@@ -128,6 +128,10 @@
    :percent-add-report-logs 1
    :silent true})
 
+(defn slurp-json-files-in
+  [dir]
+  (map #(json/parse-string (slurp %)) (.listFiles dir)))
+
 (deftest generate-test
   (let [tmpdir (generate/create-temp-dir)
         options (merge default-test-options {:output-dir (.toString tmpdir)})
@@ -138,12 +142,13 @@
         total-fact-size (:total-fact-size options)
         num-packages (:num-packages options)
         additional-edge-% (/ (:additional-edge-percent options) 100.0)
-        num-edges (+ num-resources (int (* num-resources additional-edge-%)))]
+        num-edges (+ num-resources (int (* num-resources additional-edge-%)))
+        num-reports (:num-reports options)]
     (testing "without blobs"
       (try
         (generate/generate options)
         (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
-              catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))
+              catalogs (slurp-json-files-in catalog-dir)
               total-weight (->> catalogs (map generate/weigh) (reduce +))]
           (testing "generation of catalog files"
             (is (= num-hosts (count catalogs)))
@@ -170,7 +175,7 @@
                 (is (< 20 (:w min-footprint) 150) (format "Odd min-footprint %s" min-footprint))
                 (is (< resource-size (:w max-footprint) (* resource-size 2.5)) (format "Odd max-footprint %s" max-footprint))))))
         (let [facts-dir (.toFile (.resolve tmpdir "facts"))
-              factsets (map #(json/parse-string (slurp %)) (.listFiles facts-dir))
+              factsets (slurp-json-files-in facts-dir)
               total-weight (->> factsets (map generate/weigh) (reduce +))
               total-fact-size-in-bytes (* total-fact-size 1000)
               est-factset-weight (+ total-fact-size-in-bytes
@@ -184,13 +189,28 @@
                     weight (generate/weigh facts)]
                 (is (= num-facts (count leaf-paths)))
                 (is (<= total-fact-size-in-bytes weight (* total-fact-size-in-bytes 1.25)))))))
+        (let [reports-dir (.toFile (.resolve tmpdir "reports"))
+              reports (slurp-json-files-in reports-dir)
+              reports-by-host (group-by #(get % "certname") reports)]
+          (testing "generation of report files"
+            (is (= (* num-hosts num-reports) (count reports)))
+            (is (< 500000 (generate/weigh reports) 1000000))
+            (doseq [[certname host-reports] reports-by-host]
+              (let [unchanged (filter #(empty? (get % "resources")) host-reports)
+                    changed (cset/difference (set host-reports) (set unchanged))]
+                (is (< (* 50000 (count changed))
+                       (generate/weigh changed)
+                       (* 200000 (count changed))))
+                (is (< (* 1300 (count unchanged))
+                       (generate/weigh unchanged)
+                       (* 2200 (count unchanged))))))))
         (finally (shell/sh "rm" "-rf" (.toString tmpdir)))))
     (testing "with blobs"
       (try
         (shell/sh "mkdir" (.toString tmpdir))
         (generate/generate (merge options {:blob-count 1}))
         (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
-              catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))]
+              catalogs (slurp-json-files-in catalog-dir)]
           (testing "generation of catalog files"
             (doseq [cat catalogs]
                 (is (= (+ num-resources 1) (count (get cat "resources"))))
@@ -204,7 +224,7 @@
         (shell/sh "mkdir" (.toString tmpdir))
         (generate/generate (merge options {:blob-count 2 :random-distribution true}))
         (let [catalog-dir (.toFile (.resolve tmpdir "catalogs"))
-              catalogs (map #(json/parse-string (slurp %)) (.listFiles catalog-dir))]
+              catalogs (slurp-json-files-in catalog-dir)]
           (testing "generation of catalog files"
             (doseq [cat catalogs]
               (let [resource-count (count (get cat "resources"))
@@ -214,7 +234,7 @@
             (let [total-weight (->> catalogs (map generate/weigh) (reduce +))]
               (is (> total-weight 900000)))))
         (let [facts-dir (.toFile (.resolve tmpdir "facts"))
-              factsets (map #(json/parse-string (slurp %)) (.listFiles facts-dir))
+              factsets (slurp-json-files-in facts-dir)
               total-weight (->> factsets (map generate/weigh) (reduce +))
               total-fact-size-in-bytes (* total-fact-size 1000)
               est-factset-weight (+ total-fact-size-in-bytes
@@ -238,7 +258,7 @@
         output (with-out-str (generate/summarize data))]
     (is (re-find #":catalogs: 5\b" output))
     (is (re-find #":facts: 5\b" output))
-    (is (re-find #":reports: 0\b" output))))
+    (is (re-find #":reports: 50\b" output))))
 
 (deftest create-new-facts-test
   (let [facts (generate/create-new-facts 100 5)

@@ -976,6 +976,20 @@
                                    :package-weight (weigh package_inventory)
                                    :total-weight (weigh f))))
                     col)
+             :reports
+               (map (fn [{:keys [certname logs resources metrics] :as r}]
+                      (let [unchanged (filter #(empty? (:events %)) resources)
+                            changed (cset/difference (set resources) (set unchanged))]
+                        (array-map :certname certname
+                                   :resources (count resources)
+                                   :unchanged (count unchanged)
+                                   :changed (count changed)
+                                   :log-weight (weigh logs)
+                                   :metrics-weight (weigh metrics)
+                                   :unchanged-weight (weigh unchanged)
+                                   :changed-weight (weigh changed)
+                                   :total-weight (weigh r))))
+                    col)
              [{:not-implemented nil}])]
        (print-summary-table stats))))
 
@@ -1048,10 +1062,10 @@
   [args]
   (let [validate-options (fn [options]
                            (cond
-                             (<= (+ (:high-change-reports-percent options)
-                                    (:low-change-reports-percent options)) 100)
+                             (<= 100 (+ (:high-change-reports-percent options)
+                                        (:low-change-reports-percent options)))
                              (utils/throw-sink-cli-error
-                               (trs "Error: the sum of -h and -l must be less than or equal to 100%"))
+                               (trs "Error: the sum of -i and -l must be less than or equal to 100%"))
                              :else options))
 
         specs [;; Catalog generation options
@@ -1095,11 +1109,11 @@
                ["-R" "--num-reports NUMREPORTS" "Number of reports to generate per catalog"
                 :default 10
                 :parse-fn #(Integer/parseInt %)]
-               ["-h" "--high-change-reports-percent PERCENTHIGHCHANGEREPORTS" "Percentage of reports per catalog that generate a high number of change events."
+               ["-i" "--high-change-reports-percent PERCENTHIGHCHANGEREPORTS" "Percentage of reports per catalog that generate a high number of change events."
                 :default 5
                 :parse-fn #(Float/parseFloat %)
                 :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
-               ["-H" "--high-change-resources-percent PERCENTHIGHCHANGERESOURCES" "Percentage of resources with resource events in a high change report."
+               ["-I" "--high-change-resources-percent PERCENTHIGHCHANGERESOURCES" "Percentage of resources with resource events in a high change report."
                 :default 80
                 :parse-fn #(Integer/parseInt %)
                 :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
