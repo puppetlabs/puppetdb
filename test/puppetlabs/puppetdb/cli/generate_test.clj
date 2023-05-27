@@ -195,7 +195,7 @@
           (testing "generation of report files"
             (is (= (* num-hosts num-reports) (count reports)))
             (is (< 500000 (generate/weigh reports) 1000000))
-            (doseq [[certname host-reports] reports-by-host]
+            (doseq [[_ host-reports] reports-by-host]
               (let [unchanged (filter #(empty? (get % "resources")) host-reports)
                     changed (cset/difference (set host-reports) (set unchanged))]
                 (is (< (* 50000 (count changed))
@@ -454,14 +454,23 @@
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
         catalog-resources (:resources catalog)
         changed-resources (take 10 (shuffle catalog-resources))
-        filter-for-events (fn [rresources] (filter #(not (empty? (:events %))) rresources))]
+        filter-for-events (fn [rresources] (filter #(seq (:events %)) rresources))]
     (testing "with unchanged resources"
       (testing "with changes"
         (let [report-resources (generate/generate-report-resources catalog changed-resources false)
               resources-with-events (filter-for-events report-resources)]
           (is (= (count catalog-resources) (count report-resources)))
           (is (= (count changed-resources) (count resources-with-events)))
-          (is (apply <= (map #(-> (:timestamp %) time/to-long) report-resources)))))
+          (let [epoch-seconds (map #(-> (:timestamp %) time/to-long) report-resources)
+                time-between (loop [[t & remainder] epoch-seconds
+                                    differences []]
+                               (if (empty? remainder)
+                                 differences
+                                 (recur remainder
+                                        (conj differences (- (first remainder) t)))))
+                avg-millis-between-ts (quot (reduce + time-between) (count time-between))]
+            (is (apply <= epoch-seconds))
+            (is (> avg-millis-between-ts 25)))))
       (testing "without changes"
         (let [report-resources (generate/generate-report-resources catalog [] false)
               resources-with-events (filter-for-events report-resources)]
@@ -495,6 +504,31 @@
     (testing "unchanged resources included"
       (let [report (generate/generate-report catalog percent-resource-change false)]
         (is (= (:certname catalog) (:certname report)))))))
+
+(deftest add-logs-to-reports-test
+  (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        reports (generate/generate-reports catalog default-test-options)
+        log-counts (sort (map #(count (:logs %)) reports))]
+    (testing "no additional logs"
+      (let [modified-reports (generate/add-logs-to-reports reports 0 21)]
+        (is (= reports modified-reports) "Adding zero additional logs does nothing to reports.")))
+    (testing "additional logs"
+      (let [modified-reports (generate/add-logs-to-reports reports 10 21)
+            modified-log-counts (sort (map #(count (:logs %)) modified-reports))]
+        (is (= 2 (count (cset/difference (set reports) (set modified-reports)))) "Two reports get additional logs")
+        (is (= (+ (reduce + log-counts) (* 10 (int (* 0.21 (count reports)))))
+               (reduce + modified-log-counts))))))
+  (testing "simple structures"
+    (let [fakes [{:certname "first"
+                  :logs [{:a 1}{:b 2}]}
+                 {:certname "second"
+                  :logs [{:a 1}{:b 2}]}
+                 {:certname "third"
+                  :logs [{:a 1}{:b 2}]}]
+          modified (generate/add-logs-to-reports fakes 2 33)]
+      (is (= 8 (reduce (fn [sum r]
+                         (+ sum (count (:logs r))))
+                       0, modified))))))
 
 (deftest generate-reports-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})

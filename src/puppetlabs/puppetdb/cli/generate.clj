@@ -742,7 +742,6 @@
                               "restarted"
                               "scheduled"
                               "skipped"]
-        total (count catalog-resources)
         times-categories (->> catalog-resources
                               (map (fn [resource]
                                      (-> resource
@@ -876,7 +875,7 @@
                                 start-time)
               event-start-time (time/plus last-end-time (time/millis (rand-int 100)))]
           (if (or changed (not exclude-unchanged-resources))
-            (conj resources (create-report-resource catalog r changed))
+            (conj resources (create-report-resource catalog r changed event-start-time))
             resources)))
       [], (:resources catalog))))
 
@@ -933,9 +932,20 @@
      :producer producer-host}))
 
 (defn add-logs-to-reports
-  ""
+  "Adds additional logs to some percentage of reports."
   [reports num-additional-logs percent-add-report-logs]
-  reports)
+  (let [add-report-logs-% (/ percent-add-report-logs 100.0)
+        num-reports-to-modify (max (int (* add-report-logs-% (count reports))) 1)
+        reports-to-modify (take num-reports-to-modify (shuffle reports))
+        cond-increase-logs
+          (fn [report]
+            (if (some #{report} reports-to-modify)
+              (let [logs (:logs report)
+                    additional (repeatedly num-additional-logs
+                                           #(generate-log {:level "debug"}))]
+                (assoc report :logs (vec (concat logs additional))))
+              report))]
+    (map cond-increase-logs reports)))
 
 (defn generate-reports
   "Generate a set of reports for the given catalog based on options."
@@ -947,7 +957,7 @@
            low-change-resources-percent
            exclude-unchanged-resources
            num-additional-logs
-           percent-add-report-logs] :as options}]
+           percent-add-report-logs]}]
   (let [high-change-count (int (* (/ high-change-reports-percent 100) num-reports))
         low-change-count (int (* (/ low-change-reports-percent 100) num-reports))
         no-change-count (- num-reports high-change-count low-change-count)
