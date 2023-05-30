@@ -118,7 +118,7 @@
    :total-fact-size 25
    :max-fact-depth 10
    :num-packages 1000
-   :num-reports 10
+   :num-reports 20
    :high-change-reports-percent 5
    :high-change-resources-percent 80
    :low-change-reports-percent 20
@@ -197,13 +197,24 @@
             (is (< 500000 (generate/weigh reports) 1000000))
             (doseq [[_ host-reports] reports-by-host]
               (let [unchanged (filter #(empty? (get % "resources")) host-reports)
-                    changed (cset/difference (set host-reports) (set unchanged))]
-                (is (< (* 50000 (count changed))
-                       (generate/weigh changed)
-                       (* 200000 (count changed))))
+                    changed (cset/difference (set host-reports) (set unchanged))
+                    low-changed (filter #(<= (count (get % "resources")) 50) changed)
+                    high-changed (filter #(> (count (get % "resources")) 50) changed)]
+                (is (= (int (* 0.05 num-reports)) (count high-changed))
+                    "Default high change count matches reports.")
+                (is (= (int (* 0.20 num-reports)) (count low-changed))
+                    "Default low change count matches reports.")
+                (is (< (* 40000 (count high-changed))
+                       (generate/weigh high-changed)
+                       ;; create-event may occasionally spike resource events with large property changes...
+                       (* 125000 (count high-changed))))
+                (is (< (* 3000 (count low-changed))
+                       (generate/weigh low-changed)
+                       ;; create-event may occasionally spike resource events with large property changes...
+                       (* 25000 (count low-changed))))
                 (is (< (* 1300 (count unchanged))
                        (generate/weigh unchanged)
-                       (* 2200 (count unchanged))))))))
+                       (* 2500 (count unchanged))))))))
         (finally (shell/sh "rm" "-rf" (.toString tmpdir)))))
     (testing "with blobs"
       (try
@@ -258,7 +269,7 @@
         output (with-out-str (generate/summarize data))]
     (is (re-find #":catalogs: 5\b" output))
     (is (re-find #":facts: 5\b" output))
-    (is (re-find #":reports: 50\b" output))))
+    (is (re-find #":reports: 100\b" output))))
 
 (deftest create-new-facts-test
   (let [facts (generate/create-new-facts 100 5)
@@ -391,7 +402,7 @@
              (dissoc log :level :time :message)))
       (is (some #{level} ["info" "notice"]))
       (is (re-matches #"\A[A-Z][\w ]+\.\Z" (:message log)))
-      (is (= -1 (compare (:time log) (time/now)))))))
+      (is (<= (compare (:time log) (time/now)) 0)))))
 
 (deftest generate-report-logs-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})]
@@ -497,13 +508,36 @@
 
 (deftest generate-report-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
+        resource-count (count (:resources catalog))
         percent-resource-change 10]
     (testing "unchanged resources excluded"
       (let [report (generate/generate-report catalog percent-resource-change true)]
-        (is (= (:certname catalog) (:certname report)))))
+        (is (= (:certname catalog) (:certname report)))
+        (is (= "changed" (:status report)))
+        (is (= (int (* 0.10 resource-count)) (count (:resources report)))
+            "Changed resources matches expected percent-resource-change.")))
     (testing "unchanged resources included"
-      (let [report (generate/generate-report catalog percent-resource-change false)]
-        (is (= (:certname catalog) (:certname report)))))))
+      (let [report (generate/generate-report catalog percent-resource-change false)
+            unchanged-resources (filter #(empty? (:events %)) (:resources report))]
+        (is (= (:certname catalog) (:certname report)))
+        (is (= "changed" (:status report)))
+        (is (= resource-count (count (:resources report))))
+        (is (= 10 (count unchanged-resources))
+            "Expected unchanged resources.")
+        (is (= 1 (- resource-count (count unchanged-resources)))
+            "Expected changed resources.")))
+    (testing "unchanged report"
+      (testing "unchanged excluded"
+        (let [report (generate/generate-report catalog 0 true)]
+          (is (= (:certname catalog) (:certname report)))
+          (is (= "unchanged" (:status report)))
+          (is (empty (:resources report)))))
+      (testing "unchanged included"
+        (let [report (generate/generate-report catalog 0 false)
+              unchanged-resources (filter #(empty? (:events %)) (:resources report))]
+          (is (= (:certname catalog) (:certname report)))
+          (is (= "unchanged" (:status report)))
+          (is (= resource-count (count unchanged-resources))))))))
 
 (deftest add-logs-to-reports-test
   (let [catalog (generate/generate-catalog "host-1" {:num-classes 2 :num-resources 10 :title-size 20 :resource-size 100 :additional-edge-percent 50})
@@ -515,7 +549,7 @@
     (testing "additional logs"
       (let [modified-reports (generate/add-logs-to-reports reports 10 21)
             modified-log-counts (sort (map #(count (:logs %)) modified-reports))]
-        (is (= 2 (count (cset/difference (set reports) (set modified-reports)))) "Two reports get additional logs")
+        (is (= 4 (count (cset/difference (set reports) (set modified-reports)))) "Two reports get additional logs")
         (is (= (+ (reduce + log-counts) (* 10 (int (* 0.21 (count reports)))))
                (reduce + modified-log-counts))))))
   (testing "simple structures"

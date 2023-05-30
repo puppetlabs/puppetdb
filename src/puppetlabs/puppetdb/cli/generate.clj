@@ -94,7 +94,7 @@
    ### Reports
 
    #### Reports per Catalog
-   
+
    The --num-reports flag governs the number of reports to generate per
    generated catalog.  Since one catalog is generated per host, this means you
    will end up with num-hosts * num-reports reports.
@@ -124,6 +124,10 @@
 
    The left over percentage of reports will be no change reports (generally the
    most common) indicating the report run was steady-state with no changes.
+
+   By default, with a num-reports of 20, a high change percent of 5% and a low
+   change percent of 20%, you will get 1 high change, 4 low change and 15
+   unchanged reports per host.
 
    #### Unchanged Resources
 
@@ -891,9 +895,10 @@
         corrective-change (if (= 0 percent-resource-change)
                             false
                             (< 0.5 (rand)))
+        percent-resource-change-% (/ percent-resource-change 100.0)
         changed-resource-count (if (= 0 percent-resource-change)
                                  0
-                                 (max 1 (int (* percent-resource-change (count (:resources catalog))))))
+                                 (max 1 (int (* percent-resource-change-% (count (:resources catalog))))))
         changed-resources (take changed-resource-count (shuffle (:resources catalog)))
         report-resources (generate-report-resources catalog changed-resources exclude-unchanged-resources)
         event-count (reduce (fn [sum r]
@@ -1168,8 +1173,8 @@
                 :parse-fn #(Integer/parseInt %)]
 
                ;; Report generation options
-               ["-R" "--num-reports NUMREPORTS" "Number of reports to generate per catalog"
-                :default 10
+               ["-R" "--num-reports NUMREPORTS" "Number of reports to generate per catalog."
+                :default 20
                 :parse-fn #(Integer/parseInt %)]
                ["-i" "--high-change-reports-percent PERCENTHIGHCHANGEREPORTS" "Percentage of reports per catalog that generate a high number of change events."
                 :default 5
