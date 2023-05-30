@@ -504,10 +504,15 @@
         classes (generate-classes class-count title-size)
         resources (generate-resources (- resource-count class-count) resource-size title-size)
         catalog-graph (generate-catalog-graph main-stage classes resources edge-percent)
-        edges (map generate-edge (:edges catalog-graph))]
+        edges (map generate-edge (:edges catalog-graph))
+        producer-timestamp (time/minus (now)
+                                       ;; randomly within past week,
+                                       ;; but at least a day ago
+                                       (time/seconds (max (* 24 60 60)
+                                                          (rand-int (* 7 24 60 60)))))]
     {:resources (reduce into [[main-stage] classes resources])
      :edges edges
-     :producer_timestamp (now)
+     :producer_timestamp producer-timestamp
      :transaction_uuid (kitchensink/uuid)
      :certname certname
      :hash (rnd/random-sha1)
@@ -867,21 +872,23 @@
    Generate resource-events for any resouce that is a member of changed-resources.
    Include or exclude unchanged resources from the list based on the
    exclude-unchanged-resources flag."
-  [catalog changed-resources exclude-unchanged-resources]
-  (let [start-time (now)]
-    (reduce
-      (fn [resources r]
-        (let [changed (some #{r} changed-resources)
-              previous-resource (last resources)
-              previous-resource-events (:events previous-resource)
-              last-end-time (or (:timestamp (last previous-resource-events))
-                                (:timestamp previous-resource)
-                                start-time)
-              event-start-time (time/plus last-end-time (time/millis (rand-int 100)))]
-          (if (or changed (not exclude-unchanged-resources))
-            (conj resources (create-report-resource catalog r changed event-start-time))
-            resources)))
-      [], (:resources catalog))))
+  ([catalog changed-resources exclude-unchanged-resources]
+   (generate-report-resources
+     catalog changed-resources exclude-unchanged-resources (now)))
+  ([catalog changed-resources exclude-unchanged-resources start-time]
+   (reduce
+     (fn [resources r]
+       (let [changed (some #{r} changed-resources)
+             previous-resource (last resources)
+             previous-resource-events (:events previous-resource)
+             last-end-time (or (:timestamp (last previous-resource-events))
+                               (:timestamp previous-resource)
+                               start-time)
+             event-start-time (time/plus last-end-time (time/millis (rand-int 100)))]
+         (if (or changed (not exclude-unchanged-resources))
+           (conj resources (create-report-resource catalog r changed event-start-time))
+           resources)))
+     [], (:resources catalog))))
 
 (defn generate-report
   "Generate a report based on the given catalog.
@@ -900,17 +907,20 @@
                                  0
                                  (max 1 (int (* percent-resource-change-% (count (:resources catalog))))))
         changed-resources (take changed-resource-count (shuffle (:resources catalog)))
-        report-resources (generate-report-resources catalog changed-resources exclude-unchanged-resources)
+        start-offset-from-catalog (time/plus (:producer_timestamp catalog)
+                                             ;; randomly with day of catalog
+                                             (time/millis (rand-int (* 24 60 60 1000))))
+        report-resources (generate-report-resources catalog changed-resources exclude-unchanged-resources start-offset-from-catalog)
         event-count (reduce (fn [sum r]
                               (+ sum (count (:events r))))
                             0, report-resources)
         first-ts (or (:timestamp (first report-resources))
-                     (now)) ;; could be nil if no changed resources and excluding unchanged
+                     start-offset-from-catalog) ;; could be nil if no changed resources and excluding unchanged
         last-resource (last report-resources)
         ;; Timestamp of last resource's last event or of the last resource if no events.
         last-ts (or (:timestamp (last (:events last-resource)))
                     (:timestamp last-resource)
-                    (now)) ;; could be nil if no changed resources and excluding unchanged
+                    start-offset-from-catalog) ;; could be nil if no changed resources and excluding unchanged
         start-time (time/minus first-ts (time/seconds (rand-int 60)))
         end-time (time/plus last-ts (time/seconds (rand-int 60)))
         producer-timestamp (time/plus end-time (time/seconds 1))]
