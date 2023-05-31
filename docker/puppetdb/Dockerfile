@@ -10,7 +10,7 @@ ARG LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 
 FROM ubuntu:22.04 as base
 
-ARG DUMB_INIT_VERSION="1.2.2"
+ARG DUMB_INIT_VERSION="1.2.5"
 ARG LOGDIR
 
 ENV PUPPERWARE_ANALYTICS_ENABLED=false \
@@ -104,8 +104,8 @@ WORKDIR /puppetdb
 # https://github.com/docker/for-linux/issues/1015
 ENV RUBYOPT=-r/puppetdb/docker/ruby-docker-copy-patch
 RUN lein clean && lein install && \
-    EZBAKE_ALLOW_UNREPRODUCIBLE_BUILDS=true EZBAKE_NODEPLOY=true COW=base-bionic-amd64.cow MOCK='' GEM_SOURCE=https://rubygems.org lein with-profile ezbake ezbake local-build && \
-    mv /puppetdb/output/deb/bionic/*/*.deb /puppetdb.deb
+    EZBAKE_ALLOW_UNREPRODUCIBLE_BUILDS=true EZBAKE_NODEPLOY=true COW=base-jammy-amd64.cow MOCK='' GEM_SOURCE=https://rubygems.org lein with-profile ezbake ezbake local-build && \
+    mv /puppetdb/output/deb/jammy/*/*.deb /puppetdb.deb
 
 FROM base as edge
 
@@ -113,7 +113,7 @@ COPY --from=build /puppetdb.deb /puppetdb.deb
 
 ARG UBUNTU_CODENAME
 ARG install_path=/puppetdb.deb
-ARG deb_uri=http://nightlies.puppet.com/apt/puppet7-nightly-release-$UBUNTU_CODENAME.deb
+ARG deb_uri=http://nightlies.puppet.com/apt/puppet8-nightly-release-$UBUNTU_CODENAME.deb
 
 ######################################################
 # release (build from packages)
@@ -124,7 +124,7 @@ FROM base as release
 ARG version
 ARG UBUNTU_CODENAME
 ARG install_path=puppetdb="$version"-1"$UBUNTU_CODENAME"
-ARG deb_uri=https://apt.puppetlabs.com/puppet7-release-$UBUNTU_CODENAME.deb
+ARG deb_uri=https://apt.puppetlabs.com/puppet8-release-$UBUNTU_CODENAME.deb
 
 ######################################################
 # final image
