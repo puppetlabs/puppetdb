@@ -137,6 +137,7 @@
            (is (str/includes? body "exceeded timeout")))
          (doseq [origin ["puppet:puppetdb-sync-batch" "puppet:puppetdb-sync-summary"]]
            (let [[{:keys [status body]}]
-                 (timed-nodes-query :timeout "2" :origin origin)]
+                 (timed-nodes-query :timeout "4" :origin origin)]
              (is (= 200 status))
+             (is (not (str/includes? body "exceeded timeout")) "unexpected timeout")
              (is (= 100 (count (json/parse-string body)))))))))))
