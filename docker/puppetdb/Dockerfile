@@ -1,6 +1,5 @@
 # Determines source "edge" or binary "release" builds
-ARG build_type=edge
-ARG UBUNTU_CODENAME=jammy
+ARG UBUNTU_CODENAME=focal
 # NOTE: never pass as a build-arg / must match .dockerenv -- used in logback.xml
 ARG LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 
@@ -8,7 +7,7 @@ ARG LOGDIR=/opt/puppetlabs/server/data/puppetdb/logs
 # base
 ######################################################
 
-FROM ubuntu:22.04 as base
+FROM ubuntu:20.04 as base
 
 ARG DUMB_INIT_VERSION="1.2.5"
 ARG LOGDIR
@@ -73,47 +72,6 @@ RUN apt-get update && \
     chmod +x /ssl.sh /wtfc.sh /docker-entrypoint.sh /healthcheck.sh /docker-entrypoint.d/*.sh && \
     dpkg -i dumb-init_"$DUMB_INIT_VERSION"_amd64.deb
 
-######################################################
-# edge (build from source)
-######################################################
-
-FROM ubuntu:22.04 as build
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-            language-pack-en \
-            openjdk-8-jdk-headless \
-            curl \
-            git \
-            ruby \
-            ruby-dev \
-            g++ \
-            make && \
-    git config --global user.name "David Phayanouvong" && \
-    git config --global user.email "david.phayanouvong@systemit.fr" && \
-    curl --output /usr/local/bin/lein https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && \
-    chmod 0755 /usr/local/bin/lein && \
-    /usr/local/bin/lein && \
-    gem install --no-doc bundler fpm
-
-COPY . /puppetdb
-# manually copy over bootstrap.cfg to work around symlink issues on windows
-COPY resources/puppetlabs/puppetdb/bootstrap.cfg /puppetdb/resources/ext/config/bootstrap.cfg
-WORKDIR /puppetdb
-
-# Fixes a linux 5.6 - 5.10 kernel bug around copy_file_range syscall
-# https://github.com/docker/for-linux/issues/1015
-ENV RUBYOPT=-r/puppetdb/docker/ruby-docker-copy-patch
-RUN lein clean && lein install && \
-    EZBAKE_ALLOW_UNREPRODUCIBLE_BUILDS=true EZBAKE_NODEPLOY=true COW=base-jammy-amd64.cow MOCK='' GEM_SOURCE=https://rubygems.org lein with-profile ezbake ezbake local-build && \
-    mv /puppetdb/output/deb/jammy/*/*.deb /puppetdb.deb
-
-FROM base as edge
-
-COPY --from=build /puppetdb.deb /puppetdb.deb
-
-ARG UBUNTU_CODENAME
-ARG install_path=/puppetdb.deb
-ARG deb_uri=http://nightlies.puppet.com/apt/puppet8-nightly-release-$UBUNTU_CODENAME.deb
 
 ######################################################
 # release (build from packages)
@@ -132,12 +90,11 @@ ARG deb_uri=https://apt.puppetlabs.com/puppet8-release-$UBUNTU_CODENAME.deb
 
 # dynamically selects "edge" or "release" alias based on ARG
 # hadolint ignore=DL3006
-FROM ${build_type} as final
+FROM release as final
 
 ARG vcs_ref
 ARG version
 ARG build_date
-ARG build_type
 ARG install_path
 ARG deb_uri
 # used by entrypoint to submit metrics to Google Analytics;
@@ -169,7 +126,7 @@ COPY docker/puppetdb/puppetdb /etc/default/puppetdb
 ENV PUPPERWARE_ANALYTICS_STREAM="$pupperware_analytics_stream" \
     PUPPETDB_VERSION="$version"
 
-LABEL org.label-schema.name="PuppetDB ($build_type)" \
+LABEL org.label-schema.name="PuppetDB (release)" \
       org.label-schema.vcs-ref="$vcs_ref" \
       org.label-schema.version="$version" \
       org.label-schema.build-date="$build_date"
