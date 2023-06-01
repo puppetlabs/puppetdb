@@ -12,27 +12,19 @@ export GEMFILE = $(PWD)/Gemfile
 export DOCKER_BUILDKIT ?= 1
 export PUPPETSERVER_IMAGE ?= puppet/puppetserver:edge
 
-ifeq ($(IS_RELEASE),true)
-	VERSION ?= $(shell echo $(git_describe) | sed 's/-.*//')
-	# to work around failures that occur between when the repo is tagged and when the package
-	# is actually shipped, see if this version exists in dujour
-	PUBLISHED_VERSION ?= $(shell curl --silent 'https://updates.puppetlabs.com/?product=puppetdb&version=$(VERSION)' | jq '."version"' | tr -d '"')
-	# For our containers built from packages, we want those to be built once then never changed
-	# so check to see if that container already exists on dockerhub
-	CONTAINER_EXISTS = $(shell DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $(NAMESPACE)/puppetdb:$(VERSION) > /dev/null 2>&1; echo $$?)
+VERSION ?= $(shell echo $(git_describe) | sed 's/-.*//')
+# to work around failures that occur between when the repo is tagged and when the package
+# is actually shipped, see if this version exists in dujour
+PUBLISHED_VERSION ?= $(shell curl --silent 'https://updates.puppetlabs.com/?product=puppetdb&version=$(VERSION)' | jq '."version"' | tr -d '"')
+# For our containers built from packages, we want those to be built once then never changed
+# so check to see if that container already exists on dockerhub
+CONTAINER_EXISTS = $(shell DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $(NAMESPACE)/puppetdb:$(VERSION) > /dev/null 2>&1; echo $$?)
 ifeq ($(CONTAINER_EXISTS),0)
 	SKIP_BUILD ?= true
 else ifneq ($(VERSION),$(PUBLISHED_VERSION))
 	SKIP_BUILD ?= true
 endif
 
-	BUILD_TYPE ?= release
-	LATEST_VERSION ?= latest
-else
-	BUILD_TYPE ?= edge
-	VERSION ?= edge
-	IS_LATEST := false
-endif
 
 prep:
 	@git fetch --unshallow 2> /dev/null ||:
@@ -57,7 +49,6 @@ build: prep
 		${DOCKER_BUILD_FLAGS} \
 		--load \
 		--pull \
-		--build-arg build_type=$(BUILD_TYPE) \
 		--build-arg vcs_ref=$(vcs_ref) \
 		--build-arg build_date=$(build_date) \
 		--build-arg version=$(VERSION) \
@@ -65,9 +56,7 @@ build: prep
 		--file puppetdb/Dockerfile \
 		--tag $(NAMESPACE)/puppetdb:$(VERSION) \
 		$(PWD)/..
-ifeq ($(IS_LATEST),true)
 	@docker tag $(NAMESPACE)/puppetdb:$(VERSION) $(NAMESPACE)/puppetdb:$(LATEST_VERSION)
-endif
 
 test: prep
 	bundle install --path $$BUNDLE_PATH --gemfile $$GEMFILE --with test
@@ -78,9 +67,7 @@ test: prep
 push-image: prep
 	@docker images
 	@docker push $(NAMESPACE)/puppetdb:$(VERSION)
-ifeq ($(IS_LATEST),true)
 	@docker push $(NAMESPACE)/puppetdb:$(LATEST_VERSION)
-endif
 
 push-readme:
 	@docker pull sheogorath/readme-to-dockerhub

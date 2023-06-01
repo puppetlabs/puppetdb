@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - *.*.*
 
 jobs:
   build-and-publish:
@@ -34,8 +36,6 @@ jobs:
           docker login -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_PASSWORD"
           make publish
       - name: Build release container
-        env:
-          IS_RELEASE: true
         working-directory: docker
         run: |
           if make prep; then
@@ -44,8 +44,6 @@ jobs:
             echo "Skipping release container building and testing"
           fi
       - name: Publish release container
-        env:
-          IS_RELEASE: true
         working-directory: docker
         run: |
           if make prep; then
