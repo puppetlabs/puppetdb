@@ -124,15 +124,30 @@
   ([] (random-pronouncable-word 6))
   ([length] (random-pronouncable-word length nil))
   ([length sd] (random-pronouncable-word length sd {}))
-  ([length sd bounds]
+  ([length sd {:keys [lowerb upperb] :or {lowerb 1}}]
    (let [random-consonant #(RandomStringUtils/random 1 "bcdfghjklmnpqrstvwxz")
          random-vowel #(RandomStringUtils/random 1 "aeiouy")
+         bounds (if (nil? upperb) {:lowerb lowerb} {:lowerb lowerb :upperb upperb})
          actual-length (if (nil? sd) length (safe-sample-normal length sd bounds))]
      (->> (for [i (range actual-length)]
            (if (even? i)
              (random-consonant)
              (random-vowel)))
          (string/join "")))))
+
+(defn random-sentence-ish
+  "Gibberish sentence of about x 'words'."
+  ([] (random-sentence-ish 10))
+  ([word-count] (random-sentence-ish word-count nil))
+  ([word-count sd] (random-sentence-ish word-count sd {}))
+  ([word-count sd {:keys [lowerb upperb] :or {lowerb 1}}]
+   (let [bounds (if (nil? upperb) {:lowerb lowerb} {:lowerb lowerb :upperb upperb})
+         actual-count (if (nil? sd) word-count (safe-sample-normal word-count sd bounds))]
+     (as-> (repeatedly actual-count #(random-pronouncable-word 6 3)) sentence
+         (vec sentence)
+         (string/join " " sentence)
+         (string/capitalize sentence)
+         (str sentence ".")))))
 
 (defn distribute
   "Perform f an avg-actions number of times randomly across the elements of the vector.

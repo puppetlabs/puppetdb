@@ -1,9 +1,8 @@
 (ns puppetlabs.puppetdb.cli.generate
   "# Data Generation utility
 
-   This command-line tool can generate a base sampling of catalog files
-   suitable for consumption by the PuppetDB benchmark utility. (Fact and report
-   files are on the todo list.)
+   This command-line tool can generate a base sampling of catalog, fact and
+   report files suitable for consumption by the PuppetDB benchmark utility.
 
    Note that it is only necessary to generate a small set of initial sample
    data since benchmark will permute per node differences. So even if you want
@@ -94,7 +93,61 @@
 
    ### Reports
 
-   TODO
+   #### Reports per Catalog
+
+   The --num-reports flag governs the number of reports to generate per
+   generated catalog.  Since one catalog is generated per host, this means you
+   will end up with num-hosts * num-reports reports.
+
+   #### Variation in Reports
+
+   A report details change, or lack there of, during enforcement of the puppet
+   catalog on the host. Since the benchmark tool currently chooses randomly from the
+   given report files, a simple mechanism for determining the likelihood of
+   receiving a report of a particular size (with lots of changes, few changes or
+   no changes) is to produce multiple reports of each type per host to generate
+   a weighted average. (If there are 10 reports, 2 are large and 8 are small,
+   then it's 80% likely any given report submission submitted by benchmark will
+   be of the small variety...)
+
+   The knobs to control this with the generate tool are:
+
+   * --num-reports, to determine the base number of reports to generate per catalog
+   * --high-change-reports-percent, percentage of that base to generate as
+     reports with a high number of change events, as determined by:
+   * --high-change-resource-percent, percentage of resources in a high change
+     report that will experience events (changes)
+   * --low-change-reports-percent, percentage of the base reports to generate
+     as reports with a low number of change events as determined by:
+   * --low-change-resource-percent, percentage of resources in a low change
+     report that will experience events (changes)
+
+   The left over percentage of reports will be no change reports (generally the
+   most common) indicating the report run was steady-state with no changes.
+
+   By default, with a num-reports of 20, a high change percent of 5% and a low
+   change percent of 20%, you will get 1 high change, 4 low change and 15
+   unchanged reports per host.
+
+   #### Unchanged Resources
+
+   In Puppet 8, by default, the agent no longer includes unchanged resources in
+   the report, reducing its size.
+
+   The generate tool also does this by default, but you can set
+   --no-exclude-unchanged-resources to instead include unchanged resources in
+   every report (for default Puppet 7 behavior, for example).
+
+   #### Logs
+
+   In addition to a few boilerplate log lines, random logs are generated for
+   each change event in the report. However other factors, such as pluginsync,
+   puppet runs with debug lines and additional logging in modules can increase
+   log output (quite dramatically in the case of debug output from the agent).
+
+   To simulate this, you can set --num-additional-logs to include in a report.
+   And you can set --percent-add-report-logs to indicate what percentage of
+   reports have this additional number of logs included.
 
    ### Random Distribution
 
@@ -146,6 +199,8 @@
 
    * for facts, this will effect the fact and package counts, the total weight and the max fact depth.
 
+   This has no effect on generated reports at the moment.
+
    Example:
 
       jpartlow@jpartlow-dev-2204:~/work/src/puppetdb$ lein run generate --verbose --random-distribution
@@ -184,7 +239,7 @@
     [puppetlabs.puppetdb.facts :as facts]
     [puppetlabs.puppetdb.nio :refer [get-path]]
     [puppetlabs.puppetdb.random :as rnd]
-    [puppetlabs.puppetdb.time :refer [now]]
+    [puppetlabs.puppetdb.time :as time :refer [now]]
     [puppetlabs.puppetdb.utils :as utils])
   (:import
     [java.nio.file.attribute FileAttribute]
@@ -211,6 +266,7 @@
 (defmethod weigh String [s] (count s))
 (defmethod weigh Number [_] 4)
 (defmethod weigh Boolean [_] 1)
+(defmethod weigh nil [_] 0)
 (defmethod weigh org.joda.time.DateTime [_] 8)
 (defmethod weigh :default
   [what] (throw (Exception. (format "Don't know how to weigh a %s of type %s" what (type what)))))
@@ -229,7 +285,7 @@
 (defn vary-param
   "Return the given param, or if random-distribution is true, pick from a
    normal distribution with the given param value as mean and a standard
-   deviation of parm-value * stnd-deviation-percent."
+   deviation of param-value * stnd-deviation-percent."
   [param-value random-distribution stnd-deviation-percent & safe-standard-normal-options]
   (let [stnd-deviation (* param-value stnd-deviation-percent)]
     (if random-distribution
@@ -265,7 +321,7 @@
   ([]
    (parameter-name 6))
   ([size]
-   (let [p-word-fn #(rnd/random-pronouncable-word 6 2 {:lowerb 1})
+   (let [p-word-fn #(rnd/random-pronouncable-word 6 2)
          words (build-to-size size p-word-fn)]
      (string/join "_" words))))
 
@@ -287,7 +343,7 @@
 
 (defn generate-classes
   [number title-size]
-  (map (fn [i] (rnd/random-resource "Class" (pseudonym "class" i title-size))) (range number)))
+  (map (fn [i] (rnd/random-kw-resource "Class" (pseudonym "class" i title-size))) (range number)))
 
 (def builtin-puppet-types
   "List of some built in puppet types for randomized resources."
@@ -330,8 +386,8 @@
                                         line-size))
                    tags (build-to-size tags-size tag-word-fn)
                    parameters (build-parameters parameters-size)
-                   resource (rnd/random-resource type-name title {"tags" tags "file" file})]
-               (assoc resource "parameters" parameters)))
+                   resource (rnd/random-kw-resource type-name title {:tags tags :file file})]
+               (assoc resource :parameters parameters)))
            (range number)))))
 
 (defprotocol NamedEdges
@@ -403,8 +459,8 @@
 
 (defn generate-edge
   [{:keys [source target relation]}]
-  {:source (select-keys source ["type" "title"])
-   :target (select-keys target ["type" "title"])
+  {:source (select-keys source [:type :title])
+   :target (select-keys target [:type :title])
    :relationship relation})
 
 (defn add-blob
@@ -425,29 +481,47 @@
         upperb (+ avg-blob-size-in-bytes lowerb)
         bsize (rnd/safe-sample-normal avg-blob-size-in-bytes standard-deviation {:lowerb lowerb :upperb upperb})
         pname (format "content_blob_%s" (rnd/random-pronouncable-word))]
-    (update-in catalog [:resources (rand-int (count resources)) "parameters"]
+    (update-in catalog [:resources (rand-int (count resources)) :parameters]
                #(merge % {pname (RandomStringUtils/randomAscii bsize)}))))
+
+(defn system-seconds-str
+  "Epoch seconds as a string. Used by default as a version string in Puppet
+   catalogs and reports."
+  []
+  (str (quot (System/currentTimeMillis) 1000)))
+
+;; A puppet server.
+(def producer-host "puppet-primary-1")
+;; Default environment for catalogs, facts and reports.
+(def environment "production")
 
 (defn generate-catalog
   [certname {:keys [num-classes num-resources resource-size title-size additional-edge-percent random-distribution]}]
-  (let [main-stage (rnd/random-resource "Stage" "main")
+  (let [main-stage (rnd/random-kw-resource "Stage" "main")
         class-count (vary-param num-classes random-distribution 0.25)
         resource-count (vary-param num-resources random-distribution 0.25)
         edge-percent (vary-param additional-edge-percent random-distribution 0.2)
         classes (generate-classes class-count title-size)
         resources (generate-resources (- resource-count class-count) resource-size title-size)
         catalog-graph (generate-catalog-graph main-stage classes resources edge-percent)
-        edges (map generate-edge (:edges catalog-graph))]
+        edges (map generate-edge (:edges catalog-graph))
+        producer-timestamp (time/minus (now)
+                                       ;; randomly within past week,
+                                       ;; but at least a day ago
+                                       (time/seconds (max (* 24 60 60)
+                                                          (rand-int (* 7 24 60 60)))))]
     {:resources (reduce into [[main-stage] classes resources])
      :edges edges
-     :producer_timestamp (now)
+     :producer_timestamp producer-timestamp
      :transaction_uuid (kitchensink/uuid)
      :certname certname
      :hash (rnd/random-sha1)
-     :version (str (quot (System/currentTimeMillis) 1000))
-     :producer "puppetmaster1"
+     :environment environment
+     :version (system-seconds-str)
+     :producer producer-host
      :catalog_uuid (kitchensink/uuid)
-     :code_id (rnd/random-sha1)}))
+     :code_id (rnd/random-sha1)
+     :job_id nil}))
 
 (defn sprinkle-blobs
   "Add large text blobs to catalogs.
@@ -620,13 +694,300 @@
         package-count (vary-param num-packages random-distribution 0.25)
         factset {:certname certname
                  :timestamp (now)
-                 :environment "production"
+                 :environment environment
                  :producer_timestamp (now)
-                 :producer "puppetmaster1"
+                 :producer producer-host
                  :values (generate-fact-values fact-count max-depth facts-weight options)}]
     (if (> num-packages 0)
       (merge factset {:package_inventory (generate-package-inventory package-count)})
       factset)))
+
+(defn generate-log
+  "Create one log entry for a report's log array."
+  ([level message] (generate-log {:level level :message message}))
+  ([{:keys [file line level message source tags]
+     :or {level (rand-nth ["info" "notice"])
+          message (rnd/random-sentence-ish)
+          tags #{level}
+          source "Puppet"}}]
+   (let [final-tags (cset/union (set tags) #{level})]
+     {:file file
+      :line line
+      :level level
+      :message message
+      :source source
+      :tags final-tags
+      :time (now)})))
+
+(defn generate-report-logs
+  "Generate log of changes for a report based on a set of changed resources
+   and some boilerplate."
+  [catalog changed-resources]
+  (let [headers (if (> (count changed-resources) 0)
+                  (map #(generate-log "info" %)
+                       [(format "Using environment '%s'" (:environment catalog))
+                        "Retrieving pluginfacts"
+                        "Retrieving plugin"
+                        "Loading facts"
+                        (format "Applying configuration version '%s'" (:version catalog))])
+                  [])
+        footers [(generate-log "notice" (format "Applied catalog in %s.%s seconds"
+                                                (rand-int 100) (rand-int 100)))]
+        changes (map generate-log changed-resources)]
+    (-> (concat headers changes)
+        (concat footers))))
+
+(defn generate-report-metrics
+  "This builds a fake set of metrics that's representative as far as general size.
+   Metrics are just stored as part of the report blob and aren't decomposed or
+   otherwise functional within puppetdb itself, so not trying to make them particularly
+   accurate as far as representing a real report run."
+  [catalog-resources event-count]
+  (let [resources-categories ["changed"
+                              "corrective_change"
+                              "failed"
+                              "failed_to_restart"
+                              "out_of_sync"
+                              "restarted"
+                              "scheduled"
+                              "skipped"]
+        times-categories (->> catalog-resources
+                              (map (fn [resource]
+                                     (-> resource
+                                         :type
+                                         (string/split #"::")
+                                         last
+                                         string/lower-case)))
+                              set)]
+    (concat
+      (map (fn [cname] {"name" cname "value" 0 "category" "resources"})
+           resources-categories)
+      (map (fn [rname] {"name" rname
+                        "value" (dgen/weighted {#(dgen/float), 4
+                                                #(+ (rand-int 50) (dgen/float)), 1})
+                        "category" "times"})
+           times-categories)
+      [{"name" "total"
+        "value" event-count
+        "category" "changes"}
+       {"name" "failure"
+        "value" 0
+        "category" "events"}
+       {"name" "success"
+        "value" event-count
+        "category" "events"}
+       {"name" "total"
+        "value" event-count
+        "category" "events"}])))
+
+(defn create-event
+  "Generate a resource event of a particular category of size (of values/message).
+   Typically values are small, but may be large in the case of properties like
+   file content, where content is embedded in the catalog, for example."
+  ([]
+   (let [size-class (dgen/weighted {:small  666
+                                    :medium 331
+                                    :large    3})]
+     (create-event size-class)))
+  ([size-class]
+   (let [size (case size-class
+               :small (dgen/uniform 0 30)
+               :medium (dgen/uniform 50 150)
+               ;; This is guesswork that probably needs a knob.
+               ;; On, average will be ~10,000.
+               :large (min (max 1000 (dgen/geometric 0.0001)) 100000)
+               (throw (Exception. (format "create-event expects :small, :medium or :large. Got '%s'" size-class))))]
+     {:new_value (rnd/random-string size)
+      :corrective_change false
+      :property (rnd/random-pronouncable-word)
+      :name (parameter-name)
+      :old_value (rnd/random-string size)
+      :status "success"
+      :timestamp (now)
+      :message (if (< size 10) (rnd/random-sentence-ish 5) (rnd/random-string size))})))
+
+(defn create-resource-events
+  "Creates a set of resource events.
+   If the number of resource-events is not specified it is calculated from a
+   geometric distribution with a high mean very likely to return 1 event, but
+   no more than 10."
+  ([] (create-resource-events {}))
+  ([{:keys [num-events start-time]
+     :or {num-events (min (dgen/geometric 0.95) 10)
+          start-time (now)}}]
+   (let [start-times (reduce (fn [times _]
+                               (let [last-time (or (last times) start-time)]
+                                 (conj times
+                                       (time/plus last-time (time/millis (rand-int 50))))))
+                             [], (range 0 num-events))]
+     (map #(assoc (create-event) :timestamp %) start-times))))
+
+(defn resource-name
+  [resource]
+  (format "%s[%s]" (:type resource) (:title resource)))
+
+(defn containment-path
+  "Return a vector of the resource names containing the given catalog resource in the
+   given catalog.
+   Throws an error if resource is not in catalog."
+  [resource catalog]
+  (when (not (some #{resource} (:resources catalog)))
+    (throw (Exception. (format "containment-path not valid for a resource not in the given catalog. %s" resource))))
+  (let [contains (fn [target-resource]
+                     (->> (:edges catalog)
+                          (filter (fn [{{ttype :type ttitle :title} :target
+                                       :keys [relationship]}]
+                                    (and (= ttype (:type target-resource))
+                                         (= ttitle (:title target-resource))
+                                         (= :contains relationship))))
+                          first
+                          :source))
+        path-resources (loop [parent (contains resource)
+                              path (list resource)]
+                         (if (nil? parent)
+                           path
+                           (recur (contains parent) (conj path parent))))]
+    (->> path-resources
+         (map #(resource-name %))
+         vec)))
+
+(defn create-report-resource
+  "Create a report resource map for a report's resources array based on the
+   given catalog resource. Add resource events if changed is true."
+  ([catalog catalog-resource changed]
+   (create-report-resource catalog catalog-resource changed (now)))
+  ([catalog catalog-resource changed start-time]
+   {:skipped false
+    :timestamp start-time
+    :resource_type (:type catalog-resource)
+    :resource_title (:title catalog-resource)
+    :file (:file catalog-resource)
+    :line (:line catalog-resource)
+    :containment_path (containment-path catalog-resource catalog)
+    :corrective_change false
+    :events (if changed (create-resource-events {:start-time start-time}) [])}))
+
+(defn generate-report-resources
+  "Generate the list of resources for the given catalog.
+   Generate resource-events for any resouce that is a member of changed-resources.
+   Include or exclude unchanged resources from the list based on the
+   exclude-unchanged-resources flag."
+  ([catalog changed-resources exclude-unchanged-resources]
+   (generate-report-resources
+     catalog changed-resources exclude-unchanged-resources (now)))
+  ([catalog changed-resources exclude-unchanged-resources start-time]
+   (reduce
+     (fn [resources r]
+       (let [changed (some #{r} changed-resources)
+             previous-resource (last resources)
+             previous-resource-events (:events previous-resource)
+             last-end-time (or (:timestamp (last previous-resource-events))
+                               (:timestamp previous-resource)
+                               start-time)
+             event-start-time (time/plus last-end-time (time/millis (rand-int 100)))]
+         (if (or changed (not exclude-unchanged-resources))
+           (conj resources (create-report-resource catalog r changed event-start-time))
+           resources)))
+     [], (:resources catalog))))
+
+(defn generate-report
+  "Generate a report based on the given catalog.
+
+   Ensure that percent-resource-change resources have events.
+
+   Exclude or keep unchanged resources based on exclude-unchanged-resources."
+  [catalog percent-resource-change exclude-unchanged-resources]
+  (let [certname (:certname catalog)
+        status (if (= 0 percent-resource-change) "unchanged" "changed")
+        corrective-change (if (= 0 percent-resource-change)
+                            false
+                            (< 0.5 (rand)))
+        percent-resource-change-% (/ percent-resource-change 100.0)
+        changed-resource-count (if (= 0 percent-resource-change)
+                                 0
+                                 (max 1 (int (* percent-resource-change-% (count (:resources catalog))))))
+        changed-resources (take changed-resource-count (shuffle (:resources catalog)))
+        start-offset-from-catalog (time/plus (:producer_timestamp catalog)
+                                             ;; randomly with day of catalog
+                                             (time/millis (rand-int (* 24 60 60 1000))))
+        report-resources (generate-report-resources catalog changed-resources exclude-unchanged-resources start-offset-from-catalog)
+        event-count (reduce (fn [sum r]
+                              (+ sum (count (:events r))))
+                            0, report-resources)
+        first-ts (or (:timestamp (first report-resources))
+                     start-offset-from-catalog) ;; could be nil if no changed resources and excluding unchanged
+        last-resource (last report-resources)
+        ;; Timestamp of last resource's last event or of the last resource if no events.
+        last-ts (or (:timestamp (last (:events last-resource)))
+                    (:timestamp last-resource)
+                    start-offset-from-catalog) ;; could be nil if no changed resources and excluding unchanged
+        start-time (time/minus first-ts (time/seconds (rand-int 60)))
+        end-time (time/plus last-ts (time/seconds (rand-int 60)))
+        producer-timestamp (time/plus end-time (time/seconds 1))]
+    {:certname certname
+     :job_id nil
+     :puppet_version "8.0.1"
+     :report_format 12
+     :configuration_version (system-seconds-str)
+     :producer_timestamp producer-timestamp
+     :start_time start-time
+     :end_time end-time
+     :environment environment
+     :transaction_uuid (kitchensink/uuid)
+     :status status
+     :noop false
+     :noop_pending false
+     :corrective_change corrective-change
+     :logs (generate-report-logs catalog changed-resources)
+     :metrics (generate-report-metrics (:resources catalog) event-count)
+     :resources report-resources
+     :catalog_uuid (kitchensink/uuid)
+     :code_id (rnd/random-sha1)
+     :cached_catalog_status "not_used"
+     :producer producer-host}))
+
+(defn add-logs-to-reports
+  "Adds additional logs to some percentage of reports."
+  [reports num-additional-logs percent-add-report-logs]
+  (let [add-report-logs-% (/ percent-add-report-logs 100.0)
+        num-reports-to-modify (max (int (* add-report-logs-% (count reports))) 1)
+        reports-to-modify (take num-reports-to-modify (shuffle reports))
+        cond-increase-logs
+          (fn [report]
+            (if (some #{report} reports-to-modify)
+              (let [logs (:logs report)
+                    additional (repeatedly num-additional-logs
+                                           #(generate-log {:level "debug"}))]
+                (assoc report :logs (vec (concat logs additional))))
+              report))]
+    (map cond-increase-logs reports)))
+
+(defn generate-reports
+  "Generate a set of reports for the given catalog based on options."
+  [catalog
+   {:keys [num-reports
+           high-change-reports-percent
+           high-change-resources-percent
+           low-change-reports-percent
+           low-change-resources-percent
+           exclude-unchanged-resources
+           num-additional-logs
+           percent-add-report-logs]}]
+  (let [high-change-count (int (* (/ high-change-reports-percent 100) num-reports))
+        low-change-count (int (* (/ low-change-reports-percent 100) num-reports))
+        no-change-count (- num-reports high-change-count low-change-count)
+        reports-spread [[high-change-count, high-change-resources-percent]
+                        [low-change-count, low-change-resources-percent]
+                        [no-change-count, 0]]
+        reports (reduce
+                  (fn [reports [report-count percent-resource-change]]
+                    (into reports
+                          (repeatedly report-count
+                                      #(generate-report catalog
+                                                        percent-resource-change
+                                                        exclude-unchanged-resources))))
+                  [], reports-spread)]
+    (add-logs-to-reports reports num-additional-logs percent-add-report-logs)))
 
 (defn create-temp-dir
   "Generate a temp directory and return the Path object pointing to it."
@@ -692,6 +1053,20 @@
                                    :package-weight (weigh package_inventory)
                                    :total-weight (weigh f))))
                     col)
+             :reports
+               (map (fn [{:keys [certname logs resources metrics] :as r}]
+                      (let [unchanged (filter #(empty? (:events %)) resources)
+                            changed (cset/difference (set resources) (set unchanged))]
+                        (array-map :certname certname
+                                   :resources (count resources)
+                                   :unchanged (count unchanged)
+                                   :changed (count changed)
+                                   :log-weight (weigh logs)
+                                   :metrics-weight (weigh metrics)
+                                   :unchanged-weight (weigh unchanged)
+                                   :changed-weight (weigh changed)
+                                   :total-weight (weigh r))))
+                    col)
              [{:not-implemented nil}])]
        (print-summary-table stats))))
 
@@ -703,7 +1078,8 @@
         catalogs (-> (map (fn [host] (generate-catalog host options)) hosts)
                      (sprinkle-blobs options))
         facts (map (fn [host] (generate-factset host options)) hosts)
-        reports []]
+        reports (-> (map (fn [catalog] (generate-reports catalog options)) catalogs)
+                    flatten)]
     {:catalogs
       {:dir (.resolve output-path "catalogs")
        :namer export/export-filename
@@ -761,7 +1137,15 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs [;; Catalog generation options
+  (let [validate-options (fn [options]
+                           (cond
+                             (<= 100 (+ (:high-change-reports-percent options)
+                                        (:low-change-reports-percent options)))
+                             (utils/throw-sink-cli-error
+                               (trs "Error: the sum of -i and -l must be less than or equal to 100%"))
+                             :else options))
+
+        specs [;; Catalog generation options
                ["-c" "--num-classes NUMCLASSES" "Number of class resources to generate in catalogs."
                 :default 10
                 :parse-fn #(Integer/parseInt %)]
@@ -784,7 +1168,7 @@
                 :default 100
                 :parse-fn #(Integer/parseInt %)]
 
-               ;; Facts options
+               ;; Fact generation options
                ["-f" "--num-facts NUMFACTS" "Number of facts to generate in a factset"
                 :default 400
                 :parse-fn #(Integer/parseInt %)]
@@ -794,9 +1178,42 @@
                [nil "--max-fact-depth FACTDEPTH" "Maximum depth of the nested structure of additional facts."
                 :default 7
                 :parse-fn #(Integer/parseInt %)]
-               ["-p" "--num-packages NUMPACKAGES" "Number of packages to include in package inventory"
+               ["-p" "--num-packages NUMPACKAGES" "Number of packages to include in package inventory."
                 :default 1000
                 :parse-fn #(Integer/parseInt %)]
+
+               ;; Report generation options
+               ["-R" "--num-reports NUMREPORTS" "Number of reports to generate per catalog."
+                :default 20
+                :parse-fn #(Integer/parseInt %)]
+               ["-i" "--high-change-reports-percent PERCENTHIGHCHANGEREPORTS" "Percentage of reports per catalog that generate a high number of change events."
+                :default 5
+                :parse-fn #(Float/parseFloat %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               ["-I" "--high-change-resources-percent PERCENTHIGHCHANGERESOURCES" "Percentage of resources with resource events in a high change report."
+                :default 80
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               ["-l" "--low-change-reports-percent PERCENTLOWCHANGEREPORTS" "Percentage of reports per catalog that generate a low number of change events."
+                :default 20
+                :parse-fn #(Float/parseFloat %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               ["-L" "--low-change-resources-percent PERCENTLOWCHANGERESOURCES" "Percentage of resources with resource events in a low change report."
+                :default 5
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
+               [nil "--[no-]exclude-unchanged-resources" "Whether to exclude unchanged resources from reports."
+                :default true]
+               [nil "--num-additional-logs NUMADDITIONALLOGS" "Number of additional logs to include in reports (can simulate --debug output if desired)."
+                :default 0
+                :parse-fn #(Integer/parseInt %)]
+               ;; Sigh. If we do another round, might want to switch to a
+               ;; config file where these sorts of values can be fiddled rather
+               ;; than --very-long-flags-of-lengthiness
+               [nil "--percent-add-report-logs PERCENTADDREPORTLOGS" "Percentage of reports to add the additional logs to, if any additional logs have been set."
+                :default 1
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(< 0 % 100) "Must be an integer percent between 0 and 100."]]
 
                ;; General options
                ["-n" "--num-hosts NUMHOSTS" "The number of sample hosts to generate data for."
@@ -814,7 +1231,8 @@
       (fn []
         (-> args
             (kitchensink/cli! specs required)
-            first)))))
+            first
+            validate-options)))))
 
 (defn generate-wrapper
   "Generates a set of fact, catalog and report json files based on the given args."
