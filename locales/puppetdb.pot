@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: bf018cec653d7125dcc16517ef1741627da2c876\n"
+"X-Git-Ref: 0c4f316ecc084e1babf24b2b9bf0d0f86ce426f1\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -139,6 +139,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/generate.clj
 msgid "Error: output path does not exist: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/generate.clj
+msgid "Error: the sum of -i and -l must be less than or equal to 100%"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
