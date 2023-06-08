@@ -186,8 +186,8 @@
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
   randomly mutate other data depending on rand-percentage. "
-  [{:keys [_host catalog report factset] :as state} rand-percentage current-time run-interval]
-  (let [stamp (jitter current-time (time/in-seconds run-interval))
+  [{:keys [_host catalog report factset] :as state} rand-percentage get-timestamp]
+  (let [stamp (get-timestamp)
         uuid (kitchensink/uuid)]
     (assoc state
            :catalog (some-> catalog (update-catalog rand-percentage uuid stamp))
@@ -421,6 +421,36 @@
          :report (random-entity host reports)
          :factset (random-entity host facts)}))))
 
+(defn progressing-timestamp
+  "Return a function that will return a timestamp that progresses forward in time."
+  [num-hosts num-msgs run-interval-minutes]
+  (if num-msgs
+    (let [msg-interval (* num-msgs run-interval-minutes)
+          ;; Does not need to be multiplied by 3 (for reports/catalogs/factsets) because
+          ;; each set of commands for a node use the same timestamp
+          timestamp-increment-ms (/ (* 60 1000 msg-interval) (* num-hosts num-msgs))
+          timestamp (atom (-> msg-interval
+                              ;; When trying to populate a database with report-ttl=14d
+                              ;; with 14 days of reports, it will take a while. If we start
+                              ;; with a timestamp 14d ago, and take 2 days to populate the db
+                              ;; we would lose the oldest 2 days of reports to garbage collection.
+                              ;; This will cause it to center the commands on today.
+                              ;; FIXME: submitting future reports will cause the "steady state" running of PuppetDB
+                              ;; to overlap (ie. store in the same parition) as the bulk insertion until we pass 7 days.
+                              (/ 2)
+                              time/minutes
+                              time/ago))]
+      ;; Return a function that will backdate previous messages
+      ;; helpful for submiting reports that will populate old partition
+      (fn []
+        (swap! timestamp time/plus (time/millis timestamp-increment-ms))
+        @timestamp))
+    ;; When running in the continuous runinterval mode, provide a bit
+    ;; of random variation from now. The timestamps are spread out over
+    ;; the course of the run by the thread sleeps in the channel read.
+    (fn []
+      (jitter (now) run-interval-minutes))))
+
 (defn start-simulation-loop
   "Run a background process which takes host-state maps from read-ch, updates
   them with update-host, and puts them on write-ch. If num-msgs is not given,
@@ -438,7 +468,7 @@
      (map (fn [host-state]
             (when-not num-msgs
               (Thread/sleep (int (- ms-per-thread (rand)))))
-            (update-host host-state rand-perc (now) run-interval)))
+            (update-host host-state rand-perc (progressing-timestamp numhosts num-msgs run-interval-minutes))))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
