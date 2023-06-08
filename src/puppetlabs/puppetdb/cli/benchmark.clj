@@ -199,8 +199,9 @@
   (cond
     (and (contains? options :runinterval)
          (contains? options :nummsgs))
-    (utils/throw-sink-cli-error
-     "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+    (do
+      (println-err "Warning: -N/--nummsgs and -i/--runinterval provided. Running in --nummsgs mode.")
+      options)
 
     (kitchensink/missing? options :runinterval :nummsgs)
     (utils/throw-sink-cli-error
