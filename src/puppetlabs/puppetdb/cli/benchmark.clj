@@ -236,6 +236,9 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"
                 :parse-fn #(Long/valueOf %)]
+               ["-e" "--end-commands-in PERIOD" "A period (like '3d') to use to set the ending date of a set of commands"
+                :default (time/parse-period "7d")
+                :parse-fn #(time/parse-period %)]
                ["-t" "--threads THREADS" "Number of threads to use for command submission"
                 :default (* 4 (.availableProcessors (Runtime/getRuntime)))
                 :parse-fn #(Integer/parseInt %)]]
@@ -423,23 +426,14 @@
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
-  [num-hosts num-msgs run-interval-minutes]
+  [num-hosts num-msgs run-interval-minutes end-commands-in]
   (if num-msgs
     (let [msg-interval (* num-msgs run-interval-minutes)
           ;; Does not need to be multiplied by 3 (for reports/catalogs/factsets) because
           ;; each set of commands for a node use the same timestamp
           timestamp-increment-ms (/ (* 60 1000 msg-interval) (* num-hosts num-msgs))
-          timestamp (atom (-> msg-interval
-                              ;; When trying to populate a database with report-ttl=14d
-                              ;; with 14 days of reports, it will take a while. If we start
-                              ;; with a timestamp 14d ago, and take 2 days to populate the db
-                              ;; we would lose the oldest 2 days of reports to garbage collection.
-                              ;; This will cause it to center the commands on today.
-                              ;; FIXME: submitting future reports will cause the "steady state" running of PuppetDB
-                              ;; to overlap (ie. store in the same parition) as the bulk insertion until we pass 7 days.
-                              (/ 2)
-                              time/minutes
-                              time/ago))]
+          timestamp (atom (-> (time/from-now end-commands-in)
+                              (time/minus (time/minutes msg-interval))))]
       ;; Return a function that will backdate previous messages
       ;; helpful for submiting reports that will populate old partition
       (fn []
@@ -456,7 +450,7 @@
   them with update-host, and puts them on write-ch. If num-msgs is not given,
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
-  [numhosts run-interval num-msgs rand-perc simulation-threads
+  [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
    write-ch read-ch]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
@@ -468,7 +462,7 @@
      (map (fn [host-state]
             (when-not num-msgs
               (Thread/sleep (int (- ms-per-thread (rand)))))
-            (update-host host-state rand-perc (progressing-timestamp numhosts num-msgs run-interval-minutes))))
+            (update-host host-state rand-perc (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in))))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
@@ -513,7 +507,7 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs threads end-commands-in] :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
@@ -557,7 +551,7 @@
                                                          command-send-ch
                                                          rate-monitor-ch
                                                          threads)
-        _ (start-simulation-loop numhosts run-interval nummsgs rand-perc
+        _ (start-simulation-loop numhosts run-interval nummsgs end-commands-in rand-perc
                                  simulation-threads simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
