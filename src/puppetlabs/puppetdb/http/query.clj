@@ -333,7 +333,7 @@
         result (pql/parse-pql-query query)
         elapsed (/ (- (System/nanoTime) start) 1000000.0)
         max-pql-limit 1000]
-    (when (and log-queries? (> elapsed max-pql-limit))
+    (when (> elapsed max-pql-limit)
       (log/warn (trs "Parsing PQL took {0} ms for PDBQuery:{1}:{2}" elapsed query-uuid (pr-str query))))
     result))
 
