@@ -4,11 +4,39 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+[benchmark]: ./load_testing_tool.markdown
 [query-timeout-parameter]: ./api/query/v4/overview.markdown#url-parameters
 
 ---
 
 # PuppetDB: Release notes
+
+## PuppetDB 8.0.1
+
+Released June 14 2023
+
+## New features and improvements
+
+* All PQL statements that take longer than one second to parse will be
+  logged.  Previously that was only the case when query logging was
+  enabled.
+  ([PDB-5642](https://tickets.puppetlabs.com/browse/PDB-5642))
+  ([PDB-5260](https://tickets.puppetlabs.com/browse/PDB-5260))
+
+* A new `generate` CLI subcommand has been added.  It can create a
+  base sampling of catalog, fact and report files suitable for
+  consumption by [`benchmark`][benchmark].
+  ([PDB-5593](https://tickets.puppetlabs.com/browse/PDB-5593))
+
+* PuppetDB sync (PE only) now uses the query timeouts introduced in
+  [PDB-4937](https://tickets.puppetlabs.com/browse/PDB-4937) to
+  further constrain sync operations to run within the
+  `entity-time-limit`.
+  ([PDB-5232](https://tickets.puppetlabs.com/browse/PDB-5232))
+
+### Contributors
+
+Austin Blatt, Josh Partlow, and Rob Browning
 
 ## PuppetDB 8.0.0
 
