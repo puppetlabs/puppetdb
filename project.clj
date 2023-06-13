@@ -1,4 +1,4 @@
-(def pdb-version "7.13.1")
+(def pdb-version "7.13.2-SNAPSHOT")
 
 (def clj-parent-version "5.3.7")
 
