@@ -15,6 +15,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.13.1
+
+Released June 14 2023
+
+## New features and improvements
+
+* All PQL statements that take longer than one second to parse will be
+  logged.  Previously that was only the case when query logging was
+  enabled.
+  ([PDB-5642](https://tickets.puppetlabs.com/browse/PDB-5642))
+  ([PDB-5260](https://tickets.puppetlabs.com/browse/PDB-5260))
+
+### Contributors
+
+Austin Blatt, Nick Burgan-Illig, and Rob Browning
+
 ## PuppetDB 7.13.0
 
 Released April 6 2023
@@ -38,8 +54,7 @@ Released April 6 2023
 
 ### Contributors
 
-Austin Blatt, Joshua Partlow, Rob Browning, and Nick Lewis
-
+Austin Blatt, Jonathan Newman, Joshua Partlow, Rob Browning, and Nick Lewis
 
 ## PuppetDB 7.12.1
 
