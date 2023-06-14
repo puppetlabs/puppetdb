@@ -366,7 +366,8 @@
         (if (= (get-sync-ver) maybe-sync-ver)
           (app req)
           (http/error-response
-           (tru "Conflicting PDB sync versions, each PDB syncing must be on the same version")
+           (tru "PDB sync request version {0} too new for this server (expected {1})."
+                maybe-sync-ver (get-sync-ver))
            409))
 
         (:error maybe-sync-ver)
