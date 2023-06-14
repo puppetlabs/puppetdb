@@ -29,8 +29,7 @@
       (is (= (req-with-sync-ver (str (inc sync-ver)))
              {:status 409
               :headers {"Content-Type" http/error-response-content-type}
-              :body
-              "Conflicting PDB sync versions, each PDB syncing must be on the same version"})))
+              :body "PDB sync request version 3 too new for this server (expected 2)."})))
 
     (testing "should fail when x-pdb-sync-ver input is invalid"
       (is (= (req-with-sync-ver "abc")
