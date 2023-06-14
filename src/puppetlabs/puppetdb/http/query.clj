@@ -333,7 +333,7 @@
         result (pql/parse-pql-query query)
         elapsed (/ (- (System/nanoTime) start) 1000000.0)
         max-pql-limit 1000]
-    (when (and log-queries? (> elapsed max-pql-limit))
+    (when (> elapsed max-pql-limit)
       (log/warn (trs "Parsing PQL took {0} ms for PDBQuery:{1}:{2}" elapsed query-uuid (pr-str query))))
     result))
 
@@ -405,9 +405,16 @@
                 query-map (create-query-map req-with-query-uuid param-spec parse-fn)
                 ;; Right now, query parsing (above) has no timeouts.
                 max-timeout (get-in req [:globals :query-timeout-max])
-                timeout (or (:timeout query-map)
-                            (get-in req [:globals :query-timeout-default]))
-                deadline (+ start-ns (* (min timeout max-timeout) 1000000000))
+                default-timeout (get-in req [:globals :query-timeout-default])
+                ;; sync is expected to override (based on its own deadlines)
+                sync-timeout (when (#{"puppet:puppetdb-sync-batch"
+                                      "puppet:puppetdb-sync-summary"}
+                                    (:origin query-map))
+                               (:timeout query-map default-timeout))
+                timeout (or sync-timeout
+                            (min (:timeout query-map default-timeout)
+                                 max-timeout))
+                deadline (+ start-ns (* timeout 1000000000))
                 pretty-print (:pretty query-map (get-in req [:globals :pretty-print]))]
             (-> req-with-query-uuid
                 (assoc :puppetdb-query query-map)

@@ -1,0 +1,435 @@
+{
+  "certname" : "baseline-agent-node.sample.nodes",
+  "producer_timestamp" : "2023-03-04T00:23:33.643Z",
+  "producer" : "puppetmaster1.sample.nodes",
+  "environment" : "production",
+  "values" : {
+    "staging_http_get" : "curl",
+    "mtu_eth0" : 1460,
+    "network6_eth0" : "fe80::",
+    "path" : "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin",
+    "interfaces" : "eth0,lo",
+    "osfamily" : "RedHat",
+    "operatingsystem" : "Rocky",
+    "clientnoop" : false,
+    "blockdevices" : "sda",
+    "rubyplatform" : "x86_64-linux",
+    "identity" : {
+      "gid" : 0,
+      "uid" : 0,
+      "user" : "root",
+      "group" : "root",
+      "privileged" : true
+    },
+    "timezone" : "UTC",
+    "facterversion" : "4.3.1",
+    "selinux_config_mode" : "enforcing",
+    "chassistype" : "Other",
+    "blockdevice_sda_size" : 21474836480,
+    "networking" : {
+      "interfaces" : {
+        "lo" : {
+          "ip" : "127.0.0.1",
+          "bindings6" : [ {
+            "flags" : [ "permanent" ],
+            "scope6" : "host",
+            "address" : "::1",
+            "netmask" : "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            "network" : "::1"
+          } ],
+          "mtu" : 65536,
+          "bindings" : [ {
+            "address" : "127.0.0.1",
+            "netmask" : "255.0.0.0",
+            "network" : "127.0.0.0"
+          } ],
+          "network6" : "::1",
+          "netmask6" : "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+          "ip6" : "::1",
+          "netmask" : "255.0.0.0",
+          "network" : "127.0.0.0",
+          "scope6" : "host"
+        },
+        "eth0" : {
+          "ip" : "10.253.20.4",
+          "bindings6" : [ {
+            "flags" : [ "permanent" ],
+            "scope6" : "link",
+            "address" : "fe80::b67d:c7f7:4565:d25e",
+            "netmask" : "ffff:ffff:ffff:ffff::",
+            "network" : "fe80::"
+          } ],
+          "mtu" : 1460,
+          "bindings" : [ {
+            "address" : "10.253.20.4",
+            "netmask" : "255.255.255.255",
+            "network" : "10.253.20.4"
+          } ],
+          "network6" : "fe80::",
+          "netmask6" : "ffff:ffff:ffff:ffff::",
+          "ip6" : "fe80::b67d:c7f7:4565:d25e",
+          "netmask" : "255.255.255.255",
+          "network" : "10.253.20.4",
+          "scope6" : "link",
+          "mac" : "42:01:0a:fd:14:04"
+        }
+      },
+      "ip" : "10.253.20.4",
+      "primary" : "eth0",
+      "mtu" : 1460,
+      "network6" : "fe80::",
+      "hostname" : "baseline-agent-node",
+      "fqdn" : "baseline-agent-node.sample.nodes",
+      "netmask6" : "ffff:ffff:ffff:ffff::",
+      "ip6" : "fe80::b67d:c7f7:4565:d25e",
+      "netmask" : "255.255.255.255",
+      "network" : "10.253.20.4",
+      "domain" : "sample.nodes",
+      "scope6" : "link",
+      "mac" : "42:01:0a:fd:14:04"
+    },
+    "rubysitedir" : "/opt/puppetlabs/puppet/lib/ruby/site_ruby/2.7.0",
+    "filesystems" : "vfat,xfs",
+    "processors" : {
+      "isa" : "x86_64",
+      "cores" : 1,
+      "count" : 1,
+      "speed" : "2.20 GHz",
+      "models" : [ "Intel(R) Xeon(R) CPU @ 2.20GHz" ],
+      "threads" : 1,
+      "physicalcount" : 1
+    },
+    "boardassettag" : "9CCAA249-7C98-C75B-0511-BEB2370BFE59",
+    "uptime_seconds" : 5553,
+    "architecture" : "x86_64",
+    "augeasversion" : "1.13.0",
+    "puppet_files_dir_present" : false,
+    "memorysize_mb" : 3508.80859375,
+    "kernelrelease" : "4.18.0-425.10.1.el8_7.x86_64",
+    "ipaddress6" : "fe80::b67d:c7f7:4565:d25e",
+    "puppet_metrics_collector" : {
+      "have_pe_psql" : false,
+      "have_sysstat" : false,
+      "have_systemd" : true,
+      "have_vmware_tools" : false,
+      "file_sync_storage_enabled" : false
+    },
+    "kernelversion" : "4.18.0",
+    "memoryfree" : "2.84 GiB",
+    "platform_tag" : "el-8-x86_64",
+    "kernelmajversion" : "4.18",
+    "processor0" : "Intel(R) Xeon(R) CPU @ 2.20GHz",
+    "scope6_eth0" : "link",
+    "mountpoints" : {
+      "run" : {
+        "filesystem" : "tmpfs",
+        "capacity" : "0.48%",
+        "size" : "1.71 GiB",
+        "available_bytes" : 1830850560,
+        "device" : "tmpfs",
+        "options" : [ "rw", "seclabel", "nosuid", "nodev", "mode=755" ],
+        "available" : "1.71 GiB",
+        "used_bytes" : 8773632,
+        "size_bytes" : 1839624192,
+        "used" : "8.37 MiB"
+      },
+      "dev/pts" : {
+        "filesystem" : "devpts",
+        "capacity" : "100%",
+        "size" : "0 bytes",
+        "available_bytes" : 0,
+        "device" : "devpts",
+        "options" : [ "rw", "seclabel", "nosuid", "noexec", "relatime", "gid=5", "mode=620", "ptmxmode=000" ],
+        "available" : "0 bytes",
+        "used_bytes" : 0,
+        "size_bytes" : 0,
+        "used" : "0 bytes"
+      },
+      "dev/mqueue" : {
+        "filesystem" : "mqueue",
+        "capacity" : "100%",
+        "size" : "0 bytes",
+        "available_bytes" : 0,
+        "device" : "mqueue",
+        "options" : [ "rw", "seclabel", "relatime" ],
+        "available" : "0 bytes",
+        "used_bytes" : 0,
+        "size_bytes" : 0,
+        "used" : "0 bytes"
+      },
+      "sys/fs/cgroup" : {
+        "filesystem" : "tmpfs",
+        "capacity" : "0%",
+        "size" : "1.71 GiB",
+        "available_bytes" : 1839624192,
+        "device" : "tmpfs",
+        "options" : [ "ro", "seclabel", "nosuid", "nodev", "noexec", "mode=755" ],
+        "available" : "1.71 GiB",
+        "used_bytes" : 0,
+        "size_bytes" : 1839624192,
+        "used" : "0 bytes"
+      },
+      "/" : {
+        "filesystem" : "xfs",
+        "capacity" : "17.06%",
+        "size" : "19.79 GiB",
+        "available_bytes" : 17626959872,
+        "device" : "/dev/sda2",
+        "options" : [ "rw", "seclabel", "relatime", "attr2", "inode64", "logbufs=8", "logbsize=32k", "noquota" ],
+        "available" : "16.42 GiB",
+        "used_bytes" : 3625578496,
+        "size_bytes" : 21252538368,
+        "used" : "3.38 GiB"
+      },
+      "run/user/1000" : {
+        "filesystem" : "tmpfs",
+        "capacity" : "0%",
+        "size" : "350.88 MiB",
+        "available_bytes" : 367923200,
+        "device" : "tmpfs",
+        "options" : [ "rw", "seclabel", "nosuid", "nodev", "relatime", "size=359300k", "mode=700", "uid=1000", "gid=1001" ],
+        "available" : "350.88 MiB",
+        "used_bytes" : 0,
+        "size_bytes" : 367923200,
+        "used" : "0 bytes"
+      },
+      "dev/shm" : {
+        "filesystem" : "tmpfs",
+        "capacity" : "0%",
+        "size" : "1.71 GiB",
+        "available_bytes" : 1839624192,
+        "device" : "tmpfs",
+        "options" : [ "rw", "seclabel", "nosuid", "nodev" ],
+        "available" : "1.71 GiB",
+        "used_bytes" : 0,
+        "size_bytes" : 1839624192,
+        "used" : "0 bytes"
+      },
+      "boot/efi" : {
+        "filesystem" : "vfat",
+        "capacity" : "2.87%",
+        "size" : "199.79 MiB",
+        "available_bytes" : 203468800,
+        "device" : "/dev/sda1",
+        "options" : [ "rw", "relatime", "fmask=0077", "dmask=0077", "codepage=437", "iocharset=ascii", "shortname=winnt", "errors=remount-ro" ],
+        "available" : "194.04 MiB",
+        "used_bytes" : 6021120,
+        "size_bytes" : 209489920,
+        "used" : "5.74 MiB"
+      },
+      "dev" : {
+        "filesystem" : "devtmpfs",
+        "capacity" : "0%",
+        "size" : "1.69 GiB",
+        "available_bytes" : 1818902528,
+        "device" : "devtmpfs",
+        "options" : [ "rw", "seclabel", "nosuid", "size=1776272k", "nr_inodes=444068", "mode=755" ],
+        "available" : "1.69 GiB",
+        "used_bytes" : 0,
+        "size_bytes" : 1818902528,
+        "used" : "0 bytes"
+      },
+      "dev/hugepages" : {
+        "filesystem" : "hugetlbfs",
+        "capacity" : "100%",
+        "size" : "0 bytes",
+        "available_bytes" : 0,
+        "device" : "hugetlbfs",
+        "options" : [ "rw", "seclabel", "relatime", "pagesize=2M" ],
+        "available" : "0 bytes",
+        "used_bytes" : 0,
+        "size_bytes" : 0,
+        "used" : "0 bytes"
+      }
+    },
+    "uptime" : "1:32 hours",
+    "blockdevice_sda_model" : "PersistentDisk",
+    "ipaddress6_eth0" : "fe80::b67d:c7f7:4565:d25e",
+    "rubyversion" : "2.7.7",
+    "trusted" : {
+      "domain" : "sample.nodes",
+      "certname" : "baseline-agent-node.sample.nodes",
+      "external" : { },
+      "hostname" : "baseline-agent-node",
+      "extensions" : { },
+      "authenticated" : "remote"
+    },
+    "fips_enabled" : false,
+    "memory" : {
+      "system" : {
+        "used" : "600.65 MiB",
+        "total" : "3.43 GiB",
+        "capacity" : "17.12%",
+        "available" : "2.84 GiB",
+        "used_bytes" : 629825536,
+        "total_bytes" : 3679252480,
+        "available_bytes" : 3049426944
+      }
+    },
+    "uptime_days" : 0,
+    "network6_lo" : "::1",
+    "is_pe" : false,
+    "network6" : "fe80::",
+    "platform_symlink_writable" : true,
+    "macaddress" : "42:01:0a:fd:14:04",
+    "lsbdistrelease" : "8.7",
+    "operatingsystemrelease" : "8.7",
+    "augeas" : {
+      "version" : "1.13.0"
+    },
+    "hardwaremodel" : "x86_64",
+    "hostname" : "baseline-agent-node",
+    "system_uptime" : {
+      "days" : 0,
+      "hours" : 1,
+      "uptime" : "1:32 hours",
+      "seconds" : 5553
+    },
+    "physicalprocessorcount" : 1,
+    "gid" : "root",
+    "fqdn" : "baseline-agent-node.sample.nodes",
+    "pe_patch" : {
+      "pinned_packages" : [ ],
+      "blackouts" : { },
+      "block_patching_on_warnings" : "false",
+      "missing_update_kbs" : [ ],
+      "security_package_updates" : [ ],
+      "patch_group" : "",
+      "package_update_count" : 0,
+      "package_updates" : [ ],
+      "warnings" : {
+        "update_file" : "Update file not found, update information invalid",
+        "security_update_file" : "Security update file not found, update information invalid"
+      },
+      "last_run" : { },
+      "blocked_reasons" : [ ],
+      "missing_security_kbs" : [ ],
+      "blocked" : false,
+      "reboots" : {
+        "reboot_required" : "unknown"
+      },
+      "reboot_override" : "default",
+      "security_package_update_count" : 0
+    },
+    "mtu_lo" : 65536,
+    "memoryfree_mb" : 2908.16015625,
+    "operatingsystemmajrelease" : "8",
+    "clientversion" : "7.24.0",
+    "selinux_current_mode" : "enforcing",
+    "puppetversion" : "7.24.0",
+    "netmask6" : "ffff:ffff:ffff:ffff::",
+    "netmask6_lo" : "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+    "scope6_lo" : "host",
+    "clientcert" : "baseline-agent-node.sample.nodes",
+    "id" : "root",
+    "puppet_inventory_metadata" : {
+      "packages" : {
+        "collection_enabled" : false,
+        "last_collection_time" : "0.0s"
+      }
+    },
+    "netmask6_eth0" : "ffff:ffff:ffff:ffff::",
+    "netmask_lo" : "255.0.0.0",
+    "ipaddress" : "10.253.20.4",
+    "network_lo" : "127.0.0.0",
+    "disks" : {
+      "sda" : {
+        "size" : "20.00 GiB",
+        "type" : "ssd",
+        "model" : "PersistentDisk",
+        "serial" : "baseline-agent-node",
+        "size_bytes" : 21474836480
+      }
+    },
+    "uptime_hours" : 1,
+    "dhcp_servers" : {
+      "system" : ""
+    },
+    "network_eth0" : "10.253.20.4",
+    "ipaddress_eth0" : "10.253.20.4",
+    "ipaddress_lo" : "127.0.0.1",
+    "kernel" : "Linux",
+    "selinux_policyversion" : "33",
+    "hardwareisa" : "x86_64",
+    "ipaddress6_lo" : "::1",
+    "netmask" : "255.255.255.255",
+    "os" : {
+      "name" : "Rocky",
+      "distro" : {
+        "id" : "Rocky",
+        "release" : {
+          "full" : "8.7",
+          "major" : "8",
+          "minor" : "7"
+        },
+        "codename" : "Green Obsidian",
+        "description" : "Rocky Linux release 8.7 (Green Obsidian)"
+      },
+      "family" : "RedHat",
+      "release" : {
+        "full" : "8.7",
+        "major" : "8",
+        "minor" : "7"
+      },
+      "selinux" : {
+        "enabled" : true,
+        "enforced" : true,
+        "config_mode" : "enforcing",
+        "current_mode" : "enforcing",
+        "config_policy" : "targeted",
+        "policy_version" : "33"
+      },
+      "hardware" : "x86_64",
+      "architecture" : "x86_64"
+    },
+    "network" : "10.253.20.4",
+    "selinux" : true,
+    "domain" : "sample.nodes",
+    "uuid" : "9ccaa249-7c98-c75b-0511-beb2370bfe59",
+    "partitions" : {
+      "dev/sda1" : {
+        "size" : "200.00 MiB",
+        "uuid" : "28E9-AE97",
+        "mount" : "/boot/efi",
+        "partuuid" : "c7f36cc2-c248-4931-8559-409aa78d2600",
+        "partlabel" : "EFI System Partition",
+        "filesystem" : "vfat",
+        "size_bytes" : 209715200
+      },
+      "dev/sda2" : {
+        "size" : "19.80 GiB",
+        "uuid" : "37a96844-aca5-489b-8017-ef50ca5911d4",
+        "label" : "root",
+        "mount" : "/",
+        "partuuid" : "b7ecdc9d-941f-4248-9d4b-8d9db8c245c4",
+        "filesystem" : "xfs",
+        "size_bytes" : 21263024128
+      }
+    },
+    "selinux_enforced" : true,
+    "load_averages" : {
+      "1m" : 0.0,
+      "5m" : 0.0,
+      "15m" : 0.0
+    },
+    "macaddress_eth0" : "42:01:0a:fd:14:04",
+    "lsbminordistrelease" : "7",
+    "netmask_eth0" : "255.255.255.255",
+    "ruby" : {
+      "sitedir" : "/opt/puppetlabs/puppet/lib/ruby/site_ruby/2.7.0",
+      "version" : "2.7.7",
+      "platform" : "x86_64-linux"
+    },
+    "bios_release_date" : "02/16/2023",
+    "aio_agent_build" : "7.23.0.31.gecea1ce2a",
+    "pe_databases" : {
+      "have_systemd" : true
+    },
+    "aio_agent_version" : "7.23.0.31",
+    "scope6" : "link",
+    "lsbmajdistrelease" : "8",
+    "memorysize" : "3.43 GiB",
+    "processorcount" : 1,
+    "selinux_config_policy" : "targeted"
+  }
+}

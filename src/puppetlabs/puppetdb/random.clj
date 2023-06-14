@@ -111,6 +111,8 @@
   "Get a random integer from the normal distribution guarded by some sane lower
    and upper bound. If not given, they default to 0 and twice the mean."
   [mean standard-deviation & {:keys [lowerb upperb] :or {lowerb 0 upperb (* 2 mean)}}]
+   (when (> lowerb mean) (throw (ArithmeticException. (format "Called safe-sample-normal with lowerb of %s which is greater than mean of %s." lowerb mean))))
+   (when (< upperb mean) (throw (ArithmeticException. (format "Called safe-sample-normal with upperb of %s which is less than mean of %s." upperb mean))))
    (-> (sample-normal mean standard-deviation) (max lowerb) (min upperb)))
 
 (defn random-pronouncable-word
@@ -122,15 +124,30 @@
   ([] (random-pronouncable-word 6))
   ([length] (random-pronouncable-word length nil))
   ([length sd] (random-pronouncable-word length sd {}))
-  ([length sd bounds]
+  ([length sd {:keys [lowerb upperb] :or {lowerb 1}}]
    (let [random-consonant #(RandomStringUtils/random 1 "bcdfghjklmnpqrstvwxz")
          random-vowel #(RandomStringUtils/random 1 "aeiouy")
+         bounds (if (nil? upperb) {:lowerb lowerb} {:lowerb lowerb :upperb upperb})
          actual-length (if (nil? sd) length (safe-sample-normal length sd bounds))]
      (->> (for [i (range actual-length)]
            (if (even? i)
              (random-consonant)
              (random-vowel)))
          (string/join "")))))
+
+(defn random-sentence-ish
+  "Gibberish sentence of about x 'words'."
+  ([] (random-sentence-ish 10))
+  ([word-count] (random-sentence-ish word-count nil))
+  ([word-count sd] (random-sentence-ish word-count sd {}))
+  ([word-count sd {:keys [lowerb upperb] :or {lowerb 1}}]
+   (let [bounds (if (nil? upperb) {:lowerb lowerb} {:lowerb lowerb :upperb upperb})
+         actual-count (if (nil? sd) word-count (safe-sample-normal word-count sd bounds))]
+     (as-> (repeatedly actual-count #(random-pronouncable-word 6 3)) sentence
+         (vec sentence)
+         (string/join " " sentence)
+         (string/capitalize sentence)
+         (str sentence ".")))))
 
 (defn distribute
   "Perform f an avg-actions number of times randomly across the elements of the vector.

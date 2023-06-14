@@ -5,7 +5,7 @@
         <prodinfo>
             <prodname>puppetdb</prodname>
             <vrmlist>
-                <vrm version="7"/>
+                <vrm version="8"/>
             </vrmlist>
         </prodinfo>
     </topicmeta>

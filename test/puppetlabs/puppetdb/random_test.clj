@@ -7,10 +7,12 @@
             random-node-name
             random-pp-path
             random-pronouncable-word
+            random-sentence-ish
             random-sha1
             random-string
             random-string-alpha
-            random-type-name]]))
+            random-type-name
+            safe-sample-normal]]))
 
 (deftest test-random-string
   (testing "should return a string of specified length"
@@ -65,6 +67,9 @@
       (is (re-matches (re-pattern (str exp-regex-str "{4}")) (random-pronouncable-word 8)))
       (is (re-matches (re-pattern (str exp-regex-str "{3}" consonants)) (random-pronouncable-word 7))))))
 
+(deftest test-random-sentence-ish
+  (is (re-matches #"\A[A-Z]\w*(?: \w+)*\.\Z" (random-sentence-ish))))
+
 (deftest test-distribute
   (let [v5 (vec (map {} (range 5)))
         v20 (vec (map {} (range 20)))
@@ -116,3 +121,15 @@
                                (merge options
                                       {:standard-deviation 10 :lowerb 5 :upperb 50}))]
           (is (<= 5 (tally dv20 ) 50))))))
+
+(deftest safe-sample-normal-test
+  (testing "positive"
+    (is (<= 0 (safe-sample-normal 2 1) 4)))
+  (testing "bounds"
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with lowerb of 3 which is greater than mean of 2." (safe-sample-normal 2 1 {:lowerb 3})))
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with upperb of 1 which is less than mean of 2." (safe-sample-normal 2 1 {:upperb 1}))))
+  (testing "negative with default bounds"
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with lowerb of 0 which is greater than mean of -2." (safe-sample-normal -2 1)))
+    (is (thrown-with-msg? ArithmeticException #"Called safe-sample-normal with upperb of -4 which is less than mean of -2." (safe-sample-normal -2 1 {:lowerb -5}))))
+  (testing "negative with appropriate bounds"
+    (is (<= -3 (safe-sample-normal -2 1 {:lowerb -3 :upperb 0}) 0))))
