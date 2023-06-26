@@ -2323,6 +2323,15 @@
      "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
   nil)
 
+(defn remove-catalog-resources-file-trgm-index
+  "Drops the expensive catalog_resources_file_trgm index, and resets the
+  catalog_resources autovacuum_analyze_scale_factor storage parameter to
+  default."
+  []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS catalog_resources_file_trgm"
+    "ALTER TABLE catalog_resources RESET ( autovacuum_analyze_scale_factor )"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2389,7 +2398,8 @@
    80 add-workspaces-tables
    81 migrate-resource-events-to-declarative-partitioning
    82 migrate-reports-to-declarative-partitioning
-   83 require-previously-optional-trigram-indexes})
+   83 require-previously-optional-trigram-indexes
+   84 remove-catalog-resources-file-trgm-index})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
