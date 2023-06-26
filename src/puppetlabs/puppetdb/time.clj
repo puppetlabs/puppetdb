@@ -22,6 +22,7 @@
 (def millis clj-time.core/millis)
 
 (def date-time clj-time.core/date-time)
+(def equal? clj-time.core/equal?)
 (def before? clj-time.core/before?)
 (def after? clj-time.core/after?)
 (def plus clj-time.core/plus)

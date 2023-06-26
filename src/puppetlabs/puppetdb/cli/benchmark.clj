@@ -437,8 +437,7 @@
       ;; Return a function that will backdate previous messages
       ;; helpful for submiting reports that will populate old partition
       (fn []
-        (swap! timestamp time/plus (time/millis timestamp-increment-ms))
-        @timestamp))
+        (swap! timestamp time/plus (time/millis timestamp-increment-ms))))
     ;; When running in the continuous runinterval mode, provide a bit
     ;; of random variation from now. The timestamps are spread out over
     ;; the course of the run by the thread sleeps in the channel read.
