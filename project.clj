@@ -79,6 +79,7 @@
       :exclusions [com.andrewmcveigh/cljs-time]]
      [riddley "0.1.12"]
      [io.forward/yaml "1.0.5"]
+     [clj-commons/clj-yaml "1.0.26"]
 
      ;; Only needed for :integration tests
      [puppetlabs/trapperkeeper-filesystem-watcher nil]]
