@@ -2555,8 +2555,8 @@
    (if-not user
      (do
        (log/info
-        (trs "Disconnecting all {0} connections to {1} database before migrating"
-             user db-name))
+        (trs "Disconnecting all non-migrator connections to {0} database before migrating"
+             db-name))
        (doseq [user users]
          ;; Because the revoke may not actually produce an error when
          ;; it doesn't work.
