@@ -186,8 +186,8 @@
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
   randomly mutate other data depending on rand-percentage. "
-  [{:keys [_host catalog report factset] :as state} rand-percentage current-time run-interval]
-  (let [stamp (jitter current-time (time/in-seconds run-interval))
+  [{:keys [_host catalog report factset] :as state} rand-percentage get-timestamp]
+  (let [stamp (get-timestamp)
         uuid (kitchensink/uuid)]
     (assoc state
            :catalog (some-> catalog (update-catalog rand-percentage uuid stamp))
@@ -199,8 +199,9 @@
   (cond
     (and (contains? options :runinterval)
          (contains? options :nummsgs))
-    (utils/throw-sink-cli-error
-     "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+    (do
+      (println-err "Warning: -N/--nummsgs and -i/--runinterval provided. Running in --nummsgs mode.")
+      options)
 
     (kitchensink/missing? options :runinterval :nummsgs)
     (utils/throw-sink-cli-error
@@ -235,6 +236,9 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"
                 :parse-fn #(Long/valueOf %)]
+               ["-e" "--end-commands-in PERIOD" "A period (like '3d') to use to set the ending date of a set of commands"
+                :default (time/parse-period "7d")
+                :parse-fn #(time/parse-period %)]
                ["-t" "--threads THREADS" "Number of threads to use for command submission"
                 :default (* 4 (.availableProcessors (Runtime/getRuntime)))
                 :parse-fn #(Integer/parseInt %)]]
@@ -420,12 +424,32 @@
          :report (random-entity host reports)
          :factset (random-entity host facts)}))))
 
+(defn progressing-timestamp
+  "Return a function that will return a timestamp that progresses forward in time."
+  [num-hosts num-msgs run-interval-minutes end-commands-in]
+  (if num-msgs
+    (let [msg-interval (* num-msgs run-interval-minutes)
+          ;; Does not need to be multiplied by 3 (for reports/catalogs/factsets) because
+          ;; each set of commands for a node use the same timestamp
+          timestamp-increment-ms (/ (* 60 1000 msg-interval) (* num-hosts num-msgs))
+          timestamp (atom (-> (time/from-now end-commands-in)
+                              (time/minus (time/minutes msg-interval))))]
+      ;; Return a function that will backdate previous messages
+      ;; helpful for submiting reports that will populate old partition
+      (fn []
+        (swap! timestamp time/plus (time/millis timestamp-increment-ms))))
+    ;; When running in the continuous runinterval mode, provide a bit
+    ;; of random variation from now. The timestamps are spread out over
+    ;; the course of the run by the thread sleeps in the channel read.
+    (fn []
+      (jitter (now) run-interval-minutes))))
+
 (defn start-simulation-loop
   "Run a background process which takes host-state maps from read-ch, updates
   them with update-host, and puts them on write-ch. If num-msgs is not given,
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
-  [numhosts run-interval num-msgs rand-perc simulation-threads
+  [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
    write-ch read-ch]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
@@ -437,7 +461,7 @@
      (map (fn [host-state]
             (when-not num-msgs
               (Thread/sleep (int (- ms-per-thread (rand)))))
-            (update-host host-state rand-perc (now) run-interval)))
+            (update-host host-state rand-perc (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in))))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
@@ -482,7 +506,7 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs threads end-commands-in] :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
@@ -526,7 +550,7 @@
                                                          command-send-ch
                                                          rate-monitor-ch
                                                          threads)
-        _ (start-simulation-loop numhosts run-interval nummsgs rand-perc
+        _ (start-simulation-loop numhosts run-interval nummsgs end-commands-in rand-perc
                                  simulation-threads simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))

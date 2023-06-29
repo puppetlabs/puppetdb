@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
                                                        example-certname]]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils :refer [with-captured-throw]]
             [puppetlabs.kitchensink.core :as ks])
   (:import
@@ -43,6 +44,30 @@
                   utils/try-process-cli (fn [body] (body))
                   benchmark/benchmark-shutdown-timeout tu/default-timeout-ms]
       (f submitted-records (benchmark/benchmark-wrapper cli-args)))))
+
+(deftest progressing-timestamp-nummsgs
+  (doseq [end-in [0 -3 3 14]]
+    (let [now (time/now)
+          end-in-days (time/days end-in)
+          get-timestamp (benchmark/progressing-timestamp 1 (* 14 48) 30 end-in-days)
+          initial-timestamp (get-timestamp)]
+      (is (time/before? (-> end-in-days
+                            time/from-now
+                            (time/minus (time/days 14))) initial-timestamp))
+      (is (time/after? (-> now
+                           (time/plus (time/days end-in))
+                           (time/minus (time/days 14))
+                           (time/plus (time/minutes 31))) initial-timestamp))
+      ;; start at 2 because of first and last invocations
+      (doseq [_ (range 2 (* 14 48))]
+        (get-timestamp))
+      (let [final-timestamp (get-timestamp)
+            before-time (time/plus now end-in-days)
+            after-time (time/plus (time/now) end-in-days)]
+        (is (or (time/equal? before-time final-timestamp)
+                (time/before? before-time final-timestamp)))
+        (is (or (time/equal? after-time final-timestamp)
+                (time/after? after-time final-timestamp)))))))
 
 (defn benchmark-nummsgs
   [config & cli-args]
