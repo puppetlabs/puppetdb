@@ -2537,8 +2537,8 @@
    (if-not user
      (do
        (log/info
-        (trs "Disconnecting all {0} connections to {1} database before migrating"
-             user db-name))
+        (trs "Disconnecting all non-migrator connections to {0} database before migrating"
+             db-name))
        (doseq [user users]
          ;; Because the revoke may not actually produce an error when
          ;; it doesn't work.
@@ -2610,16 +2610,17 @@
                      tables))]
     (if-not write-user
       (migrate)
-      (call-with-connections-blocked-during-migration
-       db-name
-       (distinct [read-user write-user])
-       (fn []
-         ;; So new tables, etc. are owned by the write-user
-         (jdbc/do-commands (str "set role " (jdbc/double-quote write-user)))
-         (try!
-          (migrate)
-          (finally
-            (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user))))))))))
+      (when-not (empty? (pending-migrations))
+        (call-with-connections-blocked-during-migration
+         db-name
+         (distinct [read-user write-user])
+         (fn []
+           ;; So new tables, etc. are owned by the write-user
+           (jdbc/do-commands (str "set role " (jdbc/double-quote write-user)))
+           (try!
+            (migrate)
+            (finally
+              (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user)))))))))))
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns
