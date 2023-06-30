@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 0c4f316ecc084e1babf24b2b9bf0d0f86ce426f1\n"
+"X-Git-Ref: 525bd45042643d2fb6b798274ad7c49ebb1d2fae\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1576,7 +1576,8 @@ msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Disconnecting all {0} connections to {1} database before migrating"
+msgid ""
+"Disconnecting all non-migrator connections to {0} database before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
