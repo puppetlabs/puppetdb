@@ -21,13 +21,14 @@
    [java.nio.file Files]))
 
 (defn mock-submit-record-fn [submitted-records entity]
-  (fn [base-url _certname version payload-string]
+  (fn [base-url _certname version payload-string ssl-opts]
     (swap! submitted-records conj
            {:entity entity
             :base-url base-url
             :version version
             :payload-string payload-string
-            :payload (keywordize-keys payload-string)})))
+            :payload (keywordize-keys payload-string)
+            :ssl-opts ssl-opts})))
 
 (defn call-with-benchmark-status
   [config cli-args f]

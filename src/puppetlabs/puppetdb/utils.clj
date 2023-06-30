@@ -246,8 +246,8 @@
           (throw ex))))))
 
 (defn pdb-cmd-base-url
-  [host port & [version]]
-  {:protocol "http"
+  [host port & [version protocol]]
+  {:protocol (or protocol "http")
    :host host
    :port port
    :prefix "/pdb/cmd"
