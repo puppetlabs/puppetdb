@@ -16,7 +16,8 @@
    puppetlabs.trapperkeeper.testutils.logging/with-logged-event-maps hooks/one-binding-then-body
    puppetlabs.trapperkeeper.testutils.webserver/with-test-webserver hooks/with-test-webserver}}
  :lint-as
- {puppetlabs.puppetdb.schema/defn-validated schema.core/defn
+ {murphy/try! clojure.core/try
+  puppetlabs.puppetdb.schema/defn-validated schema.core/defn
   puppetlabs.puppetdb.testutils/dotestseq clojure.core/doseq
   puppetlabs.puppetdb.testutils/with-wrapped-fn-args clojure.core/let
   puppetlabs.puppetdb.scf.storage-test/deftest-db clojure.test/deftest}

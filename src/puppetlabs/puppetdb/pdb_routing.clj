@@ -130,7 +130,8 @@
                                    clean
                                    delete-node))
          (mid/wrap-cert-authn cert-allowlist)
-         mid/wrap-with-puppetdb-middleware))
+         mid/wrap-with-puppetdb-middleware)
+     {:include-response true})
 
     (enable-maint-mode)
     (pdb-status/register-pdb-status

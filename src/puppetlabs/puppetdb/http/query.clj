@@ -6,10 +6,13 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io]
             [clojure.core.match :as cm]
+            [clojure.set :as set]
             [clojure.tools.logging :as log]
             [clojure.walk :refer [keywordize-keys stringify-keys]]
+            [murphy :refer [try!]]
             [puppetlabs.puppetdb.query-eng :as qeng]
-            [clojure.set :as set]
+            [puppetlabs.puppetdb.query.monitor :as qmon]
+            [puppetlabs.trapperkeeper.services.webserver.jetty9 :as jetty9]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
@@ -24,7 +27,7 @@
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [ephemeral-now-ns to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when]]
+            [puppetlabs.puppetdb.utils :refer [response->channel update-when]]
             [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]])
   (:import
    (clojure.lang ExceptionInfo)
@@ -398,28 +401,49 @@
      (handler
       (if puppetdb-query
         req
-        (try
+        (try!
           (let [start-ns (ephemeral-now-ns) ;; capture at the top
                 query-uuid (str (java.util.UUID/randomUUID))
+
+                {:keys [pretty-print query-monitor query-timeout-default
+                        query-timeout-max scf-read-db]}
+                (:globals req)
+
                 req-with-query-uuid (assoc req :puppetdb-query-uuid query-uuid)
                 query-map (create-query-map req-with-query-uuid param-spec parse-fn)
                 ;; Right now, query parsing (above) has no timeouts.
-                max-timeout (get-in req [:globals :query-timeout-max])
-                default-timeout (get-in req [:globals :query-timeout-default])
                 ;; sync is expected to override (based on its own deadlines)
                 sync-timeout (when (#{"puppet:puppetdb-sync-batch"
                                       "puppet:puppetdb-sync-summary"}
                                     (:origin query-map))
-                               (:timeout query-map default-timeout))
+                               (:timeout query-map query-timeout-default))
                 timeout (or sync-timeout
-                            (min (:timeout query-map default-timeout)
-                                 max-timeout))
+                            (min (:timeout query-map query-timeout-default)
+                                 query-timeout-max))
                 deadline (+ start-ns (* timeout 1000000000))
-                pretty-print (:pretty query-map (get-in req [:globals :pretty-print]))]
+                ;; Wait one extra second for time-limited-seq and
+                ;; statement timeouts since the monitor kills the
+                ;; entire pg worker.
+                monitor-deadline (+ deadline 1000000000)
+
+                ;; May have no response because some tests (e.g. some
+                ;; with-http-app based tests) don't add one right now.
+                monitor-id (when-let [chan (and query-monitor
+                                                (some-> (::jetty9/response req)
+                                                        response->channel))]
+                             (qmon/stop-query-at-deadline-or-disconnect query-monitor
+                                                                        query-uuid
+                                                                        chan
+                                                                        monitor-deadline
+                                                                        scf-read-db))]
             (-> req-with-query-uuid
                 (assoc :puppetdb-query query-map)
-                (assoc-in [:globals :pretty-print] pretty-print)
-                (assoc-in [:globals :query-deadline-ns] deadline)))
+                (update :globals merge
+                        {:pretty-print (:pretty query-map pretty-print)
+                         :query-deadline-ns deadline
+                         :query-monitor query-monitor}
+                        (when monitor-id
+                          {:query-monitor-id monitor-id}))))
           (catch ExceptionInfo ex
             (when-not (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex)))
               (throw ex))
@@ -476,8 +500,8 @@
   [globals]
   (select-keys globals [:scf-read-db :warn-experimental :url-prefix
                         :pretty-print :node-purge-ttl :add-agent-report-filter
-                        :log-queries :query-deadline-ns
-                        :puppetlabs.puppetdb.config/test]))
+                        :log-queries :query-deadline-ns :query-monitor
+                        :query-monitor-id :puppetlabs.puppetdb.config/test]))
 
 (defn valid-query?
   [scf-read-db version query-map query-options]
