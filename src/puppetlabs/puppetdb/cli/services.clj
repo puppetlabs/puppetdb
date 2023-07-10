@@ -59,6 +59,7 @@
             [puppetlabs.puppetdb.utils.metrics :as mutils]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
+            [puppetlabs.puppetdb.query.monitor :as qmon]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate
              :refer [desired-schema-version
@@ -99,6 +100,12 @@
    (java.sql SQLException)
    [java.util.concurrent.locks ReentrantLock]
    [org.joda.time Period]))
+
+(def env-monitor-queries?
+  ;; Note: theres'a also a :conf/test switch
+  (->> (or (System/getenv "PDB_PROMPTLY_END_QUERIES") "true")
+       (re-matches #"yes|true|1")
+       seq))
 
 (defn stop-reporters [registries]
   (letfn [(stop [[registry & registries]]
@@ -505,6 +512,7 @@
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
 
 (def stop-gc-wait-ms (constantly 5000))
+(def stop-query-monitor-wait-ms (constantly 5000))
 
 (defn ready-to-stop? [{:keys [stopping collecting-garbage]}]
   (and stopping (not (seq collecting-garbage))))
@@ -549,6 +557,9 @@
                     (shut-down-scheduler-or-die request-shutdown "job")))
    (finally (some-> (:gc-pool context)
                     (shut-down-scheduler-or-die request-shutdown "gc")))
+   (finally (when-let [m (get-in context [:shared-globals :query-monitor])]
+              (when-not (qmon/stop m (stop-query-monitor-wait-ms))
+                (log/error (trs "Unable to stop query monitor")))))
    (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
    (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
                     .close))
@@ -963,6 +974,7 @@
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
         test-config (puppetdb ::conf/test)
+        monitor-queries? (::qmon/monitor-queries? test-config true)
         context (assoc context ;; context may be augmented further below
                        :shared-globals
                        (cond-> {:pretty-print (:pretty-print developer)
@@ -1019,6 +1031,14 @@
                    gc-pool (scheduler 1) :error #(shut-down-scheduler-or-die
                                                   % request-shutdown "gc")
 
+                   query-monitor (when (and env-monitor-queries? monitor-queries?)
+                                   (-> (qmon/monitor :on-fatal-error request-shutdown)
+                                       qmon/start))
+                   :error #(when %
+                             (or (qmon/stop % (stop-query-monitor-wait-ms))
+                                 (log/error
+                                  (trs "Unable to stop query monitor after failed puppetdb startup"))))
+
                    ; Create connection pools for each DB we want to write to
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
@@ -1051,6 +1071,7 @@
                      :dlo dlo
                      :maybe-send-cmd-event! maybe-send-cmd-event!
                      :q q
+                     :query-monitor query-monitor
                      :scf-read-db read-db
                      :scf-write-dbs write-db-pools
                      :scf-write-db-cfgs write-db-cfgs
@@ -1177,7 +1198,7 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:DefaultedConfig get-config]
-   [:WebroutingService add-ring-handler get-registered-endpoints]
+   [:WebroutingService get-registered-endpoints]
    [:ShutdownService get-shutdown-reason request-shutdown]]
 
   (init

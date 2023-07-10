@@ -17,9 +17,11 @@
    [clojure.lang ExceptionInfo]
    [java.net MalformedURLException URISyntaxException URL]
    [java.nio ByteBuffer CharBuffer]
+   [java.nio.channels SocketChannel]
    [java.nio.charset Charset CoderResult StandardCharsets]
    (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)
-   (org.apache.log4j MDC)))
+   (org.apache.log4j MDC)
+   (org.eclipse.jetty.io SocketChannelEndPoint)))
 
 (defmacro with-captured-throw [& body]
   `(try [(do ~@body)] (catch Throwable ex# ex#)))
@@ -598,3 +600,30 @@
                (if (> (ephemeral-now-ns) deadline-ns)
                  (on-timeout)
                  (time-limited-seq (rest s) deadline-ns on-timeout))))))))
+
+(defn- last-interceptor [interceptor]
+  ;; See the jetty org.eclipse.jetty.server.HttpOutput javadocs:
+  ;;
+  ;;   The HttpChannel is an Interceptor and is always the
+  ;;   last link in any Interceptor chain.
+  ;;
+  ;; ...and it ends up being something that is or has a SocketChannel.
+  (->> (iterate #(.getNextInterceptor %) interceptor)
+       (take-while identity)
+       last))
+
+(defprotocol HasSocketChannel
+  (get-socket-channel [this] "Returns the associated socket channel."))
+
+(extend-protocol HasSocketChannel
+  SocketChannel (get-socket-channel [s] s)
+  SocketChannelEndPoint (get-socket-channel [s] (.getChannel s)))
+
+(defn response->channel
+  "Returns the socket channel (i.e. something that can be registered
+  with a Selector) associated with a jetty response object."
+  [response]
+  ;; Sometimes the transport is a SocketChannel, and sometimes it's an
+  ;; EndPoint.
+  (-> response .getHttpOutput .getInterceptor last-interceptor
+      .getEndPoint .getTransport get-socket-channel))

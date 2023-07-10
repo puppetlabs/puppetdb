@@ -210,7 +210,7 @@
 
                  ;; WebAPI support libraries.
                  [bidi]
-                 [clj-http "2.0.1"]
+                 [clj-http "3.12.3"]
                  [commons-io]
                  [compojure]
                  [ring/ring-core]

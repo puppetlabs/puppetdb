@@ -4,8 +4,10 @@
    [clj-http.client :as http]
    [clojure.string :as str]
    [clojure.test :refer :all]
+   [puppetlabs.puppetdb.config :as conf]
    [puppetlabs.puppetdb.jdbc :as jdbc]
    [puppetlabs.puppetdb.query-eng :refer [diagnostic-inter-row-sleep]]
+   [puppetlabs.puppetdb.query.monitor :as qmon]
    [puppetlabs.puppetdb.random :refer [random-string]]
    [puppetlabs.puppetdb.scf.storage :refer [add-certnames]]
    [puppetlabs.puppetdb.testutils.db :refer [*db* *read-db* with-unconnected-test-db]]
@@ -13,7 +15,7 @@
     :refer [*base-url*
             create-temp-config
             call-with-puppetdb-instance
-            with-puppetdb-instance]]
+            with-puppetdb]]
    [puppetlabs.puppetdb.time :as time]
    [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]))
 
@@ -54,8 +56,11 @@
     (is (str/includes? body "exceeded timeout"))
     (is (< 0 elapsed 0.2))))
 
+(defn suppress-query-monitor [config]
+  (assoc-in config [:puppetdb ::conf/test ::qmon/monitor-queries?] false))
+
 (deftest http-parameter-timeouts
-  (with-puppetdb-instance
+  (with-puppetdb {:to-config suppress-query-monitor}
     (jdbc/with-db-transaction [] (add-certnames certnames))
     (with-redefs [diagnostic-inter-row-sleep 0.01]
       (testing "no timeout behavior with config defaults"
@@ -63,6 +68,7 @@
 
 (defn config [& {:keys [default max]}]
   (cond-> (assoc (create-temp-config) :database *db* :read-database *read-db*)
+    true suppress-query-monitor
     default (assoc-in [:puppetdb :query-timeout-default] default)
     max (assoc-in [:puppetdb :query-timeout-max] max)))
 
