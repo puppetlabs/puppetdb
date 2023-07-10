@@ -1621,10 +1621,7 @@
 (defn execute-with-bulldozer [db f]
   (if-not (pos? gc-query-bulldozer-timeout-ms)
     (f)
-    (let [gc-pid (-> "select pg_backend_pid();"
-                     jdbc/query-to-vec
-                     first
-                     :pg_backend_pid)
+    (let [gc-pid (jdbc/current-pid)
           gc-finished? (atom false)
           bulldozer-connected (promise)
           gc-bulldozer (query-bulldozer db gc-pid bulldozer-connected gc-finished?)]
