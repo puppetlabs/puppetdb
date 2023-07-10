@@ -527,11 +527,12 @@
 (defn shut-down-after-scheduler-unresponsive [f]
   (f))
 
-(defn shut-down-service-scheduler-or-die [s request-shutdown]
+(defn shut-down-scheduler-or-die [s request-shutdown name]
   (request-scheduler-shutdown s :interrupt)
   (if (await-scheduler-shutdown s (stop-gc-wait-ms))
-    (log/info (trs "Periodic activities halted"))
-    (let [msg (trs "Unable to shut down scheduled service tasks, requesting server shutdown")]
+    (log/info (trs "Shut down {0} scheduler" name))
+    (let [msg (trs "Unable to shut down {0} scheduler; requesting server shutdown"
+                   name)]
       (log/error msg)
       (shut-down-after-scheduler-unresponsive
        #(request-shutdown {:puppetlabs.trapperkeeper.core/exit
@@ -545,9 +546,9 @@
    (log/info (trs "Shutdown request received; puppetdb exiting."))
    context
    (finally (some-> (:job-pool context)
-                    (shut-down-service-scheduler-or-die request-shutdown)))
+                    (shut-down-scheduler-or-die request-shutdown "job")))
    (finally (some-> (:gc-pool context)
-                    (shut-down-service-scheduler-or-die request-shutdown)))
+                    (shut-down-scheduler-or-die request-shutdown "gc")))
    (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
    (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
                     .close))
@@ -923,16 +924,16 @@
 (defn start-garbage-collection
   "Starts garbage collection of the databases represented in db-configs"
   [{:keys [clean-lock] :as _context}
-   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
+   sched db-configs db-pools db-lock-statuses shutdown-for-ex]
   (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
                                     (map vector db-configs db-pools db-lock-statuses))]
     (doseq [[cfg db lock-status] dbs-with-gc-enabled]
       (let [request-cfg (db-config->clean-request cfg)]
         ;; Start GC job pool with initial and subsequent delay of :gc-interval
         (doseq [[request interval] request-cfg]
-          (schedule-with-fixed-delay job-pool #(invoke-periodic-gc db cfg request
-                                                                   shutdown-for-ex
-                                                                   clean-lock lock-status)
+          (schedule-with-fixed-delay sched #(invoke-periodic-gc db cfg request
+                                                                shutdown-for-ex
+                                                                clean-lock lock-status)
                                      (to-millis interval) (to-millis interval)))))))
 
 
@@ -1010,13 +1011,14 @@
 
                    _ command-loader :error #(some-> % future-cancel)
                    ;; schema checks, update checks
-                   job-pool (scheduler 4) :error #(shut-down-service-scheduler-or-die
-                                                   % request-shutdown)
+                   job-pool (scheduler 4) :error #(shut-down-scheduler-or-die
+                                                   % request-shutdown "job")
                    ;; schedule gc routines on a fixed delay, but ensure that we limit
                    ;; database contention by "serializing" the jobs on a thread pool
                    ;; with 1 thread
-                   gc-pool (scheduler 1) :error #(shut-down-service-scheduler-or-die
-                                                   % request-shutdown)
+                   gc-pool (scheduler 1) :error #(shut-down-scheduler-or-die
+                                                  % request-shutdown "gc")
+
                    ; Create connection pools for each DB we want to write to
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
