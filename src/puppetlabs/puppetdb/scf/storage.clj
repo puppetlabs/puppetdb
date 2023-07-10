@@ -1611,8 +1611,7 @@
           (catch InterruptedException _
             true)
           (finally
-            (when-not (realized? connected)
-              (deliver connected false))))))))
+            (deliver connected false)))))))
 
 (def gc-query-bulldozer-timeout-ms
   (env-config-for-db-ulong "PDB_GC_QUERY_BULLDOZER_TIMEOUT_MS"
