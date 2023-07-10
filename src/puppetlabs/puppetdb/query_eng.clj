@@ -201,7 +201,8 @@
    (s/optional-key :pretty-print) (s/maybe Boolean)
    (s/optional-key :log-queries) Boolean
    (s/optional-key :query-id) s/Str
-   (s/optional-key :query-deadline-ns) s/Num})
+   (s/optional-key :query-deadline-ns) s/Num
+   (s/optional-key :puppetlabs.puppetdb.config/test) {s/Any s/Any}})
 
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, call row-fn on the

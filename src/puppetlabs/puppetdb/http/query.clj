@@ -476,7 +476,8 @@
   [globals]
   (select-keys globals [:scf-read-db :warn-experimental :url-prefix
                         :pretty-print :node-purge-ttl :add-agent-report-filter
-                        :log-queries :query-deadline-ns]))
+                        :log-queries :query-deadline-ns
+                        :puppetlabs.puppetdb.config/test]))
 
 (defn valid-query?
   [scf-read-db version query-map query-options]

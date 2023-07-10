@@ -954,26 +954,29 @@
   (when-let [v (version/version)]
     (log/info (trs "PuppetDB version {0}" v)))
 
-  (let [{:keys [database developer read-database emit-cmd-events?]} config
+  (let [{:keys [puppetdb database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
         ;; Assume that the exception has already been reported.
         shutdown-for-ex (exceptional-shutdown-requestor request-shutdown [] 2)
         write-dbs-config (conf/write-databases config)
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
-        context (assoc context  ;; context may be augmented further below
-                       :shared-globals {:pretty-print (:pretty-print developer)
-                                        :node-purge-ttl (:node-purge-ttl database)
-                                        :add-agent-report-filter (get-in config [:puppetdb :add-agent-report-filter])
-                                        :query-timeout-default (get-in config [:puppetdb :query-timeout-default])
-                                        :query-timeout-max (get-in config [:puppetdb :query-timeout-max])
-                                        :cmd-event-mult cmd-event-mult
-                                        :maybe-send-cmd-event! maybe-send-cmd-event!
-                                        ;; FIXME: remove this if/when
-                                        ;; we add immediate ::tk/exit
-                                        ;; support to trapperkeeper.
-                                        :shutdown-request (:shutdown-request context)
-                                        :log-queries (get-in config [:puppetdb :log-queries])}
+        test-config (puppetdb ::conf/test)
+        context (assoc context ;; context may be augmented further below
+                       :shared-globals
+                       (cond-> {:pretty-print (:pretty-print developer)
+                                :node-purge-ttl (:node-purge-ttl database)
+                                :add-agent-report-filter (puppetdb :add-agent-report-filter)
+                                :query-timeout-default (puppetdb :query-timeout-default)
+                                :query-timeout-max (puppetdb :query-timeout-max)
+                                :cmd-event-mult cmd-event-mult
+                                :maybe-send-cmd-event! maybe-send-cmd-event!
+                                ;; FIXME: remove this if/when we add
+                                ;; immediate ::tk/exit support to
+                                ;; trapperkeeper.
+                                :shutdown-request (:shutdown-request context)
+                                :log-queries (puppetdb :log-queries)}
+                         test-config (assoc ::conf/test test-config))
                        :clean-lock (ReentrantLock.))]
 
     (when (> (count write-dbs-config) 1)
