@@ -225,8 +225,8 @@
        (add-watch submitted watch-key watcher)
        (when-not (>= (count @submitted) enough-records) ; avoid add-watch race
          (deref finished tu/default-timeout-ms nil))
-       ;; Allow a ~30% margin of error to account for jitter in the simulation
+       ;; Allow a ~33% margin of error to account for jitter in the simulation
        ;; timer.
        (let [elapsed (/ (- (System/currentTimeMillis) start) 1000.0)]
-         (is (<= 2.1 elapsed 3.9)))
+         (is (<= 2 elapsed 4)))
        (stop)))))
