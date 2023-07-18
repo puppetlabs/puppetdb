@@ -36,6 +36,13 @@
    (org.postgresql.util PGobject PSQLException)
    (org.joda.time Period)))
 
+(defn query-terminated [id origin]
+  ;; Note: the exception message is currently logged directly in some cases.
+  (ex-info (if origin
+             (trs "PDBQuery:{0}: from {1} was terminated in Postgres" id (pr-str origin))
+             (trs "PDBQuery:{0}: was terminated in Postgres" id))
+           {:kind :puppetlabs.puppetdb.query/terminated :id id :origin origin}))
+
 (defn query-timeout [id origin]
   ;; Note: the exception message is currently logged directly in some cases.
   (ex-info (if origin
@@ -254,6 +261,13 @@
                     (cond-> (comp row-fn munge-fn)
                       query-deadline-ns
                       (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
+                 (catch ExceptionInfo ex
+                   ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
+                   (when (= "57P01" (some-> (ex-data ex)
+                                            :handling
+                                            .getSQLState))
+                     (throw (query-terminated query-id origin)))
+                   (throw ex))
                  (catch SQLException ex
                    (if (jdbc/local-timeout-ex? ex)
                      (throw-timeout)
@@ -423,24 +437,31 @@
                                  (when diagnostic-inter-row-sleep {:fetch-size 1})
                                  #(stream-rows % out st))))
                             (finally
-                              (when query-monitor-id
-                                (qmon/forget query-monitor query-monitor-id)))))
+                             (when query-monitor-id
+                               (qmon/forget query-monitor query-monitor-id)))))
                         (catch SQLException ex
                           (if (jdbc/local-timeout-ex? ex)
                             (throw-timeout)
                             (throw ex)))
                         (catch ExceptionInfo ex
-                          ;; Handle any timemout here while we can
-                          ;; still try to show the client
-                          ;; something "useful" at the end of the
-                          ;; truncated JSON.
-                          (if (and (realized? status) (instance? ExceptionInfo ex)
-                                   (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
-                            (let [msg (.getMessage ex)]
-                              (log/warn ex)
-                              (.write out msg)
-                              (.flush out))
-                            (throw ex))))))
+                          (cond
+                           ;; Handle any timemout here while we can
+                           ;; still try to show the client
+                           ;; something "useful" at the end of the
+                           ;; truncated JSON.
+                           (and (realized? status) (instance? ExceptionInfo ex)
+                                (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                           (let [msg (.getMessage ex)]
+                             (log/warn ex)
+                             (.write out msg)
+                             (.flush out))
+
+                           ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
+                           (= "57P01" (some-> (ex-data ex)
+                                              :handling
+                                              .getSQLState))
+                           (throw (query-terminated query-id origin))
+                          :else (throw ex))))))
                   ;; These delivers may not do anything, i.e. if the
                   ;; query has already started.
                   (catch Throwable ex

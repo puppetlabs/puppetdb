@@ -247,27 +247,17 @@
                                     (-> info
                                         (assoc :pg-pid pid)
                                         (update :terminated #(some-> % (deref 1 ::timeout))))
-                                    context])))))
-        logged-terminations (atom [])
-        saw-termination (promise)
-        handle-event #(if (-> % .getMessage (str/includes? termination-msg))
-                        (do
-                          (deliver saw-termination true)
-                          (swap! logged-terminations conj %)
-                          false)
-                        (tlog/notable-pdb-event? %))]
+                                    context])))))]
 
     (with-redefs [qmon/terminate-query record-term]
       (with-puppetdb nil
         (jdbc/with-db-transaction [] (add-certnames certnames))
         (with-redefs [diagnostic-inter-row-sleep 1]
-          (with-log-suppressed-unless-notable handle-event
-            (impatient-nodes-request 200)
-            @saw-termination))))
+          (with-log-suppressed-unless-notable tlog/notable-pdb-event?
+            (impatient-nodes-request 200)))))
 
     (let [terminations @terminations
           summary (mapv summarize-termination terminations)]
-      (is (= 1 (count @logged-terminations)))
       (is (= 1 (count terminations)))
       (is (= #{{:info {:pg-pid true
                        :deadline-ns ##Inf
