@@ -3,8 +3,8 @@
             [puppetlabs.puppetdb.pql :as pql]))
 
 (deftest test-pql->ast
-  (are [pql ast] (= (first (pql/pql->ast pql))
-                    ast)
+  (are [pql ast] (= ast
+                    (first (pql/pql->ast pql)))
 
     ;; Some basic comparisons
 
@@ -120,11 +120,10 @@
     ["from" "nodes"
      ["or"
       ["=" "a" 1]
-      ["or"
-       ["and"
-        ["=" "b" 2]
-        ["=" "c" 3]]
-       ["=" "d" 4]]]]
+      ["and"
+       ["=" "b" 2]
+       ["=" "c" 3]]
+      ["=" "d" 4]]]
 
     "nodes { a = 1 or b = 2 and (c = 3 or d = 4) }"
     ["from" "nodes"
