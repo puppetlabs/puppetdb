@@ -285,11 +285,11 @@
          [:condexpression [:field "d"] "=" [:integer "4"]]]
         [:expr-and
          [:expr-not
-          [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
+          [:condexpression [:field "a"] "=" [:integer "1"]]]]]
       [:expr-or
        [:expr-and
         [:expr-not
-         [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]
+         [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]]
 
     "(c = 3 or d = 4) and (a = 1 or b = 2)"
     [[:expr-or
@@ -323,6 +323,38 @@
     "(a = 1) (b = 2)"
     "a=1 b=2"
     ""))
+
+;; PDB-5643 Check that a PQL expression with many OR clauses parses in reasonable time.
+(deftest test-expression-depth-performance
+  (let [expression "(certname = 'foo22' or
+                   certname = 'foo21' or
+                   certname = 'foo20' or
+                   certname = 'foo19' or
+                   certname = 'foo18' or
+                   certname = 'foo17' or
+                   certname = 'foo16' or
+                   certname = 'foo15' or
+                   certname = 'foo14' or
+                   certname = 'foo13' or
+                   certname = 'foo12' or
+                   certname = 'foo11' or
+                   certname = 'foo10' or
+                   certname = 'foo9' or
+                   certname = 'foo8' or
+                   certname = 'foo7' or
+                   certname = 'foo6' or
+                   certname = 'foo5' or
+                   certname = 'foo4' or
+                   certname = 'foo3' or
+                   certname = 'foo2' or
+                   certname = 'foo1')"
+        start-time (System/currentTimeMillis)
+        expected-duration 500]
+    (parse expression :start :expression)
+    (let [duration-millis (- (System/currentTimeMillis) start-time)]
+      (is
+        (< duration-millis expected-duration)
+        (format "(PDB-5643) Parsing a PQL expression with many OR clauses took %s milliseconds, which is longer than the alloted %s" duration-millis expected-duration)))))
 
 (deftest test-subquery
   (are [in expected] (= (parse in :start :subquery) expected)

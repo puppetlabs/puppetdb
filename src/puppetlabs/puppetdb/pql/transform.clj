@@ -33,13 +33,25 @@
   ;; Single arg? collapse
   ([data] data)
   ;; Multiple args? turn it into an or statement
-  ([data & args] (vec (concat ["or" data] args))))
+  ([data & args]
+   (->> (cons data args)
+        (mapcat #(if (and (vector? %) (= (first %) "or"))
+                   (rest %)
+                   [%]))
+        (cons "or")
+        (vec))))
 
 (defn transform-expr-and
   ;; Single arg? collapse
   ([data] data)
   ;; Multiple args? turn it into an and statement
-  ([data & args] (vec (concat ["and" data] args))))
+  ([data & args]
+   (->> (cons data args)
+                      (mapcat #(if (and (vector? %) (= (first %) "and"))
+                              (rest %)
+                              [%]))
+                      (cons "and")
+                      (vec))))
 
 (defn transform-expr-not
   ;; Single arg? Just collapse the :expr-not and pass back the data,

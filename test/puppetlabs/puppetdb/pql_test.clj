@@ -3,8 +3,8 @@
             [puppetlabs.puppetdb.pql :as pql]))
 
 (deftest test-pql->ast
-  (are [pql ast] (= (first (pql/pql->ast pql))
-                    ast)
+  (are [pql ast] (= ast
+                    (first (pql/pql->ast pql)))
 
     ;; Some basic comparisons
 
