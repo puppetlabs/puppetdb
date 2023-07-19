@@ -716,6 +716,9 @@
 (defn current-database []
   (-> "select current_database();" query-to-vec first :current_database))
 
+(defn current-pid []
+  (-> "select pg_backend_pid();" query-to-vec first :pg_backend_pid))
+
 (defn-validated has-database-privilege? :- s/Bool
   [user db privilege]
   (-> ["select has_database_privilege(?, ?, ?)" user db privilege]

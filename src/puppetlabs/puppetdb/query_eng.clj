@@ -3,12 +3,13 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
-            [murphy :refer [with-open!]]
+            [murphy :refer [with-open! try!]]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query-eng.default-reports :as dr]
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [puppetlabs.puppetdb.query.edges :as edges]
             [puppetlabs.puppetdb.query.events :as events]
@@ -17,7 +18,7 @@
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.puppetdb.query.catalog-inputs :as inputs]
-            [puppetlabs.puppetdb.query-eng.default-reports :as dr]
+            [puppetlabs.puppetdb.query.monitor :as qmon]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils
@@ -30,9 +31,17 @@
    (clojure.lang ExceptionInfo)
    (com.fasterxml.jackson.core JsonParseException)
    (java.io IOException InputStream)
+   (java.nio.channels SelectionKey)
    (java.sql SQLException)
    (org.postgresql.util PGobject PSQLException)
    (org.joda.time Period)))
+
+(defn query-terminated [id origin]
+  ;; Note: the exception message is currently logged directly in some cases.
+  (ex-info (if origin
+             (trs "PDBQuery:{0}: from {1} was terminated in Postgres" id (pr-str origin))
+             (trs "PDBQuery:{0}: was terminated in Postgres" id))
+           {:kind :puppetlabs.puppetdb.query/terminated :id id :origin origin}))
 
 (defn query-timeout [id origin]
   ;; Note: the exception message is currently logged directly in some cases.
@@ -201,7 +210,10 @@
    (s/optional-key :pretty-print) (s/maybe Boolean)
    (s/optional-key :log-queries) Boolean
    (s/optional-key :query-id) s/Str
-   (s/optional-key :query-deadline-ns) s/Num})
+   (s/optional-key :query-deadline-ns) s/Num
+   (s/optional-key :query-monitor) s/Any
+   (s/optional-key :query-monitor-id) SelectionKey
+   (s/optional-key :puppetlabs.puppetdb.config/test) {s/Any s/Any}})
 
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, call row-fn on the
@@ -210,9 +222,8 @@
    ;; We default to doall because tests need this for the most part
    (stream-query-result version query options context doall))
   ([version :- s/Keyword
-    query
-    options
-    {:keys [query-deadline-ns] :as context} :- query-context-schema
+    query options
+    context :- query-context-schema
     row-fn]
    ;; For now, generate the ids here; perhaps later, higher up
    (assert (not (:query-id context)))
@@ -225,29 +236,45 @@
               :or {warn-experimental true}} context
              {:keys [remaining-query entity]} (eng/parse-query-context query warn-experimental)
              munge-fn (get-munge-fn entity version options url-prefix)
-             throw-timeout #(throw (query-timeout query-id origin))]
+             throw-timeout #(throw (query-timeout query-id origin))
+             {:keys [query-deadline-ns query-monitor query-monitor-id]} context]
          (when log-queries
            ;; Log origin and AST of incoming query
            (log/infof "PDBQuery:%s:%s"
                       query-id (-> (sorted-map :origin origin :ast query)
                                    json/generate-string)))
          (jdbc/with-db-connection scf-read-db
-           (jdbc/with-db-transaction []
-             (try
-               (jdbc/update-local-timeouts query-deadline-ns 1)
-               (let [{:keys [results-query]}
-                     (query->sql remaining-query entity version
-                                 (merge options
-                                        (select-keys context [:node-purge-ttl :add-agent-report-filter]))
-                                 (select-keys context [:log-queries :query-id]))]
-                 (jdbc/call-with-array-converted-query-rows
-                  results-query
-                  (cond-> (comp row-fn munge-fn)
-                    query-deadline-ns (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
-               (catch SQLException ex
-                 (if (jdbc/local-timeout-ex? ex)
-                   (throw-timeout)
-                   (throw ex)))))))))))
+           (when query-monitor-id
+             (qmon/register-pg-pid query-monitor query-monitor-id
+                                   (jdbc/current-pid)))
+           (try!
+             (jdbc/with-db-transaction []
+               (try
+                 (jdbc/update-local-timeouts query-deadline-ns 1)
+                 (let [{:keys [results-query]}
+                       (query->sql remaining-query entity version
+                                   (merge options
+                                          (select-keys context [:node-purge-ttl :add-agent-report-filter]))
+                                   (select-keys context [:log-queries :query-id]))]
+                   (jdbc/call-with-array-converted-query-rows
+                    results-query
+                    (cond-> (comp row-fn munge-fn)
+                      query-deadline-ns
+                      (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
+                 (catch ExceptionInfo ex
+                   ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
+                   (when (= "57P01" (some-> (ex-data ex)
+                                            :handling
+                                            .getSQLState))
+                     (throw (query-terminated query-id origin)))
+                   (throw ex))
+                 (catch SQLException ex
+                   (if (jdbc/local-timeout-ex? ex)
+                     (throw-timeout)
+                     (throw ex)))))
+             (finally
+               (when query-monitor-id
+                 (qmon/forget query-monitor query-monitor-id))))))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -330,7 +357,8 @@
   by the future after that point will produce an exception from the
   next call to the InputStream read or close methods."
   [db query entity version query-options munge-fn
-   {:keys [pretty-print query-id query-deadline-ns] :as context}]
+   {:keys [pretty-print query-id query-deadline-ns query-monitor query-monitor-id]
+    :as context}]
   ;; Client disconnects present as generic IOExceptions from the
   ;; output writer (via stream-json), and we just log them at debug
   ;; level.  For now, after the first row, there's nothing we can do
@@ -389,37 +417,51 @@
                     (with-open! [out (io/writer out :encoding "UTF-8")]
                       (try
                         (jdbc/with-db-connection db
-                          (jdbc/with-db-transaction []
-                            (jdbc/update-local-timeouts query-deadline-ns 1)
-                            (let [{:keys [results-query count-query]}
-                                  (query->sql query entity version query-options context)
-                                  st (when count-query
-                                       {:count (jdbc/get-result-count count-query)})
-                                  add-sleep #(format "select pg_sleep(%f), * from (%s) as placeholder_name"
-                                                     (float diagnostic-inter-row-sleep) %)
-                                  results-query (cond-> results-query
-                                                  diagnostic-inter-row-sleep (update 0 add-sleep))]
+                          (when query-monitor-id
+                            (qmon/register-pg-pid query-monitor query-monitor-id
+                                                  (jdbc/current-pid)))
+                          (try!
+                            (jdbc/with-db-transaction []
                               (jdbc/update-local-timeouts query-deadline-ns 1)
-                              (jdbc/call-with-array-converted-query-rows
-                               results-query
-                               (when diagnostic-inter-row-sleep {:fetch-size 1})
-                               #(stream-rows % out st)))))
+                              (let [{:keys [results-query count-query]}
+                                    (query->sql query entity version query-options context)
+                                    st (when count-query
+                                         {:count (jdbc/get-result-count count-query)})
+                                    add-sleep #(format "select pg_sleep(%f), * from (%s) as placeholder_name"
+                                                       (float diagnostic-inter-row-sleep) %)
+                                    results-query (cond-> results-query
+                                                    diagnostic-inter-row-sleep (update 0 add-sleep))]
+                                (jdbc/update-local-timeouts query-deadline-ns 1)
+                                (jdbc/call-with-array-converted-query-rows
+                                 results-query
+                                 (when diagnostic-inter-row-sleep {:fetch-size 1})
+                                 #(stream-rows % out st))))
+                            (finally
+                             (when query-monitor-id
+                               (qmon/forget query-monitor query-monitor-id)))))
                         (catch SQLException ex
                           (if (jdbc/local-timeout-ex? ex)
                             (throw-timeout)
                             (throw ex)))
                         (catch ExceptionInfo ex
-                          ;; Handle any timemout here while we can
-                          ;; still try to show the client
-                          ;; something "useful" at the end of the
-                          ;; truncated JSON.
-                          (if (and (realized? status) (instance? ExceptionInfo ex)
-                                   (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
-                            (let [msg (.getMessage ex)]
-                              (log/warn ex)
-                              (.write out msg)
-                              (.flush out))
-                            (throw ex))))))
+                          (cond
+                           ;; Handle any timemout here while we can
+                           ;; still try to show the client
+                           ;; something "useful" at the end of the
+                           ;; truncated JSON.
+                           (and (realized? status) (instance? ExceptionInfo ex)
+                                (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                           (let [msg (.getMessage ex)]
+                             (log/warn ex)
+                             (.write out msg)
+                             (.flush out))
+
+                           ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
+                           (= "57P01" (some-> (ex-data ex)
+                                              :handling
+                                              .getSQLState))
+                           (throw (query-terminated query-id origin))
+                          :else (throw ex))))))
                   ;; These delivers may not do anything, i.e. if the
                   ;; query has already started.
                   (catch Throwable ex
@@ -469,7 +511,9 @@
         (try
           (let [munge-fn (get-munge-fn entity version query-options url-prefix)
                 stream-ctx (select-keys context [:log-queries :pretty-print :query-id
-                                                 :query-deadline-ns])
+                                                 :query-deadline-ns
+                                                 :query-monitor
+                                                 :query-monitor-id])
                 {:keys [status stream]} (body-stream scf-read-db
                                                      (coerce-from-json remaining-query)
                                                      entity version query-options

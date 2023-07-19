@@ -691,11 +691,13 @@
   "Accepts a map containing all of the user-provided configuration values
   and configures the various PuppetDB subsystems."
   [config]
-  (-> config
-      configure-globals
-      configure-developer
-      validate-vardir
-      convert-config))
+  (let [test-config (get-in config [:puppetdb ::test])]
+    (-> config
+        configure-globals
+        configure-developer
+        validate-vardir
+        convert-config
+        (assoc-in [:puppetdb ::test] test-config))))
 
 (defn foss? [config]
   (= "puppetdb" (get-in config [:global :product-name])))
