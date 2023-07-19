@@ -285,7 +285,7 @@
   command-send-ch and sends commands to the puppetdb at base-url. Writes
   ::submitted to rate-monitor-ch for every command sent, or ::error if there was
   a problem. Close command-send-ch to stop the background process."
-  [base-url command-send-ch rate-monitor-ch num-threads]
+  [base-url command-send-ch rate-monitor-ch num-threads ssl-opts]
   (let [fanout-commands-ch (chan)]
     ;; fanout: given a single host state, emit 3 messages, one for each command.
     ;; This gives better parallelism for message submission.
@@ -310,7 +310,7 @@
                               :report client/submit-report
                               :factset client/submit-facts)]
               (try
-                (submit-fn base-url host version payload)
+                (submit-fn base-url host version payload ssl-opts)
                 ::submitted
                 (catch Exception e
                   (println-err (trs "Exception while submitting command: {0}" e))
@@ -510,9 +510,12 @@
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
-        {pdb-host :host pdb-port :port
-         :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
-        base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
+        {:keys [host port ssl-host ssl-port]} (:jetty config)
+        pdb-host (or ssl-host host "127.0.0.1")
+        pdb-port (or ssl-port port "8081")
+        protocol (if ssl-host "https" "http")
+        ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
+        base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
         run-interval (-> (get options :runinterval 30) time/minutes)
         simulation-threads 4
         commands-per-puppet-run (+ (if catalogs 1 0)
@@ -549,7 +552,8 @@
         command-sender-finished-ch (start-command-sender base-url
                                                          command-send-ch
                                                          rate-monitor-ch
-                                                         threads)
+                                                         threads
+                                                         ssl-opts)
         _ (start-simulation-loop numhosts run-interval nummsgs end-commands-in rand-perc
                                  simulation-threads simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark

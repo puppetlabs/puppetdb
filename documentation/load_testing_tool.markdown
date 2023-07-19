@@ -65,14 +65,35 @@ which may significantly skew performance on the primary server. If you would lik
 the benchmark tool on an agent this can be achieved following the instructions
 below.
 
-* On the primary server, modify `/etc/puppetlabs/puppetdb/conf.d/jetty.ini`.
-In the `[jetty]` section, set either:
-    * `host=0.0.0.0 # http access from all agents`
-    * `host=<agent ip address> # access from specific agent`
+#### Running over https
+
+For authentication, you will use the agent's Puppet certificates from /etc/puppetlabs/puppet/ssl.
+
+* On the primary server, modify `/etc/puppetlabs/puppetdb/certificate-allowlist` to include the agent's certificate name (the host fqdn).
+* On the agent, modify the config.ini you will use with the bechmark tool to instead provide ssl host/port and certificate information:
+
+      [jetty]
+      ssl-host=<host name here>
+      ssl-port=<ssl port here (defaults to 8081)>
+      ssl-cert=<path to the agent's /etc/puppetlabs/puppet/ssl/certs pem file>
+      ssl-key=<path to the agent's /etc/puppetlabs/puppet/ssl/private_keys pem file>
+      ssl-ca-cert=/etc/puppetlabs/puppet/ssl/certs/ca.pem
 
 * Install java on the agent
-* On the agent, in the `config.ini` file set the port to the puppetdb port for
-http traffic (defaults to 8080)
+
+After these steps have been completed you should be able to run the benchmark
+tool on the agent using the `java -cp ...` command described above.
+
+#### Running over http *(insecure)*
+
+This is not recommended, as the configuration change will allow http
+connections from *any* source.
+
+* On the primary server, modify `/etc/puppetlabs/puppetdb/conf.d/jetty.ini`.
+In the `[jetty]` section set:
+    * `host=0.0.0.0 # open http access`
+
+* Install java on the agent
 
 After these steps have been completed you should be able to run the benchmark
 tool on the agent using the `java -cp ...` command described above.

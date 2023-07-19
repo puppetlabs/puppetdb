@@ -247,36 +247,12 @@
             (flush-and-exit 0))
           (throw ex))))))
 
-(defn pdb-query-base-url
-  [host port & [version]]
-  {:protocol "http"
-   :host host
-   :port port
-   :prefix "/pdb/query"
-   :version (or version :v4)})
-
-(defn pdb-admin-base-url
-  [host port & [version]]
-  {:protocol "http"
-   :host host
-   :port port
-   :prefix "/pdb/admin"
-   :version (or version :v1)})
-
 (defn pdb-cmd-base-url
-  [host port & [version]]
-  {:protocol "http"
+  [host port & [version protocol]]
+  {:protocol (or protocol "http")
    :host host
    :port port
    :prefix "/pdb/cmd"
-   :version (or version :v1)})
-
-(defn pdb-meta-base-url
-  [host port & [version]]
-  {:protocol "http"
-   :host host
-   :port port
-   :prefix "/pdb/meta"
    :version (or version :v1)})
 
 (defn metrics-base-url
