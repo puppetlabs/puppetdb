@@ -313,7 +313,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version :exclusions [com.zaxxer/HikariCP]]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.4.2"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.5.0"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but
