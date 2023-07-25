@@ -448,10 +448,10 @@
                             ;; still try to show the client
                             ;; something "useful" at the end of the
                             ;; truncated JSON.
-                            (and (realized? status) (instance? ExceptionInfo ex)
+                            (and (realized? status)
                                  (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
                             (let [msg (.getMessage ex)]
-                              (log/warn ex)
+                              (log/warn msg)
                               (.write out msg)
                               (.flush out))
 
