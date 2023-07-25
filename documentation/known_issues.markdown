@@ -4,6 +4,18 @@ layout: default
 canonical: "/puppetdb/latest/known_issues.html"
 ---
 # Known issues
+
+## Issues with specific operating systems
+
+### RHEL 8 - Java 11
+
+RedHat's openjdk 11 package dropped its dependency on tzdata-java. This is a
+bug upstream, see
+[Red Hat bug 2224427](https://bugzilla.redhat.com/show_bug.cgi?id=2224427) for
+more information and to see if this issue has been resolved. If you run into a
+problem starting the application due to a missing timezone database file,
+install `tzdata-java` manually and retry.
+
 ## Bugs and feature requests
 
 [tracker]: https://tickets.puppetlabs.com/browse/PDB
