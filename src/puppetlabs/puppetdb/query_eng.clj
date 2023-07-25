@@ -436,30 +436,30 @@
                                  (when diagnostic-inter-row-sleep {:fetch-size 1})
                                  #(stream-rows % out st))))
                             (finally
-                             (when query-monitor-id
-                               (qmon/forget query-monitor query-monitor-id)))))
+                              (when query-monitor-id
+                                (qmon/forget query-monitor query-monitor-id)))))
                         (catch SQLException ex
                           (if (jdbc/local-timeout-ex? ex)
                             (throw-timeout)
                             (throw ex)))
                         (catch ExceptionInfo ex
                           (cond
-                           ;; Handle any timemout here while we can
-                           ;; still try to show the client
-                           ;; something "useful" at the end of the
-                           ;; truncated JSON.
-                           (and (realized? status) (instance? ExceptionInfo ex)
-                                (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
-                           (let [msg (.getMessage ex)]
-                             (log/warn ex)
-                             (.write out msg)
-                             (.flush out))
+                            ;; Handle any timemout here while we can
+                            ;; still try to show the client
+                            ;; something "useful" at the end of the
+                            ;; truncated JSON.
+                            (and (realized? status) (instance? ExceptionInfo ex)
+                                 (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                            (let [msg (.getMessage ex)]
+                              (log/warn ex)
+                              (.write out msg)
+                              (.flush out))
 
-                           ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
-                           (= (jdbc/sql-state :admin-shutdown)
-                              (some-> (ex-data ex) :handling .getSQLState))
-                           (throw (query-terminated query-id origin))
-                          :else (throw ex))))))
+                            ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
+                            (= (jdbc/sql-state :admin-shutdown)
+                               (some-> (ex-data ex) :handling .getSQLState))
+                            (throw (query-terminated query-id origin))
+                            :else (throw ex))))))
                   ;; These delivers may not do anything, i.e. if the
                   ;; query has already started.
                   (catch Throwable ex
