@@ -263,11 +263,10 @@
                       (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
                  (catch ExceptionInfo ex
                    ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
-                   (when (= "57P01" (some-> (ex-data ex)
-                                            :handling
-                                            .getSQLState))
-                     (throw (query-terminated query-id origin)))
-                   (throw ex))
+                   (if (= (jdbc/sql-state :admin-shutdown)
+                          (some-> (ex-data ex) :handling .getSQLState))
+                     (throw (query-terminated query-id origin))
+                     (throw ex)))
                  (catch SQLException ex
                    (if (jdbc/local-timeout-ex? ex)
                      (throw-timeout)
@@ -457,9 +456,8 @@
                              (.flush out))
 
                            ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
-                           (= "57P01" (some-> (ex-data ex)
-                                              :handling
-                                              .getSQLState))
+                           (= (jdbc/sql-state :admin-shutdown)
+                              (some-> (ex-data ex) :handling .getSQLState))
                            (throw (query-terminated query-id origin))
                           :else (throw ex))))))
                   ;; These delivers may not do anything, i.e. if the
