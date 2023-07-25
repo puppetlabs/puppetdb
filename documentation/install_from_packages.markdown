@@ -15,7 +15,7 @@ layout: default
 [module]: http://forge.puppet.com/puppetlabs/puppetdb
 [postgres_ssl]: ./postgres_ssl.markdown
 [package_repos]: https://puppet.com/docs/puppet/latest/install_puppet.html#enable_the_puppet_platform_repository
-
+[known-issues]: ./known_issues.markdown
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.
@@ -51,6 +51,11 @@ module.
 **Ubuntu 18.04**
 * Enable the [universe repository](https://help.ubuntu.com/community/Repositories/Ubuntu), which contains packages necessary for PuppetDB
 * Ensure Java 8 is installed
+
+**RHEL 8**
+* RedHat's openjdk 11 package's dependency on tzdata-java was broken, see
+  PuppetDB's [known issues][known-issues] for more more information and a
+  workaround.
 
 ## Step 1: Install and configure Puppet
 
