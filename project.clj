@@ -79,7 +79,7 @@
       :exclusions [com.andrewmcveigh/cljs-time]]
      [riddley "0.1.12"]
      [io.forward/yaml "1.0.5"]
-     [clj-commons/clj-yaml "1.0.26"]
+     [org.yaml/snakeyaml]
 
      ;; Only needed for :integration tests
      [puppetlabs/trapperkeeper-filesystem-watcher nil]]
@@ -310,7 +310,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.5.0"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.5.2"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but
