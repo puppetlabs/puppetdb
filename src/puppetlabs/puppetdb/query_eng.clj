@@ -36,11 +36,14 @@
    (org.postgresql.util PGobject PSQLException)
    (org.joda.time Period)))
 
+(defn query-terminated-msg [id origin]
+  (if origin
+    (trs "PDBQuery:{0}: from {1} was terminated in Postgres" id (pr-str origin))
+    (trs "PDBQuery:{0}: was terminated in Postgres" id)))
+
 (defn query-terminated [id origin]
   ;; Note: the exception message is currently logged directly in some cases.
-  (ex-info (if origin
-             (trs "PDBQuery:{0}: from {1} was terminated in Postgres" id (pr-str origin))
-             (trs "PDBQuery:{0}: was terminated in Postgres" id))
+  (ex-info (query-terminated-msg id origin)
            {:kind :puppetlabs.puppetdb.query/terminated :id id :origin origin}))
 
 (defn query-timeout [id origin]
@@ -262,12 +265,14 @@
                       query-deadline-ns
                       (comp #(time-limited-seq % query-deadline-ns throw-timeout)))))
                  (catch ExceptionInfo ex
-                   ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
-                   (when (= "57P01" (some-> (ex-data ex)
-                                            :handling
-                                            .getSQLState))
-                     (throw (query-terminated query-id origin)))
-                   (throw ex))
+                   ;; Recast pg_terminate_backend errors since most(?)
+                   ;; will be intentional via the query monitor, and
+                   ;; we can't reliably distinguish others.
+                   ;; cf. wrap-with-exception-handling.
+                   (if (= (jdbc/sql-state :admin-shutdown)
+                          (some-> (ex-data ex) :handling .getSQLState))
+                     (throw (query-terminated query-id origin))
+                     (throw ex)))
                  (catch SQLException ex
                    (if (jdbc/local-timeout-ex? ex)
                      (throw-timeout)
@@ -407,6 +412,11 @@
                             (log/debug ex (trs "Unable to stream response: {0}"
                                                (.getMessage ex)))
                             (throw quiet-exit)))))]
+
+    ;; Summarize all pg_terminate_backend errors in here since most(?)
+    ;; will be produced by the query monitor, and we can't reliably
+    ;; distinguish others.  cf. wrap-with-exception-handling which
+    ;; handles the throws.
     {:status status
      :stream (generated-stream
               ;; Runs in a future
@@ -437,31 +447,34 @@
                                  (when diagnostic-inter-row-sleep {:fetch-size 1})
                                  #(stream-rows % out st))))
                             (finally
-                             (when query-monitor-id
-                               (qmon/forget query-monitor query-monitor-id)))))
+                              (when query-monitor-id
+                                (qmon/forget query-monitor query-monitor-id)))))
                         (catch SQLException ex
                           (if (jdbc/local-timeout-ex? ex)
                             (throw-timeout)
                             (throw ex)))
                         (catch ExceptionInfo ex
                           (cond
-                           ;; Handle any timemout here while we can
-                           ;; still try to show the client
-                           ;; something "useful" at the end of the
-                           ;; truncated JSON.
-                           (and (realized? status) (instance? ExceptionInfo ex)
-                                (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
-                           (let [msg (.getMessage ex)]
-                             (log/warn ex)
-                             (.write out msg)
-                             (.flush out))
+                            ;; If we've already sent the response to
+                            ;; the client (i.e. status has been
+                            ;; delivered) then send something "useful"
+                            ;; to the client (at the end of the
+                            ;; truncated JSON) before we close the
+                            ;; connection.
 
-                           ;; Suppress errors from the query monitor issuing pg_terminate_backend calls
-                           (= "57P01" (some-> (ex-data ex)
-                                              :handling
-                                              .getSQLState))
-                           (throw (query-terminated query-id origin))
-                          :else (throw ex))))))
+                            (and (realized? status)
+                                 (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                            (let [msg (.getMessage ex)]
+                              (log/warn msg)
+                              (.write out msg) (.flush out))
+
+                            (and (realized? status) (jdbc/clj-jdbc-termination-ex? ex))
+                            (let [msg (query-terminated-msg query-id origin)]
+                              (log/warn msg)
+                              (.write out msg) (.flush out))
+
+                            :else (throw ex))))))
+
                   ;; These delivers may not do anything, i.e. if the
                   ;; query has already started.
                   (catch Throwable ex
@@ -470,10 +483,18 @@
                       (when-not (realized? status)
                         (log/error ex (trs "Impossible situation: query streamer exiting without delivery")))
 
+                      ;; connection to client has been closed at this point
                       (realized? status)
-                      (if (and (instance? ExceptionInfo ex)
-                               (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
+                      (cond
+                        (and (instance? ExceptionInfo ex)
+                             (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex))))
                         (log/warn (.getMessage ex))
+
+                        (and (instance? ExceptionInfo ex)
+                             (jdbc/clj-jdbc-termination-ex? ex))
+                        (log/warn (query-terminated-msg query-id origin))
+
+                        :else
                         (let [msg (trs "Query streaming failed: {0} {1}" query query-options)]
                           (log/error ex msg)
                           (throw ex)))

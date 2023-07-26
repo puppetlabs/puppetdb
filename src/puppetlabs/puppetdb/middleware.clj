@@ -120,16 +120,16 @@
           (do
             (log/error e)
             (http/error-response (cause-finder e)
-              HttpURLConnection/HTTP_INTERNAL_ERROR))))
+                                 HttpURLConnection/HTTP_INTERNAL_ERROR))))
       (catch Exception e
         (log/error e)
         (http/error-response (cause-finder e)
                              HttpURLConnection/HTTP_INTERNAL_ERROR))
-     (catch AssertionError e
+      (catch AssertionError e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred while processing the request")
                              HttpURLConnection/HTTP_INTERNAL_ERROR))
-     (catch Throwable e
+      (catch Throwable e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred")
                              HttpURLConnection/HTTP_INTERNAL_ERROR)))))

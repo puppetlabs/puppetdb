@@ -16,8 +16,9 @@
     :refer [*base-url* with-puppetdb]]
    [puppetlabs.puppetdb.time :refer [ephemeral-now-ns]]
    [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix noisy-future]]
+   [puppetlabs.trapperkeeper.logging :as pl-log :refer [root-logger-name]]
    [puppetlabs.trapperkeeper.testutils.logging
-    :refer [with-log-suppressed-unless-notable]])
+    :refer [with-log-level with-log-suppressed-unless-notable]])
   (:import
    (clojure.lang ExceptionInfo)
    (java.net InetAddress InetSocketAddress)
@@ -247,17 +248,28 @@
                                     (-> info
                                         (assoc :pg-pid pid)
                                         (update :terminated #(some-> % (deref 1 ::timeout))))
-                                    context])))))]
+                                    context])))))
+        logged-terminations (atom [])
+        saw-termination (promise)
+        handle-event #(if (-> % .getMessage (str/includes? "Terminated abandoned"))
+                        (do
+                          (deliver saw-termination true)
+                          (swap! logged-terminations conj %)
+                          false)
+                        (tlog/notable-pdb-event? %))]
 
     (with-redefs [qmon/terminate-query record-term]
       (with-puppetdb nil
         (jdbc/with-db-transaction [] (add-certnames certnames))
         (with-redefs [diagnostic-inter-row-sleep 1]
-          (with-log-suppressed-unless-notable tlog/notable-pdb-event?
-            (impatient-nodes-request 200)))))
+          (with-log-level root-logger-name :info
+            (with-log-suppressed-unless-notable handle-event
+              (impatient-nodes-request 200)
+              (is (not= :timeout (deref saw-termination default-timeout-ms :timeout))))))))
 
     (let [terminations @terminations
           summary (mapv summarize-termination terminations)]
+      (is (= 1 (count @logged-terminations)))
       (is (= 1 (count terminations)))
       (is (= #{{:info {:pg-pid true
                        :deadline-ns ##Inf
