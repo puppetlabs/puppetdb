@@ -1,0 +1,635 @@
+{
+  "catalog_uuid" : "b6e0cfb9-1dd2-46d4-8fb5-04c613e25fe6",
+  "producer" : "puppet-primary-1",
+  "transaction_uuid" : "cfb1f7b6-6fe6-49c6-9bd8-98cbf29124d6",
+  "puppet_version" : "8.0.1",
+  "noop" : false,
+  "corrective_change" : false,
+  "logs" : [ {
+    "file" : null,
+    "line" : null,
+    "level" : "notice",
+    "message" : "Applied catalog in 34.46 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2023-07-24T20:47:16.358Z"
+  } ],
+  "report_format" : 12,
+  "start_time" : "2023-07-20T22:37:03.519Z",
+  "producer_timestamp" : "2023-07-20T22:38:01.519Z",
+  "cached_catalog_status" : "not_used",
+  "end_time" : "2023-07-20T22:38:00.519Z",
+  "status" : "unchanged",
+  "configuration_version" : "1690231636",
+  "environment" : "production",
+  "code_id" : "64c17e64c069cfb1639040c06f46f77a86e6c202",
+  "resources" : [ ],
+  "noop_pending" : false,
+  "certname" : "host-gumozu-2",
+  "metrics" : [ {
+    "name" : "changed",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "corrective_change",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "failed",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "failed_to_restart",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "out_of_sync",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "restarted",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "scheduled",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "skipped",
+    "value" : 0,
+    "category" : "resources"
+  }, {
+    "name" : "decolyjec",
+    "value" : 0.7542844414710999,
+    "category" : "times"
+  }, {
+    "name" : "sycikiqibaw",
+    "value" : 0.9429083466529846,
+    "category" : "times"
+  }, {
+    "name" : "kicigyma",
+    "value" : 0.9442176818847656,
+    "category" : "times"
+  }, {
+    "name" : "cobyjyfihesa",
+    "value" : 0.634795069694519,
+    "category" : "times"
+  }, {
+    "name" : "dimokarywu",
+    "value" : 34.52568310499191,
+    "category" : "times"
+  }, {
+    "name" : "fysorymyxexyl",
+    "value" : 0.15933650732040405,
+    "category" : "times"
+  }, {
+    "name" : "package",
+    "value" : 34.99288588762283,
+    "category" : "times"
+  }, {
+    "name" : "qazulev",
+    "value" : 0.15045851469039917,
+    "category" : "times"
+  }, {
+    "name" : "cyle",
+    "value" : 0.7074916958808899,
+    "category" : "times"
+  }, {
+    "name" : "movuxobolejixe",
+    "value" : 0.7057968974113464,
+    "category" : "times"
+  }, {
+    "name" : "dypyb",
+    "value" : 0.9157018661499023,
+    "category" : "times"
+  }, {
+    "name" : "gupogik",
+    "value" : 25.75057017803192,
+    "category" : "times"
+  }, {
+    "name" : "rocujoxezakawaw",
+    "value" : 0.2661198377609253,
+    "category" : "times"
+  }, {
+    "name" : "vifovyfyvoso",
+    "value" : 32.85910391807556,
+    "category" : "times"
+  }, {
+    "name" : "limepogyfuvody",
+    "value" : 0.422515869140625,
+    "category" : "times"
+  }, {
+    "name" : "dyxo",
+    "value" : 0.9235919117927551,
+    "category" : "times"
+  }, {
+    "name" : "gimyzumaqafe",
+    "value" : 0.9625638723373413,
+    "category" : "times"
+  }, {
+    "name" : "balonis",
+    "value" : 42.28760927915573,
+    "category" : "times"
+  }, {
+    "name" : "qatimyfuheko",
+    "value" : 0.549729585647583,
+    "category" : "times"
+  }, {
+    "name" : "tylepomy",
+    "value" : 7.601648330688477,
+    "category" : "times"
+  }, {
+    "name" : "qapygopyz",
+    "value" : 20.781078040599823,
+    "category" : "times"
+  }, {
+    "name" : "nibebavi",
+    "value" : 0.595339834690094,
+    "category" : "times"
+  }, {
+    "name" : "zizymal",
+    "value" : 33.59895050525665,
+    "category" : "times"
+  }, {
+    "name" : "sucotefak",
+    "value" : 0.052013099193573,
+    "category" : "times"
+  }, {
+    "name" : "bybyzyro",
+    "value" : 22.81047487258911,
+    "category" : "times"
+  }, {
+    "name" : "gyrokopuf",
+    "value" : 0.1276402473449707,
+    "category" : "times"
+  }, {
+    "name" : "qicezizehyle",
+    "value" : 0.6133280396461487,
+    "category" : "times"
+  }, {
+    "name" : "loxolyno",
+    "value" : 0.2707354426383972,
+    "category" : "times"
+  }, {
+    "name" : "seta",
+    "value" : 0.7315554618835449,
+    "category" : "times"
+  }, {
+    "name" : "werytyt",
+    "value" : 44.495634973049164,
+    "category" : "times"
+  }, {
+    "name" : "mediraxe",
+    "value" : 0.8341524004936218,
+    "category" : "times"
+  }, {
+    "name" : "class",
+    "value" : 0.7704674005508423,
+    "category" : "times"
+  }, {
+    "name" : "vebugycyrukuzel",
+    "value" : 38.19297480583191,
+    "category" : "times"
+  }, {
+    "name" : "hadajikoro",
+    "value" : 0.9222426414489746,
+    "category" : "times"
+  }, {
+    "name" : "user",
+    "value" : 0.4989868998527527,
+    "category" : "times"
+  }, {
+    "name" : "rykunacosefofup",
+    "value" : 0.6131767630577087,
+    "category" : "times"
+  }, {
+    "name" : "serecan",
+    "value" : 41.18483108282089,
+    "category" : "times"
+  }, {
+    "name" : "giburazericab",
+    "value" : 0.46618735790252686,
+    "category" : "times"
+  }, {
+    "name" : "hudetu",
+    "value" : 0.7490264177322388,
+    "category" : "times"
+  }, {
+    "name" : "jyzefibido",
+    "value" : 0.2140311598777771,
+    "category" : "times"
+  }, {
+    "name" : "mumogoworugyty",
+    "value" : 0.30712801218032837,
+    "category" : "times"
+  }, {
+    "name" : "wig",
+    "value" : 0.990297794342041,
+    "category" : "times"
+  }, {
+    "name" : "ribyk",
+    "value" : 48.4686598777771,
+    "category" : "times"
+  }, {
+    "name" : "cyzubel",
+    "value" : 3.6019086837768555E-4,
+    "category" : "times"
+  }, {
+    "name" : "mynebanujo",
+    "value" : 0.4510688781738281,
+    "category" : "times"
+  }, {
+    "name" : "dikasaj",
+    "value" : 49.251101434230804,
+    "category" : "times"
+  }, {
+    "name" : "xizycavon",
+    "value" : 0.47987568378448486,
+    "category" : "times"
+  }, {
+    "name" : "mesebuwunyt",
+    "value" : 39.536156833171844,
+    "category" : "times"
+  }, {
+    "name" : "fi",
+    "value" : 0.596338152885437,
+    "category" : "times"
+  }, {
+    "name" : "modanefeqewe",
+    "value" : 36.089904963970184,
+    "category" : "times"
+  }, {
+    "name" : "qybusov",
+    "value" : 0.53806072473526,
+    "category" : "times"
+  }, {
+    "name" : "kigemyzak",
+    "value" : 0.47685492038726807,
+    "category" : "times"
+  }, {
+    "name" : "cigycowiqeqa",
+    "value" : 0.01794123649597168,
+    "category" : "times"
+  }, {
+    "name" : "kojo",
+    "value" : 0.5896807909011841,
+    "category" : "times"
+  }, {
+    "name" : "biwesipap",
+    "value" : 0.13817381858825684,
+    "category" : "times"
+  }, {
+    "name" : "nelivubuleve",
+    "value" : 0.38178324699401855,
+    "category" : "times"
+  }, {
+    "name" : "vyhazyzupoxefu",
+    "value" : 38.391990303993225,
+    "category" : "times"
+  }, {
+    "name" : "exec",
+    "value" : 0.4625033736228943,
+    "category" : "times"
+  }, {
+    "name" : "wyjanerovo",
+    "value" : 0.8398457765579224,
+    "category" : "times"
+  }, {
+    "name" : "cadawetucodi",
+    "value" : 0.33528316020965576,
+    "category" : "times"
+  }, {
+    "name" : "xexihyzecyd",
+    "value" : 9.900624394416809,
+    "category" : "times"
+  }, {
+    "name" : "jirababalezu",
+    "value" : 19.381228804588318,
+    "category" : "times"
+  }, {
+    "name" : "guduqedeku",
+    "value" : 0.9896868467330933,
+    "category" : "times"
+  }, {
+    "name" : "bijenuwuk",
+    "value" : 0.7864042520523071,
+    "category" : "times"
+  }, {
+    "name" : "xiquwelabiz",
+    "value" : 0.1309714913368225,
+    "category" : "times"
+  }, {
+    "name" : "votazisijo",
+    "value" : 0.5456814765930176,
+    "category" : "times"
+  }, {
+    "name" : "vy",
+    "value" : 0.6763458847999573,
+    "category" : "times"
+  }, {
+    "name" : "fifyzef",
+    "value" : 0.45764976739883423,
+    "category" : "times"
+  }, {
+    "name" : "hijofa",
+    "value" : 0.12002569437026978,
+    "category" : "times"
+  }, {
+    "name" : "vu",
+    "value" : 10.353787124156952,
+    "category" : "times"
+  }, {
+    "name" : "jyqobimevaf",
+    "value" : 0.05042409896850586,
+    "category" : "times"
+  }, {
+    "name" : "kokanidixotobo",
+    "value" : 0.4635881185531616,
+    "category" : "times"
+  }, {
+    "name" : "bumol",
+    "value" : 0.45421648025512695,
+    "category" : "times"
+  }, {
+    "name" : "jahujikuhygude",
+    "value" : 47.55471575260162,
+    "category" : "times"
+  }, {
+    "name" : "xywoxifalumak",
+    "value" : 0.8133310675621033,
+    "category" : "times"
+  }, {
+    "name" : "pegevymid",
+    "value" : 0.46033018827438354,
+    "category" : "times"
+  }, {
+    "name" : "pahezoqazy",
+    "value" : 0.6363608837127686,
+    "category" : "times"
+  }, {
+    "name" : "bemaciwinawasa",
+    "value" : 0.9139052629470825,
+    "category" : "times"
+  }, {
+    "name" : "xefaxyfupopotig",
+    "value" : 0.497093141078949,
+    "category" : "times"
+  }, {
+    "name" : "bome",
+    "value" : 0.17879456281661987,
+    "category" : "times"
+  }, {
+    "name" : "sakir",
+    "value" : 0.5900550484657288,
+    "category" : "times"
+  }, {
+    "name" : "qoxetydop",
+    "value" : 29.985420763492584,
+    "category" : "times"
+  }, {
+    "name" : "gasoxew",
+    "value" : 0.8758609294891357,
+    "category" : "times"
+  }, {
+    "name" : "gezuqahojilypex",
+    "value" : 0.7121440768241882,
+    "category" : "times"
+  }, {
+    "name" : "zoqumyjiqyt",
+    "value" : 0.8982070684432983,
+    "category" : "times"
+  }, {
+    "name" : "lopinab",
+    "value" : 0.6289492249488831,
+    "category" : "times"
+  }, {
+    "name" : "tysywufu",
+    "value" : 11.458678007125854,
+    "category" : "times"
+  }, {
+    "name" : "hixutazo",
+    "value" : 0.4864354729652405,
+    "category" : "times"
+  }, {
+    "name" : "widamoz",
+    "value" : 0.2435232400894165,
+    "category" : "times"
+  }, {
+    "name" : "qulyzosocud",
+    "value" : 6.037181556224823,
+    "category" : "times"
+  }, {
+    "name" : "pefoki",
+    "value" : 0.9855954051017761,
+    "category" : "times"
+  }, {
+    "name" : "gozisyzoxyp",
+    "value" : 0.6709194779396057,
+    "category" : "times"
+  }, {
+    "name" : "bygavug",
+    "value" : 0.21891480684280396,
+    "category" : "times"
+  }, {
+    "name" : "nusuly",
+    "value" : 0.16162031888961792,
+    "category" : "times"
+  }, {
+    "name" : "wiwunufebuzo",
+    "value" : 0.3934559226036072,
+    "category" : "times"
+  }, {
+    "name" : "coqamygoxoxaqu",
+    "value" : 0.5299786329269409,
+    "category" : "times"
+  }, {
+    "name" : "zapozokeqij",
+    "value" : 0.748931348323822,
+    "category" : "times"
+  }, {
+    "name" : "razyditogivosa",
+    "value" : 0.9950783252716064,
+    "category" : "times"
+  }, {
+    "name" : "fujybikifi",
+    "value" : 0.026008903980255127,
+    "category" : "times"
+  }, {
+    "name" : "licul",
+    "value" : 38.703677237033844,
+    "category" : "times"
+  }, {
+    "name" : "cyjuxorymyp",
+    "value" : 0.4627707600593567,
+    "category" : "times"
+  }, {
+    "name" : "qusedany",
+    "value" : 8.438270092010498,
+    "category" : "times"
+  }, {
+    "name" : "zymaxypoqaz",
+    "value" : 0.3622139096260071,
+    "category" : "times"
+  }, {
+    "name" : "file",
+    "value" : 14.871493816375732,
+    "category" : "times"
+  }, {
+    "name" : "sosidanuredid",
+    "value" : 35.49786561727524,
+    "category" : "times"
+  }, {
+    "name" : "qucufuw",
+    "value" : 0.7438018321990967,
+    "category" : "times"
+  }, {
+    "name" : "hyqitumipurybo",
+    "value" : 0.137773334980011,
+    "category" : "times"
+  }, {
+    "name" : "lezazazofun",
+    "value" : 0.6190434098243713,
+    "category" : "times"
+  }, {
+    "name" : "fikusyw",
+    "value" : 0.01256018877029419,
+    "category" : "times"
+  }, {
+    "name" : "service",
+    "value" : 0.38826149702072144,
+    "category" : "times"
+  }, {
+    "name" : "vakibaf",
+    "value" : 0.08361977338790894,
+    "category" : "times"
+  }, {
+    "name" : "fiwiloxada",
+    "value" : 0.4273937940597534,
+    "category" : "times"
+  }, {
+    "name" : "bib",
+    "value" : 0.6284326910972595,
+    "category" : "times"
+  }, {
+    "name" : "dahahabyfolivuze",
+    "value" : 0.8135982155799866,
+    "category" : "times"
+  }, {
+    "name" : "viqo",
+    "value" : 36.23114359378815,
+    "category" : "times"
+  }, {
+    "name" : "kiterejyruxab",
+    "value" : 0.5477233529090881,
+    "category" : "times"
+  }, {
+    "name" : "qadicosyhagemem",
+    "value" : 0.6981859803199768,
+    "category" : "times"
+  }, {
+    "name" : "firywomup",
+    "value" : 35.74103909730911,
+    "category" : "times"
+  }, {
+    "name" : "kymy",
+    "value" : 8.70164966583252,
+    "category" : "times"
+  }, {
+    "name" : "qegavyj",
+    "value" : 0.5412226915359497,
+    "category" : "times"
+  }, {
+    "name" : "goraj",
+    "value" : 0.6539391279220581,
+    "category" : "times"
+  }, {
+    "name" : "ryryhav",
+    "value" : 0.6797701716423035,
+    "category" : "times"
+  }, {
+    "name" : "tirapihocel",
+    "value" : 0.455501914024353,
+    "category" : "times"
+  }, {
+    "name" : "xyxevup",
+    "value" : 0.5578472018241882,
+    "category" : "times"
+  }, {
+    "name" : "sucur",
+    "value" : 0.2927592992782593,
+    "category" : "times"
+  }, {
+    "name" : "poneho",
+    "value" : 0.1107376217842102,
+    "category" : "times"
+  }, {
+    "name" : "bukozaq",
+    "value" : 0.7076679468154907,
+    "category" : "times"
+  }, {
+    "name" : "xodyg",
+    "value" : 0.022197186946868896,
+    "category" : "times"
+  }, {
+    "name" : "jelusosa",
+    "value" : 0.12033075094223022,
+    "category" : "times"
+  }, {
+    "name" : "sadufoqonu",
+    "value" : 31.452300310134888,
+    "category" : "times"
+  }, {
+    "name" : "jaxelohosir",
+    "value" : 0.6882847547531128,
+    "category" : "times"
+  }, {
+    "name" : "mecyqutyme",
+    "value" : 0.48672473430633545,
+    "category" : "times"
+  }, {
+    "name" : "wadimisy",
+    "value" : 0.3280843496322632,
+    "category" : "times"
+  }, {
+    "name" : "nugezogovo",
+    "value" : 0.9350695013999939,
+    "category" : "times"
+  }, {
+    "name" : "nekadyzulukerec",
+    "value" : 13.441201746463776,
+    "category" : "times"
+  }, {
+    "name" : "nohuwavykusidydi",
+    "value" : 0.6198068857192993,
+    "category" : "times"
+  }, {
+    "name" : "vetunajurumaw",
+    "value" : 0.5115997791290283,
+    "category" : "times"
+  }, {
+    "name" : "stage",
+    "value" : 19.600952088832855,
+    "category" : "times"
+  }, {
+    "name" : "nonevew",
+    "value" : 0.1963394284248352,
+    "category" : "times"
+  }, {
+    "name" : "total",
+    "value" : 0,
+    "category" : "changes"
+  }, {
+    "name" : "failure",
+    "value" : 0,
+    "category" : "events"
+  }, {
+    "name" : "success",
+    "value" : 0,
+    "category" : "events"
+  }, {
+    "name" : "total",
+    "value" : 0,
+    "category" : "events"
+  } ],
+  "job_id" : null
+}
