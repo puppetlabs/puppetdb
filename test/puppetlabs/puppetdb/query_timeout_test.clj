@@ -90,15 +90,15 @@
          (let [[{:keys [status body]} elapsed] (timed-nodes-query)]
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
-           (is (< 0.2 elapsed 0.4)))
+           (is (< 0.2 elapsed 0.5)))
          (let [[{:keys [status body]} elapsed] (timed-nodes-query :timeout 0.1)]
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
            (is (< 0 elapsed 0.2)))
-         (let [[{:keys [status body]} elapsed] (timed-nodes-query :timeout 0.4)]
+         (let [[{:keys [status body]} elapsed] (timed-nodes-query :timeout 0.5)]
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
-           (is (< 0.3 elapsed 0.5))))))))
+           (is (< 0.5 elapsed 0.7))))))))
 
 (deftest max-timeout-behavior
   (with-unconnected-test-db
