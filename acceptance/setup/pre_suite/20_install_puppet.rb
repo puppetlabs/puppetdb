@@ -2,6 +2,9 @@ test_name "Install Puppet" do
   unless (test_config[:skip_presuite_provisioning])
     if is_el8 && ([:upgrade_latest].include? test_config[:install_mode])
       on(hosts, 'update-crypto-policies --set LEGACY')
+
+      # Work around RedHat Bug 2224427
+      on(hosts, 'yum install -y tzdata-java')
     end
 
     step "Install Puppet" do
