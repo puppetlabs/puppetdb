@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s])
   (:import
@@ -51,7 +52,7 @@
                                            :certname certname
                                            :producer-timestamp (-> payload
                                                                    :producer_timestamp
-                                                                   str)
+                                                                   t/to-string)
                                            :timeout timeout})
          url (str (utils/base-url->str base-url) url-params)
          post-opts (merge {:body body
