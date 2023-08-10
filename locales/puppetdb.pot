@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: b4dfebcec0f54d94f458506abfe5b6bdfb122dc4\n"
+"X-Git-Ref: bc74da8c84aba69fc49d503459c40129cefea521\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1016,8 +1016,7 @@ msgid "Command rejected due to size exceeding max-command-size"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
-msgid ""
-"Conflicting PDB sync versions, each PDB syncing must be on the same version"
+msgid "PDB sync request version {0} too new for this server (expected {1})."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
