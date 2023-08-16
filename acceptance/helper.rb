@@ -301,6 +301,10 @@ module PuppetDBExtensions
            test_config[:os_families].has_key?('centos8-64-1')
   end
 
+  def is_el9()
+    return test_config[:os_families].has_key?('redhat9-64-1')
+  end
+
   def is_rhel7fips
     return test_config[:os_families].has_key? 'redhatfips7-64-1'
   end
@@ -348,6 +352,8 @@ module PuppetDBExtensions
       '7.9.0'
     elsif is_el8
       '6.0.3'
+    elsif is_el9
+      '7.13.2'
     elsif is_rhel7fips
       '6.4.0'
     elsif is_buster
@@ -417,6 +423,8 @@ module PuppetDBExtensions
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
+    elsif host['platform'].include?('el-9')
+      "#{version}.el9"
     elsif host['platform'].include?('ubuntu-18.04')
       "#{version}bionic"
     elsif host['platform'].include?('ubuntu-20.04')
