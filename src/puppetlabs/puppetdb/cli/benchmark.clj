@@ -236,8 +236,8 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"
                 :parse-fn #(Long/valueOf %)]
-               ["-e" "--end-commands-in PERIOD" "A period (like '3d') to use to set the ending date of a set of commands"
-                :default (time/parse-period "7d")
+               ["-e" "--end-commands-in PERIOD" "A period (like '3d') to use to set the ending date of a set of commands. (Usually into the future slightly if you need to account for the time it will take to push a set of historical records into puppetdb)."
+                :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
                ["-t" "--threads THREADS" "Number of threads to use for command submission"
                 :default (* 4 (.availableProcessors (Runtime/getRuntime)))
@@ -454,14 +454,15 @@
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
         ms-per-message (/ 1000 hosts-per-second)
-        ms-per-thread (* ms-per-message simulation-threads)]
+        ms-per-thread (* ms-per-message simulation-threads)
+        progressing-timestamp-fn (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in)]
     (async/pipeline-blocking
      simulation-threads
      write-ch
      (map (fn [host-state]
             (when-not num-msgs
               (Thread/sleep (int (- ms-per-thread (rand)))))
-            (update-host host-state rand-perc (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in))))
+            (update-host host-state rand-perc progressing-timestamp-fn)))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
