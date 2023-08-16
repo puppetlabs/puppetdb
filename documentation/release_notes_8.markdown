@@ -11,6 +11,28 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.1.0
+
+Released August 22 2023
+
+## New features and improvements
+
+* Add el-9 as supported platform
+  [PDB-5667](https://perforce.atlassian.net/browse/PDB-5667)
+
+* Abandon queries when client disconnects
+  [PDB-5645](https://perforce.atlassian.net/browse/PDB-5645)
+
+* PQL parsing of OR clauses can result in OOM errors
+  [PDB-5643](https://perforce.atlassian.net/browse/PDB-5643)
+
+* Restarts of PuppetDB on the primary kill database connections on compilers when no migrations are pending
+  [PDB-36120](https://perforce.atlassian.net/browse/PDB-36120)
+
+### Contributors
+
+Austin Blatt, Nick Burgan-Illig, Jonathan Newman, Eric Newton, Joshua Partlow, Steve Axthelm, and Rob Browning
+
 ## PuppetDB 8.0.1
 
 Released June 14 2023
