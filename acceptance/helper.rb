@@ -301,6 +301,10 @@ module PuppetDBExtensions
            test_config[:os_families].has_key?('centos8-64-1')
   end
 
+  def is_el9()
+    return test_config[:os_families].has_key?('redhat9-64-1')
+  end
+
   def is_rhel7fips
     return test_config[:os_families].has_key? 'redhatfips7-64-1'
   end
@@ -345,7 +349,9 @@ module PuppetDBExtensions
   # platform version returned by puppet_repo_version above
   def oldest_supported
     # account for bionic/rhel8 not having build before certain versions
-    if is_bullseye
+    if is_el9
+      '7.13.2'
+    elsif is_bullseye
       '7.9.0'
     elsif is_jammy
       '7.13.2'
@@ -410,6 +416,8 @@ module PuppetDBExtensions
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
+    elsif host['platform'].include?('el-9')
+      "#{version}.el9"
     elsif host['platform'].include?('ubuntu-18.04')
       "#{version}bionic"
     elsif host['platform'].include?('ubuntu-20.04')
