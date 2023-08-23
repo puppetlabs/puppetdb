@@ -43,6 +43,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
             [clojure.java.io :as io]
+            [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.client :as client]
@@ -107,6 +108,7 @@
   "Grabs one of the mutate-fns randomly and returns it"
   [catalog]
   (let [mutation-fn (comp add-catalog-varying-fields
+                          walk/stringify-keys
                           (rand-nth mutate-fns))]
     (mutation-fn catalog)))
 
