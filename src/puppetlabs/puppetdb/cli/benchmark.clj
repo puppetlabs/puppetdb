@@ -460,9 +460,13 @@
      simulation-threads
      write-ch
      (map (fn [host-state]
-            (when-not num-msgs
-              (Thread/sleep (int (- ms-per-thread (rand)))))
-            (update-host host-state rand-perc progressing-timestamp-fn)))
+            (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
+                  new-host (update-host host-state rand-perc progressing-timestamp-fn)]
+              (when (and (not num-msgs)
+                         (> deadline (time/ephemeral-now-ns)))
+                ;; sleep until deadline
+                (Thread/sleep (int (/  (- deadline (time/ephemeral-now-ns)) 1000000))))
+              new-host)))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
