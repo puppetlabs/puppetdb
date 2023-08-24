@@ -15,6 +15,25 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.14.0
+
+Released August 22 2023
+
+## New features and improvements
+
+* Add el-9 as supported platform
+  [PDB-5671](https://perforce.atlassian.net/browse/PDB-5671)
+
+* PQL parsing of OR clauses can result in OOM errors
+  [PDB-5643](https://perforce.atlassian.net/browse/PDB-5643)
+
+* Add ubuntu 2204 as supported platform
+  [PDB-5636](https://perforce.atlassian.net/browse/PDB-5636)
+
+### Contributors
+
+Austin Blatt, Nick Burgan-Illig, Jonathan Newman, Eric Newton, Joshua Partlow, Steve Axthelm, and Rob Browning
+
 ## PuppetDB 7.13.1
 
 Released June 14 2023
@@ -37,16 +56,16 @@ Released April 6 2023
 
 ### Bug fixes
 
-* queries with thousands of `in array` entries would cause performance problems 
+* queries with thousands of `in array` entries would cause performance problems
   in query compilation.
   ([PDB-3171](https://tickets.puppetlabs.com/browse/PDB-3171))
-* PuppetDB should no longer crash on reload (SIGHUP) in some cases 
+* PuppetDB should no longer crash on reload (SIGHUP) in some cases
   (e.g. after startup but before processing any commands).
   ([PDB-5215](https://tickets.puppetlabs.com/browse/PDB-5215))
 
 ## New features and improvements
 
-* PuppetDB installations with PostgreSQL 14+ will detach reports and resource_events 
+* PuppetDB installations with PostgreSQL 14+ will detach reports and resource_events
   partitions concurrently before dropping them.
   ([PDB-5554](https://tickets.puppetlabs.com/browse/PDB-5554))
 * The reports and resource_events tables were migrated to use PostgreSQL declarative partitioning in support of PDB-5554.
@@ -329,7 +348,7 @@ Austin Blatt, Bogdan Irimie, Rob Browning, Sebastian Miclea, and Stel Abrego
 ### Bug fixes
 
 * If a query with an extract clause contains a misspelled option, the clause is completely ignored resulting in a misleading response body.
-  ``` 
+  ```
   ["from", "reports",
     ["extract", [["function", "count", "certname"]],
       ["null?", "type", false],
