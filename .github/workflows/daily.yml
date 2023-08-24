@@ -18,8 +18,6 @@ jobs:
         flavor:
           - core+ext/openjdk17/pg-15
           - core+ext/openjdk11/pg-11
-          # legacy testing, we do not promise support for jdk 8
-          - core+ext/openjdk8/pg-11
 
         branch: [7.x, main]
         os: [ubuntu-20.04]
@@ -60,6 +58,12 @@ jobs:
             branch: 7.x
             ruby: '2.7'
             flavor: int/openjdk11/pup-7.x/srv-7.x/pg-11
+
+          # OpenJDK 8 testing, only on 7.x
+          - os: ubuntu-20.04
+            branch: 7.x
+            ruby: '2.7'
+            flavor: core+ext/openjdk8/pg-11
 
           # Test deprecated streaming on 7.x
           - os: ubuntu-20.04

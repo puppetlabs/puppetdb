@@ -1,6 +1,6 @@
-(def pdb-version "8.0.2-SNAPSHOT")
+(def pdb-version "8.1.1-SNAPSHOT")
 
-(def clj-parent-version "6.0.1")
+(def clj-parent-version "7.1.0")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -79,6 +79,7 @@
       :exclusions [com.andrewmcveigh/cljs-time]]
      [riddley "0.1.12"]
      [io.forward/yaml "1.0.5"]
+     [org.yaml/snakeyaml]
 
      ;; Only needed for :integration tests
      [puppetlabs/trapperkeeper-filesystem-watcher nil]]
@@ -209,7 +210,7 @@
 
                  ;; WebAPI support libraries.
                  [bidi]
-                 [clj-http "2.0.1"]
+                 [clj-http "3.12.3"]
                  [commons-io]
                  [compojure]
                  [ring/ring-core]
@@ -309,7 +310,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.4.2"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.5.3"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but

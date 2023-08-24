@@ -47,6 +47,6 @@ HYPERVISOR="${HYPERVISOR:-vmpooler}"
 
 export BEAKER_OPTIONS=acceptance/options/${PUPPETDB_DATABASE}.rb
 export BEAKER_CONFIG=acceptance/hosts.cfg
-bundle exec beaker-hostgenerator $LAYOUT --hypervisor $HYPERVISOR --global-config {ssh={config=true}} > $BEAKER_CONFIG
+bundle exec beaker-hostgenerator $LAYOUT --hypervisor $HYPERVISOR > $BEAKER_CONFIG
 
 bundle exec rake beaker:acceptance

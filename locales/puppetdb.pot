@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 0c4f316ecc084e1babf24b2b9bf0d0f86ce426f1\n"
+"X-Git-Ref: bc74da8c84aba69fc49d503459c40129cefea521\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -225,16 +225,20 @@ msgstr ""
 msgid "Skipping update check on Puppet Enterprise"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/cli/services.clj src/puppetlabs/puppetdb/command.clj
-msgid "Periodic activities halted"
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Shut down {0} scheduler"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "Unable to shut down scheduled service tasks, requesting server shutdown"
+msgid "Unable to shut down {0} scheduler; requesting server shutdown"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Shutdown request received; puppetdb exiting."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Unable to stop query monitor"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -334,6 +338,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "multiple write database support is experimental"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Unable to stop query monitor after failed puppetdb startup"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
@@ -470,6 +478,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
 msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj
+msgid "Periodic activities halted"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -959,6 +971,10 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
+msgid "Query backend terminated"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
 msgid "An unexpected error occurred while processing the request"
 msgstr ""
 
@@ -1000,8 +1016,7 @@ msgid "Command rejected due to size exceeding max-command-size"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
-msgid ""
-"Conflicting PDB sync versions, each PDB syncing must be on the same version"
+msgid "PDB sync request version {0} too new for this server (expected {1})."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
@@ -1151,6 +1166,30 @@ msgstr ""
 msgid "Unsupported value for ''count_by'': ''{0}''"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Unable to terminate {0} PDBQuery:{1} (no PostgreSQL pid {2})"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Terminated {0} PDBQuery:{1} (PostgreSQL pid {2})"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Unable to terminate {0} PDBQuery:{1} in 500ms (PostgreSQL pid {2})"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Unexpected PDBQuery:{0} client channel event: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Query monitor shutting down"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/query/paging.clj
 msgid "Illegal value ''{0}'' for :order_by; expected a JSON array of maps."
 msgstr ""
@@ -1189,6 +1228,14 @@ msgstr ""
 msgid ""
 "Unrecognized column ''{0}'' specified in :order_by; Supported columns are "
 "''{1}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "PDBQuery:{0}: from {1} was terminated in Postgres"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "PDBQuery:{0}: was terminated in Postgres"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
@@ -1576,7 +1623,8 @@ msgid "There are no pending migrations"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Disconnecting all {0} connections to {1} database before migrating"
+msgid ""
+"Disconnecting all non-migrator connections to {0} database before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj

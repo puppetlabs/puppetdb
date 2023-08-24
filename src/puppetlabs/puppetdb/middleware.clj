@@ -24,6 +24,7 @@
             [puppetlabs.puppetdb.constants :as constants]
             [puppetlabs.puppetdb.command.constants :as const])
   (:import
+   (clojure.lang ExceptionInfo)
    (java.net HttpURLConnection)))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
@@ -112,15 +113,23 @@
   (fn [req]
     (try
       (app req)
+      (catch ExceptionInfo e
+        (if (= :puppetlabs.puppetdb.query/terminated (:kind (ex-data e)))
+          (http/error-response (tru "Query backend terminated")
+                               HttpURLConnection/HTTP_INTERNAL_ERROR)
+          (do
+            (log/error e)
+            (http/error-response (cause-finder e)
+                                 HttpURLConnection/HTTP_INTERNAL_ERROR))))
       (catch Exception e
         (log/error e)
         (http/error-response (cause-finder e)
                              HttpURLConnection/HTTP_INTERNAL_ERROR))
-     (catch AssertionError e
+      (catch AssertionError e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred while processing the request")
                              HttpURLConnection/HTTP_INTERNAL_ERROR))
-     (catch Throwable e
+      (catch Throwable e
         (log/error e)
         (http/error-response (tru "An unexpected error occurred")
                              HttpURLConnection/HTTP_INTERNAL_ERROR)))))
@@ -357,7 +366,8 @@
         (if (= (get-sync-ver) maybe-sync-ver)
           (app req)
           (http/error-response
-           (tru "Conflicting PDB sync versions, each PDB syncing must be on the same version")
+           (tru "PDB sync request version {0} too new for this server (expected {1})."
+                maybe-sync-ver (get-sync-ver))
            409))
 
         (:error maybe-sync-ver)

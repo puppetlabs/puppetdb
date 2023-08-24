@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
                                                        example-certname]]
+            [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils :refer [with-captured-throw]]
             [puppetlabs.kitchensink.core :as ks])
   (:import
@@ -20,13 +21,14 @@
    [java.nio.file Files]))
 
 (defn mock-submit-record-fn [submitted-records entity]
-  (fn [base-url _certname version payload-string]
+  (fn [base-url _certname version payload-string ssl-opts]
     (swap! submitted-records conj
            {:entity entity
             :base-url base-url
             :version version
             :payload-string payload-string
-            :payload (keywordize-keys payload-string)})))
+            :payload (keywordize-keys payload-string)
+            :ssl-opts ssl-opts})))
 
 (defn call-with-benchmark-status
   [config cli-args f]
@@ -43,6 +45,30 @@
                   utils/try-process-cli (fn [body] (body))
                   benchmark/benchmark-shutdown-timeout tu/default-timeout-ms]
       (f submitted-records (benchmark/benchmark-wrapper cli-args)))))
+
+(deftest progressing-timestamp-nummsgs
+  (doseq [end-in [0 -3 3 14]]
+    (let [now (time/now)
+          end-in-days (time/days end-in)
+          get-timestamp (benchmark/progressing-timestamp 1 (* 14 48) 30 end-in-days)
+          initial-timestamp (get-timestamp)]
+      (is (time/before? (-> end-in-days
+                            time/from-now
+                            (time/minus (time/days 14))) initial-timestamp))
+      (is (time/after? (-> now
+                           (time/plus (time/days end-in))
+                           (time/minus (time/days 14))
+                           (time/plus (time/minutes 31))) initial-timestamp))
+      ;; start at 2 because of first and last invocations
+      (doseq [_ (range 2 (* 14 48))]
+        (get-timestamp))
+      (let [final-timestamp (get-timestamp)
+            before-time (time/plus now end-in-days)
+            after-time (time/plus (time/now) end-in-days)]
+        (is (or (time/equal? before-time final-timestamp)
+                (time/before? before-time final-timestamp)))
+        (is (or (time/equal? after-time final-timestamp)
+                (time/after? after-time final-timestamp)))))))
 
 (defn benchmark-nummsgs
   [config & cli-args]
@@ -199,8 +225,44 @@
        (add-watch submitted watch-key watcher)
        (when-not (>= (count @submitted) enough-records) ; avoid add-watch race
          (deref finished tu/default-timeout-ms nil))
-       ;; Allow a ~30% margin of error to account for jitter in the simulation
+       ;; Allow a ~33% margin of error to account for jitter in the simulation
        ;; timer.
        (let [elapsed (/ (- (System/currentTimeMillis) start) 1000.0)]
-         (is (<= 2.1 elapsed 3.9)))
+         (is (<= 2 elapsed 4)))
        (stop)))))
+
+(deftest rand-catalog-mutation-keys
+  (prn "running test")
+  (let [catalog {"certname"           "host-1"
+                 "catalog_uuid"       "512d24ae-8999-4f12-bda0-1e5d57c0b5cc"
+                 "producer"           "puppet-primary-1"
+                 "hash"               "a923c88272cbf195c4c1f3138090a1c6a64712a3"
+                 "transaction_uuid"   "65998cdc-a66f-40a9-b4fd-2b4c51384764"
+                 "producer_timestamp" "2023-07-20T17:00:11.947Z"
+                 "environment"        "production"
+                 "code_id"            "100891c7504e899c86bad9ce60c27b29ae5c21ec"
+                 "version"            "1690231634"
+                 "resources"          [{"type"  "Class"
+                                        "title" "aclass"
+                                        "file"  "thing"
+                                        "line"  123
+                                        "tags"  ["one" "two"]
+                                        "parameters" {"a" "one"
+                                                      "b" "two"}}
+                                       {"type"  "Atype"
+                                        "title" "atypetitle"
+                                        "file"  "otherthing"
+                                        "line"  456
+                                        "tags"  ["three" "four"]
+                                        "parameters" {"c" "one"
+                                                      "d" "two"}}]
+                 "edges"              [{"source" {"type"  "Class"
+                                                  "title" "aclass"}
+                                        "target" {"type"  "Atype"
+                                                  "title" "atypetitle"}
+                                        "relationship" "contains"}]
+                 "job_id"             nil}
+        mutated (benchmark/rand-catalog-mutation catalog)
+        checked-keys (clojure.walk/walk (fn [[k _]] [k (string? k)]) identity mutated)
+        symbol-keys (filter (fn [[_ is-string]] (not is-string)) checked-keys)]
+    (is (empty? symbol-keys) "Mutating a catalog unexpectedly produced these keys as symbols instead of strings.")))

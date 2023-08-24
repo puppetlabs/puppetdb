@@ -284,6 +284,10 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'ubuntu2004-64-1'
   end
 
+  def is_jammy()
+    return test_config[:os_families].has_key? 'ubuntu2204-64-1'
+  end
+
   def is_buster()
     return test_config[:os_families].has_key? 'debian10-64-1'
   end
@@ -295,6 +299,10 @@ module PuppetDBExtensions
   def is_el8()
     return test_config[:os_families].has_key?('redhat8-64-1') ||
            test_config[:os_families].has_key?('centos8-64-1')
+  end
+
+  def is_el9()
+    return test_config[:os_families].has_key?('redhat9-64-1')
   end
 
   def is_rhel7fips
@@ -340,9 +348,13 @@ module PuppetDBExtensions
   # supported version of PuppetDB. Its version must be available in the
   # platform version returned by puppet_repo_version above
   def oldest_supported
-    # account for bionic/rhel8 not having build before certian versions
-    if is_bullseye
+    # account for bionic/rhel8 not having build before certain versions
+    if is_el9
+      '7.13.2'
+    elsif is_bullseye
       '7.9.0'
+    elsif is_jammy
+      '7.13.2'
     else
       '7.3.1'
     end
@@ -404,10 +416,14 @@ module PuppetDBExtensions
       "#{version}.el7"
     elsif host['platform'].include?('el-8')
       "#{version}.el8"
+    elsif host['platform'].include?('el-9')
+      "#{version}.el9"
     elsif host['platform'].include?('ubuntu-18.04')
       "#{version}bionic"
     elsif host['platform'].include?('ubuntu-20.04')
       "#{version}focal"
+    elsif host['platform'].include?('ubuntu-22.04')
+      "#{version}jammy"
     elsif host['platform'].include?('debian-10')
       "#{version}buster"
     elsif host['platform'].include?('debian-11')
