@@ -1,13 +1,14 @@
 (ns puppetlabs.puppetdb.query.regression-test
   (:require
-   [clj-yaml.core :as yaml]
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
    [puppetlabs.puppetdb.testutils.http
-    :refer [query-response with-http-app]]))
+    :refer [query-response with-http-app]]
+   [puppetlabs.puppetdb.testutils.parse-yaml :refer [parse-yaml]]))
+
 
 (deftest collected-queries-still-working
   (with-test-db
@@ -16,7 +17,7 @@
                         io/as-file
                         file-seq
                         (filter #(str/ends-with? % ".yaml")))
-              request-data (yaml/parse-string (slurp file))
+              request-data (parse-yaml (slurp file))
               :let [{:keys [alias method path query]} request-data
                     keyword-method (case method
                                      "GET" :get

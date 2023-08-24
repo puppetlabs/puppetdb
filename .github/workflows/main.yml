@@ -85,6 +85,7 @@ jobs:
       - env:
           LEIN_PROFILES: ${{ matrix.lein-profile }}
           PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS: ${{ matrix.drop-joins }}
+          NO_ACCEPTANCE: true
         run: ci/bin/prep-and-run-in github ${{ matrix.flavor }}
       - uses: actions/upload-artifact@v3
         with:

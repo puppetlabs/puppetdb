@@ -11,6 +11,7 @@
             [schema.core :as s]
             [puppetlabs.i18n.core :refer [trs]])
   (:import
+   (clojure.lang ExceptionInfo)
    (com.zaxxer.hikari HikariDataSource HikariConfig)
    (java.sql Connection SQLException SQLTransientConnectionException)
    (org.postgresql.util PGobject)))
@@ -31,6 +32,13 @@
        kw-name)
       (throw (IllegalArgumentException.
               (trs "Requested unknown SQL state")))))
+
+(defn clj-jdbc-termination-ex? [ex]
+  (and (instance? ExceptionInfo ex)
+       (let [{:keys [rollback handling]} (ex-data ex)]
+         (and rollback
+              (= (sql-state :admin-shutdown)
+                 (some-> handling .getSQLState))))))
 
 (defmacro with-db-connection [spec & body]
   `(sql/with-db-connection [db# ~spec]
@@ -715,6 +723,9 @@
 
 (defn current-database []
   (-> "select current_database();" query-to-vec first :current_database))
+
+(defn current-pid []
+  (-> "select pg_backend_pid();" query-to-vec first :pg_backend_pid))
 
 (defn-validated has-database-privilege? :- s/Bool
   [user db privilege]

@@ -59,6 +59,7 @@
             [puppetlabs.puppetdb.utils.metrics :as mutils]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
+            [puppetlabs.puppetdb.query.monitor :as qmon]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate
              :refer [desired-schema-version
@@ -99,6 +100,12 @@
    (java.sql SQLException)
    [java.util.concurrent.locks ReentrantLock]
    [org.joda.time Period]))
+
+(def env-monitor-queries?
+  ;; Note: theres'a also a :conf/test switch
+  (->> (or (System/getenv "PDB_PROMPTLY_END_QUERIES") "true")
+       (re-matches #"yes|true|1")
+       seq))
 
 (defn stop-reporters [registries]
   (letfn [(stop [[registry & registries]]
@@ -505,6 +512,7 @@
     (log/debug (trs "Skipping update check on Puppet Enterprise"))))
 
 (def stop-gc-wait-ms (constantly 5000))
+(def stop-query-monitor-wait-ms (constantly 5000))
 
 (defn ready-to-stop? [{:keys [stopping collecting-garbage]}]
   (and stopping (not (seq collecting-garbage))))
@@ -527,11 +535,12 @@
 (defn shut-down-after-scheduler-unresponsive [f]
   (f))
 
-(defn shut-down-service-scheduler-or-die [s request-shutdown]
+(defn shut-down-scheduler-or-die [s request-shutdown name]
   (request-scheduler-shutdown s :interrupt)
   (if (await-scheduler-shutdown s (stop-gc-wait-ms))
-    (log/info (trs "Periodic activities halted"))
-    (let [msg (trs "Unable to shut down scheduled service tasks, requesting server shutdown")]
+    (log/info (trs "Shut down {0} scheduler" name))
+    (let [msg (trs "Unable to shut down {0} scheduler; requesting server shutdown"
+                   name)]
       (log/error msg)
       (shut-down-after-scheduler-unresponsive
        #(request-shutdown {:puppetlabs.trapperkeeper.core/exit
@@ -545,9 +554,12 @@
    (log/info (trs "Shutdown request received; puppetdb exiting."))
    context
    (finally (some-> (:job-pool context)
-                    (shut-down-service-scheduler-or-die request-shutdown)))
+                    (shut-down-scheduler-or-die request-shutdown "job")))
    (finally (some-> (:gc-pool context)
-                    (shut-down-service-scheduler-or-die request-shutdown)))
+                    (shut-down-scheduler-or-die request-shutdown "gc")))
+   (finally (when-let [m (get-in context [:shared-globals :query-monitor])]
+              (when-not (qmon/stop m (stop-query-monitor-wait-ms))
+                (log/error (trs "Unable to stop query monitor")))))
    (finally (close-write-dbs (get-in context [:shared-globals :scf-write-dbs])))
    (finally (some-> (get-in context [:shared-globals :scf-read-db :datasource])
                     .close))
@@ -923,16 +935,16 @@
 (defn start-garbage-collection
   "Starts garbage collection of the databases represented in db-configs"
   [{:keys [clean-lock] :as _context}
-   job-pool db-configs db-pools db-lock-statuses shutdown-for-ex]
+   sched db-configs db-pools db-lock-statuses shutdown-for-ex]
   (let [dbs-with-gc-enabled (filter (fn [[cfg _ _]] (-> cfg :gc-interval to-millis pos?))
                                     (map vector db-configs db-pools db-lock-statuses))]
     (doseq [[cfg db lock-status] dbs-with-gc-enabled]
       (let [request-cfg (db-config->clean-request cfg)]
         ;; Start GC job pool with initial and subsequent delay of :gc-interval
         (doseq [[request interval] request-cfg]
-          (schedule-with-fixed-delay job-pool #(invoke-periodic-gc db cfg request
-                                                                   shutdown-for-ex
-                                                                   clean-lock lock-status)
+          (schedule-with-fixed-delay sched #(invoke-periodic-gc db cfg request
+                                                                shutdown-for-ex
+                                                                clean-lock lock-status)
                                      (to-millis interval) (to-millis interval)))))))
 
 
@@ -954,26 +966,30 @@
   (when-let [v (version/version)]
     (log/info (trs "PuppetDB version {0}" v)))
 
-  (let [{:keys [database developer read-database emit-cmd-events?]} config
+  (let [{:keys [puppetdb database developer read-database emit-cmd-events?]} config
         {:keys [cmd-event-mult cmd-event-ch]} context
         ;; Assume that the exception has already been reported.
         shutdown-for-ex (exceptional-shutdown-requestor request-shutdown [] 2)
         write-dbs-config (conf/write-databases config)
         emit-cmd-events? (or (conf/pe? config) emit-cmd-events?)
         maybe-send-cmd-event! (partial maybe-send-cmd-event! emit-cmd-events? cmd-event-ch)
-        context (assoc context  ;; context may be augmented further below
-                       :shared-globals {:pretty-print (:pretty-print developer)
-                                        :node-purge-ttl (:node-purge-ttl database)
-                                        :add-agent-report-filter (get-in config [:puppetdb :add-agent-report-filter])
-                                        :query-timeout-default (get-in config [:puppetdb :query-timeout-default])
-                                        :query-timeout-max (get-in config [:puppetdb :query-timeout-max])
-                                        :cmd-event-mult cmd-event-mult
-                                        :maybe-send-cmd-event! maybe-send-cmd-event!
-                                        ;; FIXME: remove this if/when
-                                        ;; we add immediate ::tk/exit
-                                        ;; support to trapperkeeper.
-                                        :shutdown-request (:shutdown-request context)
-                                        :log-queries (get-in config [:puppetdb :log-queries])}
+        test-config (puppetdb ::conf/test)
+        monitor-queries? (::qmon/monitor-queries? test-config true)
+        context (assoc context ;; context may be augmented further below
+                       :shared-globals
+                       (cond-> {:pretty-print (:pretty-print developer)
+                                :node-purge-ttl (:node-purge-ttl database)
+                                :add-agent-report-filter (puppetdb :add-agent-report-filter)
+                                :query-timeout-default (puppetdb :query-timeout-default)
+                                :query-timeout-max (puppetdb :query-timeout-max)
+                                :cmd-event-mult cmd-event-mult
+                                :maybe-send-cmd-event! maybe-send-cmd-event!
+                                ;; FIXME: remove this if/when we add
+                                ;; immediate ::tk/exit support to
+                                ;; trapperkeeper.
+                                :shutdown-request (:shutdown-request context)
+                                :log-queries (puppetdb :log-queries)}
+                         test-config (assoc ::conf/test test-config))
                        :clean-lock (ReentrantLock.))]
 
     (when (> (count write-dbs-config) 1)
@@ -1007,13 +1023,22 @@
 
                    _ command-loader :error #(some-> % future-cancel)
                    ;; schema checks, update checks
-                   job-pool (scheduler 4) :error #(shut-down-service-scheduler-or-die
-                                                   % request-shutdown)
+                   job-pool (scheduler 4) :error #(shut-down-scheduler-or-die
+                                                   % request-shutdown "job")
                    ;; schedule gc routines on a fixed delay, but ensure that we limit
                    ;; database contention by "serializing" the jobs on a thread pool
                    ;; with 1 thread
-                   gc-pool (scheduler 1) :error #(shut-down-service-scheduler-or-die
-                                                   % request-shutdown)
+                   gc-pool (scheduler 1) :error #(shut-down-scheduler-or-die
+                                                  % request-shutdown "gc")
+
+                   query-monitor (when (and env-monitor-queries? monitor-queries?)
+                                   (-> (qmon/monitor :on-fatal-error request-shutdown)
+                                       qmon/start))
+                   :error #(when %
+                             (or (qmon/stop % (stop-query-monitor-wait-ms))
+                                 (log/error
+                                  (trs "Unable to stop query monitor after failed puppetdb startup"))))
+
                    ; Create connection pools for each DB we want to write to
                    {:keys [write-db-cfgs write-db-names write-db-pools]}
                    (init-write-dbs write-dbs-config)
@@ -1046,6 +1071,7 @@
                      :dlo dlo
                      :maybe-send-cmd-event! maybe-send-cmd-event!
                      :q q
+                     :query-monitor query-monitor
                      :scf-read-db read-db
                      :scf-write-dbs write-db-pools
                      :scf-write-db-cfgs write-db-cfgs
@@ -1172,7 +1198,7 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:DefaultedConfig get-config]
-   [:WebroutingService add-ring-handler get-registered-endpoints]
+   [:WebroutingService get-registered-endpoints]
    [:ShutdownService get-shutdown-reason request-shutdown]]
 
   (init

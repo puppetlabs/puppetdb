@@ -52,8 +52,8 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
    after expr is the order of precedence. One should be careful when modifying
    this structure, and ensure that precedence rules continue to be kept. *)
 <expression> = expr-or;
-expr-or      = expr-and { <whitespace>, or, <whitespace>, expr-or };
-expr-and     = expr-not { <whitespace>, and, <whitespace>, expr-and };
+expr-or      = expr-and | expr-and, <whitespace>, or, <whitespace>, expr-or;
+expr-and     = expr-not | expr-not, <whitespace>, and, <whitespace>, expr-and;
 expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;
 <expr-rest>  = ( <lparens>, [<whitespace>], expression, [<whitespace>], <rparens> ) | condexpression | condexpnull | subquery;
 

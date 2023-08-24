@@ -43,6 +43,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
             [clojure.java.io :as io]
+            [clojure.stacktrace :as trace]
+            [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.client :as client]
@@ -107,6 +109,7 @@
   "Grabs one of the mutate-fns randomly and returns it"
   [catalog]
   (let [mutation-fn (comp add-catalog-varying-fields
+                          walk/stringify-keys
                           (rand-nth mutate-fns))]
     (mutation-fn catalog)))
 
@@ -186,8 +189,8 @@
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
   randomly mutate other data depending on rand-percentage. "
-  [{:keys [_host catalog report factset] :as state} rand-percentage current-time run-interval]
-  (let [stamp (jitter current-time (time/in-seconds run-interval))
+  [{:keys [_host catalog report factset] :as state} rand-percentage get-timestamp]
+  (let [stamp (get-timestamp)
         uuid (kitchensink/uuid)]
     (assoc state
            :catalog (some-> catalog (update-catalog rand-percentage uuid stamp))
@@ -199,8 +202,9 @@
   (cond
     (and (contains? options :runinterval)
          (contains? options :nummsgs))
-    (utils/throw-sink-cli-error
-     "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+    (do
+      (println-err "Warning: -N/--nummsgs and -i/--runinterval provided. Running in --nummsgs mode.")
+      options)
 
     (kitchensink/missing? options :runinterval :nummsgs)
     (utils/throw-sink-cli-error
@@ -235,6 +239,9 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"
                 :parse-fn #(Long/valueOf %)]
+               ["-e" "--end-commands-in PERIOD" "A period (like '3d') to use to set the ending date of a set of commands. (Usually into the future slightly if you need to account for the time it will take to push a set of historical records into puppetdb)."
+                :default (time/parse-period "0d")
+                :parse-fn #(time/parse-period %)]
                ["-t" "--threads THREADS" "Number of threads to use for command submission"
                 :default (* 4 (.availableProcessors (Runtime/getRuntime)))
                 :parse-fn #(Integer/parseInt %)]]
@@ -281,7 +288,7 @@
   command-send-ch and sends commands to the puppetdb at base-url. Writes
   ::submitted to rate-monitor-ch for every command sent, or ::error if there was
   a problem. Close command-send-ch to stop the background process."
-  [base-url command-send-ch rate-monitor-ch num-threads]
+  [base-url command-send-ch rate-monitor-ch num-threads ssl-opts]
   (let [fanout-commands-ch (chan)]
     ;; fanout: given a single host state, emit 3 messages, one for each command.
     ;; This gives better parallelism for message submission.
@@ -306,10 +313,12 @@
                               :report client/submit-report
                               :factset client/submit-facts)]
               (try
-                (submit-fn base-url host version payload)
+                (submit-fn base-url host version payload ssl-opts)
                 ::submitted
                 (catch Exception e
-                  (println-err (trs "Exception while submitting command: {0}" e))
+                  (do
+                    (println-err (trs "Exception while submitting command: {0}" e))
+                    (println-err (with-out-str (trace/print-stack-trace e))))
                   ::error)))))
      fanout-commands-ch)))
 
@@ -420,24 +429,49 @@
          :report (random-entity host reports)
          :factset (random-entity host facts)}))))
 
+(defn progressing-timestamp
+  "Return a function that will return a timestamp that progresses forward in time."
+  [num-hosts num-msgs run-interval-minutes end-commands-in]
+  (if num-msgs
+    (let [msg-interval (* num-msgs run-interval-minutes)
+          ;; Does not need to be multiplied by 3 (for reports/catalogs/factsets) because
+          ;; each set of commands for a node use the same timestamp
+          timestamp-increment-ms (/ (* 60 1000 msg-interval) (* num-hosts num-msgs))
+          timestamp (atom (-> (time/from-now end-commands-in)
+                              (time/minus (time/minutes msg-interval))))]
+      ;; Return a function that will backdate previous messages
+      ;; helpful for submiting reports that will populate old partition
+      (fn []
+        (swap! timestamp time/plus (time/millis timestamp-increment-ms))))
+    ;; When running in the continuous runinterval mode, provide a bit
+    ;; of random variation from now. The timestamps are spread out over
+    ;; the course of the run by the thread sleeps in the channel read.
+    (fn []
+      (jitter (now) run-interval-minutes))))
+
 (defn start-simulation-loop
   "Run a background process which takes host-state maps from read-ch, updates
   them with update-host, and puts them on write-ch. If num-msgs is not given,
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
-  [numhosts run-interval num-msgs rand-perc simulation-threads
+  [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
    write-ch read-ch]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
         ms-per-message (/ 1000 hosts-per-second)
-        ms-per-thread (* ms-per-message simulation-threads)]
+        ms-per-thread (* ms-per-message simulation-threads)
+        progressing-timestamp-fn (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in)]
     (async/pipeline-blocking
      simulation-threads
      write-ch
      (map (fn [host-state]
-            (when-not num-msgs
-              (Thread/sleep (int (- ms-per-thread (rand)))))
-            (update-host host-state rand-perc (now) run-interval)))
+            (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
+                  new-host (update-host host-state rand-perc progressing-timestamp-fn)]
+              (when (and (not num-msgs)
+                         (> deadline (time/ephemeral-now-ns)))
+                ;; sleep until deadline
+                (Thread/sleep (int (/  (- deadline (time/ephemeral-now-ns)) 1000000))))
+              new-host)))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
@@ -482,13 +516,16 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs threads end-commands-in] :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
-        {pdb-host :host pdb-port :port
-         :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
-        base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
+        {:keys [host port ssl-host ssl-port]} (:jetty config)
+        pdb-host (or ssl-host host "127.0.0.1")
+        pdb-port (or ssl-port port "8081")
+        protocol (if ssl-host "https" "http")
+        ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
+        base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
         run-interval (-> (get options :runinterval 30) time/minutes)
         simulation-threads 4
         commands-per-puppet-run (+ (if catalogs 1 0)
@@ -525,8 +562,9 @@
         command-sender-finished-ch (start-command-sender base-url
                                                          command-send-ch
                                                          rate-monitor-ch
-                                                         threads)
-        _ (start-simulation-loop numhosts run-interval nummsgs rand-perc
+                                                         threads
+                                                         ssl-opts)
+        _ (start-simulation-loop numhosts run-interval nummsgs end-commands-in rand-perc
                                  simulation-threads simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))

@@ -2323,6 +2323,15 @@
      "alter table catalog_resources set (autovacuum_analyze_scale_factor = 0.01)"))
   nil)
 
+(defn remove-catalog-resources-file-trgm-index
+  "Drops the expensive catalog_resources_file_trgm index, and resets the
+  catalog_resources autovacuum_analyze_scale_factor storage parameter to
+  default."
+  []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS catalog_resources_file_trgm"
+    "ALTER TABLE catalog_resources RESET ( autovacuum_analyze_scale_factor )"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2389,7 +2398,8 @@
    80 add-workspaces-tables
    81 migrate-resource-events-to-declarative-partitioning
    82 migrate-reports-to-declarative-partitioning
-   83 require-previously-optional-trigram-indexes})
+   83 require-previously-optional-trigram-indexes
+   84 remove-catalog-resources-file-trgm-index})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
@@ -2527,8 +2537,8 @@
    (if-not user
      (do
        (log/info
-        (trs "Disconnecting all {0} connections to {1} database before migrating"
-             user db-name))
+        (trs "Disconnecting all non-migrator connections to {0} database before migrating"
+             db-name))
        (doseq [user users]
          ;; Because the revoke may not actually produce an error when
          ;; it doesn't work.
@@ -2600,16 +2610,17 @@
                      tables))]
     (if-not write-user
       (migrate)
-      (call-with-connections-blocked-during-migration
-       db-name
-       (distinct [read-user write-user])
-       (fn []
-         ;; So new tables, etc. are owned by the write-user
-         (jdbc/do-commands (str "set role " (jdbc/double-quote write-user)))
-         (try!
-          (migrate)
-          (finally
-            (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user))))))))))
+      (when-not (empty? (pending-migrations))
+        (call-with-connections-blocked-during-migration
+         db-name
+         (distinct [read-user write-user])
+         (fn []
+           ;; So new tables, etc. are owned by the write-user
+           (jdbc/do-commands (str "set role " (jdbc/double-quote write-user)))
+           (try!
+            (migrate)
+            (finally
+              (jdbc/do-commands (str "set role " (jdbc/double-quote orig-user)))))))))))
 
 (defn initialize-schema
   "Ensures the database is migrated to the latest version, and returns

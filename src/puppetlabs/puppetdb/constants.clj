@@ -10,4 +10,4 @@
 ;; Use to signal when a change isn't backwards compatible with pdbext ha-sync.
 ;; Bumping this version number will cause pdbext sync requests to fail with 409s
 ;; until both pdbs are upgraded and on the same sync version.
-(def pdb-sync-ver 1)
+(def pdb-sync-ver 2)
