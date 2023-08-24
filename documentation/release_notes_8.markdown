@@ -20,6 +20,9 @@ Released August 22 2023
 * Add el-9 as supported platform
   [PDB-5667](https://perforce.atlassian.net/browse/PDB-5667)
 
+* Add ubuntu 22.04 as supported platform
+  [PDB-5636](https://perforce.atlassian.net/browse/PDB-5636)
+
 * Abandon queries when client disconnects
   [PDB-5645](https://perforce.atlassian.net/browse/PDB-5645)
 
