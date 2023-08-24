@@ -13,13 +13,14 @@
             [puppetlabs.puppetdb.testutils.db :as dbutils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [yaml.core :as yaml]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])
-  (:import [com.typesafe.config ConfigValueFactory]))
+  (:import
+   (com.typesafe.config ConfigValueFactory)
+   (java.lang ProcessBuilder ProcessBuilder$Redirect)))
 
 (defprotocol TestServer
   (server-info [this]))
@@ -154,13 +155,13 @@
 
 ;;; Puppet Server fixture
 
-(defrecord PuppetServerTestServer [info-map files-to-cleanup app]
+(defrecord PuppetServerTestServer [info-map files-to-cleanup process]
   TestServer
   (server-info [_] info-map)
 
   java.lang.AutoCloseable
   (close [_]
-    (tk-app/stop app)
+    (doto process .destroy .waitFor) ;; Assumes destroy sends a SIGTERM
     (doseq [f files-to-cleanup] (fs/delete f))))
 
 (def dev-config-file "./test-resources/puppetserver/puppetserver.conf")
@@ -201,6 +202,21 @@
                                             (clojure.string/join ","))}}
                   (or overrides {})))))
 
+(defn- wait-for-server
+  [port timeout-ms]
+  (loop [n (/ timeout-ms 100)]
+    (when (neg? n)
+      (throw (ex-info (str "server not ready within " timeout-ms "ms") {})))
+    (let [res (try
+                (svc-utils/get-ssl (str "https://localhost:" port "/status/v1/services"))
+                (catch java.net.ConnectException _
+                  ::nope))]
+      (cond
+        (= res ::nope) (do (Thread/sleep 100) (recur (dec n)))
+        (= 200 (:status res)) true
+        :else (throw (ex-info "Unexpected result from status endpoint while waiting"
+                              res))))))
+
 (defn run-puppet-server-as [node-name pdb-servers config-overrides]
   (let [puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")
         puppet-conf (io/file "target/puppetserver/master-conf/puppet.conf")
@@ -224,21 +240,37 @@
 
     (write-puppetdb-terminus-config pdb-servers puppetdb-conf terminus-config-overrides)
 
-    (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
-          tmp-conf (ks/temp-file "puppetserver" ".conf")
-          _ (fs/copy dev-config-file tmp-conf)
-          port (svc-utils/open-port-num)
-          config (-> (tk-config/load-config (.getPath tmp-conf))
+    (let [port (svc-utils/open-port-num)
+          config (-> (tk-config/load-config dev-config-file)
                      (merge puppetserver-config-overrides)
-                     (assoc-in [:webserver :ssl-port] port))]
+                     (assoc-in [:webserver :ssl-port] port))
+          config-file (ks/temp-file "puppetserver-conf" ".edn")
+          cmd ["java" "-cp" "puppetserver/target/puppet-server-release.jar"
+               "clojure.main" "-m" "puppetlabs.trapperkeeper.main"
+               "services"
+               "--bootstrap-config" dev-bootstrap-file
+               "-c" (.getPath config-file)]
+          adjust-env #(doto ^java.util.Map (.environment %)
+                        (.remove "CLASSPATH"))
+          pb (doto (ProcessBuilder. cmd)
+               (.redirectOutput ProcessBuilder$Redirect/INHERIT)
+               (.redirectError ProcessBuilder$Redirect/INHERIT)
+               adjust-env)
+          _ (spit config-file (pr-str config))
+          process (.start pb)]
+      (.addShutdownHook (Runtime/getRuntime)
+                        (doto (Thread. #(.destroy process))
+                          (.setName (str "Subprocess cleanup for " process))))
+      (log/info (str "Started puppetserver on port " port))
+      (wait-for-server port tu/default-timeout-ms)
       (PuppetServerTestServer. {:hostname "localhost"
                                 :port port
                                 :code-dir "target/puppetserver/master-code"
                                 :conf-dir "target/puppetserver/master-conf"}
-                               [(.getPath tmp-conf)
+                               [(.getPath config-file)
                                 "target/puppetserver/master-conf"
                                 "target/puppetserver/master-code"]
-                               (tkbs/bootstrap-services-with-config services config)))))
+                               process))))
 
 (defn run-puppet-server [pdb-servers config-overrides]
   (run-puppet-server-as "localhost" pdb-servers config-overrides))
