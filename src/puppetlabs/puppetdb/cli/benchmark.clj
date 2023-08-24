@@ -43,6 +43,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
             [clojure.java.io :as io]
+            [clojure.stacktrace :as trace]
+            [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.client :as client]
@@ -107,6 +109,7 @@
   "Grabs one of the mutate-fns randomly and returns it"
   [catalog]
   (let [mutation-fn (comp add-catalog-varying-fields
+                          walk/stringify-keys
                           (rand-nth mutate-fns))]
     (mutation-fn catalog)))
 
@@ -313,7 +316,9 @@
                 (submit-fn base-url host version payload ssl-opts)
                 ::submitted
                 (catch Exception e
-                  (println-err (trs "Exception while submitting command: {0}" e))
+                  (do
+                    (println-err (trs "Exception while submitting command: {0}" e))
+                    (println-err (with-out-str (trace/print-stack-trace e))))
                   ::error)))))
      fanout-commands-ch)))
 
