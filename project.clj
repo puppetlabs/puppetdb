@@ -1,6 +1,6 @@
-(def pdb-version "7.13.2-SNAPSHOT")
+(def pdb-version "7.14.1-SNAPSHOT")
 
-(def clj-parent-version "5.3.7")
+(def clj-parent-version "5.5.0")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -79,6 +79,7 @@
       :exclusions [com.andrewmcveigh/cljs-time]]
      [riddley "0.1.12"]
      [io.forward/yaml "1.0.5"]
+     [clj-commons/clj-yaml "1.0.26"]
 
      ;; Only needed for :integration tests
      [puppetlabs/trapperkeeper-filesystem-watcher nil]]
@@ -312,7 +313,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version :exclusions [com.zaxxer/HikariCP]]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.4.1"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.5.3"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but

@@ -89,6 +89,7 @@ jobs:
           LEIN_PROFILES: ${{ matrix.lein-profile }}
           PDB_QUERY_OPTIMIZE_DROP_UNUSED_JOINS: ${{ matrix.drop-joins }}
           PDB_USE_DEPRECATED_QUERY_STREAMING_METHOD: ${{ matrix.deprecated-query-streaming }}
+          NO_ACCEPTANCE: true
         run: ci/bin/prep-and-run-in github ${{ matrix.flavor }}
       - uses: actions/upload-artifact@v3
         with:

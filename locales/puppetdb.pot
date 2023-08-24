@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 1a530198597b03481c6b50fa1e4977d7dcd82bea\n"
+"X-Git-Ref: f768ede7ed7251d1a06dd027462d2ec9e3392ccd\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1593,7 +1593,8 @@ msgid "Creating additional index `catalog_resources_file_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Disconnecting all {0} connections to {1} database before migrating"
+msgid ""
+"Disconnecting all non-migrator connections to {0} database before migrating"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj

@@ -295,7 +295,8 @@
          received-time (str (time/to-long received-time))
          duration (str (in-millis (interval start-time (now))))
          command-name (command-names command-kw)
-         producer-utc-s (-> producer-ts time/to-timestamp .getTime)
+         producer-utc-s (or (some-> producer-ts time/to-timestamp .getTime)
+                            "nil")
          summary (str id "-" received-time "-" producer-utc-s)
          hash-prefix (if hash
                        (let [hs (if (bytes? hash)
@@ -528,11 +529,11 @@
         ;; also assuming that all commands don't vary their behavior
         ;; across retries sufficiently for that to matter either.
         ;; This was originally introduced to handle
-        ;; program_limit_exceeded errors caused by attemptps to insert
+        ;; program_limit_exceeded errors caused by attempts to insert
         ;; resource titles that were too big to fit in a postgres
         ;; index.
         ;; cf. https://www.postgresql.org/docs/11/errcodes-appendix.html
-        (when (str/starts-with? (.getSQLState ex) "54")
+        (when (some-> ex .getSQLState (str/starts-with? "54"))
           (throw (fatality ex)))
         (throw ex)))))
 
