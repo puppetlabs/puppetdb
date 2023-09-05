@@ -321,7 +321,10 @@
      (do
        (reset! exit true)
        (.wakeup selector)
-       ;; Q: do we want this, and if so, have thread swallow it on the way out?
+       ;; Q: do we want this, and if so, have thread swallow it on the
+       ;; way out?  Before deciding, see the SelectableChannel docs.
+       ;; Thread interrupts cause the key for any channel the thread
+       ;; was blocked on to be canceled.
        ;; (.interrupt monitor-thread)
        (if timeout-ms
          (.join thread timeout-ms)
