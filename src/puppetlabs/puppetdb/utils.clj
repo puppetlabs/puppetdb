@@ -423,7 +423,7 @@
                                (try
                                  (~initiate-shutdown ex#)
                                  (catch Throwable ex2#
-                                   (.addSuppressed ex# ex2#)))
+                                   (.addSuppressed ^Throwable ex# ex2#)))
                                (throw ex#))
      ~@body))
 

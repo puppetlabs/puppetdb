@@ -72,9 +72,13 @@
    (java.nio ByteBuffer)
    (java.nio.channels CancelledKeyException
                       ClosedChannelException
+                      ReadableByteChannel
                       SelectableChannel
                       SelectionKey
-                      Selector)))
+                      Selector
+                      SocketChannel)))
+
+(set! *warn-on-reflection* true)
 
 (def ns-per-ms 1000000)
 
@@ -167,12 +171,15 @@
         next-deadline
         (do
           (stop-query info "expired")
-          (.cancel select-key)
+          (.cancel ^SelectionKey select-key)
           (recur))))))
 
-(defn- describe-key [k]
+(defn- describe-key [^SelectionKey k]
+  ;; Currently only works for keys that have channels with
+  ;; getRemoteAddress...
   {:client (try
-             (-> k .channel .getRemoteAddress str)
+             (let [c ^SocketChannel (.channel k)]
+               (-> c .getRemoteAddress str))
              (catch ClosedChannelException _ :closed))
    :ops (if-let [ops (try (.readyOps k) (catch CancelledKeyException _))]
           (set (for [[v n] [[SelectionKey/OP_ACCEPT :accept]
@@ -184,7 +191,7 @@
           :cancelled)})
 
 (defn- disconnected?
-  [chan buf]
+  [^ReadableByteChannel chan buf]
   ;; Various ssumptions here:
   ;;   - transport (chan) will be non-blocking
   ;;   - everyone, including jetty, etc. won't miss discarded bytes
@@ -202,7 +209,7 @@
   puppetdb, we could consider treating data from the client as an
   error."
   [queries selected stop-query buf]
-  (doseq [select-key selected]
+  (doseq [^SelectionKey select-key selected]
     (when (disconnected? (.channel select-key) buf)
       (.cancel select-key)
       (let [info (-> @queries :selector-keys (get select-key))]
@@ -230,7 +237,7 @@
     :else (max 1 (int (/ (- deadline-ns (ephemeral-now-ns))
                          ns-per-ms)))))
 
-(defn- monitor-queries [{:keys [exit queries selector] :as _monitor}
+(defn- monitor-queries [{:keys [exit queries ^Selector selector] :as _monitor}
                         terminate-query
                         on-fatal-error]
   ;; We depend on the fact that any new queries will wake us
@@ -245,7 +252,7 @@
           (when-not @exit
             (if-let [next-deadline (enforce-deadlines! queries (ephemeral-now-ns)
                                                        terminate-query)]
-              (.select selector (deadline->select-timeout next-deadline))
+              (.select selector ^long (deadline->select-timeout next-deadline))
               (.select selector))
             (stop-abandoned! queries (.selectedKeys selector) terminate-query buf)
             (recur)))
@@ -297,7 +304,7 @@
            (Thread. #(monitor-queries m terminate-query on-fatal-error)
                     "pdb query monitor"))))
 
-(defn start [{:keys [thread] :as monitor}]
+(defn start [{:keys [^Thread thread] :as monitor}]
   (assert (not (.isAlive thread)))
   (.start thread)
   monitor)
@@ -308,7 +315,7 @@
   true otherwise.  May be called more than once.  When a true value is
   returned, all monitor activities should be finished."
   ([monitor] (stop monitor nil))
-  ([{:keys [exit selector thread] :as _monitor} timeout-ms]
+  ([{:keys [exit ^Selector selector ^Thread thread] :as _monitor} timeout-ms]
    (if-not (.isAlive thread)
      true
      (do
@@ -322,7 +329,8 @@
        (not (.isAlive thread))))))
 
 (defn stop-query-at-deadline-or-disconnect
-  [{:keys [selector queries thread] :as _monitor} id channel deadline-ns db]
+  [{:keys [^Selector selector queries ^Thread thread] :as _monitor}
+   id ^SelectableChannel channel deadline-ns db]
   (assert (.isAlive thread))
   (assert (instance? SelectableChannel channel))
   (let [select-key (.register channel selector SelectionKey/OP_READ)
@@ -348,7 +356,7 @@
     select-key))
 
 (defn register-pg-pid
-  [{:keys [queries thread] :as _monitor} select-key pid]
+  [{:keys [queries ^Thread thread] :as _monitor} select-key pid]
   (assert (.isAlive thread))
   (let [{:keys [selector-keys]} @queries
         {:keys [pg-pid] :as _info} (selector-keys select-key)]
@@ -357,7 +365,7 @@
       (swap! pg-pid (fn [prev] (assert (not prev)) pid)))))
 
 (defn forget-pg-pid [{:keys [queries thread] :as _monitor} select-key]
-  (assert (.isAlive thread))
+  (assert (.isAlive ^Thread thread))
   (let [{:keys [selector-keys]} @queries
         {:keys [pg-pid] :as _info} (selector-keys select-key)]
     ;; Whole entry might not exist if the client has disconnected.
@@ -372,7 +380,8 @@
   forgotten about it, but the final disposition of that query is
   undefined, i.e. it might or might not have been killed
   successfully."
-  [{:keys [queries thread] :as _monitor} select-key]
+  [{:keys [queries ^Selector selector ^Thread thread] :as _monitor}
+   ^SelectionKey select-key]
   (assert (.isAlive thread))
   ;; After this some key methods will throw CancelledKeyException
   (.cancel select-key)
