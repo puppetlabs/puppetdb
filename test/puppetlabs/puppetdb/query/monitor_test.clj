@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query.monitor-test
   (:require
    [clj-http.client :as http]
+   [clojure.java.shell :refer [sh]]
    [clojure.string :as str]
    [clojure.test :refer :all]
    [murphy :refer [try!]]
@@ -280,3 +281,32 @@
                              (update :info dissoc :query-id)
                              (update-in [:info :pg-pid] int?))
                         summary)))))))
+
+(deftest connection-reuse
+  ;; Test multiple queries over the same connection.  Run the test
+  ;; multiple times because the first problem we encountered could
+  ;; only occur during a narrow window in the monitor loop if a new
+  ;; request came in between select invocations, after the key had
+  ;; been cancelled.
+  ;; https://github.com/puppetlabs/puppetdb/issues/3866
+  (with-puppetdb nil
+    (jdbc/with-db-transaction [] (add-certnames certnames))
+    ;; Just use curl, since it's trivally easy to get it to do what we
+    ;; need, and we already require it for test setup (via ext/).  (It
+    ;; looks like both clj-http and the JDK HttpClient have more
+    ;; indirect control over reuse.)
+    (let [nodes (-> (assoc *base-url* :prefix "/pdb/query/v4/nodes")
+                    base-url->str-with-prefix)
+          cmd ["curl" "--no-progress-meter" "--show-error" "--fail-early"
+               "--fail" nodes "-o" "/dev/null"
+               "--next" "--fail" nodes "-o" "/dev/null"
+               "--next" "--fail" nodes "-o" "/dev/null"]]
+      (loop [i 0]
+        (let [{:keys [exit out err]} (apply sh cmd)]
+          (when (< i 10)
+            (if (is (= 0 exit))
+              (recur (inc i))
+              (do
+                (apply println "Failed:" cmd)
+                (print out)
+                (print err)))))))))
