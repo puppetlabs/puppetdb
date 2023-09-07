@@ -52,7 +52,7 @@ make sure to authorize the certificate you are using:
 >   --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
 > ```
 
-### Using an RBAC token (PE only)
+### Using an RBAC token (Puppet Enterprise® only)
 
 To make secured requests from other hosts, you will need to supply the following
 via the command line:
