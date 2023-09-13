@@ -11,6 +11,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.1.1
+
+Released September 14 2023
+
+### Bug fixes
+
+* PuppetDB should no longer throw a `CancelledKeyException` when a
+  network connection is reused for multiple queries (originally
+  noticed in the 8.1.0 release).
+  ([GitHub #3866](https://github.com/puppetlabs/puppetdb/issues/3866))
+
+### Contributors
+
+Austin Blatt, Ingrida Cazers, Josh Partlow, Rob Browning, and
+Steve Axthelm
+
 ## PuppetDB 8.1.0
 
 Released August 22 2023
