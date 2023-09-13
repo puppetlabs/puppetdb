@@ -21,18 +21,23 @@ Released August 22 2023
 
 ## New features and improvements
 
-* Add el-9 as supported platform
-  [PDB-5671](https://perforce.atlassian.net/browse/PDB-5671)
+* RedHat Enterprise Linux 9 (RHEL 9) has been added as a supported
+  platform. ([PDB-5671](https://perforce.atlassian.net/browse/PDB-5671))
 
-* PQL parsing of OR clauses can result in OOM errors
-  [PDB-5643](https://perforce.atlassian.net/browse/PDB-5643)
+* Ubuntu 22.04 has been added as a supported platform.
+  ([PDB-5636](https://perforce.atlassian.net/browse/PDB-5636))
 
-* Add ubuntu 2204 as supported platform
-  [PDB-5636](https://perforce.atlassian.net/browse/PDB-5636)
+### Bug fixes
+
+* Some PQL queries with numerous `or` clauses should no longer cause
+  PuppetDB to run out of memory.  Previously they could allocate an
+  exorbitant amount of RAM.
+ ([GitHub #3874](https://github.com/puppetlabs/puppetdb/issues/3874))
 
 ### Contributors
 
-Austin Blatt, Nick Burgan-Illig, Jonathan Newman, Eric Newton, Joshua Partlow, Steve Axthelm, and Rob Browning
+Austin Blatt, Nick Burgan-Illig, Jonathan Newman, Eric Newton, Joshua
+Partlow, Steve Axthelm, and Rob Browning
 
 ## PuppetDB 7.13.1
 
