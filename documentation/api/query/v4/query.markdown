@@ -115,6 +115,19 @@ would be recorded as a string like
 
 For a walkthrough on constructing queries, see [the query tutorial page][tutorial]. For quick tips on using curl to make ad hoc queries, see [the curl tips page][curl].
 
+## Experimental query termination
+
+PuppetDB now monitors all queries for client disconnects, and
+terminates the query (including the database work) as soon as the
+client is gone.  The same mechanism also helps enforce relevant query
+timeouts promptly.
+
+For now, this subsystem can be disabled by setting the environment
+variable `PDB_PROMPTLY_END_QUERIES` to `false`, which might be helpful
+if you encounter
+[this issue with PuppetDB 8.1.0](https://github.com/puppetlabs/puppetdb/issues/3866),
+but the variable is likely to be removed in a future release.
+
 ## Experimental query optimization
 
 > *Note*: this feature is experimental and may be altered or removed
