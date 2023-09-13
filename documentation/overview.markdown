@@ -74,10 +74,11 @@ Puppet provides PuppetDB packages and a module which simplify the
 setup of its SSL certificates and init scripts. The packages are
 available for the following operating systems:
 
-* Red Hat Enterprise Linux 7, and 8
-* SuSE Enterprise Linux 12
-* Debian 10 (Buster), 11 (Bullseye)
-* Ubuntu 18.04 (Bionic) LTS, and 20.04 (Focal) LTS
+* Red Hat Enterprise Linux 7, 8, and 9
+* SuSE Enterprise Linux 12, 15
+* Debian 10 (Buster), and 11 (Bullseye)
+* Ubuntu 18.04 (Bionic) LTS, 20.04 (Focal), 22.04 (Jammy) LTS
+
 
 [See here for instructions for installing via the PuppetDB module.][install_via_module]
 
