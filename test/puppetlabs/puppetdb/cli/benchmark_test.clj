@@ -43,7 +43,9 @@
                   ;; This normally calls System/exit on a cli error;
                   ;; we'd rather have the exception.
                   utils/try-process-cli (fn [body] (body))
-                  benchmark/benchmark-shutdown-timeout tu/default-timeout-ms]
+                  benchmark/benchmark-shutdown-timeout tu/default-timeout-ms
+                  ;; disable catalog/reports submission delay to avoid slowing down tests
+                  benchmark/random-cmd-delay (constantly 0)]
       (f submitted-records (benchmark/benchmark-wrapper cli-args)))))
 
 (deftest progressing-timestamp-nummsgs
@@ -232,7 +234,6 @@
        (stop)))))
 
 (deftest rand-catalog-mutation-keys
-  (prn "running test")
   (let [catalog {"certname"           "host-1"
                  "catalog_uuid"       "512d24ae-8999-4f12-bda0-1e5d57c0b5cc"
                  "producer"           "puppet-primary-1"
