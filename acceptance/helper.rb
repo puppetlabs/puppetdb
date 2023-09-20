@@ -334,8 +334,8 @@ module PuppetDBExtensions
       # always use the non-nightly version
       platform_version
     when :upgrade_oldest
-      # Debian 11 only has builds starting in the 7 series
-      if is_bullseye
+      # Debian 11, Ubuntu 22, and RHEL 9 only have builds starting in the 7 series
+      if is_bullseye || is_jammy || is_el9
         :puppet7
       else
         :puppet6
@@ -353,7 +353,7 @@ module PuppetDBExtensions
     elsif is_el8
       '6.0.3'
     elsif is_el9
-      '7.13.2'
+      '7.14.0'
     elsif is_rhel7fips
       '6.4.0'
     elsif is_buster
@@ -361,7 +361,7 @@ module PuppetDBExtensions
     elsif is_focal
       '6.12.0'
     elsif is_jammy
-      '7.13.2'
+      '7.14.0'
     else
       '6.0.0'
     end
