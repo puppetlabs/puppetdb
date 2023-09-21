@@ -349,12 +349,10 @@ module PuppetDBExtensions
   # platform version returned by puppet_repo_version above
   def oldest_supported
     # account for bionic/rhel8 not having build before certain versions
-    if is_el9
-      '7.13.2'
+    if is_el9 || is_jammy
+      '7.14.0'
     elsif is_bullseye
       '7.9.0'
-    elsif is_jammy
-      '7.13.2'
     else
       '7.3.1'
     end
