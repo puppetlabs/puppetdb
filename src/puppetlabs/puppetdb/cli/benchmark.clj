@@ -514,7 +514,8 @@
 (defn register-shutdown-hook! [f]
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
-;; The core.async processes and channels fit together like this:
+;; The core.async processes and channels fit together like
+;; this (square brackets indicate data being sent):
 ;;
 ;; (initial-hosts-ch: host-maps)
 ;;    |
@@ -528,15 +529,24 @@
 ;; mult (simulation-write-ch: host-maps) ------------------------/
 ;;    |
 ;;    | (command-send-ch: host-maps)
+;;    |
+;;  [host-state]
+;;    |
 ;;    v
 ;; command-sender
+;;    |
+;;  [factset, delayed catalog, delayed report]
+;;    |
+;;    v
+;;  (scheduler)
 ;;    |
 ;;    | (rate-monitor-ch: ::success or ::error)
 ;;    v
 ;; rate-monitor
 ;;
 ;; It's all set up so that channel closes flow downstream (and upstream to the
-;; producer). Closing simulation-read-ch shuts down everything.
+;; producer). The command-sender is not a pipeline so to shut down benchmark
+;; simulation-read-ch and fanout-ch must be closed and the scheduler shutdown.
 
 (defn benchmark
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
