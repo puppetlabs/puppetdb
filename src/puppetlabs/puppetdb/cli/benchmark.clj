@@ -291,7 +291,7 @@
   command-send-ch and sends commands to the puppetdb at base-url. Writes
   ::submitted to rate-monitor-ch for every command sent, or ::error if there was
   a problem. Close command-send-ch to stop the background process."
-  [base-url command-send-ch rate-monitor-ch num-threads ssl-opts sched max-q-size max-command-delay-ms]
+  [base-url command-send-ch rate-monitor-ch num-threads ssl-opts sched max-command-delay-ms]
   (let [fanout-commands-ch (chan)
         schedule (fn [ch v ^long delay] (utils/schedule sched #(>!! ch v) delay))]
     ;; fanout: given a single host state, emit 3 messages, one for each command.
@@ -305,27 +305,16 @@
               report-delay (+ catalog-delay
                               (random-cmd-delay 5000 3000 {:lowerb 500
                                                              :upperb max-command-delay-ms}))]
-          ;; The go-loop needs to provide back-pressue on the command-send-ch
-          ;; to ensure it never enqueues more comamnds to send than can be sent
-          ;; before await-schedule-shutdown's timeout. But it also needs to provide a
-          ;; large enough queue that a steady-state (run-interval) run of benchmark
-          ;; has enough queue space for delayed catalogs and reports and can still
-          ;; process factsets as received
-          (if (< max-q-size (-> sched .getQueue .size))
-            (do
-              (<! (async/timeout 50))
-              (recur host-state))
-            (do
-              (try
-                (when factset (schedule fanout-commands-ch [:factset host 5 factset] 0))
-                (when catalog (schedule fanout-commands-ch [:catalog host 9 catalog] catalog-delay))
-                (when report (schedule fanout-commands-ch [:report host 8 report] report-delay))
-                (catch RejectedExecutionException _
-                  ;; if the scheduler has been shutdown, close channel to allow benchmark to
-                  ;; terminate cleanly
-                  (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
-                  (async/close! fanout-commands-ch)))
-              (recur (<! command-send-ch)))))
+          (try
+            (when factset (async/>! fanout-commands-ch [:factset host 5 factset]))
+            (when catalog (schedule fanout-commands-ch [:catalog host 9 catalog] catalog-delay))
+            (when report (schedule fanout-commands-ch [:report host 8 report] report-delay))
+            (catch RejectedExecutionException _
+              ;; if the scheduler has been shutdown, close channel to allow benchmark to
+              ;; terminate cleanly
+              (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
+              (async/close! fanout-commands-ch)))
+          (recur (<! command-send-ch)))
         (do
           (utils/request-scheduler-shutdown sched false)
           (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
@@ -533,14 +522,12 @@
 ;;  [host-state]
 ;;    |
 ;;    v
-;; command-sender
-;;    |
-;;  [factset, delayed catalog, delayed report]
-;;    |
-;;    v
-;;  (scheduler)
-;;    |
-;;    | (rate-monitor-ch: ::success or ::error)
+;; command-sender ------------ [delayed catalog & report] --\
+;;    |                                                     |
+;;    |                                                     v
+;;  [factset]                                             (scheduler)
+;;    |                                                     |
+;;    | (rate-monitor-ch: ::success or ::error)<------------/
 ;;    v
 ;; rate-monitor
 ;;
@@ -569,18 +556,7 @@
         run-interval-minutes (-> run-interval time/minutes)
         simulation-threads 4
 
-        ;; Provide a scheduler queue maximum that will provide enough space to handle
-        ;; runinterval command load, but small enough to provide backpressure in the
-        ;; pipeline when run in nummsgs mode.
-        ;; Each host will schedule two delayed commands in the next 30 seconds
-        ;; the queue needs space for that many commands, plus a small (25%) buffer to
-        ;; ensure it is able to process factsets as they come in
-        hosts-per-sec (/ numhosts (* run-interval 60))
         max-command-delay-ms 15000
-        max-delayed-seconds (* 2 (/ max-command-delay-ms 1000))
-        max-waiting-commands (* 2 hosts-per-sec max-delayed-seconds)
-        maximum-scheduler-queue (max 30
-                                     (* 1.25 max-waiting-commands))
 
         commands-per-puppet-run (+ (if catalogs 1 0)
                                    (if reports 1 0)
@@ -624,7 +600,6 @@
                                                                      threads
                                                                      ssl-opts
                                                                      command-delay-scheduler
-                                                                     maximum-scheduler-queue
                                                                      max-command-delay-ms)
         _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
                                  simulation-threads simulation-write-ch simulation-read-ch)
