@@ -95,6 +95,7 @@
                       Selector
                       SocketChannel)))
 
+(def ^:private warn-on-reflection-orig *warn-on-reflection*)
 (set! *warn-on-reflection* true)
 
 (def ns-per-ms 1000000)
@@ -429,3 +430,5 @@
     (if (= ::timeout (some-> @maybe-await-termination (deref 2000 ::timeout)))
       ::timeout
       true)))
+
+(set! *warn-on-reflection* warn-on-reflection-orig)
