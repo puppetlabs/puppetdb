@@ -220,41 +220,44 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
+  (let [pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
+        specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
                 :parse-fn config/load-config]
-               [nil "--protocol PROTO" "Network protocol (http|https); default depends on CONFIG"
+               [nil "--protocol (http|https)" "Network protocol (default via CONFIG)"
                 :validate [#(#{"http" "https"} %) "--protocol not http or https"]]
-               ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
-               ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-               ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
-               ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F or -R"]
+               ["-F" "--facts FACTS" "Directory of *.json sample factsets"]
+               ["-C" "--catalogs CATALOGS" "Directory of *.json sample catalogs"]
+               ["-R" "--reports REPORTS" "Directory of *.json sample reports"]
+               ["-A" "--archive ARCHIVE" "PuppetDB export tarball (conflicts with -C, -F or -R)"]
                ["-i" "--runinterval RUNINTERVAL"
-                     (str "Interval (in minutes)"
-                          " to use during simulation. This option"
-                          " requires some temporary filesystem space, which"
-                          " will be allocated in TMPDIR (if set in the"
-                          " environment) or java.io.tmpdir.")
+                "Simulation interval (minutes); uses TMPDIR (or java.io.tmpdir)"
                 :parse-fn #(Integer/parseInt %)]
-               ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation (required)"
+               ["-n" "--numhosts N" "Simulated host count (required)"
                 :parse-fn #(Integer/parseInt %)]
-               ["-r" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"
+               ["-r" "--rand-perc PERCENT" "Chance each command will be altered"
                 :default 0
-                :parse-fn #(Integer/parseInt %)]
-               ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"
+                :parse-fn #(if-not % 0 (Integer/parseInt %))]
+               ["-N" "--nummsgs N" "Command sets to send per host (set depends on -F -C -R)"
                 :parse-fn #(Long/valueOf %)]
-               ["-e" "--end-commands-in PERIOD" "A period (like '3d') to use to set the ending date of a set of commands. (Usually into the future slightly if you need to account for the time it will take to push a set of historical records into puppetdb)."
+               ["-e" "--end-commands-in PERIOD" "End date for a command set"
+                :default-desc "0d"
                 :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
-               ["-t" "--threads THREADS" "Number of threads to use for command submission"
+               ["-t" "--threads N" "Command submission thread count (defaults to 4 per core)"
                 :default (* 4 (.availableProcessors (Runtime/getRuntime)))
                 :parse-fn #(Integer/parseInt %)]]
+        post ["\n"
+              "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
+              "the time it takes to finish processing a set of historical records (so node-ttl\n"
+              "will be further away)\n"]
         required [:config :numhosts]]
     (utils/try-process-cli
      (fn []
        (-> args
            (kitchensink/cli! specs required)
            first
-           validate-options)))))
+           validate-options))
+     {:preamble pre :postamble post})))
 
 (defn process-tar-entry
   [tar-reader]

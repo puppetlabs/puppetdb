@@ -42,7 +42,7 @@
                   config/load-config (fn [_] config)
                   ;; This normally calls System/exit on a cli error;
                   ;; we'd rather have the exception.
-                  utils/try-process-cli (fn [body] (body))
+                  utils/try-process-cli (fn ([f] (f)) ([f _] (f)))
                   benchmark/benchmark-shutdown-timeout tu/default-timeout-ms
                   ;; disable catalog/reports submission delay to avoid slowing down tests
                   benchmark/random-cmd-delay (constantly 0)]
