@@ -222,6 +222,8 @@
   [args]
   (let [specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
                 :parse-fn config/load-config]
+               [nil "--protocol PROTO" "Network protocol (http|https); default depends on CONFIG"
+                :validate [#(#{"http" "https"} %) "--protocol not http or https"]]
                ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
                ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
@@ -547,9 +549,17 @@
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
         {:keys [host port ssl-host ssl-port]} (:jetty config)
-        pdb-host (or ssl-host host "127.0.0.1")
-        pdb-port (or ssl-port port "8081")
-        protocol (if ssl-host "https" "http")
+        [protocol pdb-host pdb-port]
+        (case (:protocol options)
+          "http" ["http" (or host "localhost") (or port "8080")]
+          "https" ["https" (or ssl-host "localhost") (or ssl-port "8081")]
+          (cond
+            ssl-port ["https" (or ssl-host "localhost") ssl-port]
+            ssl-host ["https" ssl-host (or ssl-port "8081")]
+            port ["http" (or host "localhost") port]
+            host ["http" host (or port "8080")]
+            :else ["http" "localhost" "8080"]))
+        _ (println-err (format "Connecting to %s://%s:%s" protocol pdb-host pdb-port))
         ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
         run-interval (get options :runinterval 30)
