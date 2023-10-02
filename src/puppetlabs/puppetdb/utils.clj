@@ -231,21 +231,27 @@
   options)
 
 (defn try-process-cli
-  [f]
-  (try
-    (f)
-    (catch ExceptionInfo ex
-      (let [{:keys [kind msg]} (ex-data ex)]
-        (case kind
-          ::kitchensink/cli-error
-          (do
-            (binding [*out* *err*] (println msg))
-            (flush-and-exit err-exit-status))
-          ::kitchensink/cli-help
-          (do
-            (println msg)
-            (flush-and-exit 0))
-          (throw ex))))))
+  ([f] (try-process-cli f nil))
+  ([f & {:keys [preamble postamble] :or {preamble "" postamble ""}}]
+   (try
+     (f)
+     (catch ExceptionInfo ex
+       (let [{:keys [kind msg]} (ex-data ex)]
+         (case kind
+           ::kitchensink/cli-error
+           (do
+             (binding [*out* *err*]
+               (doseq [s preamble] (print s))
+               (println msg)
+               (doseq [s postamble] (print s)))
+             (flush-and-exit err-exit-status))
+           ::kitchensink/cli-help
+           (do
+             (doseq [s preamble] (print s))
+             (println msg)
+             (doseq [s postamble] (print s))
+             (flush-and-exit 0))
+           (throw ex)))))))
 
 (defn pdb-cmd-base-url
   [host port & [version protocol]]
