@@ -1,12 +1,13 @@
 (ns puppetlabs.puppetdb.client
-  (:require [clojure.tools.logging :as log]
-            [puppetlabs.http.client.sync :as http-client]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [puppetlabs.puppetdb.time :as t]
-            [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s])
+  (:require
+   [clojure.tools.logging :as log]
+   [puppetlabs.http.client.sync :as http-client]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.command.constants :refer [command-names]]
+   [puppetlabs.puppetdb.schema :refer [defn-validated]]
+   [puppetlabs.puppetdb.time :as t]
+   [puppetlabs.puppetdb.utils :as utils]
+   [schema.core :as s])
   (:import
    (java.net HttpURLConnection)))
 
