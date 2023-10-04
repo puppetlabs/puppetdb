@@ -97,7 +97,10 @@ Usage:
                       (strip (rest remainder))))))]
     (vec (strip dep))))
 
-(defn display-diff [{:keys [ignore-exclusions? mismatches-only?
+(defn not-puppetdb? [dep]
+  (not= 'puppetlabs/puppetdb (first dep)))
+
+(defn display-diff [{:keys [ignore-exclusions? mismatches-only? ignore-puppetdb?
                             ignore-ids pe-bouncy-castle-provided? out]
                      :or {out *out*} :as opts}
                     deps-1 deps-2]
@@ -109,6 +112,7 @@ Usage:
       (let [relevant-set (fn [s]
                            ((cond-> set
                               ignore-exclusions? (comp (partial map strip-exclusions))
+                              ignore-puppetdb? (comp (partial filter not-puppetdb?))
                               pe-bouncy-castle-provided? (comp (partial map strip-bc-scope)))
                             s))
             relevant-old (relevant-set old)
@@ -145,6 +149,8 @@ Usage:
         "--mismatches" (recur (rest args) (assoc opts :mismatches-only? true))
         "--ignore-exclusions" (recur (rest args)
                                      (assoc opts :ignore-exclusions? true))
+        "--ignore-puppetdb" (recur (rest args)
+                                     (assoc opts :ignore-puppetdb? true))
         "--ignore-id" (recur (nthrest args 2)
                              (update opts :ignore-ids #(conj % (-> args (nth 1) symbol))))
         "--allow-pe-bc-provided" (recur (rest args)
@@ -176,7 +182,8 @@ Usage:
       (do (usage *out*) 0)
       (apply dispatch-diff
              (merge {:out *out*} (select-keys opts [:mismatches-only? :ignore-exclusions?
-                                                    :ignore-ids :pe-bouncy-castle-provided?]))
+                                                    :ignore-puppetdb? :ignore-ids
+                                                    :pe-bouncy-castle-provided?]))
              (:positional opts)))))
 
 (defn main [args]
