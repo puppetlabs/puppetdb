@@ -17,6 +17,14 @@ Release date undetermined, and contributors pending
 
 ### New features and improvements
 
+* The [`benchmark` command][benchmark] should be able to reach notably
+  higher maximum output rates.  On one 60 core (non-hyperthreaded)
+  host where previously it could only simulate about 80k nodes with a
+  30 minute runinterval, it can now simulate over 140k nodes, more if
+  the randomization percentage is reduced from 100.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
 * The [`benchmark` command][benchmark] command will now space out the
   factset, catalog, and report for each host more realistically.
   ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))
@@ -24,7 +32,7 @@ Release date undetermined, and contributors pending
 
 ### Contributors
 
-Austin Blatt, and ...
+Austin Blatt, Rob Browning, and ...
 
 ## PuppetDB 8.1.1
 
