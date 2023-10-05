@@ -220,7 +220,8 @@
 
 (defn- validate-cli!
   [args]
-  (let [pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
+  (let [threads (.availableProcessors (Runtime/getRuntime)) ;; actually hyperthreads
+        pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
         specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
                 :parse-fn config/load-config]
                [nil "--protocol (http|https)" "Network protocol (default via CONFIG)"
@@ -243,9 +244,12 @@
                 :default-desc "0d"
                 :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
-               ["-t" "--threads N" "Command submission thread count (defaults to 4 per core)"
-                :default (* 4 (.availableProcessors (Runtime/getRuntime)))
-                :parse-fn #(Integer/parseInt %)]]
+               [nil "--senders N" "Command submission thread count (default: cores / 2, min 2)"
+                :default (* threads 4)
+                :parse-fn #(Integer/parseInt %)]
+               ["-t" "--threads N" "Deprecated alias for --senders"
+                :parse-fn #(Integer/parseInt %)
+                :id :senders]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
               "the time it takes to finish processing a set of historical records (so node-ttl\n"
@@ -547,7 +551,8 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs threads end-commands-in] :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs senders end-commands-in]
+         :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
@@ -610,7 +615,7 @@
         [command-sender-finished-ch fanout-ch] (start-command-sender base-url
                                                                      command-send-ch
                                                                      rate-monitor-ch
-                                                                     threads
+                                                                     senders
                                                                      ssl-opts
                                                                      command-delay-scheduler
                                                                      max-command-delay-ms)

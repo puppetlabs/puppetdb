@@ -25,6 +25,11 @@ Release date undetermined, and contributors pending
   ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
   (PDB-5712)
 
+* The [`benchmark` command][benchmark]'s `-t`/`--threads` argument has
+  been deprecated and renamed to `--senders`.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
 * The [`benchmark` command][benchmark] command will now space out the
   factset, catalog, and report for each host more realistically.
   ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))
