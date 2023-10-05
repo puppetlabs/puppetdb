@@ -30,6 +30,15 @@ Release date undetermined, and contributors pending
   ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
   (PDB-5712)
 
+* The [`benchmark` command][benchmark]'s default number of `--senders`
+  has been changed from four times the host core (hyperthread) count
+  to half the count (or 2, whichever's larger) after testing revealed
+  that with a 60 core (non-hyperthreaded) host, only 16 senders were
+  needed to hit a maximum rate with the local PuppetDB/PostgreSQL
+  hosts.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
 * The [`benchmark` command][benchmark] command will now space out the
   factset, catalog, and report for each host more realistically.
   ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))

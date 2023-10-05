@@ -245,7 +245,7 @@
                 :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
                [nil "--senders N" "Command submission thread count (default: cores / 2, min 2)"
-                :default (* threads 4)
+                :default (max 2 (long (/ threads 2)))
                 :parse-fn #(Integer/parseInt %)]
                ["-t" "--threads N" "Deprecated alias for --senders"
                 :parse-fn #(Integer/parseInt %)
