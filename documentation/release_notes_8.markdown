@@ -11,6 +11,21 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.1.2 (unreleased)
+
+Release date undetermined, and contributors pending
+
+### New features and improvements
+
+* The [`benchmark` command][benchmark] command will now space out the
+  factset, catalog, and report for each host more realistically.
+  ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))
+  (PDB-5691)
+
+### Contributors
+
+Austin Blatt, and ...
+
 ## PuppetDB 8.1.1
 
 Released September 14 2023
