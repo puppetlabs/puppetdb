@@ -249,7 +249,10 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-t" "--threads N" "Deprecated alias for --senders"
                 :parse-fn #(Integer/parseInt %)
-                :id :senders]]
+                :id :senders]
+               [nil "--simulators N" "Command simulators (default: cores / 2, min 2)"
+                :default (max 2 (long (/ threads 2)))
+                :parse-fn #(Integer/parseInt %)]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
               "the time it takes to finish processing a set of historical records (so node-ttl\n"
@@ -551,7 +554,7 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs senders end-commands-in]
+  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in]
          :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
@@ -572,7 +575,6 @@
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
         run-interval (get options :runinterval 30)
         run-interval-minutes (-> run-interval time/minutes)
-        simulation-threads 4
 
         max-command-delay-ms 15000
 
@@ -620,7 +622,7 @@
                                                                      command-delay-scheduler
                                                                      max-command-delay-ms)
         _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
-                                 simulation-threads simulation-write-ch simulation-read-ch)
+                                 simulators simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
                   ([timeout-ms]

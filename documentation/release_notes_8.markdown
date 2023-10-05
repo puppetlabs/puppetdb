@@ -39,6 +39,14 @@ Release date undetermined, and contributors pending
   ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
   (PDB-5712)
 
+* A `--simulators` option has been added to the
+  [`benchmark` command][benchmark].  It specifies the number of
+  threads to use for the generation of new host commands and defaults
+  to either 2, or half the core (hyperthread) count.  The previous
+  internal value was always 4.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
 * The [`benchmark` command][benchmark] command will now space out the
   factset, catalog, and report for each host more realistically.
   ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))
