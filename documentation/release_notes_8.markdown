@@ -31,7 +31,7 @@ Steve Axthelm
 
 Released August 22 2023
 
-## New features and improvements
+### New features and improvements
 
 * RedHat Enterprise Linux 9 (RHEL 9) has been added as a supported
   platform.
