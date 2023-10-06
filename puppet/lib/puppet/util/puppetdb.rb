@@ -23,6 +23,11 @@ module Puppet::Util::Puppetdb
   class SoftWriteFailError < Puppet::Error
   end
 
+  # Flushes the Puppetdb class's @config instance so that we can pick up
+  # updated configuration since the last time Puppetdb.config was called.
+  def self.clear_config
+    @config = nil
+  end
 
   def self.config
     @config ||= Puppet::Util::Puppetdb::Config.load
