@@ -173,6 +173,7 @@
                  [puppetlabs/dujour-version-check]
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
+                 [puppetlabs/ssl-utils]
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/structured-logging]
                  [puppetlabs/trapperkeeper]

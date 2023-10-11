@@ -220,7 +220,8 @@
 
 (defn- validate-cli!
   [args]
-  (let [pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
+  (let [threads (.availableProcessors (Runtime/getRuntime)) ;; actually hyperthreads
+        pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
         specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
                 :parse-fn config/load-config]
                [nil "--protocol (http|https)" "Network protocol (default via CONFIG)"
@@ -243,8 +244,14 @@
                 :default-desc "0d"
                 :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
-               ["-t" "--threads N" "Command submission thread count (defaults to 4 per core)"
-                :default (* 4 (.availableProcessors (Runtime/getRuntime)))
+               [nil "--senders N" "Command submission thread count (default: cores / 2, min 2)"
+                :default (max 2 (long (/ threads 2)))
+                :parse-fn #(Integer/parseInt %)]
+               ["-t" "--threads N" "Deprecated alias for --senders"
+                :parse-fn #(Integer/parseInt %)
+                :id :senders]
+               [nil "--simulators N" "Command simulators (default: cores / 2, min 2)"
+                :default (max 2 (long (/ threads 2)))
                 :parse-fn #(Integer/parseInt %)]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
@@ -547,27 +554,27 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs threads end-commands-in] :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in]
+         :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
         {:keys [host port ssl-host ssl-port]} (:jetty config)
         [protocol pdb-host pdb-port]
         (case (:protocol options)
-          "http" ["http" (or host "localhost") (or port "8080")]
-          "https" ["https" (or ssl-host "localhost") (or ssl-port "8081")]
+          "http" ["http" (or host "localhost") (or port 8080)]
+          "https" ["https" (or ssl-host "localhost") (or ssl-port 8081)]
           (cond
             ssl-port ["https" (or ssl-host "localhost") ssl-port]
-            ssl-host ["https" ssl-host (or ssl-port "8081")]
+            ssl-host ["https" ssl-host (or ssl-port 8081)]
             port ["http" (or host "localhost") port]
-            host ["http" host (or port "8080")]
-            :else ["http" "localhost" "8080"]))
+            host ["http" host (or port 8080)]
+            :else ["http" "localhost" 8080]))
         _ (println-err (format "Connecting to %s://%s:%s" protocol pdb-host pdb-port))
         ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
         run-interval (get options :runinterval 30)
         run-interval-minutes (-> run-interval time/minutes)
-        simulation-threads 4
 
         max-command-delay-ms 15000
 
@@ -610,12 +617,12 @@
         [command-sender-finished-ch fanout-ch] (start-command-sender base-url
                                                                      command-send-ch
                                                                      rate-monitor-ch
-                                                                     threads
+                                                                     senders
                                                                      ssl-opts
                                                                      command-delay-scheduler
                                                                      max-command-delay-ms)
         _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
-                                 simulation-threads simulation-write-ch simulation-read-ch)
+                                 simulators simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
                   ([timeout-ms]

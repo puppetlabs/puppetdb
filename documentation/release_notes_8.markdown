@@ -11,6 +11,51 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.1.2 (unreleased)
+
+Release date undetermined, and contributors pending
+
+### New features and improvements
+
+* The [`benchmark` command][benchmark] should be able to reach notably
+  higher maximum output rates.  On one 60 core (non-hyperthreaded)
+  host where previously it could only simulate about 80k nodes with a
+  30 minute runinterval, it can now simulate over 140k nodes, more if
+  the randomization percentage is reduced from 100.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* The [`benchmark` command][benchmark]'s `-t`/`--threads` argument has
+  been deprecated and renamed to `--senders`.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* The [`benchmark` command][benchmark]'s default number of `--senders`
+  has been changed from four times the host core (hyperthread) count
+  to half the count (or 2, whichever's larger) after testing revealed
+  that with a 60 core (non-hyperthreaded) host, only 16 senders were
+  needed to hit a maximum rate with the local PuppetDB/PostgreSQL
+  hosts.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* A `--simulators` option has been added to the
+  [`benchmark` command][benchmark].  It specifies the number of
+  threads to use for the generation of new host commands and defaults
+  to either 2, or half the core (hyperthread) count.  The previous
+  internal value was always 4.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* The [`benchmark` command][benchmark] command will now space out the
+  factset, catalog, and report for each host more realistically.
+  ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))
+  (PDB-5691)
+
+### Contributors
+
+Austin Blatt, Rob Browning, and ...
+
 ## PuppetDB 8.1.1
 
 Released September 14 2023
@@ -31,7 +76,7 @@ Steve Axthelm
 
 Released August 22 2023
 
-## New features and improvements
+### New features and improvements
 
 * RedHat Enterprise Linux 9 (RHEL 9) has been added as a supported
   platform.
