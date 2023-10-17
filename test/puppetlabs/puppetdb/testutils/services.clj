@@ -15,7 +15,7 @@
             [puppetlabs.trapperkeeper.services.status.status-service :refer [status-service]]
             [puppetlabs.trapperkeeper.services.scheduler.scheduler-service :refer [scheduler-service]]
             [puppetlabs.trapperkeeper.services.metrics.metrics-service :refer [metrics-webservice]]
-            [puppetlabs.puppetdb.client :as pdb-client]
+            [puppetlabs.puppetdb.client :refer [submit-command-via-http!]]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.http :refer [json-utf8-ctype?]]
@@ -464,9 +464,8 @@
   "Syncronously post a command to PDB by blocking until the message is consumed
    off the queue."
   [base-url certname cmd version payload]
-  (let [timeout-seconds 20
-        response (pdb-client/submit-command-via-http!
-                  base-url certname cmd version payload timeout-seconds)]
+  (let [response (submit-command-via-http! base-url certname cmd version payload
+                                           {:timeout 20})]
     (if (>= (:status response) 400)
       (throw (ex-info "Command processing failed" {:response response}))
       response)))
