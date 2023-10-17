@@ -68,15 +68,25 @@
                              :character-encoding "UTF-8"
                              :accept :json}))) )
 
+(defn- post-json-string [url body opts]
+  ;; Unlisted, valid keys: ssl-cert ssl-key ssl-ca-cert
+  ;; Intentionally ignores unrecognized keys
+  (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
+             (json-request-generator (URI. url))
+             (string-publisher body)
+             (string-handler)))
+
 (defn submit-command-via-http!
   "Submits `payload` as a valid command of type `command` and
    `version` to the PuppetDB instance specified by `host` and
    `port`. The `payload` will be converted to JSON before
    submission. Alternately accepts a command-map object (such as those
    returned by `parse-command`). Returns the server response."
-  [base-url certname command version payload & {:keys [timeout] :as opts}]
+  [base-url certname command version payload & {:keys [timeout post]
+                                                :or {post post-json-string}
+                                                :as opts}]
   (when-let [extra (seq (set/difference (-> opts keys set)
-                                        #{:timeout :ssl-cert :ssl-key :ssl-ca-cert}))]
+                                        #{:timeout :post :ssl-cert :ssl-key :ssl-ca-cert}))]
     (throw (IllegalArgumentException. (str "Unexpected options: " (pr-str extra)))))
   (let [stamp (-> payload :producer_timestamp t/to-string)
         url (str (utils/base-url->str base-url)
@@ -85,10 +95,7 @@
                                         :certname certname
                                         :producer-timestamp stamp
                                         :timeout timeout}))]
-    (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
-               (json-request-generator (URI. url))
-               (-> payload json/generate-string string-publisher)
-               (string-handler))))
+    (post url (-> payload json/generate-string) opts)))
 
 (defn-validated submit-catalog
   "Send the given wire-format `catalog` (associated with `host`) to a
