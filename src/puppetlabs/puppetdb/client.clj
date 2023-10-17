@@ -1,9 +1,8 @@
 (ns puppetlabs.puppetdb.client
   (:require
-   [clojure.java.io :as io]
    [clojure.set :as set]
    [clojure.tools.logging :as log]
-   [puppetlabs.http.client.sync :as pclient]
+   [puppetlabs.http.client.sync :as http]
    [puppetlabs.puppetdb.command.constants :refer [command-names]]
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.schema :refer [defn-validated]]
@@ -11,70 +10,32 @@
    [puppetlabs.puppetdb.utils :as utils]
    [schema.core :as s])
   (:import
-   (com.puppetlabs.ssl_utils SSLUtils)
-   (java.net HttpURLConnection URI)
-   (java.net.http HttpClient
-                  HttpRequest
-                  HttpRequest$Builder
-                  HttpRequest$BodyPublishers
-                  HttpResponse$BodyHandlers)))
+   (java.net HttpURLConnection)))
 
 (def ^:private warn-on-reflection-orig *warn-on-reflection*)
 (set! *warn-on-reflection* true)
-
-(defn- ssl-info->context
-  [& {:keys [ssl-cert ssl-key ssl-ca-cert]}]
-  (SSLUtils/pemsToSSLContext (io/reader ssl-cert)
-                             (io/reader ssl-key)
-                             (io/reader ssl-ca-cert)))
-
-(defn- build-http-client [& {:keys [ssl-cert] :as opts}]
-  (cond-> (HttpClient/newBuilder)
-    ;; To follow redirects: (.followRedirects HttpClient$Redirect/NORMAL)
-    ssl-cert (.sslContext (ssl-info->context opts))
-    true .build))
-
-;; Until we require requests to provide the client (perhaps we should)
-(def ^:private http-client (memoize build-http-client))
-
-(defn- json-request-generator
-  ([uri] (.uri ^java.net.http.HttpRequest$Builder (json-request-generator) uri))
-  ([] (-> (HttpRequest/newBuilder)
-          ;; To follow redirects: (.followRedirects HttpClient$Redirect/NORMAL)
-          (.header "Content-Type" "application/json; charset=UTF-8")
-          (.header "Accept" "application/json"))))
-
-(defn- string-publisher [s] (HttpRequest$BodyPublishers/ofString s))
-(defn- string-handler [] (HttpResponse$BodyHandlers/ofString))
-
-(defn- post-body
-  [^HttpClient client
-   ^HttpRequest$Builder req-generator
-   body-publisher
-   response-body-handler]
-  (let [res (.send client (-> req-generator (.POST body-publisher) .build)
-                   response-body-handler)]
-    ;; Currently minimal
-    {::jdk-response res
-     :status (.statusCode res)}))
 
 (defn get-metric [base-url metric-name]
   (let [url (str (utils/base-url->str base-url)
                  "/mbeans/"
                  (java.net.URLEncoder/encode ^String metric-name "UTF-8"))]
-
-    (:body (pclient/get url {:throw-exceptions false
-                             :content-type :json
-                             :character-encoding "UTF-8"
-                             :accept :json}))) )
+    (:body (http/get url {:throw-exceptions false
+                          :content-type :json
+                          :character-encoding "UTF-8"
+                          :accept :json}))) )
 
 (defn- post-json-string [url body opts]
   ;; Unlisted, valid keys: ssl-cert ssl-key ssl-ca-cert
   ;; Intentionally ignores unrecognized keys
-  (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
-             (json-request-generator (URI. url))
-             (string-publisher body)
-             (string-handler)))
+  ;;
+  ;; This client is currently much slower than the JDK's (which we now
+  ;; use in benchmark -- discovered while testing with large servers),
+  ;; but we need it because the current benchmark client's
+  ;; configuration won't work with fips.
+  (http/post url (merge {:body body
+                         :as :text
+                         :headers {"Content-Type" "application/json"}}
+                        (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))))
 
 (defn submit-command-via-http!
   "Submits `payload` as a valid command of type `command` and

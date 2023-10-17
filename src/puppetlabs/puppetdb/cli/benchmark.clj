@@ -57,10 +57,61 @@
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
    (clojure.core.async.impl.protocols Buffer UnblockingBuffer)
+   (com.puppetlabs.ssl_utils SSLUtils)
+   (java.net URI)
+   (java.net.http HttpClient
+                  HttpRequest
+                  HttpRequest$Builder
+                  HttpRequest$BodyPublishers
+                  HttpResponse$BodyHandlers)
    (java.nio.file.attribute FileAttribute)
    (java.nio.file Files OpenOption)
    (java.util ArrayDeque)
    (java.util.concurrent RejectedExecutionException)))
+
+(defn- ssl-info->context
+  [& {:keys [ssl-cert ssl-key ssl-ca-cert]}]
+  (SSLUtils/pemsToSSLContext (io/reader ssl-cert)
+                             (io/reader ssl-key)
+                             (io/reader ssl-ca-cert)))
+
+(defn- build-http-client [& {:keys [ssl-cert] :as opts}]
+  (cond-> (HttpClient/newBuilder)
+    ;; To follow redirects: (.followRedirects HttpClient$Redirect/NORMAL)
+    ssl-cert (.sslContext (ssl-info->context opts))
+    true .build))
+
+;; Until we require requests to provide the client (perhaps we should)
+(def ^:private http-client (memoize build-http-client))
+
+(defn- json-request-generator
+  ([uri] (.uri ^java.net.http.HttpRequest$Builder (json-request-generator) uri))
+  ([] (-> (HttpRequest/newBuilder)
+          ;; To follow redirects: (.followRedirects HttpClient$Redirect/NORMAL)
+          (.header "Content-Type" "application/json; charset=UTF-8")
+          (.header "Accept" "application/json"))))
+
+(defn- string-publisher [s] (HttpRequest$BodyPublishers/ofString s))
+(defn- string-handler [] (HttpResponse$BodyHandlers/ofString))
+
+(defn- post-body
+  [^HttpClient client
+   ^HttpRequest$Builder req-generator
+   body-publisher
+   response-body-handler]
+  (let [res (.send client (-> req-generator (.POST body-publisher) .build)
+                   response-body-handler)]
+    ;; Currently minimal
+    {::jdk-response res
+     :status (.statusCode res)}))
+
+(defn- post-json-via-jdk [url body opts]
+  ;; Unlisted, valid keys: ssl-cert ssl-key ssl-ca-cert
+  ;; Intentionally ignores unrecognized keys
+  (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
+             (json-request-generator (URI. url))
+             (string-publisher body)
+             (string-handler)))
 
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is
@@ -298,6 +349,13 @@
 
 (def random-cmd-delay safe-sample-normal)
 
+(defn send-facts [url certname version catalog opts]
+  (client/submit-facts url certname version catalog (assoc opts :post post-json-via-jdk)))
+(defn send-catalog [url certname version catalog opts]
+  (client/submit-catalog url certname version catalog (assoc opts :post post-json-via-jdk)))
+(defn send-report [url certname version catalog opts]
+  (client/submit-report url certname version catalog (assoc opts :post post-json-via-jdk)))
+
 (defn start-command-sender
   "Start a command sending process in the background. Reads host-state maps from
   command-send-ch and sends commands to the puppetdb at base-url. Writes
@@ -338,9 +396,9 @@
       rate-monitor-ch
       (map (fn [[command host version payload]]
              (let [submit-fn (case command
-                               :catalog client/submit-catalog
-                               :report client/submit-report
-                               :factset client/submit-facts)]
+                               :factset send-facts
+                               :catalog send-catalog
+                               :report send-report)]
                (try
                  (submit-fn base-url host version payload ssl-opts)
                  ::submitted
