@@ -104,14 +104,10 @@
    certname :- s/Str
    command-version :- s/Int
    catalog-payload
-   ssl-opts]
-  (let [result (submit-command-via-http!
-                 base-url
-                 certname
-                 (command-names :replace-catalog)
-                 command-version
-                 catalog-payload
-                 ssl-opts)]
+   opts]
+  ;; See submit-command-via-http! for valid opts (checked there)
+  (let [result (submit-command-via-http! base-url certname (command-names :replace-catalog)
+                                         command-version catalog-payload opts)]
     (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))
 
@@ -122,37 +118,26 @@
    certname :- s/Str
    command-version :- s/Int
    report-payload
-   ssl-opts]
-  (let [result (submit-command-via-http!
-                 base-url
-                 certname
-                 (command-names :store-report)
-                 command-version
-                 report-payload
-                 ssl-opts)]
+   opts]
+  ;; See submit-command-via-http! for valid opts (checked there)
+  (let [result (submit-command-via-http! base-url certname (command-names :store-report)
+                                         command-version report-payload opts)]
     (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))
 
 (defn-validated submit-facts
   "Send the given wire-format `facts` (associated with `host`) to a
    command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  ([base-url :- utils/base-url-schema
-    certname :- s/Str
-    facts-version :- s/Int
-    fact-payload]
-   (submit-facts base-url certname facts-version fact-payload {}))
+  ([base-url certname facts-version fact-payload]
+   (submit-facts base-url certname facts-version fact-payload nil))
   ([base-url :- utils/base-url-schema
     certname :- s/Str
     facts-version :- s/Int
     fact-payload
-    ssl-opts]
-   (let [result  (submit-command-via-http!
-                   base-url
-                   certname
-                   (command-names :replace-facts)
-                   facts-version
-                   fact-payload
-                   ssl-opts)]
+    opts]
+   ;; See submit-command-via-http! for valid opts (checked there)
+   (let [result  (submit-command-via-http! base-url certname (command-names :replace-facts)
+                                           facts-version fact-payload opts)]
      (when-not (= HttpURLConnection/HTTP_OK (:status result))
        (log/error result)))))
 
