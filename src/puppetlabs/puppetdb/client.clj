@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.client
   (:require
    [clojure.java.io :as io]
+   [clojure.set :as set]
    [clojure.tools.logging :as log]
    [puppetlabs.http.client.sync :as pclient]
    [puppetlabs.puppetdb.command.constants :refer [command-names]]
@@ -73,22 +74,21 @@
    `port`. The `payload` will be converted to JSON before
    submission. Alternately accepts a command-map object (such as those
    returned by `parse-command`). Returns the server response."
-  ([base-url certname command version payload]
-   (submit-command-via-http! base-url certname command version payload nil {}))
-  ([base-url certname command version payload timeout]
-   (submit-command-via-http! base-url certname command version payload timeout {}))
-  ([base-url certname command version payload timeout ssl-opts]
-   (let [stamp (-> payload :producer_timestamp t/to-string)
-         url (str (utils/base-url->str base-url)
-                  (utils/cmd-url-params {:command command
-                                         :version version
-                                         :certname certname
-                                         :producer-timestamp stamp
-                                         :timeout timeout}))]
-     (post-body (http-client (select-keys ssl-opts [:ssl-cert :ssl-key :ssl-ca-cert]))
-                (json-request-generator (URI. url))
-                (-> payload json/generate-string string-publisher)
-                (string-handler)))))
+  [base-url certname command version payload & {:keys [timeout] :as opts}]
+  (when-let [extra (seq (set/difference (-> opts keys set)
+                                        #{:timeout :ssl-cert :ssl-key :ssl-ca-cert}))]
+    (throw (IllegalArgumentException. (str "Unexpected options: " (pr-str extra)))))
+  (let [stamp (-> payload :producer_timestamp t/to-string)
+        url (str (utils/base-url->str base-url)
+                 (utils/cmd-url-params {:command command
+                                        :version version
+                                        :certname certname
+                                        :producer-timestamp stamp
+                                        :timeout timeout}))]
+    (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
+               (json-request-generator (URI. url))
+               (-> payload json/generate-string string-publisher)
+               (string-handler))))
 
 (defn-validated submit-catalog
   "Send the given wire-format `catalog` (associated with `host`) to a
@@ -104,7 +104,6 @@
                  (command-names :replace-catalog)
                  command-version
                  catalog-payload
-                 nil
                  ssl-opts)]
     (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))
@@ -123,7 +122,6 @@
                  (command-names :store-report)
                  command-version
                  report-payload
-                 nil
                  ssl-opts)]
     (when-not (= HttpURLConnection/HTTP_OK (:status result))
       (log/error result))))
@@ -147,7 +145,6 @@
                    (command-names :replace-facts)
                    facts-version
                    fact-payload
-                   nil
                    ssl-opts)]
      (when-not (= HttpURLConnection/HTTP_OK (:status result))
        (log/error result)))))
