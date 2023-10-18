@@ -1,6 +1,6 @@
 (def pdb-version "8.1.2-SNAPSHOT")
 
-(def clj-parent-version "7.2.5")
+(def clj-parent-version "7.2.6")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
