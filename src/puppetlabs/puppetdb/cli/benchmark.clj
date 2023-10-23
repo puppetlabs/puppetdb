@@ -35,7 +35,22 @@
    simulator. Each run through the main loop, we send each agent an
    `update` message with the current wall-clock. Each agent decides
    independently whether or not to submit a catalog during that clock
-   tick."
+   tick.
+
+   ### Running parallel Benchmarks
+
+   If are running up against the upper limit at which Benchmark can
+   submit simulated requests, you can run multiple instances of benchmark and
+   make use of the --offset flag to shift the cert numbers.
+
+   Example (probably run on completely separate hosts):
+
+   ```
+   benchmark --offset 0 --numhosts 100000
+   benchmark --offset 100000 --numhosts 100000
+   benchmark --offset 200000 --numhosts 100000
+   ...
+   ```"
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.trapperkeeper.logging :as logutils]
@@ -303,6 +318,9 @@
                 :id :senders]
                [nil "--simulators N" "Command simulators (default: cores / 2, min 2)"
                 :default (max 2 (long (/ threads 2)))
+                :parse-fn #(Integer/parseInt %)]
+               ["-o" "--offset N" "Zero based offset of cert numbers for use when running multiple instance of benchmark."
+                :default 0
                 :parse-fn #(Integer/parseInt %)]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
@@ -501,13 +519,13 @@
     (TempFileBuffer. storage-dir q)))
 
 (defn random-hosts
-  [n pdb-host catalogs reports facts]
+  [n offset pdb-host catalogs reports facts]
   (let [random-entity (fn [host entities]
                         (some-> entities
                                 rand-nth
                                 (assoc "certname" host)))]
     (for [i (range n)]
-      (let [host (str "host-" i)]
+      (let [host (str "host-" (+ offset i))]
         {:host host
          :catalog (when-let [cat (random-entity host catalogs)]
                     (update cat "resources"
@@ -612,7 +630,7 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in]
+  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in offset]
          :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
@@ -644,7 +662,7 @@
 
         ;; channels
         initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts pdb-host catalogs reports facts))
+                          (random-hosts numhosts offset pdb-host catalogs reports facts))
         mq-ch (chan (message-buffer temp-dir numhosts))
         _ (register-shutdown-hook! #(async/close! mq-ch))
 
