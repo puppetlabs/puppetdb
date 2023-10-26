@@ -277,7 +277,7 @@
             (stop-abandoned! queries (.selectedKeys selector) terminate-query buf)
             (recur)))
         (finally
-          (trs "Query monitor shutting down"))
+          (log/info (trs "Query monitor shutting down")))
         (finally
           (doseq [[_ {:keys [terminated]}] (:selector-keys @queries)
                   :when terminated]
