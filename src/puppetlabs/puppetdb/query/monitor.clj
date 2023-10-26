@@ -190,8 +190,10 @@
       (if-not info
         next-deadline
         (do
-          (stop-query info "expired")
-          (.cancel ^SelectionKey select-key)
+          (try!
+            (stop-query info "expired")
+            (finally
+              (.cancel ^SelectionKey select-key)))
           (recur))))))
 
 (defn- describe-key [^SelectionKey k]
