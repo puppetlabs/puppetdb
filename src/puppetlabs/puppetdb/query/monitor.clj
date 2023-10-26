@@ -175,7 +175,7 @@
                         (update :deadlines dissoc deadkey)
                         (update :selector-keys assoc deadkey info))]
             (if (compare-and-set! queries cur new)
-              [info (-> cur :deadlines ffirst) (second deadkey)]
+              [info (-> new :deadlines ffirst) (second deadkey)]
               (recur queries now))))))))
 
 (defn- enforce-deadlines!
