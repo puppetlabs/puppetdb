@@ -234,7 +234,7 @@
       (.cancel select-key)
       (let [info (-> @queries :selector-keys (get select-key))]
         (when-not (:forget info)
-          (log/warn (trs "Unexpected PDBQuery:{0} client channel event: {1}"
+          (log/warn (trs "Unexpected PDBQuery:{0} client disconnection: {1}"
                          (:query-id info)
                          (pr-str (describe-key select-key))))
           (stop-query info "abandoned")))))
