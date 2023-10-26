@@ -146,36 +146,38 @@
         (deliver terminated true)))))
 
 (defn- next-expired-query!
-  "Removes the next expired query (if any) from queries and returns
-  the info for that query and the next ns deadline (after that query)
-  as [info deadline].  Returns a false value if there's nothing
-  expired."
+  "Removes the next expired query (if any) from queries and returns the
+  info and selection key for that query, and the next ns
+  deadline (after that query) as [info deadline key].  Returns a false
+  value if there are no expirations."
   [queries now]
   ;; Process just one query at a time so that each :terminate
   ;; wait/timeout will be independent.
-  (let [{:keys [deadlines] :as cur} @queries]
+  (let [{:keys [deadlines] :as cur} @queries
+        [next-up] (seq deadlines)]
     ;; Grab the earliest deadline, if any.
-    (when-let [[[[deadline-ns skey :as deadkey]
-                 {:keys [forget] :as info}]]
-               (seq deadlines)]
+    (when-let [[[deadline-ns dead-skey :as dead-key]
+                {:keys [forget] :as info}]
+               next-up]
       ;; Use compare-and-set! (not swap!) so we can return the next deadline.
       (if-not (<= deadline-ns now)
         [nil deadline-ns nil]
         (if forget
           (let [new (-> cur
-                        (update :deadlines dissoc deadkey)
-                        (update :selector-keys dissoc skey))]
+                        (update :deadlines dissoc dead-key)
+                        (update :selector-keys dissoc dead-skey))]
             (compare-and-set! queries cur new) ;; if we lose, recur tries again
             (recur queries now))
-          ;; Swap in terminated first, so that we know the pg-pid
-          ;; won't change to some other query's, at least until we
-          ;; finish or the query thread's deref times out.
+          ;; Swap in terminated, so that we know the pg-pid won't
+          ;; change to some other query's, at least until we finish or
+          ;; the query thread's deref times out.
           (let [info (assoc info :terminated (promise))
                 new (-> cur
-                        (update :deadlines dissoc deadkey)
-                        (update :selector-keys assoc skey info))]
+                        (update :deadlines dissoc dead-key)
+                        (update :selector-keys assoc dead-skey info))]
             (if (compare-and-set! queries cur new)
-              [info (-> new :deadlines ffirst first) (second deadkey)]
+              (let [[[new-deadline _skey] _info] (-> new :deadlines first)]
+                [info new-deadline dead-skey])
               (recur queries now))))))))
 
 (defn- enforce-deadlines!
