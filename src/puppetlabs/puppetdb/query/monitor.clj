@@ -173,7 +173,7 @@
           (let [info (assoc info :terminated (promise))
                 new (-> cur
                         (update :deadlines dissoc deadkey)
-                        (update :selector-keys assoc deadkey info))]
+                        (update :selector-keys assoc skey info))]
             (if (compare-and-set! queries cur new)
               [info (-> new :deadlines ffirst first) (second deadkey)]
               (recur queries now))))))))
