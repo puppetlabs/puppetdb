@@ -114,36 +114,37 @@
   "Terminates any pg-pid connection provided by the info unless :forget
   is true.  Always delivers true to any terminated promise."
   [{:keys [forget query-id db pg-pid terminated] :as _info} what]
-  (assert pg-pid)
-  (try
-    (when-not forget
-      (when-let [pg-pid @pg-pid]
-        (let [[{:keys [pg_terminate_backend]} :as rows]
-              (jdbc/with-db-connection db
-                (jdbc/query-to-vec
-                 (let [terminate (if (<= 14 (-> (db-metadata) :version first))
-                                   "pg_terminate_backend(pid, 500)"
-                                   "pg_terminate_backend(pid)")]
-                   (str "select " terminate ", pid"
-                        "  from pg_stat_activity"
-                        "  where datname = (select current_database()) and pid = ?"))
-                 pg-pid))]
-          (cond
-            (nil? pg_terminate_backend)
-            (log/warn (trs "Unable to terminate {0} PDBQuery:{1} (no PostgreSQL pid {2})"
-                           what query-id (str pg-pid)))
-            pg_terminate_backend
-            (log/info (trs "Terminated {0} PDBQuery:{1} (PostgreSQL pid {2})"
-                           what query-id (str pg-pid)))
-            :else
-            (log/warn (trs "Unable to terminate {0} PDBQuery:{1} in 500ms (PostgreSQL pid {2})"
-                           what query-id (str pg-pid))))
-          (when (seq (rest rows))
-            (log/error (trs "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
-                            what query-id (pr-str rows)))))))
-    (finally
-      (when terminated
-        (deliver terminated true)))))
+  (if-not pg-pid
+    (log/error "Expected internal pg-pid missing (please report)")
+    (try
+      (when-not forget
+        (when-let [pg-pid @pg-pid]
+          (let [[{:keys [pg_terminate_backend]} :as rows]
+                (jdbc/with-db-connection db
+                  (jdbc/query-to-vec
+                   (let [terminate (if (<= 14 (-> (db-metadata) :version first))
+                                     "pg_terminate_backend(pid, 500)"
+                                     "pg_terminate_backend(pid)")]
+                     (str "select " terminate ", pid"
+                          "  from pg_stat_activity"
+                          "  where datname = (select current_database()) and pid = ?"))
+                   pg-pid))]
+            (cond
+              (nil? pg_terminate_backend)
+              (log/warn (trs "Unable to terminate {0} PDBQuery:{1} (no PostgreSQL pid {2})"
+                             what query-id (str pg-pid)))
+              pg_terminate_backend
+              (log/info (trs "Terminated {0} PDBQuery:{1} (PostgreSQL pid {2})"
+                             what query-id (str pg-pid)))
+              :else
+              (log/warn (trs "Unable to terminate {0} PDBQuery:{1} in 500ms (PostgreSQL pid {2})"
+                             what query-id (str pg-pid))))
+            (when (seq (rest rows))
+              (log/error (trs "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
+                              what query-id (pr-str rows)))))))
+      (finally
+        (when terminated
+          (deliver terminated true))))))
 
 (defn- next-expired-query!
   "Removes the next expired query (if any) from queries and returns the
@@ -327,7 +328,6 @@
                     "pdb query monitor"))))
 
 (defn start [{:keys [^Thread thread] :as monitor}]
-  (assert (not (.isAlive thread)))
   (.start thread)
   monitor)
 
@@ -366,46 +366,57 @@
 (defn stop-query-at-deadline-or-disconnect
   [{:keys [^Selector selector queries ^Thread thread] :as _monitor}
    id ^SelectableChannel channel deadline-ns db]
-  (assert (.isAlive thread))
-  (assert (instance? SelectableChannel channel))
-  (let [select-key (register-selector channel selector SelectionKey/OP_READ)
-        info {:query-id id
-              :selection-key select-key
-              :deadline-ns deadline-ns
-              :db db
-              :pg-pid (atom nil)
-              :terminated nil
-              :forget false}]
-    (assert deadline-ns)
-    (swap! queries
-           (fn [{:keys [selector-keys] :as prev}]
-             ;; Every query channel must currently be unique since it
-             ;; determines the key.
-             (when-let [{:keys [query-id]} (selector-keys select-key)]
-               (throw (Exception. (str "Existing query " (pr-str query-id)
-                                       " has same channel as " (pr-str id)))))
-             (-> prev
-                 (update :selector-keys assoc select-key info)
-                 (update :deadlines conj [[deadline-ns select-key] info]))))
-    (.wakeup selector) ;; to recompute deadline and start watching select-key
-    select-key))
+  (when-not (and (number? deadline-ns) (not (neg? deadline-ns)))
+    (throw (IllegalArgumentException. "Deadline is not a nonnegative number")))
+  (if-not (.isAlive thread)
+    (log/error "Query monitor thread not running when registering query (please report)")
+    (let [select-key (register-selector channel selector SelectionKey/OP_READ)
+          info {:query-id id
+                :selection-key select-key
+                :deadline-ns deadline-ns
+                :db db
+                :pg-pid (atom nil)
+                :terminated nil
+                :forget false}]
+      (swap! queries
+             (fn [{:keys [selector-keys] :as prev}]
+               ;; Every query channel must currently be unique since it
+               ;; determines the key.
+               (when-let [{:keys [query-id]} (selector-keys select-key)]
+                 (throw (Exception. (str "Existing query " (pr-str query-id)
+                                         " has same channel as " (pr-str id)))))
+               (-> prev
+                   (update :selector-keys assoc select-key info)
+                   (update :deadlines conj [[deadline-ns select-key] info]))))
+      (.wakeup selector) ;; to recompute deadline and start watching select-key
+      select-key)))
 
 (defn register-pg-pid
   [{:keys [queries ^Thread thread] :as _monitor} select-key pid]
-  (assert (.isAlive thread))
-  (let [{:keys [selector-keys]} @queries
-        {:keys [pg-pid] :as _info} (selector-keys select-key)]
-    ;; Whole entry might not exist if the client has disconnected.
-    (when pg-pid
-      (swap! pg-pid (fn [prev] (assert (not prev)) pid)))))
+  (if-not (.isAlive thread)
+    (log/error "Query monitor thread not running when registering pg pid (please report)")
+    (let [{:keys [selector-keys]} @queries
+          {:keys [pg-pid] :as _info} (selector-keys select-key)]
+      ;; Whole entry might not exist if the client has disconnected.
+      (when pg-pid
+        (swap! pg-pid (fn [prev]
+                        (when prev
+                          (throw
+                           (Exception. (str "Postgres PID already registered: " prev))))
+                        pid))))))
 
-(defn forget-pg-pid [{:keys [queries thread] :as _monitor} select-key]
-  (assert (.isAlive ^Thread thread))
-  (let [{:keys [selector-keys]} @queries
-        {:keys [pg-pid] :as _info} (selector-keys select-key)]
-    ;; Whole entry might not exist if the client has disconnected.
-    (when pg-pid
-      (swap! pg-pid (fn [prev] (assert prev) nil)))))
+(defn forget-pg-pid [{:keys [queries ^Thread thread] :as _monitor} select-key]
+  (if-not (.isAlive thread)
+    (log/error "Query monitor thread not running when forgetting pg pid (please report)")
+    (let [{:keys [selector-keys]} @queries
+          {:keys [pg-pid] :as _info} (selector-keys select-key)]
+      ;; Whole entry might not exist if the client has disconnected.
+      (when pg-pid
+        (swap! pg-pid
+               (fn [prev]
+                 (when-not prev
+                   (throw (Exception. "No registered postgres PID to forget")))
+                 nil))))))
 
 (defn forget
   "Causes the monitor to forget the query specified by the select-key.
@@ -417,22 +428,23 @@
   successfully."
   [{:keys [queries ^Selector selector ^Thread thread] :as _monitor}
    ^SelectionKey select-key]
-  (assert (.isAlive thread))
-  (let [maybe-await-termination (atom nil)]
-    (swap! queries
-           (fn [{:keys [selector-keys] :as state}]
-             (if-let [{:keys [deadline-ns terminated] :as info}
-                      (selector-keys select-key)]
-               (let [info (assoc info :forget true)]
-                 (reset! maybe-await-termination terminated)
-                 (-> state
-                     (update :selector-keys assoc select-key info)
-                     (update :deadlines assoc [deadline-ns select-key] info)))
-               state)))
-    (.cancel select-key)
-    (.wakeup selector) ;; clear out the cancelled keys (see stop-query-at-...)
-    (if (= ::timeout (some-> @maybe-await-termination (deref 2000 ::timeout)))
-      ::timeout
-      true)))
+  (if-not (.isAlive thread)
+    (log/error "Query monitor thread not running when forgetting query (please report)")
+    (let [maybe-await-termination (atom nil)]
+      (swap! queries
+             (fn [{:keys [selector-keys] :as state}]
+               (if-let [{:keys [deadline-ns terminated] :as info}
+                        (selector-keys select-key)]
+                 (let [info (assoc info :forget true)]
+                   (reset! maybe-await-termination terminated)
+                   (-> state
+                       (update :selector-keys assoc select-key info)
+                       (update :deadlines assoc [deadline-ns select-key] info)))
+                 state)))
+      (.cancel select-key)
+      (.wakeup selector) ;; clear out the cancelled keys (see stop-query-at-...)
+      (if (= ::timeout (some-> @maybe-await-termination (deref 2000 ::timeout)))
+        ::timeout
+        true))))
 
 (set! *warn-on-reflection* warn-on-reflection-orig)
