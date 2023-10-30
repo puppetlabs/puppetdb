@@ -213,9 +213,9 @@
                           upper-limit (+ exp-deadline tolerance-ns)]
                       (when-not (is (< term-ns upper-limit))
                         (binding [*out* *err*]
-                          (println "query termination missed deadline by "
+                          (println "query termination missed deadline by"
                                    (-> (- upper-limit term-ns) (/ ns-per-s) double)
-                                   " seconds"))))))))))))))
+                                   "seconds"))))))))))))))
 
 (def certnames (repeatedly 100 #(random-string 2000)))
 
