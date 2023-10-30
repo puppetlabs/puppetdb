@@ -234,14 +234,17 @@
       (let [[report] (int/pql-query pdb "reports { certname = 'my_agent' and noop = false }")
             metrics (get-href pdb (get-in report [:metrics :href]))
             logs  (get-href pdb (get-in report [:logs :href]))
-            ;; In Puppet 7, disable_i18n is true by default, so the "Retrieving locales"
+            puppet-major-version (->> (int/bundle-exec {} "puppet" "--version")
+                                      :out
+                                      str/trim-newline
+                                      (re-matches #"^(\d+)\..*")
+                                      second
+                                      Integer/parseInt)
+            ;; Starting in Puppet 7, disable_i18n is true by default, so the "Retrieving locales"
             ;; log message does not exist
-            info-log-count (if (->> (int/bundle-exec {} "puppet" "--version")
-                                    :out
-                                    str/trim-newline
-                                    (re-matches #"^6.*"))
-                             6
-                             5)]
+            info-log-count (if (> puppet-major-version 6) 5 6)
+            ;; during the lifetime of puppet 7 and 8 PUP-11899 added a log message
+            notice-log-count (if (> puppet-major-version 6) 4 3)]
 
         (is (= #{{:name "total", :value 1, :category "events"}
                  {:name "changed", :value 1, :category "resources"}
@@ -257,9 +260,10 @@
                             (set (:tags e)))))
                   logs))
 
-        (is (= 3 (count
-                  (filter #(= "notice" (:level %))
-                          logs))))
+        (is (= notice-log-count
+               (count
+                (filter #(= "notice" (:level %))
+                        logs))))
 
         (is (= info-log-count
                (count
