@@ -11,11 +11,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
-## PuppetDB 8.1.2 (unreleased)
+## PuppetDB 8.2.0
 
-Release date undetermined, and contributors pending
+Released November 7 2023
+
+### Security fixes
+
+* Update trapperkeeper-webserver-jetty9 to 4.5.2 to address
+  CVE-2023-44487, CVE-2023-36478, GHSA-58qw-p7qm-5rvh,
+  GHSA-hmr7-m48g-48f6, and GHSA-3gh6-v5v9-6v9j.
+
+* Update Bouncy Castle FIPS to v1.0.2.4 to resolve CVE-2022-45156
+  and CVE-2023-33202.
+
+### Bug fixes
+
+* Update jvm-ssl-utils to 3.5.2 to address a stack overflow in
+  certificates with tags.
 
 ### New features and improvements
+
+* An `--offset` option has been added to the [`benchmark` command][benchmark]
+  This allows you to run two or more Benchmark instances in parallel,
+  offsetting the generated cert numbers so that the commands don't
+  collide in the database.
+  ([GitHub #3896](https://github.com/puppetlabs/puppetdb/issues/3896))
 
 * The [`benchmark` command][benchmark] should be able to reach notably
   higher maximum output rates.  On one 60 core (non-hyperthreaded)
@@ -54,7 +74,7 @@ Release date undetermined, and contributors pending
 
 ### Contributors
 
-Austin Blatt, Rob Browning, and ...
+Austin Blatt, Nick Burgan-Illig, Joshua Partlow, and Rob Browning
 
 ## PuppetDB 8.1.1
 
