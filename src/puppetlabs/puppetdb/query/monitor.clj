@@ -36,7 +36,10 @@
   set the info's :forget to true.
 
   No operations should block forever; they should all eventually (in
-  some cases customizably) time out.
+  some cases customizably) time out, and the current implementation is
+  intended, overall, to try to let pdb keep running, even if the
+  monitor (thread) dies somehow.  The precipitating errors should
+  still be reported to the log.
 
   Every monitored query will have a SelectionKey associated with it,
   The key is cancelled during forget, but won't be removed from the
@@ -82,7 +85,7 @@
    [puppetlabs.puppetdb.jdbc :as jdbc]
    [puppetlabs.puppetdb.scf.storage-utils :refer [db-metadata]]
    [puppetlabs.puppetdb.time :refer [ephemeral-now-ns]]
-   [puppetlabs.puppetdb.utils :refer [with-monitored-execution]]
+   [puppetlabs.puppetdb.utils :refer [with-noisy-failure]]
    [schema.core :as s])
   (:import
    (java.lang AutoCloseable)
@@ -261,11 +264,10 @@
                          ns-per-ms)))))
 
 (defn- monitor-queries [{:keys [exit queries ^Selector selector] :as _monitor}
-                        terminate-query
-                        on-fatal-error]
+                        terminate-query]
   ;; We depend on the fact that any new queries will wake us
   ;; up (i.e. wrt possible deadline advancements).
-  (with-monitored-execution on-fatal-error
+  (with-noisy-failure
     ;; Create a non-trivial buffer so we'll clear out any noise from
     ;; the client (shouldn't be any).  On an X release, suppose we
     ;; could make that an error.
@@ -304,9 +306,8 @@
       (compare (.hashCode skey-1) (.hashCode skey-2)))))
 
 (defn monitor
-  [& {:keys [terminate-query on-fatal-error]
-      :or {terminate-query puppetlabs.puppetdb.query.monitor/terminate-query
-           on-fatal-error identity}}]
+  [& {:keys [terminate-query]
+      :or {terminate-query puppetlabs.puppetdb.query.monitor/terminate-query}}]
 
   ;; With the current implementation, there may not always be an entry
   ;; in :deadlines corresponding to an entry in :selector-keys.  In
@@ -324,7 +325,7 @@
                             :deadlines (sorted-map-by compare-deadline-keys)})
             :terminate-query terminate-query})]
     (assoc m :thread
-           (Thread. #(monitor-queries m terminate-query on-fatal-error)
+           (Thread. #(monitor-queries m terminate-query)
                     "pdb query monitor"))))
 
 (defn start [{:keys [^Thread thread] :as monitor}]

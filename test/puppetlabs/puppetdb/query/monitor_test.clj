@@ -98,8 +98,7 @@
           termination-latch (CountDownLatch. expected-terminations)]
       (with-log-suppressed-unless-notable notable?
         (with-open [m (qmon/monitor :terminate-query (recording-terminator terminations
-                                                                           termination-latch)
-                                    :on-fatal-error identity)]
+                                                                           termination-latch))]
           (qmon/start m)
 
           ;; Test a query that finishes before its deadline (ok), a

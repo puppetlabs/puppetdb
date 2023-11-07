@@ -1032,8 +1032,7 @@
                                                   % request-shutdown "gc")
 
                    query-monitor (when (and env-monitor-queries? monitor-queries?)
-                                   (-> (qmon/monitor :on-fatal-error request-shutdown)
-                                       qmon/start))
+                                   (qmon/start (qmon/monitor)))
                    :error #(when %
                              (or (qmon/stop % (stop-query-monitor-wait-ms))
                                  (log/error
