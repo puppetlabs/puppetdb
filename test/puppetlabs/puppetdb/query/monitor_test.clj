@@ -98,8 +98,7 @@
           termination-latch (CountDownLatch. expected-terminations)]
       (with-log-suppressed-unless-notable notable?
         (with-open [m (qmon/monitor :terminate-query (recording-terminator terminations
-                                                                           termination-latch)
-                                    :on-fatal-error identity)]
+                                                                           termination-latch))]
           (qmon/start m)
 
           ;; Test a query that finishes before its deadline (ok), a
@@ -213,9 +212,9 @@
                           upper-limit (+ exp-deadline tolerance-ns)]
                       (when-not (is (< term-ns upper-limit))
                         (binding [*out* *err*]
-                          (println "query termination missed deadline by "
+                          (println "query termination missed deadline by"
                                    (-> (- upper-limit term-ns) (/ ns-per-s) double)
-                                   " seconds"))))))))))))))
+                                   "seconds"))))))))))))))
 
 (def certnames (repeatedly 100 #(random-string 2000)))
 
