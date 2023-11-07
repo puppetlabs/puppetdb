@@ -1,6 +1,6 @@
-(def pdb-version "8.1.2-SNAPSHOT")
+(def pdb-version "8.2.1-SNAPSHOT")
 
-(def clj-parent-version "7.2.3")
+(def clj-parent-version "7.2.6")
 
 (defn true-in-env? [x]
   (#{"true" "yes" "1"} (System/getenv x)))
@@ -173,6 +173,7 @@
                  [puppetlabs/dujour-version-check]
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
+                 [puppetlabs/ssl-utils]
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/structured-logging]
                  [puppetlabs/trapperkeeper]
@@ -310,7 +311,7 @@
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "2.5.3"]]}
+                      :plugins [[puppetlabs/lein-ezbake "2.5.5"]]}
              :testutils {:source-paths ^:replace ["test"]
                          :resource-paths ^:replace []
                          ;; Something else may need adjustment, but
@@ -321,7 +322,8 @@
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
                             :dependencies ~puppetserver-test-deps}
-             :ci {:plugins [[lein-pprint "1.1.1"]]}
+             :ci {:plugins [[lein-pprint "1.1.1"]
+                            [lein-exec "0.3.7"]]}
              ; We only want to include bouncycastle in the FOSS uberjar.
              ; PE should be handled by selecting the proper bouncycastle jar
              ; at runtime (standard/fips)

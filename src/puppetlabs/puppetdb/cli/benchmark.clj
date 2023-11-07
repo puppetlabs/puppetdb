@@ -35,7 +35,22 @@
    simulator. Each run through the main loop, we send each agent an
    `update` message with the current wall-clock. Each agent decides
    independently whether or not to submit a catalog during that clock
-   tick."
+   tick.
+
+   ### Running parallel Benchmarks
+
+   If are running up against the upper limit at which Benchmark can
+   submit simulated requests, you can run multiple instances of benchmark and
+   make use of the --offset flag to shift the cert numbers.
+
+   Example (probably run on completely separate hosts):
+
+   ```
+   benchmark --offset 0 --numhosts 100000
+   benchmark --offset 100000 --numhosts 100000
+   benchmark --offset 200000 --numhosts 100000
+   ...
+   ```"
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.trapperkeeper.logging :as logutils]
@@ -57,10 +72,61 @@
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
    (clojure.core.async.impl.protocols Buffer UnblockingBuffer)
+   (com.puppetlabs.ssl_utils SSLUtils)
+   (java.net URI)
+   (java.net.http HttpClient
+                  HttpRequest
+                  HttpRequest$Builder
+                  HttpRequest$BodyPublishers
+                  HttpResponse$BodyHandlers)
    (java.nio.file.attribute FileAttribute)
    (java.nio.file Files OpenOption)
    (java.util ArrayDeque)
    (java.util.concurrent RejectedExecutionException)))
+
+(defn- ssl-info->context
+  [& {:keys [ssl-cert ssl-key ssl-ca-cert]}]
+  (SSLUtils/pemsToSSLContext (io/reader ssl-cert)
+                             (io/reader ssl-key)
+                             (io/reader ssl-ca-cert)))
+
+(defn- build-http-client [& {:keys [ssl-cert] :as opts}]
+  (cond-> (HttpClient/newBuilder)
+    ;; To follow redirects: (.followRedirects HttpClient$Redirect/NORMAL)
+    ssl-cert (.sslContext (ssl-info->context opts))
+    true .build))
+
+;; Until we require requests to provide the client (perhaps we should)
+(def ^:private http-client (memoize build-http-client))
+
+(defn- json-request-generator
+  ([uri] (.uri ^java.net.http.HttpRequest$Builder (json-request-generator) uri))
+  ([] (-> (HttpRequest/newBuilder)
+          ;; To follow redirects: (.followRedirects HttpClient$Redirect/NORMAL)
+          (.header "Content-Type" "application/json; charset=UTF-8")
+          (.header "Accept" "application/json"))))
+
+(defn- string-publisher [s] (HttpRequest$BodyPublishers/ofString s))
+(defn- string-handler [] (HttpResponse$BodyHandlers/ofString))
+
+(defn- post-body
+  [^HttpClient client
+   ^HttpRequest$Builder req-generator
+   body-publisher
+   response-body-handler]
+  (let [res (.send client (-> req-generator (.POST body-publisher) .build)
+                   response-body-handler)]
+    ;; Currently minimal
+    {::jdk-response res
+     :status (.statusCode res)}))
+
+(defn- post-json-via-jdk [url body opts]
+  ;; Unlisted, valid keys: ssl-cert ssl-key ssl-ca-cert
+  ;; Intentionally ignores unrecognized keys
+  (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
+             (json-request-generator (URI. url))
+             (string-publisher body)
+             (string-handler)))
 
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is
@@ -220,7 +286,8 @@
 
 (defn- validate-cli!
   [args]
-  (let [pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
+  (let [threads (.availableProcessors (Runtime/getRuntime)) ;; actually hyperthreads
+        pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
         specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
                 :parse-fn config/load-config]
                [nil "--protocol (http|https)" "Network protocol (default via CONFIG)"
@@ -243,8 +310,17 @@
                 :default-desc "0d"
                 :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
-               ["-t" "--threads N" "Command submission thread count (defaults to 4 per core)"
-                :default (* 4 (.availableProcessors (Runtime/getRuntime)))
+               [nil "--senders N" "Command submission thread count (default: cores / 2, min 2)"
+                :default (max 2 (long (/ threads 2)))
+                :parse-fn #(Integer/parseInt %)]
+               ["-t" "--threads N" "Deprecated alias for --senders"
+                :parse-fn #(Integer/parseInt %)
+                :id :senders]
+               [nil "--simulators N" "Command simulators (default: cores / 2, min 2)"
+                :default (max 2 (long (/ threads 2)))
+                :parse-fn #(Integer/parseInt %)]
+               ["-o" "--offset N" "Zero based offset of cert numbers for use when running multiple instance of benchmark."
+                :default 0
                 :parse-fn #(Integer/parseInt %)]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
@@ -291,6 +367,13 @@
 
 (def random-cmd-delay safe-sample-normal)
 
+(defn send-facts [url certname version catalog opts]
+  (client/submit-facts url certname version catalog (assoc opts :post post-json-via-jdk)))
+(defn send-catalog [url certname version catalog opts]
+  (client/submit-catalog url certname version catalog (assoc opts :post post-json-via-jdk)))
+(defn send-report [url certname version catalog opts]
+  (client/submit-report url certname version catalog (assoc opts :post post-json-via-jdk)))
+
 (defn start-command-sender
   "Start a command sending process in the background. Reads host-state maps from
   command-send-ch and sends commands to the puppetdb at base-url. Writes
@@ -331,9 +414,9 @@
       rate-monitor-ch
       (map (fn [[command host version payload]]
              (let [submit-fn (case command
-                               :catalog client/submit-catalog
-                               :report client/submit-report
-                               :factset client/submit-facts)]
+                               :factset send-facts
+                               :catalog send-catalog
+                               :report send-report)]
                (try
                  (submit-fn base-url host version payload ssl-opts)
                  ::submitted
@@ -436,13 +519,13 @@
     (TempFileBuffer. storage-dir q)))
 
 (defn random-hosts
-  [n pdb-host catalogs reports facts]
+  [n offset pdb-host catalogs reports facts]
   (let [random-entity (fn [host entities]
                         (some-> entities
                                 rand-nth
                                 (assoc "certname" host)))]
     (for [i (range n)]
-      (let [host (str "host-" i)]
+      (let [host (str "host-" (+ offset i))]
         {:host host
          :catalog (when-let [cat (random-entity host catalogs)]
                     (update cat "resources"
@@ -547,27 +630,27 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs threads end-commands-in] :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in offset]
+         :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
         {:keys [host port ssl-host ssl-port]} (:jetty config)
         [protocol pdb-host pdb-port]
         (case (:protocol options)
-          "http" ["http" (or host "localhost") (or port "8080")]
-          "https" ["https" (or ssl-host "localhost") (or ssl-port "8081")]
+          "http" ["http" (or host "localhost") (or port 8080)]
+          "https" ["https" (or ssl-host "localhost") (or ssl-port 8081)]
           (cond
             ssl-port ["https" (or ssl-host "localhost") ssl-port]
-            ssl-host ["https" ssl-host (or ssl-port "8081")]
+            ssl-host ["https" ssl-host (or ssl-port 8081)]
             port ["http" (or host "localhost") port]
-            host ["http" host (or port "8080")]
-            :else ["http" "localhost" "8080"]))
+            host ["http" host (or port 8080)]
+            :else ["http" "localhost" 8080]))
         _ (println-err (format "Connecting to %s://%s:%s" protocol pdb-host pdb-port))
         ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
         run-interval (get options :runinterval 30)
         run-interval-minutes (-> run-interval time/minutes)
-        simulation-threads 4
 
         max-command-delay-ms 15000
 
@@ -579,7 +662,7 @@
 
         ;; channels
         initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts pdb-host catalogs reports facts))
+                          (random-hosts numhosts offset pdb-host catalogs reports facts))
         mq-ch (chan (message-buffer temp-dir numhosts))
         _ (register-shutdown-hook! #(async/close! mq-ch))
 
@@ -610,12 +693,12 @@
         [command-sender-finished-ch fanout-ch] (start-command-sender base-url
                                                                      command-send-ch
                                                                      rate-monitor-ch
-                                                                     threads
+                                                                     senders
                                                                      ssl-opts
                                                                      command-delay-scheduler
                                                                      max-command-delay-ms)
         _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
-                                 simulation-threads simulation-write-ch simulation-read-ch)
+                                 simulators simulation-write-ch simulation-read-ch)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
                   ([timeout-ms]

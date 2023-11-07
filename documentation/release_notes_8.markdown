@@ -11,6 +11,71 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.2.0
+
+Released November 7 2023
+
+### Security fixes
+
+* Update trapperkeeper-webserver-jetty9 to 4.5.2 to address
+  CVE-2023-44487, CVE-2023-36478, GHSA-58qw-p7qm-5rvh,
+  GHSA-hmr7-m48g-48f6, and GHSA-3gh6-v5v9-6v9j.
+
+* Update Bouncy Castle FIPS to v1.0.2.4 to resolve CVE-2022-45156
+  and CVE-2023-33202.
+
+### Bug fixes
+
+* Update jvm-ssl-utils to 3.5.2 to address a stack overflow in
+  certificates with tags.
+
+### New features and improvements
+
+* An `--offset` option has been added to the [`benchmark` command][benchmark]
+  This allows you to run two or more Benchmark instances in parallel,
+  offsetting the generated cert numbers so that the commands don't
+  collide in the database.
+  ([GitHub #3896](https://github.com/puppetlabs/puppetdb/issues/3896))
+
+* The [`benchmark` command][benchmark] should be able to reach notably
+  higher maximum output rates.  On one 60 core (non-hyperthreaded)
+  host where previously it could only simulate about 80k nodes with a
+  30 minute runinterval, it can now simulate over 140k nodes, more if
+  the randomization percentage is reduced from 100.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* The [`benchmark` command][benchmark]'s `-t`/`--threads` argument has
+  been deprecated and renamed to `--senders`.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* The [`benchmark` command][benchmark]'s default number of `--senders`
+  has been changed from four times the host core (hyperthread) count
+  to half the count (or 2, whichever's larger) after testing revealed
+  that with a 60 core (non-hyperthreaded) host, only 16 senders were
+  needed to hit a maximum rate with the local PuppetDB/PostgreSQL
+  hosts.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* A `--simulators` option has been added to the
+  [`benchmark` command][benchmark].  It specifies the number of
+  threads to use for the generation of new host commands and defaults
+  to either 2, or half the core (hyperthread) count.  The previous
+  internal value was always 4.
+  ([GitHub #3886](https://github.com/puppetlabs/puppetdb/issues/3886))
+  (PDB-5712)
+
+* The [`benchmark` command][benchmark] command will now space out the
+  factset, catalog, and report for each host more realistically.
+  ([GitHub #3880](https://github.com/puppetlabs/puppetdb/pull/3880))
+  (PDB-5691)
+
+### Contributors
+
+Austin Blatt, Nick Burgan-Illig, Joshua Partlow, and Rob Browning
+
 ## PuppetDB 8.1.1
 
 Released September 14 2023
@@ -31,7 +96,7 @@ Steve Axthelm
 
 Released August 22 2023
 
-## New features and improvements
+### New features and improvements
 
 * RedHat Enterprise Linux 9 (RHEL 9) has been added as a supported
   platform.

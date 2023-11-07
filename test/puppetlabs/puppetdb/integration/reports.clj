@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.integration.reports
-  (:require [clojure.string :as str]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [metrics.counters :as counters]
@@ -233,15 +232,7 @@
 
       (let [[report] (int/pql-query pdb "reports { certname = 'my_agent' and noop = false }")
             metrics (get-href pdb (get-in report [:metrics :href]))
-            logs  (get-href pdb (get-in report [:logs :href]))
-            ;; In Puppet 7, disable_i18n is true by default, so the "Retrieving locales"
-            ;; log message does not exist
-            info-log-count (if (->> (int/bundle-exec {} "puppet" "--version")
-                                    :out
-                                    str/trim-newline
-                                    (re-matches #"^6.*"))
-                             6
-                             5)]
+            logs  (get-href pdb (get-in report [:logs :href]))]
 
         (is (= #{{:name "total", :value 1, :category "events"}
                  {:name "changed", :value 1, :category "resources"}
@@ -257,14 +248,13 @@
                             (set (:tags e)))))
                   logs))
 
-        (is (= 3 (count
+        (is (= 4 (count
                   (filter #(= "notice" (:level %))
                           logs))))
 
-        (is (= info-log-count
-               (count
-                 (filter #(= "info" (:level %))
-                         logs))))))))
+        (is (= 5 (count
+                  (filter #(= "info" (:level %))
+                          logs))))))))
 
 (defn read-gc-count-metric []
   ;; metrics are global, so...
