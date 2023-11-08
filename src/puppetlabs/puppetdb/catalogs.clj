@@ -364,23 +364,6 @@
               (trs "Edge ''{0}'' has invalid relationship type ''{1}''" edge relationship)))))
   catalog)
 
-(defn validate-keys
-  "Ensure that the set of keys in the catalog is exactly the set specified in `valid-catalog-attrs`."
-  [valid-catalog-attrs]
-  (fn [catalog]
-    {:pre [(map? catalog)]
-     :post [(= % catalog)]}
-    (let [present-keys (kitchensink/keyset catalog)
-          extra-keys (set/difference present-keys valid-catalog-attrs)
-          missing-keys (set/difference valid-catalog-attrs present-keys)]
-      (when (seq extra-keys)
-        (throw (IllegalArgumentException.
-                (trs "Catalog has unexpected keys: {0}" (string/join ", " (map name extra-keys))))))
-      (when (seq missing-keys)
-        (throw (IllegalArgumentException.
-                (trs "Catalog is missing keys: {0}" (string/join ", " (map name missing-keys)))))))
-    catalog))
-
 (defn validate
   "Function for validating v9- of the catalogs"
   [catalog]
