@@ -88,17 +88,26 @@
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
    (com.puppetlabs.ssl_utils SSLUtils)
+   (java.io File)
    (java.net URI)
    (java.net.http HttpClient
                   HttpRequest
                   HttpRequest$Builder
                   HttpRequest$BodyPublishers
                   HttpResponse$BodyHandlers)
-   (java.nio.file NoSuchFileException)
+   (java.nio.file NoSuchFileException Path)
    (java.nio.file.attribute FileAttribute)
-   (java.nio.file CopyOption FileAlreadyExistsException Files LinkOption
-                  OpenOption StandardCopyOption)
-   (java.util.concurrent RejectedExecutionException)))
+   (java.nio.file CopyOption
+                  FileAlreadyExistsException
+                  Files
+                  LinkOption
+                  OpenOption
+                  StandardCopyOption)
+   (java.util.concurrent RejectedExecutionException ScheduledThreadPoolExecutor)
+   (org.apache.commons.compress.archivers.tar TarArchiveEntry)))
+
+(def ^:private warn-on-reflection-orig *warn-on-reflection*)
+(set! *warn-on-reflection* true)
 
 (defn- ssl-info->context
   [& {:keys [ssl-cert ssl-key ssl-ca-cert]}]
@@ -157,7 +166,7 @@
   "Load all .json files contained in `dir`."
   [dir from-classpath?]
   (let [target-files (if from-classpath?
-                       (->> dir io/resource io/file file-seq (remove #(.isDirectory %)))
+                       (->> dir io/resource io/file file-seq (remove #(.isDirectory ^File %)))
                        (-> dir (fs/file "*.json") fs/glob))
         data (->> target-files
                   (map try-load-file)
@@ -324,7 +333,7 @@
                 :default 0
                 :parse-fn #(if-not % 0 (Integer/parseInt %))]
                ["-N" "--nummsgs N" "Command sets to send per host (set depends on -F -C -R)"
-                :parse-fn #(Long/valueOf %)]
+                :parse-fn #(Long/valueOf ^String %)]
                ["-e" "--end-commands-in PERIOD" "End date for a command set"
                 :default-desc "0d"
                 :default (time/parse-period "0d")
@@ -358,7 +367,7 @@
 
 (defn process-tar-entry
   [tar-reader]
-  (fn [acc entry]
+  (fn [acc ^TarArchiveEntry entry]
     (let [parsed-entry (-> tar-reader
                            archive/read-entry-content
                            json/parse-string)]
@@ -475,13 +484,15 @@
 
 (def benchmark-shutdown-timeout 5000)
 
-(defn write-host-info [info path]
+(def ^"[Ljava.nio.file.OpenOption;" no-open-options (into-array OpenOption []))
+
+(defn write-host-info [info ^Path path]
   (let [host (:host info)
         tmp (Files/createTempFile (.getParent path) host "-tmp"
                                   (into-array FileAttribute []))]
     (try!
       (assert host)
-      (ignore-value (Files/write tmp (nippy/freeze info) (into-array OpenOption [])))
+      (ignore-value (Files/write tmp ^"[B" (nippy/freeze info) no-open-options))
       (Files/move tmp path (into-array CopyOption [StandardCopyOption/ATOMIC_MOVE
                                                    StandardCopyOption/REPLACE_EXISTING]))
       (finally
@@ -521,7 +532,7 @@
                              new
                              (assoc-in new [:catalog "edges"] []))))
           host (str "host-" (+ offset i))
-          host-path (.resolve storage-dir host)
+          host-path (.resolve ^Path storage-dir host)
           host-info (if-let [data (try
                                  (Files/readAllBytes host-path)
                                  (catch NoSuchFileException _))]
@@ -607,7 +618,7 @@
   (when-not facts
     (println-err (trs "No facts specified; skipping fact submission"))))
 
-(defn register-shutdown-hook! [f]
+(defn register-shutdown-hook! [^Runnable f]
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
 (defn create-storage-dir
@@ -725,6 +736,7 @@
         _rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
                                                       (-> 30 time/minutes)
                                                       commands-per-puppet-run)
+        ^ScheduledThreadPoolExecutor
         command-delay-scheduler (utils/scheduler 1)
         ;; ensures we submit all commands after they are scheduled
         ;; before we tear down the output channel
@@ -781,3 +793,5 @@
 
 (defn -main [& args]
   (exit (cli args)))
+
+(set! *warn-on-reflection* warn-on-reflection-orig)
