@@ -408,10 +408,10 @@
         ;; randomize catalog and report delay, minimum 500ms matches the speed
         ;; at which puppetdb received commands for an empty catalog
         (let [catalog-delay (random-cmd-delay 5000 3000 {:lowerb 500
-                                                           :upperb max-command-delay-ms})
+                                                         :upperb max-command-delay-ms})
               report-delay (+ catalog-delay
                               (random-cmd-delay 5000 3000 {:lowerb 500
-                                                             :upperb max-command-delay-ms}))]
+                                                           :upperb max-command-delay-ms}))]
           (try
             (when factset (async/>! fanout-commands-ch [:factset host 5 factset]))
             (when catalog (schedule fanout-commands-ch [:catalog host 9 catalog] catalog-delay))
