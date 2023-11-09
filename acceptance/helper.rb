@@ -542,11 +542,14 @@ module PuppetDBExtensions
   end
 
   def postgres_manifest
+    # bionic is EOL, so its pgdg repo has been remove
+    manage_package_repo = ! is_bionic
+
     manifest = <<-EOS
       # create the puppetdb database
       class { '::puppetdb::database::postgresql':
       listen_addresses            => 'localhost',
-      manage_package_repo         =>  true,
+      manage_package_repo         => #{manage_package_repo},
       postgres_version            => '11',
       database_name               => 'puppetdb',
       database_username           => 'puppetdb',
