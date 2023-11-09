@@ -32,5 +32,10 @@ unless (test_config[:skip_presuite_provisioning])
       on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
       on master, "dnf -qy module disable postgresql"
     end
+  elsif is_bionic
+    # bionic is EOL, so get postgresql from the archive
+    on master, 'echo "deb https://apt-archive.postgresql.org/pub/repos/apt bionic-pgdg main" >> /etc/apt/sources.list'
+    on master, 'curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -'
+    on master, 'apt update'
   end
 end

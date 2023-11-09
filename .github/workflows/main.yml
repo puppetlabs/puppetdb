@@ -38,17 +38,6 @@ jobs:
             os: ubuntu-20.04
             ruby: '2.7'
 
-          # macos
-          - os: macos-11
-            flavor: core+ext/openjdk17/pg-14
-            ruby: '3.2'
-          - os: macos-11
-            flavor: int/openjdk17/pup-main/srv-main/pg-14/rich
-            ruby: '3.2'
-          - os: macos-11
-            flavor: rspec/pup-main
-            ruby: '3.2'
-
     steps:
       - name: Compute job outputs
         id: computed
