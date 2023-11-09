@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: bc74da8c84aba69fc49d503459c40129cefea521\n"
+"X-Git-Ref: 3edc2dca079933381c868331dfeaf2cb9ab2b638\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1183,7 +1183,7 @@ msgid "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query/monitor.clj
-msgid "Unexpected PDBQuery:{0} client channel event: {1}"
+msgid "Unexpected PDBQuery:{0} client disconnection: {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query/monitor.clj
