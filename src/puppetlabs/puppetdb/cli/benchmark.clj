@@ -65,27 +65,29 @@
    preserved host matching a particular host-# from these files at startup.
    Missing hosts (if --numhosts exceeds preserved, for example) will be
    initialized randomly as by default."
-  (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
-            [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
-            [puppetlabs.puppetdb.lint :refer [ignore-value]]
-            [puppetlabs.trapperkeeper.logging :as logutils]
-            [puppetlabs.trapperkeeper.config :as config]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [me.raynes.fs :as fs]
-            [murphy :refer [try!]]
-            [clojure.java.io :as io]
-            [clojure.stacktrace :as trace]
-            [clojure.walk :as walk]
-            [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.random :refer [safe-sample-normal random-string random-bool random-sha1]]
-            [puppetlabs.puppetdb.time :as time :refer [now]]
-            [puppetlabs.puppetdb.archive :as archive]
-            [clojure.core.async :refer [go-loop <! >!! chan] :as async]
-            [taoensso.nippy :as nippy]
-            [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.nio :refer [get-path]])
+  (:require
+   [clojure.core.async :refer [go-loop <! >!! chan] :as async]
+   [clojure.java.io :as io]
+   [clojure.stacktrace :as trace]
+   [clojure.walk :as walk]
+   [me.raynes.fs :as fs]
+   [murphy :refer [try!]]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.archive :as archive]
+   [puppetlabs.puppetdb.catalog.utils :as catutils]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
+   [puppetlabs.puppetdb.client :as client]
+   [puppetlabs.puppetdb.lint :refer [ignore-value]]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
+   [puppetlabs.puppetdb.random
+    :refer [safe-sample-normal random-string random-bool random-sha1]]
+   [puppetlabs.puppetdb.time :as time :refer [now]]
+   [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
+   [puppetlabs.trapperkeeper.config :as config]
+   [puppetlabs.trapperkeeper.logging :as logutils]
+   [taoensso.nippy :as nippy])
   (:import
    (com.puppetlabs.ssl_utils SSLUtils)
    (java.io File)
@@ -95,14 +97,15 @@
                   HttpRequest$Builder
                   HttpRequest$BodyPublishers
                   HttpResponse$BodyHandlers)
-   (java.nio.file NoSuchFileException Path)
-   (java.nio.file.attribute FileAttribute)
    (java.nio.file CopyOption
                   FileAlreadyExistsException
                   Files
                   LinkOption
+                  NoSuchFileException
                   OpenOption
+                  Path
                   StandardCopyOption)
+   (java.nio.file.attribute FileAttribute)
    (java.util.concurrent RejectedExecutionException ScheduledThreadPoolExecutor)
    (org.apache.commons.compress.archivers.tar TarArchiveEntry)))
 
