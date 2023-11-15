@@ -87,7 +87,6 @@
                        ...)}"
   (:require [clojure.core.match :refer [match]]
             [clojure.set :as set]
-            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
