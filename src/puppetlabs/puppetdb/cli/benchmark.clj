@@ -367,12 +367,12 @@
 
 (def random-cmd-delay safe-sample-normal)
 
-(defn send-facts [url certname version catalog opts]
-  (client/submit-facts url certname version catalog (assoc opts :post post-json-via-jdk)))
-(defn send-catalog [url certname version catalog opts]
-  (client/submit-catalog url certname version catalog (assoc opts :post post-json-via-jdk)))
-(defn send-report [url certname version catalog opts]
-  (client/submit-report url certname version catalog (assoc opts :post post-json-via-jdk)))
+(defn send-facts [url certname version payload opts]
+  (client/submit-facts url certname version payload (assoc opts :post post-json-via-jdk)))
+(defn send-catalog [url certname version payload opts]
+  (client/submit-catalog url certname version payload (assoc opts :post post-json-via-jdk)))
+(defn send-report [url certname version payload opts]
+  (client/submit-report url certname version payload (assoc opts :post post-json-via-jdk)))
 
 (defn start-command-sender
   "Start a command sending process in the background. Reads host-state maps from
