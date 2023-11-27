@@ -6,10 +6,27 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 [benchmark]: ./load_testing_tool.markdown
 [query-timeout-parameter]: ./api/query/v4/overview.markdown#url-parameters
+[terminus-config]: ./puppetdb_connection.markdown
 
 ---
 
 # PuppetDB: Release notes
+
+## PuppetDB 8.2.1 (unreleased)
+
+Release date undetermined, and contributors pending
+
+### New features and improvements
+
+* The PuppetDB terminus now supports the
+  [`include_catalog_edges`][terminus-config] configuration option. Setting this
+  value to false will omit all resource edges from the catalog submitted to
+  PuppetDB.
+  ([GitHub #3912](https://github.com/puppetlabs/puppetdb/issues/3912))
+
+### Contributors
+
+Austin Blatt, and ...
 
 ## PuppetDB 8.2.0
 

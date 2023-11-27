@@ -27,6 +27,25 @@
         (testing "is equal on the catalog and report"
           (is (= catalog-uuid report-uuid)))))))
 
+(deftest ^:integration terminus-can-omit-catalog-edges
+  (with-open [pg (int/setup-postgres)
+              pdb (int/run-puppetdb pg {})
+              ps (int/run-puppet-server [pdb] {:terminus {:main {:include_catalog_edges false}}})]
+    (testing "Agent run succeeds"
+      (let [{:keys [out]} (int/run-puppet-as "my-agent" ps pdb "notify { 'test1': }\n notify { 'test2': before => Notify[test1] }")]
+        (is (re-find #"test1" out))))
+
+    (testing "Agent run data can be queried"
+      (are [query result] (= result (int/pql-query pdb query))
+        "nodes[certname] {}" [{:certname "my-agent"}]
+        "factsets[certname, environment] {}" [{:certname "my-agent" :environment "production"}]
+        "catalogs[certname, environment] {}" [{:certname "my-agent" :environment "production"}]
+        "reports[certname, environment] {}" [{:certname "my-agent" :environment "production"}]))
+
+    (testing "catalog does not contain edges"
+      (is (= [{:certname "my-agent" :edges {:data nil
+                                            :href "/pdb/query/v4/catalogs/my-agent/edges"}}]
+             (int/pql-query pdb "catalogs[certname, edges] {}"))))))
 
 (when test-rich-data?
   (def rich-data-tests

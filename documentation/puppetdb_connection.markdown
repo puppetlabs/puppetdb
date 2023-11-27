@@ -72,6 +72,16 @@ This setting can let the Puppet Server stay partially available during a PuppetD
 
 The default value is false.
 
+### `include_catalog_edges`
+
+This setting tells the PuppetDB terminus whether or not it should include
+resource edges in catalogs sent to PuppetDB. For users who do not need catalog
+edge information, this can improve the performance of PuppetDB command
+processing. If you do not want to store information about catalog edges, set
+this value to `false`.
+
+The default value is true.
+
 ### `include_unchanged_resources` (PE only)
 
 > **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
