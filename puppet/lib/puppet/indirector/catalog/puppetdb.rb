@@ -116,8 +116,14 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       stringify_version(data)
       hashify_tags(data)
       sort_unordered_metaparams(data)
-      munge_edges(data)
-      synthesize_edges(data, catalog)
+
+      if Puppet::Util::Puppetdb.config.include_catalog_edges?
+        munge_edges(data)
+        synthesize_edges(data, catalog)
+      else
+        remove_edges(data)
+      end
+
       change_name_to_certname(data)
       filter_keys(data)
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
@@ -357,6 +363,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
       hash
     end
+  end
+
+  def remove_edges(hash)
+    # edges is not an optional key in the wireformat, so we must at least send an empty list
+    hash['edges'] = []
   end
 
   def map_aliases_to_title(hash)

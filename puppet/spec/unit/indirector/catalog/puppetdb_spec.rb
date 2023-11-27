@@ -788,6 +788,22 @@ describe Puppet::Resource::Catalog::Puppetdb do
           end
         end
       end
+
+      context "with catalog edges turned off" do
+        before :each do
+          Puppet::Util::Puppetdb.config.stubs(:include_catalog_edges?).returns(false)
+        end
+
+        it "should omit all edges" do
+          other_resource = Puppet::Resource.new(:exec, 'noone', :parameters => {:alias => 'completely_different', :path => '/anything'})
+          resource[:require] = 'Exec[completely_different]'
+          Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+
+          result, inputs = subject.munge_catalog(catalog, Time.now.utc)
+
+          result['edges'].should be_empty
+        end
+      end
     end
 
     describe "#redact_sensitive_params" do

@@ -13,6 +13,7 @@ module Puppet::Util::Puppetdb
         :soft_write_failure          => false,
         :server_url_timeout          => 30,
         :include_unchanged_resources => false,
+        :include_catalog_edges       => true,
         :min_successful_submissions  => 1,
         :submit_only_server_urls     => "",
         :command_broadcast           => false,
@@ -63,6 +64,7 @@ module Puppet::Util::Puppetdb
         !([:server_urls,
            :ignore_blacklisted_events,
            :include_unchanged_resources,
+           :include_catalog_edges,
            :soft_write_failure,
            :server_url_timeout,
            :min_successful_submissions,
@@ -77,6 +79,7 @@ module Puppet::Util::Puppetdb
 
       config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
       config_hash[:include_unchanged_resources] = Puppet::Util::Puppetdb.to_bool(config_hash[:include_unchanged_resources])
+      config_hash[:include_catalog_edges] = Puppet::Util::Puppetdb.to_bool(config_hash[:include_catalog_edges])
       config_hash[:soft_write_failure] = Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
 
       config_hash[:submit_only_server_urls] = convert_and_validate_urls(config_hash[:submit_only_server_urls].split(",").map {|s| s.strip})
@@ -127,6 +130,10 @@ module Puppet::Util::Puppetdb
 
     def include_unchanged_resources?
       config[:include_unchanged_resources]
+    end
+
+    def include_catalog_edges?
+      config[:include_catalog_edges]
     end
 
     def soft_write_failure
