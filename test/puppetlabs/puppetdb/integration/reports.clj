@@ -248,7 +248,7 @@
                             (set (:tags e)))))
                   logs))
 
-        (is (= 4 (count
+        (is (= 5 (count
                   (filter #(= "notice" (:level %))
                           logs))))
 
