@@ -20,7 +20,8 @@
 (disable-warning
  {:linter :deprecations
   :symbol-matches
-  #{#"^#'puppetlabs\.puppetdb\.jdbc/call-with-array-converted-query-rows$"
+  #{#"^#'puppetlabs\.kitchensink\.core/cn-for-cert$"
+    #"^#'puppetlabs\.puppetdb\.jdbc/call-with-array-converted-query-rows$"
     #"^#'puppetlabs\.puppetdb\.testutils\.services/call-with-puppetdb-instance$"
     #"^#'puppetlabs\.puppetdb\.testutils\.services/with-puppetdb-instance$"
     #"^#'puppetlabs\.trapperkeeper\.testutils\.logging/atom-appender$"
