@@ -243,8 +243,8 @@
             ;; Starting in Puppet 7, disable_i18n is true by default, so the "Retrieving locales"
             ;; log message does not exist
             info-log-count (if (> puppet-major-version 6) 5 6)
-            ;; during the lifetime of puppet 7 and 8 PUP-11899 added a log message
-            notice-log-count (if (> puppet-major-version 6) 4 3)]
+            ;; during the lifetime of puppet 7 and 8 PUP-11899 and PUP-11900 added log messages
+            notice-log-count (if (> puppet-major-version 6) 5 3)]
 
         (is (= #{{:name "total", :value 1, :category "events"}
                  {:name "changed", :value 1, :category "resources"}
