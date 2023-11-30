@@ -50,7 +50,29 @@
    benchmark --offset 100000 --numhosts 100000
    benchmark --offset 200000 --numhosts 100000
    ...
-   ```"
+   ```
+   
+   ### Re-running Benchmark
+
+   There is a potential performance issue when re-running benchmark in that the
+   initial host-maps of catalog/facts/report is a random selection from the base
+   sample data. This causes substantial churn when PuppetDB has to replace the
+   previous catalog/factset while processing all the commands from the first
+   node interval.
+
+   To avoid this, benchmark encodes the certname from the original catalog file
+   in the catalog version string, and then queries out an index of certname,
+   version to resync the initial host-maps with the correct catalog/factset
+   files.
+
+   There are a couple of caveats here. If there is more than one catalog or
+   factset file with that certname in the sample data, then initial host-maps
+   are again non-deterministic and likely to cause churn.
+
+   Generally the sample data will have multiple reports for a given cert, but
+   report differences do not produce the same performance hit as catalog and
+   facts, so this should be a negligble change in performance between first and
+   second interval simulation."
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.trapperkeeper.logging :as logutils]
