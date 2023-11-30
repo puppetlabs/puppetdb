@@ -50,7 +50,21 @@
    benchmark --offset 100000 --numhosts 100000
    benchmark --offset 200000 --numhosts 100000
    ...
-   ```"
+   ```
+  
+   ### Preserving host-map data
+  
+   By default, each time Benchmark is run, it initializes the host-map catalog,
+   factset and report data randomly from the given set of base --catalogs
+   --factsets and --reports files. When re-running benchmark, this causes
+   excessive load on puppetdb due to the completely changed catalogs/factsets
+   that must be processed.
+  
+   To avoid this, set --simulation-dir to preserve all of the host map data
+   between runs as nippy/frozen files. Benchmark will then load and initialize a
+   preserved host matching a particular host-# from these files at startup.
+   Missing hosts (if --numhosts exceeds preserved, for example) will be
+   initialized randomly as by default."
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
             [puppetlabs.trapperkeeper.logging :as logutils]
@@ -80,7 +94,7 @@
                   HttpRequest$BodyPublishers
                   HttpResponse$BodyHandlers)
    (java.nio.file.attribute FileAttribute)
-   (java.nio.file Files OpenOption)
+   (java.nio.file FileAlreadyExistsException Files LinkOption OpenOption StandardCopyOption)
    (java.util ArrayDeque)
    (java.util.concurrent RejectedExecutionException)))
 
@@ -322,6 +336,7 @@
                [nil "--simulators N" "Command simulators (default: cores / 2, min 2)"
                 :default (max 2 (long (/ threads 2)))
                 :parse-fn #(Integer/parseInt %)]
+               [nil "--simulation-dir DIR" "Directory to store the full set of initial host maps to expediate re-running benchmark."]
                ["-o" "--offset N" "Zero based offset of cert numbers for use when running multiple instance of benchmark."
                 :default 0
                 :parse-fn #(Integer/parseInt %)]
@@ -473,73 +488,138 @@
   ;;   nil
   (go (delete-dir-or-report storage-dir)))
 
-(defn defer-file-buffer-item [path item]
-  (let [out (Files/newOutputStream path (into-array OpenOption []))]
+(defn defer-file-buffer-item [tmp-path final-path item]
+  (let [out (Files/newOutputStream tmp-path (into-array OpenOption []))]
     (go
       (try
         (with-open [in (io/input-stream (nippy/freeze item))]
           (io/copy in out))
-        path
-        (finally (.close out))))))
+        final-path
+        (finally
+          (.close out)
+          (when-not (= tmp-path final-path)
+            (fs/move tmp-path final-path
+                     (StandardCopyOption/ATOMIC_MOVE)
+                     (StandardCopyOption/REPLACE_EXISTING))))))))
 
-(deftype TempFileBuffer [storage-dir q]
+(deftype TempFileBuffer [storage-dir q ephemeral?]
   UnblockingBuffer
   Buffer
   (full? [_] false)
   (remove! [_]
     (let [path (<!! (.poll q))
           result (nippy/thaw (Files/readAllBytes path))]
-      (Files/delete path)
+      (when ephemeral? (Files/delete path))
       result))
 
   (add!* [_ item]
-    (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
-                                     (into-array FileAttribute []))
-          ch (defer-file-buffer-item path item)]
+    (let [host (:host item)
+          tmp-path (Files/createTempFile storage-dir (format "tmp-%s-" host) ""
+                                         (into-array FileAttribute []))
+          final-path (if ephemeral?
+                       tmp-path
+                       (.resolve storage-dir host))
+          ch (defer-file-buffer-item tmp-path final-path item)]
       (.add q ch)))
 
   (close-buf! [_]
     (.clear q)
-    (println-err (trs "Cleaning up temp files from {0}"
-                      (pr-str (str storage-dir))))
-    (async/alt!!
-      (go-delete-dir-or-report storage-dir)
-      (println-err (trs "Finished cleaning up temp files"))
+    (when ephemeral?
+      (println-err (trs "Cleaning up temp files from {0}"
+                        (pr-str (str storage-dir))))
+      (async/alt!!
+        (go-delete-dir-or-report storage-dir)
+        (println-err (trs "Finished cleaning up temp files"))
 
-      (async/timeout benchmark-shutdown-timeout)
-      (println-err (trs "Cleanup timeout expired; leaving files in {0}"
-                        (pr-str (str storage-dir)))))
+        (async/timeout benchmark-shutdown-timeout)
+        (println-err (trs "Cleanup timeout expired; leaving files in {0}"
+                          (pr-str (str storage-dir))))))
     nil)
 
   clojure.lang.Counted
   (count [_] (.size q)))
 
 (defn message-buffer
-  [temp-dir expected-size]
-  (let [q (ArrayDeque. expected-size)
-        storage-dir (Files/createTempDirectory temp-dir
-                                               "pdb-bench-"
-                                               (into-array FileAttribute []))]
-    (TempFileBuffer. storage-dir q)))
+  [storage-dir expected-size ephemeral?]
+  (let [q (ArrayDeque. expected-size)]
+    (TempFileBuffer. storage-dir q ephemeral?)))
+
+(defn get-host-map-keys
+  "Given a Path to a --simulation-dir directory, returns a set of all
+  preserved host-map files.
+
+  These files are named 'host-<number>'. It ignores temporary files like
+  'tmp-host-<number>-<timestamp>'."
+  [storage-dir]
+  (->> (fs/glob (.resolve storage-dir "host-*"))
+       (reduce #(conj %1 (.getName %2))
+               #{})))
+
+(defn get-preserved-host-map
+  [storage-dir certname]
+  (let [host-map-path (-> (.resolve storage-dir certname)
+                          (fs/glob)
+                          first)]
+    (nippy/thaw (Files/readAllBytes (.toPath host-map-path)))))
 
 (defn random-hosts
-  [n offset pdb-host include-edges catalogs reports facts]
-  (let [random-entity (fn [host entities]
+  [n offset pdb-host include-edges catalogs reports facts storage-dir]
+  (let [preserved-host-map-keys (get-host-map-keys storage-dir)
+        random-entity (fn [host entities]
                         (some-> entities
                                 rand-nth
-                                (assoc "certname" host)))]
+                                (assoc "certname" host)))
+        random-catalog (fn [host pdb-host catalogs]
+                         (when-let [cat (if include-edges
+                                          (random-entity host catalogs)
+                                          (some-> (random-entity host catalogs)
+                                                  (assoc "edges" [])))]
+                           (update cat "resources"
+                                   (partial map #(update % "tags"
+                                                         conj
+                                                         pdb-host)))))]
     (for [i (range n)]
       (let [host (str "host-" (+ offset i))]
-        {:host host
-         :catalog (when-let [cat (if include-edges
-                                   (random-entity host catalogs)
-                                   (assoc (random-entity host catalogs) "edges" []))]
-                    (update cat "resources"
-                            (partial map #(update % "tags"
-                                                  conj
-                                                  pdb-host))))
-         :report (random-entity host reports)
-         :factset (random-entity host facts)}))))
+        (if (contains? preserved-host-map-keys host)
+
+          ;; Then provide a function that the simulation loop can later use to
+          ;; adjust the preserved host-map according to current user flags.
+          ;; Deferring loading of all preserved host-maps at initialization
+          ;; prevents us from blowing up the heap.
+          (let [update-preserved-fn
+                 (fn [preserved]
+                   (let [;; Adjust the preserved host-map to match current flags.
+                         updated
+                           (cond-> preserved
+                                   ;; Update missing entries where possible.
+                                   (nil? (:catalog preserved))
+                                     (assoc :catalog (random-catalog host pdb-host catalogs))
+                                   (nil? (:factset preserved))
+                                     (assoc :factset (random-entity host facts))
+                                   (nil? (:report preserved))
+                                     (assoc :report (random-entity host reports))
+                                   ;; Remove preserved entries where required.
+                                   ;; (preserved data may include entries that
+                                   ;; do not match the currently requested data
+                                   ;; from --facts, --catalogs, --reports or
+                                   ;; --archive...)
+                                   (nil? catalogs) (assoc :catalog nil)
+                                   (nil? facts) (assoc :factset nil)
+                                   (nil? reports) (assoc :report nil))]
+                     ;; Respect include-edges
+                     (if (or include-edges
+                             (nil? (:catalog updated)))
+                       updated
+                       (assoc-in updated [:catalog "edges"] []))))]
+            {:host host
+             :storage-dir storage-dir
+             :update-preserved-fn update-preserved-fn})
+
+          ;; Otherwise generate new random host-map
+          {:host host
+           :catalog (random-catalog host pdb-host catalogs)
+           :report (random-entity host reports)
+           :factset (random-entity host facts)})))))
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
@@ -578,12 +658,22 @@
      write-ch
      (map (fn [host-state]
             (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
-                  new-host (update-host host-state include-edges rand-perc progressing-timestamp-fn)]
+                  new-host
+                    (if-let [update-preserved-fn (:update-preserved-fn host-state)]
+                      ;; execute the deferred function to initialize this host-map
+                      ;; from the contents of the preserved file in --simulation-dir
+                      (let [preserved (get-preserved-host-map
+                                        (:storage-dir host-state)
+                                        (:host host-state))]
+                        (update-preserved-fn preserved))
+                      host-state)
+                  updated-host
+                    (update-host new-host include-edges rand-perc progressing-timestamp-fn)]
               (when (and (not num-msgs)
                          (> deadline (time/ephemeral-now-ns)))
                 ;; sleep until deadline
-                (Thread/sleep (int (/  (- deadline (time/ephemeral-now-ns)) 1000000))))
-              new-host)))
+                (Thread/sleep (int (/ (- deadline (time/ephemeral-now-ns)) 1000000))))
+              updated-host)))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
@@ -596,6 +686,32 @@
 
 (defn register-shutdown-hook! [f]
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
+
+(defn create-storage-dir!
+  "Returns a Path to the directory where simulation host-maps are stored.
+
+  If simulation-dir is set, then the path will be the absolute-path to
+  simulation-dir. Otherwise a temporary directory will be created in tmpdir.
+
+  The directory is created as a side effect of calling this method if it does
+  not already exist. Parent directories are not created."
+  [simulation-dir]
+  (if (nil? simulation-dir)
+    ;; Create a tmp directory and return that path.
+    (let [temp-dir (get-path (or (System/getenv "TMPDIR")
+                                 (System/getProperty "java.io.tmpdir")))]
+      (Files/createTempDirectory temp-dir
+                                 "pdb-bench-"
+                                 (into-array FileAttribute [])))
+    ;; Otherwise, ensure that the given simulation-dir is created
+    (let [absolute-path (.toAbsolutePath (get-path simulation-dir))]
+      (try
+        (Files/createDirectory absolute-path (make-array FileAttribute 0))
+        (catch FileAlreadyExistsException _
+          (when-not (Files/isDirectory absolute-path (make-array LinkOption 0))
+            (throw (Exception. (trs "The --simulation-dir path {0} is not a directory" absolute-path))))))
+      ;; and return the Path
+      absolute-path)))
 
 ;; The core.async processes and channels fit together like
 ;; this (square brackets indicate data being sent):
@@ -636,8 +752,9 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in offset include-catalog-edges]
-         :as options} options
+  (let [{:keys [config rand-perc numhosts nummsgs
+                senders simulators end-commands-in offset
+                include-catalog-edges simulation-dir]} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
@@ -663,13 +780,13 @@
         commands-per-puppet-run (+ (if catalogs 1 0)
                                    (if reports 1 0)
                                    (if facts 1 0))
-        temp-dir (get-path (or (System/getenv "TMPDIR")
-                               (System/getProperty "java.io.tmpdir")))
+        storage-dir (create-storage-dir! simulation-dir)
 
         ;; channels
         initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts offset pdb-host include-catalog-edges catalogs reports facts))
-        mq-ch (chan (message-buffer temp-dir numhosts))
+                          (random-hosts numhosts offset pdb-host include-catalog-edges
+                                        catalogs reports facts storage-dir))
+        mq-ch (chan (message-buffer storage-dir numhosts (nil? simulation-dir)))
         _ (register-shutdown-hook! #(async/close! mq-ch))
 
         command-send-ch (chan)
