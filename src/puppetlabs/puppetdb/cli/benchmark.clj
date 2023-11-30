@@ -158,10 +158,13 @@
 
 (def mutate-fns
   "Functions that randomly change a wire-catalog format"
-  [catutils/add-random-resource-to-wire-catalog
-   catutils/mod-resource-in-wire-catalog
-   catutils/add-random-edge-to-wire-catalog
-   catutils/swap-edge-targets-in-wire-catalog])
+  (memoize
+   (fn [include-edges]
+     (concat [catutils/add-random-resource-to-wire-catalog
+              catutils/mod-resource-in-wire-catalog]
+             (when include-edges
+               [catutils/add-random-edge-to-wire-catalog
+                catutils/swap-edge-targets-in-wire-catalog])))))
 
 (defn add-catalog-varying-fields
   "This function adds the fields that change when there is a different
@@ -174,22 +177,22 @@
 
 (defn rand-catalog-mutation
   "Grabs one of the mutate-fns randomly and returns it"
-  [catalog]
+  [catalog include-edges]
   (let [mutation-fn (comp add-catalog-varying-fields
                           walk/stringify-keys
-                          (rand-nth mutate-fns))]
+                          (rand-nth (mutate-fns include-edges)))]
     (mutation-fn catalog)))
 
 (defn update-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
    percent of the time."
-  [catalog rand-percentage uuid stamp]
+  [catalog include-edges rand-percentage uuid stamp]
   (let [catalog' (assoc catalog
                         "producer_timestamp" stamp
                         "transaction_uuid" uuid
                         "producer" (random-producer))]
     (if (< (rand 100) rand-percentage)
-      (rand-catalog-mutation catalog')
+      (rand-catalog-mutation catalog' include-edges)
       catalog')))
 
 (defn jitter
@@ -256,11 +259,11 @@
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
   randomly mutate other data depending on rand-percentage. "
-  [{:keys [_host catalog report factset] :as state} rand-percentage get-timestamp]
+  [{:keys [_host catalog report factset] :as state} include-edges rand-percentage get-timestamp]
   (let [stamp (get-timestamp)
         uuid (kitchensink/uuid)]
     (assoc state
-           :catalog (some-> catalog (update-catalog rand-percentage uuid stamp))
+           :catalog (some-> catalog (update-catalog include-edges rand-percentage uuid stamp))
            :factset (some-> factset (update-factset rand-percentage stamp))
            :report (some-> report (update-report uuid stamp)))))
 
@@ -321,7 +324,8 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-o" "--offset N" "Zero based offset of cert numbers for use when running multiple instance of benchmark."
                 :default 0
-                :parse-fn #(Integer/parseInt %)]]
+                :parse-fn #(Integer/parseInt %)]
+               [nil "--include-catalog-edges" "Include catalog edges in the data submitted to PuppetDB"]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
               "the time it takes to finish processing a set of historical records (so node-ttl\n"
@@ -519,7 +523,7 @@
     (TempFileBuffer. storage-dir q)))
 
 (defn random-hosts
-  [n offset pdb-host catalogs reports facts]
+  [n offset pdb-host include-edges catalogs reports facts]
   (let [random-entity (fn [host entities]
                         (some-> entities
                                 rand-nth
@@ -527,7 +531,9 @@
     (for [i (range n)]
       (let [host (str "host-" (+ offset i))]
         {:host host
-         :catalog (when-let [cat (random-entity host catalogs)]
+         :catalog (when-let [cat (if include-edges
+                                   (random-entity host catalogs)
+                                   (assoc (random-entity host catalogs) "edges" []))]
                     (update cat "resources"
                             (partial map #(update % "tags"
                                                   conj
@@ -561,7 +567,7 @@
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
   [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
-   write-ch read-ch]
+   write-ch read-ch include-edges]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
         ms-per-message (/ 1000 hosts-per-second)
@@ -572,7 +578,7 @@
      write-ch
      (map (fn [host-state]
             (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
-                  new-host (update-host host-state rand-perc progressing-timestamp-fn)]
+                  new-host (update-host host-state include-edges rand-perc progressing-timestamp-fn)]
               (when (and (not num-msgs)
                          (> deadline (time/ephemeral-now-ns)))
                 ;; sleep until deadline
@@ -630,7 +636,7 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in offset]
+  (let [{:keys [config rand-perc numhosts nummsgs senders simulators end-commands-in offset include-catalog-edges]
          :as options} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
@@ -662,7 +668,7 @@
 
         ;; channels
         initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts offset pdb-host catalogs reports facts))
+                          (random-hosts numhosts offset pdb-host include-catalog-edges catalogs reports facts))
         mq-ch (chan (message-buffer temp-dir numhosts))
         _ (register-shutdown-hook! #(async/close! mq-ch))
 
@@ -698,7 +704,7 @@
                                                                      command-delay-scheduler
                                                                      max-command-delay-ms)
         _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
-                                 simulators simulation-write-ch simulation-read-ch)
+                                 simulators simulation-write-ch simulation-read-ch include-catalog-edges)
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
                   ([timeout-ms]

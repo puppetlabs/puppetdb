@@ -132,6 +132,30 @@
                                      "--nummsgs" (str nummsgs))]
     (is (= (* numhosts nummsgs 3) (count submitted)))))
 
+(deftest toggle-catalog-edges
+  (testing "default: no catalog edges included"
+    (let [submitted (benchmark-nummsgs {}
+                                       "--config" "anything.ini"
+                                       "--numhosts" "2"
+                                       "--nummsgs" "3")
+          catalogs (filter #(= :catalog (:entity %))
+                           submitted)]
+
+      (is (every? (fn [c] (zero? (count (get-in c [:payload :edges]))))
+                  catalogs))))
+
+  (testing "catalog edges included when requested"
+    (let [submitted (benchmark-nummsgs {}
+                                       "--config" "anything.ini"
+                                       "--numhosts" "2"
+                                       "--nummsgs" "3"
+                                       "--include-catalog-edges")
+          catalogs (filter #(= :catalog (:entity %))
+                           submitted)]
+
+      (is (every? (fn [c] (pos? (count (get-in c [:payload :edges]))))
+                  catalogs)))))
+
 (deftest archive-flag-works
   (let [export-out-file (.getPath (tu/temp-file "benchmark-test" ".tar.gz"))]
     (svc-utils/call-with-single-quiet-pdb-instance
@@ -263,7 +287,7 @@
                                                   "title" "atypetitle"}
                                         "relationship" "contains"}]
                  "job_id"             nil}
-        mutated (benchmark/rand-catalog-mutation catalog)
+        mutated (benchmark/rand-catalog-mutation catalog true)
         checked-keys (clojure.walk/walk (fn [[k _]] [k (string? k)]) identity mutated)
         symbol-keys (filter (fn [[_ is-string]] (not is-string)) checked-keys)]
     (is (empty? symbol-keys) "Mutating a catalog unexpectedly produced these keys as symbols instead of strings.")))
