@@ -59,6 +59,7 @@
             [me.raynes.fs :as fs]
             [clojure.java.io :as io]
             [clojure.stacktrace :as trace]
+            [clojure.string :as s]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -518,22 +519,74 @@
                                                (into-array FileAttribute []))]
     (TempFileBuffer. storage-dir q)))
 
+(defn get-original-catalog-certname
+  "Returns the original certname from the catalog sample file if benchmark has
+  encoded it in the version string. Otherwise nil."
+  [catalog]
+  (if-not (nil? catalog)
+    (get (s/split (get catalog "version") #":") 1)))
+
 (defn random-hosts
-  [n offset pdb-host catalogs reports facts]
-  (let [random-entity (fn [host entities]
-                        (some-> entities
-                                rand-nth
-                                (assoc "certname" host)))]
+  "Assembles a set of n host maps with a randomly picked catalog, fact and
+  report.
+
+  If an original host certname is found in the original-certnames-idx, picks
+  instead from the subset of catalogs, reports and facts that match that
+  original certname. This keeps continuity of host data between runs of
+  benchmark."
+  [n offset pdb-host catalogs reports facts original-certnames-idx]
+  (let [random-entity (fn [host entities original-host]
+                        (let [subset (if (nil? original-host)
+                                       entities
+                                       (some->> entities
+                                               (filter
+                                                 #(= (get % "certname") original-host))))]
+                          (when-let [entity (some-> subset rand-nth)]
+                            (let [version (get entity "version")]
+                              (cond-> entity
+                                ;; for catalogs, update version to encode original certname
+                                version (assoc "version"
+                                               (str version ":" (get entity "certname")))
+                                ;; and for all entities update certname to be the new host
+                                true (assoc "certname" host))))))]
     (for [i (range n)]
-      (let [host (str "host-" (+ offset i))]
+      (let [host (str "host-" (+ offset i))
+            original-certname (get original-certnames-idx host)
+            catalog (when-let [cat (random-entity host catalogs original-certname)]
+                      (update cat "resources"
+                              (partial map #(update % "tags"
+                                                    conj
+                                                    pdb-host))))
+            ;; On first runs, no index, so we want to constrain by the catalog for
+            ;; future indexing.
+            original-or-catalog-certname (or original-certname
+                                             (get-original-catalog-certname catalog))
+            factset (random-entity host facts original-or-catalog-certname)
+            report (random-entity host reports original-or-catalog-certname)]
         {:host host
-         :catalog (when-let [cat (random-entity host catalogs)]
-                    (update cat "resources"
-                            (partial map #(update % "tags"
-                                                  conj
-                                                  pdb-host))))
-         :report (random-entity host reports)
-         :factset (random-entity host facts)}))))
+         :catalog catalog
+         :report report
+         :factset factset}))))
+
+(defn query-original-certnames
+  "Queries PuppetDB for all catalog certname, version pairs. Returns a map
+  indexing certname to the original certname from the sample data catalog.
+
+  Looks for any string following a ':' delimeter in the version value per
+  get-original-catalog-certname()."
+  [pdb-host pdb-port protocol opts]
+  (println-err (trs "Querying PuppetDB for an index of certname/version to resync initial host maps."))
+  (let [base-url (utils/pdb-query-base-url pdb-host pdb-port :v4 protocol)
+        query [:from :catalogs [:extract [:certname :version]]]
+        results (client/submit-query base-url query opts)]
+    (println-err (trs "Queried {0} records." (count results)))
+    (reduce (fn [m i]
+              (let [certname (get i "certname")
+                    original-certname (get-original-catalog-certname i)]
+                (if (nil? original-certname)
+                  m
+                  (assoc m certname original-certname))))
+            {} results)))
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
@@ -660,9 +713,14 @@
         temp-dir (get-path (or (System/getenv "TMPDIR")
                                (System/getProperty "java.io.tmpdir")))
 
+        ;; query existing catalog versions for an index of original sample data certnames
+        original-certnames-idx (query-original-certnames pdb-host pdb-port
+                                                         protocol ssl-opts)
+
         ;; channels
         initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts offset pdb-host catalogs reports facts))
+                          (random-hosts numhosts offset pdb-host catalogs
+                                        reports facts original-certnames-idx))
         mq-ch (chan (message-buffer temp-dir numhosts))
         _ (register-shutdown-hook! #(async/close! mq-ch))
 
