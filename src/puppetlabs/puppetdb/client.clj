@@ -10,7 +10,8 @@
    [puppetlabs.puppetdb.utils :as utils]
    [schema.core :as s])
   (:import
-   (java.net HttpURLConnection)))
+   (java.net HttpURLConnection)
+   (java.io InputStream)))
 
 (def ^:private warn-on-reflection-orig *warn-on-reflection*)
 (set! *warn-on-reflection* true)
@@ -101,5 +102,22 @@
                                            facts-version fact-payload opts)]
      (when-not (= HttpURLConnection/HTTP_OK (:status result))
        (log/error result)))))
+
+(defn submit-query
+  "Send a query to the puppetdb `query` endpoint and return the results."
+  [base-url
+   query-payload
+   opts]
+  (when-let [extra (seq (set/difference (-> opts keys set)
+                                        #{:timeout :post :ssl-cert :ssl-key :ssl-ca-cert}))]
+    (throw (IllegalArgumentException. (str "Unexpected options: " (pr-str extra)))))
+  (let [url (str (utils/base-url->str base-url)
+                 (utils/query-url-params {:query (json/generate-string query-payload)}))
+        result (http/get url opts)
+        ;; The result :body is a ContentInputStream that we need to read the bytes out of.
+        body (String. ^"[B" (.readAllBytes ^InputStream (:body result)))]
+    (if (= HttpURLConnection/HTTP_OK (:status result))
+      (json/parse-string body)
+      (log/error {:result result :body body}))))
 
 (set! *warn-on-reflection* warn-on-reflection-orig)

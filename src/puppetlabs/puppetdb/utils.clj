@@ -261,6 +261,14 @@
    :prefix "/pdb/cmd"
    :version (or version :v1)})
 
+(defn pdb-query-base-url
+  [host port & [version protocol]]
+  {:protocol (or protocol "http")
+   :host host
+   :port port
+   :prefix "/pdb/query"
+   :version (or version :v4)})
+
 (defn metrics-base-url
   [host port & [version]]
   {:protocol "http"
@@ -278,6 +286,10 @@
      (format "&producer-timestamp=%s" producer-timestamp))
    (when timeout
      (format "&secondsToWaitForCompletion=%s" timeout))))
+
+(defn query-url-params
+  [{:keys [query]}]
+  (format "?query=%s" (java.net.URLEncoder/encode query "UTF-8")))
 
 (defn assoc-if-exists
   "Assoc only if the key is already present"
