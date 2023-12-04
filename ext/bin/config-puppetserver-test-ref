@@ -78,6 +78,23 @@ fi
  dep_ver="$(lein-pprint :version)"
  echo "$dep_ver" > "$top/ext/test-conf/puppetserver-dep")
 
-# Install Puppet Server Ruby dependencies using JRuby
-# Procedure defined in src-gems/puppetlabs/puppetdb/integration/install_gems.clj
-lein install-gems
+gem_list=()
+while read LINE
+do
+  gem_name=$(echo $LINE |awk '{print $1}')
+  gem_version=$(echo $LINE |awk '{print $2}')
+  gem_list+=("$gem_name:$gem_version")
+done < ./puppetserver/resources/ext/build-scripts/jruby-gem-list.txt
+
+gem-install() {
+  java -cp puppetserver/target/puppet-server-release.jar clojure.main \
+    -m puppetlabs.puppetserver.cli.gem \
+    --config ./test-resources/puppetserver/puppetserver.conf -- install --no-document "$@"
+}
+
+echo "Installing gems"
+gem-install facter
+gem-install hiera
+gem-install puppet-pson
+gem-install "${gem_list[@]}"
+echo "Finished install gems"
