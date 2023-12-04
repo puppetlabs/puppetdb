@@ -42,31 +42,6 @@
     [["releases" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-releases__local/"]
      ["snapshots" "https://artifactory.delivery.puppetlabs.net/artifactory/list/clojure-snapshots__local/"]]))
 
-;; See the integration tests section in documentation/CONTRIBUTING.md.
-(def puppetserver-test-dep-ver
-  (some-> (try
-            (slurp (str "ext/test-conf/puppetserver-dep"))
-            (catch java.io.FileNotFoundException ex
-              (binding [*out* *err*]
-                (println "puppetserver test dependency unconfigured (ignoring)"))
-              nil))
-          clojure.string/trim))
-
-(def puppetserver-test-dep-gem-list
-  (when puppetserver-test-dep-ver
-    (let [[major minor] (->> (re-matches #"^([0-9]+)\.([0-9]+)\..*" puppetserver-test-dep-ver)
-                             next
-                             (take 2)
-                             (map #(Integer/parseInt %)))]
-      (if (neg? (compare [major minor] [5 3]))
-        "gem-list.txt"
-        "jruby-gem-list.txt"))))
-
-(def puppetserver-test-deps
-  (when puppetserver-test-dep-ver
-    `[[puppetlabs/puppetserver ~puppetserver-test-dep-ver]
-      [puppetlabs/puppetserver ~puppetserver-test-dep-ver :classifier "test"]]))
-
 (def pdb-dev-deps
   (concat
    '[[ring/ring-mock]
@@ -82,8 +57,7 @@
      [org.yaml/snakeyaml]
 
      ;; Only needed for :integration tests
-     [puppetlabs/trapperkeeper-filesystem-watcher nil]]
-   puppetserver-test-deps))
+     [puppetlabs/trapperkeeper-filesystem-watcher nil]]))
 
 ;; Don't use lein :clean-targets so that we don't have to repeat
 ;; ourselves, given that we need to remove some protected files, and
@@ -319,9 +293,6 @@
                          ;; compile test files, and crashes because
                          ;; "src" namespaces aren't available.
                          :aot ^:replace []}
-             :install-gems {:source-paths ^:replace ["src-gems"]
-                            :target-path "target-gems"
-                            :dependencies ~puppetserver-test-deps}
              :ci {:plugins [[lein-pprint "1.1.1"]
                             [lein-exec "0.3.7"]]}
              ; We only want to include bouncycastle in the FOSS uberjar.
@@ -356,14 +327,7 @@
              ;; yet, disable it for now.
              :exclude-linters [:local-shadows-var]}
 
-  :aliases {"gem" ["with-profile" "install-gems,dev"
-                   "trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
-                   "--config" "./test-resources/puppetserver/puppetserver.conf"]
-            "install-gems" ["with-profile" "install-gems,dev"
-                            "trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
-                            ~puppetserver-test-dep-gem-list
-                            "--config" "./test-resources/puppetserver/puppetserver.conf"]
-            "kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
+  :aliases {"kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
             "distclean" ~(pdb-run-clean pdb-distclean-paths)
             "time-shift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"

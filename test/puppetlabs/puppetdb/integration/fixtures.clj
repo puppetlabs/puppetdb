@@ -20,7 +20,8 @@
             [puppetlabs.puppetdb.utils :as utils])
   (:import
    (com.typesafe.config ConfigValueFactory)
-   (java.lang ProcessBuilder ProcessBuilder$Redirect)))
+   (java.lang ProcessBuilder ProcessBuilder$Redirect)
+   (java.io FileNotFoundException)))
 
 (defprotocol TestServer
   (server-info [this]))
@@ -164,8 +165,14 @@
     (doto process .destroy .waitFor) ;; Assumes destroy sends a SIGTERM
     (doseq [f files-to-cleanup] (fs/delete f))))
 
+(defn pup-srv-version []
+  (try
+    (string/trim (slurp "./ext/test-conf/puppetserver-dep"))
+    (catch FileNotFoundException e
+      (log/error "No ext/test-conf/puppetserver-dep file found. Did you run ext/bin/config-puppetserver-test-ref ?")
+      (throw e))))
+
 (def dev-config-file "./test-resources/puppetserver/puppetserver.conf")
-(def dev-bootstrap-file "./test-resources/puppetserver/bootstrap.cfg")
 
 (defn mri-agent-dir []
   (-> (sh "bundle" "show" "puppet") :out clojure.string/trim))
@@ -245,6 +252,9 @@
                      (merge puppetserver-config-overrides)
                      (assoc-in [:webserver :ssl-port] port))
           config-file (ks/temp-file "puppetserver-conf" ".edn")
+          dev-bootstrap-file (if (string/starts-with? (pup-srv-version) "7.")
+                               "./test-resources/puppetserver/bootstrap-7.x.cfg"
+                               "./test-resources/puppetserver/bootstrap.cfg")
           cmd ["java" "-cp" "puppetserver/target/puppet-server-release.jar"
                "clojure.main" "-m" "puppetlabs.trapperkeeper.main"
                "services"
