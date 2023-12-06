@@ -714,7 +714,7 @@ Sets the maximum number of threads assigned to responding to HTTP
 and HTTPS requests, effectively changing how many concurrent requests
 can be made at one time. Defaults to 50.
 
-> **Note:** Due to the behaviour of our web server (Jetty 9), this setting
+> **Note:** Due to the behaviour of our web server (Jetty 10), this setting
     must be higher then the number of CPUs on your system or it will
     stop processing any HTTP requests.
 

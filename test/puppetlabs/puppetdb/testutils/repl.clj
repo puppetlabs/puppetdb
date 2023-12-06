@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.testutils :as testutils]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.cli.services :as svcs :refer [puppetdb-service]]
-            [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
+            [puppetlabs.trapperkeeper.services.webserver.jetty10-service :refer [jetty10-service]]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.app :as tka]
             [clojure.tools.namespace.repl :refer (refresh)]))
@@ -41,7 +41,7 @@
 (defn start [config-path]
   (alter-var-root #'system
                   (fn [_] (tk/boot-services-with-cli-data
-                          [jetty9-service puppetdb-service]
+                          [jetty10-service puppetdb-service]
                           {:config config-path}))))
 
 (defn stop []

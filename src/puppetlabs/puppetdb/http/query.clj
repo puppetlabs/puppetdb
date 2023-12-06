@@ -12,7 +12,6 @@
             [murphy :refer [try!]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.monitor :as qmon]
-            [puppetlabs.trapperkeeper.services.webserver.jetty9 :as jetty9]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
@@ -429,7 +428,7 @@
                 ;; May have no response because some tests (e.g. some
                 ;; with-http-app based tests) don't add one right now.
                 monitor-id (when-let [chan (and query-monitor
-                                                (some-> (::jetty9/response req)
+                                                (some-> (:response req)
                                                         response->channel))]
                              (qmon/stop-query-at-deadline-or-disconnect query-monitor
                                                                         query-uuid

@@ -10,7 +10,7 @@
             [clojure.walk :as walk]
             [puppetlabs.trapperkeeper.app :as tk-app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
-            [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
+            [puppetlabs.trapperkeeper.services.webserver.jetty10-service :refer [jetty10-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.trapperkeeper.services.status.status-service :refer [status-service]]
             [puppetlabs.trapperkeeper.services.scheduler.scheduler-service :refer [scheduler-service]]
@@ -78,7 +78,7 @@
 (def ^:dynamic *server*)
 
 (def default-services
-  [#'jetty9-service
+  [#'jetty10-service
    #'webrouting-service
    #'puppetdb-service
    #'command-service
@@ -291,8 +291,11 @@
   [url-str :- String
    & [opts]]
   (let [resp (get-unparsed url-str opts)
-        ctype (rr/get-header resp "content-type")]
-    (if (some-> ctype json-utf8-ctype?)
+        ctype (rr/get-header resp "content-type")
+        ;; See https://www.ietf.org/rfc/rfc4627.txt, UTF-8 is assumed as a default
+        ;; encoding.
+        json-ctype? #(= % "application/json")]
+    (if (and ctype (string? (:body resp)) (or (json-ctype? ctype) (json-utf8-ctype? ctype)))
       (update resp :body #(json/parse-string % true))
       resp)))
 
