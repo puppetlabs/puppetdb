@@ -2206,3 +2206,137 @@
       (is (= []
              (jdbc/query-to-vec
                "SELECT reloptions FROM pg_class WHERE relname = 'catalog_resources' AND CAST(reloptions as text) LIKE '%autovacuum_analyze_scale_factor%'"))))))
+
+(deftest migration-85-remove-resource-params
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 84)
+    (let [before-migration (schema-info-map *db*)]
+      (apply-migration-for-testing! 85)
+      (is (=
+           {:index-diff
+            [{:left-only {:schema "public"
+                          :table "resource_params"
+                          :index "resource_params_hash_expr_idx"
+                          :index_keys ["encode(resource, 'hex'::text)"]
+                          :type "btree"
+                          :unique? false
+                          :functional? true
+                          :is_partial false
+                          :primary? false
+                          :user "pdb_test"}
+              :right-only nil
+              :same nil}
+             {:left-only {:schema "public"
+                          :table "resource_params"
+                          :index "idx_resources_params_name"
+                          :index_keys ["name"]
+                          :type "btree"
+                          :unique? false
+                          :functional? false
+                          :is_partial false
+                          :primary? false
+                          :user "pdb_test"}
+              :right-only nil
+              :same nil}
+             {:left-only {:schema "public"
+                          :table "resource_params"
+                          :index "idx_resources_params_resource"
+                          :index_keys ["resource"]
+                          :type "btree"
+                          :unique? false
+                          :functional? false
+                          :is_partial false
+                          :primary? false
+                          :user "pdb_test"}
+              :right-only nil
+              :same nil}
+             {:left-only {:schema "public"
+                                      :table "resource_params"
+                                      :index "resource_params_pkey"
+                                      :index_keys ["resource" "name"]
+                                      :type "btree"
+                                      :unique? true
+                                      :functional? false
+                                      :is_partial false
+                                      :primary? true
+                                      :user "pdb_test"}
+              :right-only nil
+              :same nil}]
+            :table-diff
+            [{:left-only {:numeric_scale nil
+                          :column_default nil
+                          :character_octet_length 1073741824
+                          :datetime_precision nil
+                          :nullable? "NO"
+                          :character_maximum_length nil
+                          :numeric_precision nil
+                          :numeric_precision_radix nil
+                          :data_type "text"
+                          :column_name "name"
+                          :table_name "resource_params"}
+              :right-only nil
+              :same nil}
+             {:left-only {:numeric_scale nil
+                          :column_default nil
+                          :character_octet_length nil
+                          :datetime_precision nil
+                          :nullable? "NO"
+                          :character_maximum_length nil
+                          :numeric_precision nil
+                          :numeric_precision_radix nil
+                          :data_type "bytea"
+                          :column_name "resource"
+                          :table_name "resource_params"}
+              :right-only nil
+              :same nil}
+             {:left-only {:numeric_scale nil
+                          :column_default nil
+                          :character_octet_length 1073741824
+                          :datetime_precision nil
+                          :nullable? "NO"
+                          :character_maximum_length nil
+                          :numeric_precision nil
+                          :numeric_precision_radix nil
+                          :data_type "text"
+                          :column_name "value"
+                          :table_name "resource_params"}
+              :right-only nil
+              :same nil}]
+            :constraint-diff
+            [{:left-only {:constraint_name "name IS NOT NULL"
+                          :table_name "resource_params"
+                          :constraint_type "CHECK"
+                          :initially_deferred "NO"
+                          :deferrable? "NO"}
+              :right-only nil
+              :same nil}
+             {:left-only {:constraint_name "resource IS NOT NULL"
+                          :table_name "resource_params"
+                          :constraint_type "CHECK"
+                          :initially_deferred "NO"
+                          :deferrable? "NO"}
+              :right-only nil
+              :same nil}
+             {:left-only {:constraint_name "resource_params_pkey"
+                          :table_name "resource_params"
+                          :constraint_type "PRIMARY KEY"
+                          :initially_deferred "NO"
+                          :deferrable? "NO"}
+              :right-only nil
+              :same nil}
+             {:left-only {:constraint_name "resource_params_resource_fkey"
+                          :table_name "resource_params"
+                          :constraint_type "FOREIGN KEY"
+                          :initially_deferred "NO"
+                          :deferrable? "NO"}
+              :right-only nil
+              :same nil}
+             {:left-only {:constraint_name "value IS NOT NULL"
+                          :table_name "resource_params"
+                          :constraint_type "CHECK"
+                          :initially_deferred "NO"
+                          :deferrable? "NO"}
+              :right-only nil
+              :same nil}]}
+             (diff-schema-maps before-migration (schema-info-map *db*)))))))

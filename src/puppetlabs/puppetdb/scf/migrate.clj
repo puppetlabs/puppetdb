@@ -2332,6 +2332,12 @@
     "DROP INDEX IF EXISTS catalog_resources_file_trgm"
     "ALTER TABLE catalog_resources RESET ( autovacuum_analyze_scale_factor )"))
 
+(defn remove-resource-params
+  "Drops the resource_params table. Its data was a duplicate of the resource_params_cache"
+  []
+  (jdbc/do-commands
+    "DROP TABLE resource_params"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2399,7 +2405,8 @@
    81 migrate-resource-events-to-declarative-partitioning
    82 migrate-reports-to-declarative-partitioning
    83 require-previously-optional-trigram-indexes
-   84 remove-catalog-resources-file-trgm-index})
+   84 remove-catalog-resources-file-trgm-index
+   85 remove-resource-params})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
