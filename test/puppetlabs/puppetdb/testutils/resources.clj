@@ -26,29 +26,7 @@
                         "backslash" "foo\\bar"
                         "double_quote" "foo\"bar"})}
         {:resource (sutils/munge-hash-for-storage "02")
-         :parameters nil}])
-     (jdbc/insert-multi!
-       :resource_params
-       [{:resource (sutils/munge-hash-for-storage "01") :name "ensure"
-         :value (sutils/db-serialize "file")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "owner"
-         :value (sutils/db-serialize "root")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "group"
-         :value (sutils/db-serialize "root")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "acl"
-         :value (sutils/db-serialize ["john:rwx" "fred:rwx"])}
-        {:resource (sutils/munge-hash-for-storage "01") :name "nested"
-         :value (sutils/db-serialize {"foo" "bar"})}
-        {:resource (sutils/munge-hash-for-storage "01") :name "boolean"
-         :value (sutils/db-serialize true)}
-        {:resource (sutils/munge-hash-for-storage "01") :name "numeric"
-         :value (sutils/db-serialize 1337)}
-        {:resource (sutils/munge-hash-for-storage "01") :name "double"
-         :value (sutils/db-serialize 3.14)}
-        {:resource (sutils/munge-hash-for-storage "01") :name "backslash"
-         :value (sutils/db-serialize "foo\\bar")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "double_quote"
-         :value (sutils/db-serialize "foo\"bar")}])
+         :parameters (sutils/munge-jsonb-for-storage {})}])
        (jdbc/insert-multi!
         :certnames
          [{:id 1 :certname "one.local"}

@@ -600,16 +600,7 @@
      (map (fn [[resource-hash params]]
             {:resource (sutils/munge-hash-for-storage resource-hash)
              :parameters (some-> params sutils/munge-jsonb-for-storage)})
-          new-params))
-
-    (insert-records*
-     :resource_params
-     (for [[resource-hash params] new-params
-           [k v] params]
-       {:resource (sutils/munge-hash-for-storage resource-hash)
-        :name (name k)
-        :value (sutils/db-serialize v)}))))
-
+          new-params))))
 (def resource-ref?
   "Returns true of the map is a resource reference"
   (every-pred :type :title))

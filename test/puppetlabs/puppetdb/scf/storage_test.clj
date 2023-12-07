@@ -911,14 +911,19 @@
                 {:certname certname :type "File"  :title "/etc/foobar/baz"}])))
 
       (testing "with all parameters"
-        (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
-               [{:type "File" :title "/etc/foobar" :name "ensure" :value (sutils/db-serialize "directory")}
-                {:type "File" :title "/etc/foobar" :name "group" :value (sutils/db-serialize "root")}
-                {:type "File" :title "/etc/foobar" :name "user" :value (sutils/db-serialize "root")}
-                {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (sutils/db-serialize "directory")}
-                {:type "File" :title "/etc/foobar/baz" :name "group" :value (sutils/db-serialize "root")}
-                {:type "File" :title "/etc/foobar/baz" :name "require" :value (sutils/db-serialize "File[/etc/foobar]")}
-                {:type "File" :title "/etc/foobar/baz" :name "user" :value (sutils/db-serialize "root")}])))
+        (is (= (map #(update % :parameters sutils/parse-db-json)
+                    (query-to-vec ["SELECT cr.type, cr.title, rpc.parameters FROM catalog_resources cr, resource_params_cache rpc WHERE rpc.resource=cr.resource ORDER BY cr.type, cr.title"]))
+               [{:type "Class" :title "foobar"
+                 :parameters {}}
+                {:type "File" :title "/etc/foobar"
+                 :parameters {:ensure "directory"
+                              :group "root"
+                              :user "root"}}
+                {:type "File" :title "/etc/foobar/baz"
+                 :parameters {:ensure "directory"
+                              :group "root"
+                              :user "root"
+                              :require "File[/etc/foobar]"}}])))
 
       (testing "with all metadata"
         (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
@@ -1186,7 +1191,7 @@
           ;; 1 catalog_resource delete
           (is (= 8 (apply + (sample (:catalog-volatility @storage-metrics)))))
 
-          (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
+          (is (sort= [:resource_params_cache :catalog_resources :edges]
                      (table-args (concat @inserts @insert-multis))))
 
           (is (= [:catalogs]
@@ -1249,7 +1254,7 @@
                                             :user   "root"}})
                     old-date)
 
-      (is (sort= [:resource_params_cache :resource_params :catalog_resources]
+      (is (sort= [:resource_params_cache :catalog_resources]
                  (table-args (concat @inserts @insert-multis))))
       (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
@@ -1414,20 +1419,6 @@
                resources))
         (is (= (to-timestamp yesterday) (to-timestamp timestamp)))))))
 
-(defn foobar-params []
-  (jdbc/query-with-resultset
-   ["SELECT p.name AS k, p.value AS v
-       FROM catalog_resources cr, certnames c, resource_params p
-       WHERE cr.certname_id = c.id AND cr.resource = p.resource AND c.certname=?
-         AND cr.type=? AND cr.title=?"
-    (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
-   (fn [rs]
-     (reduce (fn [acc row]
-               (assoc acc (keyword (:k row))
-                      (json/parse-string (:v row))))
-             {}
-             (sql/result-set-seq rs)))))
-
 (defn foobar-params-cache []
   (jdbc/query-with-resultset
    ["SELECT rpc.parameters as params
@@ -1460,9 +1451,6 @@
     (let [orig-resource-hash (foobar-param-hash)
           add-param-catalog (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters :uid] "100")]
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
-             (foobar-params)))
-
-      (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
       (tu/with-wrapped-fn-args [inserts jdbc/insert!
@@ -1476,15 +1464,12 @@
 
         (is (empty? (remove-edge-changes @deletes)))
 
-        (is (sort= [:resource_params_cache :resource_params :edges]
+        (is (sort= [:resource_params_cache :edges]
                    (->> (concat @inserts @insert-multis)
                      (remove #(empty? (second %))) ;; remove inserts w/out rows
                      table-args))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
-
-      (is (= (get-in add-param-catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
-             (foobar-params)))
 
       (is (= (get-in add-param-catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
@@ -1502,9 +1487,6 @@
                (sort (table-args @updates)))))
 
       (is (= orig-resource-hash (foobar-param-hash)))
-
-      (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
-             (foobar-params)))
 
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache))))))
