@@ -430,7 +430,7 @@
 
          ;; param joins.
          [["parameter" (name :guard string?)]]
-         {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
+         {:where  "catalog_resources.resource IN (SELECT rpc.resource FROM resource_params_cache rpc WHERE rpc.parameters @> {? : ?})"
           :params [name (db-serialize value)]}
 
          ;; metadata match.

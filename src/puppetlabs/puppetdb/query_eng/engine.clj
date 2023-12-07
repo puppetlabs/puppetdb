@@ -438,16 +438,21 @@
   (map->Query {::which-query :resource-params
                :projections {"res_param_resource" {:type :string
                                                    :queryable? true
-                                                   :field (hsql-hash-as-str :resource)}
+                                                   :field (hsql-hash-as-str :rp.resource)}
                              "res_param_name" {:type :string
                                                :queryable? true
-                                               :field :name}
+                                               :field :rp.name}
                              "res_param_value" {:type :string
                                                 :queryable? true
-                                                :field :value}}
-               :selection {:from [:resource_params]}
+                                                :field :rp.value}}
+               :selection {:from [[{:select [[:rpc.resource :resource]
+                                             [:p.key :name]
+                                             [:p.value :value]]
+                                    :from [[:resource_params_cache :rpc]]
+                                    :cross-join [[[:lateral
+                                                   [:jsonb_each :rpc.parameters]] :p]]} :rp]]}
 
-               :source-tables #{:resource_params}
+               :source-tables #{:resource_params_cache}
                :alias "resource_params"
                :subquery? false}))
 
@@ -2058,12 +2063,7 @@
               "any" ::elide)
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
-            ["in" "resource"
-             ["extract" "res_param_resource"
-              ["select_params"
-               ["and"
-                [op "res_param_name" param-name]
-                [op "res_param_value" (su/db-serialize param-value)]]]]]
+            [op (str "parameters." param-name) param-value]
 
             [[(op :guard #{"=" "~"}) ["fact" fact-name]
               (fact-value :guard #(or (string? %) (instance? Boolean %)))]]

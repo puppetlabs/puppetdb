@@ -76,9 +76,9 @@
     within group (order by c) quantiles
     from
     (select count(*) as c, certname_id from catalog_resources
-    inner join resource_params on
-    catalog_resources.resource=resource_params.resource
-    where type='File' and name='source'
+    inner join resource_params_cache on
+    catalog_resources.resource=resource_params_cache.resource
+    where type='File' and parameters ?? 'source'
     group by certname_id) foo"
 
    :num_distinct_edges_source_target

@@ -107,12 +107,7 @@
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["node" "active"] true]])))
   (is (= [["=" "prop" "foo"]
-          ["in" "resource"
-           ["extract" "res_param_resource"
-            ["select_params"
-             ["and"
-              ["=" "res_param_name" "bar"]
-              ["=" "res_param_value" "\"baz\""]]]]]]
+          ["=" "parameters.bar" "baz"]]
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["parameter" "bar"] "baz"]])))
 
