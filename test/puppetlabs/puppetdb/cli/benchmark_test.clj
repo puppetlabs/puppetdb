@@ -385,6 +385,13 @@
   (->> (fs/glob (.resolve storage-dir "host-*"))
        (map #(nippy/thaw (Files/readAllBytes (.toPath %))))))
 
+(defn get-preserved-host-map
+  "Given a Path to a directory and a host file name, return the thawed host map."
+  [storage-dir host]
+  (->> (#'benchmark/host->host-path host storage-dir)
+    Files/readAllBytes
+    nippy/thaw))
+
 (deftest host-map-preservation
   (let [tempdir-path (.toPath (tu/temp-dir))
         simulation-path (.resolve tempdir-path "sim-dir")
@@ -466,4 +473,43 @@
               (clojure.pprint/pprint
                 {:failed {:host (:host preserved)
                           :diff {:only-in-preserved only-in-preserved
-                                 :only-in-submitted only-in-submitted}}}))))))))
+                                 :only-in-submitted only-in-submitted}}}))))))
+    (testing "re-running benchmark restricted does not loose preserved state"
+      (let [;; just submit catalogs
+            restarted-submissions (benchmark-nummsgs
+                                    {}
+                                    "--config" "anything.ini"
+                                    "--catalogs" (str "resources/" (:catalogs benchmark/default-data-paths))
+                                    "--numhosts" "1"
+                                    "--nummsgs" "1"
+                                    "--simulation-dir" (str simulation-path))
+            preserved-host-0 (get-preserved-host-map simulation-path "host-0")]
+        (is (= 1 (count restarted-submissions)))
+        (is (= :catalog (:entity (first restarted-submissions))))
+        (is (not (nil? (:factset preserved-host-0))))
+        (is (not (nil? (:report preserved-host-0))))
+        (is (not (nil? (:catalog preserved-host-0))))))
+    (testing "re-running benchmark with additional data adds it to preserved state"
+      (let [;; just submit catalogs
+            _ (benchmark-nummsgs
+                                    {}
+                                    "--config" "anything.ini"
+                                    "--catalogs" (str "resources/" (:catalogs benchmark/default-data-paths))
+                                    "--numhosts" "1"
+                                    "--offset" "100"
+                                    "--nummsgs" "1"
+                                    "--simulation-dir" (str simulation-path))
+            ;; then submit catalogs and facts
+            _ (benchmark-nummsgs
+                                    {}
+                                    "--config" "anything.ini"
+                                    "--catalogs" (str "resources/" (:catalogs benchmark/default-data-paths))
+                                    "--facts" (str "resources/" (:facts benchmark/default-data-paths))
+                                    "--numhosts" "1"
+                                    "--offset" "100"
+                                    "--nummsgs" "1"
+                                    "--simulation-dir" (str simulation-path))
+            preserved-host-100 (get-preserved-host-map simulation-path "host-100")]
+        (is (not (nil? (:factset preserved-host-100))))
+        (is (not (nil? (:catalog preserved-host-100))))
+        (is (nil? (:report preserved-host-100)))))))
