@@ -67,10 +67,12 @@
    initialized randomly as by default."
   (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
+            [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
+            [murphy :refer [try!]]
             [clojure.java.io :as io]
             [clojure.stacktrace :as trace]
             [clojure.walk :as walk]
@@ -80,12 +82,11 @@
             [puppetlabs.puppetdb.random :refer [safe-sample-normal random-string random-bool random-sha1]]
             [puppetlabs.puppetdb.time :as time :refer [now]]
             [puppetlabs.puppetdb.archive :as archive]
-            [clojure.core.async :refer [go go-loop <! <!! >!! chan] :as async]
+            [clojure.core.async :refer [go-loop <! >!! chan] :as async]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.nio :refer [get-path]])
   (:import
-   (clojure.core.async.impl.protocols Buffer UnblockingBuffer)
    (com.puppetlabs.ssl_utils SSLUtils)
    (java.net URI)
    (java.net.http HttpClient
@@ -93,9 +94,10 @@
                   HttpRequest$Builder
                   HttpRequest$BodyPublishers
                   HttpResponse$BodyHandlers)
+   (java.nio.file NoSuchFileException)
    (java.nio.file.attribute FileAttribute)
-   (java.nio.file FileAlreadyExistsException Files LinkOption OpenOption StandardCopyOption)
-   (java.util ArrayDeque)
+   (java.nio.file CopyOption FileAlreadyExistsException Files LinkOption
+                  OpenOption StandardCopyOption)
    (java.util.concurrent RejectedExecutionException)))
 
 (defn- ssl-info->context
@@ -395,15 +397,15 @@
 
 (defn start-command-sender
   "Start a command sending process in the background. Reads host-state maps from
-  command-send-ch and sends commands to the puppetdb at base-url. Writes
+  host-info-ch and sends commands to the puppetdb at base-url. Writes
   ::submitted to rate-monitor-ch for every command sent, or ::error if there was
-  a problem. Close command-send-ch to stop the background process."
-  [base-url command-send-ch rate-monitor-ch num-threads ssl-opts sched max-command-delay-ms]
+  a problem. Close host-info-ch to stop the background process."
+  [base-url host-info-ch rate-monitor-ch num-threads ssl-opts sched max-command-delay-ms]
   (let [fanout-commands-ch (chan)
         schedule (fn [ch v ^long delay] (utils/schedule sched #(>!! ch v) delay))]
     ;; fanout: given a single host state, emit 3 messages, one for each command.
     ;; This gives better parallelism for message submission.
-    (go-loop [host-state (<! command-send-ch)]
+    (go-loop [host-state (<! host-info-ch)]
       (if-let [{:keys [host catalog report factset]} host-state]
         ;; randomize catalog and report delay, minimum 500ms matches the speed
         ;; at which puppetdb received commands for an empty catalog
@@ -421,7 +423,7 @@
               ;; terminate cleanly
               (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
               (async/close! fanout-commands-ch)))
-          (recur (<! command-send-ch)))
+          (recur (<! host-info-ch)))
         (do
           (utils/request-scheduler-shutdown sched false)
           (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
@@ -471,155 +473,65 @@
               (recur 0 t))
             (recur (inc events-since-last-report) last-report-time)))))))
 
-(defn delete-dir-or-report [dir]
-  (try
-    (fs/delete-dir dir)
-    (catch Exception ex
-      (println-err ex))))
-
 (def benchmark-shutdown-timeout 5000)
 
-(defn go-delete-dir-or-report [storage-dir]
-  ;; This function only exists to work around an eastwood complaint
-  ;; seen when the body was inline in the caller:
-  ;;
-  ;;   Exception thrown during phase :analyze+eval of linting namespace ...
-  ;;   Local name 'G__35008' has been given a type tag 'null' here:
-  ;;   nil
-  (go (delete-dir-or-report storage-dir)))
+(defn write-host-info [info path]
+  (let [host (:host info)
+        tmp (Files/createTempFile (.getParent path) host "-tmp"
+                                  (into-array FileAttribute []))]
+    (try!
+      (assert host)
+      (ignore-value (Files/write tmp (nippy/freeze info) (into-array OpenOption [])))
+      (Files/move tmp path (into-array CopyOption [StandardCopyOption/ATOMIC_MOVE
+                                                   StandardCopyOption/REPLACE_EXISTING]))
+      (finally
+        (Files/deleteIfExists tmp)))))
 
-(defn defer-file-buffer-item [tmp-path final-path item]
-  (let [out (Files/newOutputStream tmp-path (into-array OpenOption []))]
-    (go
-      (try
-        (with-open [in (io/input-stream (nippy/freeze item))]
-          (io/copy in out))
-        final-path
-        (finally
-          (.close out)
-          (when-not (= tmp-path final-path)
-            (fs/move tmp-path final-path
-                     (StandardCopyOption/ATOMIC_MOVE)
-                     (StandardCopyOption/REPLACE_EXISTING))))))))
+(defn populate-hosts
+  "Returns a lazy sequence of initial host data file Paths, after
+  writing the data to a file in the temp-dir."
+  [n offset pdb-host include-edges? catalogs reports facts storage-dir]
 
-(deftype TempFileBuffer [storage-dir q ephemeral?]
-  UnblockingBuffer
-  Buffer
-  (full? [_] false)
-  (remove! [_]
-    (let [path (<!! (.poll q))
-          result (nippy/thaw (Files/readAllBytes path))]
-      (when ephemeral? (Files/delete path))
-      result))
-
-  (add!* [_ item]
-    (let [host (:host item)
-          tmp-path (Files/createTempFile storage-dir (format "tmp-%s-" host) ""
-                                         (into-array FileAttribute []))
-          final-path (if ephemeral?
-                       tmp-path
-                       (.resolve storage-dir host))
-          ch (defer-file-buffer-item tmp-path final-path item)]
-      (.add q ch)))
-
-  (close-buf! [_]
-    (.clear q)
-    (when ephemeral?
-      (println-err (trs "Cleaning up temp files from {0}"
-                        (pr-str (str storage-dir))))
-      (async/alt!!
-        (go-delete-dir-or-report storage-dir)
-        (println-err (trs "Finished cleaning up temp files"))
-
-        (async/timeout benchmark-shutdown-timeout)
-        (println-err (trs "Cleanup timeout expired; leaving files in {0}"
-                          (pr-str (str storage-dir))))))
-    nil)
-
-  clojure.lang.Counted
-  (count [_] (.size q)))
-
-(defn message-buffer
-  [storage-dir expected-size ephemeral?]
-  (let [q (ArrayDeque. expected-size)]
-    (TempFileBuffer. storage-dir q ephemeral?)))
-
-(defn get-host-map-keys
-  "Given a Path to a --simulation-dir directory, returns a set of all
-  preserved host-map files.
-
-  These files are named 'host-<number>'. It ignores temporary files like
-  'tmp-host-<number>-<timestamp>'."
-  [storage-dir]
-  (->> (fs/glob (.resolve storage-dir "host-*"))
-       (reduce #(conj %1 (.getName %2))
-               #{})))
-
-(defn get-preserved-host-map
-  [storage-dir certname]
-  (let [host-map-path (-> (.resolve storage-dir certname)
-                          (fs/glob)
-                          first)]
-    (nippy/thaw (Files/readAllBytes (.toPath host-map-path)))))
-
-(defn random-hosts
-  [n offset pdb-host include-edges catalogs reports facts storage-dir]
-  (let [preserved-host-map-keys (get-host-map-keys storage-dir)
-        random-entity (fn [host entities]
-                        (some-> entities
-                                rand-nth
-                                (assoc "certname" host)))
-        random-catalog (fn [host pdb-host catalogs]
-                         (when-let [cat (if include-edges
-                                          (random-entity host catalogs)
-                                          (some-> (random-entity host catalogs)
-                                                  (assoc "edges" [])))]
-                           (update cat "resources"
-                                   (partial map #(update % "tags"
-                                                         conj
-                                                         pdb-host)))))]
-    (for [i (range n)]
-      (let [host (str "host-" (+ offset i))]
-        (if (contains? preserved-host-map-keys host)
-
-          ;; Then provide a function that the simulation loop can later use to
-          ;; adjust the preserved host-map according to current user flags.
-          ;; Deferring loading of all preserved host-maps at initialization
-          ;; prevents us from blowing up the heap.
-          (let [update-preserved-fn
-                 (fn [preserved]
-                   (let [;; Adjust the preserved host-map to match current flags.
-                         updated
-                           (cond-> preserved
-                                   ;; Update missing entries where possible.
-                                   (nil? (:catalog preserved))
-                                     (assoc :catalog (random-catalog host pdb-host catalogs))
-                                   (nil? (:factset preserved))
+  (for [i (range n)]
+    (let [random-entity (fn random-entity [host entities]
+                          (some-> entities
+                                  rand-nth
+                                  (assoc "certname" host)))
+          random-catalog (fn random-catalog [host pdb-host catalogs]
+                           (when-let [cat (if include-edges?
+                                            (random-entity host catalogs)
+                                            (some-> (random-entity host catalogs)
+                                                    (assoc "edges" [])))]
+                             (update cat "resources"
+                                     (partial map #(update % "tags"
+                                                           conj
+                                                           pdb-host)))))
+          augment-host (fn augment-host [info]
+                         ;; Adjust the preserved host-map to match current flags.
+                         (let [host (:host info)
+                               _ (assert host)
+                               new (cond-> info
+                                     (and facts (nil? (:factset info)))
                                      (assoc :factset (random-entity host facts))
-                                   (nil? (:report preserved))
-                                     (assoc :report (random-entity host reports))
-                                   ;; Remove preserved entries where required.
-                                   ;; (preserved data may include entries that
-                                   ;; do not match the currently requested data
-                                   ;; from --facts, --catalogs, --reports or
-                                   ;; --archive...)
-                                   (nil? catalogs) (assoc :catalog nil)
-                                   (nil? facts) (assoc :factset nil)
-                                   (nil? reports) (assoc :report nil))]
-                     ;; Respect include-edges
-                     (if (or include-edges
-                             (nil? (:catalog updated)))
-                       updated
-                       (assoc-in updated [:catalog "edges"] []))))]
-            {:host host
-             :storage-dir storage-dir
-             :update-preserved-fn update-preserved-fn})
-
-          ;; Otherwise generate new random host-map
-          {:host host
-           :catalog (random-catalog host pdb-host catalogs)
-           :report (random-entity host reports)
-           :factset (random-entity host facts)})))))
+                                     (and catalogs (nil? (:catalog info)))
+                                     (assoc :catalog (random-catalog host pdb-host catalogs))
+                                     (and reports (nil? (:report info)))
+                                     (assoc :report (random-entity host reports)))]
+                           (if (or include-edges? (nil? (:catalog new)))
+                             new
+                             (assoc-in new [:catalog "edges"] []))))
+          host (str "host-" (+ offset i))
+          host-path (.resolve storage-dir host)
+          host-info (if-let [data (try
+                                 (Files/readAllBytes host-path)
+                                 (catch NoSuchFileException _))]
+                      (-> data nippy/thaw augment-host)
+                      {:host host
+                       :catalog (random-catalog host pdb-host catalogs)
+                       :report (random-entity host reports)
+                       :factset (random-entity host facts)})]
+      (write-host-info host-info host-path)
+      host-path)))
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
@@ -641,13 +553,25 @@
     (fn []
       (jitter (now) run-interval-minutes))))
 
+(defn prune-host-info
+  "Adjusts the info to match the current run, i.e. if the current run
+  didn't specify --catalogs, then prune it.  We might have extra data
+  when using a simulation dir from a previous run with different
+  arguments."
+  [info factsets catalogs reports]
+  (cond-> info
+    (not factsets) (dissoc :factset)
+    (not catalogs) (dissoc :catalog)
+    (not reports) (dissoc :report)))
+
 (defn start-simulation-loop
   "Run a background process which takes host-state maps from read-ch, updates
   them with update-host, and puts them on write-ch. If num-msgs is not given,
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
   [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
-   write-ch read-ch include-edges]
+   sim-ch host-info-ch read-ch
+   & {:keys [facts catalogs reports include-edges?]}]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
         ms-per-message (/ 1000 hosts-per-second)
@@ -655,25 +579,24 @@
         progressing-timestamp-fn (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in)]
     (async/pipeline-blocking
      simulation-threads
-     write-ch
-     (map (fn [host-state]
+     host-info-ch
+     ;; As currently arranged, the initial host state will never reach
+     ;; the senders because we advance it before sending.
+     ;; Alternately, we could prune/send host-state, but that'd be
+     ;; sending potentially arbitrarily stale data (from existing
+     ;; simulation dir), and even ignoring that, it'd be sending
+     ;; commands after the sleep that have timestamps that were chosen
+     ;; in the last iteration.
+     (map (fn advance-host [host-path]
             (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
-                  new-host
-                    (if-let [update-preserved-fn (:update-preserved-fn host-state)]
-                      ;; execute the deferred function to initialize this host-map
-                      ;; from the contents of the preserved file in --simulation-dir
-                      (let [preserved (get-preserved-host-map
-                                        (:storage-dir host-state)
-                                        (:host host-state))]
-                        (update-preserved-fn preserved))
-                      host-state)
-                  updated-host
-                    (update-host new-host include-edges rand-perc progressing-timestamp-fn)]
-              (when (and (not num-msgs)
-                         (> deadline (time/ephemeral-now-ns)))
+                  host-state (-> host-path Files/readAllBytes nippy/thaw)
+                  new-state (update-host host-state include-edges? rand-perc progressing-timestamp-fn)]
+              (write-host-info new-state host-path)
+              (when (and (not num-msgs) (> deadline (time/ephemeral-now-ns)))
                 ;; sleep until deadline
                 (Thread/sleep (int (/ (- deadline (time/ephemeral-now-ns)) 1000000))))
-              updated-host)))
+              (>!! sim-ch host-path)
+              (prune-host-info new-state facts catalogs reports))))
      read-ch)))
 
 (defn warn-missing-data [catalogs reports facts]
@@ -687,7 +610,7 @@
 (defn register-shutdown-hook! [f]
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
-(defn create-storage-dir!
+(defn create-storage-dir
   "Returns a Path to the directory where simulation host-maps are stored.
 
   If simulation-dir is set, then the path will be the absolute-path to
@@ -714,36 +637,35 @@
       absolute-path)))
 
 ;; The core.async processes and channels fit together like
-;; this (square brackets indicate data being sent):
+;; this (square brackets indicate data being sent, parens channels):
 ;;
-;; (initial-hosts-ch: host-maps)
+;; (initial-hosts-ch)
+;;    |
+;;  [host-map]
 ;;    |
 ;;    v
-;; mix (simulation-read-ch: host-maps) <-- (mq-ch: host-maps) <--\
-;;    |                                                          |
-;;    v                                                          |
-;; simulation-loop                                               |
-;;    |                                                          |
-;;    v                                                          |
-;; mult (simulation-write-ch: host-maps) ------------------------/
+;; (sim-input-ch: mix) <--- [host-path] ----\
+;;    |                                     |
+;;    v                                     |
+;; simulation-loop (sim-next-ch) -----------/
+;; (host-info-ch)
 ;;    |
-;;    | (command-send-ch: host-maps)
-;;    |
-;;  [host-state]
+;;  [host-info]       
 ;;    |
 ;;    v
 ;; command-sender ------------ [delayed catalog & report] --\
 ;;    |                                                     |
 ;;    |                                                     v
-;;  [factset]                                             (scheduler)
+;;  [factset]                                             scheduler
 ;;    |                                                     |
 ;;    | (rate-monitor-ch: ::success or ::error)<------------/
 ;;    v
 ;; rate-monitor
 ;;
-;; It's all set up so that channel closes flow downstream (and upstream to the
-;; producer). The command-sender is not a pipeline so to shut down benchmark
-;; simulation-read-ch and fanout-ch must be closed and the scheduler shutdown.
+;; It's all set up so that channel closes flow downstream (and
+;; upstream to the producer). The command-sender is not just a
+;; pipeline so to shut down benchmark sim-input-ch and fanout-ch must
+;; be closed and the scheduler shutdown.
 
 (defn benchmark
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
@@ -780,29 +702,24 @@
         commands-per-puppet-run (+ (if catalogs 1 0)
                                    (if reports 1 0)
                                    (if facts 1 0))
-        storage-dir (create-storage-dir! simulation-dir)
+        storage-dir (create-storage-dir simulation-dir)
 
         ;; channels
         initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts offset pdb-host include-catalog-edges
-                                        catalogs reports facts storage-dir))
-        mq-ch (chan (message-buffer storage-dir numhosts (nil? simulation-dir)))
-        _ (register-shutdown-hook! #(async/close! mq-ch))
+                          (populate-hosts numhosts offset pdb-host include-catalog-edges
+                                          catalogs reports facts storage-dir))
+        sim-next-ch (chan numhosts)
+        _ (register-shutdown-hook! #(async/close! sim-next-ch))
 
-        command-send-ch (chan)
+        host-info-ch (chan)
         rate-monitor-ch (chan)
 
-        simulation-read-ch (let [ch (chan)
-                                 mixer (async/mix ch)]
-                             (async/solo-mode mixer :pause)
-                             (async/toggle mixer {initial-hosts-ch {:solo true}})
-                             (async/admix mixer mq-ch)
-                             (if nummsgs (async/take (* numhosts nummsgs) ch) ch))
-        simulation-write-ch (let [ch (chan)
-                                  mult (async/mult ch)]
-                              (async/tap mult command-send-ch)
-                              (async/tap mult mq-ch)
-                              ch)
+        sim-input-ch (let [ch (chan)
+                           mixer (async/mix ch)]
+                       (async/solo-mode mixer :pause)
+                       (async/toggle mixer {initial-hosts-ch {:solo true}})
+                       (async/admix mixer sim-next-ch)
+                       (if nummsgs (async/take (* numhosts nummsgs) ch) ch))
 
         ;; processes
         _rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
@@ -814,14 +731,21 @@
         _ (.setExecuteExistingDelayedTasksAfterShutdownPolicy command-delay-scheduler true)
 
         [command-sender-finished-ch fanout-ch] (start-command-sender base-url
-                                                                     command-send-ch
+                                                                     host-info-ch
                                                                      rate-monitor-ch
                                                                      senders
                                                                      ssl-opts
                                                                      command-delay-scheduler
                                                                      max-command-delay-ms)
         _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
-                                 simulators simulation-write-ch simulation-read-ch include-catalog-edges)
+                                 simulators
+                                 sim-next-ch
+                                 host-info-ch
+                                 sim-input-ch
+                                 {:facts facts
+                                  :catalogs catalogs
+                                  :reports reports
+                                  :include-catalog-edges? include-catalog-edges})
         join-fn (fn join-benchmark
                   ([] (join-benchmark nil))
                   ([timeout-ms]
@@ -829,7 +753,7 @@
                      (async/alt!! t-ch false command-sender-finished-ch true)
                      (async/alt!! t-ch false rate-monitor-ch true))))
         stop-fn (fn stop-benchmark []
-                  (async/close! simulation-read-ch)
+                  (async/close! sim-input-ch)
                   (utils/request-scheduler-shutdown command-delay-scheduler true)
                   (async/close! fanout-ch)
                   (when-not (join-fn benchmark-shutdown-timeout)
