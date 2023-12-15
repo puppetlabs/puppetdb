@@ -10,6 +10,7 @@
        :reporter (reporter registry {:domain domain})})))
 
 (def metrics-registries {:admin (new-metrics "puppetlabs.puppetdb.admin")
+                         :benchmark (new-metrics "puppetlabs.puppetdb.benchmark")
                          :mq (new-metrics "puppetlabs.puppetdb.mq")
                          :dlo (new-metrics "puppetlabs.puppetdb.dlo")
                          :http (new-metrics "puppetlabs.puppetdb.http")

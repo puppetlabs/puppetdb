@@ -43,6 +43,7 @@
    [clojure.pprint :refer [pprint]]
    [clojure.walk :as walk]
    [me.raynes.fs :as fs]
+   [metrics.timers :as timers :refer [timer time!]]
    [murphy :refer [try!]]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :as kitchensink]
@@ -52,6 +53,7 @@
    [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
    [puppetlabs.puppetdb.client :as client]
    [puppetlabs.puppetdb.lint :refer [ignore-value]]
+   [puppetlabs.puppetdb.metrics.core :as metrics]
    [puppetlabs.puppetdb.nio :refer [get-path]]
    [puppetlabs.puppetdb.random
     :refer [safe-sample-normal random-string random-bool random-sha1]]
@@ -84,6 +86,10 @@
 
 (def ^:private warn-on-reflection-orig *warn-on-reflection*)
 (set! *warn-on-reflection* true)
+
+(def metrics
+  (let [reg (get-in metrics/metrics-registries [:benchmark :registry])]
+    {:query-duration (timer reg (metrics/keyword->metric-name [:global] :query-duration))}))
 
 ;; Completely ad-hoc...
 (def ^:private discard-all-messages?
@@ -602,7 +608,9 @@
   (assert (seq queries))
   (let [[query & more] queries
         result (try!
-                 (query-pdb-discard-response (query-uri base-url) query ssl-opts)
+                 (time!
+                  (:query-duration metrics)
+                  (query-pdb-discard-response (query-uri base-url) query ssl-opts))
                  (assoc event :result true)
                  (catch IOException ex
                    (report-sender-ex ex)
@@ -799,11 +807,12 @@
                   cmd-per-sec (float (/ cmds time-diff-seconds))
                   query-per-sec (float (/ queries time-diff-seconds))]
               (println-err
-               (trs "{0} cmd/s (~{1} nodes @ {2}m) | {3} query/s | {4} err"
+               (trs "{0} cmd/s (~{1} nodes @ {2}m) | {3} q/s {4} s/q | {5} err"
                     cmd-per-sec
                     (int (/ cmd-per-sec expected-node-message-rate))
                     (time/in-minutes run-interval)
-                    query-per-sec
+                    (format "%.2f" query-per-sec)
+                    (format "%.2f" (-> metrics :query-duration timers/mean (/ 1000000000)))
                     errors))
               (recur 0 0 0 t))
             (recur cmds queries errors last-report-time)))))))
