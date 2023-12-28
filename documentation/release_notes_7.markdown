@@ -15,6 +15,20 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.17.0
+
+Release date TBD.
+
+### Bug fixes
+
+* Fixed an issue with negated regex queries (`!~`) on JSON fields (dotted fact
+  paths and resource parameters), which were not matching the full negation of
+  the regex match when the key was missing from some of the JSON maps.
+
+### Contributors
+
+Austin Blatt, ...
+
 ## PuppetDB 7.16.0
 
 Released January 18 2024
