@@ -785,6 +785,10 @@
   [rate-monitor-ch run-interval commands-per-puppet-run]
   (let [run-interval-seconds (time/in-seconds run-interval)
         expected-node-message-rate (/ commands-per-puppet-run run-interval-seconds)]
+    (println-err
+     (str "q/s - queries per second\n"
+          "s/q - seconds per query (average completion time)\n"
+          "err - command or query errors during interval"))
     (go-loop [cmds 0
               queries 0
               errors 0
