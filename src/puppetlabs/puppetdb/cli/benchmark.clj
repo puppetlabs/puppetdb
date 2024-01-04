@@ -599,7 +599,7 @@
                                  (assoc event :what :send-report)
                                  (event-delay :send-facts :send-report)
                                  event-ch))
-        (seq-end))
+        (seq-end host-info))
     result))
 
 (defn- handle-catalog-queries
@@ -624,13 +624,14 @@
                           (-> event (dissoc :queries) (assoc :what :send-catalog))
                           (event-delay :catalog-queries :send-catalog)
                           event-ch))
-        (seq-end))
+        (seq-end (:host-info event)))
     result))
 
 (defn- handle-send-catalog
   [event base-url ssl-opts scheduler event-delay event-ch seq-end]
   (assert (= :send-catalog (:what event)))
-  (let [{:keys [host catalog report]} (:host-info event)
+  (let [host-info (:host-info event)
+        {:keys [host catalog report]} host-info
         result (try!
                  (send-catalog (cmd-url base-url) host 9 catalog ssl-opts)
                  (assoc event :result true)
@@ -641,7 +642,7 @@
           report (schedule-event scheduler (assoc event :what :send-report)
                                  (event-delay :send-catalog :send-report)
                                  event-ch))
-        (seq-end))
+        (seq-end host-info))
     result))
 
 (defn- handle-send-report
@@ -654,7 +655,7 @@
                  (catch IOException ex
                    (report-sender-ex ex)
                    (assoc event :result ex)))]
-    (seq-end)
+    (seq-end host-info)
     result))
 
 ;;; The start-with-* functions initiate a sequence of delayed events for
@@ -725,17 +726,19 @@
   host-info-ch and sends commands to the puppetdb at base-url. Writes
   ::submitted to rate-monitor-ch for every command sent, or ::error if there was
   a problem. Close host-info-ch to stop the background process."
-  [base-url host-info-ch rate-monitor-ch senders ssl-opts scheduler cmd-opts]
+  [base-url host-info-ch sim-ch rate-monitor-ch senders ssl-opts scheduler cmd-opts]
   (let [stop-ch (chan)
         event-ch (chan)
         sender-ch (chan)
         state (atom {:more-hosts? true :pending-sequences 0})
-        seq-end (fn seq-ended []
+        seq-end (fn seq-ended [host-info]
                   (let [state (swap! state update :pending-sequences dec)]
-                    (when (and (zero? (:pending-sequences state))
-                               (not (:more-hosts? state)))
-                      (async/close! event-ch))))
+                    (if (and (zero? (:pending-sequences state))
+                             (not (:more-hosts? state)))
+                      (async/close! event-ch)
+                      (>!! sim-ch (:host-path host-info)))))
         stage-event (director base-url ssl-opts scheduler cmd-opts event-ch seq-end)]
+
     ;; Send host-info and events to the senders, with events having
     ;; priority.  Critical that this be serialized wrt more-hosts? vs
     ;; pending-sequences state updates.  Currently, that's arranged by
@@ -949,8 +952,8 @@
                  (async/alt!!
                    stop-ch (doseq [c [read-ch sim-ch host-info-ch]] (async/close! c))
                    (async/timeout (int (/  (- deadline (time/ephemeral-now-ns)) 1000000))) nil))
-               (>!! sim-ch host-path)
-               (prune-host-info new-state facts catalogs reports))))
+               (assoc (prune-host-info new-state facts catalogs reports)
+                      :host-path host-path))))
       read-ch)]))
 
 (defn warn-missing-data [catalogs reports facts]
@@ -998,22 +1001,25 @@
 ;;  [host-map]
 ;;    |
 ;;    v
-;; (sim-input-ch: mix) <--- [host-path] ----\
-;;    |                                     |
-;;    v                                     |
-;; simulation-loop (sim-next-ch) -----------/
-;; (host-info-ch)
-;;    |
-;;  [host-info]       
-;;    |
-;;    v
-;; event-prioritizer <-- [event (SenderEvent)]----\
-;;    |                                           |
-;;    v                                           |
-;;  [event | host-info]                       scheduler
-;;    |                                           |
-;;    v                                           |
-;; sender ---------------[event (SenderEvent)] ---/
+;; (mix: sim-input-ch sim-next-ch) < --- [host-path] ------\
+;;    |                                                    |
+;;    v                                                    |
+;; simulators                                              |
+;;    |                                                    |
+;; (host-info-ch)                                          |
+;;    |                                                    |
+;;  [host-info incl host-path]                             |
+;;    |                                                    |
+;;    v                                                    |
+;; event-prioritizer <-- [event (SenderEvent)]----\        |
+;;    |                                           |        |
+;;    v                                           |        |
+;;  [event | host-info]                       scheduler    |
+;;    |                                           |        |
+;;    v                                           |        |
+;; sender ---------------[event (SenderEvent)] ---/        |
+;;    |                                                    |
+;;    |------[host-path] ----------------------------------/
 ;;    |
 ;;    v
 ;;  [event]
@@ -1028,6 +1034,9 @@
 ;; channels provided by the simulator and the sender.  When the
 ;; channel returned by the rate monitor closes, everything should be
 ;; finished.
+;;
+;; The host-path sim-next-ch loop ensures that we can't issue more
+;; than one command sequence for a given host at a time.
 
 (defn benchmark
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
@@ -1094,8 +1103,8 @@
         rate-wait (start-rate-monitor rate-monitor-ch (-> 30 time/minutes) commands-per-puppet-run)
 
         [send-stop _send-wait]
-        (start-command-sender base-url host-info-ch rate-monitor-ch senders
-                              ssl-opts event-scheduler cmd-opts)
+        (start-command-sender base-url host-info-ch sim-next-ch rate-monitor-ch
+                              senders ssl-opts event-scheduler cmd-opts)
 
         [sim-stop _sim-wait]
         (start-simulation-loop numhosts run-interval-minutes nummsgs
