@@ -34,7 +34,7 @@
   [{:keys [resources] :as c}]
   (let [new-resource (random-kw-resource)
         key          {:type (:type new-resource) :title (:title new-resource)}]
-    (assoc c :resources (assoc resources key (random-kw-resource)))))
+    (assoc c :resources (assoc resources key new-resource))))
 
 (def add-random-resource-to-wire-catalog
   "Adds a random resource to the given wire-format catalog"
