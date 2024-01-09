@@ -550,7 +550,7 @@ module PuppetDBExtensions
       class { '::puppetdb::database::postgresql':
       listen_addresses            => 'localhost',
       manage_package_repo         => #{manage_package_repo},
-      postgres_version            => '11',
+      postgres_version            => '14',
       database_name               => 'puppetdb',
       database_username           => 'puppetdb',
       database_password           => 'puppetdb',
