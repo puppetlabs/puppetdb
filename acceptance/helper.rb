@@ -441,12 +441,9 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_module(hosts, puppet_platform)
-    command = "puppet module install puppetlabs/puppetdb"
-    # Use the older 7.10.0 version of puppetdb module on puppet5 because
-    # it depends on puppetlabs-postgresql < 8, which does not use Deferred
-    # (which does not exist in puppet5).
-    command << " -v 7.10.0" if puppet_platform == :puppet5
-    on hosts, command
+    # While we sort out a new puppetlabs-puppetdb module release, point to a branch that allows us to take the latest puppetlabs-postgresql module
+    on(hosts, 'curl -L https://github.com/puppetlabs/puppetlabs-puppetdb/archive/refs/heads/bump-postgres.tar.gz --output /tmp/puppetlabs-puppetdb')
+    on(hosts, 'puppet module install /tmp/puppetlabs-puppetdb')
   end
 
   def install_puppetdb(host, version=nil)
