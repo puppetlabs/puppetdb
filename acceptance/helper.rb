@@ -441,13 +441,16 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_module(hosts, puppet_platform)
-    # While we sort out a new puppetlabs-puppetdb module release, point to a branch that allows us to take the latest puppetlabs-postgresql module
-    on(hosts, 'curl -L https://github.com/puppetlabs/puppetlabs-puppetdb/archive/refs/heads/bump-postgres.tar.gz --output /tmp/puppetlabs-puppetdb')
-    # When upgrading FROM puppet 6 agents, we need a specific version of puppetlabs-apt which is the last version that was puppet 6/ruby 2.5 compatible
     if test_config[:install_mode] == :upgrade_oldest
-      on(hosts, 'puppet module install puppetlabs-apt --version 9.0.2')
+      # Use custom branch of puppetlabs-postgres for puppet 6 agents with gpg keys updated for last module release that was puppet 6 compatible
+      on(hosts, 'curl -L https://github.com/puppetlabs/puppetlabs-postgresql/archive/refs/heads/backport-gpg-key.tar.gz --output /tmp/puppetlabs-postgresql')
+      on(hosts, 'puppet module install /tmp/puppetlabs-postgresql')
+      on(hosts, 'puppet module install puppetlabs-puppetdb --version 7.13.0')
+    else
+      # While we sort out a new puppetlabs-puppetdb module release, point to a branch that allows us to take the latest puppetlabs-postgresql module
+      on(hosts, 'curl -L https://github.com/puppetlabs/puppetlabs-puppetdb/archive/refs/heads/bump-postgres.tar.gz --output /tmp/puppetlabs-puppetdb')
+      on(hosts, 'puppet module install /tmp/puppetlabs-puppetdb')
     end
-    on(hosts, 'puppet module install /tmp/puppetlabs-puppetdb')
   end
 
   def install_puppetdb(host, version=nil)
