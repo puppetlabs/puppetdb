@@ -149,6 +149,11 @@
         (when terminated
           (deliver terminated true))))))
 
+(defn- drop-query [queries [_deadline-ns selection-key :as deadlines-key]]
+  (-> queries
+      (update :deadlines dissoc deadlines-key)
+      (update :selector-keys dissoc selection-key)))
+
 (defn- next-expired-query!
   "Removes the next expired query (if any) from queries and returns the
   info and selection key for that query, and the next ns
@@ -167,18 +172,14 @@
       (if-not (<= deadline-ns now)
         [nil deadline-ns nil]
         (if forget
-          (let [new (-> cur
-                        (update :deadlines dissoc dead-key)
-                        (update :selector-keys dissoc dead-skey))]
+          (let [new (drop-query cur dead-key)]
             (compare-and-set! queries cur new) ;; if we lose, recur tries again
             (recur queries now))
           ;; Swap in terminated, so that we know the pg-pid won't
           ;; change to some other query's, at least until we finish or
           ;; the query thread's deref times out.
           (let [info (assoc info :terminated (promise))
-                new (-> cur
-                        (update :deadlines dissoc dead-key)
-                        (update :selector-keys assoc dead-skey info))]
+                new (drop-query cur dead-key)]
             (if (compare-and-set! queries cur new)
               (let [[[new-deadline _skey] _info] (-> new :deadlines first)]
                 [info new-deadline dead-skey])
@@ -429,6 +430,8 @@
   successfully."
   [{:keys [queries ^Selector selector ^Thread thread] :as _monitor}
    ^SelectionKey select-key]
+  ;; NOTE: This is one of the few operations that races with the
+  ;; monitor loop, so it must coordinate carefully.
   (if-not (.isAlive thread)
     (log/error "Query monitor thread not running when forgetting query (please report)")
     (let [maybe-await-termination (atom nil)]
