@@ -396,68 +396,83 @@
   ([handler param-spec]
    (wrap-typical-query handler param-spec parse-json-query))
   ([handler param-spec parse-fn]
-   (fn [{:keys [puppetdb-query] :as req}]
-     (handler
-      (if puppetdb-query
-        req
-        (try!
-          (let [start-ns (ephemeral-now-ns) ;; capture at the top
-                query-uuid (str (java.util.UUID/randomUUID))
+   (fn handle-typical-query [{:keys [globals puppetdb-query] :as req}]
+     (if puppetdb-query ;; apparently we may nest calls...
+       (handler req)
+       (let [{:keys [query-monitor]} globals
+             [new-req mon-id]
+             (try!
+               (let [start-ns (ephemeral-now-ns) ;; capture at the top
+                     query-uuid (str (java.util.UUID/randomUUID))
 
-                {:keys [pretty-print query-monitor query-timeout-default
-                        query-timeout-max scf-read-db]}
-                (:globals req)
+                     {:keys [pretty-print query-timeout-default query-timeout-max scf-read-db]}
+                     globals
 
-                req-with-query-uuid (assoc req :puppetdb-query-uuid query-uuid)
-                query-map (create-query-map req-with-query-uuid param-spec parse-fn)
-                ;; Right now, query parsing (above) has no timeouts.
-                ;; sync is expected to override (based on its own deadlines)
-                sync-timeout (when (#{"puppet:puppetdb-sync-batch"
-                                      "puppet:puppetdb-sync-summary"}
-                                    (:origin query-map))
-                               (:timeout query-map query-timeout-default))
-                timeout (or sync-timeout
-                            (min (:timeout query-map query-timeout-default)
-                                 query-timeout-max))
-                deadline (+ start-ns (* timeout 1000000000))
-                ;; Wait one extra second for time-limited-seq and
-                ;; statement timeouts since the monitor kills the
-                ;; entire pg worker.
-                monitor-deadline (+ deadline 1000000000)
+                     req-with-query-uuid (assoc req :puppetdb-query-uuid query-uuid)
+                     query-map (create-query-map req-with-query-uuid param-spec parse-fn)
+                     ;; Right now, query parsing (above) has no timeouts.
+                     ;; sync is expected to override (based on its own deadlines)
+                     sync-timeout (when (#{"puppet:puppetdb-sync-batch"
+                                           "puppet:puppetdb-sync-summary"}
+                                         (:origin query-map))
+                                    (:timeout query-map query-timeout-default))
+                     timeout (or sync-timeout
+                                 (min (:timeout query-map query-timeout-default)
+                                      query-timeout-max))
+                     deadline (+ start-ns (* timeout 1000000000))
+                     ;; Wait one extra second for time-limited-seq and
+                     ;; statement timeouts since the monitor kills the
+                     ;; entire pg worker.
+                     monitor-deadline (+ deadline 1000000000)
 
-                ;; May have no response because some tests (e.g. some
-                ;; with-http-app based tests) don't add one right now.
-                monitor-id (when-let [chan (and query-monitor
-                                                (some-> (:response req)
-                                                        response->channel))]
-                             (qmon/stop-query-at-deadline-or-disconnect query-monitor
-                                                                        query-uuid
-                                                                        chan
-                                                                        monitor-deadline
-                                                                        scf-read-db))]
-            (-> req-with-query-uuid
-                (assoc :puppetdb-query query-map)
-                (update :globals merge
-                        {:pretty-print (:pretty query-map pretty-print)
-                         :query-deadline-ns deadline
-                         :query-monitor query-monitor}
-                        (when monitor-id
-                          {:query-monitor-id monitor-id}))))
-          (catch ExceptionInfo ex
-            (when-not (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex)))
-              (throw ex))
-            ;; Note, this will not be reached for the typical
-            ;; streaming query case because after the query starts, we
-            ;; return from this function with a 200, and the stream,
-            ;; and further errors/timeouts have to be handled by the
-            ;; generated-stream thread feeding jetty.
-            (let [{:keys [id origin]} (ex-data ex)]
-              (log/warn (.getMessage ex))
-              (http/error-response
-               (if origin
-                 (tru "Query {0} from {1} exceeded timeout" id (pr-str origin))
-                 (tru "Query {0} exceeded timeout" id))
-               HttpURLConnection/HTTP_INTERNAL_ERROR)))))))))
+                     ;; May have no response because some tests (e.g. some
+                     ;; with-http-app based tests) don't add one right now.
+                     monitor-id (when-let [chan (and query-monitor
+                                                     (some-> (:response req)
+                                                             response->channel))]
+                                  (qmon/stop-query-at-deadline-or-disconnect query-monitor
+                                                                             query-uuid
+                                                                             chan
+                                                                             monitor-deadline
+                                                                             scf-read-db))]
+                 (try!
+                   [(-> req-with-query-uuid
+                        (assoc :puppetdb-query query-map)
+                        (update :globals merge
+                                {:pretty-print (:pretty query-map pretty-print)
+                                 :query-deadline-ns deadline
+                                 :query-monitor query-monitor}
+                                (when monitor-id
+                                  {:query-monitor-id monitor-id})))
+                    monitor-id]
+                   (catch Exception ex
+                     (when monitor-id (qmon/forget query-monitor monitor-id))
+                     (throw ex))))
+               (catch ExceptionInfo ex
+                 (when-not (= :puppetlabs.puppetdb.query/timeout (:kind (ex-data ex)))
+                   (throw ex))
+                 ;; Note, this will not be reached for the typical
+                 ;; streaming query case because after the query starts, we
+                 ;; return from this function with a 200, and the stream,
+                 ;; and further errors/timeouts have to be handled by the
+                 ;; generated-stream thread feeding jetty.
+                 (let [{:keys [id origin]} (ex-data ex)]
+                   (log/warn (.getMessage ex))
+                   (http/error-response
+                    (if origin
+                      (tru "Query {0} from {1} exceeded timeout" id (pr-str origin))
+                      (tru "Query {0} exceeded timeout" id))
+                    HttpURLConnection/HTTP_INTERNAL_ERROR))))]
+         (if-not mon-id
+           (handler new-req)
+           (try!
+             (let [res (handler new-req)]
+               (when-not (:puppetlabs.puppetdb.query/streaming res)
+                 (qmon/forget query-monitor mon-id))
+               res)
+             (catch Throwable ex
+               (qmon/forget query-monitor mon-id)
+               (throw ex)))))))))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a

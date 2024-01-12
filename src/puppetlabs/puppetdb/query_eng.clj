@@ -543,7 +543,8 @@
                 {:keys [count error]} @status]
             (when error
               (throw error))
-            (cond-> (http/json-response* stream)
+            (cond-> (-> (http/json-response* stream)
+                        (assoc :puppetlabs.puppetdb.query/streaming true))
               count (http/add-headers {:count count})))
           (catch JsonParseException ex
             (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))

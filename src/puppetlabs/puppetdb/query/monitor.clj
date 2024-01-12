@@ -419,8 +419,9 @@
   complete within two seconds.  Repeated calls for the same query will
   not crash.  After a call for a given key, the monitor will have
   forgotten about it, but the final disposition of that query is
-  undefined, i.e. it might or might not have been killed
-  successfully."
+  undefined, i.e. it might or might not have been killed successfully.
+  Calling this for a query that has already been forgotten is
+  not an error (simplifies some error handling)."
   [{:keys [queries ^Selector selector ^Thread thread] :as _monitor}
    ^SelectionKey select-key]
   ;; NOTE: This is one of the few operations that races with the
