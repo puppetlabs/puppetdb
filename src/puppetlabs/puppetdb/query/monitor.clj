@@ -31,9 +31,8 @@
 
   The current implementation is intended to respect the Selector
   concurrency requirements, aided in part by limiting most work to the
-  single monitor thread.  That thread's main loop handles all data
-  \"expiration\" -- other operations, which may run concurrently, only
-  set the info's :forget to true.
+  single monitor thread, though `forget` does compete with the monitor
+  loop (coordinating via the `:terminated` promise.
 
   No operations should block forever; they should all eventually (in
   some cases customizably) time out, and the current implementation is
@@ -54,11 +53,13 @@
   coordination with the :terminated promise) once the query has been
   abandoned or has timed out.
 
-  The terminated promise and :forget value coordinate between the
-  monitor and attempts to remove (forget) a query.  The arrangement is
-  intended to make sure that the attempt to forget doesn't compete
-  with an in-flight termination (otherwise the termination might kill
-  a pg worker that's no longer associated with the query).
+  The terminated promise coordinates between the monitor and attempts
+  to remove (forget) a query.  The arrangement is intended to make
+  sure that the attempt to forget doesn't return until any competing
+  termination attempt has finished, or at least had a chance to
+  finish (otherwise the termination could kill a pg worker that's no
+  longer associated with the original query, i.e. it's handling a new
+  query that jetty has picked up on that channel).
 
   The client socket monitoring depends on access to the jetty query
   response which (at least at the moment) provides indirect access to
@@ -106,45 +107,43 @@
 (defn state-summary [{:keys [deadlines selector-keys]}]
   {:selectors (keys selector-keys)
    :deadlines (->> deadlines vals
-                   (map #(select-keys % [:query-id :deadline-ns :pg-pid
-                                         :terminated :forget]))
+                   (map #(select-keys % [:query-id :deadline-ns :pg-pid :terminated]))
                    (map #(assoc % :remaining-sec
                                 (-> (- (:deadline-ns %) (ephemeral-now-ns))
                                     (/ 1000000000)
                                     double))))})
 
 (defn- terminate-query
-  "Terminates any pg-pid connection provided by the info unless :forget
-  is true.  Always delivers true to any terminated promise."
-  [{:keys [forget query-id db pg-pid terminated] :as _info} what]
+  "Terminates any pg-pid connection provided by the info Always delivers
+  true to any terminated promise."
+  [{:keys [query-id db pg-pid terminated] :as _info} what]
   (if-not pg-pid
     (log/error "Expected internal pg-pid missing (please report)")
     (try
-      (when-not forget
-        (when-let [pg-pid @pg-pid]
-          (let [[{:keys [pg_terminate_backend]} :as rows]
-                (jdbc/with-db-connection db
-                  (jdbc/query-to-vec
-                   (let [terminate (if (<= 14 (-> (db-metadata) :version first))
-                                     "pg_terminate_backend(pid, 500)"
-                                     "pg_terminate_backend(pid)")]
-                     (str "select " terminate ", pid"
-                          "  from pg_stat_activity"
-                          "  where datname = (select current_database()) and pid = ?"))
-                   pg-pid))]
-            (cond
-              (nil? pg_terminate_backend)
-              (log/warn (trs "Unable to terminate {0} PDBQuery:{1} (no PostgreSQL pid {2})"
-                             what query-id (str pg-pid)))
-              pg_terminate_backend
-              (log/info (trs "Terminated {0} PDBQuery:{1} (PostgreSQL pid {2})"
-                             what query-id (str pg-pid)))
-              :else
-              (log/warn (trs "Unable to terminate {0} PDBQuery:{1} in 500ms (PostgreSQL pid {2})"
-                             what query-id (str pg-pid))))
-            (when (seq (rest rows))
-              (log/error (trs "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
-                              what query-id (pr-str rows)))))))
+      (when-let [pg-pid @pg-pid]
+        (let [[{:keys [pg_terminate_backend]} :as rows]
+              (jdbc/with-db-connection db
+                (jdbc/query-to-vec
+                 (let [terminate (if (<= 14 (-> (db-metadata) :version first))
+                                   "pg_terminate_backend(pid, 500)"
+                                   "pg_terminate_backend(pid)")]
+                   (str "select " terminate ", pid"
+                        "  from pg_stat_activity"
+                        "  where datname = (select current_database()) and pid = ?"))
+                 pg-pid))]
+          (cond
+            (nil? pg_terminate_backend)
+            (log/warn (trs "Unable to terminate {0} PDBQuery:{1} (no PostgreSQL pid {2})"
+                           what query-id (str pg-pid)))
+            pg_terminate_backend
+            (log/info (trs "Terminated {0} PDBQuery:{1} (PostgreSQL pid {2})"
+                           what query-id (str pg-pid)))
+            :else
+            (log/warn (trs "Unable to terminate {0} PDBQuery:{1} in 500ms (PostgreSQL pid {2})"
+                           what query-id (str pg-pid))))
+          (when (seq (rest rows))
+            (log/error (trs "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
+                            what query-id (pr-str rows))))))
       (finally
         (when terminated
           (deliver terminated true))))))
@@ -165,25 +164,19 @@
   (let [{:keys [deadlines] :as cur} @queries
         [next-up] (seq deadlines)]
     ;; Grab the earliest deadline, if any.
-    (when-let [[[deadline-ns dead-skey :as dead-key]
-                {:keys [forget] :as info}]
+    (when-let [[[deadline-ns dead-skey :as _dead-key] info]
                next-up]
       ;; Use compare-and-set! (not swap!) so we can return the next deadline.
       (if-not (<= deadline-ns now)
         [nil deadline-ns nil]
-        (if forget
-          (let [new (drop-query cur dead-key)]
-            (compare-and-set! queries cur new) ;; if we lose, recur tries again
-            (recur queries now))
-          ;; Swap in terminated, so that we know the pg-pid won't
-          ;; change to some other query's, at least until we finish or
-          ;; the query thread's deref times out.
-          (let [info (assoc info :terminated (promise))
-                new (drop-query cur dead-key)]
-            (if (compare-and-set! queries cur new)
-              (let [[[new-deadline _skey] _info] (-> new :deadlines first)]
-                [info new-deadline dead-skey])
-              (recur queries now))))))))
+        ;; Swap in terminated, so that we know the pg-pid won't
+        ;; change to some other query's, at least until we finish or
+        ;; the query thread's deref times out.
+        (let [info (assoc info :terminated (promise))
+              new (update cur :selector-keys assoc dead-skey info)]
+          (if (compare-and-set! queries cur new)
+            [info nil dead-skey]
+            (recur queries now)))))))
 
 (defn- enforce-deadlines!
   "Attempts to terminate and remove everything expired from queries,
@@ -197,6 +190,8 @@
         (do
           (try!
             (stop-query info "expired")
+            (finally
+              (swap! queries drop-query [(:deadline-ns info) select-key]))
             (finally
               (.cancel ^SelectionKey select-key)))
           (recur))))))
@@ -240,11 +235,10 @@
     (when (disconnected? (.channel select-key) buf)
       (.cancel select-key)
       (let [info (-> @queries :selector-keys (get select-key))]
-        (when-not (:forget info)
-          (log/warn (trs "Unexpected PDBQuery:{0} client disconnection: {1}"
-                         (:query-id info)
-                         (pr-str (describe-key select-key))))
-          (stop-query info "abandoned")))))
+        (log/warn (trs "Unexpected PDBQuery:{0} client disconnection: {1}"
+                       (:query-id info)
+                       (pr-str (describe-key select-key))))
+        (stop-query info "abandoned"))))
   (swap! queries
          (fn [{:keys [selector-keys] :as cur}]
            (let [dead-keys (mapv (fn [sk]
@@ -378,8 +372,7 @@
                 :deadline-ns deadline-ns
                 :db db
                 :pg-pid (atom nil)
-                :terminated nil
-                :forget false}]
+                :terminated nil}]
       (swap! queries
              (fn [{:keys [selector-keys] :as prev}]
                ;; Every query channel must currently be unique since it
@@ -389,7 +382,7 @@
                                          " has same channel as " (pr-str id)))))
                (-> prev
                    (update :selector-keys assoc select-key info)
-                   (update :deadlines conj [[deadline-ns select-key] info]))))
+                   (update :deadlines assoc [deadline-ns select-key] info))))
       (.wakeup selector) ;; to recompute deadline and start watching select-key
       select-key)))
 
@@ -437,13 +430,11 @@
     (let [maybe-await-termination (atom nil)]
       (swap! queries
              (fn [{:keys [selector-keys] :as state}]
-               (if-let [{:keys [deadline-ns terminated] :as info}
+               (if-let [{:keys [deadline-ns terminated] :as _info}
                         (selector-keys select-key)]
-                 (let [info (assoc info :forget true)]
+                 (do
                    (reset! maybe-await-termination terminated)
-                   (-> state
-                       (update :selector-keys assoc select-key info)
-                       (update :deadlines assoc [deadline-ns select-key] info)))
+                   (drop-query state [deadline-ns select-key]))
                  state)))
       (.cancel select-key)
       (.wakeup selector) ;; clear out the cancelled keys (see stop-query-at-...)

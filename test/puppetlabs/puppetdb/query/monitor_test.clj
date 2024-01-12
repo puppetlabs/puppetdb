@@ -60,8 +60,7 @@
 (defn summarize-termination [[termination-ns info context & more]]
   (assert (not more))
   {:termination-ns termination-ns
-   :info (select-keys info [:query-id :deadline-ns :pg-pid :terminated
-                            :forget])
+   :info (select-keys info [:query-id :deadline-ns :pg-pid :terminated])
    :context context})
 
 (def termination-msg "terminating connection due to administrator command")
@@ -186,20 +185,17 @@
                   (is (= #{{:info {:query-id "q-ok" ;; wasn't forgotten (like bye)
                                    :pg-pid nil ;; gone before monitor acts
                                    :deadline-ns exp-deadline
-                                   :terminated true
-                                   :forget false}
+                                   :terminated true}
                             :context "expired"}
                            {:info {:query-id "q-dis"
                                    :pg-pid nil ;; gone before monitor acts
                                    :deadline-ns ##Inf
-                                   :terminated nil
-                                   :forget false}
+                                   :terminated nil}
                             :context "abandoned"}
                            {:info {:query-id "q-exp"
                                    :pg-pid res-exp-pid
                                    :deadline-ns exp-deadline
-                                   :terminated true
-                                   :forget false}
+                                   :terminated true}
                             :context "expired"}}
                          (->> summary (mapv #(dissoc % :termination-ns)) set)))
                   (let [term-ns (-> (filter #(= "q-exp" (get-in % [:info :query-id]))
@@ -273,8 +269,7 @@
       (is (= 1 (count terminations)))
       (is (= #{{:info {:pg-pid true
                        :deadline-ns ##Inf
-                       :terminated nil
-                       :forget false}
+                       :terminated nil}
                 :context "abandoned"}}
              (set (mapv #(-> (dissoc % :termination-ns)
                              (update :info dissoc :query-id)
