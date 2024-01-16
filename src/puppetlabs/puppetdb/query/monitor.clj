@@ -231,23 +231,24 @@
   puppetdb, we could consider treating data from the client as an
   error."
   [queries selected stop-query buf]
-  (doseq [^SelectionKey select-key selected]
-    (when (disconnected? (.channel select-key) buf)
-      (.cancel select-key)
-      (let [info (-> @queries :selector-keys (get select-key))]
+  (let [dead? #(disconnected? (.channel ^SelectionKey %) buf)
+        dead-keys (filterv dead? selected)]
+    (doseq [^SelectionKey dead-key dead-keys]
+      (.cancel dead-key)
+      (let [info (-> @queries :selector-keys (get dead-key))]
         (log/warn (trs "Unexpected PDBQuery:{0} client disconnection: {1}"
                        (:query-id info)
-                       (pr-str (describe-key select-key))))
-        (stop-query info "abandoned"))))
-  (swap! queries
-         (fn [{:keys [selector-keys] :as cur}]
-           (let [dead-keys (mapv (fn [sk]
-                                   [(-> selector-keys (get sk) :deadline-ns)
-                                    sk])
-                                 selected)]
-             (-> cur
-                 (update :deadlines #(apply dissoc % dead-keys))
-                 (update :selector-keys #(apply dissoc % selected)))))))
+                       (pr-str (describe-key dead-key))))
+        (stop-query info "abandoned")))
+    (swap! queries
+           (fn [{:keys [selector-keys] :as cur}]
+             (let [deadline-keys (mapv (fn [sk]
+                                         [(-> selector-keys (get sk) :deadline-ns)
+                                          sk])
+                                       dead-keys)]
+               (-> cur
+                   (update :deadlines #(apply dissoc % deadline-keys))
+                   (update :selector-keys #(apply dissoc % dead-keys))))))))
 
 (defn- deadline->select-timeout
   "Returns selector timeout ms given an ephemeral deadline-ns."
