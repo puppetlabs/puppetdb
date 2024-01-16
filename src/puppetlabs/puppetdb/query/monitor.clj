@@ -219,6 +219,7 @@
   ;;   - everyone, including jetty, etc. won't miss discarded bytes
   ;;   - transport will return -1 or exception when client is gone
   ;;   - typically there won't be any bytes, and read will return 0
+  (.clear buf)
   (try
     (= -1 (.read chan buf))
     (catch ClosedChannelException _ true)))
