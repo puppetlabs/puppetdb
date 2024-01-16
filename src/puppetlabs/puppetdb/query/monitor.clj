@@ -213,16 +213,28 @@
           :cancelled)})
 
 (defn- disconnected?
-  [^ReadableByteChannel chan buf]
+  [^ReadableByteChannel chan ^ByteBuffer buf]
   ;; Various ssumptions here:
   ;;   - transport (chan) will be non-blocking
   ;;   - everyone, including jetty, etc. won't miss discarded bytes
   ;;   - transport will return -1 or exception when client is gone
   ;;   - typically there won't be any bytes, and read will return 0
   (.clear buf)
-  (try
-    (= -1 (.read chan buf))
-    (catch ClosedChannelException _ true)))
+  (let [res (try! (.read chan buf) (catch ClosedChannelException _ :closed))]
+    (case (long res) ;; This doesn't match -1 when res is an Integer...
+      (-1 :closed) true
+      (let [pos (.position buf)]
+        ;; Client sent bytes.  Might indicate unexpected client
+        ;; behavior, or a pdb bug (i.e. if we read from the socket
+        ;; when we weren't supposed to, say after the current query
+        ;; had finished and jetty is reusing the socket.
+        ;; cf. (PE-37466)
+        (log/info (trs "Read unexpected bytes ({0}) from client query connection" pos))
+        (log/debug (apply str (trs "Unexpected client bytes: ")
+                          (if (> pos 64)
+                            [(String. (.array buf) 0 64 "UTF-8") "..."]
+                            [(String. (.array buf) 0 pos "UTF-8")])))
+        false))))
 
 (defn- stop-abandoned!
   "Attempts to terminate every selected query whose client channel has
