@@ -24,9 +24,15 @@ Release date undetermined, and contributors pending
   PuppetDB.
   ([GitHub #3912](https://github.com/puppetlabs/puppetdb/issues/3912))
 
+### Bug fixes
+
+* PuppetDB queries should no longer risk hanging when run just after
+  non-streaming queries (for example, those with `ast_only` set to
+  true). ([GitHub #3933](https://github.com/puppetlabs/puppetdb/pull/3933))
+
 ### Contributors
 
-Austin Blatt, and ...
+Austin Blatt, Rob Browning, and ...
 
 ## PuppetDB 8.2.0
 
