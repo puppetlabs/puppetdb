@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: d89f9ea0c8d4ef523456e2436f8a6cd5d70b9982\n"
+"X-Git-Ref: 89cd5c15423a38562916d0910497a67d381bc116\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1184,6 +1184,19 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query/monitor.clj
 msgid "Attempt to terminate {0} PDBQuery:{0} found multiple candidates: {1}"
+msgstr ""
+
+#. Client sent bytes.  Might indicate unexpected client
+#. behavior, or a pdb bug (i.e. if we read from the socket
+#. when we weren't supposed to, say after the current query
+#. had finished and jetty is reusing the socket.
+#. cf. (PE-37466)
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Read unexpected bytes ({0}) from client query connection"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query/monitor.clj
+msgid "Unexpected client bytes: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query/monitor.clj
