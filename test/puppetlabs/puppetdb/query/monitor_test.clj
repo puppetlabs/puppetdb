@@ -60,8 +60,7 @@
 (defn summarize-termination [[termination-ns info context & more]]
   (assert (not more))
   {:termination-ns termination-ns
-   :info (select-keys info [:query-id :deadline-ns :pg-pid :terminated
-                            :forget])
+   :info (select-keys info [:query-id :deadline-ns :pg-pid :terminated])
    :context context})
 
 (def termination-msg "terminating connection due to administrator command")
@@ -186,20 +185,17 @@
                   (is (= #{{:info {:query-id "q-ok" ;; wasn't forgotten (like bye)
                                    :pg-pid nil ;; gone before monitor acts
                                    :deadline-ns exp-deadline
-                                   :terminated true
-                                   :forget false}
+                                   :terminated true}
                             :context "expired"}
                            {:info {:query-id "q-dis"
                                    :pg-pid nil ;; gone before monitor acts
                                    :deadline-ns ##Inf
-                                   :terminated nil
-                                   :forget false}
+                                   :terminated nil}
                             :context "abandoned"}
                            {:info {:query-id "q-exp"
                                    :pg-pid res-exp-pid
                                    :deadline-ns exp-deadline
-                                   :terminated true
-                                   :forget false}
+                                   :terminated true}
                             :context "expired"}}
                          (->> summary (mapv #(dissoc % :termination-ns)) set)))
                   (let [term-ns (-> (filter #(= "q-exp" (get-in % [:info :query-id]))
@@ -273,8 +269,7 @@
       (is (= 1 (count terminations)))
       (is (= #{{:info {:pg-pid true
                        :deadline-ns ##Inf
-                       :terminated nil
-                       :forget false}
+                       :terminated nil}
                 :context "abandoned"}}
              (set (mapv #(-> (dissoc % :termination-ns)
                              (update :info dissoc :query-id)
@@ -282,30 +277,52 @@
                         summary)))))))
 
 (deftest connection-reuse
-  ;; Test multiple queries over the same connection.  Run the test
-  ;; multiple times because the first problem we encountered could
-  ;; only occur during a narrow window in the monitor loop if a new
-  ;; request came in between select invocations, after the key had
-  ;; been cancelled.
-  ;; https://github.com/puppetlabs/puppetdb/issues/3866
-  (with-puppetdb nil
-    (jdbc/with-db-transaction [] (add-certnames certnames))
-    ;; Just use curl, since it's trivally easy to get it to do what we
-    ;; need, and we already require it for test setup (via ext/).  (It
-    ;; looks like both clj-http and the JDK HttpClient have more
-    ;; indirect control over reuse.)
-    (let [nodes (-> (assoc *base-url* :prefix "/pdb/query/v4/nodes")
-                    base-url->str-with-prefix)
-          cmd ["curl" "--no-progress-meter" "--show-error" "--fail-early"
-               "--fail" nodes "-o" "/dev/null"
-               "--next" "--fail" nodes "-o" "/dev/null"
-               "--next" "--fail" nodes "-o" "/dev/null"]]
-      (loop [i 0]
-        (let [{:keys [exit out err]} (apply sh cmd)]
-          (when (< i 10)
-            (if (is (= 0 exit))
-              (recur (inc i))
-              (do
-                (apply println "Failed:" cmd)
-                (print out)
-                (print err)))))))))
+  (testing "connection reuse with simple queries"
+    ;; Test multiple queries over the same connection.  Run the test
+    ;; multiple times because the first problem we encountered could
+    ;; only occur during a narrow window in the monitor loop if a new
+    ;; request came in between select invocations, after the key had
+    ;; been cancelled.
+    ;; https://github.com/puppetlabs/puppetdb/issues/3866
+    (with-puppetdb nil
+      (jdbc/with-db-transaction [] (add-certnames certnames))
+      ;; Just use curl, since it's trivally easy to get it to do what we
+      ;; need, and we already require it for test setup (via ext/).  (It
+      ;; looks like both clj-http and the JDK HttpClient have more
+      ;; indirect control over reuse.)
+      (let [nodes (-> (assoc *base-url* :prefix "/pdb/query/v4/nodes")
+                      base-url->str-with-prefix)
+            cmd ["curl" "--no-progress-meter" "--show-error" "--fail-early"
+                 "--fail" nodes "-o" "/dev/null"
+                 "--next" "--fail" nodes "-o" "/dev/null"
+                 "--next" "--fail" nodes "-o" "/dev/null"]]
+        (loop [i 0]
+          (let [{:keys [exit out err]} (apply sh cmd)]
+            (when (< i 10)
+              (if (is (= 0 exit))
+                (recur (inc i))
+                (do
+                  (apply println "Failed:" cmd)
+                  (print out)
+                  (print err)))))))))
+
+  (testing "connection reuse with non-streaming queries"
+    (with-puppetdb nil
+      (jdbc/with-db-transaction [] (add-certnames certnames))
+      (let [q (-> (assoc *base-url* :prefix "/pdb/query/v4")
+                  base-url->str-with-prefix)
+            query (fn [q] (str "{\"query\":\"" q "\"}"))
+            ast-q (fn [q] (str "{\"query\":\"" q "\", \"ast_only\":true}"))
+            cmd ["curl" "-X" "POST" "--no-progress-meter" "--show-error" "--fail-early"
+                 "--fail" "--max-time" "1" q "-H" "Content-Type:application/json"
+                 "-d" (ast-q "nodes{}") "-o" "/dev/null"
+                 "--next"
+                 "--fail" "--max-time" "1" q "-H" "Content-Type:application/json"
+                 "-d" (query "nodes{}") "-o" "/dev/null"]
+            {:keys [exit out err]} (apply sh cmd)]
+        (if (is (= 0 exit))
+          nil
+          (do
+            (apply println "Failed:" cmd)
+            (print out)
+            (print err)))))))
