@@ -12,9 +12,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
-## PuppetDB 8.2.1 (unreleased)
+## PuppetDB 8.3.0
 
-Release date undetermined, and contributors pending
+Released January 18 2024
 
 ### New features and improvements
 
@@ -32,7 +32,8 @@ Release date undetermined, and contributors pending
 
 ### Contributors
 
-Austin Blatt, Rob Browning, and ...
+Austin Blatt, Cas Donoghue, Eric Newton, Jonathan Newman, Josh Partlow,
+Rob Browning, and Steve Axthelm
 
 ## PuppetDB 8.2.0
 
