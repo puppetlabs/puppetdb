@@ -324,7 +324,8 @@
              :install-gems {:source-paths ^:replace ["src-gems"]
                             :target-path "target-gems"
                             :dependencies ~puppetserver-test-deps}
-             :ci {:plugins [[lein-pprint "1.1.1"]]}
+             :ci {:plugins [[lein-pprint "1.1.1"]
+                            [lein-exec "0.3.7"]]}
              ; We only want to include bouncycastle in the FOSS uberjar.
              ; PE should be handled by selecting the proper bouncycastle jar
              ; at runtime (standard/fips)
