@@ -911,11 +911,14 @@
       (finally
         (Files/deleteIfExists tmp)))))
 
-(defn populate-hosts
-  "Returns a lazy sequence of initial host data file Paths, after
-  writing the data to a file in the temp-dir."
-  [n offset pdb-host include-edges? catalogs reports facts storage-dir]
+(defn- host->host-path [host storage-dir]
+  (.resolve ^Path storage-dir ^String host))
 
+(defn populate-hosts
+  "Returns a lazy sequence of host info maps, reading the data from
+  storage-dir when a suitable file exists, and deriving the data from
+  catalogs, reports, and facts otherwise."
+  [n offset pdb-host include-edges? catalogs reports facts storage-dir]
   (for [i (range n)]
     (let [random-entity (fn random-entity [host entities]
                           (some-> entities
@@ -945,17 +948,15 @@
                              new
                              (assoc-in new [:catalog "edges"] []))))
           host (str "host-" (+ offset i))
-          host-path (.resolve ^Path storage-dir host)
-          host-info (if-let [data (try
-                                 (Files/readAllBytes host-path)
-                                 (catch NoSuchFileException _))]
-                      (-> data nippy/thaw augment-host)
-                      {:host host
-                       :catalog (random-catalog host pdb-host catalogs)
-                       :report (random-entity host reports)
-                       :factset (random-entity host facts)})]
-      (write-host-info host-info host-path)
-      host-path)))
+          host-path (host->host-path host storage-dir)]
+      (if-let [data (try
+                      (Files/readAllBytes host-path)
+                      (catch NoSuchFileException _))]
+        (-> data nippy/thaw augment-host)
+        {:host host
+         :catalog (random-catalog host pdb-host catalogs)
+         :report (random-entity host reports)
+         :factset (random-entity host facts)}))))
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
@@ -995,7 +996,7 @@
   Close read-ch to terminate the background process."
   [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
    sim-ch host-info-ch read-ch
-   & {:keys [facts catalogs reports include-edges?]}]
+   & {:keys [facts catalogs reports include-edges? storage-dir]}]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
         ms-per-message (/ 1000 hosts-per-second)
@@ -1014,9 +1015,14 @@
       ;; simulation dir), and even ignoring that, it'd be sending
       ;; commands after the sleep that have timestamps that were
       ;; chosen in the last iteration.
-      (map (fn advance-host [host-path]
+      (map (fn advance-host [host-path-or-info]
              (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
-                   host-state (-> host-path Files/readAllBytes nippy/thaw)
+                   [host-path host-state]
+                   (if (map? host-path-or-info)
+                     [(-> host-path-or-info :host (host->host-path storage-dir))
+                      host-path-or-info]
+                     [host-path-or-info
+                      (-> host-path-or-info Files/readAllBytes nippy/thaw)])
                    new-state (update-host host-state include-edges? rand-perc progressing-timestamp-fn)]
                (write-host-info new-state host-path)
                (when (and (not num-msgs) (> deadline (time/ephemeral-now-ns)))
@@ -1198,7 +1204,8 @@
                                {:facts facts
                                 :catalogs catalogs
                                 :reports reports
-                                :include-catalog-edges? include-catalog-edges})
+                                :include-catalog-edges? include-catalog-edges
+                                :storage-dir storage-dir})
 
         join-fn (fn join-benchmark
                   ;; Waits for all requested events to finish.
