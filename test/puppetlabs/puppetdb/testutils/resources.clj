@@ -26,7 +26,7 @@
                         "backslash" "foo\\bar"
                         "double_quote" "foo\"bar"})}
         {:resource (sutils/munge-hash-for-storage "02")
-         :parameters nil}])
+         :parameters (sutils/munge-jsonb-for-storage {})}])
      (jdbc/insert-multi!
        :resource_params
        [{:resource (sutils/munge-hash-for-storage "01") :name "ensure"
