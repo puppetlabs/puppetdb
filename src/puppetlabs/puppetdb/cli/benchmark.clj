@@ -705,7 +705,7 @@
         storage-dir (create-storage-dir simulation-dir)
 
         ;; channels
-        initial-hosts-ch (async/to-chan!
+        initial-hosts-ch (async/to-chan!!
                           (populate-hosts numhosts offset pdb-host include-catalog-edges
                                           catalogs reports facts storage-dir))
         sim-next-ch (chan numhosts)
