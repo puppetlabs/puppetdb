@@ -5,7 +5,9 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.cli.benchmark :as benchmark]
+            [murphy :refer [with-final]]
+            [puppetlabs.puppetdb.cli.benchmark :as benchmark
+             :refer [no-open-options populate-hosts]]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
@@ -15,6 +17,7 @@
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
                                                        example-certname]]
+            [puppetlabs.puppetdb.testutils.nio :refer [create-temp-dir]]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils :refer [with-captured-throw]]
             [puppetlabs.kitchensink.core :as ks]
@@ -295,11 +298,68 @@
         symbol-keys (filter (fn [[_ is-string]] (not is-string)) checked-keys)]
     (is (empty? symbol-keys) "Mutating a catalog unexpectedly produced these keys as symbols instead of strings.")))
 
-(defn recover-preserved-host-maps
-  "Given a Path to a directory, returns an array of all thawed host-* host maps."
-  [storage-dir]
-  (->> (fs/glob (.resolve storage-dir "host-*"))
-       (map #(nippy/thaw (Files/readAllBytes (.toPath %))))))
+(deftest populate-hosts-behavior
+  (testing "without command data"
+    (with-final [storage (create-temp-dir "pdb-bench-") :always fs/delete-dir]
+      (let [host-maps (populate-hosts 3 0 "pdb.test" false nil nil nil storage)]
+        (is (= [{:host "host-0" :catalog nil :factset nil :report nil}
+                {:host "host-1" :catalog nil :factset nil :report nil}
+                {:host "host-2" :catalog nil :factset nil :report nil}]
+               host-maps)))))
+
+  (let [catalogs [{"certname" "foo" "edges" [{"a" "b"}] "resources" [{"tags" ["a"]}]}
+                  {"certname" "bar" "edges" [{"a" "b"}] "resources" [{"tags" ["a"]}]}
+                  {"certname" "baz" "edges" [{"a" "b"}] "resources" [{"tags" ["a"]}]}]
+        reports [{"certname" "foo" "status" "unchanged"}
+                 {"certname" "bar" "status" "unchanged"}
+                 {"certname" "baz" "status" "unchanged"}]
+        facts [{"certname" "foo" "values" {}}
+               {"certname" "bar" "values" {}}
+               {"certname" "baz" "values" {}}]]
+
+    (testing "from scratch"
+      (with-final [storage (create-temp-dir "pdb-bench-") :always fs/delete-dir]
+        (is (= [{:host "host-0"
+                 :catalog {"certname" "host-0"
+                           "edges" []
+                           "resources" [{"tags" ["a" "pdb.test"]}]}
+                 :factset {"certname" "host-0" "values" {}}
+                 :report {"certname" "host-0" "status" "unchanged"}}
+                {:host "host-1"
+                 :catalog {"certname" "host-1"
+                           "edges" []
+                           "resources" [{"tags" ["a" "pdb.test"]}]}
+                 :factset {"certname" "host-1" "values" {}}
+                 :report {"certname" "host-1" "status" "unchanged"}}
+                {:host "host-2"
+                 :catalog {"certname" "host-2"
+                           "edges" []
+                           "resources" [{"tags" ["a" "pdb.test"]}]}
+                 :factset {"certname" "host-2" "values" {}}
+                 :report {"certname" "host-2" "status" "unchanged"}}]
+               (populate-hosts 3 0 "pdb.test" false catalogs reports facts storage)))))
+
+    (testing "loads existing data"
+      (with-final [storage (create-temp-dir "pdb-bench-") :always fs/delete-dir]
+        (let [hosts (populate-hosts 3 0 "pdb.test" false catalogs reports facts storage)]
+          (doseq [info hosts
+                  :let [path (#'benchmark/host->host-path (:host info) storage)]]
+            (Files/write path ^"[B" (nippy/freeze info) no-open-options))
+          (is (= hosts
+                 (->> (populate-hosts 3 0 "pdb.test" false catalogs reports facts storage)
+                      (sort-by :host)))))))
+
+    (testing "respects current data selection"
+      ;; populate-hosts only handles augmentation, pruning is handled by simulators
+      (with-final [storage (create-temp-dir "pdb-bench-") :always fs/delete-dir]
+        (let [hosts (populate-hosts 3 0 "pdb.test" false catalogs reports nil storage)
+              with-facts (populate-hosts 3 0 "pdb.test" false catalogs reports facts storage)]
+          (doseq [info hosts
+                  :let [path (#'benchmark/host->host-path (:host info) storage)]]
+            (Files/write path ^"[B" (nippy/freeze info) no-open-options))
+          (is (= with-facts
+                 (->> (populate-hosts 3 0 "pdb.test" false catalogs reports facts storage)
+                      (sort-by :host)))))))))
 
 (deftest test-create-storage-dir
   (testing "tmp-dir creation"
@@ -318,6 +378,12 @@
         (tu/delete-on-exit (.toFile path))
         (is (= dirname (str path)))
         (is (fs/exists? path))))))
+
+(defn recover-preserved-host-maps
+  "Given a Path to a directory, returns an array of all thawed host-* host maps."
+  [storage-dir]
+  (->> (fs/glob (.resolve storage-dir "host-*"))
+       (map #(nippy/thaw (Files/readAllBytes (.toPath %))))))
 
 (deftest host-map-preservation
   (let [tempdir-path (.toPath (tu/temp-dir))
