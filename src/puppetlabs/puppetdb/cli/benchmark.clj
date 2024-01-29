@@ -5,37 +5,9 @@
    population. It requires that a separate, running instance of
    PuppetDB for it to submit catalogs to.
 
-   Aspects of a population this tool currently models:
-
-   * Number of nodes
-   * Run interval
-   * How often a host's catalog changes
-   * A starting catalog
-
    We attempt to approximate a number of hosts submitting catalogs at
    the specified runinterval with the specified rate-of-churn in
    catalog content.
-
-   The list of nodes is modeled in the tool as a set of Clojure
-   agents, with one agent per host. Each agent has the following
-   state:
-
-       {:host    ;; the host's name
-        :lastrun ;; when the host last sent a catalog
-        :catalog ;; the last catalog sent}
-
-   When a host needs to submit a new catalog, we determine if the new
-   catalog should be different than the previous one (based on a
-   user-specified threshold) and send the resulting catalog to
-   PuppetDB.
-
-   ### Main loop
-
-   The main loop is written in the form of a wall-clock
-   simulator. Each run through the main loop, we send each agent an
-   `update` message with the current wall-clock. Each agent decides
-   independently whether or not to submit a catalog during that clock
-   tick.
 
    ### Running parallel Benchmarks
 
@@ -65,38 +37,69 @@
    preserved host matching a particular host-# from these files at startup.
    Missing hosts (if --numhosts exceeds preserved, for example) will be
    initialized randomly as by default."
-  (:require [puppetlabs.puppetdb.catalog.utils :as catutils]
-            [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
-            [puppetlabs.trapperkeeper.logging :as logutils]
-            [puppetlabs.trapperkeeper.config :as config]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [me.raynes.fs :as fs]
-            [clojure.java.io :as io]
-            [clojure.stacktrace :as trace]
-            [clojure.walk :as walk]
-            [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.random :refer [safe-sample-normal random-string random-bool random-sha1]]
-            [puppetlabs.puppetdb.time :as time :refer [now]]
-            [puppetlabs.puppetdb.archive :as archive]
-            [clojure.core.async :refer [go go-loop <! <!! >!! chan] :as async]
-            [taoensso.nippy :as nippy]
-            [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.nio :refer [get-path]])
+  (:require
+   [clojure.core.async :refer [go go-loop <! >! >!! chan] :as async]
+   [clojure.java.io :as io]
+   [clojure.pprint :refer [pprint]]
+   [clojure.walk :as walk]
+   [me.raynes.fs :as fs]
+   [metrics.timers :as timers :refer [timer time!]]
+   [murphy :refer [try!]]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.archive :as archive]
+   [puppetlabs.puppetdb.catalog.utils :as catutils]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
+   [puppetlabs.puppetdb.client :as client]
+   [puppetlabs.puppetdb.lint :refer [ignore-value]]
+   [puppetlabs.puppetdb.metrics.core :as metrics]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
+   [puppetlabs.puppetdb.random
+    :refer [safe-sample-normal random-string random-bool random-sha1]]
+   [puppetlabs.puppetdb.utils :as utils
+    :refer [noisy-future println-err schedule]]
+   [puppetlabs.puppetdb.time :as time :refer [now]]
+   [puppetlabs.trapperkeeper.config :as config]
+   [puppetlabs.trapperkeeper.logging :as logutils]
+   [taoensso.nippy :as nippy])
   (:import
-   (clojure.core.async.impl.protocols Buffer UnblockingBuffer)
    (com.puppetlabs.ssl_utils SSLUtils)
+   (java.io File IOException)
    (java.net URI)
    (java.net.http HttpClient
                   HttpRequest
                   HttpRequest$Builder
                   HttpRequest$BodyPublishers
+                  HttpResponse
                   HttpResponse$BodyHandlers)
+   (java.nio.file CopyOption
+                  FileAlreadyExistsException
+                  Files
+                  LinkOption
+                  NoSuchFileException
+                  OpenOption
+                  Path
+                  StandardCopyOption)
    (java.nio.file.attribute FileAttribute)
-   (java.nio.file FileAlreadyExistsException Files LinkOption OpenOption StandardCopyOption)
-   (java.util ArrayDeque)
-   (java.util.concurrent RejectedExecutionException)))
+   (java.util.concurrent RejectedExecutionException
+                         ScheduledThreadPoolExecutor
+                         Semaphore
+                         TimeUnit)
+   (org.apache.commons.compress.archivers.tar TarArchiveEntry)))
+
+(def ^:private warn-on-reflection-orig *warn-on-reflection*)
+(set! *warn-on-reflection* true)
+
+(def metrics
+  (let [reg (get-in metrics/metrics-registries [:benchmark :registry])]
+    {:query-duration (timer reg (metrics/keyword->metric-name [:global] :query-duration))}))
+
+;; Completely ad-hoc...
+(def ^:private discard-all-messages?
+  (->> (or (System/getenv "PDB_BENCH_DISCARD_ALL_MESSAGES") "")
+       (re-matches #"yes|true|1")
+       seq))
 
 (defn- ssl-info->context
   [& {:keys [ssl-cert ssl-key ssl-ca-cert]}]
@@ -122,6 +125,7 @@
 
 (defn- string-publisher [s] (HttpRequest$BodyPublishers/ofString s))
 (defn- string-handler [] (HttpResponse$BodyHandlers/ofString))
+(defn- discarding-handler [] (HttpResponse$BodyHandlers/discarding))
 
 (defn- post-body
   [^HttpClient client
@@ -142,6 +146,30 @@
              (string-publisher body)
              (string-handler)))
 
+(defn- discard-json-post [_url _body _opts]
+  {:status 200})
+
+(def ^:private show-query-response? false)
+
+(def ^:private query-pdb-discard-response
+  (if discard-all-messages?
+    (fn query-pdb-discard-response [_url _query _opts]
+      nil)
+    (fn query-pdb-discard-response [uri query opts]
+      ;; Unlisted, valid keys: ssl-cert ssl-key ssl-ca-cert
+      ;; Intentionally ignores unrecognized keys
+      (let [res (-> (post-body (http-client (select-keys opts [:ssl-cert :ssl-key :ssl-ca-cert]))
+                               (json-request-generator uri)
+                               (-> {:query query} json/generate-string string-publisher)
+                               (if-not show-query-response?
+                                 (discarding-handler)
+                                 (string-handler)))
+                   ::jdk-response)]
+        (when show-query-response?
+          (binding [*out* *err*]
+            (println "Query rsponse:")
+            (println (.body ^HttpResponse res))))))))
+
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is
   logged, and nil is returned."
@@ -155,7 +183,7 @@
   "Load all .json files contained in `dir`."
   [dir from-classpath?]
   (let [target-files (if from-classpath?
-                       (->> dir io/resource io/file file-seq (remove #(.isDirectory %)))
+                       (->> dir io/resource io/file file-seq (remove #(.isDirectory ^File %)))
                        (-> dir (fs/file "*.json") fs/glob))
         data (->> target-files
                   (map try-load-file)
@@ -322,25 +350,41 @@
                 :default 0
                 :parse-fn #(if-not % 0 (Integer/parseInt %))]
                ["-N" "--nummsgs N" "Command sets to send per host (set depends on -F -C -R)"
-                :parse-fn #(Long/valueOf %)]
+                :parse-fn #(Long/valueOf ^String %)]
                ["-e" "--end-commands-in PERIOD" "End date for a command set"
                 :default-desc "0d"
                 :default (time/parse-period "0d")
                 :parse-fn #(time/parse-period %)]
-               [nil "--senders N" "Command submission thread count (default: cores / 2, min 2)"
+               [nil "--senders N" "Message submitters (default: host threads / 2, min 2)"
                 :default (max 2 (long (/ threads 2)))
                 :parse-fn #(Integer/parseInt %)]
                ["-t" "--threads N" "Deprecated alias for --senders"
                 :parse-fn #(Integer/parseInt %)
                 :id :senders]
-               [nil "--simulators N" "Command simulators (default: cores / 2, min 2)"
+               [nil "--simulators N" "Command simulators (default: host threads / 2, min 2)"
                 :default (max 2 (long (/ threads 2)))
                 :parse-fn #(Integer/parseInt %)]
-               [nil "--simulation-dir DIR" "Directory to store the full set of initial host maps to expediate re-running benchmark."]
-               ["-o" "--offset N" "Zero based offset of cert numbers for use when running multiple instance of benchmark."
+               [nil "--concurrent-hosts N"
+                "Hosts simultaneously submitting commands (default: heap MB / 3)"
+                ;; Slightly conservative default selected by
+                ;; observation (i.e. affect on heap in visualvm using
+                ;; current sample-data).
+                :default (long (/ (.maxMemory (Runtime/getRuntime)) 1024 1024 3))
+                :parse-fn #(Integer/parseInt %)]
+               [nil "--simulation-dir DIR" "Persistent host state directory (allows resume)"]
+               ["-o" "--offset N" "Host cert number offset (start with host-N)"
                 :default 0
                 :parse-fn #(Integer/parseInt %)]
-               [nil "--include-catalog-edges" "Include catalog edges in the data submitted to PuppetDB"]]
+               [nil "--include-catalog-edges" "Include catalog edges in the data submitted to PuppetDB"]
+               [nil "--catalog-query-pct PERCENT" "Chance catalog will query before send"
+                :default 0
+                :parse-fn #(/ (Double/parseDouble %) 100)
+                :validate [#(<= 0 % 100) "Must be a percentage"]
+                :id :catalog-query-prob]
+               [nil "--catalog-query-n N" "Query count before send"
+                :default 0
+                :parse-fn #(Integer/parseInt %)
+                :validate [#(>= % 0) "Must not be negative"]]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
               "the time it takes to finish processing a set of historical records (so node-ttl\n"
@@ -356,7 +400,7 @@
 
 (defn process-tar-entry
   [tar-reader]
-  (fn [acc entry]
+  (fn [acc ^TarArchiveEntry entry]
     (let [parsed-entry (-> tar-reader
                            archive/read-entry-content
                            json/parse-string)]
@@ -386,240 +430,533 @@
 
 (def random-cmd-delay safe-sample-normal)
 
+(def ^:private post-command
+  (if-not discard-all-messages?
+    post-json-via-jdk
+    discard-json-post))
+
 (defn send-facts [url certname version catalog opts]
-  (client/submit-facts url certname version catalog (assoc opts :post post-json-via-jdk)))
+  (client/submit-facts url certname version catalog (assoc opts :post post-command)))
+
 (defn send-catalog [url certname version catalog opts]
-  (client/submit-catalog url certname version catalog (assoc opts :post post-json-via-jdk)))
+  (client/submit-catalog url certname version catalog (assoc opts :post post-command)))
+
 (defn send-report [url certname version catalog opts]
-  (client/submit-report url certname version catalog (assoc opts :post post-json-via-jdk)))
+  (client/submit-report url certname version catalog (assoc opts :post post-command)))
 
-(defn start-command-sender
+;;; All command submissions are handled as an event sequence that
+;;; proceeds from factset submission to catalog submission (with
+;;; optional preceding queries) to report submission.  Any command
+;;; types that are unavailable are skipped.
+;;;
+;;; The next pending event for each host is represented as a
+;;; SenderEvent, which will be inserted into the event channel by the
+;;; scheduler at the appropriate time, and then the "director" will
+;;; handle it via a sender thread.
+;;;
+;;; The full event sequence, when all command types are available,
+;;; looks like this:
+;;;
+;;;   -> :what :send-facts - never delayed, since first
+;;;   -> :what :catalog-queries :queries [q-1 q-2 ...]
+;;;   -> :what :catalog-queries :queries [q-2]
+;;;   -> :what :send-catalog
+;;;   -> :what :send-report
+;;;
+;;; When a sequence is finished, its :result is updated and the event
+;;; is sent on to the rate monitor.
+
+;; This is overloaded to handle both what should be done, and what
+;; happened to reduce garbage.
+(defrecord SenderEvent
+    [what
+     start ;; ephemeral start of the whole sequence
+     host-info
+     result]) ;; for now just true or an exception
+
+(defn- sender-event [what start host-info]
+  (assert (contains? #{nil :send-facts :catalog-queries :send-catalog :send-report} what))
+  (->SenderEvent what start host-info nil))
+
+(defn- random-fact
+  "Returns a random [path value] for a path with a scalar
+  value (i.e. not a map or vector), with a \"dot notation\" path,
+  e.g. \"major.release.os\" or \"processors.models[2]\". Throws an
+  exception if one isn't found after 100 attempts."
+  [facts]
+  (when-not (map? facts)
+    (throw (ex-info (str "Argument is " (class facts) " not factset") {})))
+  (letfn [(trace [x result]
+            ;; Returns [path-part ... val] (as long as initial result
+            ;; is []) where val is [] or {} for empty leaf
+            ;; collections.
+            (cond
+              (map? x)
+              (if (empty? x)
+                (conj result x)
+                (let [[k v] (rand-nth (seq x))]
+                  (trace v (conj result (str "." (name k))))))
+              (vector? x)
+              (if (empty? x)
+                (conj result x)
+                (let [i (rand-int (count x))]
+                  (trace (nth x i) (conj result (str "[" i "]")))))
+              :else (conj result x)))]
+    (if-let [[candidate] (->> (repeatedly 100 #(trace (facts "values") []))
+                               (remove #(coll? (last %))) ;; should be empty
+                               (take 1)
+                               seq)]
+      (let [path (butlast candidate)
+            val (last candidate)
+            res [(apply str "facts" path) val]]
+        res)
+      (throw (ex-info "Can't find random scalar fact" {})))))
+
+(def ^:private catalog-query-generators
+  ;; Currently at least one of these must return a query for the host,
+  ;; otherwise choose-catalog-queries won't return.
+  [(fn gen-exported-resource-query [_factset catalog]
+     (when-let [exported (seq (->> (catalog "resources") (filterv #(% "exported"))))]
+       (let [res (rand-nth exported)]
+         ["from" "resources"
+          ["and"
+           ["=" "exported" true]
+           ["=" "type" (res "type")]]])))
+   (fn gen-exported-tagged-resource-query [_factset catalog]
+     (when-let [exported (seq (->> (catalog "resources") (filterv #(% "exported"))))]
+       (let [res (rand-nth exported)]
+         ["from" "resources"
+          ["and"
+           ["=" "exported" true]
+           ["=" "type" (res "type")]
+           ["=" "tag" (-> (res "tags") vec rand-nth)]]])))
+   (fn gen-random-fact-query [factset _catalog]
+     (let [[path val] (random-fact factset)]
+       ["from" "inventory"
+        ["extract" ["certname"]
+         ["=" path val]]]))])
+
+(def ^:private show-catalog-query-selection? false)
+
+(defn- choose-catalog-queries
+  "Returns n randomly chosen, possibly duplicate, queries."
+  [{:keys [factset catalog] :as _host-info} probability n]
+  (let [limit (* n 10) ;; for now, only allow 10 attempts per query
+        qs (if (or (zero? n) (zero? probability) (> (rand) probability))
+             []
+             (->> (repeatedly limit #((rand-nth catalog-query-generators) factset catalog))
+                  (remove nil?)
+                  (take n)))]
+    (when (not= n (count qs))
+      ;; FIXME: currently this just causes benchmark to hang
+      (throw
+       (ex-info (trs "Unable to generate requested {0} queries in {1} attempts"
+                     n limit)
+                {})))
+    (when show-catalog-query-selection?
+      (binding [*out* *err*]
+        (println "Catalog queries:")
+        (pprint qs)))
+    qs))
+
+(defn- schedule-event
+  [scheduler event delay-ms event-ch]
+  (try
+    (schedule scheduler (fn request-event [] (>!! event-ch event)) delay-ms)
+    (catch RejectedExecutionException _)))
+
+(defn- first-catalog-event
+  [base queries]
+  (if (seq queries)
+    (assoc base :what :catalog-queries :queries queries)
+    (-> base (dissoc :queries) (assoc :what :send-catalog))))
+
+(defn- cmd-url [base]
+  (assoc base :prefix "/pdb/cmd" :version :v1))
+
+(defn- build-query-uri [base]
+  (URI. (:protocol base) nil (:host base) (:port base) "/pdb/query/v4" nil nil))
+
+(def ^:private query-uri (memoize build-query-uri))
+
+;;; The handle-* functions handle the various types of events found on
+;;; the event-ch via the director.  In general, we re-use the event
+;;; where possible (e.g. just change :what, :result, etc.) to reduce
+;;; garbage.
+
+(defn- report-sender-ex [ex]
+  (binding [*out* *err*]
+    (println "Send failed:" (str ex))
+    (println ex)))
+
+(defn- handle-send-facts
+  [{:keys [host-info what] :as event} base-url ssl-opts scheduler event-delay event-ch seq-end
+   {:keys [catalog-query-prob catalog-query-n] :as _cmd-opts}]
+  (assert (= :send-facts what))
+  (let [{:keys [host factset catalog report]} host-info
+        result (try!
+                 (send-facts (cmd-url base-url) host 5 factset ssl-opts)
+                 (assoc event :result true)
+                 (catch IOException ex
+                   (report-sender-ex ex)
+                   (assoc event :result ex)))]
+    (or (cond
+          catalog (let [qs (choose-catalog-queries host-info catalog-query-prob catalog-query-n)]
+                    (schedule-event scheduler
+                                    (first-catalog-event event qs)
+                                    (event-delay :send-facts what)
+                                    event-ch))
+          report (schedule-event scheduler
+                                 (assoc event :what :send-report)
+                                 (event-delay :send-facts :send-report)
+                                 event-ch))
+        (seq-end host-info))
+    result))
+
+(defn- handle-catalog-queries
+  [{:keys [what queries] :as event} base-url ssl-opts scheduler event-delay event-ch seq-end]
+  (assert (= :catalog-queries what))
+  (assert (seq queries))
+  (let [[query & more] queries
+        result (try!
+                 (time!
+                  (:query-duration metrics)
+                  (query-pdb-discard-response (query-uri base-url) query ssl-opts))
+                 (assoc event :result true)
+                 (catch IOException ex
+                   (report-sender-ex ex)
+                   (assoc event :result ex)))]
+    ;; Either move on to the next query, or send a catalog
+    (or (if (seq more)
+          (schedule-event scheduler (assoc event :queries more)
+                          (event-delay :catalog-queries :catalog-queries)
+                          event-ch)
+          (schedule-event scheduler
+                          (-> event (dissoc :queries) (assoc :what :send-catalog))
+                          (event-delay :catalog-queries :send-catalog)
+                          event-ch))
+        (seq-end (:host-info event)))
+    result))
+
+(defn- handle-send-catalog
+  [event base-url ssl-opts scheduler event-delay event-ch seq-end]
+  (assert (= :send-catalog (:what event)))
+  (let [host-info (:host-info event)
+        {:keys [host catalog report]} host-info
+        result (try!
+                 (send-catalog (cmd-url base-url) host 9 catalog ssl-opts)
+                 (assoc event :result true)
+                 (catch IOException ex
+                   (report-sender-ex ex)
+                   (assoc event :result ex)))]
+    (or (cond
+          report (schedule-event scheduler (assoc event :what :send-report)
+                                 (event-delay :send-catalog :send-report)
+                                 event-ch))
+        (seq-end host-info))
+    result))
+
+(defn- handle-send-report
+  [{:keys [what host-info] :as event} base-url ssl-opts seq-end]
+  (assert (= :send-report what))
+  (let [{:keys [host report]} host-info
+        result (try!
+                 (send-report (cmd-url base-url) host 8 report ssl-opts)
+                 (assoc event :result true)
+                 (catch IOException ex
+                   (report-sender-ex ex)
+                   (assoc event :result ex)))]
+    (seq-end host-info)
+    result))
+
+;;; The start-with-* functions initiate a sequence of delayed events for
+;;; the given host-info.
+
+(defn- start-with-facts
+  [host-info start base-url ssl-opts scheduler event-delay event-ch seq-end cmd-opts]
+  (handle-send-facts (sender-event :send-facts start host-info)
+                     base-url ssl-opts scheduler event-delay event-ch seq-end
+                     cmd-opts))
+
+(defn- start-with-catalog
+  [host-info start base-url ssl-opts scheduler event-delay event-ch seq-end
+   {:keys [catalog-query-prob catalog-query-n] :as _cmd-opts}]
+  (let [event (first-catalog-event (sender-event nil start host-info)
+                                   (choose-catalog-queries host-info
+                                                           catalog-query-prob
+                                                           catalog-query-n))]
+    (case (:what event)
+      :catalog-queries
+      (handle-catalog-queries event base-url ssl-opts scheduler event-delay event-ch seq-end)
+      :send-catalog
+      (handle-send-catalog event base-url ssl-opts scheduler event-delay event-ch seq-end))))
+
+(defn- start-with-report
+  [host-info start base-url ssl-opts seq-end]
+  (handle-send-report (sender-event :send-report start host-info)
+                      base-url ssl-opts seq-end))
+
+(defn director
+  [base-url ssl-opts scheduler
+   {:keys [max-command-delay-ms] :as cmd-opts}
+   event-ch seq-end]
+  (fn stage-event [event]
+    ;; For now, no delay between the catalog queries and the catalog
+    ;; submission.  Everything else gets the same delay.
+    (let [event-delay (fn event-delay [prev next]
+                        (assert (keyword? prev))
+                        (assert (keyword? next))
+                        (case prev
+                          :catalog-queries 0
+                          (random-cmd-delay 5000 3000
+                                            {:lowerb 500
+                                             :upperb max-command-delay-ms})))]
+      (if-not (instance? SenderEvent event)
+        ;; New host-info - start the sequence
+        (let [now (time/ephemeral-now-ns)]
+          (cond
+            (:factset event)
+            (start-with-facts event now base-url ssl-opts scheduler event-delay event-ch seq-end cmd-opts)
+            (:catalog event)
+            (start-with-catalog event now base-url ssl-opts scheduler event-delay event-ch seq-end cmd-opts)
+            (:report event)
+            (start-with-report event now base-url ssl-opts seq-end)
+            :else (throw (ex-info "unexpected host info" event))))
+
+        (case (:what event)
+          :catalog-queries
+          (handle-catalog-queries event base-url ssl-opts scheduler event-delay event-ch seq-end)
+          :send-catalog
+          (handle-send-catalog event base-url ssl-opts scheduler event-delay event-ch seq-end)
+          :send-report
+          (handle-send-report event base-url ssl-opts seq-end)
+          (throw (ex-info "unexpected event" event)))))))
+
+(defn- semaphore-permit-dispenser
+  "Returns a channel that returns a permit (true) whenever one is
+  available from the given semaphore.  The quit? atom should be set to
+  true when the dispenser is no longer needed, to reclaim the thread,
+  etc., and cause the channel to close."
+  [^Semaphore sem quit?]
+  (let [now-serving (chan)]
+    (noisy-future
+     (try!
+       (loop []
+         (let [permit (.tryAcquire sem 300 TimeUnit/MILLISECONDS)]
+           (if @quit?
+             (when permit (.release sem))
+             (if-not permit
+               (recur)
+               (if (>!! now-serving true)
+                 (recur)
+                 (.release sem))))))
+       (finally
+         (async/close! now-serving))))
+    now-serving))
+
+(defn- start-command-sender
   "Start a command sending process in the background. Reads host-state maps from
-  command-send-ch and sends commands to the puppetdb at base-url. Writes
+  host-info-ch and sends commands to the puppetdb at base-url. Writes
   ::submitted to rate-monitor-ch for every command sent, or ::error if there was
-  a problem. Close command-send-ch to stop the background process."
-  [base-url command-send-ch rate-monitor-ch num-threads ssl-opts sched max-command-delay-ms]
-  (let [fanout-commands-ch (chan)
-        schedule (fn [ch v ^long delay] (utils/schedule sched #(>!! ch v) delay))]
-    ;; fanout: given a single host state, emit 3 messages, one for each command.
-    ;; This gives better parallelism for message submission.
-    (go-loop [host-state (<! command-send-ch)]
-      (if-let [{:keys [host catalog report factset]} host-state]
-        ;; randomize catalog and report delay, minimum 500ms matches the speed
-        ;; at which puppetdb received commands for an empty catalog
-        (let [catalog-delay (random-cmd-delay 5000 3000 {:lowerb 500
-                                                           :upperb max-command-delay-ms})
-              report-delay (+ catalog-delay
-                              (random-cmd-delay 5000 3000 {:lowerb 500
-                                                             :upperb max-command-delay-ms}))]
-          (try
-            (when factset (async/>! fanout-commands-ch [:factset host 5 factset]))
-            (when catalog (schedule fanout-commands-ch [:catalog host 9 catalog] catalog-delay))
-            (when report (schedule fanout-commands-ch [:report host 8 report] report-delay))
-            (catch RejectedExecutionException _
-              ;; if the scheduler has been shutdown, close channel to allow benchmark to
-              ;; terminate cleanly
-              (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
-              (async/close! fanout-commands-ch)))
-          (recur (<! command-send-ch)))
-        (do
-          (utils/request-scheduler-shutdown sched false)
-          (utils/await-scheduler-shutdown sched (* 2 max-command-delay-ms))
-          (async/close! fanout-commands-ch))))
+  a problem. Close host-info-ch to stop the background process."
+  [base-url host-info-ch sim-ch rate-monitor-ch ssl-opts scheduler cmd-opts
+   {:keys [concurrent-hosts senders]}]
+  (let [stop-ch (chan)
+        host-throttle-ch (chan)
+        event-ch (chan)
+        sender-ch (chan)
+        state (atom {:more-hosts? true :pending-sequences 0
+                     :validator #(-> % :pending-sequences (>= 0))})
 
-    ;; actual sender process
-    [(async/pipeline-blocking
-      num-threads
-      rate-monitor-ch
-      (map (fn [[command host version payload]]
-             (let [submit-fn (case command
-                               :factset send-facts
-                               :catalog send-catalog
-                               :report send-report)]
-               (try
-                 (submit-fn base-url host version payload ssl-opts)
-                 ::submitted
-                 (catch Exception e
-                   (do
-                     (println-err (trs "Exception while submitting command: {0}" e))
-                     (println-err (with-out-str (trace/print-stack-trace e))))
-                   ::error)))))
-      fanout-commands-ch)
-     fanout-commands-ch]))
+        quit? (atom false)
+        host-throttle (Semaphore. concurrent-hosts)
+
+        seq-end (fn seq-ended [host-info]
+                  (let [state (swap! state update :pending-sequences dec)]
+                    (if (and (zero? (:pending-sequences state))
+                             (not (:more-hosts? state)))
+                      (async/close! event-ch)
+                      (do
+                        (>!! sim-ch (:host-path host-info))
+                        (.release host-throttle)))))
+        stage-event (director base-url ssl-opts scheduler cmd-opts event-ch seq-end)]
+
+    ;; Send host-info and events to the senders, with events having
+    ;; priority.  Divert the host-info through the host-throttle-ch to
+    ;; enforce the --concurrent-hosts limit (i.e. maxmumum number of
+    ;; hosts that can have sequences "in flight").
+    ;;
+    ;; Giving the event channel priority ensuares we never generate
+    ;; new delayed work (events) from a new host-info until we've
+    ;; dealt with any previously generated work that's ready.
+
+    ;; Host throttle: shovel host-infos from the simulators
+    ;; host-info-ch to the host-throttle-ch (which feeds in to the
+    ;; main "prioritizing" shovel below), Assumes the other shovel
+    ;; will set quit? and close the host-throttle-ch when it's time to
+    ;; stop.  The permit dispenser (via semaphore) limits the number of
+    ;; concurrently active hosts since we acquire a permit here for
+    ;; each host-info we pass along, and the permits are only released
+    ;; at the end of the host sequence in seq-end.
+    (go
+      (try!
+        (loop [info (<! host-info-ch)
+               now-serving (semaphore-permit-dispenser host-throttle quit?)]
+          (when (and info (<! now-serving) (>! host-throttle-ch info))
+            (recur (<! host-info-ch) now-serving)))
+        (finally
+          (reset! quit? true)
+          (async/close! host-throttle-ch))))
+
+    ;; Main "prioritizing" host/event shovel: pull host-infos and
+    ;; events from the host throttle and the scheduler event channel
+    ;; respectively (prioritizing events), and pass them to the
+    ;; senders.  Critical that this be serialized wrt more-hosts? vs
+    ;; pending-sequences state updates.  Currently, that's arranged by
+    ;; having this single loop be the one that checks the pending
+    ;; count, since it's also the only thing that can generate new
+    ;; pending work (incrementing the count), via the director.
+    (go
+      (try!
+        (loop [srcs [stop-ch event-ch host-throttle-ch]]
+          (let [[event-or-info c] (async/alts! srcs :priority true)]
+            (if-not (nil? event-or-info)
+              ;; Forward event
+              (do
+                (assert (not (= c stop-ch))) ;; only allow close
+                (when (= c host-throttle-ch)
+                  (swap! state update :pending-sequences inc))
+                (>! sender-ch event-or-info)
+                (recur srcs))
+              ;; Something closed
+              (when-not (= c stop-ch)
+                ;; Keep going unless we're down to just the close channel,
+                ;; or the incoming host channel has closed and there's
+                ;; nothing in-flight (i.e. delayed).
+                (let [{:keys [more-hosts? pending-sequences]}
+                      (if (= c host-throttle-ch)
+                        (swap! state assoc :more-hosts? false)
+                        @state)
+                      srcs (filterv #(not= % c) srcs)]
+                  (when (and (not= srcs [stop-ch])
+                             (or more-hosts? (pos? pending-sequences)))
+                    (recur srcs)))))))
+        (finally
+          (reset! quit? true)
+          (async/close! host-throttle-ch)
+          (async/close! event-ch) ;; remaining events won't block
+          (async/close! sender-ch))))
+
+    ;; Start the senders
+    [state
+     stop-ch
+     (async/pipeline-blocking senders rate-monitor-ch (map stage-event) sender-ch)]))
 
 (defn start-rate-monitor
   "Start a task which monitors the rate of messages on rate-monitor-ch and
   prints it to the console every 5 seconds. Uses run-interval to compute the
   number of nodes that would produce that load."
-  [rate-monitor-ch run-interval commands-per-puppet-run]
+  [rate-monitor-ch run-interval commands-per-puppet-run _state]
   (let [run-interval-seconds (time/in-seconds run-interval)
         expected-node-message-rate (/ commands-per-puppet-run run-interval-seconds)]
-    (go-loop [events-since-last-report 0
+    (println-err
+     (str "q/s - queries per second\n"
+          "s/q - seconds per query (average completion time)\n"
+          "err - command or query errors during interval"))
+    (go-loop [cmds 0
+              queries 0
+              errors 0
               last-report-time (System/currentTimeMillis)]
-      (when (<! rate-monitor-ch)
+      (when-let [event (<! rate-monitor-ch)]
         (let [t (System/currentTimeMillis)
-              time-diff (- t last-report-time)]
+              time-diff (- t last-report-time)
+              [cmds queries errors]
+              (case (:what event)
+                (:send-facts :send-catalog :send-report)
+                (if (instance? Exception (:result event))
+                  [cmds queries (inc errors)]
+                  [(inc cmds) queries errors])
+                :catalog-queries
+                (if (instance? Exception (:result event))
+                  [cmds queries (inc errors)]
+                  [cmds (inc queries) errors]))]
           (if (> time-diff 5000)
             (let [time-diff-seconds (/ time-diff 1000)
-                  messages-per-second (float (/ events-since-last-report time-diff-seconds))]
+                  cmd-per-sec (float (/ cmds time-diff-seconds))
+                  query-per-sec (float (/ queries time-diff-seconds))]
               (println-err
-               (trs
-                "Sending {0} messages/s (load equivalent to {1} nodes with a run interval of {2} minutes)"
-                messages-per-second
-                (int (/ messages-per-second expected-node-message-rate))
-                (time/in-minutes run-interval)))
-              (recur 0 t))
-            (recur (inc events-since-last-report) last-report-time)))))))
-
-(defn delete-dir-or-report [dir]
-  (try
-    (fs/delete-dir dir)
-    (catch Exception ex
-      (println-err ex))))
+               (trs "{0} cmd/s (~{1} nodes @ {2}m) | {3} q/s {4} s/q | {5} err"
+                    cmd-per-sec
+                    (int (/ cmd-per-sec expected-node-message-rate))
+                    (time/in-minutes run-interval)
+                    (format "%.2f" query-per-sec)
+                    (format "%.2f" (-> metrics :query-duration timers/mean (/ 1000000000)))
+                    errors))
+              (recur 0 0 0 t))
+            (recur cmds queries errors last-report-time)))))))
 
 (def benchmark-shutdown-timeout 5000)
 
-(defn go-delete-dir-or-report [storage-dir]
-  ;; This function only exists to work around an eastwood complaint
-  ;; seen when the body was inline in the caller:
-  ;;
-  ;;   Exception thrown during phase :analyze+eval of linting namespace ...
-  ;;   Local name 'G__35008' has been given a type tag 'null' here:
-  ;;   nil
-  (go (delete-dir-or-report storage-dir)))
+(def ^"[Ljava.nio.file.OpenOption;" no-open-options (into-array OpenOption []))
 
-(defn defer-file-buffer-item [tmp-path final-path item]
-  (let [out (Files/newOutputStream tmp-path (into-array OpenOption []))]
-    (go
-      (try
-        (with-open [in (io/input-stream (nippy/freeze item))]
-          (io/copy in out))
-        final-path
-        (finally
-          (.close out)
-          (when-not (= tmp-path final-path)
-            (fs/move tmp-path final-path
-                     (StandardCopyOption/ATOMIC_MOVE)
-                     (StandardCopyOption/REPLACE_EXISTING))))))))
+(defn write-host-info [info ^Path path]
+  (let [host (:host info)
+        tmp (Files/createTempFile (.getParent path) host "-tmp"
+                                  (into-array FileAttribute []))]
+    (try!
+      (assert host)
+      (ignore-value (Files/write tmp ^"[B" (nippy/freeze info) no-open-options))
+      (Files/move tmp path (into-array CopyOption [StandardCopyOption/ATOMIC_MOVE
+                                                   StandardCopyOption/REPLACE_EXISTING]))
+      (finally
+        (Files/deleteIfExists tmp)))))
 
-(deftype TempFileBuffer [storage-dir q ephemeral?]
-  UnblockingBuffer
-  Buffer
-  (full? [_] false)
-  (remove! [_]
-    (let [path (<!! (.poll q))
-          result (nippy/thaw (Files/readAllBytes path))]
-      (when ephemeral? (Files/delete path))
-      result))
+(defn- host->host-path [host storage-dir]
+  (.resolve ^Path storage-dir ^String host))
 
-  (add!* [_ item]
-    (let [host (:host item)
-          tmp-path (Files/createTempFile storage-dir (format "tmp-%s-" host) ""
-                                         (into-array FileAttribute []))
-          final-path (if ephemeral?
-                       tmp-path
-                       (.resolve storage-dir host))
-          ch (defer-file-buffer-item tmp-path final-path item)]
-      (.add q ch)))
-
-  (close-buf! [_]
-    (.clear q)
-    (when ephemeral?
-      (println-err (trs "Cleaning up temp files from {0}"
-                        (pr-str (str storage-dir))))
-      (async/alt!!
-        (go-delete-dir-or-report storage-dir)
-        (println-err (trs "Finished cleaning up temp files"))
-
-        (async/timeout benchmark-shutdown-timeout)
-        (println-err (trs "Cleanup timeout expired; leaving files in {0}"
-                          (pr-str (str storage-dir))))))
-    nil)
-
-  clojure.lang.Counted
-  (count [_] (.size q)))
-
-(defn message-buffer
-  [storage-dir expected-size ephemeral?]
-  (let [q (ArrayDeque. expected-size)]
-    (TempFileBuffer. storage-dir q ephemeral?)))
-
-(defn get-host-map-keys
-  "Given a Path to a --simulation-dir directory, returns a set of all
-  preserved host-map files.
-
-  These files are named 'host-<number>'. It ignores temporary files like
-  'tmp-host-<number>-<timestamp>'."
-  [storage-dir]
-  (->> (fs/glob (.resolve storage-dir "host-*"))
-       (reduce #(conj %1 (.getName %2))
-               #{})))
-
-(defn get-preserved-host-map
-  [storage-dir certname]
-  (let [host-map-path (-> (.resolve storage-dir certname)
-                          (fs/glob)
-                          first)]
-    (nippy/thaw (Files/readAllBytes (.toPath host-map-path)))))
-
-(defn random-hosts
-  [n offset pdb-host include-edges catalogs reports facts storage-dir]
-  (let [preserved-host-map-keys (get-host-map-keys storage-dir)
-        random-entity (fn [host entities]
-                        (some-> entities
-                                rand-nth
-                                (assoc "certname" host)))
-        random-catalog (fn [host pdb-host catalogs]
-                         (when-let [cat (if include-edges
-                                          (random-entity host catalogs)
-                                          (some-> (random-entity host catalogs)
-                                                  (assoc "edges" [])))]
-                           (update cat "resources"
-                                   (partial map #(update % "tags"
-                                                         conj
-                                                         pdb-host)))))]
-    (for [i (range n)]
-      (let [host (str "host-" (+ offset i))]
-        (if (contains? preserved-host-map-keys host)
-
-          ;; Then provide a function that the simulation loop can later use to
-          ;; adjust the preserved host-map according to current user flags.
-          ;; Deferring loading of all preserved host-maps at initialization
-          ;; prevents us from blowing up the heap.
-          (let [update-preserved-fn
-                 (fn [preserved]
-                   (let [;; Adjust the preserved host-map to match current flags.
-                         updated
-                           (cond-> preserved
-                                   ;; Update missing entries where possible.
-                                   (nil? (:catalog preserved))
-                                     (assoc :catalog (random-catalog host pdb-host catalogs))
-                                   (nil? (:factset preserved))
+(defn populate-hosts
+  "Returns a lazy sequence of host info maps, reading the data from
+  storage-dir when a suitable file exists, and deriving the data from
+  catalogs, reports, and facts otherwise."
+  [n offset pdb-host include-edges? catalogs reports facts storage-dir]
+  (for [i (range n)]
+    (let [random-entity (fn random-entity [host entities]
+                          (some-> entities
+                                  rand-nth
+                                  (assoc "certname" host)))
+          random-catalog (fn random-catalog [host pdb-host catalogs]
+                           (when-let [cat (if include-edges?
+                                            (random-entity host catalogs)
+                                            (some-> (random-entity host catalogs)
+                                                    (assoc "edges" [])))]
+                             (update cat "resources"
+                                     (partial map #(update % "tags"
+                                                           conj
+                                                           pdb-host)))))
+          augment-host (fn augment-host [info]
+                         ;; Adjust the preserved host-map to match current flags.
+                         (let [host (:host info)
+                               _ (assert host)
+                               new (cond-> info
+                                     (and facts (nil? (:factset info)))
                                      (assoc :factset (random-entity host facts))
-                                   (nil? (:report preserved))
-                                     (assoc :report (random-entity host reports))
-                                   ;; Remove preserved entries where required.
-                                   ;; (preserved data may include entries that
-                                   ;; do not match the currently requested data
-                                   ;; from --facts, --catalogs, --reports or
-                                   ;; --archive...)
-                                   (nil? catalogs) (assoc :catalog nil)
-                                   (nil? facts) (assoc :factset nil)
-                                   (nil? reports) (assoc :report nil))]
-                     ;; Respect include-edges
-                     (if (or include-edges
-                             (nil? (:catalog updated)))
-                       updated
-                       (assoc-in updated [:catalog "edges"] []))))]
-            {:host host
-             :storage-dir storage-dir
-             :update-preserved-fn update-preserved-fn})
-
-          ;; Otherwise generate new random host-map
-          {:host host
-           :catalog (random-catalog host pdb-host catalogs)
-           :report (random-entity host reports)
-           :factset (random-entity host facts)})))))
+                                     (and catalogs (nil? (:catalog info)))
+                                     (assoc :catalog (random-catalog host pdb-host catalogs))
+                                     (and reports (nil? (:report info)))
+                                     (assoc :report (random-entity host reports)))]
+                           (if (or include-edges? (nil? (:catalog new)))
+                             new
+                             (assoc-in new [:catalog "edges"] []))))
+          host (str "host-" (+ offset i))
+          host-path (host->host-path host storage-dir)]
+      (if-let [data (try
+                      (Files/readAllBytes host-path)
+                      (catch NoSuchFileException _))]
+        (-> data nippy/thaw augment-host)
+        {:host host
+         :catalog (random-catalog host pdb-host catalogs)
+         :report (random-entity host reports)
+         :factset (random-entity host facts)}))))
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
@@ -641,40 +978,60 @@
     (fn []
       (jitter (now) run-interval-minutes))))
 
+(defn prune-host-info
+  "Adjusts the info to match the current run, i.e. if the current run
+  didn't specify --catalogs, then prune it.  We might have extra data
+  when using a simulation dir from a previous run with different
+  arguments."
+  [info factsets catalogs reports]
+  (cond-> info
+    (not factsets) (dissoc :factset)
+    (not catalogs) (dissoc :catalog)
+    (not reports) (dissoc :report)))
+
 (defn start-simulation-loop
   "Run a background process which takes host-state maps from read-ch, updates
   them with update-host, and puts them on write-ch. If num-msgs is not given,
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
   [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
-   write-ch read-ch include-edges]
+   sim-ch host-info-ch read-ch
+   & {:keys [facts catalogs reports include-edges? storage-dir]}]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
         ms-per-message (/ 1000 hosts-per-second)
         ms-per-thread (* ms-per-message simulation-threads)
-        progressing-timestamp-fn (progressing-timestamp numhosts num-msgs run-interval-minutes end-commands-in)]
-    (async/pipeline-blocking
-     simulation-threads
-     write-ch
-     (map (fn [host-state]
-            (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
-                  new-host
-                    (if-let [update-preserved-fn (:update-preserved-fn host-state)]
-                      ;; execute the deferred function to initialize this host-map
-                      ;; from the contents of the preserved file in --simulation-dir
-                      (let [preserved (get-preserved-host-map
-                                        (:storage-dir host-state)
-                                        (:host host-state))]
-                        (update-preserved-fn preserved))
-                      host-state)
-                  updated-host
-                    (update-host new-host include-edges rand-perc progressing-timestamp-fn)]
-              (when (and (not num-msgs)
-                         (> deadline (time/ephemeral-now-ns)))
-                ;; sleep until deadline
-                (Thread/sleep (int (/ (- deadline (time/ephemeral-now-ns)) 1000000))))
-              updated-host)))
-     read-ch)))
+        progressing-timestamp-fn (progressing-timestamp numhosts num-msgs run-interval-minutes
+                                                        end-commands-in)
+        stop-ch (chan)]
+    [stop-ch
+     (async/pipeline-blocking
+      simulation-threads
+      host-info-ch
+      ;; As currently arranged, the initial host state will never
+      ;; reach the senders because we advance it before sending.
+      ;; Alternately, we could prune/send host-state, but that'd be
+      ;; sending potentially arbitrarily stale data (from existing
+      ;; simulation dir), and even ignoring that, it'd be sending
+      ;; commands after the sleep that have timestamps that were
+      ;; chosen in the last iteration.
+      (map (fn advance-host [host-path-or-info]
+             (let [deadline (+ (time/ephemeral-now-ns) (* ms-per-thread 1000000))
+                   [host-path host-state]
+                   (if (map? host-path-or-info)
+                     [(-> host-path-or-info :host (host->host-path storage-dir))
+                      host-path-or-info]
+                     [host-path-or-info
+                      (-> host-path-or-info Files/readAllBytes nippy/thaw)])
+                   new-state (update-host host-state include-edges? rand-perc progressing-timestamp-fn)]
+               (write-host-info new-state host-path)
+               (when (and (not num-msgs) (> deadline (time/ephemeral-now-ns)))
+                 (async/alt!!
+                   stop-ch (doseq [c [read-ch sim-ch host-info-ch]] (async/close! c))
+                   (async/timeout (int (/  (- deadline (time/ephemeral-now-ns)) 1000000))) nil))
+               (assoc (prune-host-info new-state facts catalogs reports)
+                      :host-path host-path))))
+      read-ch)]))
 
 (defn warn-missing-data [catalogs reports facts]
   (when-not catalogs
@@ -684,10 +1041,10 @@
   (when-not facts
     (println-err (trs "No facts specified; skipping fact submission"))))
 
-(defn register-shutdown-hook! [f]
+(defn register-shutdown-hook! [^Runnable f]
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
-(defn create-storage-dir!
+(defn create-storage-dir
   "Returns a Path to the directory where simulation host-maps are stored.
 
   If simulation-dir is set, then the path will be the absolute-path to
@@ -714,36 +1071,55 @@
       absolute-path)))
 
 ;; The core.async processes and channels fit together like
-;; this (square brackets indicate data being sent):
+;; this (square brackets indicate data being sent, parens channels):
 ;;
-;; (initial-hosts-ch: host-maps)
+;; (initial-hosts-ch)
+;;    |
+;;  [host-map]
 ;;    |
 ;;    v
-;; mix (simulation-read-ch: host-maps) <-- (mq-ch: host-maps) <--\
-;;    |                                                          |
-;;    v                                                          |
-;; simulation-loop                                               |
-;;    |                                                          |
-;;    v                                                          |
-;; mult (simulation-write-ch: host-maps) ------------------------/
-;;    |
-;;    | (command-send-ch: host-maps)
-;;    |
-;;  [host-state]
+;; (mix: sim-input-ch sim-next-ch) < --- [host-path] ------\
+;;    |                                                    |
+;;    v                                                    |
+;; simulators                                              |
+;;    |                                                    |
+;; (host-info-ch)                                          |
+;;    |                                                    |
+;;  [host-info incl host-path]                             |
+;;    |                                                    |
+;;    v                                                    |
+;; (host-throttle-ch)                                      |
+;;    |                                                    |
+;;    v                                                    |
+;; event-prioritizer <-- [event (SenderEvent)]----\        |
+;;    |                                           |        |
+;;    v                                           |        |
+;;  [event | host-info]                       scheduler    |
+;;    |                                           |        |
+;;    v                                           |        |
+;; sender ---------------[event (SenderEvent)] ---/        |
+;;    |                                                    |
+;;    |------[host-path] ----------------------------------/
 ;;    |
 ;;    v
-;; command-sender ------------ [delayed catalog & report] --\
-;;    |                                                     |
-;;    |                                                     v
-;;  [factset]                                             (scheduler)
-;;    |                                                     |
-;;    | (rate-monitor-ch: ::success or ::error)<------------/
+;;  [event]
+;;    |
 ;;    v
 ;; rate-monitor
 ;;
-;; It's all set up so that channel closes flow downstream (and upstream to the
-;; producer). The command-sender is not a pipeline so to shut down benchmark
-;; simulation-read-ch and fanout-ch must be closed and the scheduler shutdown.
+;; In general, closing an upstream channel cascades downstream,
+;; cleaning everything up, except for the sender, because even after
+;; the host-info-ch has closed, it may still have events pending via
+;; the scheduler.  To shut down properly, just close the "stop"
+;; channels provided by the simulator and the sender.  When the
+;; channel returned by the rate monitor closes, everything should be
+;; finished.
+;;
+;; The host-path sim-next-ch loop ensures that we can't issue more
+;; than one command sequence for a given host at a time.
+;;
+;; The host-throttle-ch restricts the number of hosts that have active
+;; command/query sequences to the --concurrent-hosts limit.
 
 (defn benchmark
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
@@ -771,70 +1147,87 @@
             :else ["http" "localhost" 8080]))
         _ (println-err (format "Connecting to %s://%s:%s" protocol pdb-host pdb-port))
         ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
-        base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1 protocol)
+        base-url {:protocol protocol :host pdb-host :port pdb-port}
         run-interval (get options :runinterval 30)
         run-interval-minutes (-> run-interval time/minutes)
 
-        max-command-delay-ms 15000
+        cmd-opts (merge {:max-command-delay-ms 15000}
+                        (select-keys options [:catalog-query-prob :catalog-query-n]))
 
         commands-per-puppet-run (+ (if catalogs 1 0)
                                    (if reports 1 0)
                                    (if facts 1 0))
-        storage-dir (create-storage-dir! simulation-dir)
+        storage-dir (create-storage-dir simulation-dir)
 
         ;; channels
-        initial-hosts-ch (async/to-chan!
-                          (random-hosts numhosts offset pdb-host include-catalog-edges
-                                        catalogs reports facts storage-dir))
-        mq-ch (chan (message-buffer storage-dir numhosts (nil? simulation-dir)))
-        _ (register-shutdown-hook! #(async/close! mq-ch))
+        initial-hosts-ch (async/to-chan!!
+                          (populate-hosts numhosts offset pdb-host include-catalog-edges
+                                          catalogs reports facts storage-dir))
+        sim-next-ch (chan numhosts)
+        _ (register-shutdown-hook! #(async/close! sim-next-ch))
 
-        command-send-ch (chan)
+        host-info-ch (chan)
         rate-monitor-ch (chan)
 
-        simulation-read-ch (let [ch (chan)
-                                 mixer (async/mix ch)]
-                             (async/solo-mode mixer :pause)
-                             (async/toggle mixer {initial-hosts-ch {:solo true}})
-                             (async/admix mixer mq-ch)
-                             (if nummsgs (async/take (* numhosts nummsgs) ch) ch))
-        simulation-write-ch (let [ch (chan)
-                                  mult (async/mult ch)]
-                              (async/tap mult command-send-ch)
-                              (async/tap mult mq-ch)
-                              ch)
+        sim-input-ch (let [ch (chan)
+                           mixer (async/mix ch)]
+                       (async/solo-mode mixer :pause)
+                       (async/toggle mixer {initial-hosts-ch {:solo true}})
+                       (async/admix mixer sim-next-ch)
+                       (if nummsgs (async/take (* numhosts nummsgs) ch) ch))
 
-        ;; processes
-        _rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
-                                                      (-> 30 time/minutes)
-                                                      commands-per-puppet-run)
-        command-delay-scheduler (utils/scheduler 1)
+        ^ScheduledThreadPoolExecutor
+        event-scheduler (utils/scheduler 1)
+
         ;; ensures we submit all commands after they are scheduled
         ;; before we tear down the output channel
-        _ (.setExecuteExistingDelayedTasksAfterShutdownPolicy command-delay-scheduler true)
+        _ (.setExecuteExistingDelayedTasksAfterShutdownPolicy event-scheduler true)
 
-        [command-sender-finished-ch fanout-ch] (start-command-sender base-url
-                                                                     command-send-ch
-                                                                     rate-monitor-ch
-                                                                     senders
-                                                                     ssl-opts
-                                                                     command-delay-scheduler
-                                                                     max-command-delay-ms)
-        _ (start-simulation-loop numhosts run-interval-minutes nummsgs end-commands-in rand-perc
-                                 simulators simulation-write-ch simulation-read-ch include-catalog-edges)
+        [state send-stop _send-wait]
+        (start-command-sender base-url host-info-ch sim-next-ch rate-monitor-ch
+                              ssl-opts event-scheduler cmd-opts
+                              {:senders senders
+                               :concurrent-hosts (:concurrent-hosts options)})
+
+        rate-wait (start-rate-monitor rate-monitor-ch
+                                      (-> 30 time/minutes)
+                                      commands-per-puppet-run
+                                      state)
+
+        [sim-stop _sim-wait]
+        (start-simulation-loop numhosts run-interval-minutes nummsgs
+                               end-commands-in rand-perc
+                               simulators
+                               sim-next-ch
+                               host-info-ch
+                               sim-input-ch
+                               {:facts facts
+                                :catalogs catalogs
+                                :reports reports
+                                :include-catalog-edges? include-catalog-edges
+                                :storage-dir storage-dir})
+
         join-fn (fn join-benchmark
+                  ;; Waits for all requested events to finish.
+                  ;; Returns true if the operation finished without
+                  ;; timing out
                   ([] (join-benchmark nil))
                   ([timeout-ms]
                    (let [t-ch (if timeout-ms (async/timeout timeout-ms) (chan))]
-                     (async/alt!! t-ch false command-sender-finished-ch true)
-                     (async/alt!! t-ch false rate-monitor-ch true))))
+                     (async/alt!! t-ch false rate-wait true))))
         stop-fn (fn stop-benchmark []
-                  (async/close! simulation-read-ch)
-                  (utils/request-scheduler-shutdown command-delay-scheduler true)
-                  (async/close! fanout-ch)
-                  (when-not (join-fn benchmark-shutdown-timeout)
-                    (println-err (trs "Timed out while waiting for benchmark to stop."))
-                    false))
+                  ;; Requests an immediate halt, abandoning any events
+                  ;; in progress.  Returns true if the operation
+                  ;; finished without timing out
+                  (async/close! sim-stop)
+                  ;; Have to stop the sender too since it's not solely
+                  ;; dependent on the host-info channel.
+                  (async/close! send-stop)
+                  (utils/request-scheduler-shutdown event-scheduler true)
+                  (or (join-fn benchmark-shutdown-timeout)
+                      (do
+                        (println-err (trs "Timed out while waiting for benchmark to stop."))
+                        false)))
         _ (register-shutdown-hook! stop-fn)]
 
     {:stop stop-fn
@@ -849,11 +1242,12 @@
   "Runs the benchmark command as directed by the command line args and
   returns an appropriate exit status."
   [args]
-  (run-cli-cmd #(do
-                  (when-let [{:keys [join]} (benchmark-wrapper args)]
-                    (println-err (trs "Press ctrl-c to stop"))
-                    (join))
+  (run-cli-cmd #(let [{:keys [join]} (benchmark-wrapper args)]
+                  (println-err (trs "Press ctrl-c to stop"))
+                  (join)
                   0)))
 
 (defn -main [& args]
   (exit (cli args)))
+
+(set! *warn-on-reflection* warn-on-reflection-orig)

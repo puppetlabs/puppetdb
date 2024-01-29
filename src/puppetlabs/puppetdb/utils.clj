@@ -554,7 +554,7 @@
 (defn await-scheduler-shutdown [s wait-time]
   (.awaitTermination s wait-time TimeUnit/MILLISECONDS))
 
-(defn schedule [s f delay]
+(defn schedule [s f ^long delay]
   (.schedule s f delay TimeUnit/MILLISECONDS))
 
 (defn schedule-at-fixed-rate [s f initial-delay period]

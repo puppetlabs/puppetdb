@@ -6,9 +6,12 @@
   [java.nio.file Path Files]
   [java.nio.file.attribute FileAttribute]))
 
-(defn create-temp-dir [^Path path ^String prefix]
-  (ignore-value (Files/createDirectories path (into-array FileAttribute [])))
-  (Files/createTempDirectory path prefix (into-array FileAttribute [])))
+(defn create-temp-dir
+  ([^String prefix]
+   (Files/createTempDirectory prefix (into-array FileAttribute [])))
+  ([^Path path ^String prefix]
+   (ignore-value (Files/createDirectories path (into-array FileAttribute [])))
+   (Files/createTempDirectory path prefix (into-array FileAttribute []))))
 
 (defn resolve-path [^Path path ^String suffix]
   (.resolve path suffix))
