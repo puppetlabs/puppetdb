@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 89cd5c15423a38562916d0910497a67d381bc116\n"
+"X-Git-Ref: 6d2448d98eec66fecb5882e9d61895834f9edbe7\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -62,14 +62,6 @@ msgid "Edge ''{0}'' has invalid relationship type ''{1}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/catalogs.clj
-msgid "Catalog has unexpected keys: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/catalogs.clj
-msgid "Catalog is missing keys: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/catalogs.clj
 msgid "Catalog version ''{0}'' is not a legal version number"
 msgstr ""
 
@@ -90,25 +82,11 @@ msgid "Supplied directory {0} contains no usable data!"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Exception while submitting command: {0}"
+msgid "Unable to generate requested {0} queries in {1} attempts"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid ""
-"Sending {0} messages/s (load equivalent to {1} nodes with a run interval of "
-"{2} minutes)"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Cleaning up temp files from {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Finished cleaning up temp files"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Cleanup timeout expired; leaving files in {0}"
+msgid "{0} cmd/s (~{1} nodes @ {2}m) | {3} q/s {4} s/q | {5} err"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
