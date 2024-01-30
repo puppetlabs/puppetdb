@@ -41,6 +41,7 @@
    [clojure.core.async :refer [go go-loop <! >! >!! chan] :as async]
    [clojure.java.io :as io]
    [clojure.pprint :refer [pprint]]
+   [clojure.string :as str]
    [clojure.walk :as walk]
    [me.raynes.fs :as fs]
    [metrics.timers :as timers :refer [timer time!]]
@@ -50,6 +51,7 @@
    [puppetlabs.puppetdb.archive :as archive]
    [puppetlabs.puppetdb.catalog.utils :as catutils]
    [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.cli.benchmark.query :as bench-query]
    [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
    [puppetlabs.puppetdb.client :as client]
    [puppetlabs.puppetdb.lint :refer [ignore-value]]
@@ -87,6 +89,8 @@
                          Semaphore
                          TimeUnit)
    (org.apache.commons.compress.archivers.tar TarArchiveEntry)))
+
+;; FIXME: make sure --queriers respects DISCARD_ALL_QUERIES
 
 (def ^:private warn-on-reflection-orig *warn-on-reflection*)
 (set! *warn-on-reflection* true)
@@ -312,15 +316,18 @@
 (defn validate-options
   [options]
   (cond
-    (and (contains? options :runinterval)
-         (contains? options :nummsgs))
+    (and (seq (:querier options))
+         (or (contains? options :runinterval) (contains? options :nummsgs)))
+    (utils/throw-sink-cli-error "Error: --nummsgs, --runinterval, and --querier are mutually exclusive.")
+
+    (and (contains? options :runinterval) (contains? options :nummsgs))
     (do
       (println-err "Warning: -N/--nummsgs and -i/--runinterval provided. Running in --nummsgs mode.")
       options)
 
-    (kitchensink/missing? options :runinterval :nummsgs)
-    (utils/throw-sink-cli-error
-     "Error: Either -N/--nummsgs or -i/--runinterval is required.")
+    (and (kitchensink/missing? options :runinterval :nummsgs)
+         (empty? (:querier options)))
+    (utils/throw-sink-cli-error "Error: must specify --nummsgs, --runinterval, or --querier.")
 
     (and (contains? options :archive)
          (not (kitchensink/missing? options :reports :catalogs :facts)))
@@ -329,10 +336,19 @@
 
     :else options))
 
+(defn- parse-querier
+  [s]
+  (let [split (str/split s #":")]
+    (case (count split)
+      0 false
+      1 [1 (first split)]
+      2 [(Integer/parseInt (first split)) (second split)]
+      false)))
+
 (defn- validate-cli!
   [args]
   (let [threads (.availableProcessors (Runtime/getRuntime)) ;; actually hyperthreads
-        pre "usage: puppetdb benchmark -n HOST_COUNT ...\n\n"
+        pre "usage: puppetdb benchmark (-n HOST_COUNT | --querier [N:]CATEGORY) ...\n\n"
         specs [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"
                 :parse-fn config/load-config]
                [nil "--protocol (http|https)" "Network protocol (default via CONFIG)"
@@ -384,12 +400,18 @@
                [nil "--catalog-query-n N" "Query count before send"
                 :default 0
                 :parse-fn #(Integer/parseInt %)
-                :validate [#(>= % 0) "Must not be negative"]]]
+                :validate [#(>= % 0) "Must not be negative"]]
+               [nil "--querier [N:]CATEGORY" "Run N random queriers for CATEGORY in queries.edn"
+                :multi true :default [] :update-fn conj
+                :parse-fn parse-querier
+                :validate [vector? "must be CATEGORY or N:CATEGORY"]]]
         post ["\n"
               "The PERIOD (e.g. '3d') will typically be slightly in the future to account for\n"
               "the time it takes to finish processing a set of historical records (so node-ttl\n"
-              "will be further away)\n"]
-        required [:config :numhosts]]
+              "will be further away)\n"
+              "\n"
+              "Currently, queries.edn is in resources.puppetlabs.puppetdb.sample.\n"]
+        required [:config]]
     (utils/try-process-cli
      (fn []
        (-> args
@@ -1121,7 +1143,22 @@
 ;; The host-throttle-ch restricts the number of hosts that have active
 ;; command/query sequences to the --concurrent-hosts limit.
 
-(defn benchmark
+(defn pdb-connection-info [{:keys [config] :as options}]
+  (let [{:keys [host port ssl-host ssl-port]} (:jetty config)
+        [protocol pdb-host pdb-port]
+        (case (:protocol options)
+          "http" ["http" (or host "localhost") (or port 8080)]
+          "https" ["https" (or ssl-host "localhost") (or ssl-port 8081)]
+          (cond
+            ssl-port ["https" (or ssl-host "localhost") ssl-port]
+            ssl-host ["https" ssl-host (or ssl-port 8081)]
+            port ["http" (or host "localhost") port]
+            host ["http" host (or port 8080)]
+            :else ["http" "localhost" 8080]))
+        ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])]
+    [protocol pdb-host pdb-port ssl-opts]))
+
+(defn send-commands
   "Feeds commands to PDB as requested by args. Returns a map of :join, a
   function to wait for the benchmark process to terminate (only happens when you
   pass nummsgs), and :stop, function to request termination of the benchmark
@@ -1134,19 +1171,8 @@
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         _ (warn-missing-data catalogs reports facts)
-        {:keys [host port ssl-host ssl-port]} (:jetty config)
-        [protocol pdb-host pdb-port]
-        (case (:protocol options)
-          "http" ["http" (or host "localhost") (or port 8080)]
-          "https" ["https" (or ssl-host "localhost") (or ssl-port 8081)]
-          (cond
-            ssl-port ["https" (or ssl-host "localhost") ssl-port]
-            ssl-host ["https" ssl-host (or ssl-port 8081)]
-            port ["http" (or host "localhost") port]
-            host ["http" host (or port 8080)]
-            :else ["http" "localhost" 8080]))
+        [protocol pdb-host pdb-port ssl-opts] (pdb-connection-info options)
         _ (println-err (format "Connecting to %s://%s:%s" protocol pdb-host pdb-port))
-        ssl-opts (select-keys (:jetty config) [:ssl-cert :ssl-key :ssl-ca-cert])
         base-url {:protocol protocol :host pdb-host :port pdb-port}
         run-interval (get options :runinterval 30)
         run-interval-minutes (-> run-interval time/minutes)
@@ -1233,21 +1259,34 @@
     {:stop stop-fn
      :join join-fn}))
 
-(defn benchmark-wrapper [args]
-  (->  args
-       validate-cli!
-       benchmark))
+(defn send-commands-wrapper [args]
+  (-> args validate-cli! send-commands))
+
+(defn send-queries
+  [options]
+  (let [{:keys [config querier]} options
+        _ (logutils/configure-logging! (get-in config [:global :logging-config]))
+        [protocol pdb-host pdb-port ssl-opts] (pdb-connection-info options)
+        _ (println-err (format "Querying %s://%s:%s" protocol pdb-host pdb-port))
+        base-url {:protocol protocol :host pdb-host :port pdb-port}
+        stop-ch (chan)]
+    (register-shutdown-hook! #(async/close! stop-ch))
+    (bench-query/cli base-url ssl-opts querier stop-ch)))
 
 (defn cli
   "Runs the benchmark command as directed by the command line args and
   returns an appropriate exit status."
   [args]
-  (run-cli-cmd #(let [{:keys [join]} (benchmark-wrapper args)]
-                  (println-err (trs "Press ctrl-c to stop"))
-                  (join)
-                  0)))
+  (run-cli-cmd
+   #(let [opts (validate-cli! args)]
+      (println-err (trs "Press ctrl-c to stop"))
+      (if (seq (:querier opts))
+        (send-queries opts)
+        (let [{:keys [join]} (send-commands opts)]
+          (join)
+          0)))))
 
 (defn -main [& args]
-  (exit (cli args)))
+  (exit (try! (cli args) (finally (shutdown-agents)))))
 
 (set! *warn-on-reflection* warn-on-reflection-orig)

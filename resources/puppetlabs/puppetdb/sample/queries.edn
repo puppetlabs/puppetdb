@@ -1,0 +1,608 @@
+{:cd4pe
+ [{:path "/pdb/query/v4/resources"
+   :method :post
+   :query
+   ["extract"
+    ["parameters"]
+    ["and" ["=" "title" "Puppet_enterprise::Master::Code_manager"]]]
+   :alias "CD4PE - code manager resource"}
+  {:path "/pdb/query/v4/resources"
+   :method :post
+   :query
+   ["extract"
+    ["title" "type" "resource" "file" "certname" "line" "environment"]
+    ["and"
+     ["or"
+      ["and"
+       ["null?" "file" false]
+       ["or"
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/profile/manifests/nested.pp"]
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/profile/manifests/nested/includes.pp"]]]
+      ["=" "title" "Profile::Nested"]
+      ["=" "title" "Profile::Nested::Includes"]]
+     ["=" "environment" "impact_analysis_tests_prod"]]]
+   :alias "CD4PE - impact analysis 1"}
+  {:path "/pdb/query/v4/resources"
+   :method :post
+   :query
+   ["extract"
+    ["title" "type" "resource" "file" "certname" "line" "environment"]
+    ["and"
+     ["or"
+      ["and"
+       ["null?" "file" false]
+       ["or"
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/role/manifests/example2.pp"]]]
+      ["=" "title" "Role::Example2"]]
+     ["=" "environment" "impact_analysis_tests_prod"]]]
+   :alias "CD4PE - impact analysis 2"}
+  {:path "/pdb/query/v4/resources"
+   :method :post
+   :query
+   ["extract"
+    ["title" "type" "resource" "file" "certname" "line" "environment"]
+    ["and"
+     ["or"
+      ["and"
+       ["null?" "file" false]
+       ["or"
+        ["~" "file" "impact_analysis_tests_prod/modules/cd4pe"]
+        ["~" "file" "impact_analysis_tests_prod/modules/cd4pe_tests"]
+        ["~" "file" "impact_analysis_tests_prod/manifests/site.pp"]
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/profile/manifests/base.pp"]
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/profile/manifests/firewall.pp"]
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/role/manifests/example.pp"]
+        ["~"
+         "file"
+         "impact_analysis_tests_prod/site/role/manifests/webserver.pp"]]]
+      ["=" "title" "Impact_analysis_tests_prod::Site"]
+      ["=" "title" "Profile::Base"]
+      ["=" "title" "Profile::Firewall"]
+      ["=" "title" "Role::Example"]
+      ["=" "title" "Role::Webserver"]]
+     ["=" "environment" "impact_analysis_tests_prod"]]]
+   :alias "CD4PE - firewall analysis cd4pe"}]
+
+ :console
+ [{:path "/pdb/query/v4/fact-names"
+   :method :get
+   :query nil
+   :alias "CONS - fact names"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract" [["function" "count"]] ["=" "node_state" "active"]]]
+   :alias "CONS - active nodes"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     ["certname"
+      "report_environment"
+      "report_timestamp"
+      "latest_report_hash"
+      "latest_report_status"
+      "latest_report_noop"
+      "latest_report_noop_pending"
+      "latest_report_corrective_change"
+      "latest_report_job_id"]
+     ["and"
+      ["null?" "report_timestamp" true]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - node details"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]]
+     ["and"
+      ["<" "report_timestamp" "2021-03-24T09:30:23.308Z"]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - count reports before timestamp"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]]
+     ["and"
+      ["null?" "report_timestamp" true]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - nodes with a report"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]
+      "cached_catalog_status"
+      "latest_report_status"
+      "latest_report_noop"
+      "latest_report_noop_pending"
+      "latest_report_corrective_change"]
+     ["and"
+      [">=" "report_timestamp" "2021-03-24T09:30:23.308Z"]
+      ["=" "node_state" "active"]]
+     ["group_by"
+      "cached_catalog_status"
+      "latest_report_status"
+      "latest_report_noop"
+      "latest_report_noop_pending"
+      "latest_report_corrective_change"]]]
+   :alias "CONS - latest report stats"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     ["certname"]
+     ["and"
+      [">" "report_timestamp" "2021-03-01T00:00:00Z"]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - node name by report timestamp"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "events"
+    ["extract"
+     ["corrective_change" ["function" "count"]]
+     ["and"
+      ["and"
+       [">" "run_end_time" "2021-03-24T00:00:00Z"]
+       ["<" "run_end_time" "2021-03-24T10:30:23Z"]]
+      ["=" "node_state" "active"]]
+     ["group_by" "corrective_change"]]]
+   :alias "CONS - corrective changes"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]]
+     ["and"
+      ["and"
+       ["=" "latest_report_status" "failed"]
+       [">=" "report_timestamp" "2021-03-24T09:31:59.338Z"]
+       ["=" "latest_report_noop" false]]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - latest failed report"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     ["certname"
+      "report_environment"
+      "report_timestamp"
+      "latest_report_hash"
+      "latest_report_status"
+      "latest_report_noop"
+      "latest_report_noop_pending"
+      "latest_report_corrective_change"
+      "latest_report_job_id"]
+     ["and"
+      ["and"
+       ["=" "latest_report_status" "failed"]
+       [">=" "report_timestamp" "2021-03-24T09:31:59.586Z"]
+       ["=" "latest_report_noop" false]]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - node details for last failed report"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]]
+     ["and"
+      ["<" "report_timestamp" "2021-03-24T09:31:59.586Z"]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - nodes count with reports earlier than"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]]
+     ["and"
+      ["null?" "report_timestamp" true]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - nodes with no reports"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     [["function" "count"]
+      "cached_catalog_status"
+      "latest_report_status"
+      "latest_report_noop"
+      "latest_report_noop_pending"
+      "latest_report_corrective_change"]
+     ["and"
+      [">=" "report_timestamp" "2021-03-24T09:31:59.586Z"]
+      ["=" "node_state" "active"]]
+     ["group_by"
+      "cached_catalog_status"
+      "latest_report_status"
+      "latest_report_noop"
+      "latest_report_noop_pending"
+      "latest_report_corrective_change"]]]
+   :alias "CONS - nodes count with specific attributes"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "reports"
+    ["extract"
+     ["hash"
+      "end_time"
+      "certname"
+      "status"
+      "job_id"
+      "noop"
+      "noop_pending"
+      "metrics"
+      "environment"
+      "corrective_change"]]]
+   :alias "CONS - reports attributes"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query ["from" "reports" ["extract" [["function" "count"]]]]
+   :alias "CONS - reports count"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "reports"
+    ["extract"
+     ["resource_events" "certname"]
+     ["=" "hash" "59f87cec2e662b083874b8d0fd122899684bf197"]]]
+   :alias "CONS - specific report"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "inventory"
+    ["extract" ["certname"] ["=" "node_state" "active"]]]
+   :alias "CONS - active nodes from inventory"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "nodes"
+    ["extract"
+     ["certname" "report_timestamp" "latest_report_hash"]
+     ["=" "node_state" "active"]]]
+   :alias "CONS - nodes details"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "facts"
+    ["and"
+     ["=" "certname" "leaky-hijacking.delivery.puppetlabs.net"]
+     ["=" "node_state" "active"]]]
+   :alias "CONS - facts for specific node"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "facts"
+    ["and"
+     ["and"
+      ["or" ["=" "name" "pe_patch"] ["=" "name" "kernel"]]
+      ["in"
+       ["certname"]
+       ["from"
+        "resources"
+        ["extract"
+         "certname"
+         ["and" ["=" "type" "Class"] ["=" "title" "Pe_patch"]]]]]]
+     ["=" "node_state" "active"]]]
+   :alias "CONS - specific facts"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "resources"
+    ["extract"
+     ["certname"]
+     ["and"
+      ["and"
+       ["=" "type" "Class"]
+       ["or"
+        ["="
+         "title"
+         "Puppet_enterprise::Profile::Certificate_authority"]
+        ["or"
+         ["=" "title" "Puppet_enterprise::Profile::Master"]
+         ["=" "title" "Puppet_enterprise::Profile::Console"]]
+        ["=" "title" "Puppet_enterprise::Profile::Puppetdb"]]
+       ["subquery"
+        "nodes"
+        ["and" ["null?" "deactivated" true] ["null?" "expired" true]]]]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - specific resources"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "resources"
+    ["extract"
+     ["certname" "parameters"]
+     ["and"
+      ["and"
+       ["=" "type" "Class"]
+       ["and"
+        ["=" "title" "Puppet_enterprise"]
+        ["in"
+         "certname"
+         ["from"
+          "resources"
+          ["extract"
+           ["certname"]
+           ["and"
+            ["=" "type" "Class"]
+            ["or"
+             ["=" "title" "Puppet_enterprise::Profile::Master"]
+             ["=" "title" "Puppet_enterprise::Profile::Console"]
+             ["=" "title" "Puppet_enterprise::Profile::Puppetdb"]]
+            ["subquery"
+             "nodes"
+             ["and"
+              ["null?" "deactivated" true]
+              ["null?" "expired" true]]]]]]]]
+       ["subquery"
+        "nodes"
+        ["and" ["null?" "deactivated" true] ["null?" "expired" true]]]]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - puppet_enterprise resource parameters"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "facts"
+    ["extract"
+     ["name" "value"]
+     ["and"
+      ["=" "certname" "leaky-hijacking.delivery.puppetlabs.net"]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - facts name and value for specific node"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "resources"
+    ["extract"
+     ["title" "parameters"]
+     ["and"
+      ["and"
+       ["=" "type" "Class"]
+       ["and"
+        ["=" "certname" "leaky-hijacking.delivery.puppetlabs.net"]
+        ["~" "title" "Puppet_enterprise"]]
+       ["subquery"
+        "nodes"
+        ["and" ["null?" "deactivated" true] ["null?" "expired" true]]]]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - puppet_enterprise parameters for specific node"}
+  {:path "/pdb/query/v4"
+   :method :post
+   :query
+   ["from"
+    "resources"
+    ["extract"
+     ["title" "parameters"]
+     ["and"
+      ["and"
+       ["=" "type" "Class"]
+       ["and"
+        ["=" "certname" "leaky-hijacking.delivery.puppetlabs.net"]
+        ["~" "title" "Pe_repo"]]
+       ["subquery"
+        "nodes"
+        ["and" ["null?" "deactivated" true] ["null?" "expired" true]]]]
+      ["=" "node_state" "active"]]]]
+   :alias "CONS - pe_repo parameters for specific node"}]
+
+ :estate-reporting
+ [{:path "/pdb/query/v4/fact-paths"
+   :method :get
+   :query nil
+   :limit nil
+   :offset nil
+   :alias "ESTATE - fact paths"}
+  {:path "/pdb/query/v4/fact-paths"
+   :method :get
+   :query nil
+   :limit 1000
+   :offset nil
+   :alias "ESTATE - fact paths with limit"}
+  {:path "/pdb/query/v4/facts"
+   :method :get
+   :query
+   ["extract"
+    ["name" "value"]
+    ["and"
+     ["=" "certname" "host-999"]
+     ["=" "name" "pe_server_version"]]]
+   :limit 1
+   :offset nil
+   :order_by [{:field "name" :order "asc"}]
+   :alias "ESTATE - pe server version"}
+  {:path "/pdb/query/v4/facts"
+   :method :get
+   :query
+   ["extract" ["name" "value" "certname"] ["=" "certname" "host-365"]]
+   :limit 1000
+   :offset nil
+   :order_by [{:field "name" :order "asc"}]
+   :alias "ESTATE - all facts"}
+  {:path "/pdb/query/v4/facts"
+   :method :get
+   :query
+   ["extract"
+    [["function" "count"]]
+    ["and"
+     ["=" "certname" "host-25"]
+     ["=" "name" "pe_server_version"]]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - all pe server versions"}
+  {:path "/pdb/query/v4/facts"
+   :method :get
+   :query
+   ["extract" [["function" "count"]] ["=" "certname" "host-815"]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - facts count"}
+  {:path "/pdb/query/v4/inventory"
+   :method :get
+   :query
+   ["extract" [["function" "count"]] ["=" "certname" "host-119"]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - inventory count"}
+  {:path "/pdb/query/v4/inventory"
+   :method :get
+   :query ["extract" "facts" ["=" "certname" "host-114"]]
+   :limit 1000
+   :offset nil
+   :order_by [{:field "certname" :order "asc"}]
+   :alias "ESTATE - inventory facts"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract"
+    [["function" "count"]]
+    ["and" ["~" ["fact" "operatingsystem"] "Cent.*"]]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - nodes with specific operating system"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query ["extract" [["function" "count"]]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - nodes count"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract"
+    ["latest_report_corrective_change"
+     "latest_report_status"
+     "certname"
+     "report_timestamp"]
+    ["and" ["~" ["fact" "operatingsystem"] "Cent.*"]]]
+   :limit 30
+   :order_by [{:field "certname" :order "asc"}]
+   :offset nil
+   :alias "ESTATE - latest corrective change for specific system"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract"
+    ["latest_report_corrective_change"
+     "latest_report_status"
+     "certname"
+     "report_timestamp"]]
+   :limit 30
+   :offset nil
+   :order_by [{:field "certname" :order "asc"}]
+   :alias "ESTATE - all latest corrective changes"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract" [["function" "count"]] ["=" "certname" "host-666"]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - all nodes with specific certname"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract"
+    ["certname" "report_timestamp"]
+    ["=" "certname" "host-877"]]
+   :limit 1000
+   :offset nil
+   :order_by [{:field "certname" :order "asc"}]
+   :alias "ESTATE - certname and report timestamp limit 1000"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract"
+    ["latest_report_hash"
+     "latest_report_corrective_change"
+     "report_timestamp"
+     "latest_report_status"
+     "certname"]
+    ["=" "certname" "host-365"]]
+   :limit 1000
+   :offset nil
+   :order_by [{:field "certname" :order "asc"}]
+   :alias "ESTATE - latest corrective change for specific host"}
+  {:path "/pdb/query/v4/nodes"
+   :method :get
+   :query
+   ["extract"
+    ["certname" "report_timestamp"]
+    ["=" "certname" "host-111"]]
+   :limit 1
+   :offset nil
+   :order_by [{:field "certname" :order "asc"}]
+   :alias "ESTATE - certname and report timestamp limit 1"}
+  {:path "/pdb/query/v4/reports"
+   :method :get
+   :query
+   ["extract" [["function" "count"]] ["=" "certname" "host-123"]]
+   :limit nil
+   :offset nil
+   :alias "ESTATE - report count for specific host"}
+  {:path "/pdb/query/v4/reports"
+   :method :get
+   :query
+   ["extract"
+    ["hash" "end_time" "status" "corrective_change" "certname"]
+    ["=" "certname" "host-42"]]
+   :limit 30
+   :offset nil
+   :order_by [{:field "receive_time" :order "desc"}]
+   :alias "ESTATE - report attributes"}]
+
+ :example
+ [{:path "/pdb/query/v4/facts"
+   :limit 100
+   :offset 1
+   :method :get
+   :alias "facts offset 1 limit 100"}
+  {:path "/pdb/query/v4/facts"
+   :query ["~" "certname" "host"]
+   :method :post
+   :alias "example 2"}]}

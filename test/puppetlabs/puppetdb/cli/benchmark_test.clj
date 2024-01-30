@@ -52,7 +52,7 @@
                   benchmark/benchmark-shutdown-timeout tu/default-timeout-ms
                   ;; disable catalog/reports submission delay to avoid slowing down tests
                   benchmark/random-cmd-delay (constantly 0)]
-      (f submitted-records (benchmark/benchmark-wrapper cli-args)))))
+      (f submitted-records (benchmark/send-commands-wrapper cli-args)))))
 
 (deftest progressing-timestamp-nummsgs
   (doseq [end-in [0 -3 3 14]]
@@ -100,17 +100,18 @@
     (when (= ExceptionInfo (class x))
       (is (= ::ks/cli-error (:kind (ex-data x))))
       (is (str/includes? (:msg (ex-data x))
-                         "Missing required argument '--numhosts'")))))
+                         "Error: must specify --nummsgs, --runinterval, or --querier.")))))
 
 (deftest nummsgs-or-runinterval-is-required
   (let [x (with-captured-throw (benchmark-nummsgs {}
                                                   "--config" "anything.ini"
                                                   "--numhosts" "42"))]
+
     (is (= ExceptionInfo (class x)))
     (when (= ExceptionInfo (class x))
       (is (= ::ks/cli-error (:kind (ex-data x))))
       (is (str/includes? (:msg (ex-data x))
-                         "Error: Either -N/--nummsgs or -i/--runinterval is required.")))))
+                         "Error: must specify --nummsgs, --runinterval, or --querier.")))))
 
 (deftest runs-with-runinterval
   (call-with-benchmark-status
