@@ -664,7 +664,7 @@
                              new-info (assoc idx-info
                                              :table new-table
                                              :index new-name)
-                             new-id (assoc idx-id 0 new-table)]
+                             new-id [new-table new-name]]
                          (assert idx-info)
                          (update smap :indexes
                                  #(-> %
@@ -682,9 +682,9 @@
                                     (dissoc idx-id)
                                     (assoc new-id new-info)))))
           exp-smap (-> initial
-                       (rename-idx ["fact_values" ["value_integer"]]
+                       (rename-idx ["fact_values" "fact_values_value_integer_idx"]
                                    "facts" "facts_value_integer_idx")
-                       (rename-idx ["fact_values" ["value_float"]]
+                       (rename-idx ["fact_values" "fact_values_value_float_idx"]
                                    "facts" "facts_value_float_idx")
                        (move-col ["fact_values" "value_type_id"] "facts")
                        (move-col ["fact_values" "value"] "facts")
@@ -1801,32 +1801,18 @@
                  :primary? false,
                  :user "pdb_test"},
                 :same nil}
-               {:left-only
-                {:schema "public",
-                 :table "resource_events",
-                 :index "resource_events_pkey",
-                 :index_keys ["event_hash"],
-                 :type "btree",
-                 :unique? true,
-                 :functional? false,
-                 :is_partial false,
-                 :primary? true,
-                 :user "pdb_test"},
-                :right-only nil,
-                :same nil}
-               {:left-only nil,
-                :right-only
-                {:schema "public",
-                 :table "resource_events",
-                 :index "resource_events_pkey",
-                 :index_keys ["event_hash", "\"timestamp\""],
-                 :type "btree",
-                 :unique? true,
-                 :functional? false,
-                 :is_partial false,
-                 :primary? true,
-                 :user "pdb_test"},
-                :same nil}
+               {:left-only nil
+                :right-only {:index_keys [nil "\"timestamp\""]}
+                :same {:schema "public"
+                       :table "resource_events"
+                       :index "resource_events_pkey"
+                       :index_keys ["event_hash"]
+                       :type "btree"
+                       :unique? true
+                       :functional? false
+                       :is_partial false
+                       :primary? true
+                       :user "pdb_test"}}
                {:left-only nil,
                 :right-only
                 {:schema "public",
@@ -1878,6 +1864,18 @@
                  :is_partial true,
                  :primary? false,
                  :user "pdb_test"},
+                :same nil}
+               {:left-only nil
+                :right-only {:schema "public"
+                             :table "resource_events"
+                             :index "resource_events_status_idx"
+                             :index_keys ["status"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial false
+                             :primary? false
+                             :user "pdb_test"}
                 :same nil}
                {:left-only nil,
                 :right-only
@@ -2028,58 +2026,30 @@
       (fast-forward-to-migration! 81)
       (let [before-migration (schema-info-map *db*)
             exp-reports-indices-diff
-              [{:left-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_hash_expr_idx"
-                 :index_keys ["encode(hash, 'hex'::text)"]
-                 :type "btree"
-                 :unique? true
-                 :functional? true
-                 :is_partial false
-                 :primary? false
-                 :user "pdb_test"}
-                :right-only nil
-                :same nil}
+              [{:left-only nil
+                :right-only {:index_keys [nil "producer_timestamp"]}
+                :same {:schema "public"
+                       :table "reports"
+                       :index "reports_hash_expr_idx"
+                       :index_keys ["encode(hash, 'hex'::text)"]
+                       :type "btree"
+                       :unique? true
+                       :functional? true
+                       :is_partial false
+                       :primary? false
+                       :user "pdb_test"}}
                {:left-only nil
-                :right-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_hash_expr_idx"
-                 :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp"]
-                 :type "btree"
-                 :unique? true
-                 :functional? true
-                 :is_partial false
-                 :primary? false
-                 :user "pdb_test"}
-                :same nil}
-               {:left-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_pkey"
-                 :index_keys ["id"]
-                 :type "btree"
-                 :unique? true
-                 :functional? false
-                 :is_partial false
-                 :primary? true
-                 :user "pdb_test"}
-                :right-only nil
-                :same nil}
-               {:left-only nil
-                :right-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_pkey"
-                 :index_keys ["id" "producer_timestamp"]
-                 :type "btree"
-                 :unique? true
-                 :functional? false
-                 :is_partial false
-                 :primary? true
-                 :user "pdb_test"}
-                :same nil}
+                :right-only {:index_keys [nil "producer_timestamp"]}
+                :same {:schema "public"
+                       :table "reports"
+                       :index "reports_pkey"
+                       :index_keys ["id"]
+                       :type "btree"
+                       :unique? true
+                       :functional? false
+                       :is_partial false
+                       :primary? true
+                       :user "pdb_test"}}
                {:left-only nil
                 :right-only
                 {:schema "public"
@@ -2174,7 +2144,20 @@
                  :is_partial false,
                  :primary? false,
                  :user "pdb_test"},
-                :same nil}],
+                :same nil}
+               {:left-only nil
+                :right-only
+                {:schema "public"
+                 :table "packages"
+                 :index "packages_name_trgm"
+                 :index_keys ["name"]
+                 :type "gin"
+                 :unique? false
+                 :functional? false
+                 :is_partial false
+                 :primary? false
+                 :user "pdb_test"}
+                :same nil}]
               :table-diff nil,
               :constraint-diff nil}
              (diff-schema-maps before-migration (schema-info-map *db*)))))))

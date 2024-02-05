@@ -430,10 +430,10 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
   then the name of the index"
   [db]
   (jdbc/with-db-connection db
-    (let [indexes (sort-by (juxt :table :index_keys)
+    (let [indexes (sort-by (juxt :table :index)
                            (map db->index-map (jdbc/query-to-vec indexes-sql)))]
       (kitchensink/mapvals first
-                           (group-by (juxt :table :index_keys) indexes)))))
+                           (group-by (juxt :table :index) indexes)))))
 
 (def table-column-sql
   "SELECT c.table_name,

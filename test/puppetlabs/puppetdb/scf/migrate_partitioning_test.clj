@@ -24,7 +24,7 @@
     (apply-migration-for-testing! 73)
 
     (is (= {:index-diff (into
-                         [{:left-only {:schema "public"
+                         #{{:left-only {:schema "public"
                                        :table "resource_events"
                                        :index "resource_events_timestamp_idx"
                                        :index_keys ["\"timestamp\""]
@@ -110,6 +110,18 @@
                            :same nil}
                           {:left-only {:schema "public"
                                        :table "resource_events"
+                                       :index "resource_events_status_idx"
+                                       :index_keys ["status"]
+                                       :type "btree"
+                                       :unique? false
+                                       :functional? false
+                                       :is_partial false
+                                       :primary? false
+                                       :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only {:schema "public"
+                                       :table "resource_events"
                                        :index "resource_events_resource_timestamp"
                                        :index_keys ["resource_type" "resource_title" "\"timestamp\""]
                                        :type "btree"
@@ -134,7 +146,7 @@
                                        :primary? false
                                        :user "pdb_test"}
                            :right-only nil
-                           :same nil}]
+                           :same nil}}
                          cat
                          (map
                           (fn [part-name]
@@ -226,6 +238,18 @@
                                {:left-only nil
                                 :right-only {:schema "public"
                                              :table table-name
+                                             :index (str "resource_events_status_idx_" part-name)
+                                             :index_keys ["status"]
+                                             :type "btree"
+                                             :unique? false
+                                             :functional? false
+                                             :is_partial false
+                                             :primary? false
+                                             :user "pdb_test"}
+                                :same nil}
+                               {:left-only nil
+                                :right-only {:schema "public"
+                                             :table table-name
                                              :index (str "resource_events_resource_timestamp_" part-name)
                                              :index_keys ["resource_type" "resource_title" "\"timestamp\""]
                                              :type "btree"
@@ -237,7 +261,7 @@
                                 :same nil}]))
                           part-names))
             :table-diff (into
-                         [{:left-only nil
+                         #{{:left-only nil
                            :right-only {:numeric_scale nil
                                         :column_default nil
                                         :character_octet_length nil
@@ -262,7 +286,7 @@
                                         :data_type "text"
                                         :column_name "name"
                                         :table_name "resource_events"}
-                           :same nil}]
+                           :same nil}}
                          cat
                          (map (fn [part-name]
                                 (let [table-name (str "resource_events_" part-name)]
@@ -489,7 +513,7 @@
                                     :same nil}]))
                               part-names))
             :constraint-diff (into
-                              [{:left-only nil
+                              #{{:left-only nil
                                 :right-only {:constraint_name "event_hash IS NOT NULL"
                                              :table_name "resource_events"
                                              :constraint_type "CHECK"
@@ -516,7 +540,7 @@
                                             :initially_deferred "NO"
                                             :deferrable? "NO"}
                                 :right-only nil
-                                :same nil}]
+                                :same nil}}
                               cat
                               (map (fn [date-of-week]
                                      (let [part-name (str/lower-case (partitioning/date-suffix date-of-week))
@@ -586,7 +610,7 @@
                                                       :deferrable? "NO"}
                                          :same nil}]))
                                    dates))}
-           (diff-schema-maps before-migration (schema-info-map *db*))))))
+           (update-vals (diff-schema-maps before-migration (schema-info-map *db*)) set)))))
 
 (deftest migration-74-schema-diff
   (clear-db-for-testing!)
@@ -600,7 +624,7 @@
     (apply-migration-for-testing! 74)
 
     (is (= {:index-diff (into
-                          []
+                          #{}
                           cat
                           (map
                             (fn [part-name]
@@ -790,7 +814,7 @@
                                   :same nil}]))
                             part-names))
             :table-diff (into
-                          []
+                          #{}
                           cat
                           (map (fn [part-name]
                                  (let [table-name (str "reports_" part-name)]
@@ -1134,13 +1158,13 @@
                                      :same nil}]))
                                part-names))
             :constraint-diff (into
-                               [{:left-only {:constraint_name "certnames_reports_id_fkey"
+                               #{{:left-only {:constraint_name "certnames_reports_id_fkey"
                                              :table_name "certnames"
                                              :constraint_type "FOREIGN KEY"
                                              :initially_deferred "NO"
                                              :deferrable? "NO"}
                                  :right-only nil
-                                 :same nil}]
+                                 :same nil}}
                                cat
                                (map (fn [date-of-week]
                                       (let [part-name (str/lower-case (partitioning/date-suffix date-of-week))
@@ -1259,7 +1283,7 @@
                                                        :deferrable? "NO"}
                                           :same nil}]))
                                     dates))}
-           (diff-schema-maps before-migration (schema-info-map *db*))))))
+           (update-vals (diff-schema-maps before-migration (schema-info-map *db*)) set)))))
 
 (deftest migration-76-schema-diff
   (clear-db-for-testing!)
@@ -1308,20 +1332,7 @@
     (apply-migration-for-testing! 79)
 
     (is (= {:index-diff (into
-                          [{:left-only
-                            {:schema "public"
-                             :table "reports"
-                             :index "reports_certname_idx"
-                             :index_keys  ["certname"]
-                             :type "btree"
-                             :unique? false
-                             :functional? false
-                             :is_partial false
-                             :primary? false
-                             :user "pdb_test"}
-                            :right-only nil
-                            :same nil}
-                           {:left-only nil
+                          [{:left-only nil
                             :right-only
                             {:schema "public"
                              :table "reports"
@@ -1333,25 +1344,25 @@
                              :is_partial false
                              :primary? false
                              :user "pdb_test"}
+                            :same nil}
+                           {:left-only
+                            {:schema "public"
+                             :table "reports"
+                             :index "reports_certname_idx"
+                             :index_keys  ["certname"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial false
+                             :primary? false
+                             :user "pdb_test"}
+                            :right-only nil
                             :same nil}]
                           cat
                           (map
                             (fn [part-name]
                               (let [table-name (str "reports_" part-name)]
-                                 [{:left-only
-                                   {:schema "public"
-                                    :table table-name
-                                    :index (str "reports_certname_idx_" part-name)
-                                    :index_keys  ["certname"]
-                                    :type "btree"
-                                    :unique? false
-                                    :functional? false
-                                    :is_partial false
-                                    :primary? false
-                                    :user "pdb_test"}
-                                   :right-only nil
-                                   :same nil}
-                                  {:left-only nil
+                                 [{:left-only nil
                                    :right-only
                                    {:schema "public"
                                     :table table-name
@@ -1363,6 +1374,19 @@
                                     :is_partial false
                                     :primary? false
                                     :user "pdb_test"}
+                                   :same nil}
+                                  {:left-only
+                                   {:schema "public"
+                                    :table table-name
+                                    :index (str "reports_certname_idx_" part-name)
+                                    :index_keys  ["certname"]
+                                    :type "btree"
+                                    :unique? false
+                                    :functional? false
+                                    :is_partial false
+                                    :primary? false
+                                    :user "pdb_test"}
+                                   :right-only nil
                                    :same nil}]))
                             part-names))
             :table-diff nil
