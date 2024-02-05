@@ -2332,6 +2332,24 @@
     "DROP INDEX IF EXISTS catalog_resources_file_trgm"
     "ALTER TABLE catalog_resources RESET ( autovacuum_analyze_scale_factor )"))
 
+(defn split-certnames-table
+  "Split the certnames table. Avoid dirtying buffer cache pages for critical
+  deactivated/expired informaton."
+  []
+  (jdbc/do-commands
+   ["CREATE TABLE certnames_status ("
+    "  certname TEXT NOT NULL PRIMARY KEY,"
+    "  deactivated timestamp with time zone,"
+    "  expired timestamp with time zone,"
+    "  FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE)"]
+
+    ["INSERT INTO certnames_status"
+     " (SELECT certname, deactivated, expired FROM certnames)"]
+
+    ["ALTER TABLE certnames"
+     "  DROP COLUMN deactivated,"
+     "  DROP COLUMN expired"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2399,7 +2417,8 @@
    81 migrate-resource-events-to-declarative-partitioning
    82 migrate-reports-to-declarative-partitioning
    83 require-previously-optional-trigram-indexes
-   84 remove-catalog-resources-file-trgm-index})
+   84 remove-catalog-resources-file-trgm-index
+   85 split-certnames-table})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
