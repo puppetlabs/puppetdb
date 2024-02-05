@@ -23,15 +23,15 @@
    benchmark --offset 200000 --numhosts 100000
    ...
    ```
-  
+
    ### Preserving host-map data
-  
+
    By default, each time Benchmark is run, it initializes the host-map catalog,
    factset and report data randomly from the given set of base --catalogs
    --factsets and --reports files. When re-running benchmark, this causes
    excessive load on puppetdb due to the completely changed catalogs/factsets
    that must be processed.
-  
+
    To avoid this, set --simulation-dir to preserve all of the host map data
    between runs as nippy/frozen files. Benchmark will then load and initialize a
    preserved host matching a particular host-# from these files at startup.
@@ -279,7 +279,7 @@
     (boolean? leaf) (random-bool)))
 
 (defn randomize-map-leaves
-  "Runs through a map and randomizes and random percentage of leaves."
+  "Runs through a map and randomizes a random percentage of leaves."
   [rand-perc value]
   (cond
     (map? value)
@@ -320,11 +320,6 @@
          (or (contains? options :runinterval) (contains? options :nummsgs)))
     (utils/throw-sink-cli-error "Error: --nummsgs, --runinterval, and --querier are mutually exclusive.")
 
-    (and (contains? options :runinterval) (contains? options :nummsgs))
-    (do
-      (println-err "Warning: -N/--nummsgs and -i/--runinterval provided. Running in --nummsgs mode.")
-      options)
-
     (and (kitchensink/missing? options :runinterval :nummsgs)
          (empty? (:querier options)))
     (utils/throw-sink-cli-error "Error: must specify --nummsgs, --runinterval, or --querier.")
@@ -333,6 +328,21 @@
          (not (kitchensink/missing? options :reports :catalogs :facts)))
     (utils/throw-sink-cli-error
      "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
+
+    (and (not-empty (:rand-catalogs options))
+         (> (some-> options :rand-catalogs last first) 1.0))
+    (utils/throw-sink-cli-error "Error: --rand-catalogs percentages cannot sum to more than 100%.")
+
+    (and (not-empty (:rand-facts options))
+         (> (some-> options :rand-facts last first) 1.0))
+    (utils/throw-sink-cli-error "Error: --rand-facts percentages cannot sum to more than 100%.")
+
+    ;; NOTE: this should be the last test before :else, lest it short circuit
+    ;; other validations.
+    (and (contains? options :runinterval) (contains? options :nummsgs))
+    (do
+      (println-err "Warning: -N/--nummsgs and -i/--runinterval provided. Running in --nummsgs mode.")
+      options)
 
     :else options))
 
@@ -344,6 +354,39 @@
       1 [1 (first split)]
       2 [(Integer/parseInt (first split)) (second split)]
       false)))
+
+(defn- parse-rand-opt
+  "Parses --rand-catalogs and --rand-facts arguments of the form
+  PERCENT-CHANCE:CHANGE-COUNT or PERCENT-CHANCE:PERCENT-CHANGE, where
+  PERCENT-CHANCE may be an integer or float percentage, CHANGE-COUNT must
+  be a postive integer, and PERCENT-CHANGE may be an integer or float percentage."
+  ([s]
+   (parse-rand-opt s true))
+  ([s change-count?]
+   (let [split (str/split s #":")
+         per-parser #(/ (Double/parseDouble %) 100)
+         int-parser #(Integer/parseInt %)]
+     (case (count split)
+       0 false
+       1 false
+       2 [(per-parser (first split))
+          (if change-count?
+            (int-parser (second split))
+            (per-parser (second split)))]
+       false))))
+
+(defn- parse-rand-facts-opt
+  [s]
+  (parse-rand-opt s false))
+
+(defn- update-rand-opt
+  "Conjoins multiple --rand-catalogs or --rand-facts options into an array,
+  summing successive percentages to provide a continuum for later testing."
+  [rand-opts next-opt]
+  (let [updated-opt (if (empty? rand-opts)
+                      next-opt
+                      (update-in next-opt [0] + (first (last rand-opts))))]
+    (conj rand-opts updated-opt)))
 
 (defn- validate-cli!
   [args]
@@ -362,9 +405,24 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--numhosts N" "Simulated host count (required)"
                 :parse-fn #(Integer/parseInt %)]
-               ["-r" "--rand-perc PERCENT" "Chance each command will be altered"
-                :default 0
-                :parse-fn #(if-not % 0 (Integer/parseInt %))]
+               ["-r" "--rand-perc PERCENT"
+                "DEPRECATED chance each command will be altered. (See --rand-catalogs and --rand-facts.)"]
+               [nil "--rand-catalogs PERCENT-CHANCE:CHANGE-COUNT"
+                "PERCENT-CHANCE each catalog will have CHANGE-COUNT resources altered."
+                :multi true :default []
+                :update-fn update-rand-opt
+                :parse-fn parse-rand-opt
+                :validate [vector? "must be PERCENT-CHANCE:CHANGE-COUNT"
+                           #(> (first %) 0) "PERCENT-CHANCE must be positive"
+                           #(> (second %) 0) "CHANGE-COUNT must be postive"]]
+               [nil "--rand-facts PERCENT-CHANCE:PERCENT-CHANGE"
+                "PERCENT-CHANCE each factset will have PERCENT-CHANGE facts altered."
+                :multi true :default []
+                :update-fn update-rand-opt
+                :parse-fn parse-rand-facts-opt
+                :validate [vector? "must be PERCENT-CHANCE:PERCENT-CHANGE"
+                           #(> (first %) 0) "PERCENT-CHANCE must be positive"
+                           #(> (second %) 0) "PERCENT-CHANGE must be postive"]]
                ["-N" "--nummsgs N" "Command sets to send per host (set depends on -F -C -R)"
                 :parse-fn #(Long/valueOf ^String %)]
                ["-e" "--end-commands-in PERIOD" "End date for a command set"
