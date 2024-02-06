@@ -247,28 +247,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
 
-(defn certname-exists?
-  "Returns a boolean indicating whether or not the given
-  certname exists in the db"
-  [certname]
-  {:pre [certname]}
-  (some? (seq (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
-                           certname]))))
-
 (pls/defn-validated add-certname!
   "Add the given host to the db"
   [certname :- String]
-  (jdbc/insert! :certnames {:certname certname}))
+  (let [r (jdbc/insert! :certnames {:certname certname})]
+    (jdbc/insert! :certnames_status {:certname certname})
+    r))
 
 (defn add-certnames
   "Inserts the collection of certnames."
   [certnames]
-  (jdbc/insert-multi! :certnames [:certname] (map vector certnames)))
+  (let [r (jdbc/insert-multi! :certnames [:certname] (map vector certnames))] 
+    (jdbc/insert-multi! :certnames_status [:certname] (map vector certnames))
+    r))
 
 (pls/defn-validated ensure-certname
   "Adds the given host to the db iff it isn't already there."
   [certname :- String]
   (jdbc/insert-multi! :certnames [{:certname certname}]
+                      {:on-conflict "do nothing"})
+  (jdbc/insert-multi! :certnames_status [{:certname certname}]
                       {:on-conflict "do nothing"}))
 
 (defn delete-certname!
@@ -312,7 +310,7 @@
   [certname]
   {:pre [(string? certname)]}
   (jdbc/query-with-resultset
-   ["SELECT deactivated FROM certnames WHERE certname=?" certname]
+   ["SELECT deactivated FROM certnames_status WHERE certname=?" certname]
    (comp :deactivated first sql/result-set-seq)))
 
 (defn node-expired-time
@@ -321,7 +319,7 @@
   [certname]
   {:pre [(string? certname)]}
   (jdbc/query-with-resultset
-   ["SELECT expired FROM certnames WHERE certname=?" certname]
+   ["SELECT expired FROM certnames_status WHERE certname=?" certname]
    (comp :expired first sql/result-set-seq)))
 
 (defn purge-deactivated-and-expired-nodes!
@@ -335,7 +333,7 @@
                                (pr-str horizon)))))
      (let [certnames-to-delete
            (-> {:select [:certname]
-                :from :certnames
+                :from :certnames_status
                 :where [:or
                         [:< :deactivated ts]
                         [:< :expired ts]]}
@@ -345,17 +343,6 @@
                (->> (map :certname)))]
        (when (seq certnames-to-delete)
          (delete-certnames! certnames-to-delete))))))
-
-(defn activate-node!
-  "Reactivate the given host. Adds the host to the database if it was not
-  already present."
-  [certname]
-  {:pre [(string? certname)]}
-  (jdbc/do-prepared
-   (str "insert into certnames (certname)"
-        "  values (?)"
-        "  on conflict (certname) do update set deactivated=?, expired=?")
-   [certname nil nil]))
 
 (pls/defn-validated create-row :- s/Int
   "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
@@ -1896,10 +1883,12 @@
   [certname :- String
    time :- pls/Timestamp]
   (let [timestamp (to-timestamp time)]
+    (jdbc/do-prepared "insert into certnames (certname) values (?) on conflict do nothing"
+                      [certname])
     (-> (jdbc/do-prepared
-         (str "insert into certnames (certname) values (?)"
+         (str "insert into certnames_status (certname) values (?)"
               "  on conflict (certname) do update set deactivated=null, expired=null"
-              "  where (certnames.deactivated < ? or certnames.expired < ?)")
+              "  where (certnames_status.deactivated < ? or certnames_status.expired < ?)")
          [certname timestamp timestamp])
         first
         pos?)))
@@ -1914,7 +1903,7 @@
      (if (have-newer-record-for-certname? certname sql-timestamp)
        {:status :stale}
        (do
-         (jdbc/do-prepared "UPDATE certnames SET deactivated = ?
+         (jdbc/do-prepared "UPDATE certnames_status SET deactivated = ?
                          WHERE certname=?
                          AND (deactivated IS NULL OR deactivated < ?)"
                            [sql-timestamp certname sql-timestamp])
@@ -1929,16 +1918,17 @@
     (map :certname
          (jdbc/query-to-vec
           (str
-           "update certnames set expired = ?"
-           "  where id in"
-           "    (select c.id from certnames c
+           "update certnames_status set expired = ?"
+           "  where certname in"
+           "    (select c.certname from certnames c
+                     left outer join certnames_status cs on cs.certname = c.certname
                      left outer join catalogs cats on cats.certname = c.certname
                      left outer join factsets fs on c.certname = fs.certname
                      left outer join reports r on c.latest_report_id = r.id
                      left outer join certname_fact_expiration cfe on c.id = cfe.certid
                      left outer join catalog_inputs ci on c.id = ci.certname_id
-                   where c.deactivated is null
-                     and c.expired is null
+                   where cs.deactivated is null
+                     and cs.expired is null
                      and (cats.producer_timestamp is null
                           or cats.producer_timestamp < ?)
                      and (fs.producer_timestamp is null

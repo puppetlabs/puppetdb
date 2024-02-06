@@ -27,7 +27,6 @@
    [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
    [puppetlabs.puppetdb.scf.storage
     :refer [acquire-locks!
-            activate-node!
             add-certname!
             add-facts!
             basic-diff
@@ -80,7 +79,7 @@
   already expired, no change is made."
   [certname :- String expire-time :- pls/Timestamp]
   (jdbc/do-prepared
-   "update certnames set expired = ? where certname=? and expired is null"
+   "update certnames_status set expired = ? where certname=? and expired is null"
    [(to-timestamp expire-time) certname]))
 
 ;; When only one db is needed.
@@ -1549,7 +1548,7 @@
 
 (deftest-db node-deactivation
   (let [certname        "foo.example.com"
-        query-certnames #(query-to-vec ["select certname, deactivated from certnames"])
+        query-certnames #(query-to-vec ["select certname, deactivated from certnames_status"])
         deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
     (add-certname! certname)
 
@@ -1570,16 +1569,6 @@
             (is (= (map deactivated->truthy original)
                    (map deactivated->truthy (query-certnames))))))))
 
-    (testing "activating a node"
-      (testing "should activate the node if it was inactive"
-        (activate-node! certname)
-        (is (= (query-certnames) [{:certname certname :deactivated nil}])))
-
-      (testing "should do nothing if the node is already active"
-        (let [original (query-certnames)]
-          (activate-node! certname)
-          (is (= original (query-certnames))))))
-
     (testing "auto-reactivated based on a command"
       (let [before-deactivating (to-timestamp (-> 1 days ago))
             after-deactivating  (to-timestamp (-> 1 days from-now))]
@@ -1593,12 +1582,7 @@
           (is (= false (maybe-activate-node! certname before-deactivating)))
           (let [result (first (query-certnames))]
             (is (= certname (:certname result)))
-            (is (deactivated? result))))
-
-        (testing "should do nothing if the node is already active"
-          (activate-node! certname)
-          (is (= false (maybe-activate-node! certname (now))))
-          (is (= (query-certnames) [{:certname certname :deactivated nil}])))))))
+            (is (deactivated? result))))))))
 
 (deftest-db fresh-node-not-expired
   (testing "fresh nodes are not expired"
