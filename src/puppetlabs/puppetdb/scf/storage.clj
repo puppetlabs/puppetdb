@@ -1882,16 +1882,39 @@
   Adds the host to the database if it was not already present."
   [certname :- String
    time :- pls/Timestamp]
-  (let [timestamp (to-timestamp time)]
-    (jdbc/do-prepared "insert into certnames (certname) values (?) on conflict do nothing"
-                      [certname])
-    (-> (jdbc/do-prepared
-         (str "insert into certnames_status (certname) values (?)"
-              "  on conflict (certname) do update set deactivated=null, expired=null"
-              "  where (certnames_status.deactivated < ? or certnames_status.expired < ?)")
-         [certname timestamp timestamp])
-        first
-        pos?)))
+  (let [timestamp (to-timestamp time)
+
+        {:keys [deactivated expired] :as node}
+        (jdbc/query-with-resultset
+         ["SELECT deactivated,expired FROM certnames_status WHERE certname=?" certname]
+         (comp first sql/result-set-seq))]
+
+    ;; add node if missing, or update deactivated/expired status if necessary
+    ;; this introduces a small read-then-update race condition where a node could
+    ;; be deactivated in between the previous read and this check and we wouldn't
+    ;; reset the node to active. But if the node is still submitting commands it
+    ;; will be reactivated the following time, and if it isn't submitting commands
+    ;; then a deactivated/expired status is likely correct.
+    (cond
+     ;; node is active
+     (and node (nil? deactivated) (nil? expired)) true
+
+     ;; node is deactived/expired with newer timestamp
+     (and node
+          (or (and deactivated (.after deactivated timestamp))
+              (and expired (.after expired timestamp))))
+     false
+
+     :else (do
+             (jdbc/do-prepared "insert into certnames (certname) values (?) on conflict do nothing"
+               [certname])
+             (-> (jdbc/do-prepared
+                  (str "insert into certnames_status (certname) values (?)"
+                       "  on conflict (certname) do update set deactivated=null, expired=null"
+                       "  where (certnames_status.deactivated < ? or certnames_status.expired < ?)")
+                  [certname timestamp timestamp])
+               first
+               pos?)))))
 
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
