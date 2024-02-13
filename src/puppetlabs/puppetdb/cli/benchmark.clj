@@ -36,29 +36,65 @@
    between runs as nippy/frozen files. Benchmark will then load and initialize a
    preserved host matching a particular host-# from these files at startup.
    Missing hosts (if --numhosts exceeds preserved, for example) will be
-   initialized randomly as by default."
+   initialized randomly as by default.
+
+   ### Mutating Catalogs and Factsets
+
+   The benchmark tool automatically refreshs timestamps and transaction ids
+   when submitting catalogs, factsets and reports, but the content does not
+   change.
+
+   To simulate system drift, code changes and fact changes, use
+   '--rand-catalog=PERCENT_CHANCE:CHANGE_COUNT' and
+   '--rand-facts=PERCENT_CHANCE:PERCENT_CHANGE'.
+
+   The former indicates the chance any given catalog will perform CHANGE_COUNT
+   resource mutations (additions, modifications or deletions). The later is the
+   chance any given factset will mutate PERCENT_CHANGE of its fact values. These
+   may be set multiple times, provided that PERCENT_CHANCE does not sum to more
+   than 100%.
+
+   By default edges are not included in catalogs. If --include-edges is true,
+   then add-resource and del-resource will involve edges as well.
+
+   * adding a resource adds a single 'contains' edge with the source
+     being one of the catalog's original (non-added) resources.
+   * deleting a resource removes one of the added resources (if there are any)
+     and it's related leaf edge.
+
+   By ensuring we only ever delete leaves from the graph, we maintain the graph
+   integrity, which is important since PuppetDB validates the edges on injestion.
+
+   This provides only limited exercise of edge mutation, which seemed like a
+   reasonable trade-off given that edge submission is deprecated. Running with
+   --include-edges also impacts the nature of catalog mutation, since original
+   resources will never be removed from the catalog.
+
+   See add-resource, mod-resource and del-resource for details of resource and
+   edge changes.
+
+   TODO: Fact addition/removal
+   TODO: Mutating reports"
   (:require
    [clojure.core.async :refer [go go-loop <! >! >!! chan] :as async]
    [clojure.java.io :as io]
    [clojure.pprint :refer [pprint]]
    [clojure.string :as str]
-   [clojure.walk :as walk]
    [me.raynes.fs :as fs]
    [metrics.timers :as timers :refer [timer time!]]
    [murphy :refer [try!]]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.archive :as archive]
-   [puppetlabs.puppetdb.catalog.utils :as catutils]
    [puppetlabs.puppetdb.cheshire :as json]
    [puppetlabs.puppetdb.cli.benchmark.query :as bench-query]
+   [puppetlabs.puppetdb.cli.generate :as generate]
    [puppetlabs.puppetdb.cli.util :refer [exit run-cli-cmd]]
    [puppetlabs.puppetdb.client :as client]
    [puppetlabs.puppetdb.lint :refer [ignore-value]]
    [puppetlabs.puppetdb.metrics.core :as metrics]
    [puppetlabs.puppetdb.nio :refer [get-path]]
-   [puppetlabs.puppetdb.random
-    :refer [safe-sample-normal random-string random-bool random-sha1]]
+   [puppetlabs.puppetdb.random :as rnd]
    [puppetlabs.puppetdb.utils :as utils
     :refer [noisy-future println-err schedule]]
    [puppetlabs.puppetdb.time :as time :refer [now]]
@@ -88,7 +124,8 @@
                          ScheduledThreadPoolExecutor
                          Semaphore
                          TimeUnit)
-   (org.apache.commons.compress.archivers.tar TarArchiveEntry)))
+   (org.apache.commons.compress.archivers.tar TarArchiveEntry)
+   (org.apache.commons.lang3 RandomStringUtils)))
 
 ;; FIXME: make sure --queriers respects DISCARD_ALL_QUERIES
 
@@ -197,20 +234,190 @@
       (println-err
        (trs "Supplied directory {0} contains no usable data!" dir)))))
 
-(def producers (vec (repeatedly 4 #(random-string 10))))
+(def producers (vec (repeatedly 4 #(rnd/random-string 10))))
 
 (defn random-producer []
   (rand-nth producers))
 
-(def mutate-fns
-  "Functions that randomly change a wire-catalog format"
-  (memoize
-   (fn [include-edges]
-     (concat [catutils/add-random-resource-to-wire-catalog
-              catutils/mod-resource-in-wire-catalog]
-             (when include-edges
-               [catutils/add-random-edge-to-wire-catalog
-                catutils/swap-edge-targets-in-wire-catalog])))))
+(defn resource-has-blob?
+  "True if the given resource has a BLOB parameter value. Sample catalogs
+  created by the PuppetDB Generate command may have 'content_blob_*' parameters
+  with large values."
+  [resource]
+  (let [parameter-keys (keys (resource "parameters"))]
+    (some #(str/starts-with? % "content_blob_") parameter-keys)))
+
+(defmulti touch-parameter-value
+  "Return a new parameter of about the same size and type.
+
+  TODO: handle arrays and maps."
+  class)
+(defmethod touch-parameter-value String [p] (RandomStringUtils/randomAscii(count p)))
+(defmethod touch-parameter-value Number [_] (rand-int 1000000))
+(defmethod touch-parameter-value Boolean [p] (not p))
+;; Allow other types to pass through unmutated for now
+(defmethod touch-parameter-value :default [p] p)
+
+(defn touch-parameters
+  "Return resource parameters with one value changed. Size is the same."
+  [parameters]
+  (if (empty? parameters)
+    parameters
+    (let [pkey (rand-nth (keys parameters))]
+      (-> parameters
+        (assoc pkey (touch-parameter-value (parameters pkey)))))))
+
+(defn rebuild-parameters
+  "Return resource parameters with changed keys and values of the same number and
+  size.
+
+  In order to avoid key collisions, keys are rebuilt with at least five characters.
+
+  If changing keys still results in a collision, log an error and return the
+  original parameters."
+  [parameters]
+  (let [new-params (map (fn [[k v]]
+                             [(generate/parameter-name (max 5 (count k)))
+                              (touch-parameter-value v)])
+                        parameters)
+        rebuilt (into {} new-params)]
+    (if (= (count rebuilt) (count parameters))
+      rebuilt
+      (do
+        (println-err
+          (format "Warning: failed rebuilt-parameters due to key collision, returning original.\n  Original: %s\n  Rebuilt: %s\n"
+                  parameters rebuilt))
+        parameters))))
+
+(defn modify-title
+  "Regenerate a title of the same size as the one given matching
+  cli.generate/pseudonym format. The original ordinal is kept to help with
+  debugging, and to avoid the cost of scanning for a next value.
+
+  NOTE: the minimum title-size is 20, but there is still a chance of duplicates
+  in long running benchmarks."
+  [title prefix]
+  (let [title-size (max 20 (count title))
+        ordinal (get (str/split title #"-") 2 0)]
+    (generate/pseudonym prefix ordinal title-size)))
+
+(defn clone-resource
+  "Build a new resource loosely based off the characteristics of the given resource.
+
+  Keeps type, tags, and approximate parameter size (in bytes)."
+  [resource]
+  (let [rtype (resource "type")
+        title (modify-title (resource "title") "clone")
+        tags (resource "tags")
+        file (rnd/random-pp-path)
+        clone (rnd/random-resource rtype title {"tags" tags "file" file})]
+    (assoc clone "parameters" (rebuild-parameters (resource "parameters")))))
+
+(defn mod-resource
+  "Updates resource by touching parameters."
+  [{:keys [resource-hash] :as work-cat} rkey]
+  (let [resource (resource-hash rkey)]
+    (assoc-in work-cat [:resource-hash rkey "parameters"]
+              (touch-parameters (resource "parameters")))))
+
+(defn add-resource
+  "Adds a new resource. The new resource is built to be the same type and of a
+  similar weight as the given resource. This helps keep the catalog relatively
+  stable in overall weight when resources are dropped by del-resource.
+
+  If include-edges is true, a single leaf edge is created with a source
+  from the given set of original-keys. This array is passed in and does not
+  contain any of the 'clone-*' resources created by add-resource. This prevents
+  nested relationships from forming between added resources, and in turn allows
+  del-resource in the include-edges case to simply drop a cloned resource and
+  its edge without breaking the graph validated by PuppetDB on injestion."
+  [{:keys [original-keys include-edges] :as work-cat} resource-to-clone]
+  (let [new-resource (clone-resource resource-to-clone)
+        new-rkey {"type" (new-resource "type") "title" (new-resource "title")}
+        reworked-cat (assoc-in work-cat [:resource-hash new-rkey] new-resource)]
+    (if include-edges
+      (update reworked-cat :edges #(conj % {"source" (rand-nth original-keys)
+                                               "target" new-rkey
+                                               "relationship" "contains"}))
+      reworked-cat)))
+
+(defn del-resource
+  "Return the resource hash with chosen resource removed.
+
+  But if we have edges, instead choose a resource from the list of cloned
+  resources (from add-resource actions). This is so we can just drop the single
+  leaf edge associated with the cloned resource (we're careful in add-resource
+  to only form a contain relation with original uncloned resources).
+
+  If no cloned resources are available to choose from, do nothing, so as not to
+  break the graph."
+  [{:keys [resource-hash include-edges] :as work-cat} rkey]
+  (if-not include-edges
+    (update work-cat :resource-hash #(dissoc % rkey))
+    (let [cloned-keys (filter #(str/starts-with? (% "title") "clone-")
+                              (keys resource-hash))
+          safe-key (when (seq cloned-keys)
+                     (rand-nth cloned-keys))]
+      (if (nil? safe-key)
+        ;; no added cloned leaf resource found, do nothing so as to preserve edges.
+        work-cat
+        (-> work-cat
+          (update :resource-hash #(dissoc % safe-key))
+          ;; and remove the single contained edge associated with this cloned resource.
+          (update :edges (fn [edges]
+                           (doall
+                             (remove (fn [{:strs [target]}] (= target safe-key))
+                                     edges)))))))))
+
+(defn change-resources
+  "Dispatches resource change based on operation.
+
+  Makes two judgements:
+
+  1) If the selected resource has large blob parameters it routes an :add or :del
+  operation to :mod so as to preserve the overall lumpiness of the catalog.
+  Without this, over time, deletes could drop the blob resources, evening out
+  catalogs unintentionally.
+
+  2) If there is only one resource a :del becomes a :mod.
+
+  NOTE: regarding uniformity, we probably need to revist this, since overtime,
+  depending on the number of original resources, it grows more likely the
+  catalog will reach 1 resource and thereafter all resources will be clones of
+  that single resource."
+  [operation {:keys [resource-hash] :as work-cat}]
+  (let [rkey (rand-nth (keys resource-hash))
+        resource (resource-hash rkey)
+        rcount (count resource-hash)
+        has-blob? (resource-has-blob? resource)
+        final-op (cond
+                   has-blob? :mod ;; do not add/del a resource with blob param
+                   (and (= operation :del)
+                        (= 1 rcount))
+                             :mod ;; do not del the last resource
+                   :else operation)]
+    (case final-op
+      :add (add-resource work-cat resource)
+      :del (del-resource work-cat rkey)
+      :mod (mod-resource work-cat rkey))))
+
+(defn mod-random-resource
+  [work-cat]
+  (change-resources :mod work-cat))
+
+(defn add-random-resource
+  [work-cat]
+  (change-resources :add work-cat))
+
+(defn del-random-resource
+  [work-cat]
+  (change-resources :del work-cat))
+
+(def mutate-resource-fns
+  "Functions that randomly change a catalog's resources."
+  [add-random-resource
+   mod-random-resource
+   del-random-resource])
 
 (defn add-catalog-varying-fields
   "This function adds the fields that change when there is a different
@@ -219,27 +426,50 @@
   [catalog]
   (assoc catalog
          "catalog_uuid" (kitchensink/uuid)
-         "code_id" (random-sha1)))
+         "code_id" (rnd/random-sha1)))
 
 (defn rand-catalog-mutation
-  "Grabs one of the mutate-fns randomly and returns it"
-  [catalog include-edges]
-  (let [mutation-fn (comp add-catalog-varying-fields
-                          walk/stringify-keys
-                          (rand-nth (mutate-fns include-edges)))]
-    (mutation-fn catalog)))
+  "Updates id fields that change with a catalog change, and makes randomize-count
+  additions, modifications and/or removals of resources (and edges if
+  include-edges is true)."
+  [catalog randomize-count include-edges]
+  (let [resource-hash (into {} (for [{:strs [type title] :as r} (catalog "resources")]
+                                 [{"type" type "title" title} r]))
+        original-keys (if-not include-edges
+                        '()
+                        (remove (fn [k] (str/starts-with? (k "title") "clone-"))
+                                (keys resource-hash)))
+        work-cat {:resource-hash resource-hash
+                  :include-edges include-edges
+                  :edges (catalog "edges")
+                  :original-keys original-keys}
+        mutated (nth (iterate #((rand-nth mutate-resource-fns) %) work-cat)
+                     randomize-count)]
+    (assoc (add-catalog-varying-fields catalog)
+           "resources" (vals (mutated :resource-hash))
+           "edges" (mutated :edges))))
+
+(defn- pick-random-count-or-change
+  "Randomly chooses element of --rand-catalogs or --rand-facts arguments based on
+  PERCENT-CHANCE values and returns its CHANGE-COUNT or PERCENT-CHANGE value,
+  or 0 if no arg was selected."
+  [rand-array]
+  (let [selected-rand-arg (some #(if (<= (rand 1) (first %)) % nil) rand-array)]
+    (if (nil? selected-rand-arg) 0 (last selected-rand-arg))))
 
 (defn update-catalog
-  "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
-   percent of the time."
-  [catalog include-edges rand-percentage uuid stamp]
-  (let [catalog' (assoc catalog
-                        "producer_timestamp" stamp
-                        "transaction_uuid" uuid
-                        "producer" (random-producer))]
-    (if (< (rand 100) rand-percentage)
-      (rand-catalog-mutation catalog' include-edges)
-      catalog')))
+  "Updates catalog timestamps and transaction UUIDS that vary with every
+  catalog run. Depending on settings in the rand-catalogs array, may make
+  additional random changes to catalog resources."
+  [catalog include-edges rand-catalogs uuid stamp]
+  (let [stamped-catalog (assoc catalog
+                         "producer_timestamp" stamp
+                         "transaction_uuid" uuid
+                         "producer" (random-producer))
+        randomize-count (pick-random-count-or-change rand-catalogs)]
+    (if (> randomize-count 0)
+      (rand-catalog-mutation stamped-catalog randomize-count include-edges)
+      stamped-catalog)))
 
 (defn jitter
   "jitter a timestamp (rand-int n) seconds in the forward direction"
@@ -273,10 +503,10 @@
   "Randomizes a fact leaf."
   [leaf]
   (cond
-    (string? leaf) (random-string (inc (rand-int 100)))
+    (string? leaf) (rnd/random-string (inc (rand-int 100)))
     (integer? leaf) (rand-int 100000)
     (float? leaf) (* (rand) (rand-int 100000))
-    (boolean? leaf) (random-bool)))
+    (boolean? leaf) (rnd/random-bool)))
 
 (defn randomize-map-leaves
   "Runs through a map and randomizes a random percentage of leaves."
@@ -296,21 +526,22 @@
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
-  [factset rand-percentage stamp]
-  (-> factset
-      (assoc "producer_timestamp" stamp
-             "producer" (random-producer))
-      (update "values" (partial randomize-map-leaves rand-percentage))))
+  [factset rand-facts stamp]
+  (let [rand-percentage (pick-random-count-or-change rand-facts)]
+    (-> factset
+        (assoc "producer_timestamp" stamp
+               "producer" (random-producer))
+        (update "values" (partial randomize-map-leaves rand-percentage)))))
 
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
-  randomly mutate other data depending on rand-percentage. "
-  [{:keys [_host catalog report factset] :as state} include-edges rand-percentage get-timestamp]
+  randomly mutate other data depending on rand-catalogs and rand-facts "
+  [{:keys [_host catalog report factset] :as state} include-edges rand-catalogs rand-facts get-timestamp]
   (let [stamp (get-timestamp)
         uuid (kitchensink/uuid)]
     (assoc state
-           :catalog (some-> catalog (update-catalog include-edges rand-percentage uuid stamp))
-           :factset (some-> factset (update-factset rand-percentage stamp))
+           :catalog (some-> catalog (update-catalog include-edges rand-catalogs uuid stamp))
+           :factset (some-> factset (update-factset rand-facts stamp))
            :report (some-> report (update-report uuid stamp)))))
 
 (defn validate-options
@@ -328,6 +559,9 @@
          (not (kitchensink/missing? options :reports :catalogs :facts)))
     (utils/throw-sink-cli-error
      "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
+
+    (:rand-perc options)
+    (utils/throw-sink-cli-error "Error: --rand-perc is deprecated; use --rand-catalogs and/or --rand-facts instead.")
 
     (and (not-empty (:rand-catalogs options))
          (> (some-> options :rand-catalogs last first) 1.0))
@@ -508,7 +742,7 @@
                                   [data-paths false])]
       (kitchensink/mapvals #(some-> % (load-sample-data from-cp?)) data-paths))))
 
-(def random-cmd-delay safe-sample-normal)
+(def random-cmd-delay rnd/safe-sample-normal)
 
 (def ^:private post-command
   (if-not discard-all-messages?
@@ -1074,8 +1308,8 @@
   them with update-host, and puts them on write-ch. If num-msgs is not given,
   uses numhosts and run-interval to run the simulation at a reasonable rate.
   Close read-ch to terminate the background process."
-  [numhosts run-interval num-msgs end-commands-in rand-perc simulation-threads
-   sim-ch host-info-ch read-ch
+  [numhosts run-interval num-msgs end-commands-in rand-catalogs rand-facts
+   simulation-threads sim-ch host-info-ch read-ch
    & {:keys [facts catalogs reports include-edges? storage-dir]}]
   (let [run-interval-minutes (time/in-minutes run-interval)
         hosts-per-second (/ numhosts (* run-interval-minutes 60))
@@ -1103,7 +1337,9 @@
                       host-path-or-info]
                      [host-path-or-info
                       (-> host-path-or-info Files/readAllBytes nippy/thaw)])
-                   new-state (update-host host-state include-edges? rand-perc progressing-timestamp-fn)]
+                   new-state (update-host host-state include-edges?
+                                          rand-catalogs rand-facts
+                                          progressing-timestamp-fn)]
                (write-host-info new-state host-path)
                (when (and (not num-msgs) (> deadline (time/ephemeral-now-ns)))
                  (async/alt!!
@@ -1223,7 +1459,7 @@
   process and wait for it to stop cleanly. These functions return true if
   shutdown happened cleanly, or false if there was a timeout."
   [options]
-  (let [{:keys [config rand-perc numhosts nummsgs
+  (let [{:keys [config rand-catalogs rand-facts numhosts nummsgs
                 senders simulators end-commands-in offset
                 include-catalog-edges simulation-dir]} options
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
@@ -1280,7 +1516,7 @@
 
         [sim-stop _sim-wait]
         (start-simulation-loop numhosts run-interval-minutes nummsgs
-                               end-commands-in rand-perc
+                               end-commands-in rand-catalogs rand-facts
                                simulators
                                sim-next-ch
                                host-info-ch
