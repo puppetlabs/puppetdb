@@ -302,7 +302,7 @@
   ([prefix ordinal]
    (pseudonym prefix ordinal 6))
   ([prefix ordinal length]
-   (let [mid-length (max (- length (count prefix) (count (str ordinal))) 1)]
+   (let [mid-length (max (- length (count prefix) (count (str ordinal)) 2) 1)]
      (format "%s-%s-%s" prefix (rnd/random-pronouncable-word mid-length) ordinal))))
 
 (defn build-to-size
@@ -315,15 +315,13 @@
 
 (defn parameter-name
   "Generate a fictious but somewhat intelligible snake case parameter name (as
-   used in puppet modules).
-
-   NOTE: size is not exact."
+   used in puppet modules)."
   ([]
    (parameter-name 6))
   ([size]
    (let [p-word-fn #(rnd/random-pronouncable-word 6 2)
          words (build-to-size size p-word-fn)]
-     (string/join "_" words))))
+     (subs (string/join "_" words) 0 size))))
 
 (defn build-parameters
   "Build a random map of resource parameter keyword and string values to

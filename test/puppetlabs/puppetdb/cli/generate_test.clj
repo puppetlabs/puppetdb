@@ -10,8 +10,8 @@
             [puppetlabs.puppetdb.time :as time]))
 
 ;; Avg bytes in the generate-package-inventory() package array.
-;; Mean 12 chars package name, 6 chars provider, mean 6 version."
-(def avg-package-weight 25)
+;; Mean 12 chars package name, 4 chars provider, mean 6 version."
+(def avg-package-weight 23)
 
 (defn filter-edges
   ([exp-source-type exp-target-type edges]
