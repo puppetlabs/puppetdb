@@ -152,7 +152,7 @@
                  [puppetlabs/structured-logging]
                  [puppetlabs/trapperkeeper]
                  [com.puppetlabs/trapperkeeper-webserver-jetty10]
-                 [puppetlabs/trapperkeeper-metrics "2.0.1"]
+                 [puppetlabs/trapperkeeper-metrics]
                  [puppetlabs/trapperkeeper-status]
                  [puppetlabs/trapperkeeper-authorization]
 
