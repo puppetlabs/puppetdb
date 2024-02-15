@@ -74,13 +74,36 @@
    edge changes.
 
    TODO: Fact addition/removal
-   TODO: Mutating reports"
+   TODO: Mutating reports
+
+   ### Viewing Metrics
+
+   There are benchmark metrics which can be viewed via JMX.
+
+   Add the following properties to your Benchmark Java process on startup:
+
+   ```
+   -Dcom.sun.management.jmxremote=true
+   -Dcom.sun.management.jmxremote.ssl=false
+   -Dcom.sun.management.jmxremote.authenticate=false
+   -Dcom.sun.management.jmxremote.port=5555
+   -Djava.rmi.server.hostname=127.0.0.1
+   -Dcom.sun.management.jmxremote.rmi.port=5556
+   ````
+
+   Then with a tool like VisualVM, you can add a JMX Connection, and (with the
+   MBeans plugin) view puppetlabs.puppetdb.benchmark metrics."
   (:require
    [clojure.core.async :refer [go go-loop <! >! >!! chan] :as async]
    [clojure.java.io :as io]
    [clojure.pprint :refer [pprint]]
    [clojure.string :as str]
    [me.raynes.fs :as fs]
+   [metrics.core]
+   [metrics.counters :as counters]
+   [metrics.histograms :as histograms]
+   [metrics.meters :as meters]
+   [metrics.reporters.jmx :as jmx-reporter]
    [metrics.timers :as timers :refer [timer time!]]
    [murphy :refer [try!]]
    [puppetlabs.i18n.core :refer [trs]]
@@ -134,7 +157,34 @@
 
 (def metrics
   (let [reg (get-in metrics/metrics-registries [:benchmark :registry])]
-    {:query-duration (timer reg (metrics/keyword->metric-name [:global] :query-duration))}))
+    (atom
+      {:query-duration (timer reg (metrics/keyword->metric-name [:global] :query-duration))
+       ;; total number of resources
+       :resource-count
+        (counters/counter reg (metrics/keyword->metric-name [:global] :resource-count))
+       ;; resources added to catalogs
+       :resource-adds (meters/meter reg (metrics/keyword->metric-name [:global] :resource-adds))
+       ;; resources modified in catalogs
+       :resource-mods (meters/meter reg (metrics/keyword->metric-name [:global] :resource-mods))
+       ;; resources deleted from catalogs
+       :resource-dels (meters/meter reg (metrics/keyword->metric-name [:global] :resource-dels))
+       ;; a catalog's resource count hit 1
+       :cat-resources-bottomed-out
+        (meters/meter reg (metrics/keyword->metric-name [:global] :cat-resources-bottomed-out))})))
+
+(defn register-resource-counts
+  "Setup a metric to track catalog resource counts based on numhosts."
+  [numhosts]
+  (let [reg (get-in metrics/metrics-registries [:benchmark :registry])
+        title (metrics/keyword->metric-name [:global] :catalog-resources)]
+    ;; This gets called more than once in the test suite and we need to re-register.
+    (when (:catalog-resources @metrics)
+      (metrics.core/remove-metric reg title))
+    (swap! metrics assoc :catalog-resources
+           (histograms/histogram-with-reservoir
+              reg
+              (metrics.core/sliding-window-reservoir numhosts)
+              (metrics.core/metric-name title)))))
 
 ;; Completely ad-hoc...
 (def ^:private discard-all-messages?
@@ -317,6 +367,7 @@
   "Updates resource by touching parameters."
   [{:keys [resource-hash] :as work-cat} rkey]
   (let [resource (resource-hash rkey)]
+    (meters/mark! (:resource-mods @metrics))
     (assoc-in work-cat [:resource-hash rkey "parameters"]
               (touch-parameters (resource "parameters")))))
 
@@ -335,10 +386,12 @@
   (let [new-resource (clone-resource resource-to-clone)
         new-rkey {"type" (new-resource "type") "title" (new-resource "title")}
         reworked-cat (assoc-in work-cat [:resource-hash new-rkey] new-resource)]
+    (meters/mark! (:resource-adds @metrics))
+    (counters/inc! (:resource-count @metrics))
     (if include-edges
       (update reworked-cat :edges #(conj % {"source" (rand-nth original-keys)
-                                               "target" new-rkey
-                                               "relationship" "contains"}))
+                                            "target" new-rkey
+                                            "relationship" "contains"}))
       reworked-cat)))
 
 (defn del-resource
@@ -352,22 +405,25 @@
   If no cloned resources are available to choose from, do nothing, so as not to
   break the graph."
   [{:keys [resource-hash include-edges] :as work-cat} rkey]
-  (if-not include-edges
-    (update work-cat :resource-hash #(dissoc % rkey))
-    (let [cloned-keys (filter #(str/starts-with? (% "title") "clone-")
-                              (keys resource-hash))
-          safe-key (when (seq cloned-keys)
-                     (rand-nth cloned-keys))]
-      (if (nil? safe-key)
-        ;; no added cloned leaf resource found, do nothing so as to preserve edges.
-        work-cat
-        (-> work-cat
-          (update :resource-hash #(dissoc % safe-key))
-          ;; and remove the single contained edge associated with this cloned resource.
-          (update :edges (fn [edges]
-                           (doall
-                             (remove (fn [{:strs [target]}] (= target safe-key))
-                                     edges)))))))))
+  (let [safe-key (if-not include-edges
+                   rkey
+                   (let [cloned-keys (filter #(str/starts-with? (% "title") "clone-")
+                                             (keys resource-hash))]
+                     (when (seq cloned-keys) (rand-nth cloned-keys))))]
+    (if (nil? safe-key)
+      ;; no added cloned leaf resource found, do nothing so as to preserve edges.
+      work-cat
+      (do
+        (meters/mark! (:resource-dels @metrics))
+        (counters/dec! (:resource-count @metrics))
+        (cond-> work-cat
+          true (update :resource-hash #(dissoc % safe-key))
+          include-edges
+            ;; and remove the single contained edge associated with this cloned resource.
+            (update :edges (fn [edges]
+                             (doall
+                               (remove (fn [{:strs [target]}] (= target safe-key))
+                                       edges)))))))))
 
 (defn change-resources
   "Dispatches resource change based on operation.
@@ -396,6 +452,7 @@
                         (= 1 rcount))
                              :mod ;; do not del the last resource
                    :else operation)]
+    (when (= rcount 1) (meters/mark! (:cat-resources-bottomed-out @metrics)))
     (case final-op
       :add (add-resource work-cat resource)
       :del (del-resource work-cat rkey)
@@ -466,10 +523,13 @@
                          "producer_timestamp" stamp
                          "transaction_uuid" uuid
                          "producer" (random-producer))
-        randomize-count (pick-random-count-or-change rand-catalogs)]
-    (if (> randomize-count 0)
-      (rand-catalog-mutation stamped-catalog randomize-count include-edges)
-      stamped-catalog)))
+        randomize-count (pick-random-count-or-change rand-catalogs)
+        final-catalog (if (> randomize-count 0)
+                        (rand-catalog-mutation stamped-catalog randomize-count
+                                               include-edges)
+                        stamped-catalog)]
+    (histograms/update! (:catalog-resources @metrics) (count (final-catalog "resources")))
+    stamped-catalog))
 
 (defn jitter
   "jitter a timestamp (rand-int n) seconds in the forward direction"
@@ -934,7 +994,7 @@
   (let [[query & more] queries
         result (try!
                  (time!
-                  (:query-duration metrics)
+                  (:query-duration @metrics)
                   (query-pdb-discard-response (query-uri base-url) query ssl-opts))
                  (assoc event :result true)
                  (catch IOException ex
@@ -1204,7 +1264,7 @@
                     (int (/ cmd-per-sec expected-node-message-rate))
                     (time/in-minutes run-interval)
                     (format "%.2f" query-per-sec)
-                    (format "%.2f" (-> metrics :query-duration timers/mean (/ 1000000000)))
+                    (format "%.2f" (-> @metrics :query-duration timers/mean (/ 1000000000)))
                     errors))
               (recur 0 0 0 t))
             (recur cmds queries errors last-report-time)))))))
@@ -1262,15 +1322,17 @@
                              new
                              (assoc-in new [:catalog "edges"] []))))
           host (str "host-" (+ offset i))
-          host-path (host->host-path host storage-dir)]
-      (if-let [data (try
+          host-path (host->host-path host storage-dir)
+          host-info (if-let [data (try
                       (Files/readAllBytes host-path)
                       (catch NoSuchFileException _))]
-        (-> data nippy/thaw augment-host)
-        {:host host
-         :catalog (random-catalog host pdb-host catalogs)
-         :report (random-entity host reports)
-         :factset (random-entity host facts)}))))
+                     (-> data nippy/thaw augment-host)
+                     {:host host
+                      :catalog (random-catalog host pdb-host catalogs)
+                      :report (random-entity host reports)
+                      :factset (random-entity host facts)})]
+      (counters/inc! (:resource-count @metrics) (count (get-in host-info [:catalog "resources"])))
+      host-info)))
 
 (defn progressing-timestamp
   "Return a function that will return a timestamp that progresses forward in time."
@@ -1470,6 +1532,10 @@
         base-url {:protocol protocol :host pdb-host :port pdb-port}
         run-interval (get options :runinterval 30)
         run-interval-minutes (-> run-interval time/minutes)
+
+        ;; setup metric for tracking catalog resource counts
+        _ (register-resource-counts numhosts)
+        _ (jmx-reporter/start (get-in metrics/metrics-registries [:benchmark :reporter]))
 
         cmd-opts (merge {:max-command-delay-ms 15000}
                         (select-keys options [:catalog-query-prob :catalog-query-n]))
