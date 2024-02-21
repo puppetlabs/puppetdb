@@ -274,9 +274,9 @@
                                                ;; to duplicate this dependency here
                                                [org.bouncycastle/bcpkix-jdk18on nil]
 
-                                               ;; pin tk-metrics so that jetty9 is not pulled in
+                                               ;; pin tk-metrics so that jetty10 is not pulled in
                                                ;; until tk-metrics is updated in clj-parent
-                                               [puppetlabs/trapperkeeper-metrics "2.0.1"]
+                                               [puppetlabs/trapperkeeper-metrics]
 
                                                ;; we need to explicitly pull in our parent project's
                                                ;; clojure version here, because without it, lein
