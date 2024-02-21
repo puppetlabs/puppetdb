@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 6d2448d98eec66fecb5882e9d61895834f9edbe7\n"
+"X-Git-Ref: 47bb9c34778db5b6455a73c810e404502c483490\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -106,11 +106,16 @@ msgid "The --simulation-dir path {0} is not a directory"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
+#: src/puppetlabs/puppetdb/cli/benchmark/query.clj
 msgid "Timed out while waiting for benchmark to stop."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
 msgid "Press ctrl-c to stop"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark/query.clj
+msgid "Response exception {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/generate.clj
