@@ -2346,6 +2346,10 @@
     ["INSERT INTO certnames_status"
      " (SELECT certname, deactivated, expired FROM certnames)"]
 
+   ["CREATE INDEX IF NOT EXISTS certnames_status_not_active_idx"
+    " ON certnames_status(certname)"
+    " WHERE (deactivated IS NOT NULL OR expired IS NOT NULL)"]
+
     ["ALTER TABLE certnames"
      "  DROP COLUMN deactivated,"
      "  DROP COLUMN expired"]))

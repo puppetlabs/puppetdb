@@ -2199,6 +2199,19 @@
     (let [before-migration (schema-info-map *db*)]
       (apply-migration-for-testing! 85)
       (is (= {:index-diff [{:left-only nil
+                            :right-only
+                            {:schema "public"
+                             :table "certnames_status"
+                             :index "certnames_status_not_active_idx"
+                             :index_keys ["certname"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial true
+                             :primary? false
+                             :user "pdb_test"}
+                            :same nil}
+                           {:left-only nil
                             :right-only {:schema "public"
                                          :table "certnames_status"
                                          :index "certnames_status_pkey"
