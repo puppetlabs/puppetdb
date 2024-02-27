@@ -16,7 +16,7 @@ jobs:
 
         flavor:
           - core+ext/openjdk17/pg-14
-          - core+ext/openjdk17/pg-11
+          - core+ext/openjdk17/pg-16
 
           - rspec/pup-main
           - lint/openjdk17
@@ -31,7 +31,7 @@ jobs:
         # Special cases
         include:
           # integration
-          - flavor: int/openjdk17/pup-main/srv-main/pg-14/rich
+          - flavor: int/openjdk17/pup-main/srv-main/pg-16/rich
             os: ubuntu-20.04
             ruby: '3.2'
           - flavor: int/openjdk17/pup-7.x/srv-7.x/pg-14/rich

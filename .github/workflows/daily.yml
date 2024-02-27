@@ -32,22 +32,22 @@ jobs:
         include:
           - os: ubuntu-20.04
             ruby: '3.2'
-            flavor: core+ext/openjdk11/pg-11
+            flavor: core+ext/openjdk11/pg-16
             drop-joins: by-request
           - os: ubuntu-20.04
             ruby: '3.2'
-            flavor: core+ext/openjdk11/pg-11
+            flavor: core+ext/openjdk11/pg-16
             lein-profile: fips
 
           # non-rich variants for main
           - os: ubuntu-20.04
             branch: main
             ruby: '3.2'
-            flavor: int/openjdk11/pup-main/srv-main/pg-14
+            flavor: int/openjdk11/pup-main/srv-main/pg-16
           - os: ubuntu-20.04
             branch: main
             ruby: '2.7'
-            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-14
+            flavor: int/openjdk11/pup-7.x/srv-7.x/pg-16
 
           # non-rich variants for 7.x
           - os: ubuntu-20.04
