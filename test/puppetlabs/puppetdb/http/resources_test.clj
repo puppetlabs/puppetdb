@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
+            [clojure.set :as set]
             [puppetlabs.puppetdb.testutils :as tu :refer [paged-results]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
             [puppetlabs.puppetdb.testutils.http
@@ -43,11 +44,12 @@ to the result of the form supplied to this method."
   [[_version endpoint] endpoints
    method [:get :post]]
 
-  (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)]
+  (let [{:keys [foo1 bar1 foo2 bar2]} (store-example-resources)
+        all-resources (set [foo1 bar1 foo2 bar2])]
     (testing "query without filter should not fail"
       (let [response (query-response method endpoint)
             result (query-result response)]
-        (is (= (set [foo1 bar1 foo2 bar2]) result))
+        (is (= all-resources result))
         (is (= 200 (:status response)))))
 
     (testing "query with filter"
@@ -95,7 +97,11 @@ to the result of the form supplied to this method."
                               [["~" "parameters.double_quote" "^foo\"bar$"] #{foo1 bar1}]
                               [["~" "parameters.backslash" "^foo\\\\bar$"] #{foo1 bar1}]]]
         (testing query
-          (is (= (query-result (query-response method endpoint query)) result)))))
+          (is (= (query-result (query-response method endpoint query)) result)))
+
+        (testing ["not" query]
+          (is (= (query-result (query-response method endpoint ["not" query]))
+                 (set/difference all-resources result))))))
 
     (testing "null? operator on dotted paths"
       (doseq [[query result] [[["null?" "parameters.path.doesnt.exist" true] #{}]

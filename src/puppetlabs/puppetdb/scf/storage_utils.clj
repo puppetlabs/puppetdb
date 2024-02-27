@@ -370,8 +370,8 @@
                       (str/join "->" (butlast path-elts))
                       (when-let [x (last path-elts)] ["->>" x]))]
       [:raw (str/join \space
-                      [(str "(" path ")") (name op) "(?#>>'{}')"
-                       "and" column "??" "?"])])
+                      [(str "((" path ")") (name op) "(?#>>'{}')"
+                       "and" column "??" "?)"])])
     (let [delimited-qmarks (str/join "->" qmarks)]
       [:raw (str/join \space
                       [(str "(" column "->" delimited-qmarks ")")
