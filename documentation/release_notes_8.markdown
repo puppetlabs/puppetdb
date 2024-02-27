@@ -12,6 +12,20 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.4.1
+
+Released February 27 2024
+
+### Bug fixes
+
+* Fixed an issue with negated regex queries (`!~`) on JSON fields (dotted fact
+  paths and resource parameters), which were not matching the full negation of
+  the regex match when the key was missing from some of the JSON maps.
+
+### Contributors
+
+Austin Blatt, Jonathan Newman, Josh Partlow, and Rob Browning
+
 ## PuppetDB 8.3.0
 
 Released January 18 2024
