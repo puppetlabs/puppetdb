@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.testutils.resources
   (:require [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage
-             :refer [add-facts! ensure-environment]]
+             :refer [add-certnames add-facts! ensure-environment]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [to-jdbc-varchar-array]]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
@@ -49,10 +49,7 @@
          :value (sutils/db-serialize "foo\\bar")}
         {:resource (sutils/munge-hash-for-storage "01") :name "double_quote"
          :value (sutils/db-serialize "foo\"bar")}])
-       (jdbc/insert-multi!
-        :certnames
-         [{:id 1 :certname "one.local"}
-          {:id 2 :certname "two.local"}])
+       (add-certnames ["one.local" "two.local"])
        (jdbc/insert-multi!
         :catalogs
          [{:id 1
@@ -88,20 +85,23 @@
                     :producer_timestamp (to-timestamp (now))
                     :producer "foo.com"})
 
-       (jdbc/insert-multi!
-        :catalog_resources
-         [{:certname_id 1 :resource (sutils/munge-hash-for-storage "01")
-           :type "File" :title "/etc/passwd" :exported false
-           :tags (to-jdbc-varchar-array ["one" "two" "æøåۿᚠ𠜎٤"])}
-          {:certname_id 1 :resource (sutils/munge-hash-for-storage "02")
-           :type "Notify" :title "hello" :exported false
-           :tags (to-jdbc-varchar-array [])}
-          {:certname_id 2 :resource (sutils/munge-hash-for-storage "01")
-           :type "File" :title "/etc/passwd" :exported false
-           :tags (to-jdbc-varchar-array ["one" "two"])}
-          {:certname_id 2 :resource (sutils/munge-hash-for-storage "02")
-           :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22
-           :tags (to-jdbc-varchar-array [])}]))
+       (let [certname-ids (into {} (map (juxt :certname :id)) (jdbc/query-to-vec "SELECT certname, id from certnames"))
+             one-cert-id (get certname-ids "one.local")
+             two-cert-id (get certname-ids "two.local")]
+         (jdbc/insert-multi!
+          :catalog_resources
+          [{:certname_id one-cert-id :resource (sutils/munge-hash-for-storage "01")
+            :type "File" :title "/etc/passwd" :exported false
+            :tags (to-jdbc-varchar-array ["one" "two" "æøåۿᚠ𠜎٤"])}
+           {:certname_id one-cert-id :resource (sutils/munge-hash-for-storage "02")
+            :type "Notify" :title "hello" :exported false
+            :tags (to-jdbc-varchar-array [])}
+           {:certname_id two-cert-id :resource (sutils/munge-hash-for-storage "01")
+            :type "File" :title "/etc/passwd" :exported false
+            :tags (to-jdbc-varchar-array ["one" "two"])}
+           {:certname_id two-cert-id :resource (sutils/munge-hash-for-storage "02")
+            :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22
+            :tags (to-jdbc-varchar-array [])}])))
 
      {:foo1 {:certname   "one.local"
              :resource   "01"

@@ -26,14 +26,14 @@
   "The number of expired/deactivated nodes"
   []
   {:post [(number? %)]}
-  (-> "select count(*) as c from certnames where deactivated is not null or expired is not null"
+  (-> "select count(*) as c from certnames_status where deactivated is not null or expired is not null"
       (first-query-result :c)))
 
 (defn num-active-nodes
   "The number of unique certnames in the population"
   []
   {:post [(number? %)]}
-  (-> "select count(*) as c from certnames where deactivated is null and expired is null"
+  (-> "select count(*) as c from certnames_status where deactivated is null and expired is null"
       (first-query-result :c)))
 
 (defn avg-resource-per-node

@@ -326,7 +326,7 @@
 (defn purgeable-nodes [node-purge-ttl]
   (let [horizon (time/to-timestamp (time/ago node-purge-ttl))]
     (jdbc/query-to-vec
-     "select * from certnames where deactivated < ? or expired < ?"
+     "select * from certnames_status where deactivated < ? or expired < ?"
      horizon horizon)))
 
 (deftest node-purge-gc-batch-limit

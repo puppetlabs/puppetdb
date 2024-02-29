@@ -635,9 +635,11 @@
                     (map #(kitchensink/mapvals (fn [idx] (dissoc idx :user)) %))
                     set)))
        (is (= #{{:left-only
-                {:data_type "text", :character_octet_length 1073741824},
+                {:data_type "text"
+                 :character_octet_length 1073741824},
                 :right-only
-                {:data_type "jsonb", :character_octet_length nil},
+                {:data_type "jsonb"
+                 :character_octet_length nil},
                 :same
                 {:table_name "resource_params_cache",
                  :column_name "parameters",
@@ -664,7 +666,7 @@
                              new-info (assoc idx-info
                                              :table new-table
                                              :index new-name)
-                             new-id (assoc idx-id 0 new-table)]
+                             new-id [new-table new-name]]
                          (assert idx-info)
                          (update smap :indexes
                                  #(-> %
@@ -682,9 +684,9 @@
                                     (dissoc idx-id)
                                     (assoc new-id new-info)))))
           exp-smap (-> initial
-                       (rename-idx ["fact_values" ["value_integer"]]
+                       (rename-idx ["fact_values" "fact_values_value_integer_idx"]
                                    "facts" "facts_value_integer_idx")
-                       (rename-idx ["fact_values" ["value_float"]]
+                       (rename-idx ["fact_values" "fact_values_value_float_idx"]
                                    "facts" "facts_value_float_idx")
                        (move-col ["fact_values" "value_type_id"] "facts")
                        (move-col ["fact_values" "value"] "facts")
@@ -1801,32 +1803,18 @@
                  :primary? false,
                  :user "pdb_test"},
                 :same nil}
-               {:left-only
-                {:schema "public",
-                 :table "resource_events",
-                 :index "resource_events_pkey",
-                 :index_keys ["event_hash"],
-                 :type "btree",
-                 :unique? true,
-                 :functional? false,
-                 :is_partial false,
-                 :primary? true,
-                 :user "pdb_test"},
-                :right-only nil,
-                :same nil}
-               {:left-only nil,
-                :right-only
-                {:schema "public",
-                 :table "resource_events",
-                 :index "resource_events_pkey",
-                 :index_keys ["event_hash", "\"timestamp\""],
-                 :type "btree",
-                 :unique? true,
-                 :functional? false,
-                 :is_partial false,
-                 :primary? true,
-                 :user "pdb_test"},
-                :same nil}
+               {:left-only nil
+                :right-only {:index_keys [nil "\"timestamp\""]}
+                :same {:schema "public"
+                       :table "resource_events"
+                       :index "resource_events_pkey"
+                       :index_keys ["event_hash"]
+                       :type "btree"
+                       :unique? true
+                       :functional? false
+                       :is_partial false
+                       :primary? true
+                       :user "pdb_test"}}
                {:left-only nil,
                 :right-only
                 {:schema "public",
@@ -1878,6 +1866,18 @@
                  :is_partial true,
                  :primary? false,
                  :user "pdb_test"},
+                :same nil}
+               {:left-only nil
+                :right-only {:schema "public"
+                             :table "resource_events"
+                             :index "resource_events_status_idx"
+                             :index_keys ["status"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial false
+                             :primary? false
+                             :user "pdb_test"}
                 :same nil}
                {:left-only nil,
                 :right-only
@@ -2028,58 +2028,30 @@
       (fast-forward-to-migration! 81)
       (let [before-migration (schema-info-map *db*)
             exp-reports-indices-diff
-              [{:left-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_hash_expr_idx"
-                 :index_keys ["encode(hash, 'hex'::text)"]
-                 :type "btree"
-                 :unique? true
-                 :functional? true
-                 :is_partial false
-                 :primary? false
-                 :user "pdb_test"}
-                :right-only nil
-                :same nil}
+              [{:left-only nil
+                :right-only {:index_keys [nil "producer_timestamp"]}
+                :same {:schema "public"
+                       :table "reports"
+                       :index "reports_hash_expr_idx"
+                       :index_keys ["encode(hash, 'hex'::text)"]
+                       :type "btree"
+                       :unique? true
+                       :functional? true
+                       :is_partial false
+                       :primary? false
+                       :user "pdb_test"}}
                {:left-only nil
-                :right-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_hash_expr_idx"
-                 :index_keys ["encode(hash, 'hex'::text)" "producer_timestamp"]
-                 :type "btree"
-                 :unique? true
-                 :functional? true
-                 :is_partial false
-                 :primary? false
-                 :user "pdb_test"}
-                :same nil}
-               {:left-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_pkey"
-                 :index_keys ["id"]
-                 :type "btree"
-                 :unique? true
-                 :functional? false
-                 :is_partial false
-                 :primary? true
-                 :user "pdb_test"}
-                :right-only nil
-                :same nil}
-               {:left-only nil
-                :right-only
-                {:schema "public"
-                 :table "reports"
-                 :index "reports_pkey"
-                 :index_keys ["id" "producer_timestamp"]
-                 :type "btree"
-                 :unique? true
-                 :functional? false
-                 :is_partial false
-                 :primary? true
-                 :user "pdb_test"}
-                :same nil}
+                :right-only {:index_keys [nil "producer_timestamp"]}
+                :same {:schema "public"
+                       :table "reports"
+                       :index "reports_pkey"
+                       :index_keys ["id"]
+                       :type "btree"
+                       :unique? true
+                       :functional? false
+                       :is_partial false
+                       :primary? true
+                       :user "pdb_test"}}
                {:left-only nil
                 :right-only
                 {:schema "public"
@@ -2174,7 +2146,20 @@
                  :is_partial false,
                  :primary? false,
                  :user "pdb_test"},
-                :same nil}],
+                :same nil}
+               {:left-only nil
+                :right-only
+                {:schema "public"
+                 :table "packages"
+                 :index "packages_name_trgm"
+                 :index_keys ["name"]
+                 :type "gin"
+                 :unique? false
+                 :functional? false
+                 :is_partial false
+                 :primary? false
+                 :user "pdb_test"}
+                :same nil}]
               :table-diff nil,
               :constraint-diff nil}
              (diff-schema-maps before-migration (schema-info-map *db*)))))))
@@ -2206,3 +2191,122 @@
       (is (= []
              (jdbc/query-to-vec
                "SELECT reloptions FROM pg_class WHERE relname = 'catalog_resources' AND CAST(reloptions as text) LIKE '%autovacuum_analyze_scale_factor%'"))))))
+
+(deftest migration-85-split-certnames-table
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 84)
+    (let [before-migration (schema-info-map *db*)]
+      (apply-migration-for-testing! 85)
+      (is (= {:index-diff [{:left-only nil
+                            :right-only
+                            {:schema "public"
+                             :table "certnames_status"
+                             :index "certnames_status_not_active_idx"
+                             :index_keys ["certname"]
+                             :type "btree"
+                             :unique? false
+                             :functional? false
+                             :is_partial true
+                             :primary? false
+                             :user "pdb_test"}
+                            :same nil}
+                           {:left-only nil
+                            :right-only {:schema "public"
+                                         :table "certnames_status"
+                                         :index "certnames_status_pkey"
+                                         :index_keys ["certname"]
+                                         :type "btree"
+                                         :unique? true
+                                         :functional? false
+                                         :is_partial false
+                                         :primary? true
+                                         :user "pdb_test"}
+                            :same nil}]
+              :table-diff [{:left-only {:numeric_scale nil
+                                        :column_default nil
+                                        :character_octet_length nil
+                                        :datetime_precision 6
+                                        :nullable? "YES"
+                                        :character_maximum_length nil
+                                        :numeric_precision nil
+                                        :numeric_precision_radix nil
+                                        :data_type "timestamp with time zone"
+                                        :column_name "deactivated"
+                                        :table_name "certnames"}
+                            :right-only nil
+                            :same nil}
+                           {:left-only {:numeric_scale nil
+                                        :column_default nil
+                                        :character_octet_length nil
+                                        :datetime_precision 6
+                                        :nullable? "YES"
+                                        :character_maximum_length nil
+                                        :numeric_precision nil
+                                        :numeric_precision_radix nil
+                                        :data_type "timestamp with time zone"
+                                        :column_name "expired"
+                                        :table_name "certnames"}
+                            :right-only nil
+                            :same nil}
+                           {:left-only nil
+                            :right-only {:numeric_scale nil
+                                         :column_default nil
+                                         :character_octet_length 1073741824
+                                         :datetime_precision nil
+                                         :nullable? "NO"
+                                         :character_maximum_length nil
+                                         :numeric_precision nil
+                                         :numeric_precision_radix nil
+                                         :data_type "text"
+                                         :column_name "certname"
+                                         :table_name "certnames_status"}
+                            :same nil}
+                           {:left-only nil
+                            :right-only {:numeric_scale nil
+                                         :column_default nil
+                                         :character_octet_length nil
+                                         :datetime_precision 6
+                                         :nullable? "YES"
+                                         :character_maximum_length nil
+                                         :numeric_precision nil
+                                         :numeric_precision_radix nil
+                                         :data_type "timestamp with time zone"
+                                         :column_name "deactivated"
+                                         :table_name "certnames_status"}
+                            :same nil}
+                           {:left-only nil
+                            :right-only {:numeric_scale nil
+                                         :column_default nil
+                                         :character_octet_length nil
+                                         :datetime_precision 6
+                                         :nullable? "YES"
+                                         :character_maximum_length nil
+                                         :numeric_precision nil
+                                         :numeric_precision_radix nil
+                                         :data_type "timestamp with time zone"
+                                         :column_name "expired"
+                                         :table_name "certnames_status"}
+                            :same nil}]
+              :constraint-diff [{:left-only nil
+                                 :right-only {:constraint_name "certname IS NOT NULL"
+                                              :table_name "certnames_status"
+                                              :constraint_type "CHECK"
+                                              :initially_deferred "NO"
+                                              :deferrable? "NO"}
+                                 :same nil}
+                                {:left-only nil
+                                 :right-only {:constraint_name "certnames_status_certname_fkey"
+                                              :table_name "certnames_status"
+                                              :constraint_type "FOREIGN KEY"
+                                              :initially_deferred "NO"
+                                              :deferrable? "NO"}
+                                 :same nil}
+                                {:left-only nil
+                                 :right-only {:constraint_name "certnames_status_pkey"
+                                              :table_name "certnames_status"
+                                              :constraint_type "PRIMARY KEY"
+                                              :initially_deferred "NO"
+                                              :deferrable? "NO"}
+                                 :same nil}]}
+             (diff-schema-maps before-migration (schema-info-map *db*)))))))

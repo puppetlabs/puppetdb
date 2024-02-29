@@ -18,7 +18,7 @@
 
    :node_activity
    "select count(*), expired is null and deactivated is null as active
-    from certnames group by active"
+    from certnames_status group by active"
 
    :fact_path_counts_by_depth
    "select depth, count(*) as count

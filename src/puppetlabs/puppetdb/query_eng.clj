@@ -244,7 +244,7 @@
          (when log-queries
            ;; Log origin and AST of incoming query
            (log/infof "PDBQuery:%s:%s"
-                      query-id (-> (sorted-map :origin origin :ast query)
+                      query-id (-> (sorted-map :origin origin :ast query :opts options)
                                    json/generate-string)))
          (jdbc/with-db-connection scf-read-db
            (when query-monitor-id
@@ -526,7 +526,9 @@
           ;; Log origin and AST of incoming query
           (let [{:keys [origin query]} query-map]
             (log/infof "PDBQuery:%s:%s"
-                       query-id (-> (sorted-map :origin origin :ast query)
+                       query-id (-> (sorted-map :origin origin
+                                                :ast query
+                                                :opts (select-keys query-options [:limit :offset :order_by]))
                                     json/generate-string))))
 
         (try

@@ -312,16 +312,16 @@
    :can-drop-unused-joins? true
    :projections {"certname" {:type :string
                              :queryable? true
-                             :field :certnames.certname
-                             :join-deps #{:certnames}}
+                             :field :certnames_status.certname
+                             :join-deps #{:certnames_status}}
                  "deactivated" {:type :string
                                 :queryable? true
-                                :field :certnames.deactivated
-                                :join-deps #{:certnames}}
+                                :field :certnames_status.deactivated
+                                :join-deps #{:certnames_status}}
                  "expired" {:type :timestamp
                             :queryable? true
-                            :field :certnames.expired
-                            :join-deps #{:certnames}}
+                            :field :certnames_status.expired
+                            :join-deps #{:certnames_status}}
                  "facts_environment" {:type :string
                                       :queryable? true
                                       :field :facts_environment.environment
@@ -337,19 +337,19 @@
                  "report_timestamp" {:type :timestamp
                                      :queryable? true
                                      :field :reports.end_time
-                                     :join-deps #{:reports}}
+                                     :join-deps #{:certnames :reports}}
                  "latest_report_hash" {:type :string
                                        :queryable? true
                                        :field (hsql-hash-as-str :reports.hash)
-                                       :join-deps #{:reports}}
+                                       :join-deps #{:certnames :reports}}
                  "latest_report_noop" {:type :boolean
                                        :queryable? true
                                        :field :reports.noop
-                                       :join-deps #{:reports}}
+                                       :join-deps #{:certnames :reports}}
                  "latest_report_noop_pending" {:type :boolean
                                                :queryable? true
                                                :field :reports.noop_pending
-                                               :join-deps #{:reports}}
+                                               :join-deps #{:certnames :reports}}
                  "latest_report_status" {:type :string
                                          :queryable? true
                                          :field :report_statuses.status
@@ -357,15 +357,15 @@
                  "latest_report_corrective_change" {:type :boolean
                                                     :queryable? true
                                                     :field :reports.corrective_change
-                                                    :join-deps #{:reports}}
+                                                    :join-deps #{:certnames :reports}}
                  "latest_report_job_id" {:type :string
                                          :queryable? true
                                          :field :reports.job_id
-                                         :join-deps #{:reports}}
+                                         :join-deps #{:certnames :reports}}
                  "cached_catalog_status" {:type :string
                                           :queryable? true
                                           :field :reports.cached_catalog_status
-                                          :join-deps #{:reports}}
+                                          :join-deps #{:certnames :reports}}
                  "catalog_environment" {:type :string
                                         :queryable? true
                                         :field :catalog_environment.environment
@@ -377,14 +377,17 @@
 
    :relationships certname-relations
 
-   :selection {:from [:certnames]
+   :selection {:from [:certnames_status]
                ;; The join names here must match the values in
                ;; :join-deps above, i.e. :foo or [:foo :bar].
-               :left-join [:catalogs
-                           [:= :catalogs.certname :certnames.certname]
+               :left-join [:certnames
+                           [:= :certnames_status.certname :certnames.certname]
+
+                           :catalogs
+                           [:= :certnames_status.certname :catalogs.certname]
 
                            [:factsets :fs]
-                           [:= :certnames.certname :fs.certname]
+                           [:= :certnames_status.certname :fs.certname]
 
                            :reports
                            [:and
@@ -1491,20 +1494,27 @@
   "Wrap a selection in a CTE representing expired or deactivated certnames"
   [selection node-purge-ttl]
   (let [timestamp (-> node-purge-ttl t/ago t/to-string)]
-    (assoc selection :with {:inactive_nodes {:select [[:certname]]
-                                             :from [:certnames]
-                                             ;; Since we use our own bespoke parameter extraction, we cannot use any parameters
-                                             ;; in this wrapping honeysql cte, so we have to format the string ourselves.
-                                             ;; If we can switch to using honeysql for parameter extraction, we can define this
-                                             ;; filter in honeysql and let it convert the timestamps to SQL.
-                                             :where [:raw
-                                                      (str "(deactivated IS NOT NULL AND deactivated > '" timestamp "')"
-                                                           " OR (expired IS NOT NULL and expired > '" timestamp "')")]}
-                            :not_active_nodes {:select [:certname]
-                                           :from [:certnames]
-                                           :where [:or
-                                                   [:is-not :deactivated nil]
-                                                   [:is-not :expired nil]]}})))
+    (assoc selection
+           :with {:inactive_nodes {:select [[:certname]]
+                                   :from [:certnames_status]
+                                   ;; Since we use our own bespoke parameter extraction, we cannot use any parameters
+                                   ;; in this wrapping honeysql cte, so we have to format the string ourselves.
+                                   ;; If we can switch to using honeysql for parameter extraction, we can define this
+                                   ;; filter in honeysql and let it convert the timestamps to SQL.
+                                   :where [:raw
+                                           (str "(deactivated IS NOT NULL AND deactivated > '" timestamp "')"
+                                                " OR (expired IS NOT NULL and expired > '" timestamp "')")]}
+                  ;; the postgres query planner currently blindly applies De Morgan's law if
+                  ;; it can identify that we have negated these is-not null checks, such as
+                  ;; in the default query for active nodes. So in addition to relying on the
+                  ;; assumption that a user has many more active than inactive nodes, this is
+                  ;; currently relying on the fact that the Postgres query planner cannot
+                  ;; optimize over a CTE boundary.
+                  :not_active_nodes {:select [:certname]
+                                     :from [:certnames_status]
+                                     :where [:or
+                                             [:is-not :deactivated nil]
+                                             [:is-not :expired nil]]}})))
 
 (defn quote-projections
   [projection]

@@ -7,7 +7,6 @@
             [clojure.test]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.cli.services :refer [validate-read-only-user]]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
@@ -430,10 +429,10 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
   then the name of the index"
   [db]
   (jdbc/with-db-connection db
-    (let [indexes (sort-by (juxt :table :index_keys)
+    (let [index-key (juxt :table :index)
+          indexes (sort-by index-key
                            (map db->index-map (jdbc/query-to-vec indexes-sql)))]
-      (kitchensink/mapvals first
-                           (group-by (juxt :table :index_keys) indexes)))))
+      (into {} (map (fn [v] [(index-key v) v])) indexes))))
 
 (def table-column-sql
   "SELECT c.table_name,
@@ -461,10 +460,10 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
   each PuppetDB created table+column in the database"
   [db]
   (jdbc/with-db-connection db
-    (let [tables (sort-by (juxt :table_name :column_name)
+    (let [table-key (juxt :table_name :column_name)
+          tables (sort-by table-key
                           (map db->table-map (jdbc/query-to-vec table-column-sql)))]
-      (kitchensink/mapvals first
-                           (group-by (juxt :table_name :column_name) tables)))))
+      (into {} (map (fn [v] [(table-key v) v])) tables))))
 
 (def constraints-sql
   "SELECT constraint_name,
@@ -498,11 +497,11 @@ ORDER BY idx.indrelid :: REGCLASS, i.relname;")
 (defn query-constraints
   [db]
   (jdbc/with-db-connection db
-    (let [constraints (sort-by (juxt :table_name :constraint_name)
+    (let [constraint-key (juxt :table_name :constraint_name)
+          constraints (sort-by constraint-key
                                (map db->constraint-map (concat (jdbc/query-to-vec constraints-sql)
                                                                (jdbc/query-to-vec check-constraints-sql))))]
-      (kitchensink/mapvals first
-                           (group-by (juxt :table_name :constraint_name) constraints)))))
+      (into {} (map (fn [v] [(constraint-key v) v])) constraints))))
 
 (defn schema-info-map [db-props]
   {:indexes (query-indexes db-props)

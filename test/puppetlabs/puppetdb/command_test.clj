@@ -493,7 +493,7 @@
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (jdbc/insert! :certnames {:certname certname})
+            (scf-store/add-certname! certname)
             (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
                                      :api_version 1
                                      :catalog_version "foo"
@@ -522,7 +522,7 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (jdbc/insert! :certnames {:certname certname})
+            (scf-store/add-certname! certname)
             (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
                                      :api_version 1
                                      :catalog_version "foo"
@@ -538,12 +538,13 @@
 
         (testing "should reactivate the node if it was deactivated before the message"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
+            (scf-store/add-certname! certname)
+            (scf-store/deactivate-node! certname yesterday)
 
             (handle-message (queue/store-command q (make-cmd-req)))
 
             (is (= [{:certname certname :deactivated nil}]
-                   (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                   (query-to-vec "SELECT certname,deactivated FROM certnames_status")))
             (is (= [{:certname certname :catalog catalog-hash}]
                    (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
                                          (sutils/sql-hash-as-str "hash")))))
@@ -554,12 +555,13 @@
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
             (scf-store/delete-certname! certname)
-            (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+            (scf-store/add-certname! certname)
+            (scf-store/deactivate-node! certname tomorrow)
 
             (handle-message (queue/store-command q (make-cmd-req)))
 
             (is (= [{:certname certname :deactivated tomorrow}]
-                   (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                   (query-to-vec "SELECT certname,deactivated FROM certnames_status")))
             (is (= [{:certname certname :catalog catalog-hash}]
                    (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
                                          (sutils/sql-hash-as-str "hash")))))
@@ -1094,10 +1096,11 @@
       (testing "should reactivate the node if it was deactivated before the message"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
-          (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
+          (scf-store/add-certname! certname)
+          (scf-store/deactivate-node! certname yesterday)
 
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames_status")
                  [{:certname certname :deactivated nil}]))
           (is (= [{:certname certname
                    :facts {"a" "1", "b" "2", "c" "3"}}]
@@ -1113,11 +1116,12 @@
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
           (scf-store/delete-certname! certname)
-          (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+          (scf-store/add-certname! certname)
+          (scf-store/deactivate-node! certname tomorrow)
 
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
 
-          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames_status")
                  [{:certname certname :deactivated tomorrow}]))
           (is (= [{:certname certname
                    :facts {"a" "1", "b" "2", "c" "3"}}]
@@ -1445,9 +1449,9 @@
       (doseq [[version command] cases
               :let [{:keys [certname] :as command-req} (deactivate->command-req version command)]]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (jdbc/insert! :certnames {:certname certname})
+          (scf-store/add-certname! certname)
           (handle-message (queue/store-command q command-req))
-          (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
+          (let [results (query-to-vec "SELECT certname,deactivated FROM certnames_status")
                 result  (first results)]
             (is (= (:certname result) certname))
             (is (instance? java.sql.Timestamp (:deactivated result)))
@@ -1469,12 +1473,12 @@
               {:keys [certname] :as command-req} (deactivate->command-req version command)]
 
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (jdbc/insert! :certnames
-                          {:certname certname :deactivated yesterday})
+            (scf-store/add-certname! certname)
+            (scf-store/deactivate-node! certname yesterday)
             (handle-message (queue/store-command q command-req))
 
             (let [[row & rest] (query-to-vec
-                                "SELECT certname,deactivated FROM certnames")]
+                                "SELECT certname,deactivated FROM certnames_status")]
               (is (empty? rest))
               (is (instance? java.sql.Timestamp (:deactivated row)))
               (if (#{1 2} version)
@@ -1494,7 +1498,7 @@
               :let [{:keys [certname] :as command-req} (deactivate->command-req version command)]]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q command-req))
-          (let [result (-> "SELECT certname, deactivated FROM certnames"
+          (let [result (-> "SELECT certname, deactivated FROM certnames_status"
                            query-to-vec first)]
             (is (= (:certname result) certname))
             (is (instance? java.sql.Timestamp (:deactivated result)))
