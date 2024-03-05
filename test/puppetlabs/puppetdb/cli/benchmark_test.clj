@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.cli.benchmark-test
   (:require [clojure.data]
             [clojure.pprint]
+            [clojure.set]
             [clojure.string :as str]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
@@ -8,6 +9,7 @@
             [murphy :refer [with-final]]
             [puppetlabs.puppetdb.cli.benchmark :as benchmark
              :refer [no-open-options populate-hosts]]
+            [puppetlabs.puppetdb.cli.generate :refer [build-parameters weigh]]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
@@ -212,7 +214,8 @@
                                      "--config" "anything.ini"
                                      "--numhosts" "1"
                                      "--nummsgs" "10"
-                                     "--rand-perc" "100")
+                                     "--rand-catalogs" "100:1"
+                                     "--rand-facts" "100:100")
         catalog-hashes (->> submitted
                             (filter #(= :catalog (:entity %)))
                             (map :payload)
@@ -264,7 +267,7 @@
          (is (<= 2 elapsed 4)))
        (stop)))))
 
-(deftest rand-catalog-mutation-keys
+(deftest rand-catalog-mutation-test
   (let [catalog {"certname"           "host-1"
                  "catalog_uuid"       "512d24ae-8999-4f12-bda0-1e5d57c0b5cc"
                  "producer"           "puppet-primary-1"
@@ -275,29 +278,313 @@
                  "code_id"            "100891c7504e899c86bad9ce60c27b29ae5c21ec"
                  "version"            "1690231634"
                  "resources"          [{"type"  "Class"
-                                        "title" "aclass"
+                                        "title" "class-aclass-0"
                                         "file"  "thing"
                                         "line"  123
                                         "tags"  ["one" "two"]
-                                        "parameters" {"a" "one"
-                                                      "b" "two"}}
+                                        "parameters" {"abcdef" "one"
+                                                      "ghiklm" "two"}}
                                        {"type"  "Atype"
-                                        "title" "atypetitle"
+                                        "title" "resource-atypetitle-0"
                                         "file"  "otherthing"
                                         "line"  456
                                         "tags"  ["three" "four"]
-                                        "parameters" {"c" "one"
-                                                      "d" "two"}}]
+                                        "parameters" {"123456" "one"
+                                                      "foo_bar" "two"}}
+                                       {"type"  "Btype"
+                                        "title" "resource-btypetitle-1"
+                                        "file"  "otherthing2"
+                                        "line"  789
+                                        "tags"  ["five" "six"]
+                                        "parameters" {"baz_bif" "abcd"
+                                                      "abc123" "fgh"}}
+                                       {"type"  "Ctype"
+                                        "title" "resource-ctypetitle-2"
+                                        "file"  "otherthing3"
+                                        "line"  9102
+                                        "tags"  ["three" "seven"]
+                                        "parameters" {"aaabbb" "val3"
+                                                      "another" "val4"}}]
                  "edges"              [{"source" {"type"  "Class"
-                                                  "title" "aclass"}
+                                                  "title" "class-aclass-0"}
                                         "target" {"type"  "Atype"
-                                                  "title" "atypetitle"}
+                                                  "title" "resource-atypetitle-0"}
+                                        "relationship" "contains"}
+                                       {"source" {"type"  "Class"
+                                                  "title" "class-aclass-0"}
+                                        "target" {"type"  "Btype"
+                                                  "title" "resource-btypetitle-1"}
+                                        "relationship" "contains"}
+                                       {"source" {"type"  "Class"
+                                                  "title" "class-aclass-0"}
+                                        "target" {"type"  "Ctype"
+                                                  "title" "resource-ctypetitle-2"}
                                         "relationship" "contains"}]
                  "job_id"             nil}
-        mutated (benchmark/rand-catalog-mutation catalog true)
+        mutated (benchmark/rand-catalog-mutation catalog 1 true)
         checked-keys (clojure.walk/walk (fn [[k _]] [k (string? k)]) identity mutated)
         symbol-keys (filter (fn [[_ is-string]] (not is-string)) checked-keys)]
-    (is (empty? symbol-keys) "Mutating a catalog unexpectedly produced these keys as symbols instead of strings.")))
+    (is (empty? symbol-keys) "Mutating a catalog unexpectedly produced these keys as symbols instead of strings.")
+    (is (seq? (mutated "resources")) "transformed resources back into a sequence")
+    (is (<= 3 (count (mutated "resources")) 5) "removed, added or mutated a resource")
+    (is (= (- (count (mutated "resources")) 1) (count (mutated "edges")))
+        "modified edges in sync with resources")
+    (testing "long runs"
+      (testing "without edges"
+        (let [catalog (assoc catalog "edges" [])
+              mutations (doall
+                          (repeatedly 10
+                                    #(benchmark/rand-catalog-mutation catalog 1000 false)))
+              rcounts (map #(count (% "resources")) mutations)
+              weights (map #(weigh %) mutations)
+              avg #(quot (reduce + %) (count %))]
+          ;;(println {:cat-weight (weigh catalog)})
+          ;;(println {:rcounts rcounts})
+          ;;(println {:weights weights})
+          (is (<= 10 (avg rcounts) 40))
+          (is (<= 2000 (avg weights) 8000))
+          (let [long-mutation (benchmark/rand-catalog-mutation catalog 100000 false)
+                resources (long-mutation "resources")]
+            ;;(println {:lm-rcount (count resources) :lm-weight (weigh long-mutation)})
+            (is (<= 1 (count resources) 500))
+            (is (<= 200 (weigh long-mutation) 100000)))))
+      (testing "with edges"
+        (let [mutated (benchmark/rand-catalog-mutation catalog 10000 true)
+              rcount (count (mutated "resources"))
+              ecount (count (mutated "edges"))]
+          ;;(clojure.pprint/pprint mutated)
+          ;;(println {:edges-rcount rcount :edges-ecount ecount})
+          (is (<= 1 rcount 100))
+          (is (= (- rcount 1) ecount)))))))
+
+(deftest resource-has-blob?-test
+  (let [resource {"type"  "Class"
+                  "title" "aclass"
+                  "file"  "thing"
+                  "line"  123
+                  "tags"  ["one" "two"]
+                  "parameters" {"a" "one"
+                                "b" "two"}}
+        resource-with-blob (update resource "parameters" #(assoc % "content_blob_foo" "BLOB"))
+        resource-with-empty (assoc resource "parameters" {})]
+    (is (not (benchmark/resource-has-blob? resource)))
+    (is (benchmark/resource-has-blob? resource-with-blob))
+    (is (not (benchmark/resource-has-blob? resource-with-empty)))))
+
+(deftest modify-title-test
+  (let [middle "abcdefghijklmn"
+        title (str "resource-" middle "-12")
+        new-title (benchmark/modify-title title "test")
+        [match g1] (re-matches #"test-(\w+)-\d+" new-title)]
+    (is (not (nil? match)))
+    (is (not= middle g1))
+    (is (= (count title) (count new-title)))))
+
+(deftest clone-resource-test
+  (let [r1 {"type"  "Class"
+            "title" "aclass"
+            "file"  "thing"
+            "line"  123
+            "tags"  ["one" "two"]
+            "parameters" {"abcdef" "one"
+                          "ghiklm" "two"
+                          "nlopqr" "three"}}
+        cloned (benchmark/clone-resource r1)]
+    (is (= "Class" (cloned "type")) "same type")
+    (is (str/starts-with? (cloned "title") "clone-") "marked title")
+    (is (seq (cloned "parameters")) "some parameters created")
+    (is (empty? (remove string? (keys cloned))) "all string keys")))
+
+(deftest del-resource-test
+  (let [k1 {"type" "Class" "title" "aclass"}
+        r1 {"type"  "Class"
+            "title" "aclass"
+            "file"  "thing"
+            "line"  123
+            "tags"  ["one" "two"]
+            "parameters" {"a" "one"
+                          "b" "two"}}
+        k2 {"type" "Class" "title" "bclass"}
+        r2 {"type"  "Class"
+            "title" "bclass"
+            "file"  "thing2"
+            "line"  1234
+            "tags"  ["one" "two"]
+            "parameters" {"c" "one"
+                          "d" "two"}}
+        work-cat {:resource-hash {k1 r1 k2 r2}
+                  :include-edges false
+                  :edges []}]
+    (testing "not including edges"
+      (is (= (assoc work-cat :resource-hash {k2 r2})
+             (benchmark/del-resource work-cat k1)) "removes resource")
+      (is (= (assoc work-cat :resource-hash {k1 r1})
+             (benchmark/del-resource work-cat k2)) "removes resource")
+      (is (= work-cat (benchmark/del-resource work-cat {"type" "none" "title" "not"}))
+          "does nothing if key not present"))
+    (testing "including edges"
+      (let [edges [{"source" {"type"  "Class"
+                              "title" "aclass"}
+                    "target" {"type"  "Class"
+                              "title" "bclass"}
+                    "relationship" "contains"}]
+            work-cat (assoc work-cat
+                            :include-edges true
+                            :edges edges)]
+        (is (= work-cat (benchmark/del-resource work-cat k1))
+            "does nothing because no cloned resource to delete")
+        (testing "and add-resource has added cloned resources at some point"
+          (let [k3 {"type" "Class" "title" "clone-bclass"}
+                r3 {"type"  "Class"
+                    "title" "clone-bclass"
+                    "file"  "thing3"
+                    "line"  456
+                    "tags"  ["one" "two"]
+                    "parameters" {"e" "three"
+                                  "f" "four"}}
+                e3 {"source" {"type"  "Class"
+                               "title" "aclass"}
+                     "target" {"type"  "Class"
+                               "title" "clone-bclass"}
+                     "relationship" "contains"}
+                work-cat-with-clone (assoc work-cat
+                                     :resource-hash {k1 r1 k2 r2 k3 r3}
+                                     :edges (conj edges e3))]
+          (is (= work-cat (benchmark/del-resource work-cat-with-clone k1))
+              "deletes k3 and edge instead")))))))
+
+(deftest add-resource-test
+  (let [k1 {"type" "Class" "title" "aclass"}
+        r1 {"type"  "Class"
+            "title" "aclass"
+            "file"  "thing"
+            "line"  123
+            "tags"  ["one" "two"]
+            "parameters" {"abcdef" "one"
+                          "ghiklm" "two"}}
+        k2 {"type" "Class" "title" "bclass"}
+        r2 {"type"  "Class"
+            "title" "bclass"
+            "file"  "thing2"
+            "line"  1234
+            "tags"  ["one" "two"]
+            "parameters" {"abcdef" "one"
+                          "ghiklm" "two"}}
+        work-cat {:resource-hash {k1 r1 k2 r2}
+                  :include-edges false
+                  :edges []
+                  :original-keys [k1 k2]}]
+    (testing "not including edges"
+      (let [added-cat (benchmark/add-resource work-cat r1)]
+        (is (= 3 (count (:resource-hash added-cat))) "adds a resource")
+        (is (empty? (:edges added-cat)) "does not add an edge")))
+    (testing "with edges"
+      (let [edges [{"source" {"type"  "Class"
+                              "title" "aclass"}
+                    "target" {"type"  "Class"
+                              "title" "bclass"}
+                    "relationship" "contains"}]
+            work-cat (assoc work-cat
+                            :include-edges true
+                            :edges edges)
+            added-cat (benchmark/add-resource work-cat r1)]
+        (is (= 3 (count (:resource-hash added-cat))) "adds a resource")
+        (is (= 2 (count (:edges added-cat))) "adds an edge")
+        (testing "forms edges with original-keys"
+          (let [itered-cat (nth (iterate
+                                  #(benchmark/add-resource % (rand-nth [r1 r2]))
+                                  added-cat)
+                                97)]
+            (is (= 100 (count (:resource-hash itered-cat))) "adds 98 resources")
+            (is (= 99 (count (:edges itered-cat))) "adds 98 edges")
+            (is (= 99 (count (filter (fn [{:strs [source]}]
+                                        (.contains [k1 k2] source))
+                                      (:edges itered-cat))))
+                "all edges formed with non-cloned sources")))))))
+
+(deftest mod-resource-test
+  (let [k1 {"type" "Class" "title" "aclass"}
+        r1 {"type"  "Class"
+            "title" "aclass"
+            "file"  "thing"
+            "line"  123
+            "tags"  ["one" "two"]
+            "parameters" {"a" "one"
+                          "b" "two"}}
+        k2 {"type" "Class" "title" "bclass"}
+        r2 {"type"  "Class"
+            "title" "bclass"
+            "file"  "thing2"
+            "line"  1234
+            "tags"  ["one" "two"]
+            "parameters" {"c" "one"
+                          "d" "two"}}
+        work-cat {:resource-hash {k1 r1 k2 r2}
+                  :include-edges false
+                  :edges []}]
+    (testing "parameter change"
+      (let [modded-cat (benchmark/mod-resource work-cat k1)]
+        (is (= 2 (count (:resource-hash modded-cat))) "same count")
+        (is (not= (r1 "parameters")
+                  (get-in modded-cat [:resource-hash k1 "parameters"]))
+            "parameters have changed")))))
+
+(deftest touch-parameters-test
+  (let [psmall {"a" "b"}
+        pbig (build-parameters 2000)
+        pbig-count (count pbig)
+        pbig-weight (weigh pbig)
+
+        ps-mutated (benchmark/touch-parameters psmall)
+        pb-mutated (benchmark/touch-parameters pbig)]
+    (is (= {} (benchmark/touch-parameters {})) "Handles the empty case.")
+    (is (= 1 (count ps-mutated)))
+    (is (= 2 (weigh ps-mutated)))
+    (is (not= psmall ps-mutated))
+    (is (= pbig-count (count pb-mutated)))
+    (is (= pbig-weight (weigh pb-mutated)))
+    (is (not= pbig pb-mutated))))
+
+(deftest rebuild-parameters-test
+  (let [psmall {"a" "b"}
+        pbig (build-parameters 2000)
+        pbig-count (count pbig)
+        pbig-weight (weigh pbig)
+
+        ps-rebuilt (benchmark/rebuild-parameters psmall)
+        pb-rebuilt (benchmark/rebuild-parameters pbig)]
+    (is (= {} (benchmark/rebuild-parameters {})) "Handles the empty case.")
+    (is (= 1 (count ps-rebuilt)))
+    (is (= 6 (weigh ps-rebuilt)))
+    (is (= pbig-count (count pb-rebuilt)))
+    (is (= pbig-weight (weigh pb-rebuilt)))
+    (is (not= pbig pb-rebuilt))
+    (let [pb-keys (set (keys pbig))
+          pb-vals (set (vals pbig))
+          rebuilt-keys (set (keys pb-rebuilt))
+          rebuilt-vals (set (vals pb-rebuilt))]
+      (is (empty? (clojure.set/intersection pb-keys rebuilt-keys)))
+      (let [val-intersect (clojure.set/intersection pb-vals rebuilt-vals)]
+        (is (or (empty? val-intersect)
+                (= #{""} val-intersect)))))))
+
+(deftest change-resources-test
+  (testing "does not delete last resource"
+    (let [k1 {"type" "Class" "title" "aclass"}
+          r1 {"type"  "Class"
+              "title" "aclass"
+              "file"  "thing"
+              "line"  123
+              "tags"  ["one" "two"]
+              "parameters" {"a" "one"
+                            "b" "two"}}
+          work-cat {:resource-hash {k1 r1}
+                    :include-edges false
+                    :edges []}
+          mutated (benchmark/change-resources :del work-cat)
+          rmod (first (vals (:resource-hash mutated)))]
+      (is (not (nil? rmod)) "did not delete last resource")
+      (is (not (= (r1 "parameters") (rmod "parameters"))) "modified instead"))))
 
 (deftest populate-hosts-behavior
   (testing "without command data"
@@ -475,7 +762,7 @@
                 {:failed {:host (:host preserved)
                           :diff {:only-in-preserved only-in-preserved
                                  :only-in-submitted only-in-submitted}}}))))))
-    (testing "re-running benchmark restricted does not loose preserved state"
+    (testing "re-running benchmark restricted does not lose preserved state"
       (let [;; just submit catalogs
             restarted-submissions (benchmark-nummsgs
                                     {}
@@ -514,3 +801,41 @@
         (is (not (nil? (:factset preserved-host-100))))
         (is (not (nil? (:catalog preserved-host-100))))
         (is (nil? (:report preserved-host-100)))))))
+
+(deftest rand-catalogs-and-facts-arg-handling
+  (testing "cli parsing"
+    (let [base-args ["--config" "config.ini"
+                     "--numhosts" "10"
+                     "--nummsgs" "20"]
+          parse-rand-args (fn [& rand-args]
+                            (#'benchmark/validate-cli!
+                              (reduce conj base-args rand-args)))]
+      (with-redefs [config/load-config (fn [_] {})]
+        (testing "of --rand-catalogs"
+          (is (= [[1.0 1]] (:rand-catalogs (parse-rand-args "--rand-catalogs=100:1"))))
+          (is (= [[0.01 200]] (:rand-catalogs (parse-rand-args "--rand-catalogs=1:200"))))
+          (is (= [[0.153 300]] (:rand-catalogs (parse-rand-args "--rand-catalogs=15.3:300"))))
+          (is (= [[0.2 500]
+                  [1.0 2]] (:rand-catalogs (parse-rand-args
+                                                 "--rand-catalogs=20:500"
+                                                 "--rand-catalogs=80:2"))))
+          (is (= [[0.001 1000]
+                  [0.151 100]
+                  [0.207 23]] (:rand-catalogs (parse-rand-args
+                                                 "--rand-catalogs=.1:1000"
+                                                 "--rand-catalogs=15:100"
+                                                 "--rand-catalogs=5.6:23")))))
+        (testing "of --rand-facts"
+          (is (= [[1.0 0.01]] (:rand-facts (parse-rand-args "--rand-facts=100:1"))))
+          (is (= [[0.01 1.0]] (:rand-facts (parse-rand-args "--rand-facts=1:100"))))
+          (is (= [[0.2 0.5]
+                  [1.0 0.75]] (:rand-facts (parse-rand-args
+                                                 "--rand-facts=20:50"
+                                                 "--rand-facts=80:75"))))))))
+  (testing "selection"
+    (is (= 0 (#'benchmark/pick-random-count-or-change []))
+        "returns 0 if nothing to choose")
+    (is (= 0 (#'benchmark/pick-random-count-or-change [[0 1]]))
+        "returns 0 if no chance")
+    (is (= 42 (#'benchmark/pick-random-count-or-change [[1.0 42]]))
+        "returns 42 for 100% chance")))
