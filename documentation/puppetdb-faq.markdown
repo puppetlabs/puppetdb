@@ -63,7 +63,8 @@ our team's previous experience with the language.
 
 ## Which versions of Java are supported?
 
-JDK 11 is officially supported. Other versions may work, and issues will be
+JDK 11 and 17 are officially supported. JDK 17 is recommended if it is
+available on your platform. Other versions may work, and issues will be
 addressed on a best-effort basis, but support is not guaranteed.
 
 ## Which databases are supported?

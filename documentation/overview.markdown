@@ -68,6 +68,8 @@ through PuppetDB's query APIs (see the navigation sidebar for details).
 
 ### \*nix server with JVM 11+
 
+Java 17 is recommended, but Java 11 is supported as well.
+
 #### Standard install: RHEL, CentOS, Debian, and Ubuntu
 
 Puppet provides PuppetDB packages and a module which simplify the
