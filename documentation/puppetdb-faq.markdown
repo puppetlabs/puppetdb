@@ -63,9 +63,8 @@ our team's previous experience with the language.
 
 ## Which versions of Java are supported?
 
-JDK 8 is officially supported, and JDK 10 is expected to work.  Other
-versions may work, and issues will be addressed on a best-effort
-basis, but support is not guaranteed.
+JDK 11 is officially supported. Other versions may work, and issues will be
+addressed on a best-effort basis, but support is not guaranteed.
 
 ## Which databases are supported?
 
