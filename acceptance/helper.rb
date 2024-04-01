@@ -858,6 +858,8 @@ EOS
       # Take new configuration file on debian to prevent tests from hanging
       # when this is used to upgrade puppet
       if get_os_family(database) == :debian
+        # Explicitly install ca-certificates-java before java to avoid error installing java on debian
+        database.install_package('ca-certificates-java')
         database.install_package('puppetserver', '-o Dpkg::Options::="--force-confnew"')
       else
         install_package(database, 'puppetserver')
