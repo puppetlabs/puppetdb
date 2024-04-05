@@ -78,6 +78,7 @@
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
             [puppetlabs.puppetdb.client :as client]
+            [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.threadpool :as pool])
   (:import
    (clojure.lang ExceptionInfo)
@@ -1631,6 +1632,8 @@
       (svc-utils/with-puppetdb-instance
         (let [{pdb-host :host pdb-port :port
                :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty (get-config))
+              pdb (get-service svc-utils/*server* :PuppetDBServer)
+              q (:q (cli-svc/shared-globals pdb))
               base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
               facts {:certname "foo.com"
                      :environment "test"
@@ -1666,7 +1669,10 @@
 
             ;; check the first command was "bashed"
             (is (= #{{:id 0 :delete? true} {:id 1 :delete? nil}}
-                   (set (map #(select-keys % [:id :delete?]) val))))))))))
+                   (set (map #(select-keys % [:id :delete?]) val))))
+
+            ;; check that all commands removed from stockpile
+            (is (= 0 (stock/reduce q (fn [acc _] (inc acc)) 0)))))))))
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance

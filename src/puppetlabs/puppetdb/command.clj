@@ -640,18 +640,19 @@
   "Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
-  [cmd {:keys [command version certname id received producer_timestamp] :as cmdref}
+  [cmd {:keys [command version certname id received] :as cmdref}
    q response-chan stats _options-config maybe-send-cmd-event!]
-  (swap! stats update :executed-commands inc)
-  ((:callback cmd) {:command cmd :result nil})
-  (async/>!! response-chan (make-cmd-processed-message cmd nil))
-  (log-command-processed-messsage id received (now) (command-keys command)
-                                  certname producer_timestamp
-                                  {:status :obsolete})
-  (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
-  (maybe-send-cmd-event! cmdref ::processed)
-  (update-counter! :depth command version dec!)
-  (update-counter! :invalidated command version dec!))
+  (let [producer_timestamp (get-in cmd [:payload :producer_timestamp])]
+    (swap! stats update :executed-commands inc)
+    ((:callback cmd) {:command cmd :result nil})
+    (async/>!! response-chan (make-cmd-processed-message cmd nil))
+    (log-command-processed-messsage id received (now) (command-keys command)
+                                    certname producer_timestamp
+                                    {:status :obsolete})
+    (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
+    (maybe-send-cmd-event! cmdref ::processed)
+    (update-counter! :depth command version dec!)
+    (update-counter! :invalidated command version dec!)))
 
 (defn broadcast-cmd
   [{:keys [certname command id callback] :as cmd}
@@ -811,8 +812,13 @@
             (mark! (global-metric :fatal))
             (maybe-send-cmd-event! cmdref ::processed))
 
-          delete? (process-delete-cmd cmd cmdref q response-chan stats
-                                      options-config maybe-send-cmd-event!)
+          delete? (-> cmd
+                      ;; :producer_timestamp is optional in some commands.
+                      ;; Normally handled by prep-command, but those operations
+                      ;; can be expensive and aren't necessary to drop the cmd.
+                      (update-in [:payload :producer_timestamp] #(or % (now)))
+                      (process-delete-cmd cmdref q response-chan stats
+                                          options-config maybe-send-cmd-event!))
 
           :else (-> cmd
                     (prep-command options-config)
