@@ -10,6 +10,26 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+## PuppetDB 8.5.0
+
+Released April 11 2024
+
+### New features and improvements
+
+* Improve query performance on the certnames table
+
+### Improvements
+
+* Ship with updated dependencies (clojure, and pgjdbc)
+
+### Bug fixes
+
+* Ensure producer_timestamp is logged with legacy commands.
+
+### Contributors
+
+Austin Blatt and Rob Browning.
+
 # PuppetDB: Release notes
 
 ## PuppetDB 8.4.1
