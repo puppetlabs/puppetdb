@@ -10,6 +10,8 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ---
 
+# PuppetDB: Release notes
+
 ## PuppetDB 8.5.0
 
 Released April 11 2024
@@ -29,8 +31,6 @@ Released April 11 2024
 ### Contributors
 
 Austin Blatt and Rob Browning.
-
-# PuppetDB: Release notes
 
 ## PuppetDB 8.4.1
 
