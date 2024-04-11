@@ -15,6 +15,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.18.0
+
+Released April 11 2024
+
+### Improvements
+
+* Ship with updated dependencies (clojure, and pgjdbc)
+
+### Bug fixes
+
+* Ensure producer_timestamp is logged with legacy commands.
+
+### Contributors
+
+Austin Blatt and Rob Browning.
+
 ## PuppetDB 7.17.1
 
 Released February 27 2024
