@@ -353,7 +353,7 @@
                  "latest_report_status" {:type :string
                                          :queryable? true
                                          :field :report_statuses.status
-                                         :join-deps #{:report_statuses :reports}}
+                                         :join-deps #{:certnames :report_statuses :reports}}
                  "latest_report_corrective_change" {:type :boolean
                                                     :queryable? true
                                                     :field :reports.corrective_change
