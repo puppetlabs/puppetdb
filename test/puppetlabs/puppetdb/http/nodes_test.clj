@@ -123,7 +123,9 @@
     (testing "querying on latest report status works"
       (is-query-result' ["=" "latest_report_status" "success"] [])
       (is-query-result' ["=" "latest_report_status" "failure"] [])
-      (is-query-result' ["=" "latest_report_status" "unchanged"] [web1 db puppet]))
+      (is-query-result' ["=" "latest_report_status" "unchanged"] [web1 db puppet])
+      (is (= #{{:latest_report_status nil} {:latest_report_status "unchanged"}}
+             (query-result method endpoint ["extract" ["latest_report_status"]]))))
 
     (testing "querying on latest report noop works"
       (is-query-result' ["=" "latest_report_noop" true] [])

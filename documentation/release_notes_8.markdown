@@ -12,6 +12,19 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.5.1
+
+Released TBD.
+
+### Bug fixes
+
+* Fix an error when querying for `nodes` and `latest_report_status`
+  [GitHub #3966](https://github.com/puppetlabs/puppetdb/issues/3966)
+
+### Contributors
+
+Austin Blatt and ...
+
 ## PuppetDB 8.5.0
 
 Released April 11 2024
