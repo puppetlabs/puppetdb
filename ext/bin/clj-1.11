@@ -4,7 +4,7 @@ set -ueo pipefail
 
 nopf() { set +o pipefail; }
 
-clojure_ver=1.11.1
+clojure_ver=1.11.2
 spec_ver=0.3.218 # spec.alpha
 specs_ver=0.2.62 # core.specs.alpha
 
