@@ -37,8 +37,9 @@
   (and (instance? ExceptionInfo ex)
        (let [{:keys [rollback handling]} (ex-data ex)]
          (and rollback
+              (instance? SQLException handling)
               (= (sql-state :admin-shutdown)
-                 (some-> handling .getSQLState))))))
+                 (.getSQLState handling))))))
 
 (defmacro with-db-connection [spec & body]
   `(sql/with-db-connection [db# ~spec]
