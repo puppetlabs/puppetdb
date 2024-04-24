@@ -394,8 +394,8 @@
 
 (defn certname-names-query [active]
   (if active
-    "SELECT name FROM certnames WHERE deactivated IS NULL AND expired IS NULL"
-    "SELECT name FROM certnames WHERE deactivated IS NOT NULL OR expired IS NOT NULL") )
+    "SELECT certname FROM certnames_status WHERE deactivated IS NULL AND expired IS NULL"
+    "SELECT certname FROM certnames_status WHERE deactivated IS NOT NULL OR expired IS NOT NULL"))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
