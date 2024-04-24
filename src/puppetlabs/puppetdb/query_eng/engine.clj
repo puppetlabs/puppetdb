@@ -1373,7 +1373,10 @@
                                        [(hsql-hash-as-href "fs.certname" :factsets :facts)
                                         :href]]
                               :from [[{:select [[:key :name] :value :fs.certname]
-                                       :from [[[:raw "jsonb_each(fs.volatile || fs.stable)"]]]}
+                                       :from [[{:union-all
+                                                [{:select :* :from [[[:jsonb_each :fs.stable]]]}
+                                                 {:select :* :from [[[:jsonb_each :fs.volatile]]]}]}
+                                               :t-union]]}
                                       :t]]}
                              :facts_data]]}
              :join-deps #{:fs}}
