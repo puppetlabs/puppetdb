@@ -1634,7 +1634,7 @@
                 true (sql/format :allow-dashed-names? true)
                 true first)]
       (if (:subquery? query)
-        [:raw (str " ( " sql " ) ")]
+        [:nest [:raw sql]]
         sql)))
 
   InExpression
