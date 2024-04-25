@@ -1740,11 +1740,11 @@
 
   AndExpression
   (-plan->sql [expr options]
-    (concat [:and] (map #(-plan->sql % options) (:clauses expr))))
+    (apply vector :and (map #(-plan->sql % options) (:clauses expr))))
 
   OrExpression
   (-plan->sql [expr options]
-    (concat [:or] (map #(-plan->sql % options) (:clauses expr))))
+    (apply vector :or (map #(-plan->sql % options) (:clauses expr))))
 
   NotExpression
   (-plan->sql [expr options]
