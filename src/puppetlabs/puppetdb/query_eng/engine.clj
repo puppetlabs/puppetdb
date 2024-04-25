@@ -67,6 +67,7 @@
 (def field-schema (s/conditional keyword? s/Keyword
                                  map? {:select s/Any s/Any s/Any}
                                  #(= :raw (first %)) [(s/one (s/eq :raw) "raw") (s/one s/Str "sql")]
+                                 vector? [s/Any]
                                  :else [s/Keyword]))
 
 ; The use of 'column' here is a misnomer. This refers to the result of
@@ -242,19 +243,16 @@
   (map-invert pdb-fns->pg-fns))
 
 (defn hsql-hash-as-str
-  [column-keyword]
-  (->> column-keyword
-       name
-       su/sql-hash-as-str
-       (conj [:raw])))
+  [column-kw]
+  [:encode [:cast column-kw :bytea] [:inline "hex"]])
 
 (defn hsql-hash-as-href
   [entity parent child]
-  [:raw (str "format("
-             (str "'/pdb/query/v4/" (name parent) "/%s/" (name child) "'")
-             ", "
-             entity
-             ")")])
+  [:format
+   [:inline (str "/pdb/query/v4/" (name parent) "/%s/" (name child))]
+   (if (string? entity)
+     [:raw entity]
+     entity)])
 
 (defn hsql-uuid-as-str
   [column-keyword]
@@ -734,7 +732,7 @@
                  :field {:select [(h/row-to-json :t)]
                          :from [[{:select
                                   [[(h/coalesce :metrics (h/scast :metrics_json :jsonb)) :data]
-                                   [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :metrics)
+                                   [(hsql-hash-as-href (hsql-hash-as-str :hash) :reports :metrics)
                                     :href]]} :t]]}
                  :join-deps #{:reports}}
       "logs" {:type :json
@@ -742,7 +740,7 @@
               :field {:select [(h/row-to-json :t)]
                       :from [[{:select
                                [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
-                                [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
+                                [(hsql-hash-as-href (hsql-hash-as-str :hash) :reports :logs)
                                  :href]]} :t]]}
               :join-deps #{:reports}}
       "receive_time" {:type :timestamp
@@ -795,7 +793,7 @@
                          :field {:select [(h/row-to-json :event_data)]
                                  :from [[{:select
                                           [[(json-agg-row :t) :data]
-                                           [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :events) :href]]
+                                           [(hsql-hash-as-href (hsql-hash-as-str :hash) :reports :events) :href]]
                                           :from [[{:select
                                                    [:re.status
                                                     :re.timestamp
@@ -888,7 +886,7 @@
                    :queryable? false
                    :field {:select [(h/row-to-json :resource_data)]
                            :from [[{:select [[(json-agg-row :t) :data]
-                                             [(hsql-hash-as-href "c.certname" :catalogs :resources) :href]]
+                                             [(hsql-hash-as-href :c.certname :catalogs :resources) :href]]
                                     :from [[{:select [[(hsql-hash-as-str :cr.resource) :resource]
                                                       :cr.type :cr.title :cr.tags :cr.exported :cr.file :cr.line
                                                       [(h/scast :rpc.parameters :json) :parameters]]
@@ -903,7 +901,7 @@
                :queryable? false
                :field {:select [(h/row-to-json :edge_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
-                                         [(hsql-hash-as-href "c.certname" :catalogs :edges) :href]]
+                                         [(hsql-hash-as-href :c.certname :catalogs :edges) :href]]
                                 :from [[{:select [[:sources.type :source_type] [:sources.title :source_title]
                                                   [:targets.type :target_type] [:targets.title :target_title]
                                                   [:edges.type :relationship]]
@@ -1379,7 +1377,7 @@
                                                     [:inline "name"] :t.name
                                                     [:inline "value"] :t.value]]
                                         :data]
-                                       [(hsql-hash-as-href "fs.certname" :factsets :facts)
+                                       [(hsql-hash-as-href :fs.certname :factsets :facts)
                                         :href]]
                               :from [[{:select [[:key :name] :value :fs.certname]
                                        :from [[{:union-all
