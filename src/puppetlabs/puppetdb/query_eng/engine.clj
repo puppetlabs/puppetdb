@@ -1593,16 +1593,15 @@
   provided value. The operator, function name and its arguments must
   have already been validated."
   [op function args]
-  (let [quoted-args
+  (let [args
         (case function
-          ("sum" "avg" "min" "max" "count" "jsonb_typeof") (mapv jdbc/double-quote args)
-          "to_char" [(jdbc/double-quote (first args)) (jdbc/single-quote (second args))]
+          ("sum" "avg" "min" "max" "count" "jsonb_typeof") (map keyword args)
+          "to_char" [(-> args first keyword) [:inline (second args)]]
           (throw (IllegalArgumentException. (tru "{0} is not a valid function"
                                                  (pr-str function)))))]
-    [:raw (format "%s(%s) %s ?"
-                  function
-                  (str/join ", " quoted-args)
-                  op)]))
+    [(keyword op)
+     (apply vector (keyword function) args)
+     [:raw "?"]]))
 
 (defn munge-query-ordering
   [clauses]
