@@ -423,7 +423,9 @@
                   (assoc-in [:projections "expires_facts"]
                             {:type :boolean
                              :queryable? true
-                             :field [:raw "coalesce(certname_fact_expiration.expire, true)"]
+                             :field [:coalesce
+                                     :certname_fact_expiration.expire
+                                     [:inline true]]
                              :join-deps #{:certname_fact_expiration}})
                   (assoc-in [:projections "expires_facts_updated"]
                             {:type :timestamp
@@ -1000,7 +1002,7 @@
                :join-deps #{:ci}}}
     :selection {:from [:certnames]
                 :join [[{:select [:certname_id
-                                  [[:raw "array_agg(array[catalog_inputs.type, name])"] :inputs]]
+                                  [[:array_agg [:array [:catalog_inputs.type :name]]] :inputs]]
                          :from [:catalog_inputs]
                          :group-by [:certname_id]} :ci]
                        [:= :certnames.id :ci.certname_id]]
@@ -1373,7 +1375,9 @@
     "facts" {:type :queryable-json
              :queryable? true
              :field {:select [(h/row-to-json :facts_data)]
-                     :from [[{:select [[[:raw "json_agg(json_build_object('name', t.name, 'value', t.value))"]
+                     :from [[{:select [[[:json_agg [:json_build_object
+                                                    [:inline "name"] :t.name
+                                                    [:inline "value"] :t.value]]
                                         :data]
                                        [(hsql-hash-as-href "fs.certname" :factsets :facts)
                                         :href]]
@@ -1502,15 +1506,15 @@
   [selection node-purge-ttl]
   (let [timestamp (-> node-purge-ttl t/ago t/to-string)]
     (assoc selection
-           :with {:inactive_nodes {:select [[:certname]]
-                                   :from [:certnames_status]
-                                   ;; Since we use our own bespoke parameter extraction, we cannot use any parameters
-                                   ;; in this wrapping honeysql cte, so we have to format the string ourselves.
-                                   ;; If we can switch to using honeysql for parameter extraction, we can define this
-                                   ;; filter in honeysql and let it convert the timestamps to SQL.
-                                   :where [:raw
-                                           (str "(deactivated IS NOT NULL AND deactivated > '" timestamp "')"
-                                                " OR (expired IS NOT NULL and expired > '" timestamp "')")]}
+           :with {:inactive_nodes
+                  {:select [[:certname]]
+                   :from [:certnames_status]
+                   ;; Because have bespoke parameter extraction,
+                   ;; honeysql must not generate any parameters for
+                   ;; this cte (i.e. everything must be inline).
+                   :where [:or
+                           [:and [:<> :deactivated nil] [:> :deactivated [:inline timestamp]]]
+                           [:and [:<> :expired nil] [:> :expired [:inline timestamp]]]]}
                   ;; the postgres query planner currently blindly applies De Morgan's law if
                   ;; it can identify that we have negated these is-not null checks, such as
                   ;; in the default query for active nodes. So in addition to relying on the
