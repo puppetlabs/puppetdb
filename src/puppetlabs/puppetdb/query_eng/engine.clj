@@ -3281,7 +3281,8 @@
                 function-reqs (extract-function-deps plan)
                 required? (set/union proj-reqs where-reqs function-reqs)
                 join-key? (if (empty? (:call plan))
-                            #{:full-join
+                            #{:cross-join
+                              :full-join
                               :join
                               :left-join
                               :merge-full-join
