@@ -1724,17 +1724,19 @@
   (-plan->sql [{:keys [column] :as expr} options]
     (s/validate column-schema column)
     (let [queryable-json? (= :queryable-json (:type column))
+          hsql-col? (and (vector? (:field column))
+                         (not (= :raw (-> column :field first))))
           lhs (if queryable-json?
-                (name (h/extract-sql (:field column)))
+                (if hsql-col?
+                  (:field column)
+                  (name (h/extract-sql (:field column))))
                 (-plan->sql (:field column) options))
           json? (or queryable-json? (= :jsonb-scalar (:type column)))]
-      (if (:null? expr)
-        (if json?
-          (su/jsonb-null? lhs true)
-          [:is lhs nil])
-        (if json?
-          (su/jsonb-null? lhs false)
-          [:is-not lhs nil]))))
+      (if json?
+        (if hsql-col?
+          [(if (:null? expr) := :<>) [:jsonb_typeof lhs] [:inline "null"]]
+          (su/jsonb-null? lhs (boolean (:null? expr))))
+        [(if (:null? expr) :is :is-not) lhs nil])))
 
   AndExpression
   (-plan->sql [expr options]
