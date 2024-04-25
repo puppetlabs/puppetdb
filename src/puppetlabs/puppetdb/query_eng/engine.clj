@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [honey.sql.helpers :as hsql]
-            [honey.sql.pg-ops] ;; require to enable postgres ops
+            [honey.sql.pg-ops :as pgop] ;; require to enable postgres ops
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.honeysql :as h]
@@ -1651,16 +1651,13 @@
         :from [[(-plan->sql subquery options) :sub]]}]))
 
   JsonContainsExpression
-  (-plan->sql [{:keys [field column-data array-in-path]} _opts]
-    (let [f (if (= :raw (:field-type column-data))
-              (-> column-data :field second)
-              field)]
-      ;; This distinction is necessary (at least) because @> cannot
-      ;; traverse into arrays, but should be otherwise preferred
-      ;; because it can use an index.
-      (if array-in-path
-        [:raw (format "%s #> ? = ?" f)]
-        [:raw (format "%s @> ?" f)])))
+  (-plan->sql [{:keys [column-data array-in-path]} _opts]
+    ;; This distinction is necessary (at least) because @> cannot
+    ;; traverse into arrays, but should be otherwise preferred
+    ;; because it can use an index.
+    (if array-in-path
+      [:= [:#> (:field column-data) [:raw "?"]] [:raw "?"]]
+      [pgop/at> (:field column-data) [:raw "?"]]))
 
   FnBinaryExpression
   (-plan->sql [{:keys [function args operator]} _opts]
