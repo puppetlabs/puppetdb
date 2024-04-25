@@ -520,15 +520,20 @@
                                       :queryable? true
                                       :field :fs.value
                                       :join-deps #{:fs}}}
-               :selection {:from [[[:raw
-                                    (str "(select certname,"
-                                         "        environment_id,"
-                                         "        (jsonb_each((stable||volatile))).*"
-                                         "  from factsets)")]
+               ;; Consider rewrite-fact-query when making any changes here
+               :selection {:select [:certname :environment_id :key :value]
+                           :from [[{:select [:certname :environment_id
+                                             :facts.key :facts.value]
+                                    :from :factsets
+                                    ;; fixme: don't need cross-join?
+                                    :cross-join [[[:lateral
+                                                   {:union-all
+                                                    [{:select :* :from [[[:jsonb_each :stable]]]}
+                                                     {:select :* :from [[[:jsonb_each :volatile]]]}]}]
+                                                  :facts]]}
                                    :fs]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]}
-
                :relationships (merge certname-relations
                                      {"environments" {:local-columns ["environment"]
                                                       :foreign-columns ["name"]}
