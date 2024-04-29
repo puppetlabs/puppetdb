@@ -281,14 +281,12 @@
                              "facts" {:type :queryable-json
                                       :projectable-json? true
                                       :queryable? true
-                                      :field [:raw "(fs.stable||fs.volatile)"]
-                                      :field-type :raw
+                                      :field [:nest [:|| :fs.stable :fs.volatile]]
                                       :join-deps #{:fs}}
                              "trusted" {:type :queryable-json
                                         :projectable-json? true
                                         :queryable? true
-                                        :field [:raw "(fs.stable||fs.volatile)->'trusted'"]
-                                        :field-type :raw
+                                        :field [:-> [:|| :fs.stable :fs.volatile] [:inline "trusted"]]
                                         :join-deps #{:fs}}}
 
                :selection {:from [[:factsets :fs]]
@@ -1666,8 +1664,8 @@
   JsonbPathBinaryExpression
   (-plan->sql [{:keys [field value column-data operator]} _opts]
     (su/jsonb-path-binary-expression operator
-                                     (if (= :raw (:field-type column-data))
-                                       (-> column-data :field second)
+                                     (if (vector? (:field column-data))
+                                       (:field column-data)
                                        field)
                                      value))
 
