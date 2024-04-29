@@ -2270,25 +2270,34 @@
   (contains? (ks/keyset user-name->query-rec-name)
              (first expr)))
 
+(defn create-json-path-extraction
+  "Given a base json field and a path of keys to traverse, construct the proper
+  SQL query of the form base->'key'->'key2'..."
+  [field path]
+  (when (string? field) ; internal expectation
+    (throw (ex-info "invalid field type" {:value field})))
+  ;; The str is to make sure 5 comes through as '5' -- see comments below.
+  (apply vector :-> field (map #(vector :inline (str %)) path)))
+
 (defn create-json-subtree-projection
   [[top & path :as _parsed-field] projections]
-  (let [stringify (fn [{:keys [field field-type]}]
-                    (case field-type
-                      :keyword (name field)
-                      :raw (second field)
-                      (throw (IllegalArgumentException.
-                              (tru "Cannot determine field type for field ''{0}''" field)))))]
-    {:type :json
-     :queryable? false
-     :field [:raw
-             (jdbc/create-json-path-extraction
-              ;; Extract the original field as a string
-              (-> top :name projections stringify)
-              (map #(case (:kind %)
-                      ::parse/named-field-part (:name %))
-                   path))]
-     ;; json-path will be something like ("facts" "kernel" ...)
-     :join-deps (get-in projections [(:name top) :join-deps])}))
+  {:type :json
+   :queryable? false
+   :field (create-json-path-extraction
+           ;; Extract the original field as a string
+           (let [{:keys [field field-type]} (-> top :name projections)]
+             (case field-type
+               (:keyword :raw) field
+               (do
+                 (when-not (vector? field)
+                   (throw (IllegalArgumentException.
+                           (tru "Cannot determine field type for field ''{0}''" field))))
+                 field)))
+           (map #(case (:kind %)
+                   ::parse/named-field-part (:name %))
+                path))
+   ;; json-path will be something like ("facts" "kernel" ...)
+   :join-deps (get-in projections [(:name top) :join-deps])})
 
 (defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
@@ -2655,10 +2664,8 @@
                   cinfo (get-in query-rec [:projections (:name top)])]
               (if (and (= :queryable-json (:type cinfo))
                        (seq path))
-                (let [field (name (h/extract-sql (:field cinfo)))
-                      json-path (->> (map :name path)
-                                     (jdbc/create-json-path-extraction field)
-                                     (conj [:raw]))]
+                (let [field (:field cinfo)
+                      json-path (create-json-path-extraction field (map :name path))]
                   (map->NullExpression {:column (assoc cinfo :field json-path)
                                         :null? value}))
                 (map->NullExpression {:column cinfo :null? value})))

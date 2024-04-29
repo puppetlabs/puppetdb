@@ -176,26 +176,26 @@
 
 (deftest test-extract-json-subtree-compiles
   (testing "with differing levels of subtrees"
-    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'os' AS \"facts\.os\" .*FROM factsets"
+    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\) -> 'os' AS \"facts\.os\" .*FROM factsets"
                  (->> ["extract" "facts.os"]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first)))
-    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'os'->'family' AS \"facts\.os\.family\" .*FROM factsets"
+    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\) -> 'os' -> 'family' AS \"facts\.os\.family\" .*FROM factsets"
                  (->> ["extract" "facts.os.family"]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first))))
 
   (testing "when field is raw sql"
-    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'trusted'->'certname' AS \"trusted\.certname\" .*FROM factsets"
+    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'trusted' -> 'certname' AS \"trusted\.certname\" .*FROM factsets"
                  (->> ["extract" "trusted.certname"]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first))))
 
   (testing "when field is a keyword"
-    (is (re-find #"SELECT rpc.parameters->'foo' AS \"parameters\.foo\" .*FROM catalog_resources"
+    (is (re-find #"SELECT rpc.parameters -> 'foo' AS \"parameters\.foo\" .*FROM catalog_resources"
                  (->> ["extract" "parameters.foo"]
                       (compile-user-query->sql resources-query)
                       :results-query
