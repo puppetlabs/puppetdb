@@ -546,12 +546,11 @@
    "   left join lateral ("
    "     with recursive flattened_one (parent_path, parent_types, key, value, type) as ("
    "       select"
-   "           array[]::text[],"
-   "           '',"
-   "           (jsonb_each(fs.stable||fs.volatile)).*,"
-   "           's'"
+   "           array[]::text[], '', facts.*, 's'"
+   "       from (select * from jsonb_each(fs.stable)"
+   "             union all select * from jsonb_each(fs.volatile)) as facts"
    "       union all"
-   ;;        -- jsonb_each().* expands into key and value columns
+   ;;        -- jsonb_each().* expands into key and value columns via facts.*
    "         select"
    "             parent_path || flattened_one.key,"
    "             parent_types || flattened_one.type,"
