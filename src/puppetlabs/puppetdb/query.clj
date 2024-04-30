@@ -385,8 +385,10 @@
                      FROM (SELECT certname,
                                   producer_timestamp,
                                   environment_id,
-                                  (jsonb_each((stable||volatile))).*
-                           FROM factsets) fs
+                                  facts.*
+                           FROM factsets,
+                           lateral (select * from jsonb_each(stable)
+                                    union all select * from jsonb_each(volatile)) as facts) fs
                            LEFT JOIN environments env ON fs.environment_id = env.id
                      ) AS facts
                     WHERE %s" (column-map->sql fact-columns) where)]
