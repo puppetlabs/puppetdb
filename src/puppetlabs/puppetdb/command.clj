@@ -901,8 +901,9 @@
     (let [msg (trs "Unable to shut down delayed command scheduler, requesting server shutdown")]
       (log/error msg)
       (shut-down-after-command-scheduler-unresponsive
+       ;; This fails request-shutdown schema validation during command-test
        #(request-shutdown {:puppetlabs.trapperkeeper.core/exit
-                           {:status 2 :messages [msg *err*]}})))))
+                           {:status 2 :messages [[msg *err*]]}})))))
 
 (def delay-pool-size
   "Thread count for delaying messages for retry, and broadcast pool
