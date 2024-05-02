@@ -33,6 +33,10 @@
       (throw (IllegalArgumentException.
               (trs "Requested unknown SQL state")))))
 
+(defn table-exists? [name]
+  (some-> (-> *db* sql/db-connection .getMetaData (.getTables nil nil name nil))
+          .next))
+
 (defn clj-jdbc-termination-ex? [ex]
   (and (instance? ExceptionInfo ex)
        (let [{:keys [rollback handling]} (ex-data ex)]

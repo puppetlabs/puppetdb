@@ -810,35 +810,37 @@
   (when emit-cmd-events?
     (async/>!! cmd-event-ch (queue/make-cmd-event cmdref kind))))
 
-(defn check-schema-version
+(defn stop-unless-valid-schema-version
   [desired-version db _service request-shutdown]
   {:pre [(integer? desired-version)]}
-  (let [schema-version (-> (jdbc/with-transacted-connection db
-                             (jdbc/query "select max(version) from schema_migrations"))
-                           first
-                           :max)
-        stop (fn [msg status]
+  (let [stop (fn stop-after-schema-check-failure [msg status]
                (log/error msg)
-               (request-shutdown {::tk/exit
-                                  {:status status
-                                   :messages [[msg *err*]]}}))]
-    (when-not (= schema-version desired-version)
-      (cond
-        (> schema-version desired-version)
-        (stop (str
-               (trs "Please upgrade PuppetDB: ")
-               (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
-                    schema-version))
-              (int \M))
-
-        (< schema-version desired-version)
-        (stop (str
-               (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
-               (trs "The detected migration level {0} is out of date." schema-version))
-              (int \m))
-
-        :else
-        (throw (Exception. "Unknown state when checking schema versions"))))))
+               (request-shutdown {::tk/exit {:status status
+                                             :messages [[msg *err*]]}}))
+        res (try
+              (jdbc/with-transacted-connection db
+                (when (jdbc/table-exists? "schema_migrations")
+                  (jdbc/query "select max(version) from schema_migrations")))
+              (catch SQLException ex
+                ex))]
+    (if (instance? SQLException res)
+      (stop (trs "Unable to read schema version: {0}" (.getMessage res)) 2)
+      (let [ver (-> res first :max)]
+        (cond
+          (= ver desired-version) true
+          (nil? res)
+          (stop (trs "Cannot find the PuppetDB schema migration table") 2)
+          (> ver desired-version)
+          (stop (str
+                 (trs "Please upgrade PuppetDB: ")
+                 (trs "your database contains schema migration {0} which is too new for this version of PuppetDB."
+                      ver))
+                (int \M))
+          (< ver desired-version)
+          (stop (str
+                 (trs "Please run PuppetDB with the migrate option set to true to upgrade your database. ")
+                 (trs "The detected migration level {0} is out of date." ver))
+                (int \m)))))))
 
 (defn init-queue [config send-event! cmd-event-ch shutdown-for-ex]
   (let [stockdir (conf/stockpile-dir config)
@@ -916,8 +918,8 @@
                               (str allocate-at-startup-at-least-mb)))
                (vec (repeatedly allocate-at-startup-at-least-mb
                                 #(long-array (* 1024 128))))) ;; ~1mb
-             (check-schema-version (desired-schema-version)
-                                   db service request-shutdown)
+             (stop-unless-valid-schema-version (desired-schema-version)
+                                               db service request-shutdown)
              (catch InterruptedException _
                (log/info (trs "Schema checker interrupted")))))))
      0 schema-check-interval)))
