@@ -541,6 +541,7 @@
     (log/info (trs "Shut down {0} scheduler" name))
     (let [msg (trs "Unable to shut down {0} scheduler; requesting server shutdown"
                    name)]
+      ;; One of the test-stop-with-blocked-scheduler log dump triggers
       (log/error msg)
       (shut-down-after-scheduler-unresponsive
        #(request-shutdown {:puppetlabs.trapperkeeper.core/exit
@@ -814,6 +815,7 @@
   [desired-version db _service request-shutdown]
   {:pre [(integer? desired-version)]}
   (let [stop (fn stop-after-schema-check-failure [msg status]
+               ;; One of the test-stop-with-blocked-scheduler log dump triggers
                (log/error msg)
                (request-shutdown {::tk/exit {:status status
                                              :messages [[msg *err*]]}}))
