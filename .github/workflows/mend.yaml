@@ -25,7 +25,7 @@ jobs:
         java-version: 17
     # install clojure tools
     - name: Install Clojure tools
-      uses: DeLaGuardo/setup-clojure@10.1
+      uses: DeLaGuardo/setup-clojure@12.5
       with:
         # Install just one or all simultaneously
         # The value must indicate a particular version of the tool, or use 'latest'
