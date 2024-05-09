@@ -169,7 +169,7 @@
                             (http/json-response
                              (get-dashboard-data (meter-defs-fn))))))))
 
-;;; Dashboard redirect
+;;; Dashboard redirect for "/" (not "/pdb", cf. pdb-core-routes)
 
 (def dashboard-routes
   (cmdi/context "/"
