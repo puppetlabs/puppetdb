@@ -188,10 +188,7 @@
                  [clj-http "3.12.3"]
                  [commons-io]
                  [compojure]
-                 [ring/ring-core]
-
-                 ;; fixing a illegal reflective access
-                 [org.tcrawley/dynapath "1.0.0"]]
+                 [ring/ring-core]]
 
   :jvm-opts ~pdb-jvm-opts
 

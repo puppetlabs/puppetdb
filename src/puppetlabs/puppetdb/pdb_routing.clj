@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.pdb-routing
   (:require [puppetlabs.trapperkeeper.core :as tk]
-            [compojure.core :as compojure]
+            [compojure.core :as compojure :refer [GET]]
             [compojure.route :as route]
             [puppetlabs.puppetdb.utils :refer [call-unless-shutting-down]]
             [puppetlabs.trapperkeeper.services :as tksvc]
@@ -31,30 +31,18 @@
 (defn wrap-with-context [uri route]
   (compojure/context uri [] route))
 
-(defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
-                       query-fn clean-fn delete-node-fn]
+(defn pdb-core-routes
+  [defaulted-config get-shared-globals enqueue-command-fn query-fn clean-fn delete-node-fn]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])]
-    (map #(apply wrap-with-context %)
-         (partition
-          2
-          ;; The remaining get-shared-globals args are for wrap-with-globals.
-          ["/" (fn [req]
-                 (->> req
-                      rreq/request-url
-                      (format "%s/dashboard/index.html")
-                      rr/redirect))
-           "/dashboard" (dashboard/build-app dashboard/default-meter-defs)
-           "/meta" (meta/build-app db-cfg defaulted-config)
-           "/cmd" (cmd/command-app get-shared-globals
-                                   enqueue-command-fn
-                                   (conf/reject-large-commands? defaulted-config)
-                                   (conf/max-command-size defaulted-config))
-           "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app enqueue-command-fn
-                                     query-fn
-                                     db-cfg
-                                     clean-fn
-                                     delete-node-fn)]))))
+    [(GET "/" req (rr/redirect (str (rreq/request-url req) "/dashboard/index.html")))
+     (wrap-with-context "/dashboard" (dashboard/build-app dashboard/default-meter-defs))
+     (wrap-with-context "/meta" (meta/build-app db-cfg defaulted-config))
+     (wrap-with-context "/cmd" (cmd/command-app get-shared-globals enqueue-command-fn
+                                      (conf/reject-large-commands? defaulted-config)
+                                      (conf/max-command-size defaulted-config)))
+     (wrap-with-context "/query" (server/build-app get-shared-globals))
+     (wrap-with-context "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg clean-fn
+                                        delete-node-fn))]))
 
 (defn pdb-app [root maint-mode-fn app-routes]
   (compojure/context root []
