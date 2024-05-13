@@ -3017,15 +3017,16 @@
      ;; and thus still have no results.
      (let [fact-name (name-constraint clause)]
        [(update facts-query :selection assoc
-                :from [[[:raw (str "(select certname,"
-                                   "        environment_id, "
-                                   "        ?::text as key, "
-                                   "        (stable||volatile)->? as value"
-                                   " from factsets"
-                                   " where (stable||volatile) ?? ?"
-                                   ")")]
+                :from [[{:select [:certname :environment_id
+                                  [[:cast [:raw "?" ] :text] :key]
+                                  [[[:coalesce
+                                     [:-> :volatile [:raw "?"]]
+                                     [:-> :stable [:raw "?"]]]]
+                                   :value]]
+                         :from :factsets
+                         :where [[:? [:|| :stable :volatile] [:raw "?"]]]}
                         :fs]]
-                :selection-params [fact-name fact-name fact-name])
+                :selection-params [fact-name fact-name fact-name fact-name])
         user-query])
      :else
      [query-rec user-query])))
