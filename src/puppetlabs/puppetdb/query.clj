@@ -385,8 +385,10 @@
                      FROM (SELECT certname,
                                   producer_timestamp,
                                   environment_id,
-                                  (jsonb_each((stable||volatile))).*
-                           FROM factsets) fs
+                                  facts.*
+                           FROM factsets,
+                           lateral (select * from jsonb_each(stable)
+                                    union all select * from jsonb_each(volatile)) as facts) fs
                            LEFT JOIN environments env ON fs.environment_id = env.id
                      ) AS facts
                     WHERE %s" (column-map->sql fact-columns) where)]
@@ -394,8 +396,8 @@
 
 (defn certname-names-query [active]
   (if active
-    "SELECT name FROM certnames WHERE deactivated IS NULL AND expired IS NULL"
-    "SELECT name FROM certnames WHERE deactivated IS NOT NULL OR expired IS NOT NULL") )
+    "SELECT certname FROM certnames_status WHERE deactivated IS NULL AND expired IS NULL"
+    "SELECT certname FROM certnames_status WHERE deactivated IS NOT NULL OR expired IS NOT NULL"))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field

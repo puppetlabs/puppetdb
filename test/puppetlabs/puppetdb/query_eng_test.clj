@@ -68,7 +68,7 @@
 
 (deftest test-plan-cte
   (is (re-matches
-       #"WITH inactive_nodes AS \(SELECT certname FROM certnames_status WHERE \(deactivated IS NOT NULL AND deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\) OR \(expired IS NOT NULL and expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\), not_active_nodes AS \(SELECT certname FROM certnames_status WHERE \(deactivated IS NOT NULL\) OR \(expired IS NOT NULL\)\) SELECT table.foo AS \"foo\" FROM table WHERE \(\? = \?\)"
+       #"WITH inactive_nodes AS \(SELECT certname FROM certnames_status WHERE \(\(deactivated IS NOT NULL\) AND \(deactivated > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\) OR \(\(expired IS NOT NULL\) AND \(expired > '\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\dZ'\)\)\), not_active_nodes AS \(SELECT certname FROM certnames_status WHERE \(deactivated IS NOT NULL\) OR \(expired IS NOT NULL\)\) SELECT table\.foo AS \"foo\" FROM table WHERE \(\? = \?\)"
        (-> {:projections {"foo" {:type :string
                                  :queryable? true
                                  :field :table.foo}}
@@ -176,39 +176,40 @@
 
 (deftest test-extract-json-subtree-compiles
   (testing "with differing levels of subtrees"
-    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'os' AS \"facts\.os\" .*FROM factsets"
+    (is (re-find #"SELECT \(fs.stable \|\| fs.volatile\) -> 'os' AS \"facts\.os\" .*FROM factsets"
                  (->> ["extract" "facts.os"]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first)))
-    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'os'->'family' AS \"facts\.os\.family\" .*FROM factsets"
+    (is (re-find #"SELECT \(fs.stable \|\| fs.volatile\) -> 'os' -> 'family' AS \"facts\.os\.family\" .*FROM factsets"
                  (->> ["extract" "facts.os.family"]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first))))
 
   (testing "when field is raw sql"
-    (is (re-find #"SELECT \(fs.stable\|\|fs.volatile\)->'trusted'->'certname' AS \"trusted\.certname\" .*FROM factsets"
+    (is (re-find #"SELECT \(\(fs.stable \|\| fs.volatile\) -> 'trusted'\) -> 'certname' AS \"trusted\.certname\" .*FROM factsets"
                  (->> ["extract" "trusted.certname"]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first))))
 
   (testing "when field is a keyword"
-    (is (re-find #"SELECT rpc.parameters->'foo' AS \"parameters\.foo\" .*FROM catalog_resources"
+    (is (re-find #"SELECT rpc.parameters -> 'foo' AS \"parameters\.foo\" .*FROM catalog_resources"
                  (->> ["extract" "parameters.foo"]
                       (compile-user-query->sql resources-query)
                       :results-query
                       first)))))
 
+;; ??? (and check all other || and/or jsonb_each in tests)
 (deftest index-hit-for-trusted-facts-on-inventory
   (testing "facts.trusted.extensions and trusted.extensions should generate the same SQL"
-    (is (re-find #"WHERE \(fs.stable\|\|fs.volatile\) @> ?"
+    (is (re-find #"WHERE \(fs.stable \|\| fs.volatile\) @> ?"
                  (->> ["extract" [] ["=" "facts.trusted.extensions.foo" "bar"]]
                       (compile-user-query->sql inventory-query)
                       :results-query
                       first)))
-    (is (re-find #"WHERE \(fs.stable\|\|fs.volatile\) @> ?"
+    (is (re-find #"WHERE \(fs.stable \|\| fs.volatile\) @> ?"
                  (->> ["extract" [] ["=" "trusted.extensions.foo" "bar"]]
                       (compile-user-query->sql inventory-query)
                       :results-query

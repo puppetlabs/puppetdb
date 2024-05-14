@@ -18,9 +18,11 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 [producers]: ./producers.markdown
 [nodes]: ./nodes.markdown
 
-You can query factsets by making an HTTP request to the `/factsets` endpoint.
-
-A factset is the set of all facts for a single certname.
+The `/factsets` endpoint provides access to a represntation of node
+factsets where each result includes the structured facts for a node
+broken down into a vector of top-level key/value pairs.  Note that the
+`inventory` endpoint will often provide more flexible and efficient
+access to the same information.
 
 ## `/pdb/query/v4/factsets`
 

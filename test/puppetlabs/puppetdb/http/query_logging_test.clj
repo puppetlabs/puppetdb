@@ -82,7 +82,7 @@
                   "foo"]
                  [["/v4" ["from" "facts"]]
                   "\"from\",\"facts\""
-                  "(jsonb_each((stable||volatile)))"
+                  " JSONB_EACH(stable) UNION ALL "
                   nil]
                  ;; stream-query-result
                  [["/v4/catalogs/myhost.localdomain" [] {:origin "bar"}]
@@ -168,7 +168,7 @@
 
                  ;; match the AST/SQL logs for facts query
                  (is (logs-include? logs "\"from\",\"facts\""))
-                 (is (logs-include? logs "(jsonb_each((stable||volatile)))")))))))))))
+                 (is (logs-include? logs " JSONB_EACH(stable) UNION ALL ")))))))))))
 
 (deftest no-PuppetDBServer-tk-service-queries-are-logged-when-log-queries-is-false
   (tk-log/with-logged-event-maps logs

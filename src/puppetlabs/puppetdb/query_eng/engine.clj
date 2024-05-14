@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [honey.sql.helpers :as hsql]
-            [honey.sql.pg-ops] ;; require to enable postgres ops
+            [honey.sql.pg-ops :as pgop] ;; require to enable postgres ops
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.honeysql :as h]
@@ -67,6 +67,7 @@
 (def field-schema (s/conditional keyword? s/Keyword
                                  map? {:select s/Any s/Any s/Any}
                                  #(= :raw (first %)) [(s/one (s/eq :raw) "raw") (s/one s/Str "sql")]
+                                 vector? [s/Any]
                                  :else [s/Keyword]))
 
 ; The use of 'column' here is a misnomer. This refers to the result of
@@ -242,19 +243,16 @@
   (map-invert pdb-fns->pg-fns))
 
 (defn hsql-hash-as-str
-  [column-keyword]
-  (->> column-keyword
-       name
-       su/sql-hash-as-str
-       (conj [:raw])))
+  [column-kw]
+  [:encode [:cast column-kw :bytea] [:inline "hex"]])
 
 (defn hsql-hash-as-href
   [entity parent child]
-  [:raw (str "format("
-             (str "'/pdb/query/v4/" (name parent) "/%s/" (name child) "'")
-             ", "
-             entity
-             ")")])
+  [:format
+   [:inline (str "/pdb/query/v4/" (name parent) "/%s/" (name child))]
+   (if (string? entity)
+     [:raw entity]
+     entity)])
 
 (defn hsql-uuid-as-str
   [column-keyword]
@@ -283,14 +281,12 @@
                              "facts" {:type :queryable-json
                                       :projectable-json? true
                                       :queryable? true
-                                      :field [:raw "(fs.stable||fs.volatile)"]
-                                      :field-type :raw
+                                      :field [:nest [:|| :fs.stable :fs.volatile]]
                                       :join-deps #{:fs}}
                              "trusted" {:type :queryable-json
                                         :projectable-json? true
                                         :queryable? true
-                                        :field [:raw "(fs.stable||fs.volatile)->'trusted'"]
-                                        :field-type :raw
+                                        :field [:-> [:|| :fs.stable :fs.volatile] [:inline "trusted"]]
                                         :join-deps #{:fs}}}
 
                :selection {:from [[:factsets :fs]]
@@ -423,7 +419,9 @@
                   (assoc-in [:projections "expires_facts"]
                             {:type :boolean
                              :queryable? true
-                             :field [:raw "coalesce(certname_fact_expiration.expire, true)"]
+                             :field [:coalesce
+                                     :certname_fact_expiration.expire
+                                     [:inline true]]
                              :join-deps #{:certname_fact_expiration}})
                   (assoc-in [:projections "expires_facts_updated"]
                             {:type :timestamp
@@ -520,15 +518,20 @@
                                       :queryable? true
                                       :field :fs.value
                                       :join-deps #{:fs}}}
-               :selection {:from [[[:raw
-                                    (str "(select certname,"
-                                         "        environment_id,"
-                                         "        (jsonb_each((stable||volatile))).*"
-                                         "  from factsets)")]
+               ;; Consider rewrite-fact-query when making any changes here
+               :selection {:select [:certname :environment_id :key :value]
+                           :from [[{:select [:certname :environment_id
+                                             :facts.key :facts.value]
+                                    :from :factsets
+                                    ;; fixme: don't need cross-join?
+                                    :cross-join [[[:lateral
+                                                   {:union-all
+                                                    [{:select :* :from [[[:jsonb_each :stable]]]}
+                                                     {:select :* :from [[[:jsonb_each :volatile]]]}]}]
+                                                  :facts]]}
                                    :fs]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]}
-
                :relationships (merge certname-relations
                                      {"environments" {:local-columns ["environment"]
                                                       :foreign-columns ["name"]}
@@ -546,12 +549,11 @@
    "   left join lateral ("
    "     with recursive flattened_one (parent_path, parent_types, key, value, type) as ("
    "       select"
-   "           array[]::text[],"
-   "           '',"
-   "           (jsonb_each(fs.stable||fs.volatile)).*,"
-   "           's'"
+   "           array[]::text[], '', facts.*, 's'"
+   "       from (select * from jsonb_each(fs.stable)"
+   "             union all select * from jsonb_each(fs.volatile)) as facts"
    "       union all"
-   ;;        -- jsonb_each().* expands into key and value columns
+   ;;        -- jsonb_each().* expands into key and value columns via facts.*
    "         select"
    "             parent_path || flattened_one.key,"
    "             parent_types || flattened_one.type,"
@@ -728,7 +730,7 @@
                  :field {:select [(h/row-to-json :t)]
                          :from [[{:select
                                   [[(h/coalesce :metrics (h/scast :metrics_json :jsonb)) :data]
-                                   [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :metrics)
+                                   [(hsql-hash-as-href (hsql-hash-as-str :hash) :reports :metrics)
                                     :href]]} :t]]}
                  :join-deps #{:reports}}
       "logs" {:type :json
@@ -736,7 +738,7 @@
               :field {:select [(h/row-to-json :t)]
                       :from [[{:select
                                [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
-                                [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
+                                [(hsql-hash-as-href (hsql-hash-as-str :hash) :reports :logs)
                                  :href]]} :t]]}
               :join-deps #{:reports}}
       "receive_time" {:type :timestamp
@@ -789,7 +791,7 @@
                          :field {:select [(h/row-to-json :event_data)]
                                  :from [[{:select
                                           [[(json-agg-row :t) :data]
-                                           [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :events) :href]]
+                                           [(hsql-hash-as-href (hsql-hash-as-str :hash) :reports :events) :href]]
                                           :from [[{:select
                                                    [:re.status
                                                     :re.timestamp
@@ -882,7 +884,7 @@
                    :queryable? false
                    :field {:select [(h/row-to-json :resource_data)]
                            :from [[{:select [[(json-agg-row :t) :data]
-                                             [(hsql-hash-as-href "c.certname" :catalogs :resources) :href]]
+                                             [(hsql-hash-as-href :c.certname :catalogs :resources) :href]]
                                     :from [[{:select [[(hsql-hash-as-str :cr.resource) :resource]
                                                       :cr.type :cr.title :cr.tags :cr.exported :cr.file :cr.line
                                                       [(h/scast :rpc.parameters :json) :parameters]]
@@ -897,7 +899,7 @@
                :queryable? false
                :field {:select [(h/row-to-json :edge_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
-                                         [(hsql-hash-as-href "c.certname" :catalogs :edges) :href]]
+                                         [(hsql-hash-as-href :c.certname :catalogs :edges) :href]]
                                 :from [[{:select [[:sources.type :source_type] [:sources.title :source_title]
                                                   [:targets.type :target_type] [:targets.title :target_title]
                                                   [:edges.type :relationship]]
@@ -996,7 +998,7 @@
                :join-deps #{:ci}}}
     :selection {:from [:certnames]
                 :join [[{:select [:certname_id
-                                  [[:raw "array_agg(array[catalog_inputs.type, name])"] :inputs]]
+                                  [[:array_agg [:array [:catalog_inputs.type :name]]] :inputs]]
                          :from [:catalog_inputs]
                          :group-by [:certname_id]} :ci]
                        [:= :certnames.id :ci.certname_id]]
@@ -1369,12 +1371,17 @@
     "facts" {:type :queryable-json
              :queryable? true
              :field {:select [(h/row-to-json :facts_data)]
-                     :from [[{:select [[[:raw "json_agg(json_build_object('name', t.name, 'value', t.value))"]
+                     :from [[{:select [[[:json_agg [:json_build_object
+                                                    [:inline "name"] :t.name
+                                                    [:inline "value"] :t.value]]
                                         :data]
-                                       [(hsql-hash-as-href "fs.certname" :factsets :facts)
+                                       [(hsql-hash-as-href :fs.certname :factsets :facts)
                                         :href]]
                               :from [[{:select [[:key :name] :value :fs.certname]
-                                       :from [[[:raw "jsonb_each(fs.volatile || fs.stable)"]]]}
+                                       :from [[{:union-all
+                                                [{:select :* :from [[[:jsonb_each :fs.stable]]]}
+                                                 {:select :* :from [[[:jsonb_each :fs.volatile]]]}]}
+                                               :t-union]]}
                                       :t]]}
                              :facts_data]]}
              :join-deps #{:fs}}
@@ -1495,15 +1502,15 @@
   [selection node-purge-ttl]
   (let [timestamp (-> node-purge-ttl t/ago t/to-string)]
     (assoc selection
-           :with {:inactive_nodes {:select [[:certname]]
-                                   :from [:certnames_status]
-                                   ;; Since we use our own bespoke parameter extraction, we cannot use any parameters
-                                   ;; in this wrapping honeysql cte, so we have to format the string ourselves.
-                                   ;; If we can switch to using honeysql for parameter extraction, we can define this
-                                   ;; filter in honeysql and let it convert the timestamps to SQL.
-                                   :where [:raw
-                                           (str "(deactivated IS NOT NULL AND deactivated > '" timestamp "')"
-                                                " OR (expired IS NOT NULL and expired > '" timestamp "')")]}
+           :with {:inactive_nodes
+                  {:select [[:certname]]
+                   :from [:certnames_status]
+                   ;; Because have bespoke parameter extraction,
+                   ;; honeysql must not generate any parameters for
+                   ;; this cte (i.e. everything must be inline).
+                   :where [:or
+                           [:and [:<> :deactivated nil] [:> :deactivated [:inline timestamp]]]
+                           [:and [:<> :expired nil] [:> :expired [:inline timestamp]]]]}
                   ;; the postgres query planner currently blindly applies De Morgan's law if
                   ;; it can identify that we have negated these is-not null checks, such as
                   ;; in the default query for active nodes. So in addition to relying on the
@@ -1584,16 +1591,15 @@
   provided value. The operator, function name and its arguments must
   have already been validated."
   [op function args]
-  (let [quoted-args
+  (let [args
         (case function
-          ("sum" "avg" "min" "max" "count" "jsonb_typeof") (mapv jdbc/double-quote args)
-          "to_char" [(jdbc/double-quote (first args)) (jdbc/single-quote (second args))]
+          ("sum" "avg" "min" "max" "count" "jsonb_typeof") (map keyword args)
+          "to_char" [(-> args first keyword) [:inline (second args)]]
           (throw (IllegalArgumentException. (tru "{0} is not a valid function"
                                                  (pr-str function)))))]
-    [:raw (format "%s(%s) %s ?"
-                  function
-                  (str/join ", " quoted-args)
-                  op)]))
+    [(keyword op)
+     (apply vector (keyword function) args)
+     [:raw "?"]]))
 
 (defn munge-query-ordering
   [clauses]
@@ -1623,7 +1629,7 @@
                 true (sql/format :allow-dashed-names? true)
                 true first)]
       (if (:subquery? query)
-        [:raw (str " ( " sql " ) ")]
+        [:nest [:raw sql]]
         sql)))
 
   InExpression
@@ -1643,16 +1649,13 @@
         :from [[(-plan->sql subquery options) :sub]]}]))
 
   JsonContainsExpression
-  (-plan->sql [{:keys [field column-data array-in-path]} _opts]
-    (let [f (if (= :raw (:field-type column-data))
-              (-> column-data :field second)
-              field)]
-      ;; This distinction is necessary (at least) because @> cannot
-      ;; traverse into arrays, but should be otherwise preferred
-      ;; because it can use an index.
-      (if array-in-path
-        [:raw (format "%s #> ? = ?" f)]
-        [:raw (format "%s @> ?" f)])))
+  (-plan->sql [{:keys [column-data array-in-path]} _opts]
+    ;; This distinction is necessary (at least) because @> cannot
+    ;; traverse into arrays, but should be otherwise preferred
+    ;; because it can use an index.
+    (if array-in-path
+      [:= [:#> (:field column-data) [:raw "?"]] [:raw "?"]]
+      [pgop/at> (:field column-data) [:raw "?"]]))
 
   FnBinaryExpression
   (-plan->sql [{:keys [function args operator]} _opts]
@@ -1661,8 +1664,8 @@
   JsonbPathBinaryExpression
   (-plan->sql [{:keys [field value column-data operator]} _opts]
     (su/jsonb-path-binary-expression operator
-                                     (if (= :raw (:field-type column-data))
-                                       (-> column-data :field second)
+                                     (if (vector? (:field column-data))
+                                       (:field column-data)
                                        field)
                                      value))
 
@@ -1719,25 +1722,27 @@
   (-plan->sql [{:keys [column] :as expr} options]
     (s/validate column-schema column)
     (let [queryable-json? (= :queryable-json (:type column))
+          hsql-col? (and (vector? (:field column))
+                         (not (= :raw (-> column :field first))))
           lhs (if queryable-json?
-                (name (h/extract-sql (:field column)))
+                (if hsql-col?
+                  (:field column)
+                  (name (h/extract-sql (:field column))))
                 (-plan->sql (:field column) options))
           json? (or queryable-json? (= :jsonb-scalar (:type column)))]
-      (if (:null? expr)
-        (if json?
-          (su/jsonb-null? lhs true)
-          [:is lhs nil])
-        (if json?
-          (su/jsonb-null? lhs false)
-          [:is-not lhs nil]))))
+      (if json?
+        (if hsql-col?
+          [(if (:null? expr) := :<>) [:jsonb_typeof lhs] [:inline "null"]]
+          (su/jsonb-null? lhs (boolean (:null? expr))))
+        [(if (:null? expr) :is :is-not) lhs nil])))
 
   AndExpression
   (-plan->sql [expr options]
-    (concat [:and] (map #(-plan->sql % options) (:clauses expr))))
+    (apply vector :and (map #(-plan->sql % options) (:clauses expr))))
 
   OrExpression
   (-plan->sql [expr options]
-    (concat [:or] (map #(-plan->sql % options) (:clauses expr))))
+    (apply vector :or (map #(-plan->sql % options) (:clauses expr))))
 
   NotExpression
   (-plan->sql [expr options]
@@ -2263,25 +2268,34 @@
   (contains? (ks/keyset user-name->query-rec-name)
              (first expr)))
 
+(defn create-json-path-extraction
+  "Given a base json field and a path of keys to traverse, construct the proper
+  SQL query of the form base->'key'->'key2'..."
+  [field path]
+  (when (string? field) ; internal expectation
+    (throw (ex-info "invalid field type" {:value field})))
+  ;; The str is to make sure 5 comes through as '5' -- see comments below.
+  (apply vector :-> field (map #(vector :inline (str %)) path)))
+
 (defn create-json-subtree-projection
   [[top & path :as _parsed-field] projections]
-  (let [stringify (fn [{:keys [field field-type]}]
-                    (case field-type
-                      :keyword (name field)
-                      :raw (second field)
-                      (throw (IllegalArgumentException.
-                              (tru "Cannot determine field type for field ''{0}''" field)))))]
-    {:type :json
-     :queryable? false
-     :field [:raw
-             (jdbc/create-json-path-extraction
-              ;; Extract the original field as a string
-              (-> top :name projections stringify)
-              (map #(case (:kind %)
-                      ::parse/named-field-part (:name %))
-                   path))]
-     ;; json-path will be something like ("facts" "kernel" ...)
-     :join-deps (get-in projections [(:name top) :join-deps])}))
+  {:type :json
+   :queryable? false
+   :field (create-json-path-extraction
+           ;; Extract the original field as a string
+           (let [{:keys [field field-type]} (-> top :name projections)]
+             (case field-type
+               (:keyword :raw) field
+               (do
+                 (when-not (vector? field)
+                   (throw (IllegalArgumentException.
+                           (tru "Cannot determine field type for field ''{0}''" field))))
+                 field)))
+           (map #(case (:kind %)
+                   ::parse/named-field-part (:name %))
+                path))
+   ;; json-path will be something like ("facts" "kernel" ...)
+   :join-deps (get-in projections [(:name top) :join-deps])})
 
 (defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
@@ -2648,10 +2662,8 @@
                   cinfo (get-in query-rec [:projections (:name top)])]
               (if (and (= :queryable-json (:type cinfo))
                        (seq path))
-                (let [field (name (h/extract-sql (:field cinfo)))
-                      json-path (->> (map :name path)
-                                     (jdbc/create-json-path-extraction field)
-                                     (conj [:raw]))]
+                (let [field (:field cinfo)
+                      json-path (create-json-path-extraction field (map :name path))]
                   (map->NullExpression {:column (assoc cinfo :field json-path)
                                         :null? value}))
                 (map->NullExpression {:column cinfo :null? value})))
@@ -3005,15 +3017,16 @@
      ;; and thus still have no results.
      (let [fact-name (name-constraint clause)]
        [(update facts-query :selection assoc
-                :from [[[:raw (str "(select certname,"
-                                   "        environment_id, "
-                                   "        ?::text as key, "
-                                   "        (stable||volatile)->? as value"
-                                   " from factsets"
-                                   " where (stable||volatile) ?? ?"
-                                   ")")]
+                :from [[{:select [:certname :environment_id
+                                  [[:cast [:raw "?" ] :text] :key]
+                                  [[[:coalesce
+                                     [:-> :volatile [:raw "?"]]
+                                     [:-> :stable [:raw "?"]]]]
+                                   :value]]
+                         :from :factsets
+                         :where [[:? [:|| :stable :volatile] [:raw "?"]]]}
                         :fs]]
-                :selection-params [fact-name fact-name fact-name])
+                :selection-params [fact-name fact-name fact-name fact-name])
         user-query])
      :else
      [query-rec user-query])))
@@ -3279,7 +3292,8 @@
                 function-reqs (extract-function-deps plan)
                 required? (set/union proj-reqs where-reqs function-reqs)
                 join-key? (if (empty? (:call plan))
-                            #{:full-join
+                            #{:cross-join
+                              :full-join
                               :join
                               :left-join
                               :merge-full-join

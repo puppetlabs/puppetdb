@@ -37,8 +37,9 @@
   (and (instance? ExceptionInfo ex)
        (let [{:keys [rollback handling]} (ex-data ex)]
          (and rollback
+              (instance? SQLException handling)
               (= (sql-state :admin-shutdown)
-                 (some-> handling .getSQLState))))))
+                 (.getSQLState handling))))))
 
 (defmacro with-db-connection [spec & body]
   `(sql/with-db-connection [db# ~spec]
@@ -434,18 +435,6 @@
     (doto (PGobject.)
       (.setType "text[]")
       (.setValue (str \{ (str/join \, quoted) \})))))
-
-;; Q: move/replace?
-(defn create-json-path-extraction
-  "Given a base json field and a path of keys to traverse, construct the proper
-  SQL query of the form base->'key'->'key2'..."
-  [field path]
-   (str field
-        (when (seq path)
-          (->> (map single-quote path)
-               (str/join "->")
-               ;; prefix for the first arrow in field->'key1'...
-               (str "->")))))
 
 ;; TODO this is no longer used by the main query engine (engine.clj), but it is
 ;; still used by the legacy query engines and should be removed once it is

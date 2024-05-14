@@ -16,9 +16,11 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 [fact-contents]: ./fact-contents.markdown
 [nodes]: ./nodes.markdown
 
-You can query facts by making an HTTP request to the `/facts` endpoint.
-
-In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But because PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
+The `/facts` endpoint provides access to a represntation of node
+factsets where a result is returned for each top-level key in the
+node's structured factset.  Note that the `inventory` endpoint will
+often provide more flexible and efficient access to the same
+information.
 
 ## `/pdb/query/v4/facts`
 
@@ -37,8 +39,8 @@ See [the AST query language page][ast].
 
 ### Query fields
 
-* `name` (string): the name of the fact.
-* `value` (string, numeric, Boolean): the value of the fact.
+* `name` (string): the top-level name of the fact.
+* `value` (json): the value of the fact.
 * `certname` (string): the node associated with the fact.
 * `environment` (string): the environment associated with the fact.
 

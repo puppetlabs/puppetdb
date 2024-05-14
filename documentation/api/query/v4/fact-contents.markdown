@@ -16,10 +16,11 @@ canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 [factsets]: ./factsets.markdown
 [nodes]: ./nodes.markdown
 
-You can query fact information with greater power by using the `/fact-contents`
-endpoint. This endpoint provides the capability to descend into structured
-facts and query tree nodes deep within this data by using the concept of paths
-and values.
+The `/fact-contents` endpoint provides selective access to factset
+subtrees via `fact path`s.  Note that the `inventory` endpoint will
+often provide more flexible and efficient access to the same
+information.
+
 
 ## Paths and Values
 Structured facts can be thought of as trees. For example,

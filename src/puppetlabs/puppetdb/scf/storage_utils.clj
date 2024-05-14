@@ -364,19 +364,23 @@
   because -> is not indexable (with GIN) but ? is. Assumes a GIN index on the
   column supplied."
   [op column qmarks]
-  (if (= "~" (name op))
-    (let [path-elts (cons column qmarks)
-          path (apply str
-                      (str/join "->" (butlast path-elts))
-                      (when-let [x (last path-elts)] ["->>" x]))]
-      [:raw (str/join \space
-                      [(str "((" path ")") (name op) "(?#>>'{}')"
-                       "and" column "??" "?)"])])
-    (let [delimited-qmarks (str/join "->" qmarks)]
-      [:raw (str/join \space
-                      [(str "(" column "->" delimited-qmarks ")")
-                       (name op) "?"
-                       "and" column "??" "?"])])))
+  ;; Internal expectations
+  (when-not (or (vector? column) (keyword? column) (string? column))
+    (throw (ex-info "invalid column type" {:value column})))
+  (when-not (keyword? op)
+    (throw (ex-info "invalid operator type" {:value op})))
+  (let [column (if (string? column) (keyword column) column)]
+    (if (= "~" (name op))
+      (let [path (cond
+                   (empty? qmarks) column
+                   (empty? (rest qmarks)) [:->> column (first qmarks)]
+                   :else [:->> (apply vector :-> column (butlast qmarks)) (last qmarks)])]
+        [:and
+         [:nest [op path [:nest [:#>> [:raw "?"] [:inline "{}"]]]]]
+         [:? column [:raw "?"]]])
+      [:and
+       [op (apply vector :-> column qmarks) [:raw "?"]]
+       [:? column [:raw "?"]]])))
 
 (defn jsonb-scalar-cast
   [typ]

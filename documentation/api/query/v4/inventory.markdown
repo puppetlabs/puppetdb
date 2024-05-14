@@ -20,9 +20,9 @@ canonical: "/puppetdb/latest/api/query/v4/inventory.html"
 [query]: query.markdown
 [ast]: ./ast.markdown
 
-The `/inventory` endpoint enables an alternative query syntax for digging into
-structured facts, and can be used instead of the `facts`, `fact-contents`, and
-`factsets` endpoints for most fact-related queries.
+The `/inventory` endpoint provides an alternate and potentially more
+efficient way to access structured facts as compared to the `facts`,
+`fact-contents`, and `factsets` endpoints.
 
 ## `/pdb/query/v4/inventory`
 
