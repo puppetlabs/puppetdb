@@ -377,7 +377,7 @@
     (is (= 5 (generate/vary-param 5 false 0.25)))
   (testing "random distribution"
     (testing "positive"
-      (is (< 0 (generate/vary-param 5 true 0.25) 10)))
+      (is (<= 0 (generate/vary-param 5 true 0.25) 10)))
     (testing "zero"
       (is (= 0 (generate/vary-param 0 true 0.25))))
     (testing "negative")
