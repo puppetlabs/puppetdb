@@ -25,7 +25,7 @@
    [puppetlabs.puppetdb.testutils.nodes :refer [node-for-certname]]
    [puppetlabs.puppetdb.random :as random]
    [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
-   [puppetlabs.puppetdb.scf.storage
+   [puppetlabs.puppetdb.scf.storage :as scf-storage
     :refer [acquire-locks!
             add-certname!
             add-facts!
@@ -69,7 +69,7 @@
    [puppetlabs.puppetdb.time :as time
     :refer [ago days from-now now to-string to-timestamp]])
   (:import
-   (java.sql SQLException)))
+   (clojure.lang ExceptionInfo)))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
@@ -870,11 +870,11 @@
        (update catalog :resources
                assoc {:type "Class" :title "updog"} bad-resource))
       (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
-      (catch SQLException ex
-        (is (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex)))
+      (catch ExceptionInfo ex
+        (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
         (is (re-matches
              #"Failed to insert resource for basic\.catalogs\.com \(file: /tmp/foo, line: 10\).*"
-             (.getMessage ex)))))))
+             (ex-message ex)))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"

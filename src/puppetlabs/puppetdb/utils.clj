@@ -19,9 +19,17 @@
    [java.nio ByteBuffer CharBuffer]
    [java.nio.channels SocketChannel]
    [java.nio.charset Charset CoderResult StandardCharsets]
+   (java.sql SQLException)
    (java.util.concurrent ScheduledThreadPoolExecutor TimeUnit)
    (org.apache.log4j MDC)
    (org.eclipse.jetty.io SocketChannelEndPoint)))
+
+(defn leaf-error? [ex]
+  (cond
+    (.getCause ex) false
+    (seq (.getSuppressed ex)) false
+    (and (instance? SQLException ex) (.getNextException ex)) false
+    :else true))
 
 (defmacro with-captured-throw [& body]
   `(try [(do ~@body)] (catch Throwable ex# ex#)))

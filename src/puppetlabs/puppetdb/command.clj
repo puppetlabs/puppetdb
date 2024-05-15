@@ -525,6 +525,10 @@
                "replace catalog inputs" exec-replace-catalog-inputs)]
     (try
       (exec cmd start db conn-status)
+      (catch ExceptionInfo ex
+        (case (-> ex ex-data :kind)
+          ::scf-storage/resource-insert-limit-exceeded (throw (fatality ex))
+          (throw ex)))
       (catch SQLException ex
         ;; Discussion on #postgresql indicates that all 54-class
         ;; states can be considered "terminal", and for now, we're
