@@ -96,6 +96,14 @@
             [schema.core :as s]
             [puppetlabs.i18n.core :refer [trs]]))
 
+;; A macro so that if nothing else clojure.test ERROR message
+;; file/line numbers will be right (only reports first stack entry).
+(defmacro bad-catalog-ex
+  [msg]
+  ;; Convenience macro producing an ex-info indicating that a catalog
+  ;; was invalid in some expected way.
+  `(ex-info ~msg {:puppetlabs.puppetdb/known-error? true}))
+
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
@@ -339,7 +347,7 @@
   (doseq [[resource-spec resource] resources]
     (when-let [invalid-tag (first
                             (remove #(re-matches tag-pattern %) (:tags resource)))]
-      (throw (IllegalArgumentException.
+      (throw (bad-catalog-ex
               (str
                (trs "Resource ''{0}'' has an invalid tag ''{1}''." resource-spec invalid-tag)
                " "
@@ -356,20 +364,25 @@
   (doseq [{:keys [source target relationship] :as edge} edges
           resource [source target]]
     (when-not (resources resource)
-      (throw (IllegalArgumentException.
+      (throw (bad-catalog-ex
               (trs "Edge ''{0}'' refers to resource ''{1}'', which doesn't exist in the catalog." edge resource))))
     (when-not (valid-relationships relationship)
-      (throw (IllegalArgumentException.
+      (throw (bad-catalog-ex
               (trs "Edge ''{0}'' has invalid relationship type ''{1}''" edge relationship)))))
   catalog)
+
+(def validate-schema
+  (let [check (s/checker catalog-wireformat-schema)]
+    (fn validate-schema [x]
+      (when-let [problem (check x)]
+        (throw (bad-catalog-ex (str "Invalid replace catalog command: "
+                                    (pr-str problem)))))
+      x)))
 
 (defn validate
   "Function for validating v9- of the catalogs"
   [catalog]
-  (->> catalog
-       (s/validate catalog-wireformat-schema)
-       validate-resources
-       validate-edges))
+  (-> catalog validate-schema validate-resources validate-edges))
 
 ;; ## High-level parsing routines
 
@@ -395,13 +408,13 @@
            version
 
            [(_ :guard map?) (_ :guard (complement number?))]
-           (throw (IllegalArgumentException.
+           (throw (bad-catalog-ex
                    (trs "Catalog version ''{0}'' is not a legal version number" version)))
 
            ;; At this point, catalog can't be a string or a map (regardless of
            ;; what version is), so there's our problem!
            :else
-           (throw (IllegalArgumentException.
+           (throw (bad-catalog-ex
                    (trs "Catalog must be specified as a string or a map, not ''{0}''" (class catalog)))))))
 
 (defmethod parse-catalog String
@@ -457,8 +470,7 @@
 
 (defmethod parse-catalog :default
   [_catalog version _]
-  (throw (IllegalArgumentException.
-          (trs "Unknown catalog version ''{0}''" version))))
+  (throw (bad-catalog-ex (trs "Unknown catalog version ''{0}''" version))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Query -> Wire format conversions
