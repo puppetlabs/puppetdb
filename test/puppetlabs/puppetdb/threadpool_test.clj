@@ -10,7 +10,7 @@
              :refer [with-logging-to-atom with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [clojure.string :as str]
-            [puppetlabs.puppetdb.testutils.log :as tlog])
+            [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]])
   (:import
    (clojure.lang ExceptionInfo)
    (java.util.concurrent TimeUnit)))
@@ -161,13 +161,10 @@
 
 (def max-log-msg-wait-ms (* 10 1000))
 
-(defn not-submitted? [message]
-  (str/includes? message "not submitted"))
-
 (deftest threadpool-logging
   (testing "successful message"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable tlog/critical-errors
+      (with-log-suppressed-unless-notable notable-pdb-event?
         (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
           (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)
                 handler-fn (tu/mock-fn)]
@@ -188,8 +185,8 @@
 
   (testing "failure of thread"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
-                                                      (complement (tlog/starting-with "Broken")))
+      (with-log-suppressed-unless-notable #(and (notable-pdb-event? %)
+                                                (-> % .getMessage (str/starts-with? "Broken") not))
         (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
           (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)]
             (try
@@ -226,8 +223,8 @@
 
   (testing "threadpool shutdown"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
-                                                      (comp (complement not-submitted?) :message))
+      (with-log-suppressed-unless-notable #(and (notable-pdb-event? %)
+                                                (-> % :message (str/includes? "not submitted") not))
        (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)
                handler-fn (tu/mock-fn)
