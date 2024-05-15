@@ -382,17 +382,19 @@
 (defn prep-replace-facts
   [{:keys [version received] :as command}
    {:keys [facts-blocklist facts-blocklist-type]}]
-  (let [rm-blocklisted (when (seq facts-blocklist)
-                         (case facts-blocklist-type
-                           "regex" (partial rm-facts-by-regex facts-blocklist)
-                           "literal" #(apply dissoc % facts-blocklist)
-                           (throw (IllegalArgumentException.
-                                    (trs "facts-blocklist-type was ''{0}'' but it must be either regex or literal" facts-blocklist-type)))))]
+  (let [block (when (seq facts-blocklist)
+                (case facts-blocklist-type
+                  "regex" (partial rm-facts-by-regex facts-blocklist)
+                  "literal" #(apply dissoc % facts-blocklist)
+                  (throw
+                   (ex-info (trs "facts-blocklist-type ''{0}'' is not regex or literal"
+                                 facts-blocklist-type)
+                            {:puppetlabs.puppetdb/known-error? true}))))]
     (update command :payload
             (fn [{:keys [package_inventory] :as prev}]
               (cond-> (upon-error-throw-fatality
                        (fact/normalize-facts version received prev))
-                (seq facts-blocklist) (update :values rm-blocklisted)
+                (seq facts-blocklist) (update :values block)
                 (seq package_inventory) (update :package_inventory distinct))))))
 
 ;; Test hook: concurrent-fact-updates
