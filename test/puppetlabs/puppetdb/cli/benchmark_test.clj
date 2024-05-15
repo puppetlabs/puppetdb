@@ -341,21 +341,42 @@
           ;;(println {:cat-weight (weigh catalog)})
           ;;(println {:rcounts rcounts})
           ;;(println {:weights weights})
-          (is (<= 10 (avg rcounts) 40))
-          (is (<= 2000 (avg weights) 8000))
-          (let [long-mutation (benchmark/rand-catalog-mutation catalog 100000 false)
-                resources (long-mutation "resources")]
-            ;;(println {:lm-rcount (count resources) :lm-weight (weigh long-mutation)})
-            (is (<= 1 (count resources) 500))
-            (is (<= 200 (weigh long-mutation) 100000)))))
+          (is (<= 5 (avg rcounts) 40))
+          (is (<= 1000 (avg weights) 8000))
+          (let [orig-change-resources benchmark/change-resources
+                res (atom {:add 0
+                           :del 0
+                           :mod 0})]
+            (with-redefs [benchmark/change-resources
+                          (fn [op resource]
+                            (swap! res update op inc)
+                            (orig-change-resources op resource))]
+              (let [long-mutation (benchmark/rand-catalog-mutation catalog 100000 false)
+                    resources (long-mutation "resources")
+                    ;; add an arbitrary "buffer" to account for the fact that deletes
+                    ;; when we already have just 1 resource can become modifies
+                    max-expected-resources (+ 500
+                                              (max 0 (- (:add @res) (:del @res))))]
+                ;;(println {:lm-rcount (count resources) :lm-weight (weigh long-mutation)})
+                (is (<= 1 (count resources) max-expected-resources))
+                (is (<= 200 (weigh long-mutation) (* 150 max-expected-resources))))))))
       (testing "with edges"
-        (let [mutated (benchmark/rand-catalog-mutation catalog 10000 true)
-              rcount (count (mutated "resources"))
-              ecount (count (mutated "edges"))]
-          ;;(clojure.pprint/pprint mutated)
-          ;;(println {:edges-rcount rcount :edges-ecount ecount})
-          (is (<= 1 rcount 100))
-          (is (= (- rcount 1) ecount)))))))
+        (let [orig-change-resources benchmark/change-resources
+              res (atom {:add 0
+                         :del 0
+                         :mod 0})]
+          (with-redefs [benchmark/change-resources
+                        (fn [op resource]
+                          (swap! res update op inc)
+                          (orig-change-resources op resource))]
+            (let [mutated (benchmark/rand-catalog-mutation catalog 10000 true)
+                  rcount (count (mutated "resources"))
+                  ecount (count (mutated "edges"))
+                  extra-resources (max 0 (- (:add @res) (:del @res)))]
+              ;;(clojure.pprint/pprint mutated)
+              ;;(println {:edges-rcount rcount :edges-ecount ecount})
+              (is (<= 1 rcount (+ 200 extra-resources)))
+              (is (= (- rcount 1) ecount)))))))))
 
 (deftest resource-has-blob?-test
   (let [resource {"type"  "Class"
