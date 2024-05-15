@@ -223,8 +223,7 @@
 
   (testing "threadpool shutdown"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable #(and (notable-pdb-event? %)
-                                                (-> % :message (str/includes? "not submitted") not))
+      (with-log-suppressed-unless-notable notable-pdb-event?
        (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)
                handler-fn (tu/mock-fn)
