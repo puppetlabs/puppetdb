@@ -31,6 +31,10 @@
     (and (instance? SQLException ex) (.getNextException ex)) false
     :else true))
 
+(defn known-error? [ex]
+  (and (instance? ExceptionInfo ex)
+       (-> ex ex-data :puppetlabs.puppetdb/known-error?)))
+
 (defmacro with-captured-throw [& body]
   `(try [(do ~@body)] (catch Throwable ex# ex#)))
 

@@ -69,6 +69,7 @@
              :refer [await-scheduler-shutdown
                      call-unless-shutting-down
                      exceptional-shutdown-requestor
+                     known-error?
                      request-scheduler-shutdown
                      schedule-with-fixed-delay
                      schedule
@@ -239,7 +240,10 @@
   (mark! (global-metric k))
   (mark! (cmd-metric command version k)))
 
-(defn fatality [cause]
+(defn fatality
+  ;; A ::fatal-processing-error is strictly a sentinel that indicates
+  ;; no further command retries should be attempted.
+  [cause]
   (ex-info "" {:kind ::fatal-processing-error} cause))
 
 (defmacro upon-error-throw-fatality
@@ -333,6 +337,14 @@
          (log/info (trs "[{0}] [{1} ms] ''{2}'' command{3} ignored (obsolete) for {4}"
                         summary duration command-name hash-prefix certname)))))))
 
+(defn command-validator [name schema]
+  (let [check (s/checker schema)]
+    (fn [x]
+      (when-let [problem (check x)]
+        (throw (ex-info (str "Invalid" name "command: " (pr-str problem))
+                        {:puppetlabs.puppetdb/known-error? true})))
+      x)))
+
 ;; Catalog replacement
 
 (defn prep-replace-catalog [{:keys [payload received version] :as command}]
@@ -423,11 +435,14 @@
       (json/parse-string true)
       deactivate-node-wire-v2->wire-3))
 
+(def validate-deactivate
+  (command-validator "deactivate node" nodes/deactivate-node-wireformat-schema))
+
 (defn prep-deactivate-node [{:keys [version] :as command}]
   (-> command
-      (update :payload #(upon-error-throw-fatality
-                         (s/validate nodes/deactivate-node-wireformat-schema
-                                     (case version
+      (update :payload
+              #(upon-error-throw-fatality
+                (validate-deactivate (case version
                                        1 (deactivate-node-wire-v1->wire-3 %)
                                        2 (deactivate-node-wire-v2->wire-3 %)
                                        %))))
@@ -448,17 +463,19 @@
 
 ;; Report submission
 
+(def validate-report
+  (command-validator "store report" report/report-wireformat-schema))
+
 (defn prep-store-report [{:keys [version received] :as command}]
   (-> command
       (update :payload #(upon-error-throw-fatality
-                         (s/validate report/report-wireformat-schema
-                                     (case version
-                                       3 (report/wire-v3->wire-v8 % received)
-                                       4 (report/wire-v4->wire-v8 % received)
-                                       5 (report/wire-v5->wire-v8 %)
-                                       6 (report/wire-v6->wire-v8 %)
-                                       7 (report/wire-v7->wire-v8 %)
-                                       %))))
+                         (validate-report (case version
+                                            3 (report/wire-v3->wire-v8 % received)
+                                            4 (report/wire-v4->wire-v8 % received)
+                                            5 (report/wire-v5->wire-v8 %)
+                                            6 (report/wire-v6->wire-v8 %)
+                                            7 (report/wire-v7->wire-v8 %)
+                                            %))))
       (update-in [:payload :producer_timestamp] #(or % (now)))))
 
 (defn exec-store-report [options-config {:keys [payload id received]} start-time db conn-status]
@@ -473,10 +490,13 @@
 
 ;; Expiration configuration
 
+(def validate-expiration
+  (command-validator "configure expiration" nodes/configure-expiration-wireformat-schema))
+
 (defn prep-configure-expiration [command]
   (upon-error-throw-fatality
    (-> command
-       (update :payload #(s/validate nodes/configure-expiration-wireformat-schema %))
+       (update :payload validate-expiration)
        (update-in [:payload :producer_timestamp] #(or % (now))))))
 
 (defn exec-configure-expiration [{:keys [id received payload]} start-time db conn-status]
@@ -731,9 +751,13 @@
         (do
           (callback {:command cmd :result results})
           true)
-        (let [msg (trs "[{0}] [{1}] Unable to broadcast command for {2}"
-                       id command certname)
-              ex (ex-info msg {:kind ::retry})]
+        ;; FIXME: this arrangement ends up with tracebacks that point
+        ;; here "for no reason", i.e. the only traceback(s) that
+        ;; matter are the ones in results.
+        (let [ex (ex-info (trs "[{0}] [{1}] Unable to broadcast command for {2}"
+                               id command certname)
+                          {:kind ::retry
+                           :puppetlabs.puppetdb/known-error? true})]
           (doseq [result results
                   :when (instance? Throwable result)]
             (.addSuppressed ex result))
@@ -818,18 +842,21 @@
         retry (fn [ex]
                 (mark-both-metrics! command version :retried)
                 (if (< retries maximum-allowable-retries)
-                  (do
-                    (log/error
-                     ex
-                     (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
-                          id command retries certname ex (.getSuppressed ex)))
-                    (schedule-delayed-message cmdref ex command-chan delay-pool
-                                              shutdown-for-ex))
-                  (do
-                    (log/error
-                     ex
-                     (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3} {4}"
-                          id command retries certname (.getSuppressed ex)))
+                  (let [msg (trs "[{0}] [{1}] Scheduling retry after attempt {2} for {3}"
+                                 id command retries certname)]
+                    (if (or (seq (.getSuppressed ex)) (not (known-error? ex)))
+                      (log/error ex msg)
+                      (let [msg (str msg " - " (ex-message ex))]
+                        (if-let [cause (ex-cause ex)]
+                          (log/error cause msg)
+                          (log/error msg))))
+                    (schedule-delayed-message cmdref ex command-chan delay-pool shutdown-for-ex))
+                  (let [known? (known-error? ex)
+                        msg (apply str
+                                   (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}"
+                                        id command retries certname)
+                                   (when known? [" - " (ex-message ex)]))]
+                    (if known? (log/error msg) (log/error ex msg))
                     (discard-message cmdref ex q dlo maybe-send-cmd-event!))))]
     (try
       (let [cmd (queue/cmdref->cmd q cmdref)]
@@ -841,7 +868,6 @@
             (update-counter! :depth command version dec!)
             (mark! (global-metric :fatal))
             (maybe-send-cmd-event! cmdref ::processed))
-
           delete? (-> cmd
                       ;; :producer_timestamp is optional in some commands.
                       ;; Normally handled by prep-command, but those operations
@@ -849,7 +875,6 @@
                       (update-in [:payload :producer_timestamp] #(or % (now)))
                       (process-delete-cmd cmdref q response-chan stats
                                           options-config maybe-send-cmd-event!))
-
           :else (-> cmd
                     (prep-command options-config)
                     (process-cmd cmdref q write-dbs broadcast-pool response-chan
@@ -868,13 +893,20 @@
                 cause (log/error cause (format "%s (%s)" prefix (ex-message ex)))
                 :else (log/error (format "%s (%s)" prefix (ex-message ex))))
               (discard-message cmdref ex q dlo maybe-send-cmd-event!))
-            ::fatal-processing-error
-            (do
+            ::fatal-processing-error ;; strictly a wrapper for the real ex
+            (let [real-ex (.getCause ex)
+                  msg (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+                           id command retries certname)]
               (mark! (global-metric :fatal))
-              (log/error
-               ex
-               (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-              (discard-message cmdref (ex-cause ex) q dlo maybe-send-cmd-event!))
+              (cond
+                (seq (.getSuppressed ex)) (log/error ex msg)
+                (seq (.getSuppressed real-ex)) (log/error real-ex msg)
+                (not (known-error? real-ex)) (log/error real-ex msg)
+                :else (let [msg (str msg " - " (ex-message real-ex))]
+                        (if-let [known-cause (.getCause real-ex)]
+                          (log/error known-cause msg)
+                          (log/error msg))))
+              (discard-message cmdref real-ex q dlo maybe-send-cmd-event!))
             ;; No match
             (retry ex))))
       (catch AssertionError ex

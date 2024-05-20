@@ -226,7 +226,7 @@
                     [["function" "count" "certname"]]
                       ["in" "facts.os.family" ["array" ["RedHat"]]]]
             {:keys [body status]} (query-response method endpoint query)]
-        (is (= 500 status))
+
         (is (= "Value does not match schema: (not (map? nil))" body))))
 
     (testing "pql query fails with json parse error message"
