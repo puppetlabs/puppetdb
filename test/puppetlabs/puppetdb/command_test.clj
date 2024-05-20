@@ -1285,15 +1285,19 @@
                 (re-matches
                  #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
                  m))))]
-    (if (instance? SQLException ex)
+    (cond
+      (instance? ExceptionInfo ex) (failure? ex)
+
+      (instance? SQLException ex)
       ;; Before pg 9.4, the message was in the first exception.  Now
       ;; it's in a second chained exception.  Look for both.
       (or (failure? (.getNextException ex))
           (failure? ex))
-      ;; Might be broadcasting (for now just require it to be first,
-      ;; assuming this is the PDB_TEST_ALWAYS_BROADCAST_COMMANDS
-      ;; case).
-      (pg-serialization-failure-ex? (some-> (.getSuppressed ex) first)))))
+
+      ;; Might be broadcasting (for now just require it to be the
+      ;; first suppressed ex if there are any, assuming this is the
+      ;; PDB_TEST_ALWAYS_BROADCAST_COMMANDS case).
+      :else (pg-serialization-failure-ex? (first (.getSuppressed ex))))))
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"

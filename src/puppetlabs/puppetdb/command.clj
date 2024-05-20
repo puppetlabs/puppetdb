@@ -96,9 +96,10 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
-   (java.sql SQLException)
+   (java.sql BatchUpdateException SQLException)
    (java.util.concurrent RejectedExecutionException Semaphore)
-   (org.apache.commons.codec.binary Hex)))
+   (org.apache.commons.codec.binary Hex)
+   (org.postgresql.util PSQLException)))
 
 ;; ## Performance counters
 
@@ -509,13 +510,33 @@
 (defn supported-command? [{:keys [command version] :as _cmd}]
   (some-> (supported-command-versions command) (get version)))
 
+(defn simplify-serialization-ex [ex]
+  ;; If ex is a standard, single serialization error, which shows up
+  ;; as a BatchUpdate exception whose next exception is a
+  ;; PSQLException with state :serialization-failure, with no next
+  ;; exception of its own, then rewrite it so that we'll just report
+  ;; the serialization error message without the long two-exception
+  ;; stack trace.
+  (cond
+    (not (instance? BatchUpdateException ex)) ex
+    (seq (.getSuppressed ex)) ex
+    :else
+    (let [nxt (.getNextException ex)]
+      (cond
+        (not nxt) ex
+        (not (instance? PSQLException nxt)) ex
+        (.getNextException nxt) ex
+        (not= (.getSQLState nxt) (jdbc/sql-state :serialization-failure)) ex
+        :else (ex-info (.getMessage ex) {:puppetlabs.puppetdb/known-error? true})))))
+
 (defn exec-command
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
   [{:keys [command version] :as cmd} db conn-status start options-config]
   (when-not (supported-command? cmd)
-    (throw (ex-info (trs "Unsupported command {0} version {1}" command version)
-                    {:kind ::fatal-processing-error})))
+    (throw (fatality
+            (ex-info (trs "Unsupported command {0} version {1}" command version)
+                     {:puppetlabs.puppetdb/known-error? true}))))
   (let [exec (case command
                "replace catalog" exec-replace-catalog
                "replace facts" exec-replace-facts
@@ -539,8 +560,11 @@
         ;; resource titles that were too big to fit in a postgres
         ;; index.
         ;; cf. https://www.postgresql.org/docs/11/errcodes-appendix.html
-        (when (some-> ex .getSQLState (str/starts-with? "54"))
-          (throw (fatality ex)))
+        (when-let [state (some-> ex .getSQLState)]
+          (when (= state (jdbc/sql-state :serialization-failure))
+            (throw (simplify-serialization-ex ex)))
+          (when (str/starts-with? state "54")
+            (throw (fatality ex))))
         (throw ex)))))
 
 ;; Used in testing and by initial sync
