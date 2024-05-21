@@ -1346,20 +1346,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
 
-(defn update-latest-report!
-  "Given a node name, updates the `certnames` table to ensure that it indicates the
-   most recent report for the node."
-  [node report-id producer-timestamp]
-  {:pre [(string? node) (integer? report-id)]}
-
-  (jdbc/update! :certnames
-                {:latest_report_id report-id
-                 :latest_report_timestamp producer-timestamp}
-                [(str "certname = ?"
-                      " AND ( latest_report_timestamp < ?"
-                      "      OR latest_report_timestamp is NULL )")
-                 node producer-timestamp]))
-
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
   [containment-path]
@@ -1432,6 +1418,15 @@
           (catch SQLException ex
             (handle-resource-insert-sql-ex ex certname batch)))))))
 
+(defn latest-report-ts
+ "Return the latest report timestamp for the given certname"
+ [certname]
+ (some-> ["SELECT producer_timestamp from reports_latest where certname = ?"
+          certname]
+         query-to-vec
+         first
+         :producer_timestamp))
+
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1439,7 +1434,6 @@
   scenarios."
   [orig-report :- reports/report-wireformat-schema
    received-timestamp :- pls/WireTimestamp
-   update-latest-report? :- s/Bool
    save-event? :- s/Bool
    options-config]
   (time!
@@ -1458,10 +1452,11 @@
                  seq)
            {:status :duplicate :hash report-hash}
            (let [certname-id (certname-id certname)
+                 latest-ts (latest-report-ts certname)
+                 latest (and (not= type "plan")
+                             (or (nil? latest-ts)
+                                 (.after producer_timestamp latest-ts)))
                  ttl (get options-config :resource-events-ttl)
-                 table-name (str "reports_" (-> producer_timestamp
-                                                partitioning/to-zoned-date-time
-                                                partitioning/date-suffix))
                  row (cond-> {:hash shash
                               :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
                               :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
@@ -1482,16 +1477,20 @@
                               :end_time end_time
                               :receive_time (to-timestamp received-timestamp)
                               :status_id (ensure-status status)
-                              :report_type (or type "agent")}
+                              :report_type (or type "agent")
+                              :latest latest}
                        environment (assoc :environment_id (ensure-environment environment))
                        @store-resources-column? (assoc :resources (sutils/munge-jsonb-for-storage resources))
                        @store-corrective-change? (assoc :corrective_change corrective_change))
-                 id (->> {:insert-into (keyword table-name) :values [row] :returning [:id]}
+                 _ (when latest
+                     ;; Mark existing latest report as historical
+                     ;; TODO what if this needs to create a partition?
+                     (jdbc/update! "reports" {:latest false} ["latest = true and certname = ?" certname]))
+
+                 id (->> {:insert-into :reports :values [row] :returning [:id]}
                          hsql/format (select-one! (jdbc/connection) :id))]
              (when (and (seq resource_events) save-event?)
                (insert-resource-events certname certname-id id resource_events ttl))
-             (when (and update-latest-report? (not= type "plan"))
-               (update-latest-report! certname id producer_timestamp))
              {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
@@ -1812,8 +1811,8 @@
                              "  union all (select producer_timestamp from factsets"
                              "               where certname = ?"
                              "               order by producer_timestamp desc limit 1)"
-                             "  union all (select latest_report_timestamp AS producer_timestamp from certnames"
-                             "               where certname = ? and latest_report_timestamp is not null)"
+                             "  union all (select producer_timestamp from reports_latest"
+                             "               where certname = ?)"
                              "  order by producer_timestamp desc"
                              "  limit 1")
                         (cons (repeat 3 certname))
@@ -1932,12 +1931,9 @@
   "Add a report and all of the associated events to the database."
   ([report received-timestamp db conn-status]
    (add-report! report received-timestamp db conn-status true))
-  ([report received-timestamp db conn-status update-latest-report?]
-   (add-report! report received-timestamp db conn-status update-latest-report? {}))
   ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
    db conn-status
-   update-latest-report?
    options-config]
   (let [producer-timestamp (to-timestamp producer_timestamp)
         resource-events-ttl (get options-config :resource-events-ttl)
@@ -1950,7 +1946,7 @@
                                   :statement-timeout command-sql-statement-timeout-ms}
                   (fn []
                     (maybe-activate-node! certname producer-timestamp)
-                    (add-report!* report received-timestamp update-latest-report? save-event options-config))))]
+                    (add-report!* report received-timestamp save-event options-config))))]
     (try
       (store!)
       (catch org.postgresql.util.PSQLException e

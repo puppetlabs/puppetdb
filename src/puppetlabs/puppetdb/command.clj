@@ -483,7 +483,7 @@
         ;; Unlike the other storage functions, add-report! manages its
         ;; own transaction, so that it can dynamically create table
         ;; partitions
-        status (scf-storage/add-report! report received db conn-status true options-config)]
+        status (scf-storage/add-report! report received db conn-status options-config)]
     (log-command-processed-messsage id received start-time :store-report
                                     certname producer_timestamp status
                                     {:puppet-version puppet_version})))
