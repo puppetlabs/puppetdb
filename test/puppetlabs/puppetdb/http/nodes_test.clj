@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.http.nodes-test
   (:require
    [cheshire.core :as json]
-   [clojure.string :refer [starts-with?]]
+   [clojure.string :as str :refer [starts-with?]]
    [clojure.test :refer :all]
    [flatland.ordered.map :as omap]
    [puppetlabs.kitchensink.core :refer [keyset]]
@@ -16,7 +16,9 @@
             query-result
             vector-param
             query-response]]
-   [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]])
+   [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
+   [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
+   [puppetlabs.trapperkeeper.testutils.logging :as tk-log :refer [with-log-suppressed-unless-notable]])
   (:import
    (java.net HttpURLConnection)))
 
@@ -106,13 +108,6 @@
       (is-query-result' ["~" "certname" "\\w+.example.com"] [db puppet web1 web2])
       (is-query-result' ["~" "certname" "example.net"] []))
 
-    (testing "query that generates 0x00 byte error does not show the error type in the response"
-      (let [certname (str "host-1" (char 0))
-            {:keys [body status]} (query-response method endpoint ["=" "certname" certname])]
-         (is (= 500 status))
-         ;; pg-14 adds additional information onto the end
-         (is (starts-with? body "ERROR: invalid byte sequence for encoding \"UTF8\": 0x00"))))
-
     (testing "querying on latest report hash works"
       (let [cert-hashes (query-result method endpoint ["extract"
                                                        ["certname" "latest_report_hash"]
@@ -160,6 +155,23 @@
     (testing "regular expressions work on facts"
       (is-query-result' ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
       (is-query-result' ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
+
+(deftest-http-app query-with-unicode-null
+  [[_version endpoint] endpoints
+   method [:get :post]]
+  ;; Actual message (pg-14 extended it):
+  ;;   ERROR: invalid byte sequence for encoding "UTF8": 0x00
+  ;;     Where: portal "C_1" parameter $1"
+  (testing "does not show the error type in the response"
+    (let [err-msg "ERROR: invalid byte sequence for encoding \"UTF8\": 0x00"
+          notable? #(and (notable-pdb-event? %)
+                         (not (str/includes? (.getMessage %) err-msg)))]
+      (with-log-suppressed-unless-notable notable?
+        (let [certname (str "host-1" (char 0))
+              {:keys [body status]} (query-response method endpoint ["=" "certname" certname])]
+          (is (= 500 status))
+          (is (> 3 (-> body str/split-lines count))) ;; no stack traces
+          (is (starts-with? body err-msg)))))))
 
 (deftest-http-app test-string-coercion-fail
   [[_version endpoint] endpoints
