@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.http.inventory-test
   (:require
    [cheshire.core :as json]
+   [clojure.string :as str]
    [clojure.test :refer :all]
    [clojure.walk :refer [stringify-keys]]
    [flatland.ordered.map :as omap]
@@ -11,7 +12,9 @@
    [puppetlabs.puppetdb.testutils.db :refer [*db*]]
    [puppetlabs.puppetdb.testutils.http
     :refer [*app* query-response vector-param deftest-http-app]]
-   [puppetlabs.puppetdb.time :refer [now to-string]])
+   [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
+   [puppetlabs.puppetdb.time :refer [now to-string]]
+   [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]])
   (:import
    (java.net HttpURLConnection)))
 
@@ -219,14 +222,6 @@
         (is (= 200 status))
         (is (= 3 (count (json/parse-string (slurp body) true))))))
 
-    (testing "broken query should not output error's stacktrace"
-      (let [query ["extract"
-                    [["function" "count" "certname"]]
-                      ["in" "facts.os.family" ["array" ["RedHat"]]]]
-            {:keys [body status]} (query-response method endpoint query)]
-
-        (is (= "Value does not match schema: (not (map? nil))" body))))
-
     (testing "pql query fails with json parse error message"
       (let [query "inventory[]{}"
             {:keys [body status]} (query-response method endpoint query)]
@@ -245,3 +240,15 @@
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true)))))))))))
+
+(deftest-http-app no-response-stacktrace-for-bad-query
+  [[_version endpoint] inventory-endpoints
+   method [:get :post]]
+  (let [err-msg "Value does not match schema: (not (map? nil))"]
+    (with-log-suppressed-unless-notable #(and (notable-pdb-event? %)
+                                              (not (str/includes? (.getMessage %) err-msg)))
+      (let [query ["extract" [["function" "count" "certname"]]
+                   ["in" "facts.os.family" ["array" ["RedHat"]]]]
+            {:keys [body status]} (query-response method endpoint query)]
+        (is (= 500 status))
+        (is (= err-msg body))))))
