@@ -333,36 +333,36 @@
                                     :join-deps #{:fs}}
                  "report_timestamp" {:type :timestamp
                                      :queryable? true
-                                     :field :reports.end_time
-                                     :join-deps #{:certnames :reports}}
+                                     :field :reports_latest.end_time
+                                     :join-deps #{:certnames :reports_latest}}
                  "latest_report_hash" {:type :string
                                        :queryable? true
-                                       :field (hsql-hash-as-str :reports.hash)
-                                       :join-deps #{:certnames :reports}}
+                                       :field (hsql-hash-as-str :reports_latest.hash)
+                                       :join-deps #{:certnames :reports_latest}}
                  "latest_report_noop" {:type :boolean
                                        :queryable? true
-                                       :field :reports.noop
-                                       :join-deps #{:certnames :reports}}
+                                       :field :reports_latest.noop
+                                       :join-deps #{:certnames :reports_latest}}
                  "latest_report_noop_pending" {:type :boolean
                                                :queryable? true
-                                               :field :reports.noop_pending
-                                               :join-deps #{:certnames :reports}}
+                                               :field :reports_latest.noop_pending
+                                               :join-deps #{:certnames :reports_latest}}
                  "latest_report_status" {:type :string
                                          :queryable? true
                                          :field :report_statuses.status
-                                         :join-deps #{:certnames :report_statuses :reports}}
+                                         :join-deps #{:certnames :report_statuses :reports_latest}}
                  "latest_report_corrective_change" {:type :boolean
                                                     :queryable? true
-                                                    :field :reports.corrective_change
-                                                    :join-deps #{:certnames :reports}}
+                                                    :field :reports_latest.corrective_change
+                                                    :join-deps #{:certnames :reports_latest}}
                  "latest_report_job_id" {:type :string
                                          :queryable? true
-                                         :field :reports.job_id
-                                         :join-deps #{:certnames :reports}}
+                                         :field :reports_latest.job_id
+                                         :join-deps #{:certnames :reports_latest}}
                  "cached_catalog_status" {:type :string
                                           :queryable? true
-                                          :field :reports.cached_catalog_status
-                                          :join-deps #{:certnames :reports}}
+                                          :field :reports_latest.cached_catalog_status
+                                          :join-deps #{:certnames :reports_latest}}
                  "catalog_environment" {:type :string
                                         :queryable? true
                                         :field :catalog_environment.environment
@@ -370,7 +370,7 @@
                  "report_environment" {:type :string
                                        :queryable? true
                                        :field :reports_environment.environment
-                                       :join-deps #{:reports_environment :reports}}}
+                                       :join-deps #{:reports_environment :reports_latest}}}
 
    :relationships certname-relations
 
@@ -386,22 +386,20 @@
                            [:factsets :fs]
                            [:= :certnames_status.certname :fs.certname]
 
-                           :reports
-                           [:and
-                            [:= :certnames.certname :reports.certname]
-                            [:= :certnames.latest_report_id :reports.id]]
+                           :reports_latest
+                           [:= :certnames.certname :reports_latest.certname]
 
                            [:environments :catalog_environment]
                            [:= :catalog_environment.id :catalogs.environment_id]
 
                            :report_statuses
-                           [:= :reports.status_id :report_statuses.id]
+                           [:= :reports_latest.status_id :report_statuses.id]
 
                            [:environments :facts_environment]
                            [:= :facts_environment.id :fs.environment_id]
 
                            [:environments :reports_environment]
-                           [:= :reports_environment.id :reports.environment_id]]}
+                           [:= :reports_environment.id :reports_latest.environment_id]]}
 
    :source-tables #{:certnames}
    :alias "nodes"
