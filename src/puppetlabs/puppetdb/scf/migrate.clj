@@ -2354,6 +2354,106 @@
      "  DROP COLUMN deactivated,"
      "  DROP COLUMN expired"]))
 
+(defn store-latest-reports-separately
+  []
+  (jdbc/do-commands
+   "ALTER TABLE reports RENAME TO reports_historical"
+   "ALTER TABLE reports_historical ADD COLUMN latest boolean NOT NULL DEFAULT false"
+
+   ;; Remove primary key, must be re-added by the parent partitions
+   "ALTER TABLE reports_historical DROP CONSTRAINT reports_pkey"
+   ;; Rename other indexes
+   "ALTER INDEX idx_reports_compound_id RENAME TO idx_reports_historical_compound_id"
+   "ALTER INDEX idx_reports_noop_pending RENAME TO idx_reports_historical_noop_pending"
+   "ALTER INDEX idx_reports_prod RENAME TO idx_reports_historical_prod"
+   "ALTER INDEX idx_reports_producer_timestamp RENAME TO idx_reports_historical_producer_timestamp"
+   "ALTER INDEX idx_reports_producer_timestamp_by_hour_certname RENAME TO idx_reports_historical_producer_timestamp_by_hour_certname"
+   "ALTER INDEX reports_cached_catalog_status_on_fail RENAME TO reports_historical_cached_catalog_status_on_fail"
+   "ALTER INDEX reports_catalog_uuid_idx RENAME TO reports_historical_catalog_uuid_idx"
+   "ALTER INDEX idx_reports_certname_end_time RENAME TO idx_reports_historical_certname_end_time"
+   "ALTER INDEX reports_end_time_idx RENAME TO reports_historical_end_time_idx"
+   "ALTER INDEX reports_environment_id_idx RENAME TO reports_historical_environment_id_idx"
+   "ALTER INDEX reports_hash_expr_idx RENAME TO reports_historical_hash_expr_idx"
+   "ALTER INDEX reports_job_id_idx RENAME TO reports_historical_job_id_idx"
+   "ALTER INDEX reports_noop_idx RENAME TO reports_historical_noop_idx"
+   "ALTER INDEX reports_status_id_idx RENAME TO reports_historical_status_id_idx"
+   "ALTER INDEX reports_tx_uuid_expr_idx RENAME TO reports_historical_tx_uuid_expr_idx"
+
+   "CREATE TABLE reports (
+   id bigint NOT NULL,
+   hash bytea NOT NULL,
+   transaction_uuid uuid,
+   certname text NOT NULL,
+   puppet_version text NOT NULL,
+   report_format smallint NOT NULL,
+   configuration_version text NOT NULL,
+   start_time timestamp with time zone NOT NULL,
+   end_time timestamp with time zone NOT NULL,
+   receive_time timestamp with time zone NOT NULL,
+   noop boolean,
+   environment_id bigint,
+   status_id bigint,
+   metrics_json json,
+   logs_json json,
+   producer_timestamp timestamp with time zone NOT NULL,
+   metrics jsonb,
+   logs jsonb,
+   resources jsonb,
+   catalog_uuid uuid,
+   cached_catalog_status text,
+   code_id text,
+   producer_id bigint,
+   noop_pending boolean,
+   corrective_change boolean,
+   job_id text,
+   report_type text DEFAULT 'agent' NOT NULL,
+   latest boolean) PARTITION BY LIST (latest)"
+
+   ;; Recreate indices and constraints on root paritioned table as performed for
+   ;; migration 82 (migrate-reports-to-declarative-partitioning)
+   "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id, producer_timestamp, latest)"
+   "CREATE INDEX idx_reports_compound_id ON reports USING btree (producer_timestamp, certname, hash) WHERE (start_time IS NOT NULL)"
+   "CREATE INDEX idx_reports_noop_pending ON reports USING btree (noop_pending) WHERE (noop_pending = true)"
+   "CREATE INDEX idx_reports_prod ON reports USING btree (producer_id)"
+   "CREATE INDEX idx_reports_producer_timestamp ON reports USING btree (producer_timestamp)"
+   ["CREATE INDEX idx_reports_producer_timestamp_by_hour_certname ON reports USING btree "
+    "  (date_trunc('hour'::text, timezone('UTC'::text, producer_timestamp)), producer_timestamp, certname)"]
+   ["CREATE INDEX reports_cached_catalog_status_on_fail ON reports USING btree"
+    "  (cached_catalog_status) WHERE (cached_catalog_status = 'on_failure'::text)"]
+   "CREATE INDEX reports_catalog_uuid_idx ON reports USING btree (catalog_uuid)"
+   "CREATE INDEX idx_reports_certname_end_time ON reports USING btree (certname,end_time)"
+   "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
+   "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
+   "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports USING btree (encode(hash, 'hex'::text), producer_timestamp, latest)"
+   "CREATE INDEX reports_job_id_idx ON reports USING btree (job_id) WHERE (job_id IS NOT NULL)"
+   "CREATE INDEX reports_noop_idx ON reports USING btree (noop) WHERE (noop = true)"
+   "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
+   "CREATE INDEX reports_tx_uuid_expr_idx ON reports USING btree (((transaction_uuid)::text))"
+
+   ;; Move sequence ownership to root partition
+   "ALTER SEQUENCE reports_id_seq OWNED BY reports.id"
+   "ALTER TABLE reports ALTER COLUMN id SET DEFAULT nextval('reports_id_seq'::regclass)"
+
+   ;; Create top level partitions of reports
+   "CREATE TABLE reports_latest PARTITION OF reports FOR VALUES IN (true)"
+   "ALTER TABLE reports ATTACH PARTITION reports_historical FOR VALUES IN (false)"
+
+   ;; Move the latest reports into the appropriate partition
+   ["UPDATE reports SET latest = true"
+    "  FROM certnames"
+    "  WHERE reports.id = certnames.latest_report_id"]
+
+   ;; remove latest report info from certnames
+   "ALTER TABLE certnames DROP COLUMN latest_report_id"
+   "ALTER TABLE certnames DROP COLUMN latest_report_timestamp"
+
+   ;; add a unique constraint on certnames to ensure only one latest report
+   "ALTER TABLE reports_latest ADD CONSTRAINT reports_latest_certnames_unique UNIQUE (certname)"
+
+   ;; add a foreign key for GC
+   ["ALTER TABLE reports_latest ADD CONSTRAINT reports_latest_certnames_fkey"
+    "  FOREIGN KEY (certname) REFERENCES certnames (certname) ON DELETE CASCADE"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2422,7 +2522,8 @@
    82 migrate-reports-to-declarative-partitioning
    83 require-previously-optional-trigram-indexes
    84 remove-catalog-resources-file-trgm-index
-   85 split-certnames-table})
+   85 split-certnames-table
+   86 store-latest-reports-separately})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
