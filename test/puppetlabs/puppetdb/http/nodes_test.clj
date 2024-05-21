@@ -687,11 +687,15 @@
 (deftest-http-app error-in-query-streaming-is-communicated-to-caller
   [[_version endpoint] endpoints]
   (store-example-nodes)
-  (with-redefs [munge-fn-hook (fn [_] (throw (Exception. "BOOM!")))]
-    (testing "generated-stream thread exceptions make it back to the caller"
-      (let [{:keys [status body]}
-            (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
-                (assoc-in [:headers "content-type"] "application/json")
-                *app*)]
-        (is (= 500 status))
-        (is (= "BOOM!" body))))))
+  (with-log-suppressed-unless-notable #(and (notable-pdb-event? %)
+                                            (not (str/includes? (.getMessage %)
+                                                                "BOOM!")))
+    (with-redefs [munge-fn-hook (fn [_] (throw (Exception. "BOOM!")))]
+      (testing "generated-stream thread exceptions make it back to the caller"
+        (let [{:keys [status body]}
+              (-> (tu/query-request :post endpoint ["extract" "certname"
+                                                    ["=" "certname" "puppet.example.com"]])
+                  (assoc-in [:headers "content-type"] "application/json")
+                  *app*)]
+          (is (= 500 status))
+          (is (= "BOOM!" body)))))))
