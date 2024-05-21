@@ -191,6 +191,9 @@
           (let [{:keys [threadpool semaphore] :as threadpool-ctx} (gated-threadpool 1 "testpool-%d" 5000)]
             (try
               (is (= 1 (.availablePermits semaphore)))
+
+              (binding [*out* *err*]
+                (println "Note: a \"Broken!\" exception on stderr is expected now"))
               (.execute threadpool-ctx
                         (fn [] (throw (RuntimeException. "Broken!"))))
 
