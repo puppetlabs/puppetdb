@@ -2454,6 +2454,66 @@
    ["ALTER TABLE reports_latest ADD CONSTRAINT reports_latest_certnames_fkey"
     "  FOREIGN KEY (certname) REFERENCES certnames (certname) ON DELETE CASCADE"]))
 
+(defn store-latest-events-separately
+  []
+  (jdbc/do-commands
+   "ALTER TABLE resource_events RENAME TO resource_events_historical"
+   "ALTER TABLE resource_events_historical ADD COLUMN latest boolean NOT NULL DEFAULT false"
+
+   ;; Remove primary key, must be re-added by the parent partitions
+   "ALTER TABLE resource_events_historical DROP CONSTRAINT resource_events_pkey"
+   ;; Rename other indexes
+   "ALTER INDEX resource_events_containing_class_idx RENAME TO resource_events_historical_containing_class_idx"
+   "ALTER INDEX resource_events_property_idx RENAME TO resource_events_historical_property_idx"
+   "ALTER INDEX resource_events_reports_id_idx RENAME TO resource_events_historical_reports_id_idx"
+   "ALTER INDEX resource_events_resource_timestamp RENAME TO resource_events_historical_resource_timestamp"
+   "ALTER INDEX resource_events_resource_title_idx RENAME TO resource_events_historical_resource_title_idx"
+   "ALTER INDEX resource_events_status_for_corrective_change_idx RENAME TO resource_events_historical_status_for_corrective_change_idx"
+   "ALTER INDEX resource_events_status_idx RENAME TO resource_events_historical_status_idx"
+   "ALTER INDEX resource_events_timestamp_idx RENAME TO resource_events_historical_timestamp_idx"
+
+   "CREATE TABLE resource_events (
+   event_hash bytea NOT NULL,
+   report_id bigint NOT NULL,
+   certname_id bigint NOT NULL,
+   status text NOT NULL,
+   \"timestamp\" timestamp with time zone NOT NULL,
+   resource_type text NOT NULL,
+   resource_title text NOT NULL,
+   property text,
+   new_value text,
+   old_value text,
+   message text,
+   file text DEFAULT NULL::character varying,
+   line integer,
+   name text,
+   containment_path  text[],
+   containing_class text,
+   corrective_change boolean,
+   latest boolean) PARTITION BY LIST (latest)"
+
+   ;; Recreate indices and constraints on root paritioned table as performed for
+   ;; migration 82 (migrate-reports-to-declarative-partitioning)
+   ;; Create indices on partitioned table
+   "ALTER TABLE resource_events ADD CONSTRAINT resource_events_pkey PRIMARY KEY (event_hash, timestamp, latest)"
+   "CREATE INDEX IF NOT EXISTS resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
+   "CREATE INDEX IF NOT EXISTS resource_events_property_idx ON resource_events USING btree (property)"
+   "CREATE INDEX IF NOT EXISTS resource_events_reports_id_idx ON resource_events USING btree (report_id)"
+   "CREATE INDEX IF NOT EXISTS resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")"
+   "CREATE INDEX IF NOT EXISTS resource_events_resource_title_idx ON resource_events USING btree (resource_title)"
+   "CREATE INDEX IF NOT EXISTS resource_events_status_for_corrective_change_idx ON resource_events USING btree (status) WHERE corrective_change"
+   "CREATE INDEX IF NOT EXISTS resource_events_status_idx ON resource_events USING btree (status)"
+   "CREATE INDEX IF NOT EXISTS resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")"
+
+   ;; Create top level partitions of reports
+   "CREATE TABLE resource_events_latest PARTITION OF resource_events FOR VALUES IN (true)"
+   "ALTER TABLE resource_events ATTACH PARTITION resource_events_historical FOR VALUES IN (false)"
+
+   ;; Move the latest events into the appropriate partition
+   ["UPDATE resource_events SET latest = true"
+    "  FROM reports_latest"
+    "  WHERE reports_latest.id = resource_events.report_id"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2523,7 +2583,8 @@
    83 require-previously-optional-trigram-indexes
    84 remove-catalog-resources-file-trgm-index
    85 split-certnames-table
-   86 store-latest-reports-separately})
+   86 store-latest-reports-separately
+   87 store-latest-events-separately})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
