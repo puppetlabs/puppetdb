@@ -784,7 +784,8 @@
       "latest_report?" {:type :string
                         :queryable? true
                         :unprojectable? true
-                        :join-deps #{}}
+                        :field :reports.latest
+                        :join-deps #{:reports}}
       "resource_events" {:type :json
                          :queryable? false
                          :field {:select [(h/row-to-json :event_data)]
@@ -1182,7 +1183,8 @@
                                             :field :environments.environment}
                              "latest_report?" {:type :boolean
                                                :queryable? true
-                                               :unprojectable? true}
+                                               :unprojectable? true
+                                               :field :reports.latest}
                              "report_id" {:type :numeric
                                           :queryable? false
                                           :unprojectable? true
@@ -2121,22 +2123,13 @@
                                           sub-entity)))))
 
             [["=" "latest_report?" value]]
-            (let [entity (get-in (meta node) [:query-context :entity])
-                  latest (case entity
-                           :reports
-                           ["in" "hash"
-                            ["extract" "latest_report_hash"
-                             ["select_latest_report"]]]
-
-                           :events
-                           ["in" "report_id"
-                            ["extract" "latest_report_id"
-                             ["select_latest_report_id"]]]
-                           (throw
-                            (bad-query-ex
-                             (tru "Field 'latest_report?' not supported on endpoint ''{0}''"
-                                  entity))))]
-              (if value latest ["not" latest]))
+            (let [entity (get-in (meta node) [:query-context :entity])]
+              (case entity
+                (:reports :events) ["=" "latest_report?" value]
+                (throw
+                 (bad-query-ex
+                  (tru "Field 'latest_report?' not supported on endpoint ''{0}''"
+                       entity)))))
 
             [[op (field :guard #{"new_value" "old_value"}) value]]
             [op field (su/db-serialize value)]
