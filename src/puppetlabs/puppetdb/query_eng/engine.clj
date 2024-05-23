@@ -1234,27 +1234,23 @@
   (map->Query {::which-query :latest-report
                :projections {"latest_report_hash" {:type :string
                                                    :queryable? true
-                                                   :field (hsql-hash-as-str :reports.hash)}}
-               :selection {:from [:certnames]
-                           :join [:reports
-                                  [:and
-                                   [:= :certnames.certname :reports.certname]
-                                   [:= :certnames.latest_report_id :reports.id]]]}
+                                                   :field (hsql-hash-as-str :reports_latest.hash)}}
+               :selection {:from [:reports_latest]}
 
                :alias "latest_report"
                :subquery? false
-               :source-tables #{:certnames}}))
+               :source-tables #{:reports_latest}}))
 
 (def latest-report-id-query
   "Usually used as a subquery of reports"
   (map->Query {::which-query :latest-report-id
                :projections {"latest_report_id" {:type :numeric
                                                  :queryable? true
-                                                 :field :certnames.latest_report_id}}
-               :selection {:from [:certnames]}
+                                                 :field :reports_latest.id}}
+               :selection {:from [:reports_latest]}
                :alias "latest_report_id"
                :subquery? false
-               :source-tables #{:certnames}}))
+               :source-tables #{:reports_latest}}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
