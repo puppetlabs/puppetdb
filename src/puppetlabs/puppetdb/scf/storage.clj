@@ -1399,8 +1399,8 @@
   (time/after? (org.joda.time.DateTime. timestamp)
                (.minus (now) resource-events-ttl)))
 
-(defn insert-resource-events [certname cert-id report-id resource-events ttl]
-  (let [xf (comp (map #(assoc % :report_id report-id :certname_id cert-id))
+(defn insert-resource-events [certname cert-id report-id resource-events ttl latest]
+  (let [xf (comp (map #(assoc % :report_id report-id :certname_id cert-id :latest latest))
                  ;; resource-event-identity-pkey requires :report_id
                  (map #(assoc % :event_hash (-> (shash/resource-event-identity-pkey %)
                                                 (sutils/munge-hash-for-storage))))
@@ -1418,14 +1418,13 @@
           (catch SQLException ex
             (handle-resource-insert-sql-ex ex certname batch)))))))
 
-(defn latest-report-ts
+(defn latest-report-metadata
  "Return the latest report timestamp for the given certname"
  [certname]
- (some-> ["SELECT producer_timestamp from reports_latest where certname = ?"
+ (some-> ["select id as \"latest-report-id\", producer_timestamp as \"latest-ts\" from reports_latest where certname = ?"
           certname]
          query-to-vec
-         first
-         :producer_timestamp))
+         first))
 
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
@@ -1452,7 +1451,7 @@
                  seq)
            {:status :duplicate :hash report-hash}
            (let [certname-id (certname-id certname)
-                 latest-ts (latest-report-ts certname)
+                 {:keys [latest-ts latest-report-id]} (latest-report-metadata certname)
                  latest (and (not= type "plan")
                              (or (nil? latest-ts)
                                  (.after producer_timestamp latest-ts)))
@@ -1485,12 +1484,13 @@
                  _ (when latest
                      ;; Mark existing latest report as historical
                      ;; TODO what if this needs to create a partition?
+                     (jdbc/update! "resource_events" {:latest false} ["latest = true and report_id = ?" latest-report-id])
                      (jdbc/update! "reports" {:latest false} ["latest = true and certname = ?" certname]))
 
                  id (->> {:insert-into :reports :values [row] :returning [:id]}
                          hsql/format (select-one! (jdbc/connection) :id))]
              (when (and (seq resource_events) save-event?)
-               (insert-resource-events certname certname-id id resource_events ttl))
+               (insert-resource-events certname certname-id id resource_events ttl latest))
              {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
