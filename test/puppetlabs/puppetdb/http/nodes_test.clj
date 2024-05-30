@@ -1,21 +1,22 @@
 (ns puppetlabs.puppetdb.http.nodes-test
-  (:require [cheshire.core :as json]
-            [clojure.test :refer :all]
-            [clojure.string :refer [starts-with?]]
-            [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [paged-results] :as tu]
-            [puppetlabs.puppetdb.testutils.http
-             :refer [*app*
-                     are-error-response-headers
-                     deftest-http-app
-                     convert-response
-                     ordered-query-result
-                     query-result
-                     vector-param
-                     query-response]]
-            [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
-            [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook]]
-            [flatland.ordered.map :as omap])
+  (:require
+   [cheshire.core :as json]
+   [clojure.string :refer [starts-with?]]
+   [clojure.test :refer :all]
+   [flatland.ordered.map :as omap]
+   [puppetlabs.kitchensink.core :refer [keyset]]
+   [puppetlabs.puppetdb.query-eng :refer [munge-fn-hook]]
+   [puppetlabs.puppetdb.testutils :refer [paged-results] :as tu]
+   [puppetlabs.puppetdb.testutils.http
+    :refer [*app*
+            are-error-response-headers
+            deftest-http-app
+            convert-response
+            ordered-query-result
+            query-result
+            vector-param
+            query-response]]
+   [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]])
   (:import
    (java.net HttpURLConnection)))
 
