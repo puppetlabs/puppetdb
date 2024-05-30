@@ -1,19 +1,17 @@
 (ns puppetlabs.puppetdb.http.inventory-test
-  (:require [cheshire.core :as json]
-            [clojure.test :refer :all]
-            [clojure.walk :refer [stringify-keys]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.http :as http]
-            [flatland.ordered.map :as omap]
-            [puppetlabs.puppetdb.testutils.http :refer [*app*
-                                                        query-response
-                                                        vector-param
-                                                        deftest-http-app]]
-            [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   assert-success!]]
-            [puppetlabs.puppetdb.time :refer [now to-string]])
+  (:require
+   [cheshire.core :as json]
+   [clojure.test :refer :all]
+   [clojure.walk :refer [stringify-keys]]
+   [flatland.ordered.map :as omap]
+   [puppetlabs.puppetdb.http :as http]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.scf.storage :as scf-store]
+   [puppetlabs.puppetdb.testutils :refer [get-request assert-success!]]
+   [puppetlabs.puppetdb.testutils.db :refer [*db*]]
+   [puppetlabs.puppetdb.testutils.http
+    :refer [*app* query-response vector-param deftest-http-app]]
+   [puppetlabs.puppetdb.time :refer [now to-string]])
   (:import
    (java.net HttpURLConnection)))
 
