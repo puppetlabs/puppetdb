@@ -836,9 +836,13 @@
           (case (:kind data)
             ::retry (retry ex)
             ::queue/parse-error
-            (do
+            (let [cause (.getCause ex)
+                  prefix (trs "Fatal error parsing command: {0}" (:id cmdref))]
               (mark! (global-metric :fatal))
-              (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
+              (cond
+                (seq (.getSuppressed ex)) (log/error ex prefix)
+                cause (log/error cause (format "%s (%s)" prefix (ex-message ex)))
+                :else (log/error (format "%s (%s)" prefix (ex-message ex))))
               (discard-message cmdref ex q dlo maybe-send-cmd-event!))
             ::fatal-processing-error
             (do

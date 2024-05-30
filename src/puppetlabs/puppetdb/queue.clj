@@ -25,6 +25,7 @@
    [schema.core :as s])
   (:import
    (clojure.lang ExceptionInfo)
+   (com.fasterxml.jackson.core JsonParseException)
    (java.io InputStreamReader BufferedReader InputStream)
    (java.nio.charset StandardCharsets)
    (java.nio.file Files LinkOption)
@@ -48,12 +49,17 @@
 
 (defn stream->json [^InputStream stream]
   (try
-    (-> stream
-        (InputStreamReader. StandardCharsets/UTF_8)
-        BufferedReader.
+    (-> (InputStreamReader. stream StandardCharsets/UTF_8) BufferedReader.
         (json/parse-stream true))
-    (catch Exception e
-      (throw (ex-info "Error parsing command" {:kind ::parse-error} e)))))
+    (catch JsonParseException ex
+      (throw
+       (ex-info (.getMessage ex)
+                {:kind ::parse-error :puppetlabs.puppetdb/known-error? true})))
+    (catch Exception ex
+      (throw
+       (ex-info (.getMessage ex)
+                {:kind ::parse-error :puppetlabs.puppetdb/known-error? true}
+                ex)))))
 
 (def forbidden-meta-field-char-rx
   (re-pattern (str "("
@@ -274,8 +280,7 @@
     "gz" (GzipCompressorInputStream. command-stream)
     (throw (ex-info (trs "Unsupported compression file extension for command: {0}"
                          file-extension)
-                    {:kind ::parse-error}
-                    nil))))
+                    {:kind ::parse-error :puppetlabs.puppetdb/known-error? true}))))
 
 (defn cmdref->cmd
   "Returns the command associated with cmdref, or nil if the file is
