@@ -1,13 +1,14 @@
 (ns puppetlabs.puppetdb.query.event-counts
-  (:require [puppetlabs.puppetdb.query.events :as events]
-            [clojure.string :as string]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]
-            [puppetlabs.i18n.core :refer [tru]]))
+  (:require
+   [clojure.string :as string]
+   [puppetlabs.i18n.core :refer [tru]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.query :as query]
+   [puppetlabs.puppetdb.query-eng.engine :as qe]
+   [puppetlabs.puppetdb.query.events :as events]
+   [puppetlabs.puppetdb.query.paging :as paging]
+   [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.

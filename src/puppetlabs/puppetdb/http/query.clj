@@ -3,31 +3,29 @@
 
    Functions that aid in the parsing, serialization, and manipulation
    of PuppetDB queries embedded in HTTP parameters."
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.java.io]
-            [clojure.core.match :as cm]
-            [clojure.set :as set]
-            [clojure.tools.logging :as log]
-            [clojure.walk :refer [keywordize-keys stringify-keys]]
-            [murphy :refer [try!]]
-            [puppetlabs.puppetdb.query-eng :as qeng]
-            [puppetlabs.puppetdb.query.monitor :as qmon]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.schema :as pls]
-            [ring.util.request :as request]
-            [puppetlabs.puppetdb.query.paging :refer [parse-explain
-                                                      parse-limit
-                                                      parse-offset
-                                                      parse-order-by
-                                                      parse-order-by-json]]
-            [puppetlabs.puppetdb.pql :as pql]
-            [puppetlabs.puppetdb.time :refer [ephemeral-now-ns to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [response->channel update-when]]
-            [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]])
+  (:require
+   [clojure.core.match :as cm]
+   [clojure.java.io]
+   [clojure.set :as set]
+   [clojure.tools.logging :as log]
+   [clojure.walk :refer [keywordize-keys stringify-keys]]
+   [murphy :refer [try!]]
+   [puppetlabs.i18n.core :refer [trs tru]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.http :as http]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.pql :as pql]
+   [puppetlabs.puppetdb.query-eng :as qeng]
+   [puppetlabs.puppetdb.query.monitor :as qmon]
+   [puppetlabs.puppetdb.query.paging
+    :refer [parse-explain parse-limit parse-offset parse-order-by parse-order-by-json]]
+   [puppetlabs.puppetdb.schema :as pls]
+   [puppetlabs.puppetdb.time :refer [ephemeral-now-ns to-timestamp]]
+   [puppetlabs.puppetdb.utils :refer [response->channel update-when]]
+   [puppetlabs.puppetdb.utils.string-formatter :refer [pprint-json-parse-exception]]
+   [ring.util.request :as request]
+   [schema.core :as s])
   (:import
    (clojure.lang ExceptionInfo)
    (com.fasterxml.jackson.core JsonParseException)

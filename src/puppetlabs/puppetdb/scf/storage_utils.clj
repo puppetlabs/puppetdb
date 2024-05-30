@@ -1,18 +1,20 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
-  (:require [cheshire.factory :refer [*json-factory*]]
-            [clojure.java.jdbc :as sql]
-            [clojure.tools.logging :as log]
-            [clojure.string :as str]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.honeysql]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s])
-  (:import [java.sql Connection]
-           [java.util UUID]
-           [org.postgresql.util PGobject]))
+  (:require
+   [cheshire.factory :refer [*json-factory*]]
+   [clojure.java.jdbc :as sql]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [puppetlabs.i18n.core :refer [trs tru]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.honeysql]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.schema :as pls]
+   [schema.core :as s])
+  (:import
+   (java.sql Connection)
+   (java.util UUID)
+   (org.postgresql.util PGobject)))
 
 ;; SCHEMA
 

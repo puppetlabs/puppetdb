@@ -3,14 +3,16 @@
 
    Functions that aid in the validation and processing of the
    query parameters related to paging PuppetDB queries"
-  (:import  [com.fasterxml.jackson.core JsonParseException])
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.string :as string]
-            [puppetlabs.kitchensink.core :as kitchensink
-             :refer [seq-contains? order-by-expr? parse-int]]
-            [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [tru]]))
+  (:require
+   [clojure.string :as string]
+   [puppetlabs.i18n.core :refer [tru]]
+   [puppetlabs.kitchensink.core :as kitchensink
+    :refer [order-by-expr? parse-int seq-contains?]]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.schema :as pls]
+   [schema.core :as s])
+  (:import
+   (com.fasterxml.jackson.core JsonParseException)))
 
 (def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")

@@ -1,11 +1,12 @@
 (ns puppetlabs.puppetdb.pql
-  (:require [clojure.java.io]
-            [clojure.string :refer [join]]
-            [instaparse.core :as insta]
-            [instaparse.failure :as failure]
-            [instaparse.print :as print]
-            [puppetlabs.i18n.core :refer [tru]]
-            [puppetlabs.puppetdb.pql.transform :as transform]))
+  (:require
+   [clojure.java.io]
+   [clojure.string :refer [join]]
+   [instaparse.core :as insta]
+   [instaparse.failure :as failure]
+   [instaparse.print :as print]
+   [puppetlabs.i18n.core :refer [tru]]
+   [puppetlabs.puppetdb.pql.transform :as transform]))
 
 (defn transform
   "Transform parsed PQL to AST."
