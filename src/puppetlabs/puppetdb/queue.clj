@@ -1,33 +1,36 @@
 (ns puppetlabs.puppetdb.queue
-  (:import (clojure.lang ExceptionInfo)
-           [java.nio.charset StandardCharsets]
-           [java.io InputStreamReader BufferedReader InputStream]
-           [java.util TreeMap HashMap]
-           [java.nio.file Files LinkOption]
-           [java.nio.file.attribute FileAttribute]
-           [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
-  (:require [clojure.set :as set]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.command.constants :as command-constants]
-            [puppetlabs.puppetdb.constants :as constants]
-            [puppetlabs.puppetdb.lint :refer [ignore-value]]
-            [puppetlabs.stockpile.queue :as stock]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.core.async :as async]
-            [clojure.core.async.impl.protocols :as async-protos]
-            [puppetlabs.puppetdb.nio :refer [get-path]]
-            [puppetlabs.puppetdb.utils :refer [compression-file-extension-schema
-                                               content-encodings->file-extensions
-                                               match-any-of utf8-length
-                                               utf8-truncate]]
-            [puppetlabs.puppetdb.utils.string-formatter :as formatter]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.time :as time
-             :refer [now parse-wire-datetime]]))
+  (:require
+   [clojure.core.async :as async]
+   [clojure.core.async.impl.protocols :as async-protos]
+   [clojure.set :as set]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.command.constants :as command-constants]
+   [puppetlabs.puppetdb.constants :as constants]
+   [puppetlabs.puppetdb.lint :refer [ignore-value]]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
+   [puppetlabs.puppetdb.schema :as pls]
+   [puppetlabs.puppetdb.time :as time :refer [now parse-wire-datetime]]
+   [puppetlabs.puppetdb.utils
+    :refer [compression-file-extension-schema
+            content-encodings->file-extensions
+            match-any-of
+            utf8-length
+            utf8-truncate]]
+   [puppetlabs.puppetdb.utils.string-formatter :as formatter]
+   [puppetlabs.stockpile.queue :as stock]
+   [schema.core :as s])
+  (:import
+   (clojure.lang ExceptionInfo)
+   (java.io InputStreamReader BufferedReader InputStream)
+   (java.nio.charset StandardCharsets)
+   (java.nio.file Files LinkOption)
+   (java.nio.file.attribute FileAttribute)
+   (java.util TreeMap HashMap)
+   (org.apache.commons.compress.compressors.gzip GzipCompressorInputStream)))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
