@@ -98,8 +98,20 @@
   (fn [req]
     (try
       (app req)
+      ;; This clause may become obsolete if everything it was handling
+      ;; should be (and eventually is) converted to bad-query-ex.
       (catch IllegalArgumentException e
-        (http/error-response e)))))
+        (http/error-response e))
+      (catch ExceptionInfo ex
+        (case (-> ex ex-data :kind)
+          :puppetlabs.puppetdb.query/invalid
+          (do ;; cf. produce-streaming-body
+            (cond
+              (seq (.getSuppressed ex)) (log/error ex)
+              (ex-cause ex) (log/info (ex-cause ex) (trs "Invalid query: {0}" (ex-message ex)))
+              :else (log/info (trs "Invalid query: {0}" (ex-message ex))))
+            (http/error-response ex))
+          (throw ex))))))
 
 (defn cause-finder
   [ex]

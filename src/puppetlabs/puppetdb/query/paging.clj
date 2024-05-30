@@ -9,10 +9,11 @@
    [puppetlabs.kitchensink.core :as kitchensink
     :refer [order-by-expr? parse-int seq-contains?]]
    [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
    [puppetlabs.puppetdb.schema :as pls]
    [schema.core :as s])
   (:import
-   (com.fasterxml.jackson.core JsonParseException)))
+   [com.fasterxml.jackson.core JsonParseException]))
 
 (def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
@@ -59,10 +60,10 @@
     ;; return a lazy sequence, which upon realization later might throw an
     ;; uncaught JsonParseException.
     (json/parse-strict-string order_by true)
-    (catch JsonParseException e
-      (throw (IllegalArgumentException.
-              (tru "Illegal value ''{0}'' for :order_by; expected a JSON array of maps." order_by)
-              e)))))
+    (catch JsonParseException _
+      (throw (bad-query-ex
+              (tru "Illegal value ''{0}'' for :order_by; expected a JSON array of maps."
+                   order_by))))))
 
 (defn parse-order-str
   "Given an 'order' string, returns either :ascending or :descending"
@@ -81,8 +82,9 @@
   (if (or (empty? order_by)
           ((every-pred sequential? #(every? map? %)) order_by))
     order_by
-    (throw (IllegalArgumentException.
-            (tru "Illegal value ''{0}'' for :order_by; expected an array of maps." order_by)))))
+    (throw (bad-query-ex
+            (tru "Illegal value ''{0}'' for :order_by; expected an array of maps."
+                 order_by)))))
 
 (defn parse-required-order-by-fields
   "Validates that each map in the order_by list contains the required
@@ -93,12 +95,12 @@
   [order_by]
   {:post [(every? order-by-expr? %)]}
   (when-let [bad-order-by (some #(when-not (contains? % :field) %) order_by)]
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (tru "Illegal value ''{0}'' in :order_by; missing required key 'field'."
                  bad-order-by))))
   (when-let [bad-order-by (some (fn [x] (when-not (valid-order-str? (:order x)) x))
                                 order_by)]
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (tru "Illegal value ''{0}'' in :order_by; ''order'' must be either ''asc'' or ''desc''"
                  bad-order-by))))
   (map
@@ -114,7 +116,7 @@
   (if-let [bad-order-by (some
                          (fn [x] (when (keys (dissoc x :field :order)) x))
                          order_by)]
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (tru "Illegal value ''{0}'' in :order_by; unknown key ''{1}''."
                  bad-order-by
                  (-> bad-order-by (dissoc :field :order) keys first name))))
@@ -160,16 +162,18 @@
 
 (defn validate-limit
   "Validates that the limit string is a positive non-zero integer. Returns the
-  integer form if validation was successful, otherwise an
-  IllegalArgumentException is thrown."
+  integer form if validation was successful, otherwise a bad-query-ex is
+  thrown."
   [limit]
   {:pre  [(or (string? limit)
               (integer? limit))]
    :post [(and (integer? %) (> % 0))]}
   (let [l (coerce-to-int limit)]
     (if ((some-fn nil? neg? zero?) l)
-      (throw (IllegalArgumentException.
-              (tru "Illegal value ''{0}'' for :limit; expected a positive non-zero integer." limit)))
+      (throw
+       (bad-query-ex
+        (tru "Illegal value ''{0}'' for :limit; expected a positive non-zero integer."
+             limit)))
       l)))
 
 (pls/defn-validated parse-limit :- (s/maybe s/Int)
@@ -180,16 +184,17 @@
   (when limit (validate-limit limit)))
 
 (defn validate-explain
-  "Validates that the explain string is a string containing `analyze`. Returns the
-  keyword form if validation was successful, otherwise an
-  IllegalArgumentException is thrown."
+  "Validates that the explain string is a string containing `analyze`.  Returns
+  the keyword form if validation was successful, otherwise a bad-query-ex is
+  thrown."
   [explain]
   {:pre  [(string? explain)]
    :post [(and (keyword? %) (= % :analyze))]}
   (if (= explain "analyze")
       (keyword explain)
-      (throw (IllegalArgumentException.
-              (tru "Illegal value ''{0}'' for :explain; expected `analyze`." explain)))))
+      (throw
+       (bad-query-ex
+        (tru "Illegal value ''{0}'' for :explain; expected `analyze`." explain)))))
 
 (pls/defn-validated parse-explain :- (s/maybe s/Keyword)
   "Parse the optional `explain` query parameter. Returns a keyword
@@ -199,16 +204,17 @@
   (when explain (validate-explain explain)))
 
 (defn validate-offset
-  "Validates that the offset string is a non-negative integer. Returns the
-  integer form if validation was successful, otherwise an
-  IllegalArgumentException is thrown."
+  "Validates that the offset string is a non-negative integer.  Returns the
+  integer form if validation was successful, otherwise a bad-query-ex is
+  thrown."
   [offset]
   {:pre  [(or (integer? offset) (string? offset))]
    :post [(and (integer? %) (>= % 0))]}
   (let [o (coerce-to-int offset)]
     (if ((some-fn nil? neg?) o)
-      (throw (IllegalArgumentException.
-              (tru "Illegal value ''{0}'' for :offset; expected a non-negative integer." offset)))
+      (throw (bad-query-ex
+              (tru "Illegal value ''{0}'' for :offset; expected a non-negative integer."
+                   offset)))
       o)))
 
 (defn parse-offset
@@ -228,10 +234,10 @@
          ((some-fn nil? valid-paging-options?) paging-options)]}
   (doseq [field (map first (:order_by paging-options))]
     (when-not (seq-contains? columns field)
-      (throw (IllegalArgumentException.
-               (tru "Unrecognized column ''{0}'' specified in :order_by; Supported columns are ''{1}''"
-                    (name field)
-                    (string/join "', '" (map name columns)))))))
+      (throw
+       (bad-query-ex
+        (tru "Unrecognized column ''{0}'' specified in :order_by; Supported columns are ''{1}''"
+             (name field) (string/join "', '" (map name columns)))))))
   paging-options)
 
 (defn dealias-order-by

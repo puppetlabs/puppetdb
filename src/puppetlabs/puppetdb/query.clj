@@ -63,6 +63,7 @@
   (:require [clojure.string :as str]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :refer [parse-number keyset]]
+            [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
@@ -94,14 +95,14 @@
     {:where nil :params nil}
 
     (not op)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "{0} is not well-formed: queries must contain at least one operator"
                       (vec term))))
 
     :else
     (if-let [f (ops op)]
       (apply f args)
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (i18n/tru "{0} is not well-formed: query operator ''{1}'' is unknown"
                         (vec term) op))))))
 
@@ -114,7 +115,7 @@
   {:pre  [(every? coll? terms)]
    :post [(string? (:where %))]}
   (when (empty? terms)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "{0} requires at least one term" op))))
   (let [compiled-terms (map #(compile-term ops %) terms)
         params (mapcat :params compiled-terms)
@@ -146,7 +147,7 @@
   [_version ops & terms]
   {:post [(string? (:where %))]}
   (when-not (= (count terms) 1)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "''not'' takes exactly one argument, but {0} were supplied" (count terms)))))
   (negate-term* ops (first terms)))
 
@@ -312,11 +313,11 @@
   (let [[subselect & params] (compile-term ops subquery)
         subquery-type (subquery->type (first subquery))]
     (when-not subquery-type
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (i18n/tru "The argument to extract must be a select operator, not ''{0}''"
                         (first subquery)))))
     (when-not (get (queryable-fields subquery-type query-api-version) field)
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (i18n/tru "Can't extract unknown {0} field ''{1}''. Acceptable fields are: {2}"
                         (name subquery-type) field (str/join ", " (sort (queryable-fields subquery-type query-api-version)))))))
     {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
@@ -332,11 +333,11 @@
    :post [(map? %)
           (string? (:where %))]}
   (when-not (get (queryable-fields kind query-api-version) field)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
              (i18n/tru "Can''t match on unknown {0} field ''{1}'' for ''in''. Acceptable fields are: {2}"
                        (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "The subquery argument of ''in'' must be an ''extract'', not ''{0}''"
                       (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)
@@ -406,7 +407,7 @@
   {:post [(map? %)
           (:where %)]}
   (when-not (= (count args) 2)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "= requires exactly two arguments, but {0} were supplied"
                       (count args)))))
   (match [path]
@@ -441,7 +442,7 @@
           :params [value]}
 
          ;; ...else, failure
-         :else (throw (IllegalArgumentException.
+         :else (throw (bad-query-ex
                        (i18n/tru "''{0}'' is not a queryable object for resources in the version {1} API"
                                  path (last (name version)))))))
 
@@ -472,7 +473,7 @@
           :params [value]}
 
          ;; ...else, failure
-         :else (throw (IllegalArgumentException.
+         :else (throw (bad-query-ex
                        (i18n/tru "''{0}'' cannot be the target of a regexp match for version {1} of the resources API"
                                  path (last (name version)))))))
 
@@ -505,7 +506,7 @@
            {:where (format "facts.certname IN (%s)" (certname-names-query value))}
 
            :else
-           (throw (IllegalArgumentException.
+           (throw (bad-query-ex
                    (i18n/tru "{0} is not a queryable object for version {1} of the facts query api"
                              path (last (name version))))))))
 
@@ -536,7 +537,7 @@
                              (legacy-sql-regexp-match "facts.value"))
               :params [pattern]}
 
-             :else (throw (IllegalArgumentException.
+             :else (throw (bad-query-ex
                            (i18n/tru "{0} is not a valid version {1} operand for regexp comparison"
                                      path (last (name version)))))))))
 
@@ -556,9 +557,9 @@
            {:where  (format "%s %s ? and depth = 0" (sql-as-numeric "facts.value") op)
             :params [number]}
 
-           :else (throw (IllegalArgumentException.
+           :else (throw (bad-query-ex
                          (i18n/tru "{0} is not a queryable object for facts" path))))
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "Value {0} must be a number for {1} comparison." value op)))))
 
 (defn compile-resource-event-inequality
@@ -569,7 +570,7 @@
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 3)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "{0} requires exactly two arguments, but {1} were supplied"
                       op (dec (count args))))))
 
@@ -582,10 +583,10 @@
            (if-let [timestamp (to-timestamp value)]
              {:where (format "%s %s ?" (timestamp-fields field) op)
               :params [timestamp]}
-             (throw (IllegalArgumentException.
+             (throw (bad-query-ex
                      (i18n/tru "''{0}'' is not a valid timestamp value" value))))
 
-           :else (throw (IllegalArgumentException.
+           :else (throw (bad-query-ex
                          (i18n/tru "{0} operator does not support object ''{1}'' for resource events"
                                    op path))))))
 
@@ -597,7 +598,7 @@
     {:post [(map? %)
             (string? (:where %))]}
     (when-not (= (count args) 2)
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (i18n/tru "= requires exactly two arguments, but {0} were supplied"
                         (count args)))))
     (let [path (formatter/dashes->underscores path)]
@@ -640,7 +641,7 @@
              {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
               :params [(db-serialize value)] }
 
-             :else (throw (IllegalArgumentException.
+             :else (throw (bad-query-ex
                            (i18n/tru "''{0}'' is not a queryable object for version {1} of the resource events API"
                                      path (last (name version)))))))))
 
@@ -652,7 +653,7 @@
     {:post [(map? %)
             (string? (:where %))]}
     (when-not (= (count args) 2)
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
                (i18n/tru "~ requires exactly two arguments, but {0} were supplied" (count args)))))
     (let [path (formatter/dashes->underscores path)]
       (match [path]
@@ -677,7 +678,7 @@
                              field)
               :params [pattern]}
 
-             :else (throw (IllegalArgumentException.
+             :else (throw (bad-query-ex
                            (i18n/tru "''{0}'' is not a queryable object for version {1} of the resource events API"
                                      path (last (name version)))))))))
 
@@ -688,7 +689,7 @@
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 2)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "= requires exactly two arguments, but {0} were supplied" (count args)))))
   (let [db-field (formatter/dashes->underscores path)]
     (match [db-field]
@@ -696,7 +697,7 @@
            {:where (format "%s = ?" field)
             :params [value]}
 
-           :else (throw (IllegalArgumentException.
+           :else (throw (bad-query-ex
                          (i18n/tru "{0} is not a queryable object for event counts" path))))))
 
 (defn compile-event-count-inequality
@@ -706,7 +707,7 @@
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 3)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (i18n/tru "{0} requires exactly two arguments, but {1} were supplied"
                       op (dec (count args))))))
   (match [path]
@@ -714,7 +715,7 @@
          {:where (format "%s %s ?" field op)
           :params [value]}
 
-         :else (throw (IllegalArgumentException.
+         :else (throw (bad-query-ex
                        (i18n/tru "{0} operator does not support object ''{1}'' for event counts"
                                  op path)))))
 

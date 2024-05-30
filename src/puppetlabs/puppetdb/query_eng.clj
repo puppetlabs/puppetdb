@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng.default-reports :as dr]
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
+            [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
             [puppetlabs.puppetdb.query.edges :as edges]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.query.event-counts :as event-counts]
@@ -110,7 +111,7 @@
   [entity]
   (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
     munge-result
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (tru "Invalid entity ''{0}'' in query"
                  (formatter/dashes->underscores (name entity)))))))
 
@@ -147,7 +148,13 @@
                       (when (not= ::dr/unrecognized-ast-syntax (:kind data))
                         (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
                         (throw e))
-                      (log/error e msg)
+                      ;; REVIEW: maybe not for today, but we both log
+                      ;; here, and throw for ::failed (below), which
+                      ;; might log again?
+                      (cond
+                        (seq (.getSuppressed e)) (log/error e)
+                        (ex-cause e) (log/error (ex-cause e) (ex-message e))
+                        :else (log/error (ex-message e)))
                       {:type ::failed, :message msg}))
                   (catch Exception e
                     (log/error e (trs "Unknown exception when processing ast to add report type filter(s)."))
@@ -551,15 +558,30 @@
           (catch JsonParseException ex
             (log/error ex (trs "Unparsable query: {0} {1} {2}" query-id query query-options))
             (http/error-response ex))
-          (catch IllegalArgumentException ex ;; thrown by (at least) munge-fn
-            (log/error ex (trs "Invalid query: {0} {1} {2}" query-id query query-options))
-            (http/error-response ex))
           (catch PSQLException ex
             (when-not (= (.getSQLState ex) (jdbc/sql-state :invalid-regular-expression))
               (throw ex))
             (do
               (log/debug ex (trs "Invalid query regex: {0} {1} {2}" query-id query query-options))
-              (http/error-response ex))))))))
+              (http/error-response ex)))
+          ;; This clause may become obsolete if everything it was
+          ;; handling should be (and eventually is) converted to
+          ;; bad-query-ex.  (We don't want to log full stack traces for
+          ;; query syntax errors.)
+          (catch IllegalArgumentException ex
+            (log/error ex (trs "Invalid query: {0} {1} {2}" query-id query query-options))
+            (http/error-response ex))
+          (catch ExceptionInfo ex
+            (case (-> ex ex-data :kind)
+              (:puppetlabs.puppetdb.query/invalid ::dr/unrecognized-ast-syntax)
+              (let [msg (trs "Invalid query: {0} {1} {2} - {3}"
+                             query-id query query-options (ex-message ex))]
+                (cond
+                  (seq (.getSuppressed ex)) (log/error ex msg)
+                  (ex-cause ex) (log/info (ex-cause ex) msg)
+                  :else (log/info msg))
+                (http/error-response (ex-message ex)))
+              (throw ex))))))))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."

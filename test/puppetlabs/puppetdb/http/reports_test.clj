@@ -849,8 +849,8 @@
                       method [:get :post]]
              ;; This is abusing the existence of PDB-4734 to throw an error from a malformed AST query
              (let [{:keys [status body]} (query-response method endpoint query)]
-               (is (= status HttpURLConnection/HTTP_INTERNAL_ERROR))
-               (is (re-matches #"(?s)AST validation failed, but was successfully converted to SQL.*Unrecognized ast clause.*" body)))))))
+               (is (= status HttpURLConnection/HTTP_BAD_REQUEST))
+               (is (re-matches #"(?s)AST validation failed, but was successfully converted to SQL.*Unrecognized AST clause.*" body)))))))
 
     (testing "agent report filter can be disabled"
        (with-test-db

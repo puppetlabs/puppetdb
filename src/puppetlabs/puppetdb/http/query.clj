@@ -17,6 +17,7 @@
    [puppetlabs.puppetdb.jdbc :as jdbc]
    [puppetlabs.puppetdb.pql :as pql]
    [puppetlabs.puppetdb.query-eng :as qeng]
+   [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
    [puppetlabs.puppetdb.query.monitor :as qmon]
    [puppetlabs.puppetdb.query.paging
     :refer [parse-explain parse-limit parse-offset parse-order-by parse-order-by-json]]
@@ -252,14 +253,12 @@
   (if (number? x)
     x
     (let [msg #(tru "Query timeout must be non-negative number, not {0}" x)]
-      ;; Suspect we shouldn't be throwing IllegalArgumentException,
-      ;; but that's the current approach (cf. parse-limit).
       (when-not (string? x)
-        (throw (IllegalArgumentException. (msg))))
+        (throw (bad-query-ex (msg))))
       (let [n (cond
                 (re-matches #"\d+" x) (Long/parseLong x)
                 (re-matches #"\d*\.\d+" x) (Double/parseDouble x)
-                :else (throw (IllegalArgumentException. (msg))))]
+                :else (throw (bad-query-ex (msg))))]
         (if (zero? n) ##Inf n)))))
 
 (pls/defn-validated validate-query-params
@@ -269,12 +268,12 @@
    param-spec :- param-spec-schema]
   (let [params (stringify-keys params)]
     (when-let [excluded (kitchensink/excludes-some params (:required param-spec))]
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (tru "Missing required query parameter ''{0}''" excluded))))
     (when-let [invalid (seq (set/difference (kitchensink/keyset params)
                                             (set (:required param-spec))
                                             (set (:optional param-spec))))]
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (tru "Unsupported query parameter ''{0}''" (first invalid)))))
     params))
 
@@ -299,25 +298,25 @@
 
 (defn parse-json-sequence
   "Parse a query string as JSON. Parse errors will result in an
-  IllegalArgumentException. Should not be used as a parse-fn directly. Use
+  bad-query-ex Should not be used as a parse-fn directly. Use
   parse-json-query instead"
   [query]
   (try
     (with-open [string-reader (java.io.StringReader. query)]
       (doall (json/parsed-seq string-reader)))
     (catch JsonParseException e
-      (throw (IllegalArgumentException. (pprint-json-parse-exception e query))))))
+      (throw (bad-query-ex (pprint-json-parse-exception e query))))))
 
 (defn parse-json-query
   "Parse a query string as JSON. Multiple queries or any other
-  data, after the query, will result in an IllegalArgumentException"
+  data, after the query, will result in a bad-query-ex."
   [query query-uuid log-queries?]
   (when log-queries?
     (log/info (trs "Parsing PDBQuery:{0}:{1}" query-uuid (pr-str query))))
   (when query
     (let [[parsed & others] (parse-json-sequence query)]
       (when others
-        (throw (IllegalArgumentException.
+        (throw (bad-query-ex
                 (tru "Only one query may be sent in a request. Found JSON {0} after the query {1}"
                      others parsed))))
       parsed)))
@@ -367,7 +366,7 @@
         req-body (request/body-string req)
         parsed-body (try (json/parse-string req-body true)
                       (catch JsonParseException e
-                        (throw (IllegalArgumentException.
+                        (throw (bad-query-ex
                                 (pprint-json-parse-exception e req-body)))))]
     (update parsed-body :query (fn [query]
                                  (if (vector? query)
@@ -383,7 +382,7 @@
    (case (:request-method req)
      :get (get-req->query req parse-fn)
      :post (post-req->query req parse-fn)
-     (throw (IllegalArgumentException. (tru "PuppetDB queries must be made via GET/POST"))))
+     (throw (bad-query-ex (tru "PuppetDB queries must be made via GET/POST"))))
    param-spec))
 
 (defn wrap-typical-query
@@ -475,7 +474,7 @@
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
   map containing the validated `distinct_resources` options, parsed to the correct
-  data types.  Throws `IllegalArgumentException` if any arguments are missing
+  data types.  Throws `bad-query-ex` if any arguments are missing
   or invalid."
   [{:keys [distinct_start_time distinct_end_time distinct_resources] :as params}]
   (let [distinct-params #{:distinct_resources :distinct_start_time
@@ -489,7 +488,7 @@
      (let [start (to-timestamp distinct_start_time)
            end   (to-timestamp distinct_end_time)]
        (when (some nil? [start end])
-         (throw (IllegalArgumentException.
+         (throw (bad-query-ex
                  (tru "query parameters ''distinct_start_time'' and ''distinct_end_time'' must be valid datetime strings: {0} {1}"
                       distinct_start_time distinct_end_time))))
        (merge params
@@ -499,11 +498,11 @@
 
      #{:distinct_start_time :distinct_end_time}
      (throw
-      (IllegalArgumentException.
+      (bad-query-ex
        (tru
         "''distinct_resources'' query parameter must accompany parameters ''distinct_start_time'' and ''distinct_end_time''")))
      (throw
-      (IllegalArgumentException.
+      (bad-query-ex
        (tru
         "''distinct_resources'' query parameter requires accompanying parameters ''distinct_start_time'' and ''distinct_end_time''"))))))
 

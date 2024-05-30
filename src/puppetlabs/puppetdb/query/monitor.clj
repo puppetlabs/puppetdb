@@ -84,6 +84,7 @@
    [murphy :refer [try!]]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
    [puppetlabs.puppetdb.scf.storage-utils :refer [db-metadata]]
    [puppetlabs.puppetdb.time :refer [ephemeral-now-ns]]
    [puppetlabs.puppetdb.utils :refer [with-noisy-failure]]
@@ -377,7 +378,7 @@
   [{:keys [^Selector selector queries ^Thread thread] :as _monitor}
    id ^SelectableChannel channel deadline-ns db]
   (when-not (and (number? deadline-ns) (not (neg? deadline-ns)))
-    (throw (IllegalArgumentException. "Deadline is not a nonnegative number")))
+    (throw (bad-query-ex "Deadline is not a nonnegative number")))
   (if-not (.isAlive thread)
     (log/error "Query monitor thread not running when registering query (please report)")
     (let [select-key (register-selector channel selector SelectionKey/OP_READ)

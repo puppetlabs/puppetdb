@@ -5,15 +5,17 @@
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.jdbc :as jdbc]
    [puppetlabs.puppetdb.query :as query]
+   [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
    [puppetlabs.puppetdb.query-eng.engine :as qe]
    [puppetlabs.puppetdb.query.events :as events]
    [puppetlabs.puppetdb.query.paging :as paging]
    [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]))
 
 (defn- get-group-by
-  "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
-  Supported values are `certname`, `containing-class`, and `resource` (default), otherwise an
-  IllegalArgumentException is thrown."
+  "Given the value to summarize by, returns the appropriate database
+  field to be used in the SQL query.  Supported values are `certname`,
+  `containing-class`, and `resource` (default), otherwise a
+  bad-query-ex is thrown."
   [summarize_by]
   {:pre  [(string? summarize_by)]
    :post [(vector? %)]}
@@ -21,7 +23,8 @@
     "certname" ["certname"]
     "containing_class" ["containing_class"]
     "resource" ["resource_type" "resource_title"]
-    (throw (IllegalArgumentException. (tru "Unsupported value for ''summarize_by'': ''{0}''" summarize_by)))))
+    (throw (bad-query-ex (tru "Unsupported value for ''summarize_by'': ''{0}''"
+                              summarize_by)))))
 
 (def ^:private fields-basic ["failures" "skips" "successes" "noops"])
 (def ^:private fields-with-correctives ["failures" "skips" "intentional_successes" "corrective_successes" "intentional_noops" "corrective_noops"])
@@ -43,9 +46,9 @@
 
 (defn- get-count-by-sql
   "Given the events `sql`, a value to `count-by`, and a value to `group-by`,
-  return the appropriate SQL string that counts and groups the `sql` results.
-  Supported `count-by` values are `resource` (default) and `certname`, otherwise
-  an IllegalArgumentException is thrown."
+  returns the appropriate SQL string that counts and groups the `sql`
+  results.  Supported `count-by` values are `resource` (default) and
+  `certname`, otherwise a bad-query-ex is thrown."
   [sql count-by group-by]
   {:pre  [(string? sql)
           (string? count-by)
@@ -55,7 +58,8 @@
     "resource"  sql
     "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
                   (format "SELECT DISTINCT certname, status, corrective_change%s FROM (%s) distinct_events" field-string sql))
-    (throw (IllegalArgumentException. (tru "Unsupported value for ''count_by'': ''{0}''" count-by)))))
+    (throw (bad-query-ex (tru "Unsupported value for ''count_by'': ''{0}''"
+                              count-by)))))
 
 (defn- event-counts-columns
   [group-by]
