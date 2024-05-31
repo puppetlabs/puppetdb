@@ -19,14 +19,12 @@
                      maybe-check-for-updates
                      query]]
             [puppetlabs.puppetdb.testutils.db
-             :refer [*db* *read-db* clear-db-for-testing! with-test-db
-                     with-unconnected-test-db]]
+             :refer [*db* *read-db* with-test-db with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.cli
              :refer [example-certname example-report get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :as time :refer [now to-string]]
@@ -333,19 +331,12 @@
      horizon horizon)))
 
 (deftest node-purge-gc-batch-limit
-  ;; At least with the current code, it should be fine to run all the
-  ;; tests with the same server, i.e. collect-garbage is only affected
-  ;; by its arguments.
-  (with-pdb-with-no-gc
-    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
-          node-purge-ttl (get-in config [:database :node-purge-ttl])
-          deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
-          lock (ReentrantLock.)]
-      (doseq [[limit expected-remaining] [[0 0]
-                                          [7 3]
-                                          [100 0]]]
-        (clear-db-for-testing!)
-        (initialize-schema)
+  (doseq [[limit expected-remaining] [[0 0] [7 3] [100 0]]]
+    (with-pdb-with-no-gc
+      (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+            node-purge-ttl (get-in config [:database :node-purge-ttl])
+            deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
+            lock (ReentrantLock.)]
         (dotimes [i 10]
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)
