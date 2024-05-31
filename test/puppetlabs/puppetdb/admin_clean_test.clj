@@ -10,10 +10,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
-            [puppetlabs.puppetdb.testutils.db :refer [clear-db-for-testing!]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server* with-pdb-with-no-gc]]
             [puppetlabs.puppetdb.testutils.cli
@@ -139,26 +137,24 @@
      horizon horizon)))
 
 (deftest node-purge-batch-limits
-  (with-pdb-with-no-gc
-    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
-          orig-clean @#'cli-svc/clean-puppetdb
-          after-clean (CyclicBarrier. 2)
-          node-purge-ttl (get-in config [:database :node-purge-ttl])
-          deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
-          clean (fn [req]
-                  (utils/noisy-future
-                   (checked-admin-post "cmd" (clean-cmd req)))
-                  (await-a-while after-clean))]
-      (with-redefs [cli-svc/clean-puppetdb (fn [& args]
-                                             (let [x (apply orig-clean args)]
-                                               (await-a-while after-clean)
-                                               x))]
-        (doseq [[batches expected-remaining] [[nil 0] ; i.e. purge everything
-                                              [[7] 3]
-                                              [[3 4] 3]
-                                              [[100] 0]]]
-          (clear-db-for-testing!)
-          (initialize-schema)
+  (doseq [[batches remaining] [[nil 0] ; i.e. purge everything
+                               [[7] 3]
+                               [[3 4] 3]
+                               [[100] 0]]]
+    (with-pdb-with-no-gc
+      (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+            orig-clean @#'cli-svc/clean-puppetdb
+            after-clean (CyclicBarrier. 2)
+            node-purge-ttl (get-in config [:database :node-purge-ttl])
+            deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
+            clean (fn [req]
+                    (utils/noisy-future
+                     (checked-admin-post "cmd" (clean-cmd req)))
+                    (await-a-while after-clean))]
+        (with-redefs [cli-svc/clean-puppetdb (fn [& args]
+                                               (let [x (apply orig-clean args)]
+                                                 (await-a-while after-clean)
+                                                 x))]
           (dotimes [i 10]
             (let [name (str "foo-" i)]
               (scf-store/add-certname! name)
@@ -167,8 +163,7 @@
             (clean ["purge_nodes"])
             (doseq [limit batches]
               (clean [["purge_nodes" {"batch_limit" limit}]])))
-          (is (= expected-remaining
-                 (count (purgeable-nodes node-purge-ttl)))))))))
+          (is (= remaining (count (purgeable-nodes node-purge-ttl)))))))))
 
 (defn- inc-requested [counts requested]
   (into {}
