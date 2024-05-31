@@ -15,7 +15,9 @@
                      raw-expected-resource-events
                      timestamps->str]]
             [puppetlabs.puppetdb.testutils :refer [dotestseq select-values']]
-            [puppetlabs.puppetdb.time :refer [now to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [now to-timestamp]])
+  (:import
+   (clojure.lang ExceptionInfo)))
 
 (def distinct-resource-events (comp set timestamps->str query-resource-events))
 
@@ -35,7 +37,8 @@
               :params  [true]})))
     (testing "should fail with an invalid equality query"
       (is (thrown-with-msg?
-           IllegalArgumentException (re-pattern (str "'foo' is not a queryable object for version " (last (name version))))
+           ExceptionInfo
+           (re-pattern (str "'foo' is not a queryable object for version " (last (name version))))
            (query/compile-term ops ["=" "foo" "foo"]))))
     (testing "should successfully compile valid inequality queries"
       (let [start-time  "2011-01-01T12:00:01-03:00"
@@ -52,13 +55,13 @@
                 :params  [(to-timestamp start-time) (to-timestamp end-time)]}))))
     (testing "should fail with invalid inequality queries"
       (is (thrown-with-msg?
-           IllegalArgumentException #"> requires exactly two arguments"
+           ExceptionInfo #"> requires exactly two arguments"
            (query/compile-term ops [">" "timestamp"])))
       (is (thrown-with-msg?
-           IllegalArgumentException #"'foo' is not a valid timestamp value"
+           ExceptionInfo #"'foo' is not a valid timestamp value"
            (query/compile-term ops [">" "timestamp" "foo"])))
       (is (thrown-with-msg?
-           IllegalArgumentException #"> operator does not support object 'resource_type'"
+           ExceptionInfo #"> operator does not support object 'resource_type'"
            (query/compile-term ops [">" "resource_type" "foo"]))))))
 
 (deftest resource-event-queries
@@ -444,7 +447,7 @@
       (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+               ExceptionInfo #"Unrecognized column 'invalid-field' specified in :order_by"
                (query-resource-events version [">" "timestamp" 0]
                                       {:order_by [[:invalid-field :ascending]]}))))
 

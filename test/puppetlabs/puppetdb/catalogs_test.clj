@@ -59,19 +59,19 @@
       (testing "should fail when a resource has non-lower-case tags"
         (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "BAR"]}}
               catalog {:resources resources}]
-          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'BAR'"
+          (is (thrown-with-msg? ExceptionInfo #"invalid tag 'BAR'"
                                 (validate-resources catalog)))))
 
       (testing "should fail when a resource has tags with bad characters"
         (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "b@r"]}}
               catalog {:resources resources}]
-          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'b@r'"
+          (is (thrown-with-msg? ExceptionInfo #"invalid tag 'b@r'"
                                 (validate-resources catalog)))))
 
       (testing "should fail when a resource has tags with extra whitespace characters at end"
         (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "bar\n"]}}
               catalog {:resources resources}]
-          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'bar\n'"
+          (is (thrown-with-msg? ExceptionInfo #"invalid tag 'bar\n'"
                                 (validate-resources catalog)))))
 
       (testing "should not fail when a resource has only lower-case tags"
@@ -89,12 +89,12 @@
       (let [source {:type "Type" :title "source"}
             target {:type "Type" :title "target"}]
         (testing "should fail when edges mention missing resources"
-          (is (thrown? IllegalArgumentException
+          (is (thrown? ExceptionInfo
                        (validate-edges {:edges #{{:source source :target target :relationship :before}}
                                         :resources {}}))))
 
         (testing "should fail when edges have an invalid relationship"
-          (is (thrown? IllegalArgumentException
+          (is (thrown? ExceptionInfo
                        (validate-edges {:edges #{{:source source :target target :relationship :madly-in-love-with}}
                                         :resources {source source
                                                     target target}}))))

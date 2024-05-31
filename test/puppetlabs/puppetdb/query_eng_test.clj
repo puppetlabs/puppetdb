@@ -33,6 +33,7 @@
    [puppetlabs.puppetdb.time :as time :refer [now parse-period]]
    [puppetlabs.puppetdb.scf.storage-utils :as su])
   (:import
+   (clojure.lang ExceptionInfo)
    (java.net HttpURLConnection)))
 
 (deftest test-plan-sql
@@ -216,30 +217,32 @@
                       first)))))
 
 (deftest test-valid-query-operators
-  (is (thrown-with-msg? IllegalArgumentException
+  (is (thrown-with-msg? ExceptionInfo
                         #"'and' takes at least one argument, but none were supplied"
                         (compile-user-query->sql resources-query ["and"])))
-  (is (thrown-with-msg? IllegalArgumentException
+  (is (thrown-with-msg? ExceptionInfo
                         #"'not' takes exactly one argument, but 0 were supplied"
                         (compile-user-query->sql resources-query ["not"])))
-  (is (thrown-with-msg? IllegalArgumentException
+  (is (thrown-with-msg? ExceptionInfo
                         #"'or' takes at least one argument, but none were supplied"
                         (compile-user-query->sql resources-query ["or"]))))
 
 (deftest test-valid-query-fields
-  (is (thrown-with-msg? IllegalArgumentException
+  (is (thrown-with-msg? ExceptionInfo
                         #"'foo' is not a queryable object for resources. Known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"])))
   (let [err #"All values in array must be the same type\."]
-    (is (thrown-with-msg? IllegalArgumentException
+    (is (thrown-with-msg? ExceptionInfo
                           err
-                          (compile-user-query->sql nodes-query ["in" ["fact" "uptime_seconds"] ["array" [500 100.0]]])))
-    (is (thrown-with-msg? IllegalArgumentException
+                          (compile-user-query->sql
+                           nodes-query ["in" ["fact" "uptime_seconds"] ["array" [500 100.0]]])))
+    (is (thrown-with-msg? ExceptionInfo
                           err
-                          (compile-user-query->sql nodes-query ["in" ["fact" "uptime_seconds"] ["array" ["500" 100.0]]])))))
+                          (compile-user-query->sql
+                           nodes-query ["in" ["fact" "uptime_seconds"] ["array" ["500" 100.0]]])))))
 
 (deftest test-valid-subqueries
-  (is (thrown-with-msg? IllegalArgumentException
+  (is (thrown-with-msg? ExceptionInfo
                         #"Unsupported subquery `foo`"
                         (compile-user-query->sql facts-query ["and",
                                                               ["=", "name", "uptime_hours"],
@@ -247,7 +250,7 @@
                                                                ["extract", "certname",
                                                                 ["foo",
                                                                  ["=", "facts_environment", "production"]]]]])))
-  (is (thrown-with-msg? IllegalArgumentException
+  (is (thrown-with-msg? ExceptionInfo
                         #"Unsupported subquery `select-facts` - did you mean `select_facts`?"
                         (compile-user-query->sql fact-contents-query ["in", "certname",
                                                                       ["extract", "certname",

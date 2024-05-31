@@ -8,7 +8,9 @@
             string-to-factpath
             unencode-path-segment]]
    [clojure.test :refer :all]
-   [schema.core :as s]))
+   [schema.core :as s])
+  (:import
+   (clojure.lang ExceptionInfo)))
 
 (deftest test-str->num
   (are [n s] (= n (str->num s))
@@ -63,8 +65,8 @@
             (dissoc :package_inventory :producer :producer_timestamp :certname)
             (assoc :name "foo.com")))
 
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                          #"does not match schema"
+    (is (thrown-with-msg? ExceptionInfo
+                          #"Invalid replace facts command:"
                           (->> (assoc example-wire-facts :package_inventory [["openssl" "1.1.0e-1"]])
                                (normalize-facts 5 received-str)
                                (s/validate facts-schema))))))

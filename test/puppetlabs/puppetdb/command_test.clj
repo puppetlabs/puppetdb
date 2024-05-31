@@ -24,7 +24,6 @@
                                                           v8-report]]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.testutils.db :as tu :refer [*db* *read-db* with-test-db]]
-            [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :as cmd
@@ -86,6 +85,9 @@
    (java.util.concurrent TimeUnit CountDownLatch)
    (java.sql SQLException)
    (org.joda.time DateTime DateTimeZone)))
+
+(defn cmd-err [msg]
+  (ex-info msg {:puppetlabs.puppetdb/known-error? true}))
 
 ;; FIXME: could/should some of this be shared with cmd service's close?
 (defrecord CommandHandlerContext
@@ -202,13 +204,9 @@
   (queue/create-command-req "replace catalog" version certname nil "" identity
                             (tqueue/coerce-to-stream payload)))
 
-(s/defn validate-int-arg [x :- s/Int]
-  x)
-
 (defn assert-int-arg [x]
   {:pre [(integer? x)]}
   x)
-
 
 (deftest command-processor-integration
   (let [v5-catalog (get-in wire-catalogs [5 :empty])]
@@ -223,8 +221,7 @@
             (is (empty? (fs/list-dir (:path dlo))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
-          (with-redefs [cmd/prep-command (fn [& _]
-                                           (throw (fatality (Exception. "fatal error"))))]
+          (with-redefs [cmd/prep-command (fn [& _] (throw (fatality (cmd-err "fatal error"))))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
@@ -233,15 +230,13 @@
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a schema error occurs should be discarded to the dead letter queue"
-          (with-redefs [cmd/prep-command (fn [& _]
-                                           (upon-error-throw-fatality
-                                            (validate-int-arg "string")))]
-            (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (let [discards (discard-count)]
-                (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
-                (is (= (inc discards) (discard-count))))
-              (is (= 0 (task-count delay-pool)))
-              (is (= 2 (count (fs/list-dir (:path dlo))))))))
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (let [discards (discard-count)
+                  bad-cat (assoc (get-in wire-catalogs [9 :empty]) :environment 42)]
+              (handle-message (queue/store-command q (catalog->command-req 8 bad-cat)))
+              (is (= (inc discards) (discard-count))))
+            (is (= 0 (task-count delay-pool)))
+            (is (= 2 (count (fs/list-dir (:path dlo)))))))
 
         (testing "when a precondition error occurs should be discarded to the dead letter queue"
           (with-redefs [cmd/prep-command (fn [& _]
@@ -255,7 +250,7 @@
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
-          (let [expected-exception (Exception. "non-fatal error")]
+          (let [expected-exception (cmd-err "non-fatal error")]
             (with-redefs [cmd/attempt-exec-command (fn [& _] (throw expected-exception))
                           command-delay-ms 1
                           quick-retry-count 0]
@@ -276,7 +271,8 @@
                       actual-exception expected-exception))))))))
 
       (testing "should be discarded if expired"
-        (with-redefs [cmd/prep-command (fn [& _] (throw (RuntimeException. "Expected failure")))]
+        ;; REVIEW: where do we actually throw on expiration?
+        (with-redefs [cmd/prep-command (fn [& _] (throw (cmd-err "Expected failure")))]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (let [cmdref (->> (get-in wire-catalogs [9 :empty])
                               (catalog->command-req 9)
@@ -301,8 +297,7 @@
 
 (deftest command-retry-handler
   (with-redefs [cmd/quick-retry-count 0
-                cmd/attempt-exec-command (fn [& _]
-                                           (throw (RuntimeException. "retry me")))]
+                cmd/attempt-exec-command (fn [& _] (throw (cmd-err "retry me")))]
     (testing "logs for each L2 failure up to the max"
       ;; Use a real command since up-front validation avoids retries.
       (doseq [i (range 0 maximum-allowable-retries)
@@ -317,9 +312,9 @@
             ;; Not sure why the migration messages weren't included before
             (let [[_ level ex msg] (last @log-output)]
               (is (= level :error))
-              (is (instance? Exception ex))
-              (is (str/includes? msg "Retrying after attempt"))
-              (is (= "retry me" (ex-message (find-retry-ex ex)))))))))
+              (is (nil? ex))
+              (is (str/includes? msg "Scheduling retry after attempt"))
+              (is (str/includes? msg "- retry me" )))))))
 
     (testing "a failed message after the max is discarded"
       (let [log-output (atom [])
@@ -332,9 +327,9 @@
             (is (= 2 (count (fs/list-dir (:path dlo)))))
             (let [[_ level ex msg] (last @log-output)]
               (is (= level :error))
-              (is (instance? Exception ex))
+              (is (nil? ex))
               (is (str/includes? msg "Exceeded max"))
-              (is (= "retry me" (ex-message (find-retry-ex ex)))))))))))
+              (is (str/includes? msg "- retry me")))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
@@ -1285,15 +1280,19 @@
                 (re-matches
                  #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
                  m))))]
-    (if (instance? SQLException ex)
+    (cond
+      (instance? ExceptionInfo ex) (failure? ex)
+
+      (instance? SQLException ex)
       ;; Before pg 9.4, the message was in the first exception.  Now
       ;; it's in a second chained exception.  Look for both.
       (or (failure? (.getNextException ex))
           (failure? ex))
-      ;; Might be broadcasting (for now just require it to be first,
-      ;; assuming this is the PDB_TEST_ALWAYS_BROADCAST_COMMANDS
-      ;; case).
-      (pg-serialization-failure-ex? (some-> (.getSuppressed ex) first)))))
+
+      ;; Might be broadcasting (for now just require it to be the
+      ;; first suppressed ex if there are any, assuming this is the
+      ;; PDB_TEST_ALWAYS_BROADCAST_COMMANDS case).
+      :else (pg-serialization-failure-ex? (first (.getSuppressed ex))))))
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"

@@ -247,12 +247,19 @@
                                     context])))))
         logged-terminations (atom [])
         saw-termination (promise)
-        handle-event #(if (-> % .getMessage (str/includes? "Terminated abandoned"))
-                        (do
-                          (deliver saw-termination true)
-                          (swap! logged-terminations conj %)
-                          false)
-                        (tlog/notable-pdb-event? %))]
+        handle-event #(let [msg (.getMessage %)]
+                        (cond
+                          (str/includes? msg "Terminated abandoned")
+                          (do
+                            (deliver saw-termination true)
+                            (swap! logged-terminations conj %)
+                            false)
+
+                          (and (str/includes? msg "FATAL: terminating connection due to administrator command")
+                               (str/includes? msg ":cause Connection is closed"))
+                          false
+
+                          :else (tlog/notable-pdb-event? %)))]
 
     (with-redefs [qmon/terminate-query record-term]
       (with-puppetdb nil

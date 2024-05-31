@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.migration-coordination-test
   (:require
    [clojure.java.jdbc :as sql]
+   [clojure.string :as str]
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.command.constants :as cmd-consts]
    [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -15,10 +16,29 @@
             with-unconnected-test-db]]
    [puppetlabs.puppetdb.testutils.services :as svc-utils
     :refer [call-with-puppetdb-instance create-temp-config]]
-   [puppetlabs.puppetdb.time :refer [now to-timestamp]])
+   [puppetlabs.puppetdb.time :refer [now to-timestamp]]
+   [puppetlabs.trapperkeeper.testutils.logging
+    :refer [with-log-suppressed-unless-notable]])
   (:import
+   (ch.qos.logback.classic Level)
+   (ch.qos.logback.classic.spi ILoggingEvent)
    (clojure.lang ExceptionInfo)
    (org.postgresql.util PSQLException)))
+
+(defn notable-mismatch-event? [^ILoggingEvent event]
+  (and (.isGreaterOrEqual (.getLevel event) Level/ERROR)
+       (let [m (.getMessage event)]
+         (case (.getLoggerName event)
+           "com.zaxxer.hikari.pool.HikariPool"
+           (not (str/ends-with? m "Error thrown while acquiring connection from data source"))
+           "puppetlabs.puppetdb.command"
+           (not (str/includes? m "Scheduling retry after attempt"))
+           "puppetlabs.puppetdb.middleware"
+           (not
+            (or (str/includes? m "terminating connection due to administrator command")
+                (str/includes? m "migration 86 which is too new for this version of PuppetDB")
+                (str/includes? m "Please run PuppetDB with the migrate option set to true")))
+           true))))
 
 (deftest schema-mismatch-causes-new-connections-to-throw-expected-errors
   (doseq [db-upgraded? [true false]
@@ -27,72 +47,73 @@
           :let [custom-config {:connection-timeout 300
                                :gc-interval "0"
                                :schema-check-interval 0}]]
-    (with-unconnected-test-db
-       (call-with-puppetdb-instance
-        (assoc (create-temp-config)
-               :database (merge *db* custom-config)
-               :read-database (merge *read-db* custom-config))
-       (fn []
-         (jdbc/with-transacted-connection *db*
-           ;; Simulate either the db or pdb being upgraded before the other.
-           ;; This is added after initial startup and should cause any future
-           ;; connection attempts to fail the HikariCP connectionInitSql check
-           (if db-upgraded?
-             (jdbc/insert! :schema_migrations {:version (inc (desired-schema-version))
-                                               :time (to-timestamp (now))})
-             ;; removing the most recent schema version makes the connectionInitSql
-             ;; check think the database doesn't have the correct migration applied
-             (jdbc/delete! :schema_migrations ["version = ?" (desired-schema-version)])))
+    (with-log-suppressed-unless-notable notable-mismatch-event?
+      (with-unconnected-test-db
+        (call-with-puppetdb-instance
+         (assoc (create-temp-config)
+                :database (merge *db* custom-config)
+                :read-database (merge *read-db* custom-config))
+         (fn []
+           (jdbc/with-transacted-connection *db*
+             ;; Simulate either the db or pdb being upgraded before the other.
+             ;; This is added after initial startup and should cause any future
+             ;; connection attempts to fail the HikariCP connectionInitSql check
+             (if db-upgraded?
+               (jdbc/insert! :schema_migrations {:version (inc (desired-schema-version))
+                                                 :time (to-timestamp (now))})
+               ;; removing the most recent schema version makes the connectionInitSql
+               ;; check think the database doesn't have the correct migration applied
+               (jdbc/delete! :schema_migrations ["version = ?" (desired-schema-version)])))
 
-         ;; Kick out any existing connections belonging to the test db user. This
-         ;; will cause HikariCP to create new connections which should all error
-         (jdbc/with-transacted-connection
-           (tdb/db-admin-config (tdb/subname->validated-db-name (:subname *db*)))
-           (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*))
-           (jdbc/disconnect-db-role (jdbc/current-database) (:user *read-db*)))
+           ;; Kick out any existing connections belonging to the test db user. This
+           ;; will cause HikariCP to create new connections which should all error
+           (jdbc/with-transacted-connection
+             (tdb/db-admin-config (tdb/subname->validated-db-name (:subname *db*)))
+             (jdbc/disconnect-db-role (jdbc/current-database) (:user *db*))
+             (jdbc/disconnect-db-role (jdbc/current-database) (:user *read-db*)))
 
-         (loop [retries 0]
-           ;; Account for a race condition where connnections kicked out of PG by
-           ;; the command above aren't yet cleaned from the pool. If Hikari attempts to
-           ;; use these stale connections the error message in any resp will say the
-           ;; connection was closed due to an administrator command which isn't what
-           ;; we want to test. By allowing time for cleanup we can test that the
-           ;; expected error message about a migration mismatch is present
-           (let [ex (is (thrown? Exception
-                                 (svc-utils/get-or-throw
-                                  (svc-utils/query-url-str "/facts"))))
-                 resp (-> ex ex-data :response)
-                 err-msg (if db-upgraded?
-                           "ERROR: Please upgrade PuppetDB"
-                           "ERROR: Please run PuppetDB with the migrate option set to true")]
-             (is (= 500 (:status resp)))
-             (cond
-               (some? (re-find (re-pattern err-msg) (:body resp))) :found
-               (> retries 10) (throw (Exception. "Unable to find expected migration level error"))
-               :else
-               (do
-                 (Thread/sleep 100)
-                 (recur (inc retries))))))
+           (loop [retries 0]
+             ;; Account for a race condition where connnections kicked out of PG by
+             ;; the command above aren't yet cleaned from the pool. If Hikari attempts to
+             ;; use these stale connections the error message in any resp will say the
+             ;; connection was closed due to an administrator command which isn't what
+             ;; we want to test. By allowing time for cleanup we can test that the
+             ;; expected error message about a migration mismatch is present
+             (let [ex (is (thrown? Exception
+                                   (svc-utils/get-or-throw
+                                    (svc-utils/query-url-str "/facts"))))
+                   resp (-> ex ex-data :response)
+                   err-msg (if db-upgraded?
+                             "ERROR: Please upgrade PuppetDB"
+                             "ERROR: Please run PuppetDB with the migrate option set to true")]
+               (is (#{500 503} (:status resp)))
+               (cond
+                 (some? (re-find (re-pattern err-msg) (:body resp))) :found
+                 (> retries 10) (throw (Exception. "Unable to find expected migration level error"))
+                 :else
+                 (do
+                   (Thread/sleep 100)
+                   (recur (inc retries))))))
 
-         ;; Check that cmd submission isn't possible once migration level has been updated.
-         ;; In this case the migration specific error doesn't propagate up to the cmd client
-         ;; but is seen later in the logs during cmd retries. The client only receives a 503
-         ;; service unavailable response in this case
-         (loop [retries 0]
-           (let [ex (is (thrown? Exception
-                                 (svc-utils/sync-command-post
-                                  (svc-utils/pdb-cmd-url)
-                                  "foo.1"
-                                  "store report"
-                                  cmd-consts/latest-report-version
-                                  (assoc example-report :certname "foo.1"))))]
-             (cond
-               (= 503 (-> ex ex-data :response :status)) :found
-               (> retries 10) (throw (Exception. "Unable to find expected cmd submission status"))
-               :else
-               (do
-                 (Thread/sleep 100)
-                 (recur (inc retries)))))))))))
+           ;; Check that cmd submission isn't possible once migration level has been updated.
+           ;; In this case the migration specific error doesn't propagate up to the cmd client
+           ;; but is seen later in the logs during cmd retries. The client only receives a 503
+           ;; service unavailable response in this case
+           (loop [retries 0]
+             (let [ex (is (thrown? Exception
+                                   (svc-utils/sync-command-post
+                                    (svc-utils/pdb-cmd-url)
+                                    "foo.1"
+                                    "store report"
+                                    cmd-consts/latest-report-version
+                                    (assoc example-report :certname "foo.1"))))]
+               (cond
+                 (= 503 (-> ex ex-data :response :status)) :found
+                 (> retries 10) (throw (Exception. "Unable to find expected cmd submission status"))
+                 :else
+                 (do
+                   (Thread/sleep 100)
+                   (recur (inc retries))))))))))))
 
 (deftest migrator-evicts-non-migrators-and-blocks-connections
   (with-test-db

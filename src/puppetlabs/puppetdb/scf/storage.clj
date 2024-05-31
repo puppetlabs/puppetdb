@@ -613,14 +613,18 @@
   resource. This may occur when the inserted resource has a value too
   big for a postgres btree index."
   [ex certname file line]
-  (when (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex))
-    (let [msg (str
-               ;; Don't localize the line numbers
-               (trs "Failed to insert resource for {0} (file: {1}, line: {2})."
-                    certname file (str line))
-               (trs "  May indicate use of $facts[''my_fact''] instead of $'{'facts[''my_fact'']'}'"))]
-      (throw (SQLException. msg (.getSQLState ex) (.getErrorCode ex) ex))))
-  (throw ex))
+  (when-not (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex))
+    (throw ex))
+  (when-not (utils/leaf-error? ex)
+    (throw ex))
+  (throw
+   (ex-info
+    (str
+     (trs "Failed to insert resource for {0} (file: {1}, line: {2})." certname file (str line))
+     (trs "  May indicate use of $facts[''my_fact''] instead of $'{'facts[''my_fact'']'}'. ({0})"
+          (.getMessage ex)))
+    {:kind ::resource-insert-limit-exceeded
+     :puppetlabs.puppetdb/known-error? true})))
 
 (def log-catalog-resource-changes?
   (->> (or (System/getenv "PDB_LOG_CATALOG_RESOURCE_CHANGES") "no")
@@ -646,6 +650,9 @@
       (try
         (insert-records*
          :catalog_resources
+         ;; The catch below, which is intended to handle index errors
+         ;; from the insert(s) expects that this code will not throw
+         ;; an unrelated :program-limit-exceeded-exception.
          (map (fn [resource-ref]
                 (let [{:keys [type title exported tags file line]
                        :as resource}

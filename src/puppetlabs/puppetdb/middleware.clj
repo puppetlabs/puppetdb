@@ -25,7 +25,8 @@
             [puppetlabs.puppetdb.command.constants :as const])
   (:import
    (clojure.lang ExceptionInfo)
-   (java.net HttpURLConnection)))
+   (java.net HttpURLConnection)
+   (java.sql SQLException)))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -98,8 +99,20 @@
   (fn [req]
     (try
       (app req)
+      ;; This clause may become obsolete if everything it was handling
+      ;; should be (and eventually is) converted to bad-query-ex.
       (catch IllegalArgumentException e
-        (http/error-response e)))))
+        (http/error-response e))
+      (catch ExceptionInfo ex
+        (case (-> ex ex-data :kind)
+          :puppetlabs.puppetdb.query/invalid
+          (do ;; cf. produce-streaming-body
+            (cond
+              (seq (.getSuppressed ex)) (log/error ex)
+              (ex-cause ex) (log/info (ex-cause ex) (trs "Invalid query: {0}" (ex-message ex)))
+              :else (log/info (trs "Invalid query: {0}" (ex-message ex))))
+            (http/error-response ex))
+          (throw ex))))))
 
 (defn cause-finder
   [ex]
@@ -117,6 +130,20 @@
         (if (= :puppetlabs.puppetdb.query/terminated (:kind (ex-data e)))
           (http/error-response (tru "Query backend terminated")
                                HttpURLConnection/HTTP_INTERNAL_ERROR)
+          (do
+            (log/error e)
+            (http/error-response (cause-finder e)
+                                 HttpURLConnection/HTTP_INTERNAL_ERROR))))
+      (catch SQLException e
+        (cond
+          (= (.getSQLState e) (jdbc/sql-state :admin-shutdown))
+          (do
+            (if (seq (.getSuppressed e))
+              (log/error e)
+              (log/error (.getMessage e)))
+            (http/error-response (.getMessage e)
+                                 HttpURLConnection/HTTP_UNAVAILABLE))
+          :else
           (do
             (log/error e)
             (http/error-response (cause-finder e)

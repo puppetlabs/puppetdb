@@ -1,18 +1,21 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
-  (:require [cheshire.factory :refer [*json-factory*]]
-            [clojure.java.jdbc :as sql]
-            [clojure.tools.logging :as log]
-            [clojure.string :as str]
-            [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.honeysql]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s])
-  (:import [java.sql Connection]
-           [java.util UUID]
-           [org.postgresql.util PGobject]))
+  (:require
+   [cheshire.factory :refer [*json-factory*]]
+   [clojure.java.jdbc :as sql]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [puppetlabs.i18n.core :refer [trs tru]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.honeysql]
+   [puppetlabs.puppetdb.jdbc :as jdbc]
+   [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
+   [puppetlabs.puppetdb.schema :as pls]
+   [schema.core :as s])
+  (:import
+   [java.sql Connection]
+   [java.util UUID]
+   [org.postgresql.util PGobject]))
 
 ;; SCHEMA
 
@@ -21,19 +24,6 @@
   (.createArrayOf ^Connection (:connection (jdbc/db))
                   col-type
                   (into-array java-type values)))
-
-(defn ast-path->array-path
-  "Converts integers in path to strings so that the result is suitable
-  for a text[]."
-  [path]
-  (mapv #(cond
-           (string? %) %
-           (int? %) (str %)
-           :else
-           (throw (IllegalArgumentException.
-                   (tru "Path array element wasn't string or integer in {0}"
-                        (pr-str path)))))
-        path))
 
 (def pg-extension-map
   "Maps to the table definition in postgres, but only includes some of the
@@ -222,7 +212,7 @@
                (string? %) \s
                (int? %) \i
                :else
-               (throw (IllegalArgumentException.
+               (throw (bad-query-ex
                        (tru "Path array element wasn't string or integer in {0}"
                             (pr-str path))))))
        (apply str)))
@@ -244,7 +234,7 @@
                (string? %) (if (re-matches #"\d+" %) \s \_)
                (int? %) \i
                :else
-               (throw (IllegalArgumentException.
+               (throw (bad-query-ex
                        (tru "Path array element wasn't string or integer in {0}"
                             (pr-str path))))))
        (apply str)))
@@ -261,6 +251,19 @@
           " and "
           sig-col " = " sig
           ")")]))
+
+(defn ast-path->array-path
+  "Converts integers in path to strings so that the result is suitable
+  for a text[]."
+  [path]
+  (mapv #(cond
+           (string? %) %
+           (int? %) (str %)
+           :else
+           (throw (bad-query-ex
+                   (tru "Path array element wasn't string or integer in {0}"
+                        (pr-str path)))))
+        path))
 
 (defn path-array-col-matches-any-ast-path
   ;; ((path = array['w', 'x', '0', '1', 'y'] and type = 'ssiss')
@@ -301,7 +304,7 @@
                    (string? %) %
                    (int? %) (str %)
                    :else
-                   (throw (IllegalArgumentException.
+                   (throw (bad-query-ex
                            (tru "Regex array element wasn't string or integer in {0}"
                                 (pr-str path-rx)))))
         matches-target (fn [i rx]

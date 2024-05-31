@@ -28,10 +28,15 @@
         :invalid-regular-expression "2201B"
         :lock-not-available "55P03"
         :program-limit-exceeded "54000"
-        :query-canceled "57014"}
+        :query-canceled "57014"
+        :serialization-failure "40001"}
        kw-name)
       (throw (IllegalArgumentException.
               (trs "Requested unknown SQL state")))))
+
+(defn table-exists? [name]
+  (some-> (-> *db* sql/db-connection .getMetaData (.getTables nil nil name nil))
+          .next))
 
 (defn clj-jdbc-termination-ex? [ex]
   (and (instance? ExceptionInfo ex)

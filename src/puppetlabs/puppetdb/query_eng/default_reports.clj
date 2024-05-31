@@ -46,9 +46,10 @@
    [["subquery" _entity _expr]] false
 
    :else (throw
-          (ex-info "Unrecognized ast clause."
+          (ex-info (trs "Unrecognized AST clause: {1}" (pr-str ast))
                    {:kind ::unrecognized-ast-syntax
-                    :clause ast}))))
+                    :clause ast
+                    :puppetlabs.puppetdb/known-error? true}))))
 
 (defn qrec-tables
   [qrec]
@@ -163,9 +164,10 @@
      `["subquery" ~entity ~expr])
 
    :else (throw
-          (ex-info "Unrecognized ast clause."
+          (ex-info (trs "Unrecognized AST clause: {1}" (pr-str ast))
                    {:kind ::unrecognized-ast-syntax
-                    :clause ast}))))
+                    :clause ast
+                    :puppetlabs.puppetdb/known-error? true}))))
 
 (defn maybe-add-agent-report-filter
   "Returns [qrec ast] after adjusting the top-level filter in the ast
@@ -204,5 +206,8 @@
       (when (not= ::unrecognized-ast-syntax (:kind data))
         (throw e))
       (throw
-        (ex-info (trs "Unrecognized ast clause {0} in ast query {1}" (pr-str failed-ast-clause) ast)
-                 {:kind ::unrecognized-ast-syntax}))))))
+       (ex-info (trs "Unrecognized AST clause {0} in AST query {1}"
+                     (pr-str failed-ast-clause) ast)
+                {:kind ::unrecognized-ast-syntax
+                 :clause ast
+                 :puppetlabs.puppetdb/known-error? true}))))))

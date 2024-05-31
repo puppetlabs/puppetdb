@@ -69,6 +69,7 @@
              :refer [await-scheduler-shutdown
                      call-unless-shutting-down
                      exceptional-shutdown-requestor
+                     known-error?
                      request-scheduler-shutdown
                      schedule-with-fixed-delay
                      schedule
@@ -96,9 +97,10 @@
   (:import
    (clojure.lang ExceptionInfo)
    (java.io Closeable)
-   (java.sql SQLException)
+   (java.sql BatchUpdateException SQLException)
    (java.util.concurrent RejectedExecutionException Semaphore)
-   (org.apache.commons.codec.binary Hex)))
+   (org.apache.commons.codec.binary Hex)
+   (org.postgresql.util PSQLException)))
 
 ;; ## Performance counters
 
@@ -238,7 +240,10 @@
   (mark! (global-metric k))
   (mark! (cmd-metric command version k)))
 
-(defn fatality [cause]
+(defn fatality
+  ;; A ::fatal-processing-error is strictly a sentinel that indicates
+  ;; no further command retries should be attempted.
+  [cause]
   (ex-info "" {:kind ::fatal-processing-error} cause))
 
 (defmacro upon-error-throw-fatality
@@ -332,6 +337,14 @@
          (log/info (trs "[{0}] [{1} ms] ''{2}'' command{3} ignored (obsolete) for {4}"
                         summary duration command-name hash-prefix certname)))))))
 
+(defn command-validator [name schema]
+  (let [check (s/checker schema)]
+    (fn [x]
+      (when-let [problem (check x)]
+        (throw (ex-info (str "Invalid" name "command: " (pr-str problem))
+                        {:puppetlabs.puppetdb/known-error? true})))
+      x)))
+
 ;; Catalog replacement
 
 (defn prep-replace-catalog [{:keys [payload received version] :as command}]
@@ -382,17 +395,19 @@
 (defn prep-replace-facts
   [{:keys [version received] :as command}
    {:keys [facts-blocklist facts-blocklist-type]}]
-  (let [rm-blocklisted (when (seq facts-blocklist)
-                         (case facts-blocklist-type
-                           "regex" (partial rm-facts-by-regex facts-blocklist)
-                           "literal" #(apply dissoc % facts-blocklist)
-                           (throw (IllegalArgumentException.
-                                    (trs "facts-blocklist-type was ''{0}'' but it must be either regex or literal" facts-blocklist-type)))))]
+  (let [block (when (seq facts-blocklist)
+                (case facts-blocklist-type
+                  "regex" (partial rm-facts-by-regex facts-blocklist)
+                  "literal" #(apply dissoc % facts-blocklist)
+                  (throw
+                   (ex-info (trs "facts-blocklist-type ''{0}'' is not regex or literal"
+                                 facts-blocklist-type)
+                            {:puppetlabs.puppetdb/known-error? true}))))]
     (update command :payload
             (fn [{:keys [package_inventory] :as prev}]
               (cond-> (upon-error-throw-fatality
                        (fact/normalize-facts version received prev))
-                (seq facts-blocklist) (update :values rm-blocklisted)
+                (seq facts-blocklist) (update :values block)
                 (seq package_inventory) (update :package_inventory distinct))))))
 
 ;; Test hook: concurrent-fact-updates
@@ -420,11 +435,14 @@
       (json/parse-string true)
       deactivate-node-wire-v2->wire-3))
 
+(def validate-deactivate
+  (command-validator "deactivate node" nodes/deactivate-node-wireformat-schema))
+
 (defn prep-deactivate-node [{:keys [version] :as command}]
   (-> command
-      (update :payload #(upon-error-throw-fatality
-                         (s/validate nodes/deactivate-node-wireformat-schema
-                                     (case version
+      (update :payload
+              #(upon-error-throw-fatality
+                (validate-deactivate (case version
                                        1 (deactivate-node-wire-v1->wire-3 %)
                                        2 (deactivate-node-wire-v2->wire-3 %)
                                        %))))
@@ -445,17 +463,19 @@
 
 ;; Report submission
 
+(def validate-report
+  (command-validator "store report" report/report-wireformat-schema))
+
 (defn prep-store-report [{:keys [version received] :as command}]
   (-> command
       (update :payload #(upon-error-throw-fatality
-                         (s/validate report/report-wireformat-schema
-                                     (case version
-                                       3 (report/wire-v3->wire-v8 % received)
-                                       4 (report/wire-v4->wire-v8 % received)
-                                       5 (report/wire-v5->wire-v8 %)
-                                       6 (report/wire-v6->wire-v8 %)
-                                       7 (report/wire-v7->wire-v8 %)
-                                       %))))
+                         (validate-report (case version
+                                            3 (report/wire-v3->wire-v8 % received)
+                                            4 (report/wire-v4->wire-v8 % received)
+                                            5 (report/wire-v5->wire-v8 %)
+                                            6 (report/wire-v6->wire-v8 %)
+                                            7 (report/wire-v7->wire-v8 %)
+                                            %))))
       (update-in [:payload :producer_timestamp] #(or % (now)))))
 
 (defn exec-store-report [options-config {:keys [payload id received]} start-time db conn-status]
@@ -470,10 +490,13 @@
 
 ;; Expiration configuration
 
+(def validate-expiration
+  (command-validator "configure expiration" nodes/configure-expiration-wireformat-schema))
+
 (defn prep-configure-expiration [command]
   (upon-error-throw-fatality
    (-> command
-       (update :payload #(s/validate nodes/configure-expiration-wireformat-schema %))
+       (update :payload validate-expiration)
        (update-in [:payload :producer_timestamp] #(or % (now))))))
 
 (defn exec-configure-expiration [{:keys [id received payload]} start-time db conn-status]
@@ -507,13 +530,33 @@
 (defn supported-command? [{:keys [command version] :as _cmd}]
   (some-> (supported-command-versions command) (get version)))
 
+(defn simplify-serialization-ex [ex]
+  ;; If ex is a standard, single serialization error, which shows up
+  ;; as a BatchUpdate exception whose next exception is a
+  ;; PSQLException with state :serialization-failure, with no next
+  ;; exception of its own, then rewrite it so that we'll just report
+  ;; the serialization error message without the long two-exception
+  ;; stack trace.
+  (cond
+    (not (instance? BatchUpdateException ex)) ex
+    (seq (.getSuppressed ex)) ex
+    :else
+    (let [nxt (.getNextException ex)]
+      (cond
+        (not nxt) ex
+        (not (instance? PSQLException nxt)) ex
+        (.getNextException nxt) ex
+        (not= (.getSQLState nxt) (jdbc/sql-state :serialization-failure)) ex
+        :else (ex-info (.getMessage ex) {:puppetlabs.puppetdb/known-error? true})))))
+
 (defn exec-command
   "Takes a command object and processes it to completion. Dispatch is
    based on the command's name and version information"
   [{:keys [command version] :as cmd} db conn-status start options-config]
   (when-not (supported-command? cmd)
-    (throw (ex-info (trs "Unsupported command {0} version {1}" command version)
-                    {:kind ::fatal-processing-error})))
+    (throw (fatality
+            (ex-info (trs "Unsupported command {0} version {1}" command version)
+                     {:puppetlabs.puppetdb/known-error? true}))))
   (let [exec (case command
                "replace catalog" exec-replace-catalog
                "replace facts" exec-replace-facts
@@ -523,6 +566,10 @@
                "replace catalog inputs" exec-replace-catalog-inputs)]
     (try
       (exec cmd start db conn-status)
+      (catch ExceptionInfo ex
+        (case (-> ex ex-data :kind)
+          ::scf-storage/resource-insert-limit-exceeded (throw (fatality ex))
+          (throw ex)))
       (catch SQLException ex
         ;; Discussion on #postgresql indicates that all 54-class
         ;; states can be considered "terminal", and for now, we're
@@ -533,8 +580,11 @@
         ;; resource titles that were too big to fit in a postgres
         ;; index.
         ;; cf. https://www.postgresql.org/docs/11/errcodes-appendix.html
-        (when (some-> ex .getSQLState (str/starts-with? "54"))
-          (throw (fatality ex)))
+        (when-let [state (some-> ex .getSQLState)]
+          (when (= state (jdbc/sql-state :serialization-failure))
+            (throw (simplify-serialization-ex ex)))
+          (when (str/starts-with? state "54")
+            (throw (fatality ex))))
         (throw ex)))))
 
 ;; Used in testing and by initial sync
@@ -701,9 +751,13 @@
         (do
           (callback {:command cmd :result results})
           true)
-        (let [msg (trs "[{0}] [{1}] Unable to broadcast command for {2}"
-                       id command certname)
-              ex (ex-info msg {:kind ::retry})]
+        ;; FIXME: this arrangement ends up with tracebacks that point
+        ;; here "for no reason", i.e. the only traceback(s) that
+        ;; matter are the ones in results.
+        (let [ex (ex-info (trs "[{0}] [{1}] Unable to broadcast command for {2}"
+                               id command certname)
+                          {:kind ::retry
+                           :puppetlabs.puppetdb/known-error? true})]
           (doseq [result results
                   :when (instance? Throwable result)]
             (.addSuppressed ex result))
@@ -788,18 +842,21 @@
         retry (fn [ex]
                 (mark-both-metrics! command version :retried)
                 (if (< retries maximum-allowable-retries)
-                  (do
-                    (log/error
-                     ex
-                     (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
-                          id command retries certname ex (.getSuppressed ex)))
-                    (schedule-delayed-message cmdref ex command-chan delay-pool
-                                              shutdown-for-ex))
-                  (do
-                    (log/error
-                     ex
-                     (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3} {4}"
-                          id command retries certname (.getSuppressed ex)))
+                  (let [msg (trs "[{0}] [{1}] Scheduling retry after attempt {2} for {3}"
+                                 id command retries certname)]
+                    (if (or (seq (.getSuppressed ex)) (not (known-error? ex)))
+                      (log/error ex msg)
+                      (let [msg (str msg " - " (ex-message ex))]
+                        (if-let [cause (ex-cause ex)]
+                          (log/error cause msg)
+                          (log/error msg))))
+                    (schedule-delayed-message cmdref ex command-chan delay-pool shutdown-for-ex))
+                  (let [known? (known-error? ex)
+                        msg (apply str
+                                   (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}"
+                                        id command retries certname)
+                                   (when known? [" - " (ex-message ex)]))]
+                    (if known? (log/error msg) (log/error ex msg))
                     (discard-message cmdref ex q dlo maybe-send-cmd-event!))))]
     (try
       (let [cmd (queue/cmdref->cmd q cmdref)]
@@ -811,7 +868,6 @@
             (update-counter! :depth command version dec!)
             (mark! (global-metric :fatal))
             (maybe-send-cmd-event! cmdref ::processed))
-
           delete? (-> cmd
                       ;; :producer_timestamp is optional in some commands.
                       ;; Normally handled by prep-command, but those operations
@@ -819,7 +875,6 @@
                       (update-in [:payload :producer_timestamp] #(or % (now)))
                       (process-delete-cmd cmdref q response-chan stats
                                           options-config maybe-send-cmd-event!))
-
           :else (-> cmd
                     (prep-command options-config)
                     (process-cmd cmdref q write-dbs broadcast-pool response-chan
@@ -830,17 +885,28 @@
           (case (:kind data)
             ::retry (retry ex)
             ::queue/parse-error
-            (do
+            (let [cause (.getCause ex)
+                  prefix (trs "Fatal error parsing command: {0}" (:id cmdref))]
               (mark! (global-metric :fatal))
-              (log/error ex (trs "Fatal error parsing command: {0}" (:id cmdref)))
+              (cond
+                (seq (.getSuppressed ex)) (log/error ex prefix)
+                cause (log/error cause (format "%s (%s)" prefix (ex-message ex)))
+                :else (log/error (format "%s (%s)" prefix (ex-message ex))))
               (discard-message cmdref ex q dlo maybe-send-cmd-event!))
-            ::fatal-processing-error
-            (do
+            ::fatal-processing-error ;; strictly a wrapper for the real ex
+            (let [real-ex (.getCause ex)
+                  msg (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+                           id command retries certname)]
               (mark! (global-metric :fatal))
-              (log/error
-               ex
-               (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-              (discard-message cmdref (ex-cause ex) q dlo maybe-send-cmd-event!))
+              (cond
+                (seq (.getSuppressed ex)) (log/error ex msg)
+                (seq (.getSuppressed real-ex)) (log/error real-ex msg)
+                (not (known-error? real-ex)) (log/error real-ex msg)
+                :else (let [msg (str msg " - " (ex-message real-ex))]
+                        (if-let [known-cause (.getCause real-ex)]
+                          (log/error known-cause msg)
+                          (log/error msg))))
+              (discard-message cmdref real-ex q dlo maybe-send-cmd-event!))
             ;; No match
             (retry ex))))
       (catch AssertionError ex

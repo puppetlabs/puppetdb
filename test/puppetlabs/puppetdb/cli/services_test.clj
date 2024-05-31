@@ -19,14 +19,12 @@
                      maybe-check-for-updates
                      query]]
             [puppetlabs.puppetdb.testutils.db
-             :refer [*db* *read-db* clear-db-for-testing! with-test-db
-                     with-unconnected-test-db]]
+             :refer [*db* *read-db* with-test-db with-unconnected-test-db]]
             [puppetlabs.puppetdb.testutils.cli
              :refer [example-certname example-report get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.migrate :refer [initialize-schema]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :as time :refer [now to-string]]
@@ -51,9 +49,12 @@
              :refer [block-until-results default-timeout-ms temp-file change-report-time]]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [clojure.string :as str])
-  (:import [clojure.lang ExceptionInfo]
-           (java.util.concurrent CyclicBarrier TimeUnit)
-           [java.util.concurrent.locks ReentrantLock]))
+  (:import
+   (ch.qos.logback.classic Level)
+   (ch.qos.logback.classic.spi ILoggingEvent)
+   (clojure.lang ExceptionInfo)
+   (java.util.concurrent CyclicBarrier TimeUnit)
+   (java.util.concurrent.locks ReentrantLock)))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -330,19 +331,12 @@
      horizon horizon)))
 
 (deftest node-purge-gc-batch-limit
-  ;; At least with the current code, it should be fine to run all the
-  ;; tests with the same server, i.e. collect-garbage is only affected
-  ;; by its arguments.
-  (with-pdb-with-no-gc
-    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
-          node-purge-ttl (get-in config [:database :node-purge-ttl])
-          deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
-          lock (ReentrantLock.)]
-      (doseq [[limit expected-remaining] [[0 0]
-                                          [7 3]
-                                          [100 0]]]
-        (clear-db-for-testing!)
-        (initialize-schema)
+  (doseq [[limit expected-remaining] [[0 0] [7 3] [100 0]]]
+    (with-pdb-with-no-gc
+      (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+            node-purge-ttl (get-in config [:database :node-purge-ttl])
+            deactivation-time (time/to-timestamp (time/ago node-purge-ttl))
+            lock (ReentrantLock.)]
         (dotimes [i 10]
           (let [name (str "foo-" i)]
             (scf-store/add-certname! name)
@@ -357,26 +351,34 @@
 
 (deftest test-stop-with-blocked-scheduler
   (let [requested-shutdown? (promise)
-        ready-to-go? (promise)]
+        ready-to-go? (promise)
+        notable? (fn notable-blocked-scheduler-event?
+                   [^ILoggingEvent event]
+                   (and (.isGreaterOrEqual (.getLevel event) Level/ERROR)
+                        (let [m (.getMessage event)]
+                          (not (or (str/includes? m "Unable to shut down job scheduler")
+                                   (str/includes? m "Unable to read schema version"))))))]
     (with-redefs [svcs/stop-gc-wait-ms (constantly 10)
                   svcs/shut-down-after-scheduler-unresponsive
                   (fn [f]
                     (deliver requested-shutdown? true)
                     (f))]
-      (with-pdb-with-no-gc
-        (let [pdb (get-service *server* :PuppetDBServer)
-              pool (-> pdb service-context :job-pool)
-              _blocker (schedule pool #(do
-                                         (deliver ready-to-go? true)
-                                         (while (not (try
-                                                       @requested-shutdown?
-                                                       (catch InterruptedException _
-                                                         false)))
-                                           (ignore-value true)))
-                                 0)]
-          (is (= true (deref ready-to-go? default-timeout-ms false)))
-          (tkapp/stop *server*)
-          (is (= true @requested-shutdown?)))))))
+      (binding [svc-utils/*notable-log-event?* notable?]
+        (with-pdb-with-no-gc
+          (let [pdb (get-service *server* :PuppetDBServer)
+                pool (-> pdb service-context :job-pool)]
+            (schedule pool
+                      #(do
+                         (deliver ready-to-go? true)
+                         (while (not (try
+                                       @requested-shutdown?
+                                       (catch InterruptedException _
+                                         false)))
+                           (ignore-value true)))
+                      0)
+            (is (= true (deref ready-to-go? default-timeout-ms false)))
+            (tkapp/stop *server*)
+            (is (= true @requested-shutdown?))))))))
 
 (deftest regular-gc-drops-oldest-partitions-incrementally
   (with-unconnected-test-db

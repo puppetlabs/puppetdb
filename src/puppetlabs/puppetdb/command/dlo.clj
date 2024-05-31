@@ -6,12 +6,11 @@
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
    [puppetlabs.puppetdb.queue :as q]
-   [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
+   [puppetlabs.puppetdb.utils :refer [known-error? utf8-length utf8-truncate]]
    [puppetlabs.stockpile.queue :as stock])
   (:import
-   [java.nio.file AtomicMoveNotSupportedException
-    FileAlreadyExistsException Files LinkOption]
-   [java.nio.file.attribute FileAttribute]))
+   (java.nio.file AtomicMoveNotSupportedException FileAlreadyExistsException Files LinkOption)
+   (java.nio.file.attribute FileAttribute)))
 
 (defn- cmd-counters
   "Adds gauges to the dlo for the given category (e.g. \"global\"
@@ -78,7 +77,11 @@
                                    (into-array Object [(if (zero? i) "" "\n")
                                                        (- n i)
                                                        time]))
-                          (.printStackTrace exception out))
+                          (cond
+                            (seq (.getSuppressed exception)) (.printStackTrace exception out)
+                            (not (known-error? exception)) (.printStackTrace exception out)
+                            (ex-cause exception) (.printStackTrace exception out)
+                            :else (.println out (ex-message exception))))
                         attempts))))
 
 (defn- strip-metadata-suffix

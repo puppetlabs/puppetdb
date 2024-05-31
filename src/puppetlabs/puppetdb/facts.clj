@@ -1,12 +1,14 @@
 (ns puppetlabs.puppetdb.facts
-  (:require [clojure.edn :as clj-edn]
-            [clojure.set :as set]
-            [clojure.string :as str]
-            [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.package-util :refer [package-tuple]]))
+  (:require
+   [clojure.edn :as clj-edn]
+   [clojure.set :as set]
+   [clojure.string :as str]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.puppetdb.package-util :refer [package-tuple]]
+   [puppetlabs.puppetdb.schema :as pls]
+   [puppetlabs.puppetdb.time :refer [to-timestamp]]
+   [puppetlabs.puppetdb.utils :as utils]
+   [schema.core :as s]))
 
 ;; SCHEMA
 
@@ -242,7 +244,16 @@
     4 (wire-v4->wire-v5 facts-payload)
     facts-payload))
 
-(pls/defn-validated normalize-facts :- facts-schema
+(def validate-schema
+  (let [check (s/checker facts-schema)]
+    (fn validate-schema [x]
+      (when-let [problem (check x)]
+        (throw (ex-info (trs "Invalid replace facts command: {0}"
+                             (pr-str problem))
+                        {:puppetlabs.puppetdb/known-error? true})))
+      x)))
+
+(defn normalize-facts
   "Converts facts from the wire to the canonical form accepted by the
   facts schema"
   [version received facts-payload]
@@ -250,4 +261,5 @@
       (convert-to-wire-v5 version received)
       (update :values utils/stringify-keys)
       (update :producer_timestamp to-timestamp)
-      (assoc :timestamp received)))
+      (assoc :timestamp received)
+      validate-schema))

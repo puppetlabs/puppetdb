@@ -12,6 +12,7 @@
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng.parse :as parse]
+            [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.utils.string-formatter :as formatter]
@@ -1526,7 +1527,7 @@
 (defn quote-projections
   [projection]
   (when (> (count projection) 63)
-    (throw (IllegalArgumentException.
+    (throw (bad-query-ex
             (tru "Projected field name ''{0}'' exceeds current maximum length of 63 characters"
                  (count projection) projection))))
   projection)
@@ -1595,7 +1596,7 @@
         (case function
           ("sum" "avg" "min" "max" "count" "jsonb_typeof") (map keyword args)
           "to_char" [(-> args first keyword) [:inline (second args)]]
-          (throw (IllegalArgumentException. (tru "{0} is not a valid function"
+          (throw (bad-query-ex (tru "{0} is not a valid function"
                                                  (pr-str function)))))]
     [(keyword op)
      (apply vector (keyword function) args)
@@ -2091,7 +2092,7 @@
 
               [["in" ["fact" fact-name] ["array" fact-values]]]
               (if-not (= (count (set (map type fact-values))) 1)
-                (throw (IllegalArgumentException.
+                (throw (bad-query-ex
                          (tru "All values in 'array' must be the same type.")))
                 ["in" "certname"
                  ["extract" "certname"
@@ -2102,7 +2103,7 @@
 
               [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
               (if-not (number? fact-value)
-                (throw (IllegalArgumentException.
+                (throw (bad-query-ex
                          (tru "Operator ''{0}'' not allowed on value ''{1}''" op fact-value)))
                 ["in" "certname"
                  ["extract" "certname"
@@ -2116,31 +2117,32 @@
               (if relationships
                 (let [{:keys [columns local-columns foreign-columns]} relationships]
                   (when-not (or columns (and local-columns foreign-columns))
-                    (throw (IllegalArgumentException.
-                             (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
+                    (throw (bad-query-ex
+                            (tru "Column definition for entity relationship ''{0}'' not valid"
+                                 sub-entity))))
                   ["in" (or local-columns columns)
                    ["extract" (or foreign-columns columns)
                     [(str "select_" sub-entity) expr]]])
-                (throw (IllegalArgumentException. (tru "No implicit relationship for entity ''{0}''" sub-entity)))))
+                (throw (bad-query-ex (tru "No implicit relationship for entity ''{0}''"
+                                          sub-entity)))))
 
             [["=" "latest_report?" value]]
             (let [entity (get-in (meta node) [:query-context :entity])
-                  expanded-latest (case entity
-                                    :reports
-                                    ["in" "hash"
-                                     ["extract" "latest_report_hash"
-                                      ["select_latest_report"]]]
+                  latest (case entity
+                           :reports
+                           ["in" "hash"
+                            ["extract" "latest_report_hash"
+                             ["select_latest_report"]]]
 
-                                    :events
-                                    ["in" "report_id"
-                                     ["extract" "latest_report_id"
-                                      ["select_latest_report_id"]]]
-
-                                    (throw (IllegalArgumentException.
-                                            (tru "Field 'latest_report?' not supported on endpoint ''{0}''" entity))))]
-              (if value
-                expanded-latest
-                ["not" expanded-latest]))
+                           :events
+                           ["in" "report_id"
+                            ["extract" "latest_report_id"
+                             ["select_latest_report_id"]]]
+                           (throw
+                            (bad-query-ex
+                             (tru "Field 'latest_report?' not supported on endpoint ''{0}''"
+                                  entity))))]
+              (if value latest ["not" latest]))
 
             [[op (field :guard #{"new_value" "old_value"}) value]]
             [op field (su/db-serialize value)]
@@ -2199,7 +2201,7 @@
               (let [col-type (get-in query-context [:projections field :type])]
                 (when (and (= :numeric col-type) (string? value))
                   (throw
-                   (IllegalArgumentException.
+                   (bad-query-ex
                     (tru
                      "Argument \"{0}\" is incompatible with numeric field \"{1}\"."
                      value (name field))))))
@@ -2211,12 +2213,15 @@
                 (when-not (or (vec? field)
                               (contains? #{:numeric :timestamp :jsonb-scalar}
                                          col-type))
-                  (throw (IllegalArgumentException. (tru "Query operators >,>=,<,<= are not allowed on field {0}" field)))))
+                  (throw
+                   (bad-query-ex
+                    (tru "Query operators >,>=,<,<= are not allowed on field {0}" field)))))
 
               [["~>" field _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (contains? #{:encoded-path :path-array} col-type)
-                  (throw (IllegalArgumentException. (tru "Query operator ~> is not allowed on field {0}" field)))))
+                  (throw
+                   (bad-query-ex (tru "Query operator ~> is not allowed on field {0}" field)))))
 
               ;;This validation check is added to fix a failing facts
               ;;test. The facts test is checking that you can't submit
@@ -2227,27 +2232,35 @@
               ;;needs to be added
               [["and" & clauses]]
               (if (empty? clauses)
-                (throw (IllegalArgumentException. (tru "''and'' takes at least one argument, but none were supplied")))
+                (throw
+                 (bad-query-ex
+                  (tru "''and'' takes at least one argument, but none were supplied")))
                 (when (some (fn [clause] (and (not= ::elide clause) (empty? clause))) clauses)
-                  (throw (IllegalArgumentException. (tru "[] is not well-formed: queries must contain at least one operator")))))
+                  (throw
+                   (bad-query-ex
+                    (tru "[] is not well-formed: queries must contain at least one operator")))))
 
               [["or" & clauses]]
               (when (empty? clauses)
-                (throw (IllegalArgumentException. (tru "''or'' takes at least one argument, but none were supplied"))))
+                (throw
+                 (bad-query-ex
+                  (tru "''or'' takes at least one argument, but none were supplied"))))
 
               ;;Facts is doing validation against nots only having 1
               ;;clause, adding this here to fix that test, need to make
               ;;another pass once other validations are known
               [["not" & clauses]]
               (when (not= 1 (count clauses))
-                (throw (IllegalArgumentException. (tru "''not'' takes exactly one argument, but {0} were supplied" (count clauses)))))
+                (throw
+                 (bad-query-ex (tru "''not'' takes exactly one argument, but {0} were supplied"
+                                    (count clauses)))))
 
               [[op & clauses]]
               (when (simple-binary-operators op)
                 (when (not= 2 (count clauses))
-                  (throw (IllegalArgumentException. (tru "{0} requires exactly two arguments" op))))
+                  (throw (bad-query-ex (tru "{0} requires exactly two arguments" op))))
                 (when (simple-binary-operator-checker node)
-                  (throw (IllegalArgumentException. (tru "Invalid {0} clause" op)))))
+                  (throw (bad-query-ex (tru "Invalid {0} clause" op)))))
 
               :else nil)))
 
@@ -2288,8 +2301,8 @@
                (:keyword :raw) field
                (do
                  (when-not (vector? field)
-                   (throw (IllegalArgumentException.
-                           (tru "Cannot determine field type for field ''{0}''" field))))
+                   (throw
+                    (bad-query-ex (tru "Cannot determine field type for field ''{0}''" field))))
                  field)))
            (map #(case (:kind %)
                    ::parse/named-field-part (:name %))
@@ -2334,11 +2347,9 @@
   [clause clauses]
   (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
     (when (> (count candidates) 1)
-      (throw (IllegalArgumentException.
-              (tru "Multiple ''{0}'' clauses are not permitted" clause))))
+      (throw (bad-query-ex (tru "Multiple ''{0}'' clauses are not permitted" clause))))
     (when (not (second (first candidates)))
-      (throw (IllegalArgumentException.
-              (tru "Received ''{0}'' clause without an argument" clause))))
+      (throw (bad-query-ex (tru "Received ''{0}'' clause without an argument" clause))))
     (-> candidates first second)))
 
 (defn process-order-by
@@ -2400,9 +2411,9 @@
                            (assoc :statement compiled-fn)))))
 
 (defn group-by-entry->sql-field
-  "Converts a column into its qualified SQL field name or a function expression
-   into its function name. Throws an IllegalArgumentException if there is an
-   invalid field or function"
+  "Converts a column into its qualified SQL field name or a function
+  expression into its function name. Throws a bad-query-ex if there is
+  an invalid field or function"
   [query-rec column-or-fn-name]
   ;; Just split on dot for now (as a hack) - we'll use the strict
   ;; parser once it's available (after 6.18.0 and 7.5.0)."
@@ -2417,7 +2428,7 @@
       (or (get-in query-rec [:projections column-or-fn-name :field])
           (if (some #{column-or-fn-name} (keys pdb-fns->pg-fns))
             (keyword column-or-fn-name)
-            (throw (IllegalArgumentException.
+            (throw (bad-query-ex
                     (tru "{0} is niether a valid column name nor function name"
                          (pr-str column-or-fn-name)))))))))
 
@@ -2459,13 +2470,13 @@
   "Try to convert a string to a timestamp, throwing an exception if it fails"
   [ts]
   (or (t/to-timestamp ts)
-      (throw (IllegalArgumentException. (tru "''{0}'' is not a valid timestamp value" ts)))))
+      (throw (bad-query-ex (tru "''{0}'' is not a valid timestamp value" ts)))))
 
 (defn validate-argument-count
   [f args allowed-count]
   (let [arg-count (count args)]
     (when-not (allowed-count arg-count)
-      (throw (IllegalArgumentException.
+      (throw (bad-query-ex
               (tru "wrong number of arguments ({0}) provided for function {1}"
                    arg-count f))))))
 
@@ -2473,7 +2484,7 @@
 (defn validate-queryable-field
   [query-rec maybe-field]
   (when-not (some #(= % maybe-field) (queryable-fields query-rec))
-    (throw (IllegalArgumentException. (tru "field {0} is not a valid queryable field"
+    (throw (bad-query-ex (tru "field {0} is not a valid queryable field"
                                            (pr-str maybe-field))))))
 
 ;; TODO we should reuse validate-query-operation-fields (defined below) here. Don't allow
@@ -2491,7 +2502,7 @@
         ;; TODO Is this numeric guard too strict?  AST docs suggest maybe not.
         ;; TODO add a test, no tests failed when 'numeric' was misspelled
         (when (not= :numeric (get-in query-rec [:projections maybe-field :type]))
-          (throw (IllegalArgumentException. (tru "field {0} must be a numeric type"
+          (throw (bad-query-ex (tru "field {0} must be a numeric type"
                                                  (pr-str maybe-field))))))
 
       "count"
@@ -2514,7 +2525,7 @@
         (validate-argument-count f args #{1})
         (validate-queryable-field query-rec maybe-field))
 
-      (throw (IllegalArgumentException. (tru "{0} is not a valid function"
+      (throw (bad-query-ex (tru "{0} is not a valid function"
                                              (pr-str f)))))))
 
 (defn user-node->plan-node
@@ -2574,12 +2585,11 @@
             [["in" column-name ["array" value]]]
             (let [cinfo (get-in query-rec [:projections column-name])]
               (when-not (coll? value)
-                (throw (IllegalArgumentException.
-                        (tru "Operator 'array' requires a vector argument"))))
+                (throw (bad-query-ex (tru "Operator 'array' requires a vector argument"))))
               (case (:type cinfo)
                 :array
-                (throw (IllegalArgumentException.
-                        (tru "Operator 'in'...'array' is not supported on array types")))
+                (throw
+                 (bad-query-ex (tru "Operator 'in'...'array' is not supported on array types")))
 
                 :timestamp
                 (map->InArrayExpression {:column cinfo
@@ -2641,7 +2651,7 @@
 
                 :else
                 (throw
-                 (IllegalArgumentException.
+                 (bad-query-ex
                   (tru "Argument \"{0}\" and operator \"{1}\" have incompatible types."
                        value op)))))
 
@@ -2940,8 +2950,8 @@
             :else nil))
 
 (defn push-down-context
-  "Pushes the top level query context down to each query node, throws IllegalArgumentException
-  if any unrecognized fields appear in the query"
+  "Pushes the top level query context down to each query node, throws a
+  bad-query-ex if any unrecognized fields appear in the query"
   [context user-query]
   (let [{annotated-query :node
          errors :state} (zip/pre-order-visit (zip/tree-zipper user-query)
@@ -2950,7 +2960,7 @@
                                               validate-query-fields
                                               ops-to-lower])]
     (when (seq errors)
-      (throw (IllegalArgumentException. (str/join \newline errors))))
+      (throw (bad-query-ex (str/join \newline errors))))
 
     annotated-query))
 
@@ -3055,28 +3065,26 @@
   (cm/match
     query
     ["from" (entity-str :guard #(string? %)) & remaining-query]
-    (let [remaining-query (cm/match
-                            remaining-query
+    (let [remaining-query
+          (cm/match
+           remaining-query
 
-                            [(c :guard paging-clause?) & clauses]
-                            (let [paging-clauses (create-paging-map (cons c clauses))]
-                              {:paging-clauses paging-clauses :query []})
+           [(c :guard paging-clause?) & clauses]
+           (let [paging-clauses (create-paging-map (cons c clauses))]
+             {:paging-clauses paging-clauses :query []})
 
-                            [(q :guard vector?)]
-                            {:query q}
+           [(q :guard vector?)]
+           {:query q}
 
-                            [(q :guard vector?) & clauses]
-                            (let [paging-clauses (create-paging-map clauses)]
-                              {:query q :paging-clauses paging-clauses})
+           [(q :guard vector?) & clauses]
+           (let [paging-clauses (create-paging-map clauses)]
+             {:query q :paging-clauses paging-clauses})
 
-                            []
-                            {:query []}
-                            :else (throw
-                                   (IllegalArgumentException.
-                                    (str
-                                     (tru "Your `from` query accepts an optional query only as a second argument.")
-                                     " "
-                                     (tru "Check your query and try again.")))))
+           []
+           {:query []}
+           :else (throw
+                  (bad-query-ex
+                   (tru "`from` only accepts a query as an optional second argument."))))
           entity (keyword (formatter/underscores->dashes entity-str))]
       (when warn
         (warn-experimental entity))
@@ -3084,11 +3092,9 @@
        :paging-clauses (:paging-clauses remaining-query)
        :entity entity})
 
-    :else (throw (IllegalArgumentException.
-                  (str
-                   (trs "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)].")
-                   " "
-                   (trs "Check your query and try again."))))))
+    :else (throw
+           (bad-query-ex
+            (trs "This query must be of the form [\"from\", <entity>, (<optional-query>)].")))))
 
 (defn simple-coll? [x] (and (coll? x) (not (map? x))))
 
@@ -3307,10 +3313,10 @@
                              ;; spec e.g. [:= :certnames.certname :fs.certname]
                              (let [join-name (cond-> table (coll? table) second)]
                                (when-not (keyword? join-name)
-                                 (throw (IllegalArgumentException.
-                                          (tru "{0} join in {1} query was expected to be a keyword"
-                                               join-name
-                                               (name (::which-query plan))))))
+                                 (throw
+                                  (bad-query-ex
+                                   (tru "{0} join in {1} query was expected to be a keyword"
+                                        join-name (name (::which-query plan))))))
                                (required? join-name)))
                 drop-joins (fn [result k v]
                              (if-not (join-key? k)

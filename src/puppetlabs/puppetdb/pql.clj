@@ -1,11 +1,13 @@
 (ns puppetlabs.puppetdb.pql
-  (:require [clojure.java.io]
-            [clojure.string :refer [join]]
-            [instaparse.core :as insta]
-            [instaparse.failure :as failure]
-            [instaparse.print :as print]
-            [puppetlabs.i18n.core :refer [tru]]
-            [puppetlabs.puppetdb.pql.transform :as transform]))
+  (:require
+   [clojure.java.io]
+   [clojure.string :refer [join]]
+   [instaparse.core :as insta]
+   [instaparse.failure :as failure]
+   [instaparse.print :as print]
+   [puppetlabs.i18n.core :refer [tru]]
+   [puppetlabs.puppetdb.query.common :refer [bad-query-ex]]
+   [puppetlabs.puppetdb.pql.transform :as transform]))
 
 (defn transform
   "Transform parsed PQL to AST."
@@ -55,11 +57,9 @@
     (join [opening expected freasons preasons])))
 
 (defn parse-pql-query
-  "Parse a query string as PQL. Parse errors will result in an
-  IllegalArgumentException"
+  "Parse a query string as PQL. Parse errors will result in a bad-query-ex."
   [query]
   (let [pql-result (pql->ast query)]
     (if (map? pql-result)
-      (throw (IllegalArgumentException.
-              (pprint-failure pql-result)))
+      (throw (bad-query-ex (pprint-failure pql-result)))
       (first pql-result))))
