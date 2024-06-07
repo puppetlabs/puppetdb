@@ -432,9 +432,7 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_module(hosts, puppet_platform)
-    # While we sort out a new puppetlabs-puppetdb module release, point to a branch that allows us to take the latest puppetlabs-postgresql module
-    on(hosts, 'curl -L https://github.com/puppetlabs/puppetlabs-puppetdb/archive/refs/heads/bump-postgres.tar.gz --output /tmp/puppetlabs-puppetdb')
-    on(hosts, 'puppet module install /tmp/puppetlabs-puppetdb')
+    on(hosts, 'puppet module install puppetlabs-puppetdb')
   end
 
   def install_puppetdb(host, version=nil)
