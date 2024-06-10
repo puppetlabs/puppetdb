@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 47bb9c34778db5b6455a73c810e404502c483490\n"
+"X-Git-Ref: e6ba3374f66287e16c7beb98f8791bc98c6a38cb\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -284,6 +284,14 @@ msgid "Will retry database connection after temporary failure: "
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Unable to read schema version: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "Cannot find the PuppetDB schema migration table"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
 msgid "Please upgrade PuppetDB: "
 msgstr ""
 
@@ -420,7 +428,7 @@ msgid "[{0}] [{1} ms] ''{2}'' command{3} ignored (obsolete) for {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "facts-blocklist-type was ''{0}'' but it must be either regex or literal"
+msgid "facts-blocklist-type ''{0}'' is not regex or literal"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -443,6 +451,9 @@ msgstr ""
 msgid "[{0}] [{1}] Command rejected for {2}, presumably shutting down"
 msgstr ""
 
+#. FIXME: this arrangement ends up with tracebacks that point
+#. here "for no reason", i.e. the only traceback(s) that
+#. matter are the ones in results.
 #: src/puppetlabs/puppetdb/command.clj
 msgid "[{0}] [{1}] Unable to broadcast command for {2}"
 msgstr ""
@@ -452,11 +463,11 @@ msgid "Revival of delayed message interrupted"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4} {5}"
+msgid "[{0}] [{1}] Scheduling retry after attempt {2} for {3}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}] [{1}] Exceeded max attempts ({2}) for {3} {4}"
+msgid "[{0}] [{1}] Exceeded max attempts ({2}) for {3}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
@@ -740,6 +751,10 @@ msgstr ""
 msgid "Finished exporting PuppetDB"
 msgstr ""
 
+#: src/puppetlabs/puppetdb/facts.clj
+msgid "Invalid replace facts command: {0}"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/http.clj
 msgid "Caught HTTP processing exception"
 msgstr ""
@@ -955,6 +970,10 @@ msgid ""
 "The client certificate name {0} doesn't appear in the certificate allowlist. "
 "Is your master''s (or other PuppetDB client''s) certname listed in "
 "PuppetDB''s certificate-allowlist file?"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
+msgid "Invalid query: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
@@ -1276,17 +1295,24 @@ msgstr ""
 msgid "Unparsable query: {0} {1} {2}"
 msgstr ""
 
-#. thrown by (at least) munge-fn
+#: src/puppetlabs/puppetdb/query_eng.clj
+msgid "Invalid query regex: {0} {1} {2}"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/query_eng.clj
 msgid "Invalid query: {0} {1} {2}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
-msgid "Invalid query regex: {0} {1} {2}"
+msgid "Invalid query: {0} {1} {2} - {3}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/default_reports.clj
-msgid "Unrecognized ast clause {0} in ast query {1}"
+msgid "Unrecognized AST clause: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/default_reports.clj
+msgid "Unrecognized AST clause {0} in AST query {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
@@ -1433,17 +1459,12 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "Your `from` query accepts an optional query only as a second argument."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "Check your query and try again."
+msgid "`from` only accepts a query as an optional second argument."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid ""
-"Your initial query must be of the form: [\"from\",<entity>,(<optional-"
-"query>)]."
+"This query must be of the form [\"from\", <entity>, (<optional-query>)]."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
@@ -1671,7 +1692,6 @@ msgstr ""
 msgid "Provided horizon not a valid timestamp {0}"
 msgstr ""
 
-#. Don't localize the line numbers
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Failed to insert resource for {0} (file: {1}, line: {2})."
 msgstr ""
@@ -1679,7 +1699,7 @@ msgstr ""
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid ""
 "  May indicate use of $facts[''my_fact''] instead of "
-"$'{'facts[''my_fact'']'}'"
+"$'{'facts[''my_fact'']'}'. ({0})"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
