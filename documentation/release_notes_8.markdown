@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ## PuppetDB 8.5.1
 
-Released TBD.
+Released April 24 2024
 
 ### Bug fixes
 
@@ -23,7 +23,7 @@ Released TBD.
 
 ### Contributors
 
-Austin Blatt and ...
+Austin Blatt and Rob Browning.
 
 ## PuppetDB 8.5.0
 
@@ -32,9 +32,6 @@ Released April 11 2024
 ### New features and improvements
 
 * Improve query performance on the certnames table
-
-### Improvements
-
 * Ship with updated dependencies (clojure, and pgjdbc)
 
 ### Bug fixes
@@ -43,7 +40,7 @@ Released April 11 2024
 
 ### Contributors
 
-Austin Blatt and Rob Browning.
+Austin Blatt, Cas Donoghue, and Rob Browning.
 
 ## PuppetDB 8.4.1
 
