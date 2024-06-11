@@ -15,6 +15,16 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.19.0
+
+Released June 11 2024
+
+This release contains minor dependency upgrades.
+
+### Contributors
+
+Austin Blatt and Rob Browning.
+
 ## PuppetDB 7.18.0
 
 Released April 11 2024
@@ -29,7 +39,7 @@ Released April 11 2024
 
 ### Contributors
 
-Austin Blatt and Rob Browning.
+Austin Blatt, Cas Donoghue, and Rob Browning.
 
 ## PuppetDB 7.17.1
 
