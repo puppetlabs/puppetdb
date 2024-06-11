@@ -12,6 +12,20 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.6.0
+
+Released June 11 2024
+
+### New features and improvements
+
+* Improve performance of fact queries by reducing jsonb merges.
+* PuppetDB will no longer log long stack traces for standard ways that a user
+  query might be invalid.
+
+### Contributors
+
+Austin Blatt and Rob Browning.
+
 ## PuppetDB 8.5.1
 
 Released April 24 2024
