@@ -15,6 +15,7 @@
                      wrap-with-metrics] ]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [temp-file]]
+            [puppetlabs.ssl-utils.core :refer [get-cn-from-x509-certificate]]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-log-output logs-matching]])
   (:import
@@ -88,7 +89,7 @@
              (:status (app (create-authorizing-request "foobar"))))))))
 
 (deftest wrapping-cert-cn-extraction
-  (with-redefs [kitchensink/cn-for-cert :cn]
+  (with-redefs [get-cn-from-x509-certificate :cn]
     (let [app (wrap-with-certificate-cn identity)]
       (testing "Should set :ssl-client-cn to extracted cn"
         (let [req {:ssl-client-cert {:cn "foobar"}}]
