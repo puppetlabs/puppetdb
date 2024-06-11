@@ -296,6 +296,11 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian11-64-1'
   end
 
+  def is_el7()
+    return test_config[:os_families].has_key?('redhat7-64-1') ||
+           test_config[:os_families].has_key?('centos7-64-1')
+  end
+
   def is_el8()
     return test_config[:os_families].has_key?('redhat8-64-1') ||
            test_config[:os_families].has_key?('centos8-64-1')
@@ -303,6 +308,10 @@ module PuppetDBExtensions
 
   def is_el9()
     return test_config[:os_families].has_key?('redhat9-64-1')
+  end
+
+  def is_el()
+    is_el7 || is_el8 || is_el9
   end
 
   def is_rhel7fips
@@ -538,8 +547,10 @@ module PuppetDBExtensions
   end
 
   def postgres_manifest
-    # bionic is EOL, so its pgdg repo has been remove
-    manage_package_repo = ! is_bionic
+    # bionic is EOL, so its pgdg repo has been removed.
+    # For RedHat, the versions of the module that support upgrade_oldest
+    # tests from Puppet 6 configure the wrong GPG key
+    manage_package_repo = ! ( is_bionic || is_el )
 
     manifest = <<-EOS
       # create the puppetdb database

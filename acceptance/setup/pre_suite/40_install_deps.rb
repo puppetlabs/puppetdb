@@ -17,6 +17,14 @@ unless (test_config[:skip_presuite_provisioning])
       on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
       on master, "dnf -qy module disable postgresql"
     end
+  elsif is_el7
+    step "Install PostgreSQL el7 repo" do
+      on master, "yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+    end
+  elsif is_el9
+    step "Install PostgreSQL el8 repo" do
+      on master, "dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+    end
   elsif is_bionic
     # bionic is EOL, so get postgresql from the archive
     on master, 'echo "deb https://apt-archive.postgresql.org/pub/repos/apt bionic-pgdg main" >> /etc/apt/sources.list'
