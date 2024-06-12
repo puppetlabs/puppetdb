@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.ssl-utils.core :refer [get-cn-from-x509-certificate]]
             [ring.util.request :as request]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -72,7 +73,7 @@
   the key's value is set to nil."
   [app]
   (fn [{:keys [ssl-client-cert] :as req}]
-    (let [cn  (some-> ssl-client-cert kitchensink/cn-for-cert)
+    (let [cn  (some-> ssl-client-cert get-cn-from-x509-certificate)
           req (assoc req :ssl-client-cn cn)]
       (app req))))
 
