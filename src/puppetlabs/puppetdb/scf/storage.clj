@@ -1498,6 +1498,32 @@
      (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
    resource-list))
 
+(defn insert-resource-events [certname cert-id report-id resource-events ttl]
+  (let [adjust-event #(-> (maybe-corrective-change %)
+                          (assoc :report_id report-id :certname_id cert-id))
+        ;; this cannot be merged with the function above, because the
+        ;; report-id field *has* to exist first
+        add-event-hash #(assoc % :event_hash (-> (shash/resource-event-identity-pkey %)
+                                                 (sutils/munge-hash-for-storage)))
+        ;; group by the hash, and choose the oldest (aka first) of any duplicates.
+        remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))
+        last-record (atom nil)]
+    (try
+      (->> resource-events
+           (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+           (map adjust-event)
+           (map add-event-hash)
+           ;; ON CONFLICT does *not* work properly in partitions, see:
+           ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
+           ;; section 5.10.6
+           remove-dupes
+           (filter-expired-resources ttl)
+           (map #(reset! last-record %))
+           (jdbc/insert-multi! :resource_events)
+           dorun)
+      (catch SQLException ex
+        (handle-resource-insert-sql-ex ex certname @last-record)))))
+
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1523,7 +1549,7 @@
                        seq)
                  {:status :duplicate :hash report-hash}
                  (let [certname-id (certname-id certname)
-                       resource-events-ttl (get options-config :resource-events-ttl)
+                       ttl (get options-config :resource-events-ttl)
                        table-name (str "reports_" (-> producer_timestamp
                                                       (partitioning/to-zoned-date-time)
                                                       (partitioning/date-suffix)))
@@ -1557,35 +1583,7 @@
                                               maybe-corrective-change
                                               (jdbc/insert! table-name))]
                    (when (and (seq resource_events) save-event?)
-                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
-                           adjust-event #(-> %
-                                             maybe-corrective-change
-                                             (assoc :report_id report-id
-                                                    :certname_id certname-id))
-                           add-event-hash #(-> %
-                                               ;; this cannot be merged with the function above, because the report-id
-                                               ;; field *has* to exist first
-                                               (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
-                                                                       (sutils/munge-hash-for-storage))))
-                           ;; group by the hash, and choose the oldest (aka first) of any duplicates.
-                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))
-                           last-record (atom nil)
-                           set-last-record! #(reset! last-record %)]
-                       (try
-                         (->> resource_events
-                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                              (map adjust-event)
-                              (map add-event-hash)
-                              ;; ON CONFLICT does *not* work properly in partitions, see:
-                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-                              ;; section 5.10.6
-                              remove-dupes
-                              (filter-expired-resources resource-events-ttl)
-                              (map set-last-record!)
-                              insert!
-                              dorun)
-                         (catch SQLException ex
-                           (handle-resource-insert-sql-ex ex certname @last-record)))))
+                     (insert-resource-events certname certname-id report-id resource_events ttl))
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp))
                    {:status :incorporated :hash report-hash})))))))
