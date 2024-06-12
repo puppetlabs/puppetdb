@@ -1111,19 +1111,29 @@
                                (set (map :package_id rows)))))
 
 (defn insert-missing-packages [existing-hashes-map new-hashed-package-tuples]
-  (let [packages-to-create (remove (fn [hashed-package-tuple]
-                                     (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
-                                   new-hashed-package-tuples)
-        results (jdbc/insert-multi! :packages
-                                    (map (fn [[package_name version provider package-hash]]
-                                           {:name package_name
-                                            :version version
-                                            :provider provider
-                                            :hash (sutils/munge-hash-for-storage package-hash)})
-                                         packages-to-create))]
-    (merge existing-hashes-map
-           (zipmap (map pkg-util/package-tuple-hash packages-to-create)
-                   (map :id results)))))
+  (let [needed (remove (fn [hashed-package-tuple]
+                         (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
+                       new-hashed-package-tuples)
+        insert (fn [rows]
+                 (->> {:insert-into :packages
+                       :values (map (fn [[package_name version provider package-hash]]
+                                      {:name package_name
+                                       :version version
+                                       :provider provider
+                                       :hash (sutils/munge-hash-for-storage package-hash)})
+                                    rows)
+                       :returning [:id]}
+                      hsql/format
+                      (nxt/plan (sql/get-connection jdbc/*db*))))
+        ;; Insert all in batches while constructing one result vector ids
+        new-ids (persistent! (reduce
+                              (fn conj-batch [ids batch]
+                                (reduce (fn conj-row [ids row] (conj! ids (:id row)))
+                                        ids (insert batch)))
+                              (transient [])
+                              (partition-all 1000 needed)))]
+    (merge existing-hashes-map (zipmap (map pkg-util/package-tuple-hash needed)
+                                       new-ids))))
 
 (s/defn update-packages
   "Compares `inventory` to the stored package inventory for
