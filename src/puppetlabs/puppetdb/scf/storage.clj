@@ -23,7 +23,6 @@
    [clojure.java.jdbc :as sql]
    [clojure.string :as str]
    [clojure.tools.logging :as log]
-   [com.rpl.specter :as sp]
    [honey.sql :as hsql]
    [metrics.counters :refer [counter inc! value]]
    [metrics.gauges :refer [gauge-fn]]
@@ -1515,7 +1514,7 @@
         last-record (atom nil)]
     (try
       (->> resource-events
-           (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+           (map #(update % :containment_path (fn [x] (some-> x sutils/to-jdbc-varchar-array))))
            (map adjust-event)
            (map add-event-hash)
            ;; ON CONFLICT does *not* work properly in partitions, see:
