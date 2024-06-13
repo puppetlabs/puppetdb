@@ -1512,11 +1512,11 @@
            (map #(update % :containment_path (fn [x] (some-> x sutils/to-jdbc-varchar-array))))
            (map adjust-event)
            (map add-event-hash)
+           (filter-expired-resources ttl)
            ;; ON CONFLICT does *not* work properly in partitions, see:
            ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
            ;; section 5.10.6
            remove-dupes
-           (filter-expired-resources ttl)
            (map #(reset! last-record %))
            (jdbc/insert-multi! :resource_events)
            dorun)
