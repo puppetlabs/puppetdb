@@ -1491,35 +1491,21 @@
   (time/after? (org.joda.time.DateTime. timestamp)
                (.minus (now) resource-events-ttl)))
 
-(defn filter-expired-resources
-   [resource-events-ttl resource-list]
-   (if resource-events-ttl
-     (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
-   resource-list))
-
 (defn insert-resource-events [certname cert-id report-id resource-events ttl]
-  (let [adjust-event #(-> (maybe-corrective-change %)
-                          (assoc :report_id report-id :certname_id cert-id))
-        ;; this cannot be merged with the function above, because the
-        ;; report-id field *has* to exist first
-        add-event-hash #(assoc % :event_hash (-> (shash/resource-event-identity-pkey %)
-                                                 (sutils/munge-hash-for-storage)))
-        ;; group by the hash, and choose the oldest (aka first) of any duplicates.
-        remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))
+  (let [xf (comp (map #(assoc % :report_id report-id :certname_id cert-id))
+                 ;; resource-event-identity-pkey requires :report_id
+                 (map #(assoc % :event_hash (-> (shash/resource-event-identity-pkey %)
+                                                (sutils/munge-hash-for-storage))))
+                 (map #(update % :containment_path (fn [x] (some-> x sutils/to-jdbc-varchar-array)))))
+        xf (cond-> xf
+             ttl (comp (filter #(resource-event-expired? (:timestamp %) ttl)))
+             (not @store-corrective-change?) (comp (map #(dissoc % :corrective_change))))
+        ;; group by the hash, and choose oldest (aka first) of any duplicates
+        rows (->> (sequence xf resource-events) (group-by :event_hash)
+                  vals (sort-by :timestamp) (map first))
         last-record (atom nil)]
     (try
-      (->> resource-events
-           (map #(update % :containment_path (fn [x] (some-> x sutils/to-jdbc-varchar-array))))
-           (map adjust-event)
-           (map add-event-hash)
-           (filter-expired-resources ttl)
-           ;; ON CONFLICT does *not* work properly in partitions, see:
-           ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-           ;; section 5.10.6
-           remove-dupes
-           (map #(reset! last-record %))
-           (jdbc/insert-multi! :resource_events)
-           dorun)
+      (jdbc/insert-multi! :resource_events (map #(reset! last-record %) rows))
       (catch SQLException ex
         (handle-resource-insert-sql-ex ex certname @last-record)))))
 
