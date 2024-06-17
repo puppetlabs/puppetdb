@@ -30,6 +30,7 @@
    [metrics.histograms :refer [histogram update!]]
    [metrics.timers :refer [timer time!]]
    [murphy :refer [try!]]
+   [next.jdbc :as nxt]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.catalogs :as cat]
@@ -265,10 +266,13 @@
 (pls/defn-validated ensure-certname
   "Adds the given host to the db iff it isn't already there."
   [certname :- String]
-  (jdbc/insert-multi! :certnames [{:certname certname}]
-                      {:on-conflict "do nothing"})
-  (jdbc/insert-multi! :certnames_status [{:certname certname}]
-                      {:on-conflict "do nothing"}))
+  (let [c (jdbc/connection)]
+    (->> {:insert-into :certnames :columns [:certname] :values [[[:inline certname]]]
+          :on-conflict [] :do-nothing true}
+         hsql/format (nxt/execute! c))
+    (->> {:insert-into :certnames-status :values [[[:inline certname]]]
+          :on-conflict [] :do-nothing true}
+         hsql/format (nxt/execute! c))))
 
 (defn delete-certname!
   "Delete the given host from the db"
@@ -1194,19 +1198,18 @@
 
 (defn realize-paths
   "Ensures that every path in the pathmaps has a corresponding row in
-  fact_paths, and returns either nil, if pathmaps is empty, or a
-  fingerprint of the paths if hash? is true."
-  ([pathmaps] (realize-paths pathmaps identity))
+  fact_paths."
+  ([pathmaps] (realize-paths pathmaps nil))
   ([pathmaps notice-pathmap]
-   (let [path-array-conversion #(->> (map str %)
-                                     (sutils/array-to-param "text" String))]
-     (when (seq pathmaps)
-       (->> pathmaps
-            (map notice-pathmap)
-            (map #(update % :path_array path-array-conversion))
-            (partition-all path-insertion-chunk-size)
-            (map #(jdbc/insert-multi! :fact_paths % {:on-conflict "do nothing"}))
-            dorun)))))
+   (let [path->array #(sutils/array-to-param "text" String (map str %))
+         pm->row (if notice-pathmap
+                   #(update (notice-pathmap %) :path_array path->array)
+                   #(update % :path_array path->array))]
+     (doseq [batch (partition-all 1000 pathmaps)]
+       (->> {:insert-into :fact_paths
+             :values (map pm->row batch)
+             :on-conflict [] :do-nothing true}
+            hsql/format (nxt/execute! (jdbc/connection)))))))
 
 (defn hash-pathmaps-paths [pathmaps]
   (let [digest (MessageDigest/getInstance "SHA-1")]
