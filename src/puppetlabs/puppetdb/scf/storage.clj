@@ -18,43 +18,44 @@
    The standard set of operations on information in the database will
    likely result in dangling resources and catalogs; to clean these
    up, it's important to run `garbage-collect!`."
-  (:require [murphy :refer [try!]]
-            [puppetlabs.puppetdb.catalogs :as cat]
-            [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [com.rpl.specter :as sp]
-            [clojure.java.jdbc :as sql]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [clojure.data :as data]
-            [puppetlabs.puppetdb.scf.hash :as shash]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :as utils
-             :refer [env-config-for-db-ulong with-noisy-failure]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
-            [puppetlabs.puppetdb.utils.metrics :as mutils]
-            [metrics.counters :refer [counter inc! value]]
-            [metrics.gauges :refer [gauge-fn]]
-            [metrics.histograms :refer [histogram update!]]
-            [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [do-hsql query-to-vec]]
-            [puppetlabs.puppetdb.time :as time
-             :refer [ago now to-timestamp from-sql-date before?]]
-
-            [honey.sql :as hsql]
-            [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.package-util :as pkg-util]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.scf.partitioning :as partitioning])
-  (:import [java.security MessageDigest]
-           [java.util Arrays]
-           [org.postgresql.util PGobject]
-           [org.joda.time Period]
-           [java.sql SQLException Timestamp]
-           (java.time ZoneId ZonedDateTime)))
+  (:require
+   [clojure.data :as data]
+   [clojure.java.jdbc :as sql]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [com.rpl.specter :as sp]
+   [honey.sql :as hsql]
+   [metrics.counters :refer [counter inc! value]]
+   [metrics.gauges :refer [gauge-fn]]
+   [metrics.histograms :refer [histogram update!]]
+   [metrics.timers :refer [timer time!]]
+   [murphy :refer [try!]]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.catalogs :as cat]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
+   [puppetlabs.puppetdb.jdbc :as jdbc :refer [do-hsql query-to-vec]]
+   [puppetlabs.puppetdb.metrics.core :as metrics]
+   [puppetlabs.puppetdb.package-util :as pkg-util]
+   [puppetlabs.puppetdb.reports :as reports]
+   [puppetlabs.puppetdb.scf.hash :as shash]
+   [puppetlabs.puppetdb.scf.partitioning :as partitioning]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+   [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
+   [puppetlabs.puppetdb.time :as time
+    :refer [ago now to-timestamp from-sql-date before?]]
+   [puppetlabs.puppetdb.utils :as utils
+    :refer [env-config-for-db-ulong with-noisy-failure]]
+   [puppetlabs.puppetdb.utils.metrics :as mutils]
+   [schema.core :as s])
+  (:import
+   (java.security MessageDigest)
+   (java.sql SQLException Timestamp)
+   (java.time ZoneId ZonedDateTime)
+   (java.util Arrays)
+   (org.joda.time Period)
+   (org.postgresql.util PGobject)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
