@@ -1,15 +1,16 @@
 (ns puppetlabs.puppetdb.jdbc
   "Database utilities"
-  (:require [clojure.java.jdbc :as sql]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [honey.sql :as hsql]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.time :as pl-time :refer [ephemeral-now-ns]]
-            [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
-            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]])
+  (:require
+   [clojure.java.jdbc :as sql]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [honey.sql :as hsql]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
+   [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
+   [puppetlabs.puppetdb.time :as pl-time :refer [ephemeral-now-ns]]
+   [schema.core :as s])
   (:import
    (clojure.lang ExceptionInfo)
    (com.zaxxer.hikari HikariDataSource HikariConfig)
