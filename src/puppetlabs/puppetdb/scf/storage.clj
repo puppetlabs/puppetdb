@@ -259,9 +259,12 @@
 (defn add-certnames
   "Inserts the collection of certnames."
   [certnames]
-  (let [r (jdbc/insert-multi! :certnames [:certname] (map vector certnames))] 
-    (jdbc/insert-multi! :certnames_status [:certname] (map vector certnames))
-    r))
+  (let [c (jdbc/connection)]
+    (doseq [batch (partition-all 1000 (map vector certnames))]
+      (->> {:insert-into :certnames :columns [:certname] :values batch}
+           hsql/format (nxt/execute! c))
+      (->> {:insert-into :certnames_status :columns [:certname] :values batch}
+           hsql/format (nxt/execute! c)))))
 
 (pls/defn-validated ensure-certname
   "Adds the given host to the db iff it isn't already there."
