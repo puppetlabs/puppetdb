@@ -1,11 +1,12 @@
 (ns puppetlabs.puppetdb.query.population-test
-  (:require [puppetlabs.puppetdb.query.population :as pop]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.storage :refer [add-certnames deactivate-node!]]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.time :refer [now to-timestamp]]))
+  (:require
+   [clojure.test :refer :all]
+   [puppetlabs.puppetdb.jdbc :as jdbc :refer [with-db-transaction]]
+   [puppetlabs.puppetdb.query.population :as pop]
+   [puppetlabs.puppetdb.scf.storage :refer [add-certnames deactivate-node!]]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
+   [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+   [puppetlabs.puppetdb.time :refer [now to-timestamp]]))
 
 (deftest resource-count
   (with-test-db
@@ -15,7 +16,7 @@
         (is (= 0 (pop/num-resources))))
 
       (testing "should only count current resources"
-        (add-certnames ["h1" "h2"])
+        (with-db-transaction [] (add-certnames ["h1" "h2"]))
         (let [certname-ids (into {} (map (juxt :certname :id)) (jdbc/query-to-vec "SELECT certname, id from certnames"))
               h1-cert-id (get certname-ids "h1")
               h2-cert-id (get certname-ids "h2")]
@@ -55,7 +56,7 @@
         (is (= 0 (pop/num-active-nodes))))
 
       (testing "should only count active nodes"
-        (add-certnames ["h1" "h2"])
+        (with-db-transaction [] (add-certnames ["h1" "h2"]))
 
         (is (= 2 (pop/num-active-nodes)))
 
@@ -71,7 +72,7 @@
         (is (= 0 (pop/pct-resource-duplication))))
 
       (testing "should equal (total-unique) / total"
-        (add-certnames ["h1" "h2"])
+        (with-db-transaction [] (add-certnames ["h1" "h2"]))
         (let [certname-ids (into {} (map (juxt :certname :id)) (jdbc/query-to-vec "SELECT certname, id from certnames"))
               h1-cert-id (get certname-ids "h1")
               h2-cert-id (get certname-ids "h2")]
