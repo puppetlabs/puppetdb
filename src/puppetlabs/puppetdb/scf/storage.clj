@@ -609,13 +609,6 @@
   "Returns true of the map is a resource reference"
   (every-pred :type :title))
 
-(defn convert-tags-array
-  "Converts the given tags (if present) to the format the database expects"
-  [resource]
-  (if (contains? resource :tags)
-    (update-in resource [:tags] sutils/to-jdbc-varchar-array)
-    resource))
-
 (defn handle-resource-insert-sqlexception
   "Handles a java.sql.SQLException encountered while inserting of a
   resource. This may occur when the inserted resource has a value too
@@ -663,15 +656,14 @@
                      :as resource}
                     (get refs-to-resources resource-ref)]
                 (reset! last-record resource)
-                (convert-tags-array
-                 {:certname_id certname-id
-                  :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
-                  :type type
-                  :title title
-                  :tags tags
-                  :exported exported
-                  :file file
-                  :line line})))
+                {:certname_id certname-id
+                 :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
+                 :type type
+                 :title title
+                 :tags (sutils/to-jdbc-varchar-array tags)
+                 :exported exported
+                 :file file
+                 :line line}))
             refs-to-insert))
       (catch SQLException ex
         (let [{:keys [file line]} @last-record]
@@ -752,7 +744,9 @@
       ;; deleting/inserting, not updating.  So omit the related
       ;; catch.
       (jdbc/update! :catalog_resources
-                    (convert-tags-array updates)
+                    (if (contains? updates :tags)
+                      (update updates :tags sutils/to-jdbc-varchar-array)
+                      updates)
                     ["certname_id = ? and type = ? and title = ?"
                      certname-id type title]))))
 
