@@ -236,8 +236,8 @@
                                        (schema.core/set-fn-validation! true))]}
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk18on]]
                               :plugins [[jonase/eastwood "0.3.14"
-                                         :exclusions [org.clojure/clojure]]
-                                        ]}]
+                                         :exclusions [org.clojure/clojure]]]
+                              :jvm-opts ~(conj pdb-jvm-opts "-XX:-OmitStackTraceInFastThrow")}]
 
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
