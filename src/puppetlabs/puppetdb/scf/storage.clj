@@ -1365,20 +1365,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
 
-(defn update-latest-report!
-  "Given a node name, updates the `certnames` table to ensure that it indicates the
-   most recent report for the node."
-  [node report-id producer-timestamp]
-  {:pre [(string? node) (integer? report-id)]}
-
-  (jdbc/update! :certnames
-                {:latest_report_id report-id
-                 :latest_report_timestamp producer-timestamp}
-                [(str "certname = ?"
-                      " AND ( latest_report_timestamp < ?"
-                      "      OR latest_report_timestamp is NULL )")
-                 node producer-timestamp]))
-
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
   [containment-path]
@@ -1460,6 +1446,15 @@
      (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
    resource-list))
 
+(defn latest-report-ts
+ "Return the latest report timestamp for the given certname"
+ [certname]
+ (some-> ["SELECT producer_timestamp from reports_latest where certname = ?"
+          certname]
+         query-to-vec
+         first
+         :producer_timestamp))
+
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1467,6 +1462,7 @@
   scenarios."
   [orig-report :- reports/report-wireformat-schema
    received-timestamp :- pls/WireTimestamp
+   ;; FIXME remove?
    update-latest-report? :- s/Bool
    save-event? :- s/Bool
    options-config]
@@ -1485,10 +1481,10 @@
                        seq)
                  {:status :duplicate :hash report-hash}
                  (let [certname-id (certname-id certname)
+                       latest-ts (latest-report-ts certname)
+                       latest (or (nil? latest-ts)
+                                  (.after producer_timestamp latest-ts))
                        resource-events-ttl (get options-config :resource-events-ttl)
-                       table-name (str "reports_" (-> producer_timestamp
-                                                      (partitioning/to-zoned-date-time)
-                                                      (partitioning/date-suffix)))
                        row-map {:hash shash
                                 :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
                                 :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
@@ -1512,12 +1508,18 @@
                                 :receive_time (to-timestamp received-timestamp)
                                 :environment_id (ensure-environment environment)
                                 :status_id (ensure-status status)
-                                :report_type (or type "agent")}
+                                :report_type (or type "agent")
+                                :latest latest}
+                       _ (when latest ;; TODO should we exclude plans here? would need to do it by latest boolean
+                           ;; Mark existing latest report as historical
+                           ;; TODO what if this needs to create a partition?
+                           (jdbc/update! "reports" {:latest false} ["latest = true and certname = ?" certname]))
+
                        [{report-id :id}] (->> row-map
                                               maybe-environment
                                               maybe-resources
                                               maybe-corrective-change
-                                              (jdbc/insert! table-name))]
+                                              (jdbc/insert! :reports))]
                    (when (and (seq resource_events) save-event?)
                      (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
                            adjust-event #(-> %
@@ -1549,8 +1551,6 @@
                          (catch SQLException ex
                            (let [{:keys [file line]} @last-record]
                              (handle-resource-insert-sqlexception ex certname file line))))))
-                   (when (and update-latest-report? (not= type "plan"))
-                     (update-latest-report! certname report-id producer_timestamp))
                    {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
@@ -1871,8 +1871,8 @@
                              "  union all (select producer_timestamp from factsets"
                              "               where certname = ?"
                              "               order by producer_timestamp desc limit 1)"
-                             "  union all (select latest_report_timestamp AS producer_timestamp from certnames"
-                             "               where certname = ? and latest_report_timestamp is not null)"
+                             "  union all (select producer_timestamp from reports_latest"
+                             "               where certname = ?)"
                              "  order by producer_timestamp desc"
                              "  limit 1")
                         (cons (repeat 3 certname))
