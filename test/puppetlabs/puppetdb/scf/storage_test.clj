@@ -26,7 +26,8 @@
    [puppetlabs.puppetdb.random :as random]
    [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
    [puppetlabs.puppetdb.scf.storage :as scf-storage
-    :refer [acquire-locks!
+    :refer [*note-add-params-insert*
+            acquire-locks!
             add-certname!
             add-facts!
             basic-diff
@@ -1168,8 +1169,7 @@
                                    ON certnames.id=cr.certname_id
                                    WHERE c.certname=?" certname))))
 
-        (tu/with-wrapped-fn-args [inserts jdbc/insert!
-                                  insert-multis jdbc/insert-multi!
+        (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
                                   deletes jdbc/delete!
                                   updates jdbc/update!]
 
@@ -1178,18 +1178,20 @@
                    (assoc old-metrics
                           :catalog-volatility (histogram storage-metrics-registry [(str (gensym))]))))
 
-          (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
-
           ;; 2 edge deletes
           ;; 2 edge inserts
           ;; 1 params insert
           ;; 1 params cache insert
           ;; 1 catalog_resource insert
           ;; 1 catalog_resource delete
+          (let [inserts (atom [])]
+            (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)]
+              (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
+              (= [:resource_params_cache :resource_params] (map :insert-into @inserts))))
+
           (is (= 8 (apply + (sample (:catalog-volatility @storage-metrics)))))
 
-          (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
-                     (table-args (concat @inserts @insert-multis))))
+          (is (sort= [:catalog_resources :edges] (table-args @insert-multis)))
 
           (is (= [:catalogs]
                  (table-args @updates)))
@@ -1234,25 +1236,27 @@
 
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))
 
-    (tu/with-wrapped-fn-args [inserts jdbc/insert!
-                              insert-multis jdbc/insert-multi!
+    (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
                               updates jdbc/update!
                               deletes jdbc/delete!]
-      (replace-catalog! (assoc-in catalog
-                              [:resources {:type "File" :title "/etc/foobar2"}]
-                              {:type "File"
-                               :title "/etc/foobar2"
-                               :exported   false
-                               :file       "/tmp/foo2"
-                               :line       20
-                               :tags       #{"file" "class" "foobar"}
-                               :parameters {:ensure "directory"
-                                            :group  "root"
-                                            :user   "root"}})
-                    old-date)
+      (let [inserts (atom [])]
+        (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
+                  *note-insert-catalog-resources-insert* #(do (swap! inserts conj %) %)]
+          (replace-catalog! (assoc-in catalog
+                                      [:resources {:type "File" :title "/etc/foobar2"}]
+                                      {:type "File"
+                                       :title "/etc/foobar2"
+                                       :exported false
+                                       :file "/tmp/foo2"
+                                       :line 20
+                                       :tags #{"file" "class" "foobar"}
+                                       :parameters {:ensure "directory"
+                                                    :group "root"
+                                                    :user "root"}})
+                            old-date))
+        (= [:resource_params_cache :resource_params] (map :insert-into @inserts)))
 
-      (is (sort= [:resource_params_cache :resource_params :catalog_resources]
-                 (table-args (concat @inserts @insert-multis))))
+      (is (= [:catalog_resources] (table-args @insert-multis)))
       (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
 
@@ -1467,21 +1471,22 @@
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
-      (tu/with-wrapped-fn-args [inserts jdbc/insert!
-                                insert-multis jdbc/insert-multi!
+      (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
                                 updates jdbc/update!
                                 deletes jdbc/delete!]
 
-        (replace-catalog! add-param-catalog yesterday)
-        (is (sort= [:catalogs :catalog_resources]
-                   (table-args @updates)))
+        (let [inserts (atom [])]
+          (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)]
+            (replace-catalog! add-param-catalog yesterday)
+            (= [:resource_params_cache :resource_params] (map :insert-into @inserts))))
+
+        (is (sort= [:catalogs :catalog_resources] (table-args @updates)))
 
         (is (empty? (remove-edge-changes @deletes)))
 
-        (is (sort= [:resource_params_cache :resource_params :edges]
-                   (->> (concat @inserts @insert-multis)
-                     (remove #(empty? (second %))) ;; remove inserts w/out rows
-                     table-args))))
+        (is (= [:edges]
+               ;; remove inserts w/out rows
+               (->> @insert-multis (remove #(empty? (second %))) table-args))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
 
