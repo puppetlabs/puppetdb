@@ -579,6 +579,9 @@
   (s/validate [{s/Keyword s/Any}] (vec (take 3 record-coll)))
   (jdbc/insert-multi! table record-coll))
 
+;; Test support
+(def ^:dynamic *note-add-params-insert* identity)
+
 (s/defn add-params!
   "Persists the new parameters found in `refs-to-resources` and populates the
    resource_params_cache."
@@ -590,20 +593,25 @@
 
     (update! (get-storage-metric :catalog-volatility) (* 2 (count new-params)))
 
-    (insert-records*
-     :resource_params_cache
-     (map (fn [[resource-hash params]]
-            {:resource (sutils/munge-hash-for-storage resource-hash)
-             :parameters (some-> params sutils/munge-jsonb-for-storage)})
-          new-params))
+    (doseq [batch (partition-all 1000 new-params)]
+      (->> {:insert-into :resource_params_cache
+            :columns [:resource :parameters]
+            :values (for [[resource-hash params] batch]
+                      [(sutils/munge-hash-for-storage resource-hash)
+                       (some-> params sutils/munge-jsonb-for-storage)])}
+           *note-add-params-insert* hsql/format (nxt/execute! (jdbc/connection))))
 
-    (insert-records*
-     :resource_params
-     (for [[resource-hash params] new-params
-           [k v] params]
-       {:resource (sutils/munge-hash-for-storage resource-hash)
-        :name (name k)
-        :value (sutils/db-serialize v)}))))
+    (doseq [batch (partition-all 1000 new-params)]
+      ;; The batch might only have one item with params {}.
+      (when-let [rows (seq (for [[resource-hash params] batch
+                                 [k v] params]
+                             [(sutils/munge-hash-for-storage resource-hash)
+                              (name k)
+                              (sutils/db-serialize v)]))]
+        (->> {:insert-into :resource_params
+              :columns [:resource :name :value]
+              :values rows}
+             *note-add-params-insert* hsql/format (nxt/execute! (jdbc/connection)))))))
 
 (def resource-ref?
   "Returns true of the map is a resource reference"
