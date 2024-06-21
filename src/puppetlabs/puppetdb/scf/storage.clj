@@ -746,14 +746,16 @@
 
       (update! (get-storage-metric :catalog-volatility) (count updated-resources))
 
-      (doseq [[{:keys [type title file line]} updated-cols] updated-resources]
-        (try
-          (jdbc/update! :catalog_resources
-                        (convert-tags-array updated-cols)
-                        ["certname_id = ? and type = ? and title = ?"
-                         certname-id type title])
-          (catch SQLException ex
-            (handle-resource-insert-sqlexception ex certname file line)))))))
+      (doseq [[{:keys [type title]} updates] updated-resources]
+        ;; This should never throw a :program-limit-exceeded exception
+        ;; because the type and title are the only values that could
+        ;; overflow an index, and if they've changed we'll be
+        ;; deleting/inserting, not updating.  So omit the related
+        ;; catch.
+        (jdbc/update! :catalog_resources
+                      (convert-tags-array updates)
+                      ["certname_id = ? and type = ? and title = ?"
+                       certname-id type title])))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
