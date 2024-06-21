@@ -858,23 +858,26 @@
 (def certname (:certname catalog))
 (def current-time (str (now)))
 
-(deftest-db exceeding-db-index-limit-produces-annotated-error
-  (add-certname! certname)
-  (let [bad-resource {:type "Class"
-                      :title (str/join "" (repeat 1000000 "yo"))
-                      :line 1337
-                      :exported false
-                      :file "badfile.txt"}]
-    (try
-      (replace-catalog!
-       (update catalog :resources
-               assoc {:type "Class" :title "updog"} bad-resource))
-      (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
-      (catch ExceptionInfo ex
-        (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
-        (is (re-matches
-             #"Failed to insert resource for basic\.catalogs\.com \(file: /tmp/foo, line: 10\).*"
-             (ex-message ex)))))))
+(deftest resource-key-too-big-for-pg-index
+  ;; postgres restricts the index key to 8191 bytes, logging, e.g
+  ;;   ERROR:  index row requires 22920 bytes, maximum size is 8191
+  (with-test-db
+    (add-certname! certname)
+    (let [rkey #(select-keys % [:type :title])
+          giant {:type "Class"
+                 :title (str/join "" (.repeat "yo" 1000000))
+                 :line 1337
+                 :exported false
+                 :file "badfile.txt"}]
+      (try
+        (replace-catalog!
+         (assoc-in catalog [:resources (rkey giant)] giant))
+        (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
+        (catch ExceptionInfo ex
+          (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
+          (is (re-matches
+               #"Failed to insert resource for basic\.catalogs\.com \(file: /tmp/foo, line: 10\).*"
+               (ex-message ex))))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
