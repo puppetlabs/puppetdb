@@ -6,7 +6,6 @@
             [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
             [schema.core :as s]
-            [clojure.data :as data]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
@@ -94,19 +93,6 @@
     (binding [*out* *err*] (flush))
     (catch Exception _ nil))
   (System/exit status))
-
-(pls/defn-validated diff-fn
-  "Run clojure.data/diff on `left` and `right`, calling `left-only-fn`, `right-only-fn` and `same-fn` with
-   the results of the call. Those functions should always receive a non-nil argument (though possibly empty)."
-  [left :- {s/Any s/Any}
-   right :- {s/Any s/Any}
-   left-only-fn :- pls/Function
-   right-only-fn :- pls/Function
-   same-fn :- pls/Function]
-  (let [[left-only right-only same] (data/diff (kitchensink/keyset left) (kitchensink/keyset right))]
-    (left-only-fn (or left-only #{}))
-    (right-only-fn (or right-only #{}))
-    (same-fn (or same #{}))))
 
 (def tar-item {(s/optional-key :msg) String
                :file-suffix [String]

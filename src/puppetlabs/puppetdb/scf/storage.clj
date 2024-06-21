@@ -632,66 +632,60 @@
        seq))
 
 (s/defn insert-catalog-resources!
-  "Returns a function that accepts a seq of ref keys to insert"
   [certname-id :- Long
    certname :- String
    refs-to-hashes :- {resource-ref-schema String}
-   refs-to-resources :- resource-ref->resource-schema]
-  (fn [refs-to-insert]
-    {:pre [(every? resource-ref? refs-to-insert)]}
-
-    (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
-    (when (and log-catalog-resource-changes?
-               (seq refs-to-insert))
-      (log/info (trs "Inserting new resources for certname {0}: {1}"
-                     certname
-                     (select-keys refs-to-hashes refs-to-insert))))
-    (let [last-record (atom nil)]
-      (try
-        (insert-records*
-         :catalog_resources
-         ;; The catch below, which is intended to handle index errors
-         ;; from the insert(s) expects that this code will not throw
-         ;; an unrelated :program-limit-exceeded-exception.
-         (map (fn [resource-ref]
-                (let [{:keys [type title exported tags file line]
-                       :as resource}
-                      (get refs-to-resources resource-ref)]
-                  (reset! last-record resource)
-                  (convert-tags-array
-                   {:certname_id certname-id
-                    :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
-                    :type type
-                    :title title
-                    :tags tags
-                    :exported exported
-                    :file file
-                    :line line})))
-              refs-to-insert))
-        (catch SQLException ex
-          (let [{:keys [file line]} @last-record]
-            (handle-resource-insert-sqlexception ex certname file line)))))))
+   refs-to-resources :- resource-ref->resource-schema
+   refs-to-insert]
+  (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
+  (when (and log-catalog-resource-changes?
+             (seq refs-to-insert))
+    (log/info (trs "Inserting new resources for certname {0}: {1}"
+                   certname
+                   (select-keys refs-to-hashes refs-to-insert))))
+  (let [last-record (atom nil)]
+    (try
+      (insert-records*
+       :catalog_resources
+       ;; The catch below, which is intended to handle index errors
+       ;; from the insert(s) expects that this code will not throw
+       ;; an unrelated :program-limit-exceeded-exception.
+       (map (fn [resource-ref]
+              (let [{:keys [type title exported tags file line]
+                     :as resource}
+                    (get refs-to-resources resource-ref)]
+                (reset! last-record resource)
+                (convert-tags-array
+                 {:certname_id certname-id
+                  :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
+                  :type type
+                  :title title
+                  :tags tags
+                  :exported exported
+                  :file file
+                  :line line})))
+            refs-to-insert))
+      (catch SQLException ex
+        (let [{:keys [file line]} @last-record]
+          (handle-resource-insert-sqlexception ex certname file line))))))
 
 (s/defn delete-catalog-resources!
-  "Returns a function accepts old catalog resources that should be deleted."
   [certname-id :- Long
    certname :- String
-   old-resources]
-  (fn [refs-to-delete]
-    {:pre [(every? resource-ref? refs-to-delete)]}
+   old-resources
+   refs-to-delete]
+  (update! (get-storage-metric :catalog-volatility) (count refs-to-delete))
 
-    (update! (get-storage-metric :catalog-volatility) (count refs-to-delete))
-
-    (when (and log-catalog-resource-changes?
-               (seq refs-to-delete))
-      (log/info (trs "Deleting resources for certname {0}: {1}"
-                     certname
-                     (pr-str (map #(select-keys % [:type :title :resource])
-                                  (vals (select-keys old-resources refs-to-delete)))))))
-    (doseq [{:keys [type title]} refs-to-delete]
-      (jdbc/delete! :catalog_resources
-                    ["certname_id = ? and type = ? and title = ?"
-                     certname-id type title]))))
+  (when (and log-catalog-resource-changes?
+             (seq refs-to-delete))
+    (log/info (trs "Deleting resources for certname {0}: {1}"
+                   certname
+                   (pr-str (map #(select-keys % [:type :title :resource])
+                                (vals (select-keys old-resources refs-to-delete)))))))
+  (doseq [{:keys [type title]} refs-to-delete]
+    (jdbc/delete! :catalog_resources
+                  ["certname_id = ? and type = ? and title = ?"
+                   certname-id type title])))
 
 (s/defn basic-diff
   "Basic diffing that returns only the keys/values of `right` whose values don't match those of `left`.
@@ -731,31 +725,28 @@
              refs-to-resources refs-to-resources))
 
 (s/defn update-catalog-resources!
-  "Returns a function accepting keys that were the same from the old resources and the new resources."
   [certname-id :- Long
    certname :- String
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources
-   old-resources]
+   old-resources
+   maybe-updated-refs]
+  (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
+        updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash certname)
+                               (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
 
-  (fn [maybe-updated-refs]
-    {:pre [(every? resource-ref? maybe-updated-refs)]}
-    (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
-          updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash certname)
-                                 (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
+    (update! (get-storage-metric :catalog-volatility) (count updated-resources))
 
-      (update! (get-storage-metric :catalog-volatility) (count updated-resources))
-
-      (doseq [[{:keys [type title]} updates] updated-resources]
-        ;; This should never throw a :program-limit-exceeded exception
-        ;; because the type and title are the only values that could
-        ;; overflow an index, and if they've changed we'll be
-        ;; deleting/inserting, not updating.  So omit the related
-        ;; catch.
-        (jdbc/update! :catalog_resources
-                      (convert-tags-array updates)
-                      ["certname_id = ? and type = ? and title = ?"
-                       certname-id type title])))))
+    (doseq [[{:keys [type title]} updates] updated-resources]
+      ;; This should never throw a :program-limit-exceeded exception
+      ;; because the type and title are the only values that could
+      ;; overflow an index, and if they've changed we'll be
+      ;; deleting/inserting, not updating.  So omit the related
+      ;; catch.
+      (jdbc/update! :catalog_resources
+                    (convert-tags-array updates)
+                    ["certname_id = ? and type = ? and title = ?"
+                     certname-id type title]))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
@@ -772,14 +763,15 @@
   (let [old-resources (catalog-resources certname-id)
         diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
-     (add-params! refs-to-resources refs-to-hashes)
-     (utils/diff-fn old-resources
-                    diffable-resources
-                    (delete-catalog-resources! certname-id certname old-resources)
-                    (insert-catalog-resources! certname-id certname refs-to-hashes
-                                               diffable-resources)
-                    (update-catalog-resources! certname-id certname refs-to-hashes
-                                               diffable-resources old-resources)))))
+      (add-params! refs-to-resources refs-to-hashes)
+      (let [[deletes inserts updates] (data/diff (-> old-resources keys set)
+                                                 (-> diffable-resources keys set))]
+        (delete-catalog-resources! certname-id certname old-resources (or deletes #{}))
+        (insert-catalog-resources! certname-id certname refs-to-hashes
+                                   diffable-resources (or inserts #{}))
+        (update-catalog-resources! certname-id certname refs-to-hashes
+                                   diffable-resources old-resources
+                                   (or updates #{}))))))
 
 (s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -854,19 +846,17 @@
   [certname :- String
    edges :- #{edge-schema}
    refs-to-hashes :- {resource-ref-schema String}]
-
   (let [new-edges (zipmap
                    (for [{:keys [source target relationship]} edges
                          :let [source-hash (refs-to-hashes source)
                                target-hash (refs-to-hashes target)
                                type        (name relationship)]]
                      [source-hash target-hash type])
-                   (repeat nil))]
-    (utils/diff-fn new-edges
-                   (catalog-edges-map certname)
-                   #(insert-edges! certname %)
-                   #(delete-edges! certname %)
-                   identity)))
+                   (repeat nil))
+        edge-keys (-> certname catalog-edges-map keys set)
+        [inserts deletes _] (data/diff (-> new-edges keys set) edge-keys)]
+    (insert-edges! certname (or inserts #{}))
+    (delete-edges! certname (or deletes #{}))))
 
 (s/defn update-existing-catalog
   "When a new incoming catalog has the same hash as an existing catalog, update
