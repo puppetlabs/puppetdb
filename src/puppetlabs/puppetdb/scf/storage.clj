@@ -746,14 +746,20 @@
 
       (update! (get-storage-metric :catalog-volatility) (count updated-resources))
 
-      (doseq [[{:keys [type title file line]} updated-cols] updated-resources]
+      (doseq [[{:keys [type title] :as ref} updates] updated-resources]
         (try
+          ;; REVIEW: is it even possible to throw an index exception
+          ;; here?  i.e. if the type and title are the only things
+          ;; that could overflow an index, and if they've changed,
+          ;; then would that be a delete/insert, not an update, and so
+          ;; we wouldn't be here?
           (jdbc/update! :catalog_resources
-                        (convert-tags-array updated-cols)
+                        (convert-tags-array updates)
                         ["certname_id = ? and type = ? and title = ?"
                          certname-id type title])
           (catch SQLException ex
-            (handle-resource-insert-sqlexception ex certname file line)))))))
+            (let [{:keys [file line]} (refs-to-resources ref)]
+              (handle-resource-insert-sqlexception ex certname file line))))))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
