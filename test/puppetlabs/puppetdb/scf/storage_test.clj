@@ -8,7 +8,8 @@
    [puppetlabs.puppetdb.facts :as facts]
    [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
    [clojure.walk :as walk]
-   [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils
+    :refer [munge-hash-for-storage]]
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.testutils :as tu]
    [puppetlabs.puppetdb.testutils.db
@@ -28,6 +29,7 @@
    [puppetlabs.puppetdb.scf.storage :as scf-storage
     :refer [*note-add-params-insert*
             *note-insert-catalog-resources-insert*
+            *note-insert-edges-insert*
             acquire-locks!
             add-certname!
             add-facts!
@@ -1044,13 +1046,24 @@
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
       ;; operations
-      (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
-                                deletes jdbc/delete!]
-        (let [resources    (:resources modified-catalog)
+      (tu/with-wrapped-fn-args [deletes jdbc/delete!]
+        (let [resources (:resources modified-catalog)
               refs-to-hash (reduce-kv (fn [i k v]
                                         (assoc i k (shash/resource-identity-hash v)))
-                                      {} resources)]
-          (replace-edges! certname modified-edges refs-to-hash)
+                                      {} resources)
+              inserts (atom [])]
+          (binding [*note-insert-edges-insert* #(do (swap! inserts conj %) %)]
+            (jdbc/with-db-transaction []
+              (replace-edges! certname modified-edges refs-to-hash))
+            (testing "should only insert the 1 edge"
+              (is (= [{:insert-into :edges,
+                       :values
+                       [{:certname "basic.catalogs.com",
+                         :source (munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
+                         :target (munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
+                         :type "before"}]}]
+                     @inserts))))
+
           (testing "ensure catalog-edges-map returns a predictable value"
             (is (= (catalog-edges-map certname)
                    {["ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
@@ -1075,20 +1088,15 @@
                                (sutils/bytea-escape target-hash)
                                "contains"]]]
                      @deletes))))
-          (testing "should only insert the 1 edge"
-            (is (= [[:edges [{:certname "basic.catalogs.com"
-                             :source (sutils/munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
-                             :target (sutils/munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
-                             :type "before"}]]]
-                   @insert-multis)))
-          (testing "when reran to check for idempotency"
-            (reset! insert-multis [])
+          (testing "when rerun to check for idempotency"
             (reset! deletes [])
-            (replace-edges! certname modified-edges refs-to-hash)
+            (let [inserts (atom [])]
+              (binding [*note-insert-edges-insert* #(do (swap! inserts conj %) %)]
+                (replace-edges! certname modified-edges refs-to-hash))
+              (testing "should insert no edges"
+                (is (empty? @inserts))))
             (testing "should delete no edges"
-              (is (empty? @deletes)))
-            (testing "should insert no edges"
-              (is (empty? @insert-multis)))))))))
+              (is (empty? @deletes)))))))))
 
 (deftest-db catalog-duplicates
   (testing "should share structure when duplicate catalogs are detected for the same host"
@@ -1503,22 +1511,18 @@
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
-      (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
-                                updates jdbc/update!
+      (tu/with-wrapped-fn-args [updates jdbc/update!
                                 deletes jdbc/delete!]
 
         (let [inserts (atom [])]
-          (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)]
+          (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
+                    *note-insert-edges-insert* #(do (swap! inserts conj %) %)]
             (replace-catalog! add-param-catalog yesterday)
-            (is (= [:resource_params_cache :resource_params] (map :insert-into @inserts)))))
+            (is (= [:resource_params_cache :resource_params :edges]
+                   (map :insert-into @inserts)))))
 
         (is (sort= [:catalogs :catalog_resources] (table-args @updates)))
-
-        (is (empty? (remove-edge-changes @deletes)))
-
-        (is (= [:edges]
-               ;; remove inserts w/out rows
-               (->> @insert-multis (remove #(empty? (second %))) table-args))))
+        (is (empty? (remove-edge-changes @deletes))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
 

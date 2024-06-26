@@ -842,6 +842,9 @@
                    (sutils/bytea-escape target)
                    type])))
 
+;; Test support
+(def ^:dynamic *note-insert-edges-insert* identity)
+
 (s/defn insert-edges!
   "Insert edges for a given certname.
 
@@ -851,18 +854,19 @@
     [[<source> <target> <type>] ...]"
   [certname :- String
    edges :- edge-db-schema]
-
-  ;; Insert rows will not safely accept a nil, so abandon this operation
-  ;; earlier.
-  (when (seq edges)
-    (let [rows (for [[source target type] edges]
-                 {:certname certname
-                  :source (sutils/munge-hash-for-storage source)
-                  :target (sutils/munge-hash-for-storage target)
-                  :type type})]
-
-      (update! (get-storage-metric :catalog-volatility) (count rows))
-      (jdbc/insert-multi! :edges rows))))
+  (let [counts (for [batch (partition-all 1000 edges)]
+                 (let [rows (mapv (fn [[source target type]]
+                                    {:certname certname
+                                     :source (sutils/munge-hash-for-storage source)
+                                     :target (sutils/munge-hash-for-storage target)
+                                     :type type})
+                                  batch)]
+                   (->> {:insert-into :edges :values rows}
+                        *note-insert-edges-insert* hsql/format
+                        (nxt/execute! (jdbc/connection))
+                        first ::nxt/update-count)))]
+    (update! (get-storage-metric :catalog-volatility) (reduce + counts))
+    nil))
 
 (s/defn replace-edges!
   "Persist the given edges in the database
