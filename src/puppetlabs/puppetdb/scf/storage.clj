@@ -1151,10 +1151,11 @@
                                        (sutils/munge-hash-for-storage new-package-hash))}
                       ["id=?" certname_id])
 
-        (when (seq new-package-ids)
-          (jdbc/insert-multi! :certname_packages
-                              ["certname_id" "package_id"]
-                              (map #(vector certname_id %) new-package-ids)))
+        (doseq [id-batch (partition-all 1000 new-package-ids)]
+          (->> {:insert-into :certname_packages
+                :columns [:certname_id :package_id]
+                :values (map #(vector certname_id %) id-batch)}
+               hsql/format (nxt/execute! (jdbc/connection))))
 
         (when (seq old-package-ids)
 
@@ -1184,10 +1185,12 @@
                   {:package_hash (sutils/munge-hash-for-storage new-packageset-hash)}
                   ["id=?" certname-id])
 
-    (jdbc/insert-multi! :certname_packages
-                        ["certname_id" "package_id"]
-                        (map (fn [package-id] [certname-id package-id])
-                             (vals full-hashes-map)))))
+    (doseq [batch (partition-all 1000 (for [pkg-id (vals full-hashes-map)]
+                                        [certname-id pkg-id]))]
+      (->> {:insert-into :certname_packages
+            :columns [:certname_id :package_id]
+            :values batch}
+           hsql/format (nxt/execute! (jdbc/connection))))))
 
 
 ;;; JSONB facts
