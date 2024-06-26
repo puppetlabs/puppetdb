@@ -987,12 +987,12 @@
 
 (defn store-catalog-inputs!
   [certid inputs]
-    (jdbc/insert-multi! :catalog_inputs
-                        [:certname_id :type :name]
-                        (sequence (comp
-                                   (map #(apply vector certid %))
-                                   (distinct))
-                                  inputs)))
+  (doseq [batch (partition-all 1000 inputs)]
+    (->> {:insert-into :catalog_inputs
+          :columns [:certname_id :type :name]
+          :values (sequence (comp (map #(apply vector certid %)) (distinct))
+                            batch)}
+         hsql/format (nxt/execute! (jdbc/connection)))))
 
 (defn update-catalog-input-metadata!
   [certid catalog-uuid last-updated inputs-hash]
