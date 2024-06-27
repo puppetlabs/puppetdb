@@ -1434,29 +1434,7 @@
       (reverse containment-path)))))
 
 (def store-resources-column? (atom false))
-
-(defn maybe-resources
-  [row-map]
-  (if @store-resources-column?
-    row-map
-    (dissoc row-map :resources)))
-
 (def store-corrective-change? (atom false))
-
-(defn maybe-corrective-change
-  [row-map]
-  (if @store-corrective-change?
-    row-map
-    (dissoc row-map :corrective_change)))
-
-(defn maybe-environment
-  "This fn is most to help in testing, instead of persisting a value of
-  nil, just omit it from the row map. For tests that are running older versions
-  of migrations, this function prevents a failure"
-  [row-map]
-  (if (nil? (:environment_id row-map))
-    (dissoc row-map :environment_id)
-    row-map))
 
 (defn replace-null-bytes [x]
   (if-not (string? x)
@@ -1537,41 +1515,37 @@
             (let [certname-id (certname-id certname)
                   ttl (get options-config :resource-events-ttl)
                   table-name (str "reports_" (-> producer_timestamp
-                                                 (partitioning/to-zoned-date-time)
-                                                 (partitioning/date-suffix)))
-                  row-map {:hash shash
-                           :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
-                           :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
-                           :code_id code_id
-                           :job_id job_id
-                           :cached_catalog_status cached_catalog_status
-                           :metrics (sutils/munge-jsonb-for-storage metrics)
-                           :logs (sutils/munge-jsonb-for-storage logs)
-                           :resources (sutils/munge-jsonb-for-storage resources)
-                           :corrective_change corrective_change
-                           :noop noop
-                           :noop_pending noop_pending
-                           :puppet_version puppet_version
-                           :certname certname
-                           :report_format report_format
-                           :configuration_version configuration_version
-                           :producer_id (ensure-producer producer)
-                           :producer_timestamp producer_timestamp
-                           :start_time start_time
-                           :end_time end_time
-                           :receive_time (to-timestamp received-timestamp)
-                           :environment_id (ensure-environment environment)
-                           :status_id (ensure-status status)
-                           :report_type (or type "agent")}
-                  [{report-id :id}] (->> row-map
-                                         maybe-environment
-                                         maybe-resources
-                                         maybe-corrective-change
-                                         (jdbc/insert! table-name))]
+                                                 partitioning/to-zoned-date-time
+                                                 partitioning/date-suffix))
+                  row (cond-> {:hash shash
+                               :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                               :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
+                               :code_id code_id
+                               :job_id job_id
+                               :cached_catalog_status cached_catalog_status
+                               :metrics (sutils/munge-jsonb-for-storage metrics)
+                               :logs (sutils/munge-jsonb-for-storage logs)
+                               :noop noop
+                               :noop_pending noop_pending
+                               :puppet_version puppet_version
+                               :certname certname
+                               :report_format report_format
+                               :configuration_version configuration_version
+                               :producer_id (ensure-producer producer)
+                               :producer_timestamp producer_timestamp
+                               :start_time start_time
+                               :end_time end_time
+                               :receive_time (to-timestamp received-timestamp)
+                               :status_id (ensure-status status)
+                               :report_type (or type "agent")}
+                        environment (assoc :environment_id (ensure-environment environment))
+                        @store-resources-column? (assoc :resources (sutils/munge-jsonb-for-storage resources))
+                        @store-corrective-change? (assoc :corrective_change corrective_change))
+                  id (->> row (jdbc/insert! table-name) first :id)]
               (when (and (seq resource_events) save-event?)
-                (insert-resource-events certname certname-id report-id resource_events ttl))
+                (insert-resource-events certname certname-id id resource_events ttl))
               (when (and update-latest-report? (not= type "plan"))
-                (update-latest-report! certname report-id producer_timestamp))
+                (update-latest-report! certname id producer_timestamp))
               {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
