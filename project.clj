@@ -195,7 +195,7 @@
   :repositories ~pdb-repositories
 
   :plugins [[lein-release "1.1.3" :exclusions [org.clojure/clojure]]
-            [lein-cloverage "1.0.6"]
+            [lein-cloverage "1.2.4"]
             [lein-parent "0.3.7"]
             [puppetlabs/i18n ~i18n-version]]
 
