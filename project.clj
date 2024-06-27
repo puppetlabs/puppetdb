@@ -52,7 +52,7 @@
      [org.clojure/test.check "1.1.1"]
      [com.gfredericks/test.chuck "0.2.14"]
      [riddley "0.2.0"]
-     [io.forward/yaml "1.0.5"]
+     [clj-commons/clj-yaml "1.0.27"]
      [org.yaml/snakeyaml]
 
      ;; Only needed for :integration tests
