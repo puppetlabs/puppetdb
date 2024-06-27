@@ -132,7 +132,7 @@
   :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
-                 [org.clojure/core.match "0.3.0-alpha4"]
+                 [org.clojure/core.match "1.1.0"]
                  [org.clojure/core.memoize]
                  [org.clojure/data.generators "1.0.0"]
                  [org.clojure/java.jdbc]
