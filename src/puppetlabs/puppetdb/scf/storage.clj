@@ -1521,58 +1521,58 @@
    save-event? :- s/Bool
    options-config]
   (time! (get-storage-metric :store-report)
-         (let [{:keys [puppet_version certname report_format configuration_version producer
-                       producer_timestamp start_time end_time transaction_uuid environment
-                       status noop metrics logs resources resource_events catalog_uuid
-                       code_id job_id cached_catalog_status noop_pending corrective_change
-                       type]
-                :as report} (normalize-report orig-report)
-               report-hash (shash/report-identity-hash report)]
-           (jdbc/with-db-transaction []
-             (let [shash (sutils/munge-hash-for-storage report-hash)]
-               (if (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
-                       (query-to-vec report-hash)
-                       seq)
-                 {:status :duplicate :hash report-hash}
-                 (let [certname-id (certname-id certname)
-                       ttl (get options-config :resource-events-ttl)
-                       table-name (str "reports_" (-> producer_timestamp
-                                                      (partitioning/to-zoned-date-time)
-                                                      (partitioning/date-suffix)))
-                       row-map {:hash shash
-                                :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
-                                :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
-                                :code_id code_id
-                                :job_id job_id
-                                :cached_catalog_status cached_catalog_status
-                                :metrics (sutils/munge-jsonb-for-storage metrics)
-                                :logs (sutils/munge-jsonb-for-storage logs)
-                                :resources (sutils/munge-jsonb-for-storage resources)
-                                :corrective_change corrective_change
-                                :noop noop
-                                :noop_pending noop_pending
-                                :puppet_version puppet_version
-                                :certname certname
-                                :report_format report_format
-                                :configuration_version configuration_version
-                                :producer_id (ensure-producer producer)
-                                :producer_timestamp producer_timestamp
-                                :start_time start_time
-                                :end_time end_time
-                                :receive_time (to-timestamp received-timestamp)
-                                :environment_id (ensure-environment environment)
-                                :status_id (ensure-status status)
-                                :report_type (or type "agent")}
-                       [{report-id :id}] (->> row-map
-                                              maybe-environment
-                                              maybe-resources
-                                              maybe-corrective-change
-                                              (jdbc/insert! table-name))]
-                   (when (and (seq resource_events) save-event?)
-                     (insert-resource-events certname certname-id report-id resource_events ttl))
-                   (when (and update-latest-report? (not= type "plan"))
-                     (update-latest-report! certname report-id producer_timestamp))
-                   {:status :incorporated :hash report-hash})))))))
+    (let [{:keys [puppet_version certname report_format configuration_version producer
+                  producer_timestamp start_time end_time transaction_uuid environment
+                  status noop metrics logs resources resource_events catalog_uuid
+                  code_id job_id cached_catalog_status noop_pending corrective_change
+                  type]
+           :as report} (normalize-report orig-report)
+          report-hash (shash/report-identity-hash report)]
+      (jdbc/with-db-transaction []
+        (let [shash (sutils/munge-hash-for-storage report-hash)]
+          (if (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
+                  (query-to-vec report-hash)
+                  seq)
+            {:status :duplicate :hash report-hash}
+            (let [certname-id (certname-id certname)
+                  ttl (get options-config :resource-events-ttl)
+                  table-name (str "reports_" (-> producer_timestamp
+                                                 (partitioning/to-zoned-date-time)
+                                                 (partitioning/date-suffix)))
+                  row-map {:hash shash
+                           :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                           :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
+                           :code_id code_id
+                           :job_id job_id
+                           :cached_catalog_status cached_catalog_status
+                           :metrics (sutils/munge-jsonb-for-storage metrics)
+                           :logs (sutils/munge-jsonb-for-storage logs)
+                           :resources (sutils/munge-jsonb-for-storage resources)
+                           :corrective_change corrective_change
+                           :noop noop
+                           :noop_pending noop_pending
+                           :puppet_version puppet_version
+                           :certname certname
+                           :report_format report_format
+                           :configuration_version configuration_version
+                           :producer_id (ensure-producer producer)
+                           :producer_timestamp producer_timestamp
+                           :start_time start_time
+                           :end_time end_time
+                           :receive_time (to-timestamp received-timestamp)
+                           :environment_id (ensure-environment environment)
+                           :status_id (ensure-status status)
+                           :report_type (or type "agent")}
+                  [{report-id :id}] (->> row-map
+                                         maybe-environment
+                                         maybe-resources
+                                         maybe-corrective-change
+                                         (jdbc/insert! table-name))]
+              (when (and (seq resource_events) save-event?)
+                (insert-resource-events certname certname-id report-id resource_events ttl))
+              (when (and update-latest-report? (not= type "plan"))
+                (update-latest-report! certname report-id producer_timestamp))
+              {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
   "Takes a seq of maps containing information about PostgreSQL pids
