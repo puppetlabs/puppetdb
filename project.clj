@@ -133,7 +133,7 @@
                  [org.clojure/core.async]
                  [org.clojure/core.match "1.1.0"]
                  [org.clojure/core.memoize]
-                 [org.clojure/data.generators "1.0.0"]
+                 [org.clojure/data.generators "1.1.0"]
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/tools.namespace]
