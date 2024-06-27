@@ -196,7 +196,7 @@
 
   :plugins [[lein-release "1.1.3" :exclusions [org.clojure/clojure]]
             [lein-cloverage "1.2.4"]
-            [lein-parent "0.3.7"]
+            [lein-parent "0.3.9"]
             [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
