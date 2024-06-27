@@ -137,7 +137,7 @@
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/tools.namespace]
-                 [org.clojure/math.combinatorics "0.1.1"]
+                 [org.clojure/math.combinatorics "0.3.0"]
                  [org.clojure/tools.logging]
                  [org.clojure/tools.nrepl]
 
