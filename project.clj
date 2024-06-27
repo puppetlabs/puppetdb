@@ -51,7 +51,7 @@
      [org.flatland/ordered "1.15.12"]
      [org.clojure/test.check "1.1.1"]
      [com.gfredericks/test.chuck "0.2.14"]
-     [riddley "0.1.12"]
+     [riddley "0.2.0"]
      [io.forward/yaml "1.0.5"]
      [org.yaml/snakeyaml]
 
