@@ -289,7 +289,7 @@
                          ;; compile test files, and crashes because
                          ;; "src" namespaces aren't available.
                          :aot ^:replace []}
-             :ci {:plugins [[lein-pprint "1.1.1"]
+             :ci {:plugins [[lein-pprint "1.3.2"]
                             [lein-exec "0.3.7"]]}
              ; We only want to include bouncycastle in the FOSS uberjar.
              ; PE should be handled by selecting the proper bouncycastle jar
