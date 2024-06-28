@@ -323,7 +323,7 @@
              ;; with respect to defservice dependency methods, and
              ;; since there's no facility for more targeted overrides
              ;; yet, disable it for now.
-             :exclude-linters [:local-shadows-var]}
+             :exclude-linters [:local-shadows-var :reflection]}
 
   :aliases {"kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
