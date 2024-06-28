@@ -617,23 +617,51 @@
   "Returns true of the map is a resource reference"
   (every-pred :type :title))
 
-(defn handle-resource-insert-sqlexception
-  "Handles a java.sql.SQLException encountered while inserting of a
-  resource. This may occur when the inserted resource has a value too
-  big for a postgres btree index."
-  [ex certname file line]
+(defn handle-resource-insert-sql-ex
+  "Handles a SQLException encountered while inserting a resource. This
+  may occur when the inserted resource has a value too big for a
+  postgres btree index."
+  [^SQLException ex certname row-or-rows]
+  {:pre [(or (map? row-or-rows) (some-> (first row-or-rows) map?))]}
+
   (when-not (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex))
     (throw ex))
   (when-not (utils/leaf-error? ex)
     (throw ex))
-  (throw
-   (ex-info
-    (str
-     (trs "Failed to insert resource for {0} (file: {1}, line: {2})." certname file (str line))
-     (trs "  May indicate use of $facts[''my_fact''] instead of $'{'facts[''my_fact'']'}'. ({0})"
-          (.getMessage ex)))
-    {:kind ::resource-insert-limit-exceeded
-     :puppetlabs.puppetdb/known-error? true})))
+
+  ;; postgres 15.6: "index row requires ... bytes, maximum size is 8191"
+  (letfn [(row-size [row]
+            ;; Must cover all the relevant indexes
+            (+ (-> row :type (.getBytes "UTF-8") alength)
+               (-> row :title (.getBytes "UTF-8") alength)))
+          (elide [s] (if (< (count s) 16) s (subs s 0 (min 15 (count s)))))
+          ;; Might want to sort anyway, but sort for tests
+          (key-rank [k] (.indexOf [:file :line :type :title] k))
+          (locus-map [& args] (apply sorted-map-by #(compare (key-rank %1) (key-rank %2)) args))
+          (res-msg [{:keys [file line type title]}]
+            (if (and file line)
+              (pr-str (locus-map :file file :line line))
+              (pr-str (cond-> (locus-map)
+                        file (assoc :file file)
+                        line (assoc :line line)
+                        type (assoc :type (elide type))
+                        title (assoc :title (elide title))))))
+          (msg [rows]
+            (case (bounded-count 2 rows)
+              0 (trs "A catalog resource for certname {0} is too large" (pr-str certname))
+              1 (trs "A catalog resource for certname {0} is too large: {1}"
+                     (pr-str certname) (-> rows first res-msg))
+              (apply str
+                     (trs "A catalog resource for certname {0} is too large; suspects:"
+                          (pr-str certname))
+                     (map #(str " " (res-msg %)) (sort-by #(- (row-size %)) rows)))))]
+    (let [data {:kind ::resource-insert-limit-exceeded
+                :puppetlabs.puppetdb/known-error? true}]
+      (cond
+        (map? row-or-rows) (throw (ex-info (msg [row-or-rows]) data))
+        (not (second row-or-rows)) (throw (ex-info (msg row-or-rows) data))
+        :else (let [large (filter #(> (row-size %) 8000) row-or-rows)]
+                (throw (ex-info (msg large) data)))))))
 
 (def log-catalog-resource-changes?
   (->> (or (System/getenv "PDB_LOG_CATALOG_RESOURCE_CHANGES") "no")
@@ -674,8 +702,7 @@
                  :line line}))
             refs-to-insert))
       (catch SQLException ex
-        (let [{:keys [file line]} @last-record]
-          (handle-resource-insert-sqlexception ex certname file line))))))
+        (handle-resource-insert-sql-ex ex certname @last-record)))))
 
 (s/defn delete-catalog-resources!
   [certname-id :- Long
@@ -1548,8 +1575,7 @@
                               insert!
                               dorun)
                          (catch SQLException ex
-                           (let [{:keys [file line]} @last-record]
-                             (handle-resource-insert-sqlexception ex certname file line))))))
+                           (handle-resource-insert-sql-ex ex certname @last-record)))))
                    (when (and update-latest-report? (not= type "plan"))
                      (update-latest-report! certname report-id producer_timestamp))
                    {:status :incorporated :hash report-hash})))))))
