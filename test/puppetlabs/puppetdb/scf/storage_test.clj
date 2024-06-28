@@ -70,7 +70,8 @@
    [puppetlabs.puppetdb.time :as time
     :refer [ago days from-now now to-string to-timestamp]])
   (:import
-   (clojure.lang ExceptionInfo)))
+   (clojure.lang ExceptionInfo)
+   (java.sql SQLException)))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
@@ -859,6 +860,41 @@
 (def certname (:certname catalog))
 (def current-time (str (now)))
 
+(deftest resource-insert-exception-handler
+  (let [small {:type "Class" :title "yo" :file "small" :line 42}
+        large {:type "Class" :title (.repeat "yo" 10000) :file "large" :line 1337}
+        validate-data (fn [{:keys [kind] :as data}]
+                        (is (= ::scf-storage/resource-insert-limit-exceeded kind))
+                        (is (= true (:puppetlabs.puppetdb/known-error? data))))
+        ex-ex (SQLException. "?" (jdbc/sql-state :program-limit-exceeded))]
+    (testing "certain culprits"
+      (doseq [candidate [small [small]]]
+        (try
+          (scf-storage/handle-resource-insert-sql-ex ex-ex "foo" candidate)
+          (assert false "expected exception not thrown")
+          (catch ExceptionInfo ex
+            (-> ex ex-data validate-data)
+            (is (= "A catalog resource for certname \"foo\" is too large: {:file \"small\", :line 42}"
+                   (ex-message ex)))))))
+    (testing "no suspects"
+      (try
+        (scf-storage/handle-resource-insert-sql-ex ex-ex "foo" [small small])
+        (assert false "expected exception not thrown")
+        (catch ExceptionInfo ex
+          (-> ex ex-data validate-data)
+          (is (= "A catalog resource for certname \"foo\" is too large"
+                 (ex-message ex))))))
+    (testing "multiple suspects"
+      (try
+        (->> [large small (assoc large :file "large2")]
+             (scf-storage/handle-resource-insert-sql-ex ex-ex "foo"))
+        (assert false "expected exception not thrown")
+        (catch ExceptionInfo ex
+          (-> ex ex-data validate-data)
+          (is (= (str "A catalog resource for certname \"foo\" is too large;"
+                      " suspects: {:file \"large\", :line 1337} {:file \"large2\", :line 1337}")
+                 (ex-message ex))))))))
+
 (deftest resource-key-too-big-for-pg-index
   ;; postgres restricts the index key to 8191 bytes, logging, e.g
   ;;   ERROR:  index row requires 22920 bytes, maximum size is 8191
@@ -876,9 +912,8 @@
         (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
         (catch ExceptionInfo ex
           (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
-          (is (re-matches
-               #"Failed to insert resource for basic\.catalogs\.com \(file: /tmp/foo, line: 10\).*"
-               (ex-message ex))))))))
+          (is (= "A catalog resource for certname \"basic.catalogs.com\" is too large: {:file \"/tmp/foo\", :line 10}"
+                 (ex-message ex))))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
