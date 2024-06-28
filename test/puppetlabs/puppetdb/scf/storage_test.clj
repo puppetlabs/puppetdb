@@ -27,6 +27,7 @@
    [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
    [puppetlabs.puppetdb.scf.storage :as scf-storage
     :refer [*note-add-params-insert*
+            *note-insert-catalog-resources-insert*
             acquire-locks!
             add-certname!
             add-facts!
@@ -912,7 +913,7 @@
         (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
         (catch ExceptionInfo ex
           (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
-          (is (= "A catalog resource for certname \"basic.catalogs.com\" is too large: {:file \"/tmp/foo\", :line 10}"
+          (is (= "A catalog resource for certname \"basic.catalogs.com\" is too large: {:file \"badfile.txt\", :line 1337}"
                  (ex-message ex))))))))
 
 (deftest-db catalog-persistence
@@ -1204,8 +1205,7 @@
                                    ON certnames.id=cr.certname_id
                                    WHERE c.certname=?" certname))))
 
-        (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
-                                  deletes jdbc/delete!
+        (tu/with-wrapped-fn-args [deletes jdbc/delete!
                                   updates jdbc/update!]
 
           (swap! storage-metrics
@@ -1220,16 +1220,14 @@
           ;; 1 catalog_resource insert
           ;; 1 catalog_resource delete
           (let [inserts (atom [])]
-            (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)]
+            (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
+                      *note-insert-catalog-resources-insert* #(do (swap! inserts conj %) %)]
               (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
-              (= [:resource_params_cache :resource_params] (map :insert-into @inserts))))
+              (is (= [:resource_params_cache :resource_params :catalog_resources]
+                     (map :insert-into @inserts)))))
 
           (is (= 8 (apply + (sample (:catalog-volatility @storage-metrics)))))
-
-          (is (sort= [:catalog_resources :edges] (table-args @insert-multis)))
-
-          (is (= [:catalogs]
-                 (table-args @updates)))
+          (is (= [:catalogs] (table-args @updates)))
           (is (= [[:catalog_resources ["certname_id = ? and type = ? and title = ?"
                                        (-> @updates first (nth 2) second)
                                        "File" "/etc/foobar"]]]
@@ -1271,8 +1269,7 @@
 
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))
 
-    (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
-                              updates jdbc/update!
+    (tu/with-wrapped-fn-args [updates jdbc/update!
                               deletes jdbc/delete!]
       (let [inserts (atom [])]
         (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
@@ -1289,9 +1286,9 @@
                                                     :group "root"
                                                     :user "root"}})
                             old-date))
-        (= [:resource_params_cache :resource_params] (map :insert-into @inserts)))
+        (is (= [:resource_params_cache :resource_params :catalog_resources]
+               (map :insert-into @inserts))))
 
-      (is (= [:catalog_resources] (table-args @insert-multis)))
       (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
 
@@ -1513,7 +1510,7 @@
         (let [inserts (atom [])]
           (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)]
             (replace-catalog! add-param-catalog yesterday)
-            (= [:resource_params_cache :resource_params] (map :insert-into @inserts))))
+            (is (= [:resource_params_cache :resource_params] (map :insert-into @inserts)))))
 
         (is (sort= [:catalogs :catalog_resources] (table-args @updates)))
 
