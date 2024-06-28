@@ -42,7 +42,8 @@
    [puppetlabs.puppetdb.reports :as reports]
    [puppetlabs.puppetdb.scf.hash :as shash]
    [puppetlabs.puppetdb.scf.partitioning :as partitioning]
-   [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils
+    :refer [munge-hash-for-storage]]
    [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
    [puppetlabs.puppetdb.time :as time
     :refer [ago now to-timestamp from-sql-date before?]]
@@ -572,13 +573,6 @@
                    (assoc acc resource-hash parameters))))
              {} refs-to-resources))
 
-(s/defn insert-records*
-  "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
-  [table :- s/Keyword
-   record-coll]
-  (s/validate [{s/Keyword s/Any}] (vec (take 3 record-coll)))
-  (jdbc/insert-multi! table record-coll))
-
 ;; Test support
 (def ^:dynamic *note-add-params-insert* identity)
 
@@ -668,6 +662,9 @@
        (re-matches #"yes|true|1")
        seq))
 
+;; Test support
+(def ^:dynamic *note-insert-catalog-resources-insert* identity)
+
 (s/defn insert-catalog-resources!
   [certname-id :- Long
    certname :- String
@@ -680,29 +677,25 @@
     (log/info (trs "Inserting new resources for certname {0}: {1}"
                    certname
                    (select-keys refs-to-hashes refs-to-insert))))
-  (let [last-record (atom nil)]
-    (try
-      (insert-records*
-       :catalog_resources
-       ;; The catch below, which is intended to handle index errors
-       ;; from the insert(s) expects that this code will not throw
-       ;; an unrelated :program-limit-exceeded-exception.
-       (map (fn [resource-ref]
-              (let [{:keys [type title exported tags file line]
-                     :as resource}
-                    (get refs-to-resources resource-ref)]
-                (reset! last-record resource)
-                {:certname_id certname-id
-                 :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
-                 :type type
-                 :title title
-                 :tags (sutils/to-jdbc-varchar-array tags)
-                 :exported exported
-                 :file file
-                 :line line}))
-            refs-to-insert))
-      (catch SQLException ex
-        (handle-resource-insert-sql-ex ex certname @last-record)))))
+  (doseq [batch (partition-all 1000 refs-to-insert)]
+    (let [rows (mapv (fn [resource-ref]
+                       (let [{:keys [type title exported tags file line]}
+                             (get refs-to-resources resource-ref)]
+                         {:certname_id certname-id
+                          :resource (-> resource-ref refs-to-hashes munge-hash-for-storage)
+                          :type type
+                          :title title
+                          :tags (sutils/to-jdbc-varchar-array tags)
+                          :exported exported
+                          :file file
+                          :line line}))
+                     batch)
+          sql (-> {:insert-into :catalog_resources :values rows}
+                  *note-insert-catalog-resources-insert* hsql/format)]
+      (try
+        (nxt/execute! (jdbc/connection) sql)
+        (catch SQLException ex
+          (handle-resource-insert-sql-ex ex certname rows))))))
 
 (s/defn delete-catalog-resources!
   [certname-id :- Long
