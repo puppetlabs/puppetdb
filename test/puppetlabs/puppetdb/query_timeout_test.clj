@@ -6,7 +6,7 @@
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.config :as conf]
    [puppetlabs.puppetdb.jdbc :as jdbc]
-   [puppetlabs.puppetdb.query-eng :refer [diagnostic-inter-row-sleep]]
+   [puppetlabs.puppetdb.query-eng :refer [*diagnostic-inter-row-sleep*]]
    [puppetlabs.puppetdb.query.monitor :as qmon]
    [puppetlabs.puppetdb.random :refer [random-string]]
    [puppetlabs.puppetdb.scf.storage :refer [add-certnames]]
@@ -62,7 +62,7 @@
 (deftest http-parameter-timeouts
   (with-puppetdb {:to-config suppress-query-monitor}
     (jdbc/with-db-transaction [] (add-certnames certnames))
-    (with-redefs [diagnostic-inter-row-sleep 0.01]
+    (with-redefs [*diagnostic-inter-row-sleep* 0.01]
       (testing "no timeout behavior with config defaults"
         (test-behavior-with-no-timeouts)))))
 
@@ -77,7 +77,7 @@
     (call-with-puppetdb-instance (config :default "0" :max "0")
      (fn []
        (jdbc/with-db-transaction [] (add-certnames certnames))
-       (with-redefs [diagnostic-inter-row-sleep 0.01]
+       (with-redefs [*diagnostic-inter-row-sleep* 0.01]
          (testing "no timeout behavior with config zeroes"
            (test-behavior-with-no-timeouts)))))))
 
@@ -86,7 +86,7 @@
     (call-with-puppetdb-instance (config :default "0.3")
      (fn []
        (jdbc/with-db-transaction [] (add-certnames certnames))
-       (with-redefs [diagnostic-inter-row-sleep 0.01]
+       (with-redefs [*diagnostic-inter-row-sleep* 0.01]
          (let [[{:keys [status body]} elapsed] (timed-nodes-query)]
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
@@ -105,7 +105,7 @@
     (call-with-puppetdb-instance (config :max "0.3")
      (fn []
        (jdbc/with-db-transaction [] (add-certnames certnames))
-       (with-redefs [diagnostic-inter-row-sleep 0.01]
+       (with-redefs [*diagnostic-inter-row-sleep* 0.01]
          (let [[{:keys [status body]} elapsed] (timed-nodes-query)]
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
@@ -124,7 +124,7 @@
     (call-with-puppetdb-instance (config :max "0.2" :default "0.5")
      (fn []
        (jdbc/with-db-transaction [] (add-certnames certnames))
-       (with-redefs [diagnostic-inter-row-sleep 0.01]
+       (with-redefs [*diagnostic-inter-row-sleep* 0.01]
          (let [[{:keys [status body]} elapsed] (timed-nodes-query)]
            (is (= 200 status) "timeout after first row should produce 200")
            (is (str/includes? body "exceeded timeout"))
@@ -136,7 +136,7 @@
      (config :max "0.1")
      (fn []
        (jdbc/with-db-transaction [] (add-certnames certnames))
-       (with-redefs [diagnostic-inter-row-sleep 0.01]
+       (with-redefs [*diagnostic-inter-row-sleep* 0.01]
          (let [[{:keys [status body]}]
                (timed-nodes-query :timeout "2")]
            (is (= 200 status) "timeout after first row should produce 200")
