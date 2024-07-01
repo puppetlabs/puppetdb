@@ -108,7 +108,7 @@
 ;; Avoid startup reflection warnings due to
 ;; https://clojure.atlassian.net/browse/CLJ-2066
 ;; https://openjdk.java.net/jeps/396
-(def pdb-jvm-opts (when (> (:feature pdb-jvm-ver) 8)
+(def pdb-jvm-opts (when (< 8 (:feature pdb-jvm-ver) 17)
                     ["--illegal-access=deny"]))
 
 (defproject puppetlabs/puppetdb pdb-version
