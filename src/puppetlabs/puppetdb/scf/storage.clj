@@ -1502,12 +1502,13 @@
              (not @store-corrective-change?) (comp (map #(dissoc % :corrective_change))))
         ;; group by the hash, and choose oldest (aka first) of any duplicates
         rows (->> (sequence xf resource-events) (group-by :event_hash)
-                  vals (sort-by :timestamp) (map first))
-        last-record (atom nil)]
-    (try
-      (jdbc/insert-multi! :resource_events (map #(reset! last-record %) rows))
-      (catch SQLException ex
-        (handle-resource-insert-sql-ex ex certname @last-record)))))
+                  vals (sort-by :timestamp) (map first))]
+    (doseq [batch (partition-all 1000 rows)]
+      (let [sql (-> {:insert-into :resource_events :values batch} hsql/format)]
+        (try
+          (nxt/execute! (jdbc/connection) sql)
+          (catch SQLException ex
+            (handle-resource-insert-sql-ex ex certname batch)))))))
 
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
