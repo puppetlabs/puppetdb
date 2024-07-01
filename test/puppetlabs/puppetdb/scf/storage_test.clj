@@ -8,7 +8,8 @@
    [puppetlabs.puppetdb.facts :as facts]
    [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
    [clojure.walk :as walk]
-   [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils
+    :refer [munge-hash-for-storage]]
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.testutils :as tu]
    [puppetlabs.puppetdb.testutils.db
@@ -26,7 +27,10 @@
    [puppetlabs.puppetdb.random :as random]
    [puppetlabs.puppetdb.scf.partitioning :refer [get-partition-names]]
    [puppetlabs.puppetdb.scf.storage :as scf-storage
-    :refer [acquire-locks!
+    :refer [*note-add-params-insert*
+            *note-insert-catalog-resources-insert*
+            *note-insert-edges-insert*
+            acquire-locks!
             add-certname!
             add-facts!
             basic-diff
@@ -69,7 +73,8 @@
    [puppetlabs.puppetdb.time :as time
     :refer [ago days from-now now to-string to-timestamp]])
   (:import
-   (clojure.lang ExceptionInfo)))
+   (clojure.lang ExceptionInfo)
+   (java.sql SQLException)))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
@@ -858,23 +863,60 @@
 (def certname (:certname catalog))
 (def current-time (str (now)))
 
-(deftest-db exceeding-db-index-limit-produces-annotated-error
-  (add-certname! certname)
-  (let [bad-resource {:type "Class"
-                      :title (str/join "" (repeat 1000000 "yo"))
-                      :line 1337
-                      :exported false
-                      :file "badfile.txt"}]
-    (try
-      (replace-catalog!
-       (update catalog :resources
-               assoc {:type "Class" :title "updog"} bad-resource))
-      (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
-      (catch ExceptionInfo ex
-        (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
-        (is (re-matches
-             #"Failed to insert resource for basic\.catalogs\.com \(file: /tmp/foo, line: 10\).*"
-             (ex-message ex)))))))
+(deftest resource-insert-exception-handler
+  (let [small {:type "Class" :title "yo" :file "small" :line 42}
+        large {:type "Class" :title (.repeat "yo" 10000) :file "large" :line 1337}
+        validate-data (fn [{:keys [kind] :as data}]
+                        (is (= ::scf-storage/resource-insert-limit-exceeded kind))
+                        (is (= true (:puppetlabs.puppetdb/known-error? data))))
+        ex-ex (SQLException. "?" (jdbc/sql-state :program-limit-exceeded))]
+    (testing "certain culprits"
+      (doseq [candidate [small [small]]]
+        (try
+          (scf-storage/handle-resource-insert-sql-ex ex-ex "foo" candidate)
+          (assert false "expected exception not thrown")
+          (catch ExceptionInfo ex
+            (-> ex ex-data validate-data)
+            (is (= "A catalog resource for certname \"foo\" is too large: {:file \"small\", :line 42}"
+                   (ex-message ex)))))))
+    (testing "no suspects"
+      (try
+        (scf-storage/handle-resource-insert-sql-ex ex-ex "foo" [small small])
+        (assert false "expected exception not thrown")
+        (catch ExceptionInfo ex
+          (-> ex ex-data validate-data)
+          (is (= "A catalog resource for certname \"foo\" is too large"
+                 (ex-message ex))))))
+    (testing "multiple suspects"
+      (try
+        (->> [large small (assoc large :file "large2")]
+             (scf-storage/handle-resource-insert-sql-ex ex-ex "foo"))
+        (assert false "expected exception not thrown")
+        (catch ExceptionInfo ex
+          (-> ex ex-data validate-data)
+          (is (= (str "A catalog resource for certname \"foo\" is too large;"
+                      " suspects: {:file \"large\", :line 1337} {:file \"large2\", :line 1337}")
+                 (ex-message ex))))))))
+
+(deftest resource-key-too-big-for-pg-index
+  ;; postgres restricts the index key to 8191 bytes, logging, e.g
+  ;;   ERROR:  index row requires 22920 bytes, maximum size is 8191
+  (with-test-db
+    (add-certname! certname)
+    (let [rkey #(select-keys % [:type :title])
+          giant {:type "Class"
+                 :title (str/join "" (.repeat "yo" 1000000))
+                 :line 1337
+                 :exported false
+                 :file "badfile.txt"}]
+      (try
+        (replace-catalog!
+         (assoc-in catalog [:resources (rkey giant)] giant))
+        (throw (Exception. "Did not trigger program-limit-exceeded as expected"))
+        (catch ExceptionInfo ex
+          (is (= ::scf-storage/resource-insert-limit-exceeded (-> ex ex-data :kind)))
+          (is (= "A catalog resource for certname \"basic.catalogs.com\" is too large: {:file \"badfile.txt\", :line 1337}"
+                 (ex-message ex))))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
@@ -1004,13 +1046,24 @@
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
       ;; operations
-      (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
-                                deletes jdbc/delete!]
-        (let [resources    (:resources modified-catalog)
+      (tu/with-wrapped-fn-args [deletes jdbc/delete!]
+        (let [resources (:resources modified-catalog)
               refs-to-hash (reduce-kv (fn [i k v]
                                         (assoc i k (shash/resource-identity-hash v)))
-                                      {} resources)]
-          (replace-edges! certname modified-edges refs-to-hash)
+                                      {} resources)
+              inserts (atom [])]
+          (binding [*note-insert-edges-insert* #(do (swap! inserts conj %) %)]
+            (jdbc/with-db-transaction []
+              (replace-edges! certname modified-edges refs-to-hash))
+            (testing "should only insert the 1 edge"
+              (is (= [{:insert-into :edges,
+                       :values
+                       [{:certname "basic.catalogs.com",
+                         :source (munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
+                         :target (munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
+                         :type "before"}]}]
+                     @inserts))))
+
           (testing "ensure catalog-edges-map returns a predictable value"
             (is (= (catalog-edges-map certname)
                    {["ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
@@ -1035,20 +1088,15 @@
                                (sutils/bytea-escape target-hash)
                                "contains"]]]
                      @deletes))))
-          (testing "should only insert the 1 edge"
-            (is (= [[:edges [{:certname "basic.catalogs.com"
-                             :source (sutils/munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
-                             :target (sutils/munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
-                             :type "before"}]]]
-                   @insert-multis)))
-          (testing "when reran to check for idempotency"
-            (reset! insert-multis [])
+          (testing "when rerun to check for idempotency"
             (reset! deletes [])
-            (replace-edges! certname modified-edges refs-to-hash)
+            (let [inserts (atom [])]
+              (binding [*note-insert-edges-insert* #(do (swap! inserts conj %) %)]
+                (replace-edges! certname modified-edges refs-to-hash))
+              (testing "should insert no edges"
+                (is (empty? @inserts))))
             (testing "should delete no edges"
-              (is (empty? @deletes)))
-            (testing "should insert no edges"
-              (is (empty? @insert-multis)))))))))
+              (is (empty? @deletes)))))))))
 
 (deftest-db catalog-duplicates
   (testing "should share structure when duplicate catalogs are detected for the same host"
@@ -1165,9 +1213,7 @@
                                    ON certnames.id=cr.certname_id
                                    WHERE c.certname=?" certname))))
 
-        (tu/with-wrapped-fn-args [inserts jdbc/insert!
-                                  insert-multis jdbc/insert-multi!
-                                  deletes jdbc/delete!
+        (tu/with-wrapped-fn-args [deletes jdbc/delete!
                                   updates jdbc/update!]
 
           (swap! storage-metrics
@@ -1175,21 +1221,21 @@
                    (assoc old-metrics
                           :catalog-volatility (histogram storage-metrics-registry [(str (gensym))]))))
 
-          (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
-
           ;; 2 edge deletes
           ;; 2 edge inserts
           ;; 1 params insert
           ;; 1 params cache insert
           ;; 1 catalog_resource insert
           ;; 1 catalog_resource delete
+          (let [inserts (atom [])]
+            (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
+                      *note-insert-catalog-resources-insert* #(do (swap! inserts conj %) %)]
+              (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
+              (is (= [:resource_params_cache :resource_params :catalog_resources]
+                     (map :insert-into @inserts)))))
+
           (is (= 8 (apply + (sample (:catalog-volatility @storage-metrics)))))
-
-          (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
-                     (table-args (concat @inserts @insert-multis))))
-
-          (is (= [:catalogs]
-                 (table-args @updates)))
+          (is (= [:catalogs] (table-args @updates)))
           (is (= [[:catalog_resources ["certname_id = ? and type = ? and title = ?"
                                        (-> @updates first (nth 2) second)
                                        "File" "/etc/foobar"]]]
@@ -1231,25 +1277,26 @@
 
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))
 
-    (tu/with-wrapped-fn-args [inserts jdbc/insert!
-                              insert-multis jdbc/insert-multi!
-                              updates jdbc/update!
+    (tu/with-wrapped-fn-args [updates jdbc/update!
                               deletes jdbc/delete!]
-      (replace-catalog! (assoc-in catalog
-                              [:resources {:type "File" :title "/etc/foobar2"}]
-                              {:type "File"
-                               :title "/etc/foobar2"
-                               :exported   false
-                               :file       "/tmp/foo2"
-                               :line       20
-                               :tags       #{"file" "class" "foobar"}
-                               :parameters {:ensure "directory"
-                                            :group  "root"
-                                            :user   "root"}})
-                    old-date)
+      (let [inserts (atom [])]
+        (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
+                  *note-insert-catalog-resources-insert* #(do (swap! inserts conj %) %)]
+          (replace-catalog! (assoc-in catalog
+                                      [:resources {:type "File" :title "/etc/foobar2"}]
+                                      {:type "File"
+                                       :title "/etc/foobar2"
+                                       :exported false
+                                       :file "/tmp/foo2"
+                                       :line 20
+                                       :tags #{"file" "class" "foobar"}
+                                       :parameters {:ensure "directory"
+                                                    :group "root"
+                                                    :user "root"}})
+                            old-date))
+        (is (= [:resource_params_cache :resource_params :catalog_resources]
+               (map :insert-into @inserts))))
 
-      (is (sort= [:resource_params_cache :resource_params :catalog_resources]
-                 (table-args (concat @inserts @insert-multis))))
       (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
 
@@ -1464,21 +1511,18 @@
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
-      (tu/with-wrapped-fn-args [inserts jdbc/insert!
-                                insert-multis jdbc/insert-multi!
-                                updates jdbc/update!
+      (tu/with-wrapped-fn-args [updates jdbc/update!
                                 deletes jdbc/delete!]
 
-        (replace-catalog! add-param-catalog yesterday)
-        (is (sort= [:catalogs :catalog_resources]
-                   (table-args @updates)))
+        (let [inserts (atom [])]
+          (binding [*note-add-params-insert* #(do (swap! inserts conj %) %)
+                    *note-insert-edges-insert* #(do (swap! inserts conj %) %)]
+            (replace-catalog! add-param-catalog yesterday)
+            (is (= [:resource_params_cache :resource_params :edges]
+                   (map :insert-into @inserts)))))
 
-        (is (empty? (remove-edge-changes @deletes)))
-
-        (is (sort= [:resource_params_cache :resource_params :edges]
-                   (->> (concat @inserts @insert-multis)
-                     (remove #(empty? (second %))) ;; remove inserts w/out rows
-                     table-args))))
+        (is (sort= [:catalogs :catalog_resources] (table-args @updates)))
+        (is (empty? (remove-edge-changes @deletes))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
 
@@ -1764,8 +1808,9 @@
   (testing "should purge nodes which were deactivated before the specified date"
     (add-certname! "node1")
     (add-certname! "node2")
-    (insert-packages "node1" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
-    (insert-packages "node2" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+    (jdbc/with-db-transaction []
+      (insert-packages "node1" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+      (insert-packages "node2" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]]))
     (deactivate-node! "node1")
     (deactivate-node! "node2" (-> 10 days ago))
     (purge-deactivated-and-expired-nodes! (-> 5 days ago))
@@ -1777,8 +1822,9 @@
 (deftest-db delete-certname-cleans-packages
   (add-certname! "node1")
   (add-certname! "node2")
-  (insert-packages "node1" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
-  (insert-packages "node2" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+  (jdbc/with-db-transaction []
+    (insert-packages "node1" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+    (insert-packages "node2" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]]))
   (delete-certname! "node1")
 
   (is (= 1

@@ -763,7 +763,7 @@
 (deftest excessive-catalog-resource-title-is-described-and-discarded
   (let [cat (update basic-wire-catalog :resources
                     conj {:type "Class"
-                          :title (str/join "" (repeat 1000000 "yo"))
+                          :title (.repeat "yo" 1000000)
                           :line 1337
                           :exported false
                           :file "badfile.txt"
@@ -774,15 +774,14 @@
         (is (= (inc discards) (discard-count))))
       (is (= 0 (task-count delay-pool)))
       (let [discards (fs/list-dir (:path dlo))
-            _ (is (= 2 (count discards)))
             content (->> discards
                          (filter #(str/ends-with? (str %) "basic.wire-catalogs.com_err.txt"))
                          first
                          slurp)]
-        (is (str/includes? content "(file: badfile.txt, line: 1337)"))
+        (is (= 2 (count discards)))
         (is (str/includes?
              content
-             "May indicate use of $facts['my_fact'] instead of ${facts['my_fact']}"))))))
+             "A catalog resource for certname \"basic.wire-catalogs.com\" is too large: {:file \"badfile.txt\", :line 1337}"))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
