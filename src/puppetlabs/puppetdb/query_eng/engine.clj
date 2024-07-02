@@ -2033,7 +2033,7 @@
             (maybe-add-match-function-filter op column value)
 
             [["extract" (columns :guard numeric-fact-functions?) (expr :guard no-type-restriction?)]]
-            (when (= :facts (get-in meta node [:query-context :entity]))
+            (when (= :facts (get-in (meta node) [:query-context :entity]))
               ["extract" columns ["and" ["=" ["function" "jsonb_typeof" "value"] "number"] expr]])
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
