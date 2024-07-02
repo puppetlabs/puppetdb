@@ -75,7 +75,7 @@
 
 (defn service
   [{{[_ & body] :children} :node}]
-  (apply rewrite-service (gensym) (arrange-service-args body)))
+  (apply rewrite-service (token-node (gensym)) (arrange-service-args body)))
 
 (defn rewrite-defspec
   [name num-tests-or-options? property]
