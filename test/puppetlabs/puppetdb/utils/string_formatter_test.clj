@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.utils.string_formatter-test
+(ns puppetlabs.puppetdb.utils.string-formatter-test
   (:require [clojure.test :refer :all]
             [clojure.string :as string]
             [clojure.math.combinatorics :refer [selections]]
