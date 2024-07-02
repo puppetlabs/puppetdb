@@ -32,7 +32,7 @@
 
 (defn date-suffix
   [date]
-  (let [formatter (.withZone (DateTimeFormatter/BASIC_ISO_DATE) (ZoneId/of "UTC"))]
+  (let [formatter (.withZone DateTimeFormatter/BASIC_ISO_DATE (ZoneId/of "UTC"))]
     (.format date formatter)))
 
 (defn to-zoned-date-time
@@ -56,7 +56,7 @@
                          (.truncatedTo (ChronoUnit/DAYS)))  ;; this is a ZonedDateTime
         start-of-next-day (-> start-of-day
                               (.plusDays 1))
-        date-formatter (DateTimeFormatter/ISO_OFFSET_DATE_TIME)
+        date-formatter DateTimeFormatter/ISO_OFFSET_DATE_TIME
 
         table-name-suffix (date-suffix date)
         full-table-name (format "%s_%s" prefix table-name-suffix)]

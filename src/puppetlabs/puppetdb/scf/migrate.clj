@@ -1607,7 +1607,7 @@
                          (.truncatedTo (ChronoUnit/DAYS)))  ;; this is a ZonedDateTime
         start-of-next-day (-> start-of-day
                               (.plusDays 1))
-        date-formatter (DateTimeFormatter/ISO_OFFSET_DATE_TIME)
+        date-formatter DateTimeFormatter/ISO_OFFSET_DATE_TIME
 
         table-name-suffix (partitioning/date-suffix date)
         full-table-name (format "%s_%s" base-table table-name-suffix)]
@@ -2129,8 +2129,8 @@
         (map (fn [child-map]
                (let [child (:table child-map)
                      date (:part child-map)
-                     basic-iso-date-formatter (DateTimeFormatter/BASIC_ISO_DATE)
-                     iso-offset-date-formatter (DateTimeFormatter/ISO_OFFSET_DATE_TIME)
+                     basic-iso-date-formatter DateTimeFormatter/BASIC_ISO_DATE
+                     iso-offset-date-formatter DateTimeFormatter/ISO_OFFSET_DATE_TIME
                      start (partitioning/to-zoned-date-time (LocalDate/parse date basic-iso-date-formatter))
                      end (-> start (.plusDays 1))]
                  [
