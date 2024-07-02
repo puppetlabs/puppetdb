@@ -75,7 +75,7 @@
                    :port)]
     (assoc-in config [:jetty port-key] (open-port-num))))
 
-(def ^:dynamic *server*)
+(def ^:dynamic *server* nil)
 
 (def default-services
   [#'jetty10-service
