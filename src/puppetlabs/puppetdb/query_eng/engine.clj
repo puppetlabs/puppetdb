@@ -1184,7 +1184,7 @@
                              "latest_report?" {:type :boolean
                                                :queryable? true
                                                :unprojectable? true
-                                               :field :reports.latest}
+                                               :field [:nest [:and :events.latest :reports.latest]]}
                              "report_id" {:type :numeric
                                           :queryable? false
                                           :unprojectable? true
