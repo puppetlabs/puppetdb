@@ -52,6 +52,7 @@
    [puppetlabs.puppetdb.utils.metrics :as mutils]
    [schema.core :as s])
   (:import
+   (clojure.lang ExceptionInfo)
    (java.security MessageDigest)
    (java.sql SQLException Timestamp)
    (java.time ZoneId ZonedDateTime)
@@ -1426,6 +1427,12 @@
          query-to-vec
          first))
 
+(defn latest-events-metadata
+  [report-id]
+  (some-> ["SELECT timestamp from resource_events_latest where report_id = ?"
+           report-id]
+          query-to-vec))
+
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1483,9 +1490,19 @@
                        @store-corrective-change? (assoc :corrective_change corrective_change))
                  _ (when latest
                      ;; Mark existing latest report as historical
-                     ;; TODO what if this needs to create a partition?
-                     (jdbc/update! "resource_events" {:latest false} ["latest = true and report_id = ?" latest-report-id])
-                     (jdbc/update! "reports" {:latest false} ["latest = true and certname = ?" certname]))
+                     ;; If the partition does not exist throw ex-info to differentiate from a partition missing
+                     ;; from the case where the incoming report needs partition(s) made for it.
+                     (try
+                       (jdbc/update! "resource_events" {:latest false} ["latest = true and report_id = ?" latest-report-id])
+                       (jdbc/update! "reports" {:latest false} ["latest = true and certname = ?" certname])
+                       (catch java.sql.BatchUpdateException e
+                         ;; undefined table -- inheritance partitions, or declarative partitions w/ no children
+                         ;; check constraint violation -- declarative partitions when row does not match child partitions
+                         (if (#{:undefined-table :check-violation} (jdbc/sql-state-name (.getSQLState e)))
+                           (throw (ex-info "No partition to move previous latest report into"
+                                           {:kind ::missing-report-partition}
+                                           e))
+                           (throw e)))))
 
                  id (->> {:insert-into :reports :values [row] :returning [:id]}
                          hsql/format (select-one! (jdbc/connection) :id))]
@@ -1949,12 +1966,25 @@
                     (add-report!* report received-timestamp save-event options-config))))]
     (try
       (store!)
+      (catch ExceptionInfo e
+        (if (not= ::missing-report-partition (:kind (ex-data e)))
+          (throw e)
+          (do
+            (jdbc/retry-with-monitored-connection
+              db conn-status {:isolation :read-committed
+                              :statement-timeout command-sql-statement-timeout-ms}
+              (fn []
+                (let [{:keys [latest-ts latest-report-id]} (latest-report-metadata certname)
+                      event-timestamps (map :timestamp (latest-events-metadata latest-report-id))]
+                  (partitioning/create-reports-partition latest-ts)
+                  (doseq [date event-timestamps]
+                    (partitioning/create-resource-events-partition date)))))
+            ;; Now that the partitions exist, attempt store the report again
+            (store!))))
       (catch org.postgresql.util.PSQLException e
-        ;; * 42P01 undefined table -- inheritance based partitions, or
-        ;; declarative partitions when no children yet attached
-        ;; * 23514 check constraint violation -- declarative partitions when row
-        ;; does not match check constraint of existing children partitions
-        (if (or (= "42P01" (.getSQLState e)) (= "23514" (.getSQLState e)))
+        ;; undefined table -- inheritance partitions, or declarative partitions w/ no children
+        ;; check constraint violation -- declarative partitions when row does not match child partitions
+        (if (#{:undefined-table :check-violation} (jdbc/sql-state-name (.getSQLState e)))
           (do
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
@@ -1966,7 +1996,7 @@
                (doseq [date (set (map :timestamp
                                       (:resource_events (normalize-report report))))]
                  (partitioning/create-resource-events-partition date))))
-            ;; Now that the partitions exists, attempt store the report again
+            ;; Now that the partitions exist, attempt store the report again
             (store!))
           ;; otherwise throw the error so the command ends up
           ;; in the DLO

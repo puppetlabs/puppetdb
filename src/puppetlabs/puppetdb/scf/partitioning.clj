@@ -80,7 +80,7 @@
 (defn create-resource-events-partition
   "Creates a partition in the resource_events table"
   [^Instant date]
-  (create-partition "resource_events" "resource_events" date))
+  (create-partition "resource_events_historical" "resource_events" date))
 
 (defn create-reports-partition
   "Creates a partition in the reports table"
