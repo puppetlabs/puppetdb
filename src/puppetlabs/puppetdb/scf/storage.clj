@@ -1726,17 +1726,6 @@
         (drop-partition-tables! detached-tables
                                 update-lock-status :write-locking-resource-events)))))
 
-(defn cleanup-dropped-report-certnames
-  "Since we cannot cascade back to the certnames table anymore, go clean up
-  the latest_report_id column after a GC."
-  []
-  (jdbc/do-commands
-   ["UPDATE certnames SET latest_report_id = NULL"
-    "  WHERE certname IN"
-    "    (SELECT DISTINCT certnames.certname FROM certnames"
-    "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
-    "       WHERE reports.id IS NULL)"]))
-
 (defn delete-reports-older-than-in-pg-11!
   "PostgreSQL 11 workflow for deleting all reports in the database which have
   a producer-timestamp that is prior to the specified report-time.  When
@@ -1752,8 +1741,7 @@
                             :write-locking-resource-events)
     (prune-daily-partitions "reports" report-ttl
                             incremental? update-lock-status
-                            :write-locking-reports)
-    (cleanup-dropped-report-certnames)))
+                            :write-locking-reports)))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have a producer-timestamp
@@ -1795,10 +1783,7 @@
           (drop-partition-tables! detached-resource-event-tables
                                   update-lock-status :write-locking-resource-events)
           (drop-partition-tables! detached-report-tables
-                                  update-lock-status :write-locking-reports)
-          ;; since we cannot cascade back to the certnames table anymore, go clean up
-          ;; the latest_report_id column after a GC.
-          (cleanup-dropped-report-certnames))))))
+                                  update-lock-status :write-locking-reports))))))
 
 ;; A db version that is "allowed" but not supported is deprecated
 (def oldest-allowed-db [11 0])
@@ -1911,7 +1896,7 @@
                      left outer join certnames_status cs on cs.certname = c.certname
                      left outer join catalogs cats on cats.certname = c.certname
                      left outer join factsets fs on c.certname = fs.certname
-                     left outer join reports r on c.latest_report_id = r.id
+                     left outer join reports_latest r on c.certname = r.certname
                      left outer join certname_fact_expiration cfe on c.id = cfe.certid
                      left outer join catalog_inputs ci on c.id = ci.certname_id
                    where cs.deactivated is null
