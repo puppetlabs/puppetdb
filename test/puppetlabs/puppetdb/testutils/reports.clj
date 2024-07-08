@@ -166,8 +166,8 @@
   (= 1 (count (jdbc/query-to-vec
                 [(format "SELECT %s as latest_report_hash
                           FROM certnames
-                          INNER JOIN reports ON reports.id = certnames.latest_report_id
+                          INNER JOIN reports_latest r ON r.certname = certnames.certname
                           WHERE certnames.certname = ? AND %s = ?"
-                         (sutils/sql-hash-as-str "reports.hash")
-                         (sutils/sql-hash-as-str "reports.hash"))
+                         (sutils/sql-hash-as-str "r.hash")
+                         (sutils/sql-hash-as-str "r.hash"))
                 node report-hash]))))

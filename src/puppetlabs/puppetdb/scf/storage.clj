@@ -1630,11 +1630,11 @@
   older than the date. Deletes or detaches only the oldest such candidate if
   incremental? is true. Will throw an SQLException termination if the operation
   takes much longer than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
-  ([table-prefix date incremental? update-lock-status status-key]
-   (prune-daily-partitions table-prefix date incremental?
+  ([parent-table date incremental? update-lock-status status-key]
+   (prune-daily-partitions parent-table date incremental?
                            update-lock-status status-key false))
-  ([table-prefix date incremental? update-lock-status status-key just-detach?]
-   {:pre [(string? table-prefix)]}
+  ([parent-table date incremental? update-lock-status status-key just-detach?]
+   {:pre [(string? parent-table)]}
    (let [utcz (ZoneId/of "UTC")
          expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
                                            utcz)
@@ -1647,7 +1647,7 @@
                           table-date (ZonedDateTime/of table-year table-month table-day
                                                        0 0 0 0 utcz)]
                       (.isBefore table-date expire-date)))
-         candidates (->> (partitioning/get-partition-names table-prefix)
+         candidates (->> (partitioning/get-partition-names parent-table)
                          (filter expired?)
                          sort)
          drop-one (fn [table]
@@ -1655,7 +1655,7 @@
                     (try!
                       (if just-detach?
                         (jdbc/do-commands-outside-txn
-                          (format "alter table %s detach partition %s concurrently" table-prefix table))
+                          (format "alter table %s detach partition %s concurrently" parent-table table))
                         (jdbc/do-commands
                           (format "drop table if exists %s cascade" table)))
                       (finally
@@ -1689,8 +1689,8 @@
   lock more quickly.
 
   NOTE: This must be run outside of a transaction."
-  [table-prefix date incremental? update-lock-status status-key]
-  (prune-daily-partitions table-prefix date incremental?
+  [parent-table date incremental? update-lock-status status-key]
+  (prune-daily-partitions parent-table date incremental?
                           update-lock-status status-key true))
 
 (defn drop-partition-tables!
@@ -1716,11 +1716,11 @@
   (if-not (detach-partitions-concurrently?)
     ;; PG11
     (jdbc/with-db-transaction []
-      (prune-daily-partitions "resource_events" date incremental?
+      (prune-daily-partitions "resource_events_historical" date incremental?
                               update-lock-status :write-locking-resource-events))
     ;; PG14+
     (let [detached-tables
-           (detach-daily-partitions "resource_events" date incremental?
+           (detach-daily-partitions "resource_events_historical" date incremental?
                                     update-lock-status :write-locking-resource-events)]
       (jdbc/with-db-transaction []
         (drop-partition-tables! detached-tables
@@ -1736,10 +1736,10 @@
     (acquire-locks! {"certnames" "ROW EXCLUSIVE"
                      "reports" "ACCESS EXCLUSIVE"
                      "resource_events" "ACCESS EXCLUSIVE"})
-    (prune-daily-partitions "resource_events" resource-events-ttl
+    (prune-daily-partitions "resource_events_historical" resource-events-ttl
                             incremental? update-lock-status
                             :write-locking-resource-events)
-    (prune-daily-partitions "reports" report-ttl
+    (prune-daily-partitions "reports_historical" report-ttl
                             incremental? update-lock-status
                             :write-locking-reports)))
 
@@ -1764,11 +1764,11 @@
       ;; PG14+
       ;; Detach partition concurrently must take place outside of a transaction.
       (let [detached-resource-event-tables
-             (detach-daily-partitions "resource_events" effective-resource-events-ttl
+             (detach-daily-partitions "resource_events_historical" effective-resource-events-ttl
                                       incremental? update-lock-status
                                       :write-locking-resource-events)
             detached-report-tables
-             (detach-daily-partitions "reports" report-ttl
+             (detach-daily-partitions "reports_historical" report-ttl
                                     incremental? update-lock-status
                                     :write-locking-reports)]
         ;; Now we can delete the partitions with less intrusive locking.

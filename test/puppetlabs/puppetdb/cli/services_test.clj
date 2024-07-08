@@ -5,7 +5,9 @@
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.scf.partitioning
-             :refer [get-temporal-partitions]]
+             :refer [create-resource-events-partition
+                     create-reports-partition
+                     get-temporal-partitions]]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-log-output
                      logs-matching
@@ -385,11 +387,6 @@
     (let [config (-> (create-temp-config)
                      (assoc :database *db* :read-database *read-db*)
                      (assoc-in [:database :gc-interval] "0.01"))
-          store-report #(sync-command-post (svc-utils/pdb-cmd-url)
-                                           example-certname
-                                           "store report"
-                                           cmd-consts/latest-report-version
-                                           (change-report-time example-report %))
           before-gc (CyclicBarrier. 2)
           after-gc (CyclicBarrier. 2)
           original-periodic-gc svcs/invoke-periodic-gc
@@ -408,10 +405,17 @@
            ;; Wait for the first, full gc to finish.
            (.await before-gc)
            (.await after-gc)
-           (store-report "2011-01-01T12:00:01-03:00")
-           (store-report "2011-01-02T12:00:01-03:00")
-           (let [report-parts (set (get-temporal-partitions "reports"))
-                 event-parts (set (get-temporal-partitions "resource_events"))]
+           (let [date1 (time/wire-datetime->instant "2011-01-01T12:00:01-03:00")
+                 date2 (time/wire-datetime->instant "2011-01-02T12:00:01-03:00")]
+             ;; Create partitions manually, old events partitions are filtered out in storage
+             (create-reports-partition date1)
+             (create-resource-events-partition date1)
+
+             (create-reports-partition date2)
+             (create-resource-events-partition date2))
+
+           (let [report-parts (set (get-temporal-partitions "reports_historical"))
+                 event-parts (set (get-temporal-partitions "resource_events_historical"))]
 
              (is (subset? #{{:table "reports_20110101z", :part "20110101z"}
                             {:table "reports_20110102z", :part "20110102z"}}
@@ -425,17 +429,17 @@
              (.await before-gc)
              (.await after-gc)
              (is (= (->> report-parts (sort-by :table) (drop 1) set)
-                    (set (get-temporal-partitions "reports"))))
+                    (set (get-temporal-partitions "reports_historical"))))
              (is (= (->> event-parts (sort-by :table) (drop 1) set)
-                    (set (get-temporal-partitions "resource_events"))))
+                    (set (get-temporal-partitions "resource_events_historical"))))
 
              ;; Let the gc go and make sure it only drops the oldest partition
              (.await before-gc)
              (.await after-gc)
              (is (= (->> report-parts (sort-by :table) (drop 2) set)
-                    (set (get-temporal-partitions "reports"))))
+                    (set (get-temporal-partitions "reports_historical"))))
              (is (= (->> event-parts (sort-by :table) (drop 2) set)
-                    (set (get-temporal-partitions "resource_events")))))))))))
+                    (set (get-temporal-partitions "resource_events_historical")))))))))))
 
 (deftest partition-gc-clears-queries-blocking-it-from-getting-accessexclusivelocks
   (with-unconnected-test-db
@@ -473,9 +477,11 @@
                (.await after-gc)
                (store-report "2011-01-01T12:00:01-03:00")
                (store-report "2011-01-02T12:00:01-03:00")
+               ;; store a latest report to move the other two into historical partitions
+               (store-report (to-string (now)))
 
-               (let [report-parts (set (get-temporal-partitions "reports"))
-                     event-parts (set (get-temporal-partitions "resource_events"))]
+               (let [report-parts (set (get-temporal-partitions "reports_historical"))
+                     event-parts (set (get-temporal-partitions "resource_events_historical"))]
 
                  (is (subset? #{{:table "reports_20110101z", :part "20110101z"}
                                 {:table "reports_20110102z", :part "20110102z"}}
@@ -534,17 +540,17 @@
                                 count)))
 
                  (is (= (->> report-parts (sort-by :table) (drop 1) set)
-                        (set (get-temporal-partitions "reports"))))
+                        (set (get-temporal-partitions "reports_historical"))))
                  (is (= (->> event-parts (sort-by :table) (drop 1) set)
-                        (set (get-temporal-partitions "resource_events"))))
+                        (set (get-temporal-partitions "resource_events_historical"))))
 
                  (.await before-gc)
                  (.await after-gc)
 
                  (is (= (->> report-parts (sort-by :table) (drop 2) set)
-                        (set (get-temporal-partitions "reports"))))
+                        (set (get-temporal-partitions "reports_historical"))))
                  (is (= (->> event-parts (sort-by :table) (drop 2) set)
-                        (set (get-temporal-partitions "resource_events")))))))))))))
+                        (set (get-temporal-partitions "resource_events_historical")))))))))))))
 
 (deftest initialize-db
   (testing "when establishing migration database connections"
@@ -597,16 +603,20 @@
        (fn []
          (testing "A report from 24 hours ago won't be gc'ed with a report-ttl of 1d"
            (store-report (-> 1 time/days time/ago time/to-string))
+           (store-report (to-string (now)))
            (svcs/sweep-reports! *db* {:incremental? false
                                       :report-ttl (time/parse-period "1d")
                                       :resource-events-ttl (time/parse-period "1d")
                                       :db-lock-status db-lock-status})
-           (is (= 1 (count (jdbc/query ["SELECT * FROM reports"]))))
+           (is (= 1 (count (jdbc/query ["SELECT * FROM reports_historical"]))))
+           (is (= 1 (count (jdbc/query ["SELECT * FROM reports_latest"]))))
            (jdbc/do-commands "DELETE FROM reports"))
          (testing "A report from 48 hours ago will be gc'ed with a report-ttl of 1d"
            (store-report (-> 2 time/days time/ago time/to-string))
+           (store-report (to-string (now)))
            (svcs/sweep-reports! *db* {:incremental? false
                                       :report-ttl (time/parse-period "1d")
                                       :resource-events-ttl (time/parse-period "1d")
                                       :db-lock-status db-lock-status})
-           (is (empty? (jdbc/query ["SELECT * FROM reports"])))))))))
+           (is (= 1 (count (jdbc/query ["SELECT * FROM reports_latest"]))))
+           (is (empty? (jdbc/query ["SELECT * FROM reports_historical"])))))))))

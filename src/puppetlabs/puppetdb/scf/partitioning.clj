@@ -24,11 +24,11 @@
   values for all the existing partitions associated with the
   name-prefix, e.g. request for \"reports\" might produce a vector of
   maps like {:table \"reports_20200802z\" :part \"20200802z\"}."
-  [name-prefix]
+  [parent-table]
   (mapv (fn [tablename]
           {:table tablename
-           :part (subs tablename (inc (count name-prefix)))})
-        (get-partition-names name-prefix)))
+           :part (subs tablename (- (count tablename) 9))})
+        (get-partition-names parent-table)))
 
 (defn date-suffix
   [date]
