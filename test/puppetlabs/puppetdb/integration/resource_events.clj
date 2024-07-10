@@ -46,7 +46,9 @@
                (doseq [row rows]
                  (let [hash-str (hash/resource-event-identity-pkey row)]
                    (jdbc/insert-multi! "resource_events"
-                                       (list (assoc row :event_hash (sutils/munge-hash-for-storage hash-str)
+                                       (list (assoc row
+                                                    :latest false
+                                                    :event_hash (sutils/munge-hash-for-storage hash-str)
                                                     :timestamp new-timestamp))))))))))
 
       (testing "Verify we have resource events"
