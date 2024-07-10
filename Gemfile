@@ -10,13 +10,13 @@ rescue Errno::ENOENT
   puppet_ref = File.read(gemfile_home + '/ext/test-conf/puppet-ref-default').strip
 end
 
-def location_for(place, fake_version = nil)
-  if place =~ /^(git:[^#]*)#(.*)/
-    [fake_version, { :git => $1, :branch => $2, :require => false }].compact
+def location_for(place)
+  if place =~ /^(git[:@][^#]*)#(.*)/
+    [{ git: $1, branch: $2, require: false }]
   elsif place =~ /^file:\/\/(.*)/
-    ['>= 0', { :path => File.expand_path($1), :require => false }]
+    ['>= 0', { path: File.expand_path($1), require: false }]
   else
-    [place, { :require => false }]
+    [place, { require: false }]
   end
 end
 
