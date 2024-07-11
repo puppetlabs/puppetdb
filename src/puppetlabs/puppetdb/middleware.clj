@@ -162,21 +162,6 @@
         (http/error-response (tru "An unexpected error occurred")
                              HttpURLConnection/HTTP_INTERNAL_ERROR)))))
 
-(defn verify-accepts-content-type
-  "Ring middleware that requires a request for the wrapped `app` to accept the
-  provided `content-type`. If the content type isn't acceptable, a 406 Not
-  Acceptable status is returned, with a message informing the client it must
-  accept the content type."
-  [app content-type]
-  {:pre [(string? content-type)]}
-  (fn [{:keys [headers] :as req}]
-    (if (http/acceptable-content-type
-         content-type
-         (headers "accept"))
-      (app req)
-      (http/error-response (tru "must accept {0}" content-type)
-                           HttpURLConnection/HTTP_NOT_ACCEPTABLE))))
-
 (defn verify-content-encoding
   "Verification for the specified list of content-encodings."
   [app allowed-encodings]
@@ -191,22 +176,6 @@
         (http/error-response (tru "content encoding {0} not supported"
                                   content-encoding)
                              HttpURLConnection/HTTP_UNSUPPORTED_TYPE)))))
-
-(defn verify-content-type
-  "Verification for the specified list of content-types."
-  [app content-types]
-  {:pre [(coll? content-types)
-         (every? string? content-types)]}
-  (fn [{:keys [headers] :as req}]
-    (if (= (:request-method req) :post)
-      (let [content-type (headers "content-type")
-            mediatype (if (nil? content-type) nil
-                          (kitchensink/base-type content-type))]
-        (if (or (nil? mediatype) (some #{mediatype} content-types))
-          (app req)
-          (http/error-response (tru "content type {0} not supported" mediatype)
-                               HttpURLConnection/HTTP_UNSUPPORTED_TYPE)))
-      (app req))))
 
 (def params-schema {(s/optional-key :optional) [s/Str]
                     (s/optional-key :required) [s/Str]})
@@ -247,14 +216,6 @@
   invalid parameters."
   [app]
   (validate-query-params app {}))
-
-(def verify-accepts-json
-  "Ring middleware which requires a request for `app` to accept
-  application/json as a content type. If the request doesn't accept
-  application/json, a 406 Not Acceptable status is returned with an error
-  message indicating the problem."
-  (fn [app]
-    (verify-accepts-content-type app "application/json")))
 
 (def http-metrics-registry (get-in metrics/metrics-registries [:http :registry]))
 

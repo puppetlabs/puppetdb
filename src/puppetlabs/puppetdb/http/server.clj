@@ -8,13 +8,12 @@
                                                     wrap-with-metrics
                                                     wrap-with-illegal-argument-catch
                                                     wrap-with-exception-handling
-                                                    verify-accepts-json
-                                                    verify-content-type
                                                     make-pdb-handler
                                                     verify-sync-version]]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.http.handlers :as handlers]
-            [puppetlabs.i18n.core :refer [tru]]))
+            [puppetlabs.i18n.core :refer [tru]]
+            [puppetlabs.ring-middleware.core :as rmc]))
 
 (defn- refuse-retired-api
   [version]
@@ -70,8 +69,8 @@
   (fn [req]
     (let [handler (-> (make-pdb-handler routes identity)
                       wrap-with-illegal-argument-catch
-                      verify-accepts-json
-                      (verify-content-type ["application/json"])
+                      rmc/wrap-accepts-json
+                      (rmc/wrap-content-type ["application/json"])
                       verify-sync-version
                       (wrap-with-metrics (atom {}) http/leading-uris)
                       (wrap-with-globals get-shared-globals)

@@ -18,7 +18,7 @@
             query-response]]
    [puppetlabs.puppetdb.testutils.log :refer [notable-pdb-event?]]
    [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
-   [puppetlabs.trapperkeeper.testutils.logging :as tk-log :refer [with-log-suppressed-unless-notable]])
+   [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]])
   (:import
    (java.net HttpURLConnection)))
 
@@ -675,7 +675,7 @@
               (assoc-in [:headers "content-type"] "application/x-www-form-urlencoded")
               *app*)]
       (is (= 415 status))
-      (is (= "content type application/x-www-form-urlencoded not supported" body))))
+      (is (re-find #"content-type application/x-www-form-urlencoded is not a supported" body))))
   (testing "content type application/json should be accepted"
     (let [{:keys [status] :as response}
           (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
