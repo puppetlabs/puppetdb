@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.puppetdb.time :refer [now]]
             [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.ring-middleware.core :as rmc]
             [puppetlabs.comidi :as cmdi]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
@@ -49,7 +50,7 @@
               (http/error-response (tru "Could not find version") 404))))
 
         (catch java.io.IOException e
-          (log/debug e (trs "Error when checking for latest version") )
+          (log/debug e (trs "Error when checking for latest version"))
           (http/error-response
            (tru "Error when checking for latest version: {0}" (.getMessage e))))))))
 
@@ -69,5 +70,5 @@
   [get-shared-globals config]
   (-> (meta-routes get-shared-globals config)
       mid/make-pdb-handler
-      mid/verify-accepts-json
+      rmc/wrap-accepts-json
       mid/validate-no-query-params))

@@ -9,10 +9,9 @@
                      merge-param-specs
                      validate-query-params
                      verify-content-encoding
-                     verify-content-type
                      wrap-cert-authn
                      wrap-with-certificate-cn
-                     wrap-with-metrics] ]
+                     wrap-with-metrics]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [temp-file]]
             [puppetlabs.ssl-utils.core :refer [get-cn-from-x509-certificate]]
@@ -127,39 +126,6 @@
              {:status HttpURLConnection/HTTP_BAD_REQUEST
               :headers {"Content-Type" http/error-response-content-type}
               :body "Unsupported query parameter 'wazzup'"})))))
-
-(deftest verify-content-type-test
-  (testing "with content-type of application/json"
-    (let [test-req {:request-method :post
-                    :content-type "application/json"
-                    :headers {"content-type" "application/json"}}]
-
-      (testing "should succeed with matching content type"
-        (let [wrapped-fn   (verify-content-type identity ["application/json"])]
-          (is (= (wrapped-fn test-req) test-req))))
-
-      (testing "should fail with no matching content type"
-        (let [wrapped-fn   (verify-content-type identity ["application/bson" "application/msgpack"])]
-          (is (= (wrapped-fn test-req)
-                 {:status 415
-                  :headers {"Content-Type" http/error-response-content-type}
-                  :body "content type application/json not supported"}))))))
-
-  (testing "with content-type of APPLICATION/JSON"
-    (let [test-req {:content-type "APPLICATION/JSON"
-                    :headers {"content-type" "APPLICATION/JSON"}}]
-
-      (testing "should succeed with matching content type"
-        (let [wrapped-fn   (verify-content-type identity ["application/json"])]
-          (is (= (wrapped-fn test-req) test-req))))))
-
-  (testing "with content-type of application/json;parameter=foo"
-    (let [test-req {:content-type "application/json;parameter=foo"
-                    :headers {"content-type" "application/json;parameter=foo"}}]
-
-      (testing "should succeed with matching content type"
-        (let [wrapped-fn   (verify-content-type identity ["application/json"])]
-          (is (= (wrapped-fn test-req) test-req)))))))
 
 (deftest verify-content-encoding-test
   (testing "with content-encoding of gzip"

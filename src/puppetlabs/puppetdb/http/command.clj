@@ -12,7 +12,8 @@
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.comidi :as cmdi]
-            [puppetlabs.i18n.core :refer [trs tru]])
+            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.ring-middleware.core :as rmc])
   (:import
    (clojure.lang ExceptionInfo)
    (java.net HttpURLConnection)
@@ -317,8 +318,8 @@
       add-received-param ;; must be (temporally) after wrap-with-request-params-validation
       wrap-with-request-params-validation
       wrap-with-request-normalization
-      mid/verify-accepts-json
-      (mid/verify-content-type ["application/json"])
+      rmc/wrap-accepts-json
+      (rmc/wrap-content-type ["application/json"])
       (mid/verify-content-encoding utils/supported-content-encodings)
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
