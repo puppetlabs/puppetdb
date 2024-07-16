@@ -48,12 +48,11 @@
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [com.puppetlabs/trapperkeeper-webserver-jetty10 :classifier "test"]
-     [org.flatland/ordered "1.5.9"]
-     [org.clojure/test.check "0.9.0"]
-     [com.gfredericks/test.chuck "0.2.7"
-      :exclusions [com.andrewmcveigh/cljs-time]]
-     [riddley "0.1.12"]
-     [io.forward/yaml "1.0.5"]
+     [org.flatland/ordered "1.15.12"]
+     [org.clojure/test.check "1.1.1"]
+     [com.gfredericks/test.chuck "0.2.14"]
+     [riddley "0.2.0"]
+     [clj-commons/clj-yaml "1.0.27"]
      [org.yaml/snakeyaml]
 
      ;; Only needed for :integration tests
@@ -108,7 +107,7 @@
 ;; Avoid startup reflection warnings due to
 ;; https://clojure.atlassian.net/browse/CLJ-2066
 ;; https://openjdk.java.net/jeps/396
-(def pdb-jvm-opts (when (> (:feature pdb-jvm-ver) 8)
+(def pdb-jvm-opts (when (< 8 (:feature pdb-jvm-ver) 17)
                     ["--illegal-access=deny"]))
 
 (defproject puppetlabs/puppetdb pdb-version
@@ -132,13 +131,13 @@
   :dependencies [[org.postgresql/postgresql]
                  [org.clojure/clojure]
                  [org.clojure/core.async]
-                 [org.clojure/core.match "0.3.0-alpha4"]
+                 [org.clojure/core.match "1.1.0"]
                  [org.clojure/core.memoize]
-                 [org.clojure/data.generators "1.0.0"]
+                 [org.clojure/data.generators "1.1.0"]
                  [org.clojure/java.jdbc]
                  [org.clojure/tools.macro]
                  [org.clojure/tools.namespace]
-                 [org.clojure/math.combinatorics "0.1.1"]
+                 [org.clojure/math.combinatorics "0.3.0"]
                  [org.clojure/tools.logging]
                  [org.clojure/tools.nrepl]
 
@@ -160,10 +159,10 @@
                  [cheshire]
                  [clj-stacktrace]
                  [clj-time]
-                 [com.rpl/specter "0.5.7"]
+                 [com.rpl/specter "1.1.4"]
                  [com.github.seancorfield/next.jdbc "1.3.939"]
                  [com.taoensso/nippy :exclusions [org.tukaani/xz]]
-                 [digest "1.4.3"]
+                 [digest "1.4.10"]
                  [fast-zip "0.4.0"]
                  [instaparse]
                  [murphy "0.5.2"]
@@ -186,7 +185,7 @@
 
                  ;; WebAPI support libraries.
                  [bidi]
-                 [clj-http "3.12.3"]
+                 [clj-http "3.12.4"]
                  [commons-io]
                  [compojure]
                  [ring/ring-core]]
@@ -195,9 +194,9 @@
 
   :repositories ~pdb-repositories
 
-  :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
-            [lein-cloverage "1.0.6"]
-            [lein-parent "0.3.7"]
+  :plugins [[lein-release "1.1.3" :exclusions [org.clojure/clojure]]
+            [lein-cloverage "1.2.4"]
+            [lein-parent "0.3.9"]
             [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
@@ -236,8 +235,7 @@
                                        (require 'schema.core)
                                        (schema.core/set-fn-validation! true))]}
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk18on]]
-                              :plugins [[jonase/eastwood "0.3.14"
-                                         :exclusions [org.clojure/clojure]]]
+                              :plugins [[jonase/eastwood "1.4.2"]]
                               :jvm-opts ~(conj pdb-jvm-opts "-XX:-OmitStackTraceInFastThrow")}]
 
              :fips [:defaults
@@ -256,7 +254,7 @@
                                           17 "-Djava.security.properties==dev-resources/jdk11on-fips-security"
                                           (throw (ex-info "Unsupported major Java version. Expects 8, 11, or 17."
                                                           {:major feature :minor interim})))))}]
-             :kondo {:dependencies [[clj-kondo "2022.04.23"]]}
+             :kondo {:dependencies [[clj-kondo "2024.05.24"]]}
              :ezbake {:dependencies ^:replace [;; NOTE: we need to explicitly pass in `nil` values
                                                ;; for the version numbers here in order to correctly
                                                ;; inherit the versions from our parent project.
@@ -291,7 +289,7 @@
                          ;; compile test files, and crashes because
                          ;; "src" namespaces aren't available.
                          :aot ^:replace []}
-             :ci {:plugins [[lein-pprint "1.1.1"]
+             :ci {:plugins [[lein-pprint "1.3.2"]
                             [lein-exec "0.3.7"]]}
              ; We only want to include bouncycastle in the FOSS uberjar.
              ; PE should be handled by selecting the proper bouncycastle jar
@@ -323,7 +321,7 @@
              ;; with respect to defservice dependency methods, and
              ;; since there's no facility for more targeted overrides
              ;; yet, disable it for now.
-             :exclude-linters [:local-shadows-var]}
+             :exclude-linters [:local-shadows-var :reflection]}
 
   :aliases {"kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
             "clean" ~(pdb-run-clean pdb-clean-paths)

@@ -9,16 +9,20 @@
 
 ;; This MUST match the SQL run by resources/ext/cli/delete-reports.erb
 (def delete-reports-sql-commands
-  ["BEGIN TRANSACTION"
-   "UPDATE certnames SET latest_report_id = NULL"
+  ["BEGIN TRANSACTION;"
+
    "DO $$ DECLARE
-        r RECORD;
-    BEGIN
-        FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_%' OR tablename LIKE 'reports_%') LOOP
-            EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
-        END LOOP;
-    END $$;"
-   "COMMIT TRANSACTION"])
+       r RECORD;
+   BEGIN
+       FOR r IN (SELECT inhrelid::regclass AS child FROM pg_catalog.pg_inherits WHERE inhparent = 'reports_historical'::regclass OR inhparent = 'resource_events_historical'::regclass) LOOP
+           EXECUTE 'DROP TABLE ' || quote_ident(r.child::text);
+       END LOOP;
+
+       EXECUTE 'TRUNCATE resource_events_latest';
+       EXECUTE 'TRUNCATE reports_latest';
+   END $$;"
+
+   "COMMIT TRANSACTION;"])
 
 (deftest delete-reports-sql
   (with-puppetdb-instance

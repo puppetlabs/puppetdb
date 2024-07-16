@@ -28,7 +28,7 @@
 
 (def misc-leaves
   "Used for emulating typical tree contents with strings numbers and keywords"
-  (gen/one-of [gen/int
+  (gen/one-of [gen/small-integer
                gen/string-alphanumeric
                gen/keyword]))
 
@@ -36,7 +36,7 @@
 
 (defn foo-gen
   "Generator for the defrecord Foo. Requires a leaves generator for
-  the values of the defrecord (i.e. gen/int)"
+  the values of the defrecord (i.e. gen/small-integer)"
   [leaves]
   (gen/fmap (partial apply ->Foo)
             (apply gen/tuple (repeat 4 leaves))))
@@ -61,7 +61,7 @@
 
 
 (def simple-reflexively-equal
-  (gen/one-of [gen/int gen/large-integer
+  (gen/one-of [gen/small-integer gen/large-integer
                (gen/double* {:NaN? false :infinite? false})
                gen/char gen/string gen/ratio gen/boolean gen/keyword
                gen/keyword-ns gen/symbol gen/symbol-ns gen/uuid]))
@@ -83,7 +83,7 @@
 
 (cct/defspec flip-sign-zipper
   50
-  (prop/for-all [tree (gen/sized (tree-generator with-maps gen/int))]
+  (prop/for-all [tree (gen/sized (tree-generator with-maps gen/small-integer))]
                 (let [flipped (:node (post-order-transform (tree-zipper tree)
                                                            [flip-sign]))
                       nonzero-int? #(and (integer? %) (not= 0 %))]

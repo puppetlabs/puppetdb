@@ -43,14 +43,12 @@
   will not be updated to reflect the new report.  Defaults to `true`.  This only
   exists to allow testing of the schema migration code; you should almost never pass
   a value for this."
-  ([example-report timestamp]
-   (store-example-report! example-report timestamp true))
-  ([example-report timestamp update-latest-report?]
-   (let [example-report (reports/report-query->wire-v8 example-report)
-         report-hash (shash/report-identity-hash
-                      (scf-store/normalize-report example-report))]
-     (scf-store/add-report! example-report timestamp *db* (atom {}) update-latest-report?)
-     (report-for-hash :v4 report-hash))))
+  [example-report timestamp]
+  (let [example-report (reports/report-query->wire-v8 example-report)
+        report-hash (shash/report-identity-hash
+                     (scf-store/normalize-report example-report))]
+    (scf-store/add-report! example-report timestamp *db* (atom {}))
+    (report-for-hash :v4 report-hash)))
 
 (defmacro with-or-without-corrective-change
   "Runs body in a context where scf-store/store-corrective-change? is set to true or false
@@ -168,8 +166,8 @@
   (= 1 (count (jdbc/query-to-vec
                 [(format "SELECT %s as latest_report_hash
                           FROM certnames
-                          INNER JOIN reports ON reports.id = certnames.latest_report_id
+                          INNER JOIN reports_latest r ON r.certname = certnames.certname
                           WHERE certnames.certname = ? AND %s = ?"
-                         (sutils/sql-hash-as-str "reports.hash")
-                         (sutils/sql-hash-as-str "reports.hash"))
+                         (sutils/sql-hash-as-str "r.hash")
+                         (sutils/sql-hash-as-str "r.hash"))
                 node report-hash]))))

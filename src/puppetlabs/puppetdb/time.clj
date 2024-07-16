@@ -302,7 +302,7 @@
   "Returns a pdb instant (UTC timestamp) if s represents an ISO
   formatted timestamp with offset like \"2011-12-03T10:15:30+01:00\"
   or nil."
-  (let [formatter (java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME)]
+  (let [formatter java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME]
     (fn [s]
       (try
         (-> (java.time.OffsetDateTime/parse s formatter) .toInstant)

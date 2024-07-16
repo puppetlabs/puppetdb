@@ -1703,7 +1703,7 @@
 ;; and migration-82-reports-declarative-partitioning
 (defn diff-date-suffix
   [date]
-  (let [formatter (.withZone (DateTimeFormatter/BASIC_ISO_DATE) (ZoneId/of "UTC"))]
+  (let [formatter (.withZone DateTimeFormatter/BASIC_ISO_DATE (ZoneId/of "UTC"))]
     (str/lower-case
       (.format date formatter))))
 

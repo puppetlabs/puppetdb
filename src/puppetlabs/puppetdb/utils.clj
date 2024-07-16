@@ -50,9 +50,10 @@
     (flush)))
 
 (defmacro with-log-mdc
-  "Establishes the MDC contexts given by the alternating-kvs key value
-  pairs during the execution of the body, and ensures that the
-  original values (if any) are always restored before returning."
+  "Establishes the MDC contexts given by the alternating-kvs key value pairs
+  during the execution of the body, and ensures that the original values (if
+  any) are always restored before returning.  The keys associated with any nil
+  values will be removed via MDC/remove."
   [alternating-kvs & body]
   ;; For now, assume this isn't used in performance-critical code,
   ;; i.e. within tight loops.
@@ -66,18 +67,18 @@
       expansion
       (recur alternating-kvs
              ;; We know k is a string, so it's fine to repeat ~k
-             `(let [v# ~v]
+             `(let [v# ~v
+                    orig# (MDC/get ~k)]
+                ;; After you put a nil value MDC/getContext crashes
                 (if (nil? v#)
+                  (MDC/remove ~k)
+                  (MDC/put ~k v#))
+                (try
                   ~expansion
-                  (let [orig# (MDC/get ~k)]
-                    (try
-                      (MDC/put ~k v#)
-                      ~expansion
-                      (finally
-                        ;; After you put a nil value MDC/getContext crashes
-                        (if (nil? orig#)
-                          (MDC/remove ~k)
-                          (MDC/put ~k orig#)))))))))))
+                  (finally
+                    (if (nil? orig#)
+                      (MDC/remove ~k)
+                      (MDC/put ~k orig#)))))))))
 
 (defn flush-and-exit
   "Attempts to flush *out* and *err*, reporting any failures to *err*,

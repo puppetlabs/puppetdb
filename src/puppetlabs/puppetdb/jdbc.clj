@@ -2,6 +2,7 @@
   "Database utilities"
   (:require
    [clojure.java.jdbc :as sql]
+   [clojure.set :refer [map-invert]]
    [clojure.string :as str]
    [clojure.tools.logging :as log]
    [honey.sql :as hsql]
@@ -32,16 +33,26 @@
     (throw (Exception. "No active java.jdbc transaction")))
   (sql/db-connection *db*))
 
+(def sql-state-map
+  {:admin-shutdown "57P01"
+   :idle-in-transaction-session-timeout "25P03"
+   :idle-session-timeout "57P05"
+   :invalid-regular-expression "2201B"
+   :lock-not-available "55P03"
+   :program-limit-exceeded "54000"
+   :query-canceled "57014"
+   :serialization-failure "40001"
+   ;; check constraint violation
+   :check-violation "23514"
+   :undefined-table "42P01"})
+
+(def sql-state-name
+  (let [sql-code-map (map-invert sql-state-map)]
+    (fn [code]
+      (sql-code-map code))))
+
 (defn sql-state [kw-name]
-  (or ({:admin-shutdown "57P01"
-        :idle-in-transaction-session-timeout "25P03"
-        :idle-session-timeout "57P05"
-        :invalid-regular-expression "2201B"
-        :lock-not-available "55P03"
-        :program-limit-exceeded "54000"
-        :query-canceled "57014"
-        :serialization-failure "40001"}
-       kw-name)
+  (or (sql-state-map kw-name)
       (throw (IllegalArgumentException.
               (trs "Requested unknown SQL state")))))
 
@@ -482,7 +493,7 @@
      (fn []
        ~@body)))
 
-(defn ^:dynamic enable-jmx
+(defn ^:dynamic *enable-jmx*
   "This function exists to enable starting multiple PuppetDB instances
   inside a single JVM. Starting up a second instance results in a
   collision exception between JMX beans from the two
@@ -586,7 +597,7 @@
      (some->> read-only? (.setReadOnly config))
      (some->> (or user username) str (.setUsername config))
      (some->> password str (.setPassword config))
-     (some->> metrics-registry (enable-jmx config))
+     (some->> metrics-registry (*enable-jmx* config))
      (HikariDataSource. config))))
 
 (defn pooled-datasource

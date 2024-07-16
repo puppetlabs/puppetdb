@@ -62,7 +62,7 @@
   "Disables JMX, making it possible to avoid JMX bean collisions when
   running multiple puppetdb instances in the same JVM."
   [& body]
-  `(with-redefs [puppetlabs.puppetdb.jdbc/enable-jmx (fn [config# _#] nil)]
+  `(with-redefs [jdbc/*enable-jmx* (fn [config# _#] nil)]
      (do ~@body)))
 
 (defn call-counter

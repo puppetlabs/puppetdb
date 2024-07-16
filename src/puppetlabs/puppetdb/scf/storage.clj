@@ -52,6 +52,7 @@
    [puppetlabs.puppetdb.utils.metrics :as mutils]
    [schema.core :as s])
   (:import
+   (clojure.lang ExceptionInfo)
    (java.security MessageDigest)
    (java.sql SQLException Timestamp)
    (java.time ZoneId ZonedDateTime)
@@ -1346,20 +1347,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
 
-(defn update-latest-report!
-  "Given a node name, updates the `certnames` table to ensure that it indicates the
-   most recent report for the node."
-  [node report-id producer-timestamp]
-  {:pre [(string? node) (integer? report-id)]}
-
-  (jdbc/update! :certnames
-                {:latest_report_id report-id
-                 :latest_report_timestamp producer-timestamp}
-                [(str "certname = ?"
-                      " AND ( latest_report_timestamp < ?"
-                      "      OR latest_report_timestamp is NULL )")
-                 node producer-timestamp]))
-
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
   [containment-path]
@@ -1413,8 +1400,8 @@
   (time/after? (org.joda.time.DateTime. timestamp)
                (.minus (now) resource-events-ttl)))
 
-(defn insert-resource-events [certname cert-id report-id resource-events ttl]
-  (let [xf (comp (map #(assoc % :report_id report-id :certname_id cert-id))
+(defn insert-resource-events [certname cert-id report-id resource-events ttl latest]
+  (let [xf (comp (map #(assoc % :report_id report-id :certname_id cert-id :latest latest))
                  ;; resource-event-identity-pkey requires :report_id
                  (map #(assoc % :event_hash (-> (shash/resource-event-identity-pkey %)
                                                 (sutils/munge-hash-for-storage))))
@@ -1432,6 +1419,20 @@
           (catch SQLException ex
             (handle-resource-insert-sql-ex ex certname batch)))))))
 
+(defn latest-report-metadata
+ "Return the latest report timestamp for the given certname"
+ [certname]
+ (some-> ["select id as \"latest-report-id\", producer_timestamp as \"latest-ts\" from reports_latest where certname = ?"
+          certname]
+         query-to-vec
+         first))
+
+(defn latest-events-metadata
+  [report-id]
+  (some-> ["SELECT timestamp from resource_events_latest where report_id = ?"
+           report-id]
+          query-to-vec))
+
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1439,7 +1440,6 @@
   scenarios."
   [orig-report :- reports/report-wireformat-schema
    received-timestamp :- pls/WireTimestamp
-   update-latest-report? :- s/Bool
    save-event? :- s/Bool
    options-config]
   (time!
@@ -1458,10 +1458,11 @@
                  seq)
            {:status :duplicate :hash report-hash}
            (let [certname-id (certname-id certname)
+                 {:keys [latest-ts latest-report-id]} (latest-report-metadata certname)
+                 latest (and (not= type "plan")
+                             (or (nil? latest-ts)
+                                 (.after producer_timestamp latest-ts)))
                  ttl (get options-config :resource-events-ttl)
-                 table-name (str "reports_" (-> producer_timestamp
-                                                partitioning/to-zoned-date-time
-                                                partitioning/date-suffix))
                  row (cond-> {:hash shash
                               :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
                               :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
@@ -1482,16 +1483,31 @@
                               :end_time end_time
                               :receive_time (to-timestamp received-timestamp)
                               :status_id (ensure-status status)
-                              :report_type (or type "agent")}
+                              :report_type (or type "agent")
+                              :latest latest}
                        environment (assoc :environment_id (ensure-environment environment))
                        @store-resources-column? (assoc :resources (sutils/munge-jsonb-for-storage resources))
                        @store-corrective-change? (assoc :corrective_change corrective_change))
-                 id (->> {:insert-into (keyword table-name) :values [row] :returning [:id]}
+                 _ (when latest
+                     ;; Mark existing latest report as historical
+                     ;; If the partition does not exist throw ex-info to differentiate from a partition missing
+                     ;; from the case where the incoming report needs partition(s) made for it.
+                     (try
+                       (jdbc/update! "resource_events" {:latest false} ["latest = true and report_id = ?" latest-report-id])
+                       (jdbc/update! "reports" {:latest false} ["latest = true and certname = ?" certname])
+                       (catch java.sql.BatchUpdateException e
+                         ;; undefined table -- inheritance partitions, or declarative partitions w/ no children
+                         ;; check constraint violation -- declarative partitions when row does not match child partitions
+                         (if (#{:undefined-table :check-violation} (jdbc/sql-state-name (.getSQLState e)))
+                           (throw (ex-info "No partition to move previous latest report into"
+                                           {:kind ::missing-report-partition}
+                                           e))
+                           (throw e)))))
+
+                 id (->> {:insert-into :reports :values [row] :returning [:id]}
                          hsql/format (select-one! (jdbc/connection) :id))]
              (when (and (seq resource_events) save-event?)
-               (insert-resource-events certname certname-id id resource_events ttl))
-             (when (and update-latest-report? (not= type "plan"))
-               (update-latest-report! certname id producer_timestamp))
+               (insert-resource-events certname certname-id id resource_events ttl latest))
              {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
@@ -1614,11 +1630,11 @@
   older than the date. Deletes or detaches only the oldest such candidate if
   incremental? is true. Will throw an SQLException termination if the operation
   takes much longer than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
-  ([table-prefix date incremental? update-lock-status status-key]
-   (prune-daily-partitions table-prefix date incremental?
+  ([parent-table date incremental? update-lock-status status-key]
+   (prune-daily-partitions parent-table date incremental?
                            update-lock-status status-key false))
-  ([table-prefix date incremental? update-lock-status status-key just-detach?]
-   {:pre [(string? table-prefix)]}
+  ([parent-table date incremental? update-lock-status status-key just-detach?]
+   {:pre [(string? parent-table)]}
    (let [utcz (ZoneId/of "UTC")
          expire-date (.withZoneSameInstant (time/joda-datetime->java-zoneddatetime date)
                                            utcz)
@@ -1631,7 +1647,7 @@
                           table-date (ZonedDateTime/of table-year table-month table-day
                                                        0 0 0 0 utcz)]
                       (.isBefore table-date expire-date)))
-         candidates (->> (partitioning/get-partition-names table-prefix)
+         candidates (->> (partitioning/get-partition-names parent-table)
                          (filter expired?)
                          sort)
          drop-one (fn [table]
@@ -1639,7 +1655,7 @@
                     (try!
                       (if just-detach?
                         (jdbc/do-commands-outside-txn
-                          (format "alter table %s detach partition %s concurrently" table-prefix table))
+                          (format "alter table %s detach partition %s concurrently" parent-table table))
                         (jdbc/do-commands
                           (format "drop table if exists %s cascade" table)))
                       (finally
@@ -1673,8 +1689,8 @@
   lock more quickly.
 
   NOTE: This must be run outside of a transaction."
-  [table-prefix date incremental? update-lock-status status-key]
-  (prune-daily-partitions table-prefix date incremental?
+  [parent-table date incremental? update-lock-status status-key]
+  (prune-daily-partitions parent-table date incremental?
                           update-lock-status status-key true))
 
 (defn drop-partition-tables!
@@ -1700,26 +1716,15 @@
   (if-not (detach-partitions-concurrently?)
     ;; PG11
     (jdbc/with-db-transaction []
-      (prune-daily-partitions "resource_events" date incremental?
+      (prune-daily-partitions "resource_events_historical" date incremental?
                               update-lock-status :write-locking-resource-events))
     ;; PG14+
     (let [detached-tables
-           (detach-daily-partitions "resource_events" date incremental?
+           (detach-daily-partitions "resource_events_historical" date incremental?
                                     update-lock-status :write-locking-resource-events)]
       (jdbc/with-db-transaction []
         (drop-partition-tables! detached-tables
                                 update-lock-status :write-locking-resource-events)))))
-
-(defn cleanup-dropped-report-certnames
-  "Since we cannot cascade back to the certnames table anymore, go clean up
-  the latest_report_id column after a GC."
-  []
-  (jdbc/do-commands
-   ["UPDATE certnames SET latest_report_id = NULL"
-    "  WHERE certname IN"
-    "    (SELECT DISTINCT certnames.certname FROM certnames"
-    "       LEFT OUTER JOIN reports ON (reports.certname = certnames.certname)"
-    "       WHERE reports.id IS NULL)"]))
 
 (defn delete-reports-older-than-in-pg-11!
   "PostgreSQL 11 workflow for deleting all reports in the database which have
@@ -1731,13 +1736,12 @@
     (acquire-locks! {"certnames" "ROW EXCLUSIVE"
                      "reports" "ACCESS EXCLUSIVE"
                      "resource_events" "ACCESS EXCLUSIVE"})
-    (prune-daily-partitions "resource_events" resource-events-ttl
+    (prune-daily-partitions "resource_events_historical" resource-events-ttl
                             incremental? update-lock-status
                             :write-locking-resource-events)
-    (prune-daily-partitions "reports" report-ttl
+    (prune-daily-partitions "reports_historical" report-ttl
                             incremental? update-lock-status
-                            :write-locking-reports)
-    (cleanup-dropped-report-certnames)))
+                            :write-locking-reports)))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have a producer-timestamp
@@ -1760,11 +1764,11 @@
       ;; PG14+
       ;; Detach partition concurrently must take place outside of a transaction.
       (let [detached-resource-event-tables
-             (detach-daily-partitions "resource_events" effective-resource-events-ttl
+             (detach-daily-partitions "resource_events_historical" effective-resource-events-ttl
                                       incremental? update-lock-status
                                       :write-locking-resource-events)
             detached-report-tables
-             (detach-daily-partitions "reports" report-ttl
+             (detach-daily-partitions "reports_historical" report-ttl
                                     incremental? update-lock-status
                                     :write-locking-reports)]
         ;; Now we can delete the partitions with less intrusive locking.
@@ -1779,10 +1783,7 @@
           (drop-partition-tables! detached-resource-event-tables
                                   update-lock-status :write-locking-resource-events)
           (drop-partition-tables! detached-report-tables
-                                  update-lock-status :write-locking-reports)
-          ;; since we cannot cascade back to the certnames table anymore, go clean up
-          ;; the latest_report_id column after a GC.
-          (cleanup-dropped-report-certnames))))))
+                                  update-lock-status :write-locking-reports))))))
 
 ;; A db version that is "allowed" but not supported is deprecated
 (def oldest-allowed-db [11 0])
@@ -1812,8 +1813,8 @@
                              "  union all (select producer_timestamp from factsets"
                              "               where certname = ?"
                              "               order by producer_timestamp desc limit 1)"
-                             "  union all (select latest_report_timestamp AS producer_timestamp from certnames"
-                             "               where certname = ? and latest_report_timestamp is not null)"
+                             "  union all (select producer_timestamp from reports_latest"
+                             "               where certname = ?)"
                              "  order by producer_timestamp desc"
                              "  limit 1")
                         (cons (repeat 3 certname))
@@ -1895,7 +1896,7 @@
                      left outer join certnames_status cs on cs.certname = c.certname
                      left outer join catalogs cats on cats.certname = c.certname
                      left outer join factsets fs on c.certname = fs.certname
-                     left outer join reports r on c.latest_report_id = r.id
+                     left outer join reports_latest r on c.certname = r.certname
                      left outer join certname_fact_expiration cfe on c.id = cfe.certid
                      left outer join catalog_inputs ci on c.id = ci.certname_id
                    where cs.deactivated is null
@@ -1932,12 +1933,9 @@
   "Add a report and all of the associated events to the database."
   ([report received-timestamp db conn-status]
    (add-report! report received-timestamp db conn-status true))
-  ([report received-timestamp db conn-status update-latest-report?]
-   (add-report! report received-timestamp db conn-status update-latest-report? {}))
   ([{:keys [certname producer_timestamp] :as report} :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp
    db conn-status
-   update-latest-report?
    options-config]
   (let [producer-timestamp (to-timestamp producer_timestamp)
         resource-events-ttl (get options-config :resource-events-ttl)
@@ -1950,15 +1948,28 @@
                                   :statement-timeout command-sql-statement-timeout-ms}
                   (fn []
                     (maybe-activate-node! certname producer-timestamp)
-                    (add-report!* report received-timestamp update-latest-report? save-event options-config))))]
+                    (add-report!* report received-timestamp save-event options-config))))]
     (try
       (store!)
+      (catch ExceptionInfo e
+        (if (not= ::missing-report-partition (:kind (ex-data e)))
+          (throw e)
+          (do
+            (jdbc/retry-with-monitored-connection
+              db conn-status {:isolation :read-committed
+                              :statement-timeout command-sql-statement-timeout-ms}
+              (fn []
+                (let [{:keys [latest-ts latest-report-id]} (latest-report-metadata certname)
+                      event-timestamps (map :timestamp (latest-events-metadata latest-report-id))]
+                  (partitioning/create-reports-partition latest-ts)
+                  (doseq [date event-timestamps]
+                    (partitioning/create-resource-events-partition date)))))
+            ;; Now that the partitions exist, attempt store the report again
+            (store!))))
       (catch org.postgresql.util.PSQLException e
-        ;; * 42P01 undefined table -- inheritance based partitions, or
-        ;; declarative partitions when no children yet attached
-        ;; * 23514 check constraint violation -- declarative partitions when row
-        ;; does not match check constraint of existing children partitions
-        (if (or (= "42P01" (.getSQLState e)) (= "23514" (.getSQLState e)))
+        ;; undefined table -- inheritance partitions, or declarative partitions w/ no children
+        ;; check constraint violation -- declarative partitions when row does not match child partitions
+        (if (#{:undefined-table :check-violation} (jdbc/sql-state-name (.getSQLState e)))
           (do
             ;; One or more partitions didn't exist, so attempt to create all
             ;; the partitions this report and its resource_events need
@@ -1970,7 +1981,7 @@
                (doseq [date (set (map :timestamp
                                       (:resource_events (normalize-report report))))]
                  (partitioning/create-resource-events-partition date))))
-            ;; Now that the partitions exists, attempt store the report again
+            ;; Now that the partitions exist, attempt store the report again
             (store!))
           ;; otherwise throw the error so the command ends up
           ;; in the DLO

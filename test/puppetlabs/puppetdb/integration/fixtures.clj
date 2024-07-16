@@ -15,7 +15,7 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
-            [yaml.core :as yaml]
+            [clj-yaml.core :as yaml]
             [puppetlabs.puppetdb.time :as time]
             [puppetlabs.puppetdb.utils :as utils])
   (:import
