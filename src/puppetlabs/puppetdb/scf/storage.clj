@@ -1212,28 +1212,30 @@
   facts associated with the certname."
   ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
      :as fact-data} :- facts-schema]
-   (time! (get-storage-metric :add-new-fact)
-     (jdbc/with-db-transaction []
-       (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
-                        (realize-paths (facts/facts->pathmaps values)
-                                       (pathmap-digestor digest))
-                        (.digest digest))
-             hash (shash/fact-identity-hash fact-data)]
-         (jdbc/insert! :factsets
-                     {:certname certname
-                      :timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)
-                      :producer_timestamp (to-timestamp producer_timestamp)
-                      :producer_id (ensure-producer producer)
-                      :stable (sutils/munge-jsonb-for-storage values)
-                      :stable_hash (shash/generic-identity-sha1-bytes values)
-                      ;; need at least an empty map for the jsonb || operator
-                      :volatile (sutils/munge-jsonb-for-storage {})
-                      :paths_hash paths-hash
-                      :hash (sutils/munge-hash-for-storage hash)})
-         (when (seq package_inventory)
-           (insert-packages certname package_inventory))
-         {:status :incorporated :hash hash})))))
+   (time!
+    (get-storage-metric :add-new-fact)
+    (jdbc/with-db-transaction []
+      (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
+                         (realize-paths (facts/facts->pathmaps values)
+                                        (pathmap-digestor digest))
+                         (.digest digest))
+            hash (shash/fact-identity-hash fact-data)]
+        (->> {:insert-into :factsets
+              :values [{:certname certname
+                        :timestamp (to-timestamp timestamp)
+                        :environment_id (ensure-environment environment)
+                        :producer_timestamp (to-timestamp producer_timestamp)
+                        :producer_id (ensure-producer producer)
+                        :stable (sutils/munge-jsonb-for-storage values)
+                        :stable_hash (shash/generic-identity-sha1-bytes values)
+                        ;; need at least an empty map for the jsonb || operator
+                        :volatile (sutils/munge-jsonb-for-storage {})
+                        :paths_hash paths-hash
+                        :hash (sutils/munge-hash-for-storage hash)}]}
+             hsql/format (nxt/execute-one! (jdbc/connection)))
+        (when (seq package_inventory)
+          (insert-packages certname package_inventory))
+        {:status :incorporated :hash hash})))))
 
 (s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that
