@@ -236,8 +236,7 @@
                                        (require 'schema.core)
                                        (schema.core/set-fn-validation! true))]}
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk18on]]
-                              :plugins [[jonase/eastwood "0.3.14"
-                                         :exclusions [org.clojure/clojure]]]
+                              :plugins [[jonase/eastwood "1.4.2"]]
                               :jvm-opts ~(conj pdb-jvm-opts "-XX:-OmitStackTraceInFastThrow")}]
 
              :fips [:defaults
@@ -323,7 +322,7 @@
              ;; with respect to defservice dependency methods, and
              ;; since there's no facility for more targeted overrides
              ;; yet, disable it for now.
-             :exclude-linters [:local-shadows-var]}
+             :exclude-linters [:local-shadows-var :reflection]}
 
   :aliases {"kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
             "clean" ~(pdb-run-clean pdb-clean-paths)

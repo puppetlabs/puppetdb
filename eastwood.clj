@@ -18,6 +18,12 @@
   :reason "maplog checks the logger type at compile time."})
 
 (disable-warning
+ {:linter :constant-test
+  :for-macro 'clojure.core/nil?
+  :if-inside-macroexpansion-of #{'puppetlabs.puppetdb.utils/with-log-mdc}
+  :reason "with-log-mdc removes value (instead of setting it) if it's nil."})
+
+(disable-warning
  {:linter :deprecations
   :symbol-matches
   #{#"^#'puppetlabs\.puppetdb\.jdbc/call-with-array-converted-query-rows$"

@@ -7,7 +7,7 @@
    [murphy :refer [try!]]
    [puppetlabs.puppetdb.query.monitor :as qmon]
    [puppetlabs.puppetdb.jdbc :as jdbc]
-   [puppetlabs.puppetdb.query-eng :refer [diagnostic-inter-row-sleep]]
+   [puppetlabs.puppetdb.query-eng :refer [*diagnostic-inter-row-sleep*]]
    [puppetlabs.puppetdb.random :refer [random-string]]
    [puppetlabs.puppetdb.scf.storage :refer [add-certnames]]
    [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
@@ -264,7 +264,7 @@
     (with-redefs [qmon/terminate-query record-term]
       (with-puppetdb nil
         (jdbc/with-db-transaction [] (add-certnames certnames))
-        (with-redefs [diagnostic-inter-row-sleep 1]
+        (with-redefs [*diagnostic-inter-row-sleep* 1]
           (with-log-level root-logger-name :info
             (with-log-suppressed-unless-notable handle-event
               (impatient-nodes-request 200)

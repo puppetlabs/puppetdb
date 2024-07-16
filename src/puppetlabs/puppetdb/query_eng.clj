@@ -358,7 +358,7 @@
 ;; Strictly for testing (seconds) - only works if all the threads
 ;; involved are related via binding conveyance.  Otherwise, we'll need
 ;; a redef.
-(def ^:dynamic diagnostic-inter-row-sleep nil)
+(def ^:dynamic *diagnostic-inter-row-sleep* nil)
 
 (defn- body-stream
   "Returns a map whose :stream is an InputStream that produces (via a
@@ -407,7 +407,7 @@
         stream-rows (fn stream-rows [rows out status-after-query-start]
                       (let [timeout-seq #(time-limited-seq % query-deadline-ns throw-timeout)
                             rows (cond->> rows
-                                   diagnostic-inter-row-sleep (map #(dissoc % :pg_sleep))
+                                   *diagnostic-inter-row-sleep* (map #(dissoc % :pg_sleep))
                                    true munge-fn
                                    query-deadline-ns timeout-seq)]
                         (when-not (instance? PGobject rows)
@@ -445,13 +445,13 @@
                                     st (when count-query
                                          {:count (jdbc/get-result-count count-query)})
                                     add-sleep #(format "select pg_sleep(%f), * from (%s) as placeholder_name"
-                                                       (float diagnostic-inter-row-sleep) %)
+                                                       (float *diagnostic-inter-row-sleep*) %)
                                     results-query (cond-> results-query
-                                                    diagnostic-inter-row-sleep (update 0 add-sleep))]
+                                                    *diagnostic-inter-row-sleep* (update 0 add-sleep))]
                                 (jdbc/update-local-timeouts query-deadline-ns 1)
                                 (jdbc/call-with-array-converted-query-rows
                                  results-query
-                                 (when diagnostic-inter-row-sleep {:fetch-size 1})
+                                 (when *diagnostic-inter-row-sleep* {:fetch-size 1})
                                  #(stream-rows % out st))))
                             (finally
                               (when query-monitor-id
