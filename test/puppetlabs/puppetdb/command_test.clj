@@ -424,12 +424,14 @@
 (defn with-env
   "Updates the `row-map` to include environment information."
   [row-map]
-  (assoc row-map :environment_id (scf-store/environment-id "DEV")))
+  (jdbc/with-db-transaction []
+    (assoc row-map :environment_id (scf-store/environment-id "DEV"))))
 
 (defn with-producer
   "Updates the `row-map` to include producer information."
   [row-map]
-  (assoc row-map :producer_id (scf-store/producer-id "bar.com")))
+  (jdbc/with-db-transaction []
+    (assoc row-map :producer_id (scf-store/producer-id "bar.com"))))
 
 (defn version-kwd->num
   "Converts a version keyword into a correct number (expected by the command).
@@ -763,7 +765,7 @@
 (deftest excessive-catalog-resource-title-is-described-and-discarded
   (let [cat (update basic-wire-catalog :resources
                     conj {:type "Class"
-                          :title (str/join "" (repeat 1000000 "yo"))
+                          :title (.repeat "yo" 1000000)
                           :line 1337
                           :exported false
                           :file "badfile.txt"
@@ -774,15 +776,14 @@
         (is (= (inc discards) (discard-count))))
       (is (= 0 (task-count delay-pool)))
       (let [discards (fs/list-dir (:path dlo))
-            _ (is (= 2 (count discards)))
             content (->> discards
                          (filter #(str/ends-with? (str %) "basic.wire-catalogs.com_err.txt"))
                          first
                          slurp)]
-        (is (str/includes? content "(file: badfile.txt, line: 1337)"))
+        (is (= 2 (count discards)))
         (is (str/includes?
              content
-             "May indicate use of $facts['my_fact'] instead of ${facts['my_fact']}"))))))
+             "A catalog resource for certname \"basic.wire-catalogs.com\" is too large: {:file \"badfile.txt\", :line 1337}"))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1050,7 +1051,8 @@
                      certname))
               (is (not= (:timestamp result)
                         yesterday))
-              (is (= (scf-store/environment-id "DEV") (:environment_id result))))
+              (is (= (jdbc/with-db-transaction [] (scf-store/environment-id "DEV"))
+                     (:environment_id result))))
 
             (is (= [{:certname certname
                      :facts {"a" "1", "b" "2", "c" "3"}}]

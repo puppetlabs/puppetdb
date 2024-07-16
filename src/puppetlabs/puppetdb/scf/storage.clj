@@ -18,43 +18,46 @@
    The standard set of operations on information in the database will
    likely result in dangling resources and catalogs; to clean these
    up, it's important to run `garbage-collect!`."
-  (:require [murphy :refer [try!]]
-            [puppetlabs.puppetdb.catalogs :as cat]
-            [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [com.rpl.specter :as sp]
-            [clojure.java.jdbc :as sql]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [clojure.data :as data]
-            [puppetlabs.puppetdb.scf.hash :as shash]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :as utils
-             :refer [env-config-for-db-ulong with-noisy-failure]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
-            [puppetlabs.puppetdb.utils.metrics :as mutils]
-            [metrics.counters :refer [counter inc! value]]
-            [metrics.gauges :refer [gauge-fn]]
-            [metrics.histograms :refer [histogram update!]]
-            [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [do-hsql query-to-vec]]
-            [puppetlabs.puppetdb.time :as time
-             :refer [ago now to-timestamp from-sql-date before?]]
-
-            [honey.sql :as hsql]
-            [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.package-util :as pkg-util]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.scf.partitioning :as partitioning])
-  (:import [java.security MessageDigest]
-           [java.util Arrays]
-           [org.postgresql.util PGobject]
-           [org.joda.time Period]
-           [java.sql SQLException Timestamp]
-           (java.time ZoneId ZonedDateTime)))
+  (:require
+   [clojure.data :as data]
+   [clojure.java.jdbc :as sql]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [honey.sql :as hsql]
+   [metrics.counters :refer [counter inc! value]]
+   [metrics.gauges :refer [gauge-fn]]
+   [metrics.histograms :refer [histogram update!]]
+   [metrics.timers :refer [timer time!]]
+   [murphy :refer [try!]]
+   [next.jdbc :as nxt]
+   [next.jdbc.plan :refer [select-one!]]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :as kitchensink]
+   [puppetlabs.puppetdb.catalogs :as cat]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
+   [puppetlabs.puppetdb.jdbc :as jdbc :refer [do-hsql query-to-vec]]
+   [puppetlabs.puppetdb.metrics.core :as metrics]
+   [puppetlabs.puppetdb.package-util :as pkg-util]
+   [puppetlabs.puppetdb.reports :as reports]
+   [puppetlabs.puppetdb.scf.hash :as shash]
+   [puppetlabs.puppetdb.scf.partitioning :as partitioning]
+   [puppetlabs.puppetdb.scf.storage-utils :as sutils
+    :refer [munge-hash-for-storage]]
+   [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
+   [puppetlabs.puppetdb.time :as time
+    :refer [ago now to-timestamp from-sql-date before?]]
+   [puppetlabs.puppetdb.utils :as utils
+    :refer [env-config-for-db-ulong with-noisy-failure]]
+   [puppetlabs.puppetdb.utils.metrics :as mutils]
+   [schema.core :as s])
+  (:import
+   (java.security MessageDigest)
+   (java.sql SQLException Timestamp)
+   (java.time ZoneId ZonedDateTime)
+   (java.util Arrays)
+   (org.joda.time Period)
+   (org.postgresql.util PGobject)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -257,17 +260,23 @@
 (defn add-certnames
   "Inserts the collection of certnames."
   [certnames]
-  (let [r (jdbc/insert-multi! :certnames [:certname] (map vector certnames))] 
-    (jdbc/insert-multi! :certnames_status [:certname] (map vector certnames))
-    r))
+  (let [c (jdbc/connection)]
+    (doseq [batch (partition-all 1000 (map vector certnames))]
+      (->> {:insert-into :certnames :columns [:certname] :values batch}
+           hsql/format (nxt/execute! c))
+      (->> {:insert-into :certnames_status :columns [:certname] :values batch}
+           hsql/format (nxt/execute! c)))))
 
 (pls/defn-validated ensure-certname
   "Adds the given host to the db iff it isn't already there."
   [certname :- String]
-  (jdbc/insert-multi! :certnames [{:certname certname}]
-                      {:on-conflict "do nothing"})
-  (jdbc/insert-multi! :certnames_status [{:certname certname}]
-                      {:on-conflict "do nothing"}))
+  (let [c (jdbc/connection)]
+    (->> {:insert-into :certnames :columns [:certname] :values [[[:inline certname]]]
+          :on-conflict [] :do-nothing true}
+         hsql/format (nxt/execute! c))
+    (->> {:insert-into :certnames-status :values [[[:inline certname]]]
+          :on-conflict [] :do-nothing true}
+         hsql/format (nxt/execute! c))))
 
 (defn delete-certname!
   "Delete the given host from the db"
@@ -344,37 +353,6 @@
        (when (seq certnames-to-delete)
          (delete-certnames! certnames-to-delete))))))
 
-(pls/defn-validated create-row :- s/Int
-  "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
-  [table :- s/Keyword
-   row-map :- {s/Keyword s/Any}]
-  (:id (first (jdbc/insert! table row-map))))
-
-(pls/defn-validated query-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from `table` that contain `row-map` values"
-  [table :- s/Keyword
-   row-map :- {s/Keyword s/Any}]
-  (let [cols (keys row-map)
-        q (format "select id from %s where %s"
-                  (jdbc/double-quote (name table))
-                  (str/join " " (map #(str (jdbc/double-quote (name %)) "=?")
-                                     cols)))]
-    (jdbc/query-with-resultset (apply vector q (map row-map cols))
-                               (comp :id first sql/result-set-seq))))
-
-(pls/defn-validated ensure-row :- (s/maybe s/Int)
-  "Ensures the row defined by row-map exists in the table,
-   creating it if it does not.  Returns the id of the row."
-  [table :- s/Keyword
-   row-map :- {s/Keyword s/Any}]
-  (when row-map
-    (if-let [id (query-id table row-map)]
-      id
-      (create-row table row-map))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Node data expiration
-
 (pls/defn-validated set-certname-facts-expiration :- processing-status-schema
   [certname :- s/Str
    expire? :- s/Bool
@@ -390,54 +368,28 @@
      [expire? updated certname])
     {:status :incorporated}))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Environments querying/updating
+(defn named-row-id
+  "Returns the id (primary key) from the table for the row with col = name."
+  [table col name]
+  (->> {:select :id :from table :where [:= col name]}
+       hsql/format (select-one! (jdbc/connection)  :id)))
 
-(pls/defn-validated environment-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from the environments table for the given `env-name`"
-  [env-name :- s/Str]
-  (query-id :environments {:environment env-name}))
+(defn environment-id [name] (named-row-id :environments :environment name))
+(defn certname-id [name] (named-row-id :certnames :certname name))
+(defn producer-id [name] (named-row-id :producers :name name))
+(defn status-id [name] (named-row-id :report_statuses :status name))
 
-(pls/defn-validated certname-id :- (s/maybe s/Int)
-  [certname :- s/Str]
-  (query-id :certnames {:certname certname}))
+(defn ensure-named-row
+  "Returns the id (primary key) of the named row, creating it if necessary."
+  [table col name]
+  (when name
+    (or (named-row-id table col name)
+        (->> {:insert-into table :columns [col] :values [[name]] :returning [:id]}
+             hsql/format (select-one! (jdbc/connection) :id)))))
 
-(pls/defn-validated ensure-environment :- (s/maybe s/Int)
-  "Check if the given `env-name` exists, creates it if it does not. Always returns
-   the id of the `env-name` (whether created or existing)"
-  [env-name :- (s/maybe s/Str)]
-  (when env-name
-    (ensure-row :environments {:environment env-name})))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Producers querying/updating
-
-(pls/defn-validated producer-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from the producers table for the given `prod-name`"
-  [prod-name :- s/Str]
-  (query-id :producers {:name prod-name}))
-
-(pls/defn-validated ensure-producer :- (s/maybe s/Int)
-  "Check if the given `prod-name` exists, creates it if it does not. Always returns
-   the id of the `prod-name` (whether created or existing)"
-  [prod-name :- (s/maybe s/Str)]
-  (when prod-name
-    (ensure-row :producers {:name prod-name})))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Status querying/updating
-
-(pls/defn-validated status-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from the result_statuses table for the given `status`"
-  [status :- s/Str]
-  (query-id :report_statuses {:status status}))
-
-(pls/defn-validated ensure-status :- (s/maybe s/Int)
-  "Check if the given `status` exists, creates it if it does not. Always returns
-   the id of the `status` (whether created or existing)"
-  [status :- (s/maybe s/Str)]
-  (when status
-    (ensure-row :report_statuses {:status status})))
+(defn ensure-environment [name] (ensure-named-row :environments :environment name))
+(defn ensure-producer [name] (ensure-named-row :producers :name name))
+(defn ensure-status [name] (ensure-named-row :report_statuses :status name))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog updates/changes
@@ -506,16 +458,14 @@
                 (catalog-row-map hash catalog received-timestamp)
                 ["id=?" id]))
 
-(s/defn add-catalog-metadata!
-  "Given some catalog metadata, persist it in the db. Returns a map of the
-  inserted data including any autogenerated columns."
-  [hash :- String
-   {:keys [certname] :as catalog} :- catalog-schema
-   received-timestamp :- pls/Timestamp]
-  {:post [(map? %)]}
-  (first (jdbc/insert! :catalogs
-                       (assoc (catalog-row-map hash catalog received-timestamp)
-                              :certname certname))))
+(defn add-catalog-metadata!
+  "Stores catalog metadata for certname."
+  [hash {:keys [certname] :as catalog} received-timestamp]
+  (->> {:insert-into :catalogs
+        :values [(assoc (catalog-row-map hash catalog received-timestamp)
+                        :certname certname)]}
+       hsql/format (nxt/execute-one! (jdbc/connection)))
+  nil)
 
 (s/defn resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
@@ -564,12 +514,8 @@
                    (assoc acc resource-hash parameters))))
              {} refs-to-resources))
 
-(s/defn insert-records*
-  "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
-  [table :- s/Keyword
-   record-coll]
-  (s/validate [{s/Keyword s/Any}] (vec (take 3 record-coll)))
-  (jdbc/insert-multi! table record-coll))
+;; Test support
+(def ^:dynamic *note-add-params-insert* identity)
 
 (s/defn add-params!
   "Persists the new parameters found in `refs-to-resources` and populates the
@@ -582,116 +528,133 @@
 
     (update! (get-storage-metric :catalog-volatility) (* 2 (count new-params)))
 
-    (insert-records*
-     :resource_params_cache
-     (map (fn [[resource-hash params]]
-            {:resource (sutils/munge-hash-for-storage resource-hash)
-             :parameters (some-> params sutils/munge-jsonb-for-storage)})
-          new-params))
+    (doseq [batch (partition-all 1000 new-params)]
+      (->> {:insert-into :resource_params_cache
+            :columns [:resource :parameters]
+            :values (for [[resource-hash params] batch]
+                      [(sutils/munge-hash-for-storage resource-hash)
+                       (some-> params sutils/munge-jsonb-for-storage)])}
+           *note-add-params-insert* hsql/format (nxt/execute! (jdbc/connection))))
 
-    (insert-records*
-     :resource_params
-     (for [[resource-hash params] new-params
-           [k v] params]
-       {:resource (sutils/munge-hash-for-storage resource-hash)
-        :name (name k)
-        :value (sutils/db-serialize v)}))))
+    (doseq [batch (partition-all 1000 new-params)]
+      ;; The batch might only have one item with params {}.
+      (when-let [rows (seq (for [[resource-hash params] batch
+                                 [k v] params]
+                             [(sutils/munge-hash-for-storage resource-hash)
+                              (name k)
+                              (sutils/db-serialize v)]))]
+        (->> {:insert-into :resource_params
+              :columns [:resource :name :value]
+              :values rows}
+             *note-add-params-insert* hsql/format (nxt/execute! (jdbc/connection)))))))
 
 (def resource-ref?
   "Returns true of the map is a resource reference"
   (every-pred :type :title))
 
-(defn convert-tags-array
-  "Converts the given tags (if present) to the format the database expects"
-  [resource]
-  (if (contains? resource :tags)
-    (update-in resource [:tags] sutils/to-jdbc-varchar-array)
-    resource))
+(defn handle-resource-insert-sql-ex
+  "Handles a SQLException encountered while inserting a resource. This
+  may occur when the inserted resource has a value too big for a
+  postgres btree index."
+  [^SQLException ex certname row-or-rows]
+  {:pre [(or (map? row-or-rows) (some-> (first row-or-rows) map?))]}
 
-(defn handle-resource-insert-sqlexception
-  "Handles a java.sql.SQLException encountered while inserting of a
-  resource. This may occur when the inserted resource has a value too
-  big for a postgres btree index."
-  [ex certname file line]
   (when-not (= (jdbc/sql-state :program-limit-exceeded) (.getSQLState ex))
     (throw ex))
   (when-not (utils/leaf-error? ex)
     (throw ex))
-  (throw
-   (ex-info
-    (str
-     (trs "Failed to insert resource for {0} (file: {1}, line: {2})." certname file (str line))
-     (trs "  May indicate use of $facts[''my_fact''] instead of $'{'facts[''my_fact'']'}'. ({0})"
-          (.getMessage ex)))
-    {:kind ::resource-insert-limit-exceeded
-     :puppetlabs.puppetdb/known-error? true})))
+
+  ;; postgres 15.6: "index row requires ... bytes, maximum size is 8191"
+  (letfn [(row-size [row]
+            ;; Must cover all the relevant indexes
+            (+ (-> row :type (.getBytes "UTF-8") alength)
+               (-> row :title (.getBytes "UTF-8") alength)))
+          (elide [s] (if (< (count s) 16) s (subs s 0 (min 15 (count s)))))
+          ;; Might want to sort anyway, but sort for tests
+          (key-rank [k] (.indexOf [:file :line :type :title] k))
+          (locus-map [& args] (apply sorted-map-by #(compare (key-rank %1) (key-rank %2)) args))
+          (res-msg [{:keys [file line type title]}]
+            (if (and file line)
+              (pr-str (locus-map :file file :line line))
+              (pr-str (cond-> (locus-map)
+                        file (assoc :file file)
+                        line (assoc :line line)
+                        type (assoc :type (elide type))
+                        title (assoc :title (elide title))))))
+          (msg [rows]
+            (case (bounded-count 2 rows)
+              0 (trs "A catalog resource for certname {0} is too large" (pr-str certname))
+              1 (trs "A catalog resource for certname {0} is too large: {1}"
+                     (pr-str certname) (-> rows first res-msg))
+              (apply str
+                     (trs "A catalog resource for certname {0} is too large; suspects:"
+                          (pr-str certname))
+                     (map #(str " " (res-msg %)) (sort-by #(- (row-size %)) rows)))))]
+    (let [data {:kind ::resource-insert-limit-exceeded
+                :puppetlabs.puppetdb/known-error? true}]
+      (cond
+        (map? row-or-rows) (throw (ex-info (msg [row-or-rows]) data))
+        (not (second row-or-rows)) (throw (ex-info (msg row-or-rows) data))
+        :else (let [large (filter #(> (row-size %) 8000) row-or-rows)]
+                (throw (ex-info (msg large) data)))))))
 
 (def log-catalog-resource-changes?
   (->> (or (System/getenv "PDB_LOG_CATALOG_RESOURCE_CHANGES") "no")
        (re-matches #"yes|true|1")
        seq))
 
+;; Test support
+(def ^:dynamic *note-insert-catalog-resources-insert* identity)
+
 (s/defn insert-catalog-resources!
-  "Returns a function that accepts a seq of ref keys to insert"
   [certname-id :- Long
    certname :- String
    refs-to-hashes :- {resource-ref-schema String}
-   refs-to-resources :- resource-ref->resource-schema]
-  (fn [refs-to-insert]
-    {:pre [(every? resource-ref? refs-to-insert)]}
-
-    (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
-    (when (and log-catalog-resource-changes?
-               (seq refs-to-insert))
-      (log/info (trs "Inserting new resources for certname {0}: {1}"
-                     certname
-                     (select-keys refs-to-hashes refs-to-insert))))
-    (let [last-record (atom nil)]
+   refs-to-resources :- resource-ref->resource-schema
+   refs-to-insert]
+  (update! (get-storage-metric :catalog-volatility) (count refs-to-insert))
+  (when (and log-catalog-resource-changes?
+             (seq refs-to-insert))
+    (log/info (trs "Inserting new resources for certname {0}: {1}"
+                   certname
+                   (select-keys refs-to-hashes refs-to-insert))))
+  (doseq [batch (partition-all 1000 refs-to-insert)]
+    (let [rows (mapv (fn [resource-ref]
+                       (let [{:keys [type title exported tags file line]}
+                             (get refs-to-resources resource-ref)]
+                         {:certname_id certname-id
+                          :resource (-> resource-ref refs-to-hashes munge-hash-for-storage)
+                          :type type
+                          :title title
+                          :tags (sutils/to-jdbc-varchar-array tags)
+                          :exported exported
+                          :file file
+                          :line line}))
+                     batch)
+          sql (-> {:insert-into :catalog_resources :values rows}
+                  *note-insert-catalog-resources-insert* hsql/format)]
       (try
-        (insert-records*
-         :catalog_resources
-         ;; The catch below, which is intended to handle index errors
-         ;; from the insert(s) expects that this code will not throw
-         ;; an unrelated :program-limit-exceeded-exception.
-         (map (fn [resource-ref]
-                (let [{:keys [type title exported tags file line]
-                       :as resource}
-                      (get refs-to-resources resource-ref)]
-                  (reset! last-record resource)
-                  (convert-tags-array
-                   {:certname_id certname-id
-                    :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
-                    :type type
-                    :title title
-                    :tags tags
-                    :exported exported
-                    :file file
-                    :line line})))
-              refs-to-insert))
+        (nxt/execute! (jdbc/connection) sql)
         (catch SQLException ex
-          (let [{:keys [file line]} @last-record]
-            (handle-resource-insert-sqlexception ex certname file line)))))))
+          (handle-resource-insert-sql-ex ex certname rows))))))
 
 (s/defn delete-catalog-resources!
-  "Returns a function accepts old catalog resources that should be deleted."
   [certname-id :- Long
    certname :- String
-   old-resources]
-  (fn [refs-to-delete]
-    {:pre [(every? resource-ref? refs-to-delete)]}
+   old-resources
+   refs-to-delete]
+  (update! (get-storage-metric :catalog-volatility) (count refs-to-delete))
 
-    (update! (get-storage-metric :catalog-volatility) (count refs-to-delete))
-
-    (when (and log-catalog-resource-changes?
-               (seq refs-to-delete))
-      (log/info (trs "Deleting resources for certname {0}: {1}"
-                     certname
-                     (pr-str (map #(select-keys % [:type :title :resource])
-                                  (vals (select-keys old-resources refs-to-delete)))))))
-    (doseq [{:keys [type title]} refs-to-delete]
-      (jdbc/delete! :catalog_resources
-                    ["certname_id = ? and type = ? and title = ?"
-                     certname-id type title]))))
+  (when (and log-catalog-resource-changes?
+             (seq refs-to-delete))
+    (log/info (trs "Deleting resources for certname {0}: {1}"
+                   certname
+                   (pr-str (map #(select-keys % [:type :title :resource])
+                                (vals (select-keys old-resources refs-to-delete)))))))
+  (doseq [{:keys [type title]} refs-to-delete]
+    (jdbc/delete! :catalog_resources
+                  ["certname_id = ? and type = ? and title = ?"
+                   certname-id type title])))
 
 (s/defn basic-diff
   "Basic diffing that returns only the keys/values of `right` whose values don't match those of `left`.
@@ -731,29 +694,30 @@
              refs-to-resources refs-to-resources))
 
 (s/defn update-catalog-resources!
-  "Returns a function accepting keys that were the same from the old resources and the new resources."
   [certname-id :- Long
    certname :- String
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources
-   old-resources]
+   old-resources
+   maybe-updated-refs]
+  (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
+        updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash certname)
+                               (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
 
-  (fn [maybe-updated-refs]
-    {:pre [(every? resource-ref? maybe-updated-refs)]}
-    (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
-          updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash certname)
-                                 (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
+    (update! (get-storage-metric :catalog-volatility) (count updated-resources))
 
-      (update! (get-storage-metric :catalog-volatility) (count updated-resources))
-
-      (doseq [[{:keys [type title file line]} updated-cols] updated-resources]
-        (try
-          (jdbc/update! :catalog_resources
-                        (convert-tags-array updated-cols)
-                        ["certname_id = ? and type = ? and title = ?"
-                         certname-id type title])
-          (catch SQLException ex
-            (handle-resource-insert-sqlexception ex certname file line)))))))
+    (doseq [[{:keys [type title]} updates] updated-resources]
+      ;; This should never throw a :program-limit-exceeded exception
+      ;; because the type and title are the only values that could
+      ;; overflow an index, and if they've changed we'll be
+      ;; deleting/inserting, not updating.  So omit the related
+      ;; catch.
+      (jdbc/update! :catalog_resources
+                    (if (contains? updates :tags)
+                      (update updates :tags sutils/to-jdbc-varchar-array)
+                      updates)
+                    ["certname_id = ? and type = ? and title = ?"
+                     certname-id type title]))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
@@ -770,14 +734,15 @@
   (let [old-resources (catalog-resources certname-id)
         diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
-     (add-params! refs-to-resources refs-to-hashes)
-     (utils/diff-fn old-resources
-                    diffable-resources
-                    (delete-catalog-resources! certname-id certname old-resources)
-                    (insert-catalog-resources! certname-id certname refs-to-hashes
-                                               diffable-resources)
-                    (update-catalog-resources! certname-id certname refs-to-hashes
-                                               diffable-resources old-resources)))))
+      (add-params! refs-to-resources refs-to-hashes)
+      (let [[deletes inserts updates] (data/diff (-> old-resources keys set)
+                                                 (-> diffable-resources keys set))]
+        (delete-catalog-resources! certname-id certname old-resources (or deletes #{}))
+        (insert-catalog-resources! certname-id certname refs-to-hashes
+                                   diffable-resources (or inserts #{}))
+        (update-catalog-resources! certname-id certname refs-to-hashes
+                                   diffable-resources old-resources
+                                   (or updates #{}))))))
 
 (s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -818,6 +783,9 @@
                    (sutils/bytea-escape target)
                    type])))
 
+;; Test support
+(def ^:dynamic *note-insert-edges-insert* identity)
+
 (s/defn insert-edges!
   "Insert edges for a given certname.
 
@@ -827,18 +795,19 @@
     [[<source> <target> <type>] ...]"
   [certname :- String
    edges :- edge-db-schema]
-
-  ;; Insert rows will not safely accept a nil, so abandon this operation
-  ;; earlier.
-  (when (seq edges)
-    (let [rows (for [[source target type] edges]
-                 {:certname certname
-                  :source (sutils/munge-hash-for-storage source)
-                  :target (sutils/munge-hash-for-storage target)
-                  :type type})]
-
-      (update! (get-storage-metric :catalog-volatility) (count rows))
-      (jdbc/insert-multi! :edges rows))))
+  (let [counts (for [batch (partition-all 1000 edges)]
+                 (let [rows (mapv (fn [[source target type]]
+                                    {:certname certname
+                                     :source (sutils/munge-hash-for-storage source)
+                                     :target (sutils/munge-hash-for-storage target)
+                                     :type type})
+                                  batch)]
+                   (->> {:insert-into :edges :values rows}
+                        *note-insert-edges-insert* hsql/format
+                        (nxt/execute! (jdbc/connection))
+                        first ::nxt/update-count)))]
+    (update! (get-storage-metric :catalog-volatility) (reduce + counts))
+    nil))
 
 (s/defn replace-edges!
   "Persist the given edges in the database
@@ -852,19 +821,17 @@
   [certname :- String
    edges :- #{edge-schema}
    refs-to-hashes :- {resource-ref-schema String}]
-
   (let [new-edges (zipmap
                    (for [{:keys [source target relationship]} edges
                          :let [source-hash (refs-to-hashes source)
                                target-hash (refs-to-hashes target)
                                type        (name relationship)]]
                      [source-hash target-hash type])
-                   (repeat nil))]
-    (utils/diff-fn new-edges
-                   (catalog-edges-map certname)
-                   #(insert-edges! certname %)
-                   #(delete-edges! certname %)
-                   identity)))
+                   (repeat nil))
+        edge-keys (-> certname catalog-edges-map keys set)
+        [inserts deletes _] (data/diff (-> new-edges keys set) edge-keys)]
+    (insert-edges! certname (or inserts #{}))
+    (delete-edges! certname (or deletes #{}))))
 
 (s/defn update-existing-catalog
   "When a new incoming catalog has the same hash as an existing catalog, update
@@ -961,12 +928,12 @@
 
 (defn store-catalog-inputs!
   [certid inputs]
-    (jdbc/insert-multi! :catalog_inputs
-                        [:certname_id :type :name]
-                        (sequence (comp
-                                   (map #(apply vector certid %))
-                                   (distinct))
-                                  inputs)))
+  (doseq [batch (partition-all 1000 inputs)]
+    (->> {:insert-into :catalog_inputs
+          :columns [:certname_id :type :name]
+          :values (sequence (comp (map #(apply vector certid %)) (distinct))
+                            batch)}
+         hsql/format (nxt/execute! (jdbc/connection)))))
 
 (defn update-catalog-input-metadata!
   [certid catalog-uuid last-updated inputs-hash]
@@ -1085,19 +1052,29 @@
                                (set (map :package_id rows)))))
 
 (defn insert-missing-packages [existing-hashes-map new-hashed-package-tuples]
-  (let [packages-to-create (remove (fn [hashed-package-tuple]
-                                     (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
-                                   new-hashed-package-tuples)
-        results (jdbc/insert-multi! :packages
-                                    (map (fn [[package_name version provider package-hash]]
-                                           {:name package_name
-                                            :version version
-                                            :provider provider
-                                            :hash (sutils/munge-hash-for-storage package-hash)})
-                                         packages-to-create))]
-    (merge existing-hashes-map
-           (zipmap (map pkg-util/package-tuple-hash packages-to-create)
-                   (map :id results)))))
+  (let [needed (remove (fn [hashed-package-tuple]
+                         (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
+                       new-hashed-package-tuples)
+        insert (fn [rows]
+                 (->> {:insert-into :packages
+                       :values (map (fn [[package_name version provider package-hash]]
+                                      {:name package_name
+                                       :version version
+                                       :provider provider
+                                       :hash (sutils/munge-hash-for-storage package-hash)})
+                                    rows)
+                       :returning [:id]}
+                      hsql/format
+                      (nxt/plan (sql/get-connection jdbc/*db*))))
+        ;; Insert all in batches while constructing one result vector ids
+        new-ids (persistent! (reduce
+                              (fn conj-batch [ids batch]
+                                (reduce (fn conj-row [ids row] (conj! ids (:id row)))
+                                        ids (insert batch)))
+                              (transient [])
+                              (partition-all 1000 needed)))]
+    (merge existing-hashes-map (zipmap (map pkg-util/package-tuple-hash needed)
+                                       new-ids))))
 
 (s/defn update-packages
   "Compares `inventory` to the stored package inventory for
@@ -1120,10 +1097,11 @@
                                        (sutils/munge-hash-for-storage new-package-hash))}
                       ["id=?" certname_id])
 
-        (when (seq new-package-ids)
-          (jdbc/insert-multi! :certname_packages
-                              ["certname_id" "package_id"]
-                              (map #(vector certname_id %) new-package-ids)))
+        (doseq [id-batch (partition-all 1000 new-package-ids)]
+          (->> {:insert-into :certname_packages
+                :columns [:certname_id :package_id]
+                :values (map #(vector certname_id %) id-batch)}
+               hsql/format (nxt/execute! (jdbc/connection))))
 
         (when (seq old-package-ids)
 
@@ -1153,10 +1131,12 @@
                   {:package_hash (sutils/munge-hash-for-storage new-packageset-hash)}
                   ["id=?" certname-id])
 
-    (jdbc/insert-multi! :certname_packages
-                        ["certname_id" "package_id"]
-                        (map (fn [package-id] [certname-id package-id])
-                             (vals full-hashes-map)))))
+    (doseq [batch (partition-all 1000 (for [pkg-id (vals full-hashes-map)]
+                                        [certname-id pkg-id]))]
+      (->> {:insert-into :certname_packages
+            :columns [:certname_id :package_id]
+            :values batch}
+           hsql/format (nxt/execute! (jdbc/connection))))))
 
 
 ;;; JSONB facts
@@ -1201,19 +1181,18 @@
 
 (defn realize-paths
   "Ensures that every path in the pathmaps has a corresponding row in
-  fact_paths, and returns either nil, if pathmaps is empty, or a
-  fingerprint of the paths if hash? is true."
-  ([pathmaps] (realize-paths pathmaps identity))
+  fact_paths."
+  ([pathmaps] (realize-paths pathmaps nil))
   ([pathmaps notice-pathmap]
-   (let [path-array-conversion #(->> (map str %)
-                                     (sutils/array-to-param "text" String))]
-     (when (seq pathmaps)
-       (->> pathmaps
-            (map notice-pathmap)
-            (map #(update % :path_array path-array-conversion))
-            (partition-all path-insertion-chunk-size)
-            (map #(jdbc/insert-multi! :fact_paths % {:on-conflict "do nothing"}))
-            dorun)))))
+   (let [path->array #(sutils/array-to-param "text" String (map str %))
+         pm->row (if notice-pathmap
+                   #(update (notice-pathmap %) :path_array path->array)
+                   #(update % :path_array path->array))]
+     (doseq [batch (partition-all 1000 pathmaps)]
+       (->> {:insert-into :fact_paths
+             :values (map pm->row batch)
+             :on-conflict [] :do-nothing true}
+            hsql/format (nxt/execute! (jdbc/connection)))))))
 
 (defn hash-pathmaps-paths [pathmaps]
   (let [digest (MessageDigest/getInstance "SHA-1")]
@@ -1233,28 +1212,30 @@
   facts associated with the certname."
   ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
      :as fact-data} :- facts-schema]
-   (time! (get-storage-metric :add-new-fact)
-     (jdbc/with-db-transaction []
-       (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
-                        (realize-paths (facts/facts->pathmaps values)
-                                       (pathmap-digestor digest))
-                        (.digest digest))
-             hash (shash/fact-identity-hash fact-data)]
-         (jdbc/insert! :factsets
-                     {:certname certname
-                      :timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)
-                      :producer_timestamp (to-timestamp producer_timestamp)
-                      :producer_id (ensure-producer producer)
-                      :stable (sutils/munge-jsonb-for-storage values)
-                      :stable_hash (shash/generic-identity-sha1-bytes values)
-                      ;; need at least an empty map for the jsonb || operator
-                      :volatile (sutils/munge-jsonb-for-storage {})
-                      :paths_hash paths-hash
-                      :hash (sutils/munge-hash-for-storage hash)})
-         (when (seq package_inventory)
-           (insert-packages certname package_inventory))
-         {:status :incorporated :hash hash})))))
+   (time!
+    (get-storage-metric :add-new-fact)
+    (jdbc/with-db-transaction []
+      (let [paths-hash (let [digest (MessageDigest/getInstance "SHA-1")]
+                         (realize-paths (facts/facts->pathmaps values)
+                                        (pathmap-digestor digest))
+                         (.digest digest))
+            hash (shash/fact-identity-hash fact-data)]
+        (->> {:insert-into :factsets
+              :values [{:certname certname
+                        :timestamp (to-timestamp timestamp)
+                        :environment_id (ensure-environment environment)
+                        :producer_timestamp (to-timestamp producer_timestamp)
+                        :producer_id (ensure-producer producer)
+                        :stable (sutils/munge-jsonb-for-storage values)
+                        :stable_hash (shash/generic-identity-sha1-bytes values)
+                        ;; need at least an empty map for the jsonb || operator
+                        :volatile (sutils/munge-jsonb-for-storage {})
+                        :paths_hash paths-hash
+                        :hash (sutils/munge-hash-for-storage hash)}]}
+             hsql/format (nxt/execute-one! (jdbc/connection)))
+        (when (seq package_inventory)
+          (insert-packages certname package_inventory))
+        {:status :incorporated :hash hash})))))
 
 (s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that
@@ -1397,29 +1378,7 @@
       (reverse containment-path)))))
 
 (def store-resources-column? (atom false))
-
-(defn maybe-resources
-  [row-map]
-  (if @store-resources-column?
-    row-map
-    (dissoc row-map :resources)))
-
 (def store-corrective-change? (atom false))
-
-(defn maybe-corrective-change
-  [row-map]
-  (if @store-corrective-change?
-    row-map
-    (dissoc row-map :corrective_change)))
-
-(defn maybe-environment
-  "This fn is most to help in testing, instead of persisting a value of
-  nil, just omit it from the row map. For tests that are running older versions
-  of migrations, this function prevents a failure"
-  [row-map]
-  (if (nil? (:environment_id row-map))
-    (dissoc row-map :environment_id)
-    row-map))
 
 (defn replace-null-bytes [x]
   (if-not (string? x)
@@ -1454,11 +1413,24 @@
   (time/after? (org.joda.time.DateTime. timestamp)
                (.minus (now) resource-events-ttl)))
 
-(defn filter-expired-resources
-   [resource-events-ttl resource-list]
-   (if resource-events-ttl
-     (filter #(resource-event-expired? (:timestamp %) resource-events-ttl) resource-list)
-   resource-list))
+(defn insert-resource-events [certname cert-id report-id resource-events ttl]
+  (let [xf (comp (map #(assoc % :report_id report-id :certname_id cert-id))
+                 ;; resource-event-identity-pkey requires :report_id
+                 (map #(assoc % :event_hash (-> (shash/resource-event-identity-pkey %)
+                                                (sutils/munge-hash-for-storage))))
+                 (map #(update % :containment_path (fn [x] (some-> x sutils/to-jdbc-varchar-array)))))
+        xf (cond-> xf
+             ttl (comp (filter #(resource-event-expired? (:timestamp %) ttl)))
+             (not @store-corrective-change?) (comp (map #(dissoc % :corrective_change))))
+        ;; group by the hash, and choose oldest (aka first) of any duplicates
+        rows (->> (sequence xf resource-events) (group-by :event_hash)
+                  vals (sort-by :timestamp) (map first))]
+    (doseq [batch (partition-all 1000 rows)]
+      (let [sql (-> {:insert-into :resource_events :values batch} hsql/format)]
+        (try
+          (nxt/execute! (jdbc/connection) sql)
+          (catch SQLException ex
+            (handle-resource-insert-sql-ex ex certname batch)))))))
 
 (s/defn add-report!* :- processing-status-schema
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
@@ -1470,88 +1442,57 @@
    update-latest-report? :- s/Bool
    save-event? :- s/Bool
    options-config]
-  (time! (get-storage-metric :store-report)
-         (let [{:keys [puppet_version certname report_format configuration_version producer
-                       producer_timestamp start_time end_time transaction_uuid environment
-                       status noop metrics logs resources resource_events catalog_uuid
-                       code_id job_id cached_catalog_status noop_pending corrective_change
-                       type]
-                :as report} (normalize-report orig-report)
-               report-hash (shash/report-identity-hash report)]
-           (jdbc/with-db-transaction []
-             (let [shash (sutils/munge-hash-for-storage report-hash)]
-               (if (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
-                       (query-to-vec report-hash)
-                       seq)
-                 {:status :duplicate :hash report-hash}
-                 (let [certname-id (certname-id certname)
-                       resource-events-ttl (get options-config :resource-events-ttl)
-                       table-name (str "reports_" (-> producer_timestamp
-                                                      (partitioning/to-zoned-date-time)
-                                                      (partitioning/date-suffix)))
-                       row-map {:hash shash
-                                :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
-                                :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
-                                :code_id code_id
-                                :job_id job_id
-                                :cached_catalog_status cached_catalog_status
-                                :metrics (sutils/munge-jsonb-for-storage metrics)
-                                :logs (sutils/munge-jsonb-for-storage logs)
-                                :resources (sutils/munge-jsonb-for-storage resources)
-                                :corrective_change corrective_change
-                                :noop noop
-                                :noop_pending noop_pending
-                                :puppet_version puppet_version
-                                :certname certname
-                                :report_format report_format
-                                :configuration_version configuration_version
-                                :producer_id (ensure-producer producer)
-                                :producer_timestamp producer_timestamp
-                                :start_time start_time
-                                :end_time end_time
-                                :receive_time (to-timestamp received-timestamp)
-                                :environment_id (ensure-environment environment)
-                                :status_id (ensure-status status)
-                                :report_type (or type "agent")}
-                       [{report-id :id}] (->> row-map
-                                              maybe-environment
-                                              maybe-resources
-                                              maybe-corrective-change
-                                              (jdbc/insert! table-name))]
-                   (when (and (seq resource_events) save-event?)
-                     (let [insert! (fn [x] (jdbc/insert-multi! :resource_events x))
-                           adjust-event #(-> %
-                                             maybe-corrective-change
-                                             (assoc :report_id report-id
-                                                    :certname_id certname-id))
-                           add-event-hash #(-> %
-                                               ;; this cannot be merged with the function above, because the report-id
-                                               ;; field *has* to exist first
-                                               (assoc :event_hash (->> (shash/resource-event-identity-pkey %)
-                                                                       (sutils/munge-hash-for-storage))))
-                           ;; group by the hash, and choose the oldest (aka first) of any duplicates.
-                           remove-dupes #(map first (sort-by :timestamp (vals (group-by :event_hash %))))
-                           last-record (atom nil)
-                           set-last-record! #(reset! last-record %)]
-                       (try
-                         (->> resource_events
-                              (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                              (map adjust-event)
-                              (map add-event-hash)
-                              ;; ON CONFLICT does *not* work properly in partitions, see:
-                              ;; https://www.postgresql.org/docs/9.6/ddl-partitioning.html
-                              ;; section 5.10.6
-                              remove-dupes
-                              (filter-expired-resources resource-events-ttl)
-                              (map set-last-record!)
-                              insert!
-                              dorun)
-                         (catch SQLException ex
-                           (let [{:keys [file line]} @last-record]
-                             (handle-resource-insert-sqlexception ex certname file line))))))
-                   (when (and update-latest-report? (not= type "plan"))
-                     (update-latest-report! certname report-id producer_timestamp))
-                   {:status :incorporated :hash report-hash})))))))
+  (time!
+   (get-storage-metric :store-report)
+   (let [{:keys [puppet_version certname report_format configuration_version producer
+                 producer_timestamp start_time end_time transaction_uuid environment
+                 status noop metrics logs resources resource_events catalog_uuid
+                 code_id job_id cached_catalog_status noop_pending corrective_change
+                 type]
+          :as report} (normalize-report orig-report)
+         report-hash (shash/report-identity-hash report)]
+     (jdbc/with-db-transaction []
+       (let [shash (sutils/munge-hash-for-storage report-hash)]
+         (if (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
+                 (query-to-vec report-hash)
+                 seq)
+           {:status :duplicate :hash report-hash}
+           (let [certname-id (certname-id certname)
+                 ttl (get options-config :resource-events-ttl)
+                 table-name (str "reports_" (-> producer_timestamp
+                                                partitioning/to-zoned-date-time
+                                                partitioning/date-suffix))
+                 row (cond-> {:hash shash
+                              :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                              :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
+                              :code_id code_id
+                              :job_id job_id
+                              :cached_catalog_status cached_catalog_status
+                              :metrics (sutils/munge-jsonb-for-storage metrics)
+                              :logs (sutils/munge-jsonb-for-storage logs)
+                              :noop noop
+                              :noop_pending noop_pending
+                              :puppet_version puppet_version
+                              :certname certname
+                              :report_format report_format
+                              :configuration_version configuration_version
+                              :producer_id (ensure-producer producer)
+                              :producer_timestamp producer_timestamp
+                              :start_time start_time
+                              :end_time end_time
+                              :receive_time (to-timestamp received-timestamp)
+                              :status_id (ensure-status status)
+                              :report_type (or type "agent")}
+                       environment (assoc :environment_id (ensure-environment environment))
+                       @store-resources-column? (assoc :resources (sutils/munge-jsonb-for-storage resources))
+                       @store-corrective-change? (assoc :corrective_change corrective_change))
+                 id (->> {:insert-into (keyword table-name) :values [row] :returning [:id]}
+                         hsql/format (select-one! (jdbc/connection) :id))]
+             (when (and (seq resource_events) save-event?)
+               (insert-resource-events certname certname-id id resource_events ttl))
+             (when (and update-latest-report? (not= type "plan"))
+               (update-latest-report! certname id producer_timestamp))
+             {:status :incorporated :hash report-hash})))))))
 
 (defn maybe-log-query-termination
   "Takes a seq of maps containing information about PostgreSQL pids

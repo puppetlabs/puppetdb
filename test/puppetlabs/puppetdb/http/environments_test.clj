@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.environments-test
   (:require [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.jdbc :refer [with-db-transaction]]
             [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
@@ -21,8 +22,9 @@
     (is (empty? (query-result method endpoint))))
 
   (testing "with environments"
-    (doseq [env ["foo" "bar" "baz"]]
-      (storage/ensure-environment env))
+    (with-db-transaction []
+      (doseq [env ["foo" "bar" "baz"]]
+        (storage/ensure-environment env)))
 
     (without-db-var
      (fn []
@@ -51,8 +53,9 @@
        (is (= 404 (:status (query-response method (str endpoint "/foo"))))))))
 
   (testing "with environments"
-    (doseq [env ["foo" "bar" "baz"]]
-      (storage/ensure-environment env))
+    (with-db-transaction []
+      (doseq [env ["foo" "bar" "baz"]]
+        (storage/ensure-environment env)))
     (without-db-var
      (fn []
        (is (= {:name "foo"}
@@ -65,8 +68,9 @@
    method [:get :post]]
 
   (tu-nodes/store-example-nodes)
-  (doseq [env ["foo" "bar" "baz"]]
-    (storage/ensure-environment env))
+  (with-db-transaction []
+    (doseq [env ["foo" "bar" "baz"]]
+      (storage/ensure-environment env)))
 
   (are [query expected] (= expected
                            (query-result method endpoint query))
@@ -203,8 +207,9 @@
    method [:get :post]]
 
   (testing "environment-exists? function"
-    (doseq [env ["bobby" "dave" "charlie"]]
-      (storage/ensure-environment env))
+    (with-db-transaction []
+      (doseq [env ["bobby" "dave" "charlie"]]
+        (storage/ensure-environment env)))
     (is (= true (eng/object-exists? :environment "bobby")))
     (is (= true (eng/object-exists? :environment "dave")))
     (is (= true (eng/object-exists? :environment "charlie")))

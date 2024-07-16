@@ -161,6 +161,7 @@
                  [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
+                 [com.github.seancorfield/next.jdbc "1.3.939"]
                  [com.taoensso/nippy :exclusions [org.tukaani/xz]]
                  [digest "1.4.3"]
                  [fast-zip "0.4.0"]
@@ -236,8 +237,8 @@
                                        (schema.core/set-fn-validation! true))]}
              :dev [:defaults {:dependencies [[org.bouncycastle/bcpkix-jdk18on]]
                               :plugins [[jonase/eastwood "0.3.14"
-                                         :exclusions [org.clojure/clojure]]
-                                        ]}]
+                                         :exclusions [org.clojure/clojure]]]
+                              :jvm-opts ~(conj pdb-jvm-opts "-XX:-OmitStackTraceInFastThrow")}]
 
              :fips [:defaults
                     {:dependencies [[org.bouncycastle/bcpkix-fips]
