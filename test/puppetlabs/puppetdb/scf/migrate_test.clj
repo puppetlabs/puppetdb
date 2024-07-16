@@ -317,7 +317,8 @@
     (fast-forward-to-migration! 40)
 
     (let [factset-template {:timestamp (to-timestamp (now))
-                            :environment_id (store/ensure-environment "prod")
+                            :environment_id (jdbc/with-db-transaction []
+                                              (store/ensure-environment "prod"))
                             :producer_timestamp (to-timestamp (now))}
           factset-data (map (fn [fs]
                                (merge factset-template fs))

@@ -76,6 +76,9 @@
    (clojure.lang ExceptionInfo)
    (java.sql SQLException)))
 
+(defn env-id [name] (jdbc/with-db-transaction [] (environment-id name)))
+(defn ensure-env [name] (jdbc/with-db-transaction [] (ensure-environment name)))
+
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
 
@@ -92,13 +95,14 @@
   `(deftest ~name (with-test-db ~@body)))
 
 (deftest-db ensure-producer-test
-  (let [prod1 "foo.com"
-        prod2 "bar.com"]
-    (ensure-producer prod1)
-    (testing "doesn't create new row for existing producer"
-      (is (= 1 (ensure-producer prod1))))
-    (testing "creates new row for non-existing producer"
-      (is (= 2 (ensure-producer prod2))))))
+  (jdbc/with-db-transaction []
+    (let [prod1 "foo.com"
+          prod2 "bar.com"]
+      (ensure-producer prod1)
+      (testing "doesn't create new row for existing producer"
+        (is (= 1 (ensure-producer prod1))))
+      (testing "creates new row for non-existing producer"
+        (is (= 2 (ensure-producer prod2)))))))
 
 (defn-validated factset-map :- {s/Str s/Any}
   "Return all facts and their values for a given certname as a map"
@@ -611,7 +615,7 @@
            (jdbc/with-db-transaction []
             (timestamp-of-newest-record :factsets "some_certname"))))
       (is (empty? (factset-map "some_certname")))
-      (is (nil? (environment-id "PROD")))
+      (is (nil? (env-id "PROD")))
 
       (add-facts! {:certname certname
                    :values facts
@@ -624,10 +628,10 @@
         (is (= facts (factset-map "some_certname")))
 
         (is (= [{:certname "some_certname"
-                 :environment_id (environment-id "PROD")}]
+                 :environment_id (env-id "PROD")}]
                (query-to-vec "SELECT certname, environment_id FROM factsets"))))
 
-      (is (nil? (environment-id "DEV")))
+      (is (nil? (env-id "DEV")))
 
       (update-facts!
        {:certname certname
@@ -640,7 +644,7 @@
       (testing "should have the same entries for each fact"
         (is (= facts (factset-map "some_certname")))
         (is (= [{:certname "some_certname"
-                 :environment_id (environment-id "DEV")}]
+                 :environment_id (env-id "DEV")}]
                (query-to-vec "SELECT certname, environment_id FROM factsets")))))))
 
 (defn package-seq
@@ -974,13 +978,13 @@
       (add-certname! certname)
       (add-certname! other-certname)
 
-      (is (nil? (environment-id "PROD")))
+      (is (nil? (env-id "PROD")))
 
       (replace-catalog! (assoc catalog :environment "PROD"))
 
       (testing "should persist environment if the environment is new"
-        (let [id (environment-id "PROD")]
-          (is (number? (environment-id "PROD")))
+        (let [id (env-id "PROD")]
+          (is (number? (env-id "PROD")))
           (is (= [{:certname certname :api_version 1 :catalog_version "123456789" :environment_id id}]
                  (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs"])))
 
@@ -992,8 +996,8 @@
 
 (deftest-db updating-catalog-environment
   (testing "should persist environment if the environment is new"
-    (let [prod-id (ensure-environment "PROD")
-          dev-id (ensure-environment "DEV")]
+    (let [prod-id (ensure-env "PROD")
+          dev-id (ensure-env "DEV")]
 
       (add-certname! certname)
       (replace-catalog! (assoc catalog :environment "DEV"))
@@ -1955,18 +1959,18 @@
            (query-to-vec ["SELECT old_value, new_value from resource_events where old_value ~ 'foo'"]))))
 
   (deftest-db report-storage-with-environment
-    (is (nil? (environment-id "DEV")))
+    (is (nil? (env-id "DEV")))
 
     (store-example-report! (assoc report :environment "DEV") timestamp)
 
-    (is (number? (environment-id "DEV")))
+    (is (number? (env-id "DEV")))
 
     (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
            [{:certname (:certname report)
-             :environment_id (environment-id "DEV")}])))
+             :environment_id (env-id "DEV")}])))
 
   (deftest-db report-storage-with-producer
-    (let [prod-id (ensure-producer "bar.com")]
+    (let [prod-id (jdbc/with-db-transaction [] (ensure-producer "bar.com"))]
       (store-example-report! (assoc report :producer "bar.com") timestamp)
 
       (is (= (query-to-vec ["SELECT certname, producer_id FROM reports"])
@@ -1974,19 +1978,19 @@
                :producer_id prod-id}]))))
 
   (deftest-db report-storage-with-status
-    (is (nil? (status-id "unchanged")))
+    (is (nil? (jdbc/with-db-transaction [] (status-id "unchanged"))))
 
     (store-example-report! (assoc report :status "unchanged") timestamp)
 
-    (is (number? (status-id "unchanged")))
+    (is (number? (jdbc/with-db-transaction [] (status-id "unchanged"))))
 
     (is (= (query-to-vec ["SELECT certname, status_id FROM reports"])
            [{:certname (:certname report)
-             :status_id (status-id "unchanged")}])))
+             :status_id (jdbc/with-db-transaction [] (status-id "unchanged"))}])))
 
   (deftest-db report-storage-without-resources
     (testing "should store reports"
-      (ensure-environment "DEV")
+      (ensure-env "DEV")
       (store-example-report! (assoc-in report [:resource_events :data] []) timestamp)
       (is (= (query-to-vec ["SELECT certname FROM reports"])
              [{:certname (:certname report)}]))
@@ -1995,13 +1999,13 @@
 
   (deftest-db report-storage-with-existing-environment
     (testing "should store reports"
-      (let [env-id (ensure-environment "DEV")]
+      (let [id (ensure-env "DEV")]
 
         (store-example-report! (assoc report :environment "DEV") timestamp)
 
         (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
                [{:certname (:certname report)
-                 :environment_id env-id}])))))
+                 :environment_id id}])))))
 
   (deftest-db latest-report
     (let [node (:certname report)

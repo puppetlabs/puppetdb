@@ -424,12 +424,14 @@
 (defn with-env
   "Updates the `row-map` to include environment information."
   [row-map]
-  (assoc row-map :environment_id (scf-store/environment-id "DEV")))
+  (jdbc/with-db-transaction []
+    (assoc row-map :environment_id (scf-store/environment-id "DEV"))))
 
 (defn with-producer
   "Updates the `row-map` to include producer information."
   [row-map]
-  (assoc row-map :producer_id (scf-store/producer-id "bar.com")))
+  (jdbc/with-db-transaction []
+    (assoc row-map :producer_id (scf-store/producer-id "bar.com"))))
 
 (defn version-kwd->num
   "Converts a version keyword into a correct number (expected by the command).
@@ -1049,7 +1051,8 @@
                      certname))
               (is (not= (:timestamp result)
                         yesterday))
-              (is (= (scf-store/environment-id "DEV") (:environment_id result))))
+              (is (= (jdbc/with-db-transaction [] (scf-store/environment-id "DEV"))
+                     (:environment_id result))))
 
             (is (= [{:certname certname
                      :facts {"a" "1", "b" "2", "c" "3"}}]

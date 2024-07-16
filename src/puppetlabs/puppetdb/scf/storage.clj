@@ -30,6 +30,7 @@
    [metrics.timers :refer [timer time!]]
    [murphy :refer [try!]]
    [next.jdbc :as nxt]
+   [next.jdbc.plan :refer [select-one!]]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.catalogs :as cat]
@@ -352,37 +353,6 @@
        (when (seq certnames-to-delete)
          (delete-certnames! certnames-to-delete))))))
 
-(pls/defn-validated create-row :- s/Int
-  "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
-  [table :- s/Keyword
-   row-map :- {s/Keyword s/Any}]
-  (:id (first (jdbc/insert! table row-map))))
-
-(pls/defn-validated query-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from `table` that contain `row-map` values"
-  [table :- s/Keyword
-   row-map :- {s/Keyword s/Any}]
-  (let [cols (keys row-map)
-        q (format "select id from %s where %s"
-                  (jdbc/double-quote (name table))
-                  (str/join " " (map #(str (jdbc/double-quote (name %)) "=?")
-                                     cols)))]
-    (jdbc/query-with-resultset (apply vector q (map row-map cols))
-                               (comp :id first sql/result-set-seq))))
-
-(pls/defn-validated ensure-row :- (s/maybe s/Int)
-  "Ensures the row defined by row-map exists in the table,
-   creating it if it does not.  Returns the id of the row."
-  [table :- s/Keyword
-   row-map :- {s/Keyword s/Any}]
-  (when row-map
-    (if-let [id (query-id table row-map)]
-      id
-      (create-row table row-map))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Node data expiration
-
 (pls/defn-validated set-certname-facts-expiration :- processing-status-schema
   [certname :- s/Str
    expire? :- s/Bool
@@ -398,54 +368,28 @@
      [expire? updated certname])
     {:status :incorporated}))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Environments querying/updating
+(defn named-row-id
+  "Returns the id (primary key) from the table for the row with col = name."
+  [table col name]
+  (->> {:select :id :from table :where [:= col name]}
+       hsql/format (select-one! (jdbc/connection)  :id)))
 
-(pls/defn-validated environment-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from the environments table for the given `env-name`"
-  [env-name :- s/Str]
-  (query-id :environments {:environment env-name}))
+(defn environment-id [name] (named-row-id :environments :environment name))
+(defn certname-id [name] (named-row-id :certnames :certname name))
+(defn producer-id [name] (named-row-id :producers :name name))
+(defn status-id [name] (named-row-id :report_statuses :status name))
 
-(pls/defn-validated certname-id :- (s/maybe s/Int)
-  [certname :- s/Str]
-  (query-id :certnames {:certname certname}))
+(defn ensure-named-row
+  "Returns the id (primary key) of the named row, creating it if necessary."
+  [table col name]
+  (when name
+    (or (named-row-id table col name)
+        (->> {:insert-into table :columns [col] :values [[name]] :returning [:id]}
+             hsql/format (select-one! (jdbc/connection) :id)))))
 
-(pls/defn-validated ensure-environment :- (s/maybe s/Int)
-  "Check if the given `env-name` exists, creates it if it does not. Always returns
-   the id of the `env-name` (whether created or existing)"
-  [env-name :- (s/maybe s/Str)]
-  (when env-name
-    (ensure-row :environments {:environment env-name})))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Producers querying/updating
-
-(pls/defn-validated producer-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from the producers table for the given `prod-name`"
-  [prod-name :- s/Str]
-  (query-id :producers {:name prod-name}))
-
-(pls/defn-validated ensure-producer :- (s/maybe s/Int)
-  "Check if the given `prod-name` exists, creates it if it does not. Always returns
-   the id of the `prod-name` (whether created or existing)"
-  [prod-name :- (s/maybe s/Str)]
-  (when prod-name
-    (ensure-row :producers {:name prod-name})))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Status querying/updating
-
-(pls/defn-validated status-id :- (s/maybe s/Int)
-  "Returns the id (primary key) from the result_statuses table for the given `status`"
-  [status :- s/Str]
-  (query-id :report_statuses {:status status}))
-
-(pls/defn-validated ensure-status :- (s/maybe s/Int)
-  "Check if the given `status` exists, creates it if it does not. Always returns
-   the id of the `status` (whether created or existing)"
-  [status :- (s/maybe s/Str)]
-  (when status
-    (ensure-row :report_statuses {:status status})))
+(defn ensure-environment [name] (ensure-named-row :environments :environment name))
+(defn ensure-producer [name] (ensure-named-row :producers :name name))
+(defn ensure-status [name] (ensure-named-row :report_statuses :status name))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog updates/changes

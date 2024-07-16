@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.producers-test
   (:require [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.jdbc :refer [with-db-transaction]]
             [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
@@ -21,8 +22,10 @@
     (is (empty? (query-result method endpoint))))
 
   (testing "with producers"
-    (doseq [prod ["foo" "bar" "baz"]]
-      (storage/ensure-producer prod))
+
+    (with-db-transaction []
+      (doseq [prod ["foo" "bar" "baz"]]
+        (storage/ensure-producer prod)))
 
     (without-db-var
      (fn []
@@ -51,8 +54,9 @@
        (is (= 404 (:status (query-response method (str endpoint "/foo"))))))))
 
   (testing "with producers"
-    (doseq [prod ["foo" "bar" "baz"]]
-      (storage/ensure-producer prod))
+    (with-db-transaction []
+      (doseq [prod ["foo" "bar" "baz"]]
+        (storage/ensure-producer prod)))
     (without-db-var
      (fn []
        (is (= {:name "foo"}
@@ -162,8 +166,9 @@
    method [:get :post]]
 
   (testing "producer-exists? function"
-    (doseq [prod ["bar.com" "baz.com" "mom.com"]]
-      (storage/ensure-producer prod))
+    (with-db-transaction []
+      (doseq [prod ["bar.com" "baz.com" "mom.com"]]
+        (storage/ensure-producer prod)))
     (is (= false (eng/object-exists? :producer "foo.com")))
     (is (= true (eng/object-exists? :producer "bar.com")))
     (is (= true (eng/object-exists? :producer "baz.com")))
