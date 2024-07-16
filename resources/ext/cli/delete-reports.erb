@@ -78,7 +78,7 @@ chown "$pg_user:$pg_user" "$tmp_dir"
 
 # Verify that the PuppetDB schema version is the expected value
 # so that we do not incorrectly delete the report data.
-expected_schema_ver=85
+expected_schema_ver=87
 su - "$pg_user" -s /bin/sh -c "$psql_cmd -p $pg_port -d $pdb_db_name -c 'COPY ( SELECT max(version) FROM schema_migrations ) TO STDOUT;' > $tmp_dir/schema_ver"
 actual_schema_ver="$(cat "$tmp_dir/schema_ver")"
 if test "$actual_schema_ver" -ne $expected_schema_ver; then
@@ -90,14 +90,15 @@ fi
 cat > "$tmp_dir/delete_reports.sql" <<"DELETE"
 BEGIN TRANSACTION;
 
-UPDATE certnames SET latest_report_id = NULL;
-
 DO $$ DECLARE
     r RECORD;
 BEGIN
-    FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_%' OR tablename LIKE 'reports_%') LOOP
-        EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
+    FOR r IN (SELECT inhrelid::regclass AS child FROM pg_catalog.pg_inherits WHERE inhparent = 'reports_historical'::regclass OR inhparent = 'resource_events_historical'::regclass) LOOP
+        EXECUTE 'DROP TABLE ' || quote_ident(r.child::text);
     END LOOP;
+
+    EXECUTE 'TRUNCATE resource_events_latest';
+    EXECUTE 'TRUNCATE reports_latest';
 END $$;
 
 COMMIT TRANSACTION;

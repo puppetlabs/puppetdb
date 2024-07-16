@@ -1848,19 +1848,6 @@
                  "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
-(deftest-db report-sweep-nullifies-latest-report
-  (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
-    (let [report1 (assoc (:basic reports) :end_time (-> 12 days ago))
-          report2 (assoc (:basic reports) :certname "bar.local" :end_time (now) :producer_timestamp (now))]
-      (add-certname! "foo.local")
-      (add-certname! "bar.local")
-      (store-example-report! report1 (-> 12 days ago))
-      (store-example-report! report2 (now))
-      (let [ids (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))
-            _ (delete-reports-older-than! {:report-ttl (-> 11 days ago)})
-            ids2 (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))]
-        (is (= ids2 [(first ids) nil]))))))
-
 (deftest-db plan-report-does-not-update-latest-report-id
   (testing "A submission of a plan report should not update latest_report_id"
     (let [agent-report (assoc (:basic reports)
@@ -1871,9 +1858,9 @@
                              :type "plan")]
       (add-certname! "foo.local")
       (store-example-report! agent-report (now))
-      (let [latest_report_id (query-to-vec "select latest_report_id from certnames")]
+      (let [latest_report_id (query-to-vec "select id from reports_latest")]
         (store-example-report! plan-report (now))
-        (is (= latest_report_id (query-to-vec "select latest_report_id from certnames")))))))
+        (is (= latest_report_id (query-to-vec "select id from reports_latest")))))))
 
 ;; Report tests
 
@@ -1884,7 +1871,20 @@
              (fn [events]
                (map #(assoc % :timestamp new-timestamp) events))))
 
+(defn delete-report-partitions []
+  (jdbc/do-commands
+    "BEGIN TRANSACTION"
+    "DO $$ DECLARE
+         r RECORD;
+     BEGIN
+         FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_2%' OR tablename LIKE 'reports_2%') LOOP
+             EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
+         END LOOP;
+     END $$;"
+    "COMMIT TRANSACTION"))
+
 (let [timestamp (now)
+      second-timestamp (->> 1 time/hours (time/plus timestamp))  
       {:keys [certname] :as report} (:basic reports)
       report-hash (-> report
                       report/report-query->wire-v8
@@ -1914,26 +1914,31 @@
     ;; The timestamp (now) above will map to one of those paritions
     ;; so we delete all the partitions to force the storage code
     ;; to catch the error and create the partition on-demand
-    (jdbc/do-commands
-      "BEGIN TRANSACTION"
-      "UPDATE certnames SET latest_report_id = NULL"
-      "DO $$ DECLARE
-           r RECORD;
-       BEGIN
-           FOR r IN (SELECT tablename FROM pg_tables WHERE tablename LIKE 'resource_events_%' OR tablename LIKE 'reports_%') LOOP
-               EXECUTE 'DROP TABLE ' || quote_ident(r.tablename);
-           END LOOP;
-       END $$;"
-      "COMMIT TRANSACTION")
-    (store-example-report! report timestamp)
-    (is (= [{:certname certname}]
-           (query-to-vec ["SELECT certname FROM reports"])))
+    (testing "partition creation when newer report submitted"
+      (delete-report-partitions)
+
+      (store-example-report! report timestamp)
+      ;; store a newer report to force the creation of an historical partition
+      (store-example-report! (assoc report :producer_timestamp second-timestamp) second-timestamp)
+      (is (= [{:certname certname}]
+             (query-to-vec ["SELECT certname FROM reports_latest"])
+             (query-to-vec ["SELECT certname FROM reports_historical"]))))
+
+    (testing "partition creation when older report submitted"
+      (delete-report-partitions)
+
+      (store-example-report! (assoc report :producer_timestamp second-timestamp) second-timestamp)
+      ;; store an older report to force the creation of an historical partition
+      (store-example-report! report timestamp)
+      (is (= [{:certname certname}]
+             (query-to-vec ["SELECT certname FROM reports_latest"])
+             (query-to-vec ["SELECT certname FROM reports_historical"]))))
 
     (testing "Index is created in on demand partitions"
       (let [assert-index-exists (fn [index indexes]
                                   (is (true? (some #(str/includes? % index) indexes))))
 
-            partitions (get-partition-names "reports")]
+            partitions (get-partition-names "reports_historical")]
         ;; check that primary key index is present in on demand paritions
         ;; XXX Do we still care about this?
         (is (= 1 (count partitions)))
@@ -2031,7 +2036,7 @@
 
 
   (deftest-db report-cleanup
-    (testing "should delete reports older than the specified age"
+    (testing "should delete non-latest reports older than the specified age"
       (let [report1 (assoc report
                            :certname "foo"
                            :end_time (to-string (-> 5 days ago))
@@ -2042,10 +2047,21 @@
                            :producer_timestamp (to-string (-> 2 days ago)))]
 
         (store-example-report! report1 timestamp)
+        (store-example-report! (assoc report1
+                                      :producer_timestamp (to-string (-> 4 days ago)))
+                               timestamp)
         (store-example-report! report2 timestamp)
+        (store-example-report! (assoc report2
+                                      :producer_timestamp (to-string (-> 1 days ago)))
+                               timestamp)
+
         (delete-reports-older-than! {:report-ttl (-> 3 days ago)})
 
-        (is (= (query-to-vec ["SELECT certname FROM reports"])
+        ;; both reports are the latest, so they were not removed
+        (is (= (query-to-vec ["SELECT certname FROM reports_latest"])
+               [{:certname "foo"} {:certname "bar"}]))
+
+        (is (= (query-to-vec ["SELECT certname FROM reports_historical"])
                [{:certname "bar"}])))))
 
   (deftest-db resource-events-cleanup
@@ -2054,7 +2070,13 @@
             report1-hash (:hash (store-example-report! report1 timestamp))
             report2 (assoc report :end_time (to-string (-> 2 days ago)))]
 
+        (store-example-report! (assoc report1
+                                      :producer_timestamp (to-string (-> 4 days ago)))
+                               timestamp)
         (store-example-report! report2 timestamp)
+        (store-example-report! (assoc report2
+                                      :producer_timestamp (to-string (-> 1 days ago)))
+                               timestamp)
         (delete-reports-older-than! {:report-ttl (-> 3 days ago)})
         (is (= #{}
                (set (query-resource-events :latest ["=" "report" report1-hash] {})))))))
