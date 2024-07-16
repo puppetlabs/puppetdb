@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: e6ba3374f66287e16c7beb98f8791bc98c6a38cb\n"
+"X-Git-Ref: f5be6a18ab861a32d6830fed0ee1f7013a2a8cbb\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1693,13 +1693,15 @@ msgid "Provided horizon not a valid timestamp {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Failed to insert resource for {0} (file: {1}, line: {2})."
+msgid "A catalog resource for certname {0} is too large"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
-msgid ""
-"  May indicate use of $facts[''my_fact''] instead of "
-"$'{'facts[''my_fact'']'}'. ({0})"
+msgid "A catalog resource for certname {0} is too large: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "A catalog resource for certname {0} is too large; suspects:"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
