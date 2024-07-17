@@ -826,7 +826,10 @@
               (catch SQLException ex
                 ex))]
     (if (instance? SQLException res)
-      (stop (trs "Unable to read schema version: {0}" (.getMessage res)) 2)
+      (if (= (jdbc/sql-state :sqlclient-unable-to-establish-sqlconnection)
+             (.getSQLState res))
+        (log/info (trs "Unable to read schema version: {0}" (.getMessage res)))
+        (log/error (trs "Unable to read schema version: {0}" (.getMessage res))))
       (let [ver (-> res first :max)]
         (cond
           (= ver desired-version) true

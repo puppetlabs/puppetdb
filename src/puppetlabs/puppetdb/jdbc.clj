@@ -44,6 +44,7 @@
    :serialization-failure "40001"
    ;; check constraint violation
    :check-violation "23514"
+   :sqlclient-unable-to-establish-sqlconnection "08001"
    :undefined-table "42P01"})
 
 (def sql-state-name
