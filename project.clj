@@ -162,7 +162,7 @@
                  [com.rpl/specter "1.1.4"]
                  [com.github.seancorfield/next.jdbc "1.3.939"]
                  [com.taoensso/nippy :exclusions [org.tukaani/xz]]
-                 [digest "1.4.10"]
+                 [digest "1.4.3"]
                  [fast-zip "0.4.0"]
                  [instaparse]
                  [murphy "0.5.2"]
