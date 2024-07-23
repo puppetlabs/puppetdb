@@ -12,6 +12,26 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.7.0
+
+Released July 23 2024
+
+### New features and improvements
+
+* Improve performance of command processing by explicitly batching insertions
+  and reducing return network traffic from Postgres.
+* Add a latest partition to reports and resource events to improve query
+  performance for queries using the `latest_report?` filter.
+
+### Bug fixes
+
+* Fixed an issue causing PuppetDB to crash if the Postgres database was
+  stopped. ([GitHub #3991](https://github.com/puppetlabs/puppetdb/issues/3991))
+
+### Contributors
+
+Austin Blatt and Rob Browning.
+
 ## PuppetDB 8.6.0
 
 Released June 11 2024
