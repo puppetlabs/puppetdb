@@ -15,11 +15,19 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.19.1
+
+Released July 23 2024
+
+This release contains dependency updates. No new features or fixes are
+introduced.
+
 ## PuppetDB 7.19.0
 
 Released June 11 2024
 
-This release contains minor dependency upgrades.
+This release contains dependency updates. No new features or fixes are
+introduced.
 
 ### Contributors
 
