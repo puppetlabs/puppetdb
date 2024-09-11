@@ -21,7 +21,7 @@
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps with-test-db]]
             [puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.puppetdb.time :refer [now to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [now to-timestamp] :as t]
             [puppetlabs.puppetdb.scf.partitioning :as part]
             [clojure.string :as str])
   (:import (java.time ZoneId ZonedDateTime)
@@ -2153,3 +2153,64 @@
                      (update :index-diff set)
                      (update :constraint-diff set))]
           (is (= expected-diff diff)))))))
+
+(deftest migration-88-prevent-duplicate-catalogs
+  (testing "reports table declarative partitioning migration"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 82)
+      (let [ts1 (to-timestamp (now))
+            ts2 (-> (now)
+                    (t/plus (t/hours 1))
+                    to-timestamp)
+            fake-hash (sutils/munge-hash-for-storage "0001")]
+
+        (jdbc/insert-multi! :certnames
+                            [{:certname "host-1"}
+                             {:certname "host-2"}])
+
+        (jdbc/insert-multi! :catalogs
+                            [{:id 1 :hash fake-hash
+                              :certname "host-1" :producer_timestamp ts1
+                              :api_version 1 :catalog_version "one"}
+                             {:id 2 :hash fake-hash
+                              :certname "host-1" :producer_timestamp ts2
+                              :api_version 1 :catalog_version "one"}
+                             {:id 3 :hash fake-hash
+                              :certname "host-1" :producer_timestamp ts2
+                              :api_version 1 :catalog_version "one"}
+                             {:id 4 :hash fake-hash
+                              :certname "host-2" :producer_timestamp ts1
+                              :api_version 1 :catalog_version "one"}])
+        (let [before-migration (schema-info-map *db*)
+              _ (apply-migration-for-testing! 88)
+              diff (-> (diff-schema-maps before-migration (schema-info-map *db*))
+                       (update :index-diff set)
+                       (update :constraint-diff set))]
+          (is (= {:index-diff
+                  #{{:left-only {:unique? false}
+                     :right-only {:unique? true}
+                     :same {:index "catalogs_certname_idx"
+                            :user "pdb_test"
+                            :primary? false
+                            :is_partial false
+                            :functional? false
+                            :type "btree"
+                            :index_keys ["certname"]
+                            :table "catalogs"
+                            :schema "public"}}}
+
+                  :table-diff nil
+
+                  :constraint-diff
+                  #{{:left-only nil
+                     :right-only {:constraint_name "catalogs_certname_idx"
+                                  :table_name "catalogs"
+                                  :constraint_type "UNIQUE"
+                                  :initially_deferred "NO"
+                                  :deferrable? "NO"}
+                     :same nil}}}
+                 diff))
+          (is (= [{:id 3 :certname "host-1" :producer_timestamp ts2}
+                  {:id 4 :certname "host-2" :producer_timestamp ts1}]
+                 (query-to-vec "select id, certname, producer_timestamp from catalogs"))))))))
