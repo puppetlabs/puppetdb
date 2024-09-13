@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: f5be6a18ab861a32d6830fed0ee1f7013a2a8cbb\n"
+"X-Git-Ref: d2306ee2b6971659175185d44ac649df6e08ee2a\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -763,7 +763,7 @@ msgstr ""
 msgid "Permission denied: {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/http.clj src/puppetlabs/puppetdb/middleware.clj
+#: src/puppetlabs/puppetdb/http.clj
 msgid "must accept {0}"
 msgstr ""
 
@@ -990,10 +990,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid "content encoding {0} not supported"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/middleware.clj
-msgid "content type {0} not supported"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
