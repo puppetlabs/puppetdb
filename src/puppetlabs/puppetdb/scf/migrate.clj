@@ -2514,6 +2514,20 @@
     "  FROM reports_latest"
     "  WHERE reports_latest.id = resource_events.report_id"]))
 
+(defn prevent-duplicate-catalogs
+  []
+  (jdbc/do-commands
+   ;; Clear any possible duplicates
+   ["DELETE FROM catalogs c1 USING catalogs c2"
+    "  WHERE c1.certname = c2.certname"
+    "    AND (c1.producer_timestamp, c1.id) < (c2.producer_timestamp, c2.id)"]
+
+   ;; Remove the old index
+   "DROP INDEX catalogs_certname_idx"
+
+   ;; Create a unique constraint on the certname, which creates the unique index
+   "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_idx UNIQUE (certname)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {00 require-schema-migrations-table
@@ -2584,7 +2598,8 @@
    84 remove-catalog-resources-file-trgm-index
    85 split-certnames-table
    86 store-latest-reports-separately
-   87 store-latest-events-separately})
+   87 store-latest-events-separately
+   88 prevent-duplicate-catalogs})
    ;; Make sure that if you change the structure of reports
    ;; or resource events, you also update the delete-reports
    ;; cli command.
