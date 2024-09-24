@@ -373,7 +373,7 @@
   "Returns the id (primary key) from the table for the row with col = name."
   [table col name]
   (->> {:select :id :from table :where [:= col name]}
-       hsql/format (select-one! (jdbc/connection)  :id)))
+       hsql/format (select-one! (jdbc/connection) :id)))
 
 (defn environment-id [name] (named-row-id :environments :environment name))
 (defn certname-id [name] (named-row-id :certnames :certname name))
