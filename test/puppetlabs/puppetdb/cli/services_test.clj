@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.cli.services-test
   (:require [clojure.set :refer [subset?]]
+            [next.jdbc.plan :refer [select-one!]]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.cli.util :refer [err-exit-status]]
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
@@ -620,3 +621,30 @@
                                       :db-lock-status db-lock-status})
            (is (= 1 (count (jdbc/query ["SELECT * FROM reports_latest"]))))
            (is (empty? (jdbc/query ["SELECT * FROM reports_historical"])))))))))
+
+(deftest reports-analysis
+  ;; For now, just test for the initial invocation
+  (let [start (now)
+        is-analyzed
+        (fn is-analyzed
+          ([table] (is-analyzed table 0))
+          ([table i]
+           (let [r (jdbc/with-db-transaction []
+                     (->> [(str "select last_analyze, last_autoanalyze"
+                                "  from pg_stat_user_tables where relname = '" table "'")]
+                          (select-one! (jdbc/connection) [:last_analyze :last_autoanalyze])))
+                 last-ms (some-> r :last_analyze .getTime time/from-long)]
+             (if (and last-ms (nil? (:last_autoanalyze r)))
+               (do
+                 (is (= nil (:last_autoanalyze r)))
+                 (is (time/after? last-ms start)))
+               (if (= i 100)
+                 (is false (str table " was eventually analyzed"))
+                 (do
+                   (Thread/sleep 100)
+                   (is-analyzed table (inc i))))))))]
+    (svc-utils/with-puppetdb-instance
+      (doseq [parent ["reports" "reports_historical" "reports_latest"
+                      "resource_events" "resource_events_historical" "resource_events_latest"]]
+        (testing (str parent " analysis times")
+          (is-analyzed parent))))))

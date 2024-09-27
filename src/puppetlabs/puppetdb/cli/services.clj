@@ -38,13 +38,15 @@
      data may linger in the database. We periodically sweep the
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
-  (:require [clojure.string :as str]
+  (:require [clojure.java.jdbc :as sql]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [metrics.counters :as counters :refer [counter inc!]]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
             [murphy :refer [try! with-final]]
+            [next.jdbc :as nxt]
             [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cli.tk-util :refer [run-tk-cli-cmd]]
@@ -939,6 +941,21 @@
         (catch InterruptedException _
           (log/info (trs "Garbage collector interrupted")))))))
 
+(defn analyze-partitioned-tables [db shutdown-for-ex]
+  (with-nonfatal-exceptions-suppressed
+    (with-monitored-execution shutdown-for-ex
+      (try!
+        (jdbc/with-db-connection db
+          (jdbc/with-db-transaction []
+            (let [c (sql/db-connection jdbc/*db*)]
+              (doseq [table ["reports" "resource_events"]]
+                (try!
+                  (nxt/execute! c [(str "analyze " table)])
+                  (catch InterruptedException _
+                    (log/info (trs (str table " analysis interrupted")))))))))
+        (catch Exception ex
+          (log/error ex))))))
+
 (defn start-garbage-collection
   "Starts garbage collection of the databases represented in db-configs"
   [{:keys [clean-lock] :as _context}
@@ -952,7 +969,18 @@
           (schedule-with-fixed-delay sched #(invoke-periodic-gc db cfg request
                                                                 shutdown-for-ex
                                                                 clean-lock lock-status)
-                                     (to-millis interval) (to-millis interval)))))))
+                                     (to-millis interval) (to-millis interval))))
+      ;; pg (up to at least 16) never analyzes partitioned table parents
+      ;; Nearly fixed in 14, but removed before release:
+      ;;   https://www.postgresql.org/about/news/postgresql-14-beta-1-released-2213/
+      ;;   https://www.postgresql.org/about/news/postgresql-14-rc-1-released-2309/
+      ;;
+      ;; Assumes the analysis runs quickly enough to avoid needing any
+      ;; enforced serialization, and to avoid (with the current single
+      ;; threaded executor) ever delaying gc enough to matter.
+      (let [hourly (* 60 60 1000)
+            analyze #(analyze-partitioned-tables db shutdown-for-ex)]
+        (schedule-with-fixed-delay sched analyze 0 hourly)))))
 
 
 (defn database-lock-status []
