@@ -528,8 +528,8 @@ module PuppetDBExtensions
   end
 
   def postgres_manifest
-    # bionic is EOL, so its pgdg repo has been removed.
-    manage_package_repo = ! is_bionic
+    # For EOL OSes, pgdg removes the package repo
+    manage_package_repo = ! (is_bionic || is_buster)
 
     manifest = <<-EOS
       # create the puppetdb database
