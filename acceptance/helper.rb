@@ -296,6 +296,10 @@ module PuppetDBExtensions
     return test_config[:os_families].has_key? 'debian11-64-1'
   end
 
+  def is_bookworm()
+    return test_config[:os_families].has_key? 'debian12-64-1'
+  end
+
   def is_el7()
     return test_config[:os_families].has_key?('redhat7-64-1') ||
            test_config[:os_families].has_key?('centos7-64-1')
@@ -343,8 +347,8 @@ module PuppetDBExtensions
       # always use the non-nightly version
       platform_version
     when :upgrade_oldest
-      # Debian 11, Ubuntu 22, and RHEL 9 only have builds starting in the 7 series
-      if is_bullseye || is_jammy || is_el9
+      # Debian 11 & 12, Ubuntu 22, and RHEL 9 only have builds starting in the 7 series
+      if is_bullseye || is_jammy || is_el9 || is_bookworm
         :puppet7
       else
         :puppet6
@@ -371,6 +375,8 @@ module PuppetDBExtensions
       '6.12.0'
     elsif is_jammy
       '7.14.0'
+    elsif is_bookworm
+      '7.20.0'
     else
       '6.0.0'
     end
@@ -444,6 +450,8 @@ module PuppetDBExtensions
       "#{version}buster"
     elsif host['platform'].include?('debian-11')
       "#{version}bullseye"
+    elsif host['platform'].include?('debian-12')
+      "#{version}bookworm"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
