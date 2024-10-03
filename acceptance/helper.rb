@@ -547,10 +547,10 @@ module PuppetDBExtensions
   end
 
   def postgres_manifest
-    # bionic is EOL, so its pgdg repo has been removed.
+    # bionic and buster are EOL, so the pgdg repos were removed.
     # For RedHat, the versions of the module that support upgrade_oldest
     # tests from Puppet 6 configure the wrong GPG key
-    manage_package_repo = ! ( is_bionic || is_el )
+    manage_package_repo = ! ( is_bionic || is_buster || is_el )
 
     manifest = <<-EOS
       # create the puppetdb database
