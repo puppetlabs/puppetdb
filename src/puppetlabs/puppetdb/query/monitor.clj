@@ -355,7 +355,7 @@
        (reset! exit true)
        (.wakeup selector)
        (if timeout-ms
-         (.join thread timeout-ms)
+         (.join thread ^long timeout-ms)
          (.join thread))
        (not (.isAlive thread))))))
 

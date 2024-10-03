@@ -30,12 +30,13 @@ apt-get-update() {
 install-pg() {
     local need_pgdg=
     for pkg in "$@"; do
-        if ! apt-cahe show "$pkg"; then
+        if ! apt-cache show "$pkg"; then
             need_pgdg=1
             break
         fi
     done
     if test "$need_pgdg"; then
+        apt install -y lsb-release gnupg2
         curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
         echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -sc)-pgdg main" \
              > /etc/apt/sources.list.d/pdb-pgdg.list
