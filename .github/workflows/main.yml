@@ -59,19 +59,6 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '${{ matrix.ruby }}'
-      - uses: actions/cache@v3
-        with:
-          key: |
-            ${{ matrix.flavor }}
-            ${{ runner.os }}
-            ${{ hashFiles('**/Gemfile') }}
-            ${{ hashFiles('**/project.clj') }}
-            ${{ steps.computed.outputs.day }}
-          path: |
-            ci/local/jdk
-            vendor/bundle/ruby
-            ~/.m2/repository
-            ~/Library/Caches/Homebrew
       - name: Gather inital host info
         run: ext/bin/host-info
       - env:
