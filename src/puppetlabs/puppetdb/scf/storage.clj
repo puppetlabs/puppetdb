@@ -1689,6 +1689,23 @@
       (jdbc/do-commands (format "ALTER TABLE %s DETACH PARTITION %s FINALIZE" parent pending))
       (str pending))))
 
+(defn find-stranded-partitions
+  "Identify tables that match the child format of a partitioned table (like reports_historical)
+  that are not present in the pg_inherits table. These partitions have been detached, but failed
+  to be deleted.
+
+  Tables that are not partitioned will also not be in the pg_inherits table, so you MUST
+  write a child-format that does not match any non-partitioned tables.
+
+  Returns a list of strings. Each string is a stranded partition that should be removed."
+  [child-format]
+  (->> [(str "SELECT tablename"
+             " FROM pg_tables WHERE tablename ~ ?"
+             " AND tablename NOT IN (SELECT inhrelid::regclass::text FROM pg_catalog.pg_inherits)")
+        child-format]
+       jdbc/query-to-vec
+       (map (comp str :tablename))))
+
 (defn prune-daily-partitions
   "Either detaches or drops obsolete day-oriented partitions
   older than the date. Deletes or detaches only the oldest such candidate if
@@ -1774,7 +1791,7 @@
   "Drops the given set of tables. Will throw an SQLException termination if the
   operation takes much longer than PDB_GC_DAILY_PARTITION_DROP_LOCK_TIMEOUT_MS."
   [old-partition-tables update-lock-status status-key]
-  (let [drop #(doseq [table old-partition-tables]
+  (let [drop #(doseq [table (distinct old-partition-tables)]
                  (try
                    (update-lock-status status-key inc)
                    (jdbc/do-commands
@@ -1798,9 +1815,10 @@
     ;; PG14+
     (let [detached-tables
            (detach-daily-partitions "resource_events" date incremental?
-                                    update-lock-status :write-locking-resource-events)]
+                                    update-lock-status :write-locking-resource-events)
+           stranded-tables (find-stranded-partitions "^resource_events_\\d\\d\\d\\d\\d\\d\\d\\dz$")]
       (jdbc/with-db-transaction []
-        (drop-partition-tables! detached-tables
+        (drop-partition-tables! (concat detached-tables stranded-tables)
                                 update-lock-status :write-locking-resource-events)))))
 
 (defn cleanup-dropped-report-certnames
@@ -1853,13 +1871,15 @@
       ;; PG14+
       ;; Detach partition concurrently must take place outside of a transaction.
       (let [detached-resource-event-tables
-             (detach-daily-partitions "resource_events" effective-resource-events-ttl
-                                      incremental? update-lock-status
-                                      :write-locking-resource-events)
+            (detach-daily-partitions "resource_events" effective-resource-events-ttl
+                                     incremental? update-lock-status
+                                     :write-locking-resource-events)
+            stranded-events-tables (find-stranded-partitions "^resource_events_\\d\\d\\d\\d\\d\\d\\d\\dz$")
             detached-report-tables
-             (detach-daily-partitions "reports" report-ttl
-                                    incremental? update-lock-status
-                                    :write-locking-reports)]
+            (detach-daily-partitions "reports" report-ttl
+                                     incremental? update-lock-status
+                                     :write-locking-reports)
+            stranded-reports-tables (find-stranded-partitions "^reports_\\d\\d\\d\\d\\d\\d\\d\\dz$")]
         ;; Now we can delete the partitions with less intrusive locking.
         (jdbc/with-db-transaction []
           ;; Nothing should acquire locks on the detached tables, but to be safe, acquire
@@ -1869,9 +1889,9 @@
           ;; force a resource-events GC. prior to partitioning, this would have happened
           ;; via a cascade when the report was deleted, but now we just drop whole tables
           ;; of resource events.
-          (drop-partition-tables! detached-resource-event-tables
+          (drop-partition-tables! (concat detached-resource-event-tables stranded-events-tables)
                                   update-lock-status :write-locking-resource-events)
-          (drop-partition-tables! detached-report-tables
+          (drop-partition-tables! (concat detached-report-tables stranded-reports-tables)
                                   update-lock-status :write-locking-reports)
           ;; since we cannot cascade back to the certnames table anymore, go clean up
           ;; the latest_report_id column after a GC.

@@ -584,7 +584,7 @@
   (with-test-db
     (let [config (-> (create-temp-config)
                      (assoc :database *db* :read-database *read-db*)
-                     (assoc-in [:database :gc-interval] "0.01"))
+                     (assoc-in [:database :gc-interval] "60"))
           store-report #(sync-command-post (svc-utils/pdb-cmd-url)
                                            example-certname
                                            "store report"
@@ -610,7 +610,7 @@
                                       :db-lock-status db-lock-status})
            (is (empty? (jdbc/query ["SELECT * FROM reports"]))))
 
-         ;; This test is not applicable unless our Postgres version is new enough
+         ;; These tests are not applicable unless our Postgres version is new enough
          ;; to support the concurrent partition detach feature.
          (when (scf-store/detach-partitions-concurrently?)
            (testing "a partition stuck in the pending state is finalized and removed"
@@ -656,4 +656,25 @@
                (is (empty?
                     (jdbc/query ["SELECT tablename FROM pg_tables WHERE tablename = ?" partition-table])))
 
-             (jdbc/do-commands "DELETE FROM reports")))))))))
+               (jdbc/do-commands "DELETE FROM reports")))
+
+           (testing "a detached partition that was not removed is cleaned up by gc"
+             (let [old-ts (-> 2 time/days time/ago)
+                   partition-table (format "reports_%s"
+                                           (part/date-suffix (part/to-zoned-date-time (time/to-timestamp old-ts))))]
+               (store-report (time/to-string old-ts))
+               (store-report (to-string (now)))
+
+               ;; Strand the partition before calling GC
+               (jdbc/do-commands-outside-txn
+                (format "ALTER TABLE reports DETACH PARTITION %s CONCURRENTLY" partition-table))
+
+               (svcs/sweep-reports! *db* {:incremental? false
+                                          :report-ttl (time/parse-period "1d")
+                                          :resource-events-ttl (time/parse-period "1d")
+                                          :db-lock-status db-lock-status})
+
+               (is (empty?
+                    (jdbc/query ["SELECT tablename FROM pg_tables WHERE tablename = ?" partition-table])))
+
+               (jdbc/do-commands "DELETE FROM reports")))))))))

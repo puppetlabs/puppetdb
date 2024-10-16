@@ -25,6 +25,10 @@ Released TBD.
   partially detached and block future garbage collection progress. Garbage
   collection will now finalize the partition detach operation and remove the
   table. ([GitHub #4013](https://github.com/puppetlabs/puppetdb/issues/4013))
+* Fixed an issue with report garbage collection where a partition would be
+  detached, but the table was never deleted. Garbage collection will now
+  identify and clean-up these tables.
+  ([GitHub #4013](https://github.com/puppetlabs/puppetdb/issues/4013))
 
 ## PuppetDB 7.20.0
 
