@@ -1673,6 +1673,22 @@
   (let [{current-db-version :version} (sutils/db-metadata)]
     (not (neg? (compare current-db-version pg14-db)))))
 
+(defn finalize-pending-detach
+  "Finalize a previously failed detach operation. A partitioned table can
+  only have one partition pending detachment at any time."
+  [parent]
+  (let [pending (->> ["SELECT inhrelid::regclass AS child
+                      FROM pg_catalog.pg_inherits
+                      WHERE inhparent = ?::regclass AND inhdetachpending = true"
+                      parent]
+                     jdbc/query-to-vec
+                     first
+                     :child)]
+    (when pending
+      (log/info (trs "Finalizing detach for partition {0}" pending))
+      (jdbc/do-commands (format "ALTER TABLE %s DETACH PARTITION %s FINALIZE" parent pending))
+      (str pending))))
+
 (defn prune-daily-partitions
   "Either detaches or drops obsolete day-oriented partitions
   older than the date. Deletes or detaches only the oldest such candidate if
@@ -1698,14 +1714,27 @@
          candidates (->> (partitioning/get-partition-names table-prefix)
                          (filter expired?)
                          sort)
-         drop-one (fn [table]
+         detach (fn detach [parent child]
+                  (jdbc/do-commands-outside-txn
+                   (format "alter table %s detach partition %s concurrently" parent child)))
+         drop-one (fn drop-one [table]
                     (update-lock-status status-key inc)
                     (try!
                       (if just-detach?
-                        (jdbc/do-commands-outside-txn
-                          (format "alter table %s detach partition %s concurrently" table-prefix table))
+                        (let [ex (try
+                                   (detach table-prefix table)
+                                   (catch SQLException ex
+                                     (if (= (jdbc/sql-state :not-in-prerequisite-state) (.getSQLState ex))
+                                       ex
+                                       (throw ex))))]
+                          (when (instance? SQLException ex)
+                            (let [finalized-table (finalize-pending-detach table-prefix)]
+                              (when-not (= finalized-table table)
+                                ;; Retry, unless the finalized partition detach was
+                                ;; for the same table
+                                (detach table-prefix table)))))
                         (jdbc/do-commands
-                          (format "drop table if exists %s cascade" table)))
+                         (format "drop table if exists %s cascade" table)))
                       (finally
                         (update-lock-status status-key dec))))
          drop #(if incremental?

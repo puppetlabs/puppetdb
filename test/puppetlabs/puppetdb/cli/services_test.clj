@@ -5,7 +5,8 @@
             [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.lint :refer [ignore-value]]
             [puppetlabs.puppetdb.scf.partitioning
-             :refer [get-temporal-partitions]]
+             :refer [get-temporal-partitions]
+             :as part]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-log-output
                      logs-matching
@@ -607,4 +608,52 @@
                                       :report-ttl (time/parse-period "1d")
                                       :resource-events-ttl (time/parse-period "1d")
                                       :db-lock-status db-lock-status})
-           (is (empty? (jdbc/query ["SELECT * FROM reports"])))))))))
+           (is (empty? (jdbc/query ["SELECT * FROM reports"]))))
+
+         ;; This test is not applicable unless our Postgres version is new enough
+         ;; to support the concurrent partition detach feature.
+         (when (scf-store/detach-partitions-concurrently?)
+           (testing "a partition stuck in the pending state is finalized and removed"
+             (let [old-ts (-> 2 time/days time/ago)
+                   partition-table (format "reports_%s"
+                                           (part/date-suffix (part/to-zoned-date-time (time/to-timestamp old-ts))))
+                   lock-acquired (promise)
+                   partition-pending-detach (promise)]
+               (store-report (time/to-string old-ts))
+               (store-report (to-string (now)))
+
+               (future
+                ;; Create a query that will block the ACCESS EXCLUSIVE lock needed
+                ;; by the second transaction of the concurrent detach below
+                (jdbc/with-transacted-connection *read-db*
+                  (jdbc/with-db-transaction  []
+                    (jdbc/query [(format "select * from %s" partition-table)])
+                    (deliver lock-acquired partition-table)
+
+                    ;; wait for partition detach to fail
+                    @partition-pending-detach)))
+
+               ;; Wait until we are sure that the detach partition operation will be blocked
+               @lock-acquired
+
+               (try
+                 (jdbc/do-commands-outside-txn
+                  "SET statement_timeout = 100"
+                  (format "ALTER TABLE reports DETACH PARTITION %s CONCURRENTLY" partition-table))
+                 (catch java.sql.SQLException _)
+                 (finally
+                   (deliver partition-pending-detach partition-table)
+                   (jdbc/do-commands-outside-txn "SET statement_timeout = 0")))
+
+               (is (= [{:inhdetachpending true}]
+                      (jdbc/query ["select inhdetachpending from pg_catalog.pg_inherits where inhparent = 'reports'::regclass and inhrelid = ?::regclass" partition-table])))
+
+               (svcs/sweep-reports! *db* {:incremental? false
+                                          :report-ttl (time/parse-period "1d")
+                                          :resource-events-ttl (time/parse-period "1d")
+                                          :db-lock-status db-lock-status})
+
+               (is (empty?
+                    (jdbc/query ["SELECT tablename FROM pg_tables WHERE tablename = ?" partition-table])))
+
+             (jdbc/do-commands "DELETE FROM reports")))))))))
