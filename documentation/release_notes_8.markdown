@@ -12,6 +12,22 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.8.0
+
+Released October 22 2024
+
+### Improvements
+
+* Released support and packages for Debian 12 (bookworm).
+* Report partitions are now analyzed hourly to keep PostgreSQL's query planner
+  statistics up-to-date.
+
+### Bug fixes
+
+* Added a database constraint to prevent duplicate catalogs. If your database
+  contains any duplicate catalogs, only the most recent catalog for each
+  certname will be kept.
+
 ## PuppetDB 8.7.0
 
 Released July 23 2024
