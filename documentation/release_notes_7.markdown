@@ -15,6 +15,35 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 7.20.1
+
+Released TBD.
+
+### Bug fixes
+
+* Fixed an issue with report garbage collection where a partition would become
+  partially detached and block future garbage collection progress. Garbage
+  collection will now finalize the partition detach operation and remove the
+  table. ([GitHub #4013](https://github.com/puppetlabs/puppetdb/issues/4013))
+* Fixed an issue with report garbage collection where a partition would be
+  detached, but the table was never deleted. Garbage collection will now
+  identify and clean-up these tables.
+  ([GitHub #4013](https://github.com/puppetlabs/puppetdb/issues/4013))
+
+## PuppetDB 7.20.0
+
+Released October 22 2024
+
+### Improvements
+
+* Released support and packages for Debian 12 (bookworm)
+
+### Bug fixes
+
+* Added a database constraint to prevent duplicate catalogs. If your database
+  contains any duplicate catalogs, only the most recent catalog for each
+  certname will be kept.
+
 ## PuppetDB 7.19.1
 
 Released July 23 2024

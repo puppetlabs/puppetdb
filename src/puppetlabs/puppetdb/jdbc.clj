@@ -40,6 +40,7 @@
    :invalid-regular-expression "2201B"
    :lock-not-available "55P03"
    :program-limit-exceeded "54000"
+   :not-in-prerequisite-state "55000"
    :query-canceled "57014"
    :serialization-failure "40001"
    ;; check constraint violation
