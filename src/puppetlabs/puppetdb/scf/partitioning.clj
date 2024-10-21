@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.partitioning
   "Handles all work related to database table partitioning"
   (:require
+   [clojure.string :refer [lower-case]]
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.puppetdb.jdbc :as jdbc]
    [schema.core :as s])
@@ -32,8 +33,8 @@
 
 (defn date-suffix
   [date]
-  (let [formatter (.withZone (DateTimeFormatter/BASIC_ISO_DATE) (ZoneId/of "UTC"))]
-    (.format date formatter)))
+  (let [formatter (.withZone DateTimeFormatter/BASIC_ISO_DATE (ZoneId/of "UTC"))]
+    (lower-case (.format date formatter))))
 
 (defn to-zoned-date-time
   [date]
