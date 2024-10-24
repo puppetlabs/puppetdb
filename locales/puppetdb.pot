@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: d2306ee2b6971659175185d44ac649df6e08ee2a\n"
+"X-Git-Ref: 560fdf949fa73fee7a8cd679cd86cc424000fbfd\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1729,6 +1729,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Partition GC bulldozer could not connect to the database"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Finalizing detach for partition {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
