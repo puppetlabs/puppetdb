@@ -12,9 +12,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
-## PuppetDB 8.8.0
+## PuppetDB 8.8.1
 
-Released TBD.
+Released October 29 2024
 
 ### Bug fixes
 
