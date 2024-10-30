@@ -45,6 +45,7 @@
 (def pdb-dev-deps
   (concat
    '[[ring/ring-mock]
+     [timofreiberg/bultitude "0.3.1"]
      [puppetlabs/trapperkeeper :classifier "test"]
      [puppetlabs/kitchensink :classifier "test"]
      [com.puppetlabs/trapperkeeper-webserver-jetty10 :classifier "test"]
@@ -326,6 +327,9 @@
   :aliases {"kondo" ["with-profile" "+kondo" "run" "-m" "clj-kondo.main"]
             "clean" ~(pdb-run-clean pdb-clean-paths)
             "distclean" ~(pdb-run-clean pdb-distclean-paths)
+            "test-in-parallel" ["run"
+                                "-m" "puppetlabs.puppetdb.test-in-parallel/main"
+                                "--test-paths" :project/test-paths]
             "time-shift-export" ^{:doc (clojure.string/join "" ["Shifts all timestamps from a PuppetDB archive with"
                                         " the period between the most recent one in the archive and the one "
                                         "you provide, or the current date."])}
