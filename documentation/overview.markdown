@@ -135,11 +135,3 @@ characteristics. At smallish sites, you may even be able to run PuppetDB on your
 Puppet Server.
 
 For more on fitting PuppetDB to your site, [see our scaling recommendations.][scaling]
-
-## Open Source
-
-PuppetDB is developed openly, and is released under the
-[Apache 2.0 license](http://www.apache.org/licenses/LICENSE-2.0.html). You can
-get the source --- and contribute to it! --- at
-[the PuppetDB GitHub repo][github]. Bug reports and feature requests are welcome
-at [the Puppet Labs® issue tracker][tracker].

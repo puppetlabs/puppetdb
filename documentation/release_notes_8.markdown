@@ -12,6 +12,35 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.10.2
+
+Released June 3 2025
+
+### Security fixes
+
+* Dependencies were updated to help prevent security vulnerabilities.
+
+## PuppetDB 8.10.0
+
+Released April 15 2025
+
+### Bug fixes
+
+* Fixed an issue where duplicate reports could have been stored when two
+  PuppetDB’s simultaneously submit identical reports to the same Postgres
+  in overlapping transactions.
+
+## PuppetDB 8.9.0
+
+Released February 13 2025
+
+### Improvements
+
+* Improved the performance of inventory queries by removing a join against the
+  certnames table.
+* The `inventory` endpoint now supports the `in` operator on dotted jsonb paths
+  (e.g. `inventory[] { facts.os.name in ["Debian", "RedHat"] }`).
+
 ## PuppetDB 8.8.1
 
 Released October 29 2024
