@@ -12,6 +12,14 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 # PuppetDB: Release notes
 
+## PuppetDB 8.10.3
+
+Released July 22 2025
+
+### Security fixes
+
+* Dependencies were updated to help prevent security vulnerabilities.
+
 ## PuppetDB 8.10.2
 
 Released June 3 2025
