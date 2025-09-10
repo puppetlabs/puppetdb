@@ -16,6 +16,23 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     trusted.to_h
   end
 
+  def filter_facts(obj, blacklist, blacklist_regexps, path = [])
+    regexps = blacklist_regexps.map { |re| Regexp.new(re) }
+    case obj
+    when Hash
+      obj.each_with_object({}) do |(k, v), h|
+        full_path = (path + [k]).join('.')
+        excluded = blacklist.include?(full_path) || regexps.any? { |re| full_path =~ re }
+        next if excluded
+        h[k] = filter_facts(v, blacklist, blacklist_regexps, path + [k])
+      end
+    when Array
+      obj.map.with_index { |v, i| filter_facts(v, blacklist, blacklist_regexps, path + [i.to_s]) }
+    else
+      obj
+    end
+  end
+
   def save(request)
     profile("facts#save", [:puppetdb, :facts, :save, request.key]) do
       current_time = Time.now
@@ -30,6 +47,19 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           inventory = facts.values['_puppet_inventory_1']
           package_inventory = inventory['packages'] if inventory.respond_to?(:keys)
           facts.values.delete('_puppet_inventory_1')
+
+          fact_names_blacklist = Puppet::Util::Puppetdb.config.fact_names_blacklist
+
+          fact_names_blacklist.each{|blacklisted_fact_name|
+            facts.values.delete(blacklisted_fact_name)
+          }
+
+          fact_names_blacklist_regexps = Puppet::Util::Puppetdb.config.fact_names_blacklist_regex
+          facts.values = filter_facts(
+            facts.values,
+            fact_names_blacklist,
+            fact_names_blacklist_regexps
+          )
 
           payload_value = {
             "certname" => facts.name,

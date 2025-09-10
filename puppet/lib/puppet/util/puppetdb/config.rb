@@ -18,7 +18,9 @@ module Puppet::Util::Puppetdb
         :submit_only_server_urls     => "",
         :command_broadcast           => false,
         :sticky_read_failover        => false,
-        :verify_client_certificate   => true
+        :verify_client_certificate   => true,
+        :fact_names_blacklist       => "",
+        :fact_names_blacklist_regex => ""
       }
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -71,7 +73,9 @@ module Puppet::Util::Puppetdb
            :submit_only_server_urls,
            :command_broadcast,
            :sticky_read_failover,
-           :verify_client_certificate].include?(k))
+           :verify_client_certificate,
+           :fact_names_blacklist,
+           :fact_names_blacklist_regex].include?(k))
       end
 
       parsed_urls = config_hash[:server_urls].split(",").map {|s| s.strip}
@@ -107,6 +111,10 @@ module Puppet::Util::Puppetdb
         raise "min_successful_submissions (#{config_hash[:min_successful_submissions]}) must be less than "\
           "or equal to the number of server_urls (#{config_hash[:server_urls].length})"
       end
+
+      config_hash[:fact_names_blacklist] = config_hash[:fact_names_blacklist].split(",").map {|s| s.strip}
+
+      config_hash[:fact_names_blacklist_regex] = config_hash[:fact_names_blacklist_regex].split(",").map {|s| s.strip}
 
       self.new(config_hash)
     rescue => detail
@@ -159,6 +167,15 @@ module Puppet::Util::Puppetdb
     def verify_client_certificate
       config[:verify_client_certificate]
     end
+
+    def fact_names_blacklist
+      config[:fact_names_blacklist]
+    end
+
+    def fact_names_blacklist_regex
+      config[:fact_names_blacklist_regex]
+    end
+
 
     # @!group Private instance methods
 
